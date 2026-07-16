@@ -1,0 +1,158 @@
+/**
+ * 投影后不变式检查（测试与 dry-run 自检共用）。
+ */
+import { lookupGbTeamIdByPlatform } from "@changmen/match-engine";
+import { findPlatformMatch } from "./orientation_lock.js";
+
+/**
+ * 同一 Map 内：Sources 相对 Reverse/raw 必须满足 I1。
+ *
+ * @param {object} row 投影后的 client match
+ * @param {object} nativeByPlatformMap `{ "OB:0": raw, "RAY:0": raw }`
+ */
+export function checkHomeSlotConsistency(row, nativeByPlatformMap = {}) {
+  const violations = [];
+  const reverse = new Set(row.Reverse || []);
+  for (const bet of row.Bets || []) {
+    const mapNum = Number(bet.Map) || 0;
+    for (const [platform, src] of Object.entries(bet.Sources || {})) {
+      const key = `${platform}:${mapNum}`;
+      const raw = nativeByPlatformMap[key];
+      if (!raw) {
+        const map0 = (row.Bets || []).find(b => (Number(b.Map) || 0) === 0)?.Sources?.[platform];
+        if (mapNum !== 0 && map0
+          && String(src.HomeID) === String(map0.HomeID)
+          && String(src.AwayID) === String(map0.AwayID)) {
+          continue;
+        }
+        violations.push(`#${row.ID} ${key}: missing native for I1 check`);
+        continue;
+      }
+      const shouldSwap = reverse.has(platform);
+      const expectHome = shouldSwap ? String(raw.AwayID ?? "") : String(raw.HomeID ?? "");
+      const expectAway = shouldSwap ? String(raw.HomeID ?? "") : String(raw.AwayID ?? "");
+      if (String(src.HomeID ?? "") !== expectHome || String(src.AwayID ?? "") !== expectAway) {
+        violations.push(
+          `#${row.ID} ${key}: Home/Away mismatch reverse=${shouldSwap}`
+          + ` got=${src.HomeID}/${src.AwayID} expect=${expectHome}/${expectAway}`,
+        );
+      }
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+export function checkReverseSubsetOfSources(row) {
+  const platforms = new Set();
+  for (const bet of row.Bets || []) {
+    for (const p of Object.keys(bet.Sources || {}))
+      platforms.add(p);
+  }
+  const violations = [];
+  for (const p of row.Reverse || []) {
+    if (!platforms.has(p))
+      violations.push(`#${row.ID}: Reverse has ${p} but no Sources`);
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+/**
+ * 将 Source 槽位上的 oid 还原为 gb team（经 native raw + 场馆主客 id）。
+ */
+export function resolveOidToGb(platform, oid, raw, pm) {
+  if (!oid || !raw || !pm)
+    return null;
+  const o = String(oid);
+  const homeVenueId = String(pm.HomeID ?? pm.home_id ?? pm.SourceHomeID ?? "").trim();
+  const awayVenueId = String(pm.AwayID ?? pm.away_id ?? pm.SourceAwayID ?? "").trim();
+  if (o === String(raw.HomeID ?? "")) {
+    return homeVenueId ? String(lookupGbTeamIdByPlatform(platform, homeVenueId) || "") || null : null;
+  }
+  if (o === String(raw.AwayID ?? "")) {
+    return awayVenueId ? String(lookupGbTeamIdByPlatform(platform, awayVenueId) || "") || null : null;
+  }
+  return null;
+}
+
+/**
+ * 同边双开探测：两腿 oid 不得映射到同一 gb。
+ * 典型对冲：OB.Home + RAY.Away。
+ */
+export function checkNotSamePhysicalSide(row, {
+  platformA,
+  slotA,
+  platformB,
+  slotB,
+  nativeByPlatformMap,
+  matches,
+  map = 0,
+} = {}) {
+  const bet = (row.Bets || []).find(b => (Number(b.Map) || 0) === map);
+  const srcA = bet?.Sources?.[platformA];
+  const srcB = bet?.Sources?.[platformB];
+  if (!srcA || !srcB)
+    return { ok: true, violations: [], skipped: true };
+
+  const rawA = nativeByPlatformMap[`${platformA}:${map}`];
+  const rawB = nativeByPlatformMap[`${platformB}:${map}`];
+  const pmA = findPlatformMatch(matches, platformA, row.Matchs?.[platformA]);
+  const pmB = findPlatformMatch(matches, platformB, row.Matchs?.[platformB]);
+  if (!rawA || !rawB || !pmA || !pmB)
+    return { ok: true, violations: [], skipped: true };
+
+  const oidA = String(srcA[`${slotA}ID`] ?? "");
+  const oidB = String(srcB[`${slotB}ID`] ?? "");
+  const gbA = resolveOidToGb(platformA, oidA, rawA, pmA);
+  const gbB = resolveOidToGb(platformB, oidB, rawB, pmB);
+
+  const violations = [];
+  if (gbA && gbB && gbA === gbB) {
+    violations.push(
+      `#${row.ID}: same gb ${gbA} via ${platformA}.${slotA}=${oidA} + ${platformB}.${slotB}=${oidB}`,
+    );
+  }
+  return { ok: violations.length === 0, violations, gbA, gbB };
+}
+
+/**
+ * 更强：每个有盘平台的 Sources.Home 槽必须对应锁主队 gb，Away 槽对应锁客队 gb。
+ */
+export function checkSourcesMatchLockTeams(row, {
+  matches,
+  nativeByPlatformMap,
+  map = 0,
+} = {}) {
+  const homeGb = String(row.HomeGbTeamId || "");
+  const awayGb = String(row.AwayGbTeamId || "");
+  if (!homeGb || !awayGb)
+    return { ok: true, violations: [], skipped: true };
+
+  const bet = (row.Bets || []).find(b => (Number(b.Map) || 0) === map);
+  const violations = [];
+  for (const [platform, src] of Object.entries(bet?.Sources || {})) {
+    const raw = nativeByPlatformMap[`${platform}:${map}`];
+    const pm = findPlatformMatch(matches, platform, row.Matchs?.[platform]);
+    if (!raw || !pm)
+      continue;
+    const h = resolveOidToGb(platform, src.HomeID, raw, pm);
+    const a = resolveOidToGb(platform, src.AwayID, raw, pm);
+    if (h && h !== homeGb)
+      violations.push(`#${row.ID} ${platform}: Home slot gb=${h} ≠ lock home=${homeGb}`);
+    if (a && a !== awayGb)
+      violations.push(`#${row.ID} ${platform}: Away slot gb=${a} ≠ lock away=${awayGb}`);
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+export function checkUnlockedEmpty(row) {
+  const violations = [];
+  if (!row.HomeGbTeamId && !row.AwayGbTeamId) {
+    if (Array.isArray(row.Reverse) && row.Reverse.length)
+      violations.push(`#${row.ID}: unlocked but Reverse nonempty`);
+    for (const bet of row.Bets || []) {
+      if (Object.keys(bet.Sources || {}).length)
+        violations.push(`#${row.ID}: unlocked but Sources nonempty map=${bet.Map}`);
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}

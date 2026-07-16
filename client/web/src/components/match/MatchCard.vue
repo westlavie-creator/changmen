@@ -7,13 +7,18 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useMatchStore } from "@/stores/matchStore";
 
-const props = defineProps<{
-  match: ViewMatch;
-  /** 仅体育板传入；电竞不传（见 SportMatchBoard） */
-  oddsDisplayTick?: number;
-  /** 体育只读：false；电竞不传（默认允许下注交互） */
-  allowBetting?: boolean;
-}>();
+/** 默认 true：电竞 HomeView 不传时必须允许下注。
+ * Vue 对 `boolean` 缺省会铸成 false；若无 default，中转 `:allow-betting` 会把电竞一并锁死。 */
+const props = withDefaults(
+  defineProps<{
+    match: ViewMatch;
+    /** 仅体育板传入；电竞不传（见 SportMatchBoard） */
+    oddsDisplayTick?: number;
+    /** 体育只读：false；电竞默认 true */
+    allowBetting?: boolean;
+  }>(),
+  { allowBetting: true },
+);
 
 const { pmSportTick } = storeToRefs(useMatchStore());
 

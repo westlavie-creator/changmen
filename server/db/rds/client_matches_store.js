@@ -10,12 +10,33 @@ let _lastWrittenIds = new Set();
 let _lastWrittenIdsInitPromise = null;
 let _lastWrittenIdsInitialized = false;
 
+/**
+ * gb 写库编码：
+ * - null/undefined/"" → SQL NULL 入参，UPSERT 时 **保留**旧锁（legacy 安全）
+ * - 0 → 哨兵，UPSERT 时 **清空**锁（仅 projector clearLock）
+ * - >0 → 写入该 id
+ */
 function _gbTeamIdForDb(value) {
   if (value == null || value === "")
     return null;
   const n = Number(value);
+  if (n === 0)
+    return 0;
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+
+/** UPSERT：0=清空；非空=覆盖；NULL 入参=保留旧值（生产 legacy 勿误清锁） */
+const GB_TEAM_ID_UPSERT_SQL = `
+      home_gb_team_id = CASE
+        WHEN EXCLUDED.home_gb_team_id = 0 THEN NULL
+        WHEN EXCLUDED.home_gb_team_id IS NOT NULL THEN EXCLUDED.home_gb_team_id
+        ELSE client_matches.home_gb_team_id
+      END,
+      away_gb_team_id = CASE
+        WHEN EXCLUDED.away_gb_team_id = 0 THEN NULL
+        WHEN EXCLUDED.away_gb_team_id IS NOT NULL THEN EXCLUDED.away_gb_team_id
+        ELSE client_matches.away_gb_team_id
+      END`;
 
 async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
   const client = await pool.connect();
@@ -44,8 +65,7 @@ async function _rdsUpsertClientMatches(pool, dedupedRows, toDelete) {
       reverse = EXCLUDED.reverse,
       built_at = EXCLUDED.built_at,
       pm_sport = COALESCE(EXCLUDED.pm_sport, client_matches.pm_sport),
-      home_gb_team_id = COALESCE(EXCLUDED.home_gb_team_id, client_matches.home_gb_team_id),
-      away_gb_team_id = COALESCE(EXCLUDED.away_gb_team_id, client_matches.away_gb_team_id)
+      ${GB_TEAM_ID_UPSERT_SQL}
   `;
   try {
     await client.query("BEGIN");
@@ -122,8 +142,7 @@ async function _rdsReplaceClientMatches(pool, dedupedRows, activeIds) {
       reverse = EXCLUDED.reverse,
       built_at = EXCLUDED.built_at,
       pm_sport = COALESCE(EXCLUDED.pm_sport, client_matches.pm_sport),
-      home_gb_team_id = COALESCE(EXCLUDED.home_gb_team_id, client_matches.home_gb_team_id),
-      away_gb_team_id = COALESCE(EXCLUDED.away_gb_team_id, client_matches.away_gb_team_id)
+      ${GB_TEAM_ID_UPSERT_SQL}
   `;
   try {
     await client.query("BEGIN");

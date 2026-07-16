@@ -1,0 +1,21 @@
+{
+  "name": "@changmen/match-projector",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "主客投影 matcher：锁+native → Sources+Reverse；与 server/matcher 并列，勿双写",
+  "scripts": {
+    "start": "node loop.js",
+    "once": "node scripts/once.mjs",
+    "diff": "node scripts/diff.mjs",
+    "reanchor": "node scripts/reanchor.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/match-engine": "*",
+    "@changmen/shared": "*",
+    "@changmen/storage": "*",
+    "@changmen/team-resolver": "*",
+    "dotenv": "^16.0.0"
+  }
+}

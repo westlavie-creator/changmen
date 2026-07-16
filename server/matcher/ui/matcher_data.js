@@ -14,6 +14,8 @@ import {
   sanitizeMatcherHeartbeat,
   STALE_FACTOR,
 } from "../lib/heartbeat.js";
+import { getMatcherWriter } from "../lib/matcher_writer.js";
+import { getMatcherSideEngine } from "../lib/side_engine.js";
 import {
   getEmbeddedMatcherState,
   isManagedByServer,
@@ -161,6 +163,11 @@ async function getMatcherStatus() {
   const dataAgeMs = lastBuilt ? now - lastBuilt : null;
   const dataFresh = !!(lastBuilt && dataAgeMs <= thresholdMs);
 
+  const writer = getMatcherWriter();
+  const sideEngine = writer === "composer" ? "composer" : getMatcherSideEngine();
+
+  const sticky = process.env.MATCH_PROJECTOR_STICKY_ORIENTATION === "1";
+
   return {
     processRunning,
     processSource,
@@ -177,6 +184,10 @@ async function getMatcherStatus() {
     canStop: embeddedState.running && !isMatcherProduction(),
     canStart: !processRunning,
     running: processRunning,
+    writer,
+    sideEngine,
+    stickyOrientation: sticky,
+    composerUiPort: Number(process.env.COMPOSER_UI_PORT || 4568) || 4568,
     source: processRunning
       ? processSource
       : dataFresh

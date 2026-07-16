@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GameBet 队伍映射</title>
+  <title>Matcher · 人工关联</title>
   <script>
     (function () {
       var p = location.pathname;
@@ -16,107 +16,195 @@
   </script>
   <script src="matcher_config.js"></script>
   <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --line: #2a3542;
+      --text: #e7ecf1;
+      --muted: #8b9aab;
+      --accent: #3d8bfd;
+      --ok: #3ecf8e;
+      --warn: #e6b84d;
+      --danger: #f07178;
+      --chip: #243040;
+      --surface: #141b22;
+      --name: #e6b84d;
+      --pending: #3d8bfd;
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", "PingFang SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
 
-    .header { background: #1e293b; border-bottom: 1px solid #334155; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
-    .header h1 { font-size: 16px; font-weight: 700; color: #f1f5f9; }
-    .header-sub { font-size: 11px; color: #64748b; font-weight: 400; margin-top: 2px; }
-    .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
-    .matcher-status { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155; white-space: nowrap; }
-    .matcher-status.on { border-color: #166534; background: #14532d55; color: #4ade80; }
-    .matcher-status.warn { border-color: #854d0e; background: #42200655; color: #fbbf24; }
-    .matcher-status.off { border-color: #7f1d1d55; background: #450a0a55; color: #f87171; }
+    .header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: #141b22ee;
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    .header h1 { font-size: 16px; font-weight: 650; color: var(--text); }
+    .header-sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .matcher-status {
+      display: flex; align-items: center; gap: 6px; font-size: 12px;
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid var(--line); background: var(--chip); color: var(--muted);
+      white-space: nowrap;
+    }
+    .matcher-status.on { border-color: #2a6a4a; background: #1e3d2f55; color: var(--ok); }
+    .matcher-status.warn { border-color: #6a5a2a; background: #3d321855; color: var(--warn); }
+    .matcher-status.off { border-color: #6a2a2a; background: #3d181855; color: var(--danger); }
     .matcher-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .matcher-status.on .matcher-dot { background: #4ade80; box-shadow: 0 0 6px #4ade8099; }
-    .matcher-status.warn .matcher-dot { background: #fbbf24; box-shadow: 0 0 6px #fbbf2499; }
-    .matcher-status.off .matcher-dot { background: #f87171; }
-    .updated-at { font-size: 12px; color: #64748b; }
-    .btn { background: #3b82f6; color: #fff; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .btn:hover { background: #2563eb; }
-    .btn-sm { padding: 3px 10px; font-size: 12px; }
-    .btn-success { background: #16a34a; }
-    .btn-success:hover:not(:disabled) { background: #15803d; }
-    .btn-danger { background: #dc2626; }
-    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
-    .btn-danger { background: #dc2626; }
-    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
-    .btn-ghost { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
-    .btn-ghost:hover { background: #334155; }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .matcher-status.on .matcher-dot { background: var(--ok); }
+    .matcher-status.warn .matcher-dot { background: var(--warn); }
+    .matcher-status.off .matcher-dot { background: var(--danger); }
+
+    .writer-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 650; padding: 4px 9px; border-radius: 999px;
+      border: 1px solid var(--line); background: var(--chip); color: var(--muted);
+      white-space: nowrap;
+    }
+    .writer-chip.composer { color: var(--ok); border-color: #2a6a4a; }
+    .writer-chip.legacy { color: var(--text); }
+    .writer-chip.projector { color: var(--warn); border-color: #6a5a2a; }
+
+    a.composer-link {
+      font-size: 12px; color: #9ec5ff; text-decoration: none;
+      border: 1px solid #3a5a8a; background: var(--chip);
+      padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+    }
+    a.composer-link:hover { filter: brightness(1.08); color: #c5dcff; }
+    .updated-at { font-size: 12px; color: var(--muted); }
+    .merge-key {
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 10px; color: var(--muted); word-break: break-all; margin-top: 4px;
+    }
+    .attention-tag {
+      display: inline-block; font-size: 10px; font-weight: 650;
+      color: var(--warn); background: var(--chip); border: 1px solid #6a5a2a;
+      padding: 1px 7px; border-radius: 999px; margin-left: 4px;
+    }
+    .team-card.matched.needs-attention { border-color: #6a5a2a; }
+    .filter-chip-row { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+    .btn {
+      background: var(--accent); color: #fff; border: none;
+      padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-success { background: #2a6a4a; }
+    .btn-success:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-danger { background: #8a3038; }
+    .btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+    .btn-ghost {
+      background: transparent; border: 1px solid var(--line); color: var(--text);
+    }
+    .btn-ghost:hover { filter: brightness(1.08); background: #1f2833; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 
     .workflow-hint {
-      padding: 12px 20px; background: #172554; border-bottom: 1px solid #1e3a8a;
-      font-size: 13px; color: #93c5fd; line-height: 1.55;
+      padding: 10px 18px; font-size: 13px; line-height: 1.55;
+      background: #1a2a1f; border-bottom: 1px solid #2a4a35; color: #9fd6b0;
     }
-    .workflow-hint strong { color: #bfdbfe; }
+    .workflow-hint strong { color: #c8ecd4; }
 
-    .stats { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 20px; background: #1e293b; border-bottom: 1px solid #334155; }
-    .stat { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 8px 14px; white-space: nowrap; }
-    .stat .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat .value { font-size: 22px; font-weight: 700; line-height: 1.2; }
-    .c-blue { color: #60a5fa; }
-    .c-green { color: #4ade80; }
-    .c-amber { color: #fbbf24; }
-    .c-slate { color: #94a3b8; }
+    .stats {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 10px 18px; border-bottom: 1px solid var(--line);
+    }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 12px; white-space: nowrap; min-width: 90px;
+    }
+    .stat .label {
+      font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .stat .value { font-size: 18px; font-weight: 700; line-height: 1.2; color: var(--text); }
+    .c-blue { color: var(--accent); }
+    .c-green { color: var(--ok); }
+    .c-amber { color: var(--warn); }
+    .c-slate { color: var(--muted); }
 
-    .badge { background: #334155; color: #94a3b8; border-radius: 10px; padding: 1px 7px; font-size: 11px; margin-left: 5px; }
+    .badge {
+      background: var(--chip); color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 1px 7px; font-size: 10px; margin-left: 5px;
+    }
 
-    .content { padding: 16px 20px; max-width: none; }
+    .content { padding: 12px 18px 24px; max-width: none; }
 
     .queue-search-bar {
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      margin-bottom: 12px; padding: 10px 12px;
-      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      margin-bottom: 12px; padding: 0;
+      background: transparent; border: none; border-radius: 0;
     }
     .queue-search-bar input[type="search"] {
       flex: 1; min-width: 200px; max-width: 420px;
-      padding: 7px 12px; border-radius: 6px; border: 1px solid #475569;
-      background: #0f172a; color: #e2e8f0; font-size: 13px;
+      padding: 7px 10px; border-radius: 6px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--text); font-size: 13px;
     }
-    .queue-search-bar input[type="search"]::placeholder { color: #64748b; }
-    .queue-search-bar input[type="search"]:focus {
-      outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px #3b82f633;
-    }
-    .queue-search-hint { font-size: 12px; color: #64748b; }
-    .queue-search-hint.active { color: #93c5fd; }
+    .queue-search-bar input[type="search"]::placeholder { color: var(--muted); }
+    .queue-search-bar input[type="search"]:focus { outline: 1px solid var(--accent); }
+    .queue-search-hint { font-size: 12px; color: var(--muted); }
+    .queue-search-hint.active { color: #9ec5ff; }
 
     .queue-split {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-      gap: 14px;
+      gap: 0;
       align-items: stretch;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--bg);
+      min-height: calc(100vh - 220px);
     }
     @media (max-width: 1280px) {
       .queue-split { grid-template-columns: 1fr; }
     }
     .split-col {
       min-width: 0;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 10px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
       display: flex;
       flex-direction: column;
-      max-height: calc(100vh - 200px);
+      max-height: calc(100vh - 220px);
     }
-    .split-col-matched { border-color: #4ade8040; }
-    .split-col-matched-id { border-color: #4ade8055; }
-    .split-col-matched-name { border-color: #fbbf2440; }
-    .split-col-pending { border-color: #60a5fa40; }
+    .split-col:last-child { border-right: none; }
+    .split-col-matched,
+    .split-col-matched-id,
+    .split-col-matched-name,
+    .split-col-pending { border-color: var(--line); }
     .split-col-header {
-      padding: 12px 14px;
-      border-bottom: 1px solid #334155;
-      background: #0f172a;
+      position: sticky; top: 0; z-index: 4;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #15202b;
       flex-shrink: 0;
     }
-    .split-col-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
-    .split-col-desc { font-size: 11px; color: #64748b; margin-top: 4px; line-height: 1.45; }
+    .split-col-matched-name .split-col-header { border-left: 3px solid var(--name); }
+    .split-col-matched-id .split-col-header { border-left: 3px solid var(--ok); }
+    .split-col-pending .split-col-header { border-left: 3px solid var(--pending); }
+    .split-col-title { font-size: 13px; font-weight: 650; color: var(--text); }
+    .split-col-desc { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.45; }
     .split-col-toolbar {
       display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
       margin-top: 8px;
     }
     .split-col-body {
-      padding: 12px 14px;
+      padding: 10px 12px 32px;
       overflow-y: auto;
       flex: 1;
       min-height: 0;
@@ -134,90 +222,101 @@
     .team-cell-body { min-width: 0; flex: 1; }
     .team-cell-action { flex-shrink: 0; align-self: center; margin-left: 2px; }
     .team-register-map-btn {
-      border: 1px solid #475569; background: #1e293b; color: #cbd5e1;
+      border: 1px solid var(--line); background: var(--chip); color: var(--text);
       border-radius: 5px; padding: 2px 7px; font-size: 10px; line-height: 1.4;
       cursor: pointer; white-space: nowrap;
     }
-    .team-register-map-btn:hover:not(:disabled) { background: #334155; border-color: #64748b; color: #f1f5f9; }
+    .team-register-map-btn:hover:not(:disabled) { filter: brightness(1.1); }
     .team-register-map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .team-link-handle {
       width: 12px; height: 12px; margin-top: 3px; border-radius: 50%;
-      border: 2px solid #60a5fa; background: #0f172a; flex-shrink: 0;
+      border: 2px solid var(--accent); background: var(--surface); flex-shrink: 0;
       cursor: crosshair; padding: 0; position: relative; z-index: 6;
     }
-    .team-link-handle:hover { background: #3b82f6; border-color: #93c5fd; }
-    .team-link-handle.team-link-dragging { background: #3b82f6; box-shadow: 0 0 0 3px #3b82f644; }
-    .team-link-handle.team-link-drop-target { background: #4ade80; border-color: #4ade80; }
+    .team-link-handle:hover { background: var(--accent); border-color: #9ec5ff; }
+    .team-link-handle.team-link-dragging { background: var(--accent); box-shadow: 0 0 0 3px #3d8bfd44; }
+    .team-link-handle.team-link-drop-target { background: var(--ok); border-color: var(--ok); }
     .team-link-handle-disabled {
-      border-color: #475569; background: #1e293b; cursor: not-allowed; opacity: 0.35;
+      border-color: var(--line); background: var(--chip); cursor: not-allowed; opacity: 0.35;
     }
     .match-link-handle {
       width: 12px; height: 12px; margin-top: 1px; border-radius: 2px;
-      border: 2px solid #fbbf24; background: #0f172a; flex-shrink: 0;
+      border: 2px solid var(--warn); background: var(--surface); flex-shrink: 0;
       cursor: crosshair; padding: 0; position: relative; z-index: 6;
     }
-    .match-link-handle:hover { background: #fbbf24; border-color: #fde68a; }
-    .match-link-handle.match-link-dragging { background: #fbbf24; box-shadow: 0 0 0 3px #fbbf2444; }
-    .match-link-handle.match-link-drop-target { background: #4ade80; border-color: #4ade80; }
+    .match-link-handle:hover { background: var(--warn); border-color: #f0d48a; }
+    .match-link-handle.match-link-dragging { background: var(--warn); box-shadow: 0 0 0 3px #e6b84d44; }
+    .match-link-handle.match-link-drop-target { background: var(--ok); border-color: var(--ok); }
     .match-link-handle.match-merge-target {
-      width: 14px; height: 14px; border-color: #4ade80; margin-top: 0;
+      width: 14px; height: 14px; border-color: var(--ok); margin-top: 0;
     }
     .match-link-cell { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
-    .match-id-linked { font-size: 11px; font-weight: 700; color: #4ade80; font-family: ui-monospace, monospace; }
-    .match-id-platform { font-size: 10px; color: #64748b; font-family: ui-monospace, monospace; word-break: break-all; }
+    .match-id-linked {
+      font-size: 11px; font-weight: 700; color: var(--ok);
+      font-family: "IBM Plex Mono", Consolas, monospace;
+    }
+    .match-id-platform {
+      font-size: 10px; color: var(--muted);
+      font-family: "IBM Plex Mono", Consolas, monospace; word-break: break-all;
+    }
     .client-match-id-banner {
       display: flex; align-items: center; gap: 10px; flex-shrink: 0;
-      padding: 6px 10px; border-radius: 8px; background: #4ade8012; border: 1px solid #4ade8040;
+      padding: 6px 10px; border-radius: 8px;
+      background: #1e3d2f33; border: 1px solid #2a6a4a;
       cursor: default;
     }
-    .team-link-board.match-link-drag-active .client-match-id-banner {
-      cursor: crosshair;
-    }
+    .team-link-board.match-link-drag-active .client-match-id-banner { cursor: crosshair; }
     .client-match-id-banner.match-merge-drop-target {
-      background: #4ade8028; border-color: #4ade80; box-shadow: 0 0 0 2px #4ade8055;
+      background: #1e3d2f55; border-color: var(--ok); box-shadow: 0 0 0 2px #3ecf8e55;
     }
-    .match-id-label { font-size: 10px; color: #86efac; display: block; }
-    .match-id-value { font-size: 15px; font-weight: 800; color: #4ade80; font-family: ui-monospace, monospace; }
+    .match-id-label { font-size: 10px; color: #7ddea8; display: block; }
+    .match-id-value {
+      font-size: 15px; font-weight: 800; color: var(--ok);
+      font-family: "IBM Plex Mono", Consolas, monospace;
+    }
     .client-match-id-banner.teams-id-mapped {
-      background: #fb923c14; border-color: #fb923c55;
+      background: #3d321833; border-color: #6a5a2a;
     }
-    .client-match-id-banner.teams-id-mapped .match-id-label { color: #fdba74; }
-    .client-match-id-banner.teams-id-mapped .match-id-value { color: #fb923c; }
+    .client-match-id-banner.teams-id-mapped .match-id-label { color: #e6c88a; }
+    .client-match-id-banner.teams-id-mapped .match-id-value { color: var(--warn); }
     .team-table .col-match-id { width: 68px; }
-    .team-canonical { font-size: 10px; color: #60a5fa; font-family: ui-monospace, monospace; margin-top: 2px; }
-    .team-canonical.missing { color: #64748b; }
-    .team-canonical.pending { color: #fbbf24; }
-    .team-id.missing { color: #475569; font-style: italic; }
+    .team-canonical {
+      font-size: 10px; color: #9ec5ff;
+      font-family: "IBM Plex Mono", Consolas, monospace; margin-top: 2px;
+    }
+    .team-canonical.missing { color: var(--muted); }
+    .team-canonical.pending { color: var(--warn); }
+    .team-id.missing { color: var(--muted); font-style: italic; }
 
-    .game-section { margin-bottom: 28px; }
+    .game-section { margin-bottom: 20px; }
     .game-section-header {
       display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-      padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid #334155;
+      padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--line);
     }
-    .game-section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #f1f5f9; }
-    .game-section-meta { font-size: 12px; color: #64748b; }
+    .game-section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--text); }
+    .game-section-meta { font-size: 12px; color: var(--muted); }
 
-    .team-queue { display: flex; flex-direction: column; gap: 12px; }
+    .team-queue { display: flex; flex-direction: column; gap: 8px; }
     .team-card {
-      background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
     }
-    .team-card.pending { border-color: #fbbf2440; }
-    .team-card.matched { border-color: #4ade8040; }
+    .team-card.pending { border-color: #6a5a2a; }
+    .team-card.matched { border-color: #2a5a45; }
     .team-card.matched.linked-flash {
-      box-shadow: 0 0 0 2px #4ade80, 0 0 24px #4ade8055;
+      box-shadow: 0 0 0 2px var(--ok), 0 0 24px #3ecf8e55;
       animation: linked-flash-pulse 0.9s ease-in-out 3;
     }
     @keyframes linked-flash-pulse {
-      0%, 100% { box-shadow: 0 0 0 2px #4ade80, 0 0 16px #4ade8044; }
-      50% { box-shadow: 0 0 0 3px #86efac, 0 0 28px #4ade8099; }
+      0%, 100% { box-shadow: 0 0 0 2px var(--ok), 0 0 16px #3ecf8e44; }
+      50% { box-shadow: 0 0 0 3px #7ddea8, 0 0 28px #3ecf8e99; }
     }
     .team-card-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 14px 16px 10px; border-bottom: 1px solid #334155;
+      padding: 10px 12px; border-bottom: 1px solid var(--line);
     }
     .team-card-header > div:first-child { flex: 1; text-align: center; }
-    .team-card-title { font-size: 16px; font-weight: 700; color: #f1f5f9; }
-    .team-card-title .vs { color: #64748b; font-weight: 400; font-size: 12px; margin: 0 6px; }
+    .team-card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .team-card-title .vs { color: var(--muted); font-weight: 400; font-size: 12px; margin: 0 6px; }
     .team-card-title-id { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
     .title-team-slot { display: inline-flex; align-items: center; gap: 5px; max-width: 46%; }
     .matched-header-layout { display: flex; align-items: center; gap: 8px; width: 100%; }
@@ -229,137 +328,175 @@
     .matched-header-away .title-team-slot { align-items: flex-end; }
     .matched-header-center .team-card-meta { margin-top: 0; }
     .title-id-row { display: inline-flex; align-items: center; gap: 4px; }
-    .title-gb-id { font-family: ui-monospace, monospace; color: #60a5fa; font-weight: 800; font-size: 15px; }
-    .title-gb-id.pending { color: #fbbf24; }
-    .title-gb-id.missing { color: #64748b; font-weight: 600; }
+    .title-gb-id {
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      color: #9ec5ff; font-weight: 800; font-size: 15px;
+    }
+    .title-gb-id.pending { color: var(--warn); }
+    .title-gb-id.missing { color: var(--muted); font-weight: 600; }
     .team-title-handle { margin-top: 0; width: 10px; height: 10px; flex-shrink: 0; }
     .title-team-sub {
-      font-size: 11px; color: #64748b; font-weight: 400;
+      font-size: 11px; color: var(--muted); font-weight: 400;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9em;
     }
     .split-col-matched-id .title-team-sub,
     .split-col-matched-name .title-team-sub {
-      font-size: 15px; color: #e2e8f0; font-weight: 600; max-width: 14em;
+      font-size: 14px; color: var(--text); font-weight: 600; max-width: 14em;
     }
     .split-col-matched-id .team-name,
-    .split-col-matched-name .team-name { font-size: 14px; }
-    .team-card-meta { font-size: 11px; color: #64748b; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .split-col-matched-name .team-name { font-size: 13px; }
+    .team-card-meta {
+      font-size: 11px; color: var(--muted); margin-top: 6px;
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    }
     .conf-wrap { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-    .conf-bar { width: 72px; height: 5px; background: #334155; border-radius: 3px; overflow: hidden; }
+    .conf-bar { width: 72px; height: 5px; background: var(--chip); border-radius: 3px; overflow: hidden; }
     .conf-fill { height: 100%; border-radius: 3px; }
     .conf-pct { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
 
-    .team-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .team-table th, .team-table td { padding: 8px 12px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: middle; }
-    .team-table th { color: #64748b; font-weight: 600; background: #0f172a; font-size: 11px; }
+    .team-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .team-table th, .team-table td {
+      padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle;
+    }
+    .team-table th { color: var(--muted); font-weight: 500; background: var(--surface); font-size: 11px; }
     .team-table tr:last-child td { border-bottom: none; }
     .team-table .col-platform { width: 88px; }
     .team-table .col-action { width: 96px; text-align: right; }
-    .ref-tag { font-size: 10px; color: #60a5fa; background: #3b82f618; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
-    .team-name { color: #f1f5f9; font-weight: 600; }
-    .team-id { color: #64748b; font-size: 10px; margin-top: 2px; font-family: ui-monospace, monospace; }
-    .team-status { font-size: 10px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-    .ts-pending { background: #fbbf2418; color: #fbbf24; }
-    .ts-done { background: #4ade8018; color: #4ade80; }
-    .ts-warn { background: #f8717118; color: #f87171; }
+    .ref-tag {
+      font-size: 10px; color: #9ec5ff; background: var(--chip);
+      border: 1px solid #3a5a8a; padding: 1px 7px; border-radius: 999px; margin-left: 4px;
+    }
+    .team-name { color: var(--text); font-weight: 600; }
+    .team-id {
+      color: var(--muted); font-size: 10px; margin-top: 2px;
+      font-family: "IBM Plex Mono", Consolas, monospace;
+    }
+    .team-status { font-size: 10px; padding: 1px 7px; border-radius: 999px; display: inline-block; border: 1px solid var(--line); background: var(--chip); }
+    .ts-pending { color: var(--warn); border-color: #6a5a2a; }
+    .ts-done { color: var(--ok); border-color: #2a6a4a; }
+    .ts-warn { color: var(--danger); border-color: #6a2a2a; }
 
     .team-card-footer {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 10px 16px; background: #0f172a;
+      padding: 8px 12px; background: var(--surface); border-top: 1px solid var(--line);
     }
-    .team-card-hint { font-size: 11px; color: #64748b; line-height: 1.45; }
+    .team-card-hint { font-size: 11px; color: var(--muted); line-height: 1.45; }
 
-    .gbadge { font-size: 13px; font-weight: 600; padding: 3px 9px; border-radius: 10px; text-transform: uppercase; }
-    .g-cs2 { background: #ff6b3518; color: #fb923c; }
-    .g-lol { background: #c89b3c18; color: #fbbf24; }
-    .g-dota2 { background: #ef444418; color: #f87171; }
-    .g-valorant { background: #ec489918; color: #f472b6; }
-    .g-kog { background: #22c55e18; color: #4ade80; }
-    .g-unknown { background: #33415518; color: #94a3b8; }
-    .pbadge { font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
-    .p-OB { background: #3b82f618; color: #60a5fa; }
-    .p-RAY { background: #8b5cf618; color: #a78bfa; }
-    .p-TF { background: #ec489918; color: #f472b6; }
-    .p-IA { background: #14b8a618; color: #2dd4bf; }
-    .p-PB { background: #f9731618; color: #fb923c; }
-    .p-IM, .p-IMT { background: #64748b18; color: #94a3b8; }
-    .p-SABA { background: #84cc1618; color: #a3e635; }
-    .p-Stake { background: #06b6d418; color: #22d3ee; }
-    .p-HG { background: #e1107518; color: #fb7185; }
+    .gbadge {
+      font-size: 10px; font-weight: 650; padding: 1px 7px; border-radius: 999px;
+      text-transform: uppercase; background: var(--chip); border: 1px solid var(--line); color: var(--muted);
+    }
+    .g-cs2 { color: #fb923c; border-color: #6a3a2a; }
+    .g-lol { color: var(--warn); border-color: #6a5a2a; }
+    .g-dota2 { color: var(--danger); border-color: #6a2a2a; }
+    .g-valorant { color: #f0a0ff; border-color: #6a3a8a; }
+    .g-kog { color: var(--ok); border-color: #2a6a4a; }
+    .g-unknown { color: var(--muted); }
+    .pbadge {
+      font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 650;
+      background: var(--chip); border: 1px solid var(--line); color: var(--muted);
+    }
+    .p-OB { color: #9ec5ff; border-color: #3a5a8a; }
+    .p-RAY { color: #c5a0ff; border-color: #5a3a8a; }
+    .p-TF { color: #f0a0ff; border-color: #6a3a8a; }
+    .p-IA { color: #7ddea8; border-color: #2a6a4a; }
+    .p-PB { color: #e6c88a; border-color: #6a5a2a; }
+    .p-IM, .p-IMT { color: var(--muted); }
+    .p-SABA { color: #b8e070; border-color: #4a6a2a; }
+    .p-Stake { color: #7dd3e8; border-color: #2a5a6a; }
+    .p-HG { color: #f0a0a0; border-color: #6a2a3a; }
 
     .orphan-list { display: flex; flex-direction: column; gap: 6px; }
     .orphan-row {
-      padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; font-size: 12px;
+      padding: 8px 12px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; font-size: 12px;
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
 
-    .platform-unmatched-section { margin-bottom: 20px; }
+    .platform-unmatched-section { margin-bottom: 16px; }
     .platform-unmatched-header {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      padding: 8px 0 10px; border-bottom: 1px solid #334155; margin-bottom: 8px;
+      padding: 8px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 8px;
     }
-    .platform-unmatched-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #f1f5f9; }
-    .platform-unmatched-count { font-size: 12px; color: #64748b; }
-    .unmatched-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .unmatched-table th, .unmatched-table td { padding: 7px 10px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: top; }
-    .unmatched-table th { color: #64748b; font-weight: 600; font-size: 11px; background: #0f172a; }
+    .platform-unmatched-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: var(--text); }
+    .platform-unmatched-count { font-size: 12px; color: var(--muted); }
+    .unmatched-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .unmatched-table th, .unmatched-table td {
+      padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top;
+    }
+    .unmatched-table th { color: var(--muted); font-weight: 500; font-size: 11px; background: var(--surface); }
     .unmatched-table tr:last-child td { border-bottom: none; }
-    .rec-tag { font-size: 10px; color: #fbbf24; background: #fbbf2418; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
-    .orphan-tag { font-size: 10px; color: #94a3b8; background: #334155; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    .rec-tag {
+      font-size: 10px; color: var(--warn); background: var(--chip);
+      border: 1px solid #6a5a2a; padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+    }
+    .orphan-tag {
+      font-size: 10px; color: var(--muted); background: var(--chip);
+      border: 1px solid var(--line); padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+    }
 
     .panel-toolbar { margin-bottom: 0; }
     .filter-chips { display: flex; gap: 6px; }
     .filter-chip {
-      font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid #334155;
-      background: transparent; color: #94a3b8; cursor: pointer;
+      font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+      background: transparent; color: var(--muted); cursor: pointer;
     }
-    .filter-chip.active { border-color: #3b82f6; background: #1e3a5f44; color: #93c5fd; }
+    .filter-chip:hover { color: var(--text); border-color: #3a4a5a; }
+    .filter-chip.active {
+      border-color: #3a5a8a; background: #1a2a3f; color: #9ec5ff;
+    }
 
     .pending-section { margin-bottom: 18px; }
     .pending-section:last-child { margin-bottom: 0; }
     .pending-section-title {
       display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-      font-size: 13px; font-weight: 700; color: #e2e8f0;
-      padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid #334155;
+      font-size: 13px; font-weight: 650; color: var(--text);
+      padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--line);
     }
-    .pending-section-desc { font-size: 11px; color: #64748b; font-weight: 400; width: 100%; line-height: 1.45; }
+    .pending-section-desc { font-size: 11px; color: var(--muted); font-weight: 400; width: 100%; line-height: 1.45; }
     .pending-section-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    .empty { text-align: center; color: #475569; padding: 36px; font-size: 13px; line-height: 1.6; }
+    .empty { text-align: center; color: var(--muted); padding: 28px; font-size: 13px; line-height: 1.6; }
 
     .link-modal-backdrop {
-      position: fixed; inset: 0; background: #0f172acc; z-index: 100;
+      position: fixed; inset: 0; background: #0f1419cc; z-index: 100;
       display: flex; align-items: center; justify-content: center; padding: 16px;
     }
     .link-modal-backdrop.hidden { display: none; }
     .link-modal {
-      background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
       width: min(560px, 100%); max-height: 90vh; overflow-y: auto;
       padding: 18px 20px; box-shadow: 0 16px 48px #0008;
     }
-    .link-modal h3 { font-size: 15px; margin-bottom: 12px; color: #f1f5f9; }
-    .link-modal-body { font-size: 13px; color: #cbd5e1; line-height: 1.6; margin-bottom: 16px; }
+    .link-modal h3 { font-size: 15px; margin-bottom: 12px; color: var(--text); }
+    .link-modal-body { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 16px; }
     .link-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
     .link-side-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
-    .link-side-table th, .link-side-table td { border: 1px solid #334155; padding: 8px 10px; text-align: left; }
-    .link-side-table th { background: #0f172a; color: #94a3b8; }
-    .link-side-tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; margin-right: 6px; }
-    .link-align-banner { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; }
-    .link-align-banner.ok { background: #14532d55; border: 1px solid #166534; color: #4ade80; }
-    .link-align-banner.swap { background: #713f1255; border: 1px solid #92400e; color: #fbbf24; }
-    .link-align-banner.unknown { background: #450a0a55; border: 1px solid #7f1d1d; color: #f87171; }
+    .link-side-table th, .link-side-table td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; }
+    .link-side-table th { background: var(--surface); color: var(--muted); }
+    .link-side-tag {
+      display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+      background: var(--chip); color: var(--muted); border: 1px solid var(--line); margin-right: 6px;
+    }
+    .link-align-banner { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 10px; border: 1px solid var(--line); }
+    .link-align-banner.ok { background: #1e3d2f55; border-color: #2a6a4a; color: var(--ok); }
+    .link-align-banner.swap { background: #3d321855; border-color: #6a5a2a; color: var(--warn); }
+    .link-align-banner.unknown { background: #3d181855; border-color: #6a2a2a; color: var(--danger); }
     .link-side-options { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
-    .link-side-option { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid #334155; border-radius: 6px; cursor: pointer; }
-    .link-side-option:hover { background: #0f172a; }
-    .link-side-option.selected { border-color: #3b82f6; background: #1e3a5f44; }
+    .link-side-option {
+      display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px;
+      border: 1px solid var(--line); border-radius: 6px; cursor: pointer;
+    }
+    .link-side-option:hover { background: var(--surface); }
+    .link-side-option.selected { border-color: #3a5a8a; background: #1a2a3f; }
     .link-side-option input { margin-top: 3px; }
-    .link-side-option-text { font-size: 12px; color: #cbd5e1; line-height: 1.5; }
+    .link-side-option-text { font-size: 12px; color: var(--text); line-height: 1.5; }
     .link-map-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; flex-wrap: wrap; font-size: 11px; }
-    .link-map-ok { color: #4ade80; }
-    .link-map-warn { color: #fbbf24; }
+    .link-map-ok { color: var(--ok); }
+    .link-map-warn { color: var(--warn); }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
     .action-toast-host {
       position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
@@ -371,39 +508,48 @@
       box-shadow: 0 8px 24px rgba(0,0,0,.35); animation: action-toast-in .2s ease;
       white-space: pre-line;
     }
-    .action-toast.ok { background: #14532d; border: 1px solid #166534; color: #bbf7d0; }
-    .action-toast.err { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
-    .action-toast.warn { background: #713f1255; border: 1px solid #92400e; color: #fde68a; }
+    .action-toast.ok { background: #1e3d2f; border: 1px solid #2a6a4a; color: #9fd6b0; }
+    .action-toast.err { background: #3d1818; border: 1px solid #6a2a2a; color: #f0a0a0; }
+    .action-toast.warn { background: #3d3218; border: 1px solid #6a5a2a; color: #e6c88a; }
     @keyframes action-toast-in {
       from { opacity: 0; transform: translateY(-8px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .hidden-panel-wrap { margin: 0 16px 12px; }
-    .hidden-panel { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+    .hidden-panel-wrap { margin: 0 18px 12px; }
+    .hidden-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
     .hidden-panel-header {
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #334155;
+      padding: 10px 14px; background: #15202b; border-bottom: 1px solid var(--line);
     }
-    .hidden-panel-title { font-size: 13px; font-weight: 600; color: #94a3b8; }
+    .hidden-panel-title { font-size: 13px; font-weight: 650; color: var(--muted); }
     .hidden-panel-body { padding: 12px 14px; max-height: 280px; overflow-y: auto; }
     .hidden-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .hidden-table th, .hidden-table td { padding: 8px 10px; border-bottom: 1px solid #1e293b; text-align: left; vertical-align: top; }
-    .hidden-table th { color: #64748b; font-weight: 600; font-size: 11px; }
+    .hidden-table th, .hidden-table td {
+      padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top;
+    }
+    .hidden-table th { color: var(--muted); font-weight: 500; font-size: 11px; }
     .hidden-table tr:last-child td { border-bottom: none; }
-    .btn-hidden-toggle.active { border-color: #64748b; color: #e2e8f0; background: #33415544; }
-    .reverse-tag { font-size: 10px; font-weight: 600; color: #fbbf24; background: #fbbf2418; padding: 1px 5px; border-radius: 4px; margin-left: 6px; }
-    .aligned-tag { font-size: 10px; font-weight: 600; color: #4ade80; background: #4ade8018; padding: 1px 5px; border-radius: 4px; margin-left: 6px; }
+    .btn-hidden-toggle.active { border-color: #3a5a8a; color: #9ec5ff; background: #1a2a3f; }
+    .reverse-tag {
+      font-size: 10px; font-weight: 650; color: var(--warn); background: var(--chip);
+      border: 1px solid #6a5a2a; padding: 1px 6px; border-radius: 999px; margin-left: 6px;
+    }
+    .aligned-tag {
+      font-size: 10px; font-weight: 650; color: var(--ok); background: var(--chip);
+      border: 1px solid #2a6a4a; padding: 1px 6px; border-radius: 999px; margin-left: 6px;
+    }
     .reverse-cell { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .reverse-toggle-btn {
-      border: 1px solid #475569; background: #1e293b; color: #cbd5e1;
+      border: 1px solid var(--line); background: var(--chip); color: var(--text);
       border-radius: 5px; padding: 2px 7px; font-size: 10px; line-height: 1.4;
       cursor: pointer; white-space: nowrap;
     }
-    .reverse-toggle-btn:hover:not(:disabled) { background: #334155; border-color: #64748b; color: #f1f5f9; }
-    .reverse-toggle-btn.reverse-on { border-color: #f59e0b66; color: #fde68a; background: #78350f33; }
+    .reverse-toggle-btn:hover:not(:disabled) { filter: brightness(1.1); }
+    .reverse-toggle-btn.reverse-on { border-color: #6a5a2a; color: var(--warn); background: #3d321833; }
     .reverse-toggle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   </style>
+
 </head>
 <body>
 
@@ -411,17 +557,19 @@
 
 <div class="header">
   <div>
-    <h1>GameBet 队伍映射</h1>
-    <div class="header-sub">左：队名已匹配合并 · 中：平台 ID 已匹配合并 · 右：推荐组待办与未匹配</div>
+    <h1>Matcher · 人工关联</h1>
+    <div class="header-sub">本页：队伍映射 / 手动合场 / 归档 · 自动合场写库看顶栏「写路径」· 只读对照见 Composer</div>
   </div>
   <div class="header-right">
+    <span class="writer-chip legacy" id="writer-chip" title="MATCHER_WRITER">写路径 …</span>
     <span class="matcher-status off" id="matcher-status">
       <span class="matcher-dot"></span>
       <span class="matcher-label">检测中…</span>
     </span>
+    <a class="composer-link" id="composer-ui-link" href="http://127.0.0.1:4568/" target="_blank" rel="noopener" title="match-composer 只读对照页（默认 4568）">Composer 对照</a>
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
-    <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次赛事合并（matchMerge → client_matches）">立即执行赛事合并</button>
+    <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次赛事合并（matchMerge → client_matches；写路径由 MATCHER_WRITER 决定）">立即执行赛事合并</button>
     <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
@@ -429,7 +577,9 @@
 </div>
 
 <div class="workflow-hint">
-  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。右栏上半<strong>推荐组</strong>处理跨平台待确认；下半<strong>未匹配</strong>可查看全部或仅无推荐边角料。
+  <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。
+  右栏<strong>推荐组</strong>确认跨平台候选；搜索旁可切「仅看待补全」缩小到缺 ID / 队名阶段场次。
+  翻锁、归档前会二次确认。合场依据细节请开 <strong>Composer 对照</strong>。
 </div>
 
 <div class="stats" id="stats-bar"></div>
@@ -448,6 +598,10 @@
   <div id="panel-main">
     <div class="queue-search-bar">
       <input type="search" id="team-search-input" placeholder="按队名搜索（ID 已匹配 + 队名已匹配 + 推荐组 + 未匹配）" autocomplete="off" spellcheck="false">
+      <div class="filter-chip-row" title="仅作用于左/中栏已匹配列表">
+        <button type="button" class="filter-chip active" data-matched-filter="all">全部已匹配</button>
+        <button type="button" class="filter-chip" data-matched-filter="attention">仅看待补全</button>
+      </div>
       <span class="queue-search-hint" id="team-search-hint"></span>
     </div>
     <div class="team-link-board" id="team-link-board">
@@ -455,7 +609,7 @@
       <div class="queue-split">
         <section class="split-col split-col-matched split-col-matched-name">
           <div class="split-col-header">
-            <div class="split-col-title">队名已匹配 <span class="badge" id="matched-name-count">0</span></div>
+            <div class="split-col-title">左 · 队名已匹配 <span class="badge" id="matched-name-count">0</span></div>
             <div class="split-col-desc">靠队名归一化合并 · 建议补全队伍 ID 映射 · 同场多条可拖线合并</div>
           </div>
           <div class="split-col-body">
@@ -464,7 +618,7 @@
         </section>
         <section class="split-col split-col-matched split-col-matched-id">
           <div class="split-col-header">
-            <div class="split-col-title">ID 已匹配 <span class="badge" id="matched-id-count">0</span></div>
+            <div class="split-col-title">中 · ID 已匹配 <span class="badge" id="matched-id-count">0</span></div>
             <div class="split-col-desc">主客平台 ID 均已映射 gb_team_id · 多平台合并稳定 · 可跨栏拖线合并</div>
           </div>
           <div class="split-col-body">
@@ -473,7 +627,7 @@
         </section>
         <section class="split-col split-col-pending">
           <div class="split-col-header">
-            <div class="split-col-title">待办 / 未匹配</div>
+            <div class="split-col-title">右 · 待办 / 未匹配</div>
             <div class="split-col-desc">跨平台推荐待确认 · 以及尚未进入 client_match 的原始场次</div>
           </div>
           <div class="split-col-body">
@@ -538,6 +692,8 @@ let _linkSubmitting = false;
 let _matcherBusy = false;
 let _matchMergeBusy = false;
 let _unmatchedFilter = 'all';
+/** 已匹配列表：all | attention（缺 ID / 队名阶段 / 有失效挂载） */
+let _matchedFilter = 'all';
 let _teamDrag = null;
 let _teamLinkBound = false;
 let _teamLinkScrollBound = false;
@@ -666,12 +822,13 @@ function updateTeamSearchHint(recCount, unmatchedCount, idMatchedCount, nameMatc
   const hint = document.getElementById('team-search-hint');
   if (!hint) return;
   const q = _teamSearchQuery.trim();
+  const focus = _matchedFilter === 'attention' ? '仅看待补全' : '全部已匹配';
   if (!q) {
-    hint.textContent = '';
-    hint.classList.remove('active');
+    hint.textContent = `已匹配筛选：${focus} · ID ${idMatchedCount} · 队名 ${nameMatchedCount}`;
+    hint.classList.toggle('active', _matchedFilter === 'attention');
     return;
   }
-  hint.textContent = `搜索「${q}」· ID ${idMatchedCount} · 队名 ${nameMatchedCount} · 推荐组 ${recCount} · 未匹配 ${unmatchedCount}`;
+  hint.textContent = `搜索「${q}」· ${focus} · ID ${idMatchedCount} · 队名 ${nameMatchedCount} · 推荐组 ${recCount} · 未匹配 ${unmatchedCount}`;
   hint.classList.add('active');
 }
 
@@ -889,11 +1046,15 @@ function renderStats(d, displayCms) {
   const orphan = countOrphans(d.platforms, d.recommendations, d.clientMatches);
   const idMatched = displayCms.filter(cm => clientMatchMergeMode(cm) === 'id').length;
   const nameMatched = displayCms.filter(cm => clientMatchMergeMode(cm) === 'name').length;
+  const attention = displayCms.filter(cm => clientMatchNeedsAttention(cm, d.platforms, d.teamMaps || {})).length;
   const debug = d.debug || {};
+  const writer = d.matcherStatus?.writer || _lastMatcherStatus?.writer;
   document.getElementById('stats-bar').innerHTML = `
+    <div class="stat"><div class="label">写路径</div><div class="value c-slate" style="font-size:16px">${esc(writer || '—')}</div></div>
     <div class="stat"><div class="label">平台原始</div><div class="value c-slate">${debug.platformMatches ?? '—'}</div></div>
     <div class="stat"><div class="label">ID 已匹配</div><div class="value c-green">${idMatched}</div></div>
     <div class="stat"><div class="label">队名已匹配</div><div class="value c-amber">${nameMatched}</div></div>
+    <div class="stat"><div class="label">待补全</div><div class="value c-amber">${attention}</div></div>
     <div class="stat"><div class="label">推荐组</div><div class="value c-blue">${d.recommendations.length}</div></div>
     <div class="stat"><div class="label">未匹配场次</div><div class="value c-slate">${unmatched}</div></div>
     <div class="stat"><div class="label">无推荐</div><div class="value c-slate">${orphan}</div></div>
@@ -1206,11 +1367,31 @@ function clientMatchMergeMode(cm) {
   return 'unknown';
 }
 
+/** 需要人工补全：队名阶段、未齐 ID 映射、或有失效平台挂载 */
+function clientMatchNeedsAttention(cm, platforms, teamMaps) {
+  if (clientMatchMergeMode(cm) !== 'id') return true;
+  const rows = resolveClientMatchRows(cm, platforms);
+  if (!rows.length) return true;
+  if (rows.some(r => r._platformMissing)) return true;
+  const liveRows = rows.filter(r => !r._platformMissing);
+  const gameCode = clientMatchGameCode(cm, liveRows.length ? liveRows : rows);
+  return !clientMatchTeamsFullyIdMapped(liveRows, teamMaps, gameCode);
+}
+
+function attentionReasonLabel(cm, platforms, teamMaps) {
+  if (clientMatchMergeMode(cm) === 'name') return '队名阶段';
+  if (clientMatchMergeMode(cm) !== 'id') return '待确认';
+  const rows = resolveClientMatchRows(cm, platforms);
+  if (rows.some(r => r._platformMissing)) return '有失效挂载';
+  return '缺队伍 ID';
+}
+
 function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, containerId, countId, emptyDefault) {
   const container = document.getElementById(containerId);
   const q = searchQuery != null ? searchQuery : _teamSearchQuery;
   const list = filterDisplayClientMatches(cms, platforms)
-    .filter(cm => clientMatchMergeMode(cm) === mode);
+    .filter(cm => clientMatchMergeMode(cm) === mode)
+    .filter(cm => _matchedFilter !== 'attention' || clientMatchNeedsAttention(cm, platforms, teamMaps));
   const filtered = list
     .filter(cm => clientMatchMatchesTeamSearch(cm, platforms, q))
     .sort((a, b) => clientMatchStartTime(a, platforms) - clientMatchStartTime(b, platforms));
@@ -1220,9 +1401,14 @@ function renderMatchedListForMode(cms, platforms, teamMaps, searchQuery, mode, c
   if (!container) return 0;
 
   if (!filtered.length) {
+    const attentionEmpty = _matchedFilter === 'attention'
+      ? (mode === 'id'
+        ? '当前无待补全的 ID 已匹配赛事（可切「全部已匹配」）'
+        : '当前无待补全的队名已匹配赛事（可切「全部已匹配」）')
+      : emptyDefault;
     container.innerHTML = q
       ? `<div class="empty">没有匹配「${esc(q)}」的${mode === 'id' ? 'ID' : '队名'}已匹配赛事</div>`
-      : `<div class="empty">${emptyDefault}</div>`;
+      : `<div class="empty">${attentionEmpty}</div>`;
     return 0;
   }
 
@@ -1514,6 +1700,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm);
   if (!tableHtml) return '';
   const teamsIdMapped = clientMatchTeamsFullyIdMapped(liveRows, teamMaps, gameCode);
+  const needsAttention = clientMatchNeedsAttention(cm, platforms, teamMaps);
   const idBannerClass = teamsIdMapped ? 'client-match-id-banner teams-id-mapped' : 'client-match-id-banner';
   const idBannerTitle = teamsIdMapped
     ? '主客队平台 ID 均已映射 gb_team_id · 可接收未匹配场次拖入合并'
@@ -1526,12 +1713,17 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
       : `队名已匹配 · ${liveRows.length} 个平台 · 建议补队伍 ID · 可拖黄方点合并同场`;
   const homeSlot = renderTitleTeamSlot('home', liveRows.length ? liveRows : rows, teamMaps, gameCode, cm.id, cm);
   const awaySlot = renderTitleTeamSlot('away', liveRows.length ? liveRows : rows, teamMaps, gameCode, cm.id, cm);
-  return `<article class="team-card matched" data-cm-id="${cm.id}">
+  const mergeKey = String(cm.merge_key || '').trim();
+  const attentionTag = needsAttention
+    ? `<span class="attention-tag">${esc(attentionReasonLabel(cm, platforms, teamMaps))}</span>`
+    : '';
+  const cardClass = needsAttention ? 'team-card matched needs-attention' : 'team-card matched';
+  return `<article class="${cardClass}" data-cm-id="${cm.id}">
     <div class="team-card-header">
       <div class="matched-header-layout">
         <div class="matched-header-home">${homeSlot}</div>
         <div class="matched-header-center">
-          ${gbadge(gameCode)}
+          ${gbadge(gameCode)}${attentionTag}
           <div class="${idBannerClass}" data-merge-cm-id="${cm.id}" title="${esc(idBannerTitle)}">
             ${renderMatchMergeTarget(cm.id)}
             <div>
@@ -1541,9 +1733,10 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
           </div>
           <div class="team-card-meta">
             <span>开赛 ${fmtTime(cm.start_time)}</span>
-            <span>${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
+            <span>${liveRows.length}馆 ${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
             ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
           </div>
+          ${mergeKey ? `<div class="merge-key" title="MergeKey">MK ${esc(mergeKey)}</div>` : ''}
         </div>
         <div class="matched-header-away">${awaySlot}</div>
       </div>
@@ -2557,10 +2750,14 @@ async function confirmRecTeamMapping() {
     hideLinkModal();
     const linkedCmId = data.client_match_id ?? cmId;
     await load({ bustCache: true, focusCmId: linkedCmId });
+    const linkedCm = (_lastData?.clientMatches || []).find(c => Number(c.id) === Number(linkedCmId));
+    const mk = linkedCm?.merge_key ? `\nMergeKey ${linkedCm.merge_key}` : '';
+    const modeHint = linkedCm?.merge_mode?.label ? ` · ${linkedCm.merge_mode.label}` : '';
     showActionToast(
-      formatApiResultToast(data, '赛事关联成功') + `\n已从推荐组移除 · 见${linkedClientMatchColumnHint(linkedCmId)} #${linkedCmId}`,
+      formatApiResultToast(data, '赛事关联成功')
+        + `\n已从推荐组移除 · 见${linkedClientMatchColumnHint(linkedCmId)} #${linkedCmId}${modeHint}${mk}`,
       'ok',
-      6200,
+      7200,
     );
     await refreshMatcherStatus();
   } catch (err) {
@@ -2668,6 +2865,30 @@ function matcherStatusClass(s) {
   return 'off';
 }
 
+function writerChipLabel(s) {
+  if (!s?.writer) return { text: '写路径 …', cls: 'legacy' };
+  if (s.writer === 'composer') return { text: '写路径 composer', cls: 'composer' };
+  if (s.sideEngine === 'projector') return { text: '写路径 legacy+projector', cls: 'projector' };
+  return { text: '写路径 legacy', cls: 'legacy' };
+}
+
+function applyWriterChip(s) {
+  const chip = document.getElementById('writer-chip');
+  if (!chip) return;
+  const { text, cls } = writerChipLabel(s);
+  chip.className = `writer-chip ${cls}`;
+  chip.textContent = text;
+  const sticky = s?.stickyOrientation ? ' · sticky 开' : '';
+  chip.title = s?.writer === 'composer'
+    ? 'MATCHER_WRITER=composer：matchMerge 整段由 match-composer 写库'
+    : `MATCHER_WRITER=legacy · SIDE=${s?.sideEngine || 'legacy'}${sticky}`;
+  const link = document.getElementById('composer-ui-link');
+  if (link && s?.composerUiPort) {
+    const host = location.hostname || '127.0.0.1';
+    link.href = `http://${host}:${s.composerUiPort}/`;
+  }
+}
+
 function matcherStatusLabel(s) {
   if (!s) return '匹配循环状态未知';
   const embeddedMode = s.matcherMode === 'embedded';
@@ -2703,7 +2924,34 @@ function setMatcherButtons(s) {
   btnStop.style.display = s?.canStop ? '' : 'none';
   btnStart.disabled = _matcherBusy || _matchMergeBusy;
   btnStop.disabled = _matcherBusy || _matchMergeBusy;
-  if (btnMatchMerge) btnMatchMerge.disabled = _matchMergeBusy || _matcherBusy;
+  if (btnMatchMerge) {
+    btnMatchMerge.disabled = _matchMergeBusy || _matcherBusy;
+    const w = s?.writer || 'legacy';
+    btnMatchMerge.title = w === 'composer'
+      ? '立即执行一次 composeOnce 写库（MATCHER_WRITER=composer）'
+      : '立即执行一次赛事合并（legacy matchMerge → client_matches）';
+  }
+}
+
+let _lastMatcherStatus = null;
+
+async function refreshMatcherStatus() {
+  const el = document.getElementById('matcher-status');
+  const label = el?.querySelector('.matcher-label');
+  if (!el || !label) return;
+  try {
+    const { data: s } = await fetchJson('/api/matcher-status');
+    _lastMatcherStatus = s;
+    setMatcherButtons(s);
+    applyWriterChip(s);
+    el.className = 'matcher-status ' + matcherStatusClass(s);
+    label.textContent = matcherStatusLabel(s);
+  } catch {
+    setMatcherButtons(null);
+    applyWriterChip(null);
+    el.className = 'matcher-status off';
+    label.textContent = '匹配循环状态未知';
+  }
 }
 
 async function runMatchMergeNow() {
@@ -2814,22 +3062,6 @@ async function swapClientMatchGbLock(btn) {
   }
 }
 
-async function refreshMatcherStatus() {
-  const el = document.getElementById('matcher-status');
-  const label = el?.querySelector('.matcher-label');
-  if (!el || !label) return;
-  try {
-    const { data: s } = await fetchJson('/api/matcher-status');
-    setMatcherButtons(s);
-    el.className = 'matcher-status ' + matcherStatusClass(s);
-    label.textContent = matcherStatusLabel(s);
-  } catch {
-    setMatcherButtons(null);
-    el.className = 'matcher-status off';
-    label.textContent = '匹配循环状态未知';
-  }
-}
-
 function focusLinkedClientMatch(cmId) {
   const id = Number(cmId);
   if (!Number.isFinite(id)) return false;
@@ -2906,6 +3138,14 @@ document.querySelectorAll('[data-unmatched-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
     _unmatchedFilter = btn.dataset.unmatchedFilter || 'all';
     document.querySelectorAll('[data-unmatched-filter]').forEach(b => b.classList.toggle('active', b === btn));
+    applyTeamSearchFromInput();
+  });
+});
+
+document.querySelectorAll('[data-matched-filter]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    _matchedFilter = btn.dataset.matchedFilter || 'all';
+    document.querySelectorAll('[data-matched-filter]').forEach(b => b.classList.toggle('active', b === btn));
     applyTeamSearchFromInput();
   });
 });

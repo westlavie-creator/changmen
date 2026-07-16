@@ -15,7 +15,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 |----|------|
 | 多运动（棒球/足球 + PM∥PF + N3 + N3.5 实时赔率） | **维护态** — [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)；`marketQuoteHub` 多消费者 → `sportOddsStore`；**电竞实现面冻结**（`esport-freeze.json` + `check:esport-freeze`）；**不开 N4** / Team UI / sport 下注；体育板不写 fo |
 | 电竞主线 | **默认工作面** — 阶段 A 同屏走查 → 平台/投注缺口；账号后端见 [ACCOUNT_BACKEND.md](../../../docs/ACCOUNT_BACKEND.md)；动冻结面须 `ALLOW_ESPORT_TOUCH=1` 或 `check:esport-freeze:allow` |
-| 下一产品闸门 | 体育 **自动下单** 再单开 **N4**；或新场馆对齐另开 plan |
+| 下一产品闸门 | 体育 **自动下单** 再单开 **N4**（棒球：moneyline；足球：让球+大小球，胜负不作套利主盘 — 见 [ARB_MULTI_SPORT.md](../../../docs/ARB_MULTI_SPORT.md)）；或新场馆对齐另开 plan |
 
 走查勾选表：[A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md)  
 操作脚本：[A8_WALKTHROUGH_SCRIPT.md](./A8_WALKTHROUGH_SCRIPT.md)  

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Match Composer · 对照</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a222c;
+      --line: #2a3542;
+      --text: #e7ecf1;
+      --muted: #8b9aab;
+      --accent: #3d8bfd;
+      --ok: #3ecf8e;
+      --warn: #e6b84d;
+      --danger: #f07178;
+      --chip: #243040;
+      --left: #3d8bfd;
+      --right: #3ecf8e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", "PingFang SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+    header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background: #141b22ee;
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+    header h1 { font-size: 16px; font-weight: 650; }
+    header .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input[type="search"], select {
+      background: var(--panel); color: var(--text);
+      border: 1px solid var(--line); border-radius: 6px;
+      padding: 7px 10px; font-size: 13px; min-width: 160px;
+    }
+    input[type="search"]:focus, select:focus { outline: 1px solid var(--accent); }
+    button {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.ghost {
+      background: transparent; border: 1px solid var(--line); color: var(--text);
+    }
+    .banner {
+      padding: 10px 18px; font-size: 13px;
+      background: #1a2a1f; border-bottom: 1px solid #2a4a35; color: #9fd6b0;
+    }
+    .banner.err { background: #2a1818; border-color: #4a2020; color: #f0a0a0; }
+    .stats {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 10px 18px; border-bottom: 1px solid var(--line);
+    }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 12px; min-width: 90px;
+    }
+    .stat .l { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat .v { font-size: 18px; font-weight: 700; }
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      min-height: calc(100vh - 160px);
+    }
+    @media (max-width: 960px) {
+      .compare { grid-template-columns: 1fr; }
+    }
+    .col {
+      border-right: 1px solid var(--line);
+      display: flex; flex-direction: column;
+      min-width: 0;
+    }
+    .col:last-child { border-right: none; }
+    .col-head {
+      position: sticky; top: 57px; z-index: 10;
+      padding: 10px 14px;
+      background: #15202b;
+      border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .col.left .col-head { border-left: 3px solid var(--left); }
+    .col.right .col-head { border-left: 3px solid var(--right); }
+    .col-head h2 { font-size: 13px; font-weight: 650; }
+    .col-head .count { font-size: 12px; color: var(--muted); }
+    .col-body { padding: 10px 12px 32px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 10px; margin-bottom: 8px; overflow: hidden;
+    }
+    .card.left-only { border-color: #3a4a6a; }
+    .card.right-only { border-color: #2a5a45; }
+    .card.both { border-color: #334155; }
+    .card-head {
+      display: grid; grid-template-columns: 1fr auto;
+      gap: 8px; padding: 10px 12px; cursor: pointer; align-items: start;
+    }
+    .card-head:hover { background: #1f2833; }
+    .title { font-size: 13px; font-weight: 600; }
+    .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .venues { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+    .venue-line { font-size: 12px; color: var(--text); line-height: 1.35; }
+    .venue-line .vp {
+      display: inline-block; min-width: 72px; font-size: 10px; font-weight: 650;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .venue-line .vs { color: var(--muted); font-size: 10px; margin: 0 3px; }
+    .venue-line .vtag { color: var(--warn); font-size: 10px; font-weight: 650; }
+    table.plat .vs { color: var(--muted); font-size: 10px; margin: 0 2px; }
+    table.plat .rev-cell { color: var(--warn); font-weight: 650; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+    .chip {
+      font-size: 10px; padding: 1px 7px; border-radius: 999px;
+      background: var(--chip); color: var(--muted); border: 1px solid var(--line);
+    }
+    .chip.basis-rds { color: #9ec5ff; border-color: #3a5a8a; }
+    .chip.basis-id { color: #7ddea8; border-color: #2a6a4a; }
+    .chip.basis-name { color: #e6c88a; border-color: #6a5a2a; }
+    .chip.basis-seed { color: #9ec5ff; border-color: #3a5a8a; }
+    .chip.basis-reconciled { color: #f0a0ff; border-color: #6a3a8a; }
+    .chip.pair-both { color: var(--ok); }
+    .chip.pair-left-only { color: #9ec5ff; }
+    .chip.pair-right-only { color: var(--warn); }
+    .chip.rev { color: var(--warn); }
+    .chip.omit { color: var(--danger); }
+    .card-body {
+      display: none; padding: 0 12px 12px;
+      border-top: 1px solid var(--line);
+    }
+    .card.open .card-body { display: block; }
+    .section { margin-top: 10px; }
+    .section h3 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin-bottom: 5px;
+    }
+    .kv {
+      display: grid; grid-template-columns: 88px 1fr;
+      gap: 3px 8px; font-size: 12px;
+    }
+    .kv .k { color: var(--muted); }
+    .mono {
+      font-family: "IBM Plex Mono", Consolas, monospace;
+      font-size: 11px; word-break: break-all;
+    }
+    .steps { display: flex; flex-direction: column; gap: 5px; }
+    .step {
+      display: grid; grid-template-columns: 24px 1fr;
+      gap: 6px; padding: 6px 8px;
+      background: #141b22; border-radius: 8px; border: 1px solid var(--line);
+    }
+    .step .n {
+      width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; background: var(--chip);
+    }
+    .step.ok .n { background: #1e3d2f; color: var(--ok); }
+    .step.warn .n { background: #3d3218; color: var(--warn); }
+    .step .name { font-size: 12px; font-weight: 600; }
+    .step .detail { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    table.plat { width: 100%; border-collapse: collapse; font-size: 11px; }
+    table.plat th, table.plat td {
+      text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line);
+    }
+    table.plat th { color: var(--muted); font-weight: 500; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); font-size: 13px; }
+    .loading { opacity: 0.6; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Match Composer · 对照</h1>
+      <div class="sub">左：RDS client_matches · 右：纯场馆模拟 · 每次请求现拉 RDS（无缓存）· 只读不写库</div>
+    </div>
+    <div class="actions">
+      <input id="q" type="search" placeholder="搜索队名 / ID / MergeKey / 馆" />
+      <select id="basis">
+        <option value="">全部（右栏依据）</option>
+        <option value="id">id · gb 队对</option>
+        <option value="name">name · 队名</option>
+        <option value="reconciled">reconciled · 补合并</option>
+      </select>
+      <select id="pair">
+        <option value="">全部配对</option>
+        <option value="both">两侧都有</option>
+        <option value="left-only">仅左侧</option>
+        <option value="right-only">仅右侧</option>
+      </select>
+      <button id="refresh" type="button">刷新</button>
+      <button id="expand" class="ghost" type="button">展开全部</button>
+    </div>
+  </header>
+  <div id="banner" class="banner">加载中…</div>
+  <div id="stats" class="stats"></div>
+  <div class="compare">
+    <section class="col left">
+      <div class="col-head">
+        <h2>左 · RDS 已合并</h2>
+        <span class="count" id="leftCount">—</span>
+      </div>
+      <div class="col-body" id="leftList"></div>
+    </section>
+    <section class="col right">
+      <div class="col-head">
+        <h2>右 · 模拟合场</h2>
+        <span class="count" id="rightCount">—</span>
+      </div>
+      <div class="col-body" id="rightList"></div>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let last = null;
+    let allOpen = false;
+
+    function fmtTime(ms) {
+      const n = Number(ms) || 0;
+      if (!n) return "—";
+      const d = new Date(n < 1e12 ? n * 1000 : n);
+      return d.toLocaleString("zh-CN", { hour12: false });
+    }
+
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function pairLabel(status) {
+      if (status === "both") return "两侧都有";
+      if (status === "left-only") return "仅左侧";
+      if (status === "right-only") return "仅右侧";
+      return "";
+    }
+
+    function platTable(m) {
+      const venues = m.venues || [];
+      if (!venues.length) {
+        // fallback
+        const rows = (m.platforms || []).map((p) => {
+          const sid = m.matchs?.[p] ?? "";
+          return `<tr><td><strong>${esc(p)}</strong></td><td class="mono">${esc(sid)}</td><td colspan="3">—</td></tr>`;
+        }).join("");
+        return `<table class="plat"><thead><tr><th>馆</th><th>sid</th><th colspan=3>主客</th></tr></thead><tbody>${rows||"<tr><td colspan=5>无</td></tr>"}</tbody></table>`;
+      }
+      const rows = venues.map((v) => {
+        const orient = v.reversed ? "reversed" : "aligned";
+        return `<tr>
+          <td><strong>${esc(v.platform)}</strong></td>
+          <td class="mono">${esc(v.sourceMatchId)}</td>
+          <td>${esc(v.nativeHome || "—")} <span class="vs">vs</span> ${esc(v.nativeAway || "—")}</td>
+          <td>${esc(v.displayHome || "—")} <span class="vs">vs</span> ${esc(v.displayAway || "—")}</td>
+          <td class="${v.reversed ? "rev-cell" : ""}">${esc(orient)}</td>
+        </tr>`;
+      }).join("");
+      return `<table class="plat">
+        <thead><tr>
+          <th>馆</th><th>sourceMatchId</th><th>馆原生主客</th><th>投影后主客</th><th>朝向</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    function venuesPreview(m) {
+      const venues = m.venues || [];
+      if (!venues.length) return "";
+      return `<div class="venues">${venues.map((v) => {
+        const h = v.nativeHome || v.displayHome || "?";
+        const a = v.nativeAway || v.displayAway || "?";
+        const tag = v.reversed ? " R" : "";
+        return `<div class="venue-line"><span class="vp">${esc(v.platform)}</span> ${esc(h)} <span class="vs">vs</span> ${esc(a)}<span class="vtag">${esc(tag)}</span></div>`;
+      }).join("")}</div>`;
+    }
+
+    function processHtml(steps) {
+      return `<div class="steps">${(steps || []).map((s) => `
+        <div class="step ${esc(s.status || "ok")}">
+          <div class="n">${esc(s.step)}</div>
+          <div>
+            <div class="name">${esc(s.name)}</div>
+            <div class="detail">${esc(s.detail)}</div>
+          </div>
+        </div>`).join("")}</div>`;
+    }
+
+    function cardHtml(m, open, side) {
+      const basis = m.clusterBasis || "unknown";
+      const pair = m.pairStatus || "";
+      const chips = [
+        `<span class="chip basis-${esc(basis)}">${esc(basis)}</span>`,
+        pair ? `<span class="chip pair-${esc(pair)}">${esc(pairLabel(pair))}</span>` : "",
+        (m.reverse || []).length ? `<span class="chip rev">R ${m.reverse.length}</span>` : "",
+        (m.omitted || []).length ? `<span class="chip omit">omit</span>` : "",
+      ].filter(Boolean).join("");
+
+      return `<article class="card ${esc(pair)} ${open ? "open" : ""}" data-side="${esc(side)}" data-sig="${esc(Object.entries(m.matchs||{}).sort().map(([p,s])=>p+':'+s).join('|'))}">
+        <div class="card-head" data-toggle>
+          <div>
+            <div class="title">${esc(m.title || "(无标题)")}</div>
+            <div class="meta">
+              ID ${esc(m.id ?? "—")} · ${esc(m.game || "—")} · ${esc(fmtTime(m.startTime))}
+              ${m.mergeKey ? `<br><span class="mono" style="opacity:.75">${esc(m.mergeKey)}</span>` : ""}
+            </div>
+            ${venuesPreview(m)}
+          </div>
+          <div class="chips">${chips}</div>
+        </div>
+        <div class="card-body">
+          <div class="section">
+            <h3>${side === "left" ? "落库信息" : "合并依据"}</h3>
+            <div class="kv">
+              <div class="k">说明</div><div>${esc(m.clusterBasisLabel)}</div>
+              <div class="k">MergeKey</div><div class="mono">${esc(m.mergeKey || "—")}</div>
+              <div class="k">朝向</div><div>${esc(m.lockLabel || "—")}</div>
+              <div class="k">Reverse</div><div class="mono">${esc((m.reverse || []).join(", ") || "无")}</div>
+            </div>
+          </div>
+          <div class="section">
+            <h3>过程</h3>
+            ${processHtml(m.process)}
+          </div>
+          <div class="section">
+            <h3>各馆</h3>
+            ${platTable(m)}
+          </div>
+        </div>
+      </article>`;
+    }
+
+    function filterMatches(matches, { q, basis } = {}) {
+      let list = matches || [];
+      if (basis)
+        list = list.filter(m => m.clusterBasis === basis);
+      if (q) {
+        const needle = q.toLowerCase();
+        list = list.filter((m) => {
+          const hay = [
+            m.title,
+            m.mergeKey,
+            m.game,
+            String(m.id || ""),
+            ...(m.platforms || []),
+            ...Object.values(m.matchs || {}),
+          ].join(" ").toLowerCase();
+          return hay.includes(needle);
+        });
+      }
+      return list;
+    }
+
+    function filterPair(matches, pairFilter) {
+      if (!pairFilter) return matches;
+      return (matches || []).filter(m => m.pairStatus === pairFilter);
+    }
+
+    function renderCol(elId, countId, sideData, side, filteredMatches) {
+      const matches = filteredMatches;
+      $(countId).textContent = `${matches.length} / ${sideData?.totalMatchCount ?? matches.length}`;
+      if (!matches.length) {
+        $(elId).innerHTML = `<div class="empty">无场次</div>`;
+        return;
+      }
+      $(elId).innerHTML = matches.map(m => cardHtml(m, allOpen, side)).join("");
+      $(elId).querySelectorAll("[data-toggle]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const card = el.closest(".card");
+          card.classList.toggle("open");
+          const sig = card.getAttribute("data-sig");
+          if (!sig) return;
+          const other = side === "left" ? $("rightList") : $("leftList");
+          other.querySelectorAll(`.card[data-sig="${CSS.escape(sig)}"]`).forEach((c) => {
+            c.classList.toggle("open", card.classList.contains("open"));
+          });
+        });
+      });
+    }
+
+    function render(data) {
+      const ps = data.pairSummary || {};
+      $("stats").innerHTML = [
+        ["左栏 RDS", data.left?.totalMatchCount ?? 0],
+        ["右栏模拟", data.right?.totalMatchCount ?? 0],
+        ["两侧都有", ps.both ?? 0],
+        ["仅左侧", ps.leftOnly ?? 0],
+        ["仅右侧", ps.rightOnly ?? 0],
+        ["右 locked", data.right?.projectStats?.locked ?? "—"],
+        ["右 omit", data.right?.projectStats?.omitEvents ?? "—"],
+      ].map(([l, v]) =>
+        `<div class="stat"><div class="l">${esc(l)}</div><div class="v">${esc(v)}</div></div>`
+      ).join("");
+
+      const q = $("q").value.trim().toLowerCase();
+      const basis = $("basis").value;
+      const pairFilter = $("pair").value;
+      const leftFiltered = filterPair(
+        filterMatches(data.left?.matches || [], { q }),
+        pairFilter,
+      );
+      const rightFiltered = filterPair(
+        filterMatches(data.right?.matches || [], { q, basis }),
+        pairFilter,
+      );
+      renderCol("leftList", "leftCount", data.left, "left", leftFiltered);
+      renderCol("rightList", "rightCount", data.right, "right", rightFiltered);
+    }
+
+    async function load() {
+      $("refresh").disabled = true;
+      $("banner").className = "banner";
+      $("banner").textContent = "正在从 RDS 拉取并模拟合场…";
+      document.body.classList.add("loading");
+      try {
+        const res = await fetch("/api/compare");
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "请求失败");
+        last = data;
+        $("banner").textContent =
+          `左 ${data.left?.totalMatchCount ?? 0} · `
+          + `右 ${data.right?.totalMatchCount ?? 0} · `
+          + `built ${fmtTime(data.builtAt)} · 刚从 RDS 拉取 · 绝不写库`;
+        render(data);
+      } catch (err) {
+        $("banner").className = "banner err";
+        $("banner").textContent = `失败：${err.message}`;
+        $("leftList").innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+        $("rightList").innerHTML = "";
+      } finally {
+        $("refresh").disabled = false;
+        document.body.classList.remove("loading");
+      }
+    }
+
+    $("refresh").addEventListener("click", () => load());
+    $("q").addEventListener("input", () => { if (last) render(last); });
+    $("basis").addEventListener("change", () => { if (last) render(last); });
+    $("pair").addEventListener("change", () => { if (last) render(last); });
+    $("expand").addEventListener("click", () => {
+      allOpen = !allOpen;
+      $("expand").textContent = allOpen ? "收起全部" : "展开全部";
+      if (last) render(last);
+    });
+
+    load();
+  </script>
+</body>
+</html>

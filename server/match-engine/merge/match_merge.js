@@ -793,11 +793,23 @@ function refreshClientMatchCanonicalOrientation(rows, matches, existingClientRow
       row.Title = titleFromLockedGb(homeGb, awayGb, row.Title || existing?.title);
     }
     else {
-      const picked = titleFromMatchs(row.Matchs, matches);
-      if (picked?.title)
-        row.Title = picked.title;
-      else if (!row.Title && existing?.title)
-        row.Title = String(existing.title);
+      // 勿留下 undefined：写库 null + EXCLUDED/CASE 可能清锁；成对 existing 应 sticky 回 row
+      const exH = parseLockedGbTeamId(existing?.home_gb_team_id);
+      const exA = parseLockedGbTeamId(existing?.away_gb_team_id);
+      if (exH && exA) {
+        row.HomeGbTeamId = exH;
+        row.AwayGbTeamId = exA;
+        row.Title = titleFromLockedGb(exH, exA, row.Title || existing?.title);
+      }
+      else {
+        delete row.HomeGbTeamId;
+        delete row.AwayGbTeamId;
+        const picked = titleFromMatchs(row.Matchs, matches);
+        if (picked?.title)
+          row.Title = picked.title;
+        else if (!row.Title && existing?.title)
+          row.Title = String(existing.title);
+      }
     }
   }
 }
@@ -1001,9 +1013,7 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
         }
-        else if (shouldSwap && bet.Sources?.[platform]) {
-          bet.Sources[platform] = swapBetSource(bet.Sources[platform]);
-        }
+        // 无 native：多为决胜局 promote 副本（已相对锁对齐），禁止再 swap，否则双翻同边
       }
     }
   }

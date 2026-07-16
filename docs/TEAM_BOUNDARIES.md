@@ -11,7 +11,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | 团队 | 拥有目录 | 职责 |
 |------|----------|------|
 | **客户端** | `client/web/`、`chrome-extension/`、`client/venue-adapter/` | UI、采集、下注、插件、各平台适配源码 |
-| **服务端（核心）** | `server/backend/`、`server/matcher/`、`server/db/`、`server/match-engine/`、`server/team-resolver/`、`server/storage/` | API、合并、RDS、本机 JSON 路径、代理/余额、运维脚本 |
+| **服务端（核心）** | `server/backend/`、`server/matcher/`、`server/match-composer/`、`server/match-projector/`（过渡）、`server/db/`、`server/match-engine/`、`server/team-resolver/`、`server/storage/` | API、合并、RDS、本机 JSON 路径、代理/余额、运维脚本 |
 | **服务端（库，backend 挂载）** | `server/ws_forward/`、`server/realtime-hub/` | WebSocket 转发、Changmen Socket.IO 推送（由 backend 进程加载，非独立主链路进程） |
 | **服务端（扩展守护进程）** | `server/collectors/`、`server/value-bet/` | VPS 采集 daemon；详见 [collectors/README.md](../server/collectors/README.md) |
 | **开发工具** | `devtools/platform-probes/` | 可选：直连各平台探针 CLI（非主链路） |

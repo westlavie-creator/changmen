@@ -13,23 +13,27 @@ import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 
-const props = defineProps<{
-  match: ViewMatch;
-  bet: ViewBet;
-  /**
-   * [changmen 扩展] 体育板传入：实时价只改 fallback / sportOddsStore，不写 fo。
-   * 电竞路径不传；BetRow 不 import sportOddsStore，保持壳共用、store 隔离。
-   */
-  oddsDisplayTick?: number;
-  /**
-   * [changmen 扩展] 棒/足只读板：禁双击下单 / EV / 补单 / 点选 target，避免误走电竞 manualBet。
-   * 电竞默认 true（或不传）。
-   */
-  allowBetting?: boolean;
-}>();
+/** allowBetting 须 withDefaults(true)：裸 `?: boolean` 缺省会被 Vue 铸成 false，电竞双击会静默失效 */
+const props = withDefaults(
+  defineProps<{
+    match: ViewMatch;
+    bet: ViewBet;
+    /**
+     * [changmen 扩展] 体育板传入：实时价只改 fallback / sportOddsStore，不写 fo。
+     * 电竞路径不传；BetRow 不 import sportOddsStore，保持壳共用、store 隔离。
+     */
+    oddsDisplayTick?: number;
+    /**
+     * [changmen 扩展] 棒/足只读板：禁双击下单 / EV / 补单 / 点选 target，避免误走电竞 manualBet。
+     * 电竞默认 true。
+     */
+    allowBetting?: boolean;
+  }>(),
+  { allowBetting: true },
+);
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
-const bettingEnabled = computed(() => props.allowBetting !== false);
+const bettingEnabled = computed(() => props.allowBetting);
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();

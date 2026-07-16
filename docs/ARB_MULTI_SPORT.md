@@ -37,6 +37,14 @@
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗）小修。  
 **禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、sport 下注、`PredictFun.bet: true`、改 `GetMatchs` / `client_matches` / `mainBetLoop`、把体育套利塞进电竞 `mainBetLoop`。  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
+**N4 套利盘口（产品硬规则 · 未实现）**：
+
+| 运动 | N4 套利主盘 | 说明 |
+|------|-------------|------|
+| **棒球** | 胜负（moneyline，主/客二选一） | 无平局，双边可对敲 |
+| **足球** | **让球 + 大小球** | 有平局；**不以**胜负（1X2 / 单纯主胜客胜）作套利主盘 |
+
+今日 N3/N3.5 仍只接 moneyline **只读展示**；足球胜负盘可继续显示，但 **不算** N4 套利标的。足球让球/大小球拉取与合并 = **另开 plan**（`market_code`/`line` 已预留，尚未接）。仍禁止现在开 N4 / 改 `mainBetLoop` / 写 fo。  
 **当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)。  
 **例外（N3.5）**：体育板赔率实时显示（collector hub → `sportOddsStore`），仍 **禁止** N4 / fo 交叉。  
 分层隔离定案：数据/循环必须隔离；壳 UI + 场馆 WS（hub）可共用；`BetRow` **不** import `sportOddsStore`（由 `SportMatchBoard` 注入 `oddsDisplayTick`）。
@@ -152,7 +160,7 @@ POST /esport/Client_GetFootballMatchs
 | 阶段 | 状态 | 隔离要点 |
 |------|------|----------|
 | **N3 moneyline 合并** | **已做**（请求路径 + `sport_*`；非独立 PM2 matcher） | 禁写电竞 `client_matches`；禁 import 电竞 `team_db`；仅双场馆对替换 API |
-| **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop` |
+| **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop`；棒球主盘 moneyline，足球主盘 **让球+大小球**（胜负不作套利主盘） |
 | **Sport Team UI / PF 下注** | **未开** | — |
 
 ### N3 schema（已建 · 接线见下节）

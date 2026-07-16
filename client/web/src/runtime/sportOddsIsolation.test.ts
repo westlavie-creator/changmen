@@ -50,4 +50,11 @@ describe("sport / esport UI isolation", () => {
     expect(src).toMatch(/extensionsEnabled/);
     expect(src).toMatch(/betRowUiEnabled\.value && bettingEnabled\.value/);
   });
+
+  test("MatchCard / BetRow default allowBetting true (Vue boolean cast gotcha)", () => {
+    const card = readFileSync(join(root, "components/match/MatchCard.vue"), "utf8");
+    const row = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
+    expect(card).toMatch(/allowBetting:\s*true/);
+    expect(row).toMatch(/allowBetting:\s*true/);
+  });
 });

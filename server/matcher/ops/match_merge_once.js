@@ -24,6 +24,8 @@ import {
   enrichMatchesRawWithDbBindings,
   invalidateMatcherRdsSnapshot,
 } from "./rds_snapshot_cache.js";
+import { isProjectorSideEngine } from "../lib/side_engine.js";
+import { isComposerWriter } from "../lib/matcher_writer.js";
 import "../lib/env.js";
 
 /**
@@ -167,7 +169,85 @@ async function previewMatchMergeOnce() {
   return computeMatchMergeList({ registerTeams: false });
 }
 
+/**
+ * 写库前用 match-projector 覆写主客（动态 import 避免与 projector→matcher 循环依赖）。
+ */
+async function applyProjectorSideEngine(info, {
+  matches,
+  bets,
+  timers,
+  clientRows,
+} = {}) {
+  const { reprojectMergedList } = await import(
+    "../../match-projector/src/reproject_client_matches.js"
+  );
+  const platformOverrides = db.isMatcherStoreReady()
+    ? await db.fetchClientMatchPlatformOverrides()
+    : {};
+  const forceReanchorOrientation
+    = String(process.env.MATCH_PROJECTOR_REANCHOR || "").trim() === "1";
+  const stickyOrientation
+    = String(process.env.MATCH_PROJECTOR_STICKY_ORIENTATION || "").trim() === "1"
+      ? true
+      : undefined;
+  return reprojectMergedList(info, {
+    matches,
+    bets,
+    timers,
+    existingClientRows: clientRows,
+    platformOverrides,
+    forceReanchorOrientation,
+    stickyOrientation,
+  });
+}
+
+/**
+ * MATCHER_WRITER=composer：整段交给 match-composer（不再跑旧 merge/finalize）。
+ * 写库；仍挡 projector WRITE 心跳（viaMatcherWriter 仅跳过本进程 matcher HB）。
+ */
+async function matchMergeOnceViaComposer() {
+  const { composeOnce } = await import("../../match-composer/ops/compose_once.js");
+  const result = await composeOnce({
+    write: true,
+    registerTeams: true,
+    viaMatcherWriter: true,
+  });
+  const now = result.builtAt || Date.now();
+  if (isEmbeddedMatcher())
+    setClientMatchesFromMatchMerge(result.info, now);
+  store.patchCollectorMatchClientIds(result.info);
+  invalidateMatcherRdsSnapshot(["clientMatches"]);
+  if (result.matchIdBackfill?.updated)
+    invalidateMatcherRdsSnapshot(["platformMatches"]);
+  if (result.endedCount > 0) {
+    console.log(`[matchMerge] writer=composer 已结束移出活跃列表 ${result.endedCount} 场`);
+  }
+  console.log(
+    `[matchMerge] writer=composer matches=${result.matchCount}`
+    + ` locked=${result.projectStats?.locked}`
+    + ` unlocked=${result.projectStats?.unlocked}`
+    + ` alignId=${result.alignStats?.alignedById || 0}`
+    + ` alignName=${result.alignStats?.alignedByName || 0}`,
+  );
+  return {
+    matchCount: result.matchCount,
+    builtAt: now,
+    matchIdBackfill: result.matchIdBackfill,
+    teamReg: result.teamReg,
+    nameSync: result.nameSync,
+    alignStats: result.alignStats || { alignedById: 0, alignedByName: 0 },
+    hotCollector: null,
+    sideEngine: "composer",
+    projectStats: result.projectStats,
+    writer: "composer",
+    endedCount: result.endedCount || 0,
+  };
+}
+
 async function matchMergeOnceImpl() {
+  if (isComposerWriter())
+    return matchMergeOnceViaComposer();
+
   const {
     info,
     alignStats,
@@ -175,31 +255,58 @@ async function matchMergeOnceImpl() {
     hotCollector,
     teamReg,
     nameSync,
+    clientRows,
+    matches,
+    bets,
+    timers,
   } = await computeMatchMergeList({ registerTeams: true });
 
   if (endedCount > 0) {
     console.log(`[matchMerge] 已结束移出活跃列表 ${endedCount} 场`);
   }
 
+  let projectStats = null;
+  const sideEngine = isProjectorSideEngine() ? "projector" : "legacy";
+  if (sideEngine === "projector") {
+    try {
+      projectStats = await applyProjectorSideEngine(info, {
+        matches,
+        bets,
+        timers,
+        clientRows,
+      });
+    }
+    catch (err) {
+      // fail-closed：投影失败不写库，避免半截 Sources 落库
+      console.error("[matchMerge] sideEngine=projector failed, abort write:", err);
+      throw err;
+    }
+    // 投影重建 Sources 后必须重跑 finalize 后置（Map0 只留 OB/PM 等）
+    const {
+      trimMapZeroToObOnDeciderRound,
+      applyObLiveRoundGate,
+      stripOrphanClientMatchPlatforms,
+      refreshClientMatchBetNames,
+      sortClientMatchBets,
+    } = await import("@changmen/match-engine");
+    trimMapZeroToObOnDeciderRound(info);
+    applyObLiveRoundGate(info, matches, timers);
+    stripOrphanClientMatchPlatforms(info, matches);
+    refreshClientMatchBetNames(info);
+    sortClientMatchBets(info);
+    console.log(
+      `[matchMerge] sideEngine=projector locked=${projectStats.locked}`
+      + ` unlocked=${projectStats.unlocked} omits=${projectStats.omitEvents}`
+      + ` reanchored=${projectStats.reanchored}`,
+    );
+  }
+
   const now = Date.now();
+  const { clientMatchWriteRow } = await import(
+    "../../match-projector/src/write_payload.js"
+  );
   await db.writeClientMatchesAsync(
-    info.map(m => ({
-      id: Number(m.ID),
-      merge_key: m.MergeKey ? String(m.MergeKey) : null,
-      title: String(m.Title || ""),
-      game: String(m.Game || ""),
-      game_id: String(m.GameID || ""),
-      start_time: Number(m.StartTime) || 0,
-      bo: Number(m.BO) || 0,
-      round: Number(m.Round) || 0,
-      round_start: Number(m.RoundStart) || 0,
-      reverse: Array.isArray(m.Reverse) ? m.Reverse : [],
-      matchs: m.Matchs || {},
-      bets: m.Bets || [],
-      home_gb_team_id: m.HomeGbTeamId ?? null,
-      away_gb_team_id: m.AwayGbTeamId ?? null,
-      built_at: now,
-    })),
+    info.map(m => clientMatchWriteRow(m, now)),
   );
   if (isEmbeddedMatcher())
     setClientMatchesFromMatchMerge(info, now);
@@ -210,7 +317,17 @@ async function matchMergeOnceImpl() {
   if (matchIdBackfill?.updated)
     invalidateMatcherRdsSnapshot(["platformMatches"]);
 
-  return { matchCount: info.length, builtAt: now, matchIdBackfill, teamReg, nameSync, alignStats, hotCollector };
+  return {
+    matchCount: info.length,
+    builtAt: now,
+    matchIdBackfill,
+    teamReg,
+    nameSync,
+    alignStats,
+    hotCollector,
+    sideEngine,
+    projectStats,
+  };
 }
 
 /** 进程内互斥：matcher 循环与 UI 人工 matchMerge 共用同一 in-flight Promise */
@@ -228,4 +345,11 @@ async function matchMergeOnce(opts = {}) {
   return _matchMergeInFlight;
 }
 
-export { ensureTeamPlugin, invalidateTeamPlugin, matchMergeOnce, previewMatchMergeOnce, resetTeamPluginCache };
+export {
+  computeMatchMergeList,
+  ensureTeamPlugin,
+  invalidateTeamPlugin,
+  matchMergeOnce,
+  previewMatchMergeOnce,
+  resetTeamPluginCache,
+};

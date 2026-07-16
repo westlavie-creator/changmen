@@ -38,6 +38,8 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 |------|----------|------|------|
 | [backend/](backend/README.md) | `@changmen/backend` | **主进程** | `Client_*` / `API_*`、HTTP 代理、`/esport/ws-forward`、静态 `/`、内嵌 matcher |
 | [matcher/](matcher/README.md) | `@changmen/matcher` | 进程 / 库 | 30s matchMerge 循环；可选人工 UI `:4567` |
+| [match-composer/](match-composer/README.md) | `@changmen/match-composer` | 并列进程 / 库 | 从零合场+主客（默认 dry-run；`MATCHER_WRITER=composer` 切流） |
+| [match-projector/](match-projector/README.md) | `@changmen/match-projector` | 过渡 | 旧 merge + 投影覆写（切流后只留文档） |
 | [match-engine/](match-engine/README.md) | `@changmen/match-engine` | 库 | 合并算法（`match_merge`、`bet_builder`、队名工具） |
 | [db/](db/README.md) | `@changmen/db` | 库 | PostgreSQL / RDS 唯一应用入口 |
 | [storage/](storage/README.md) | `@changmen/storage` | 库 | 本机 `storage/` 路径与 JSON 读写（非 PG） |
