@@ -15,6 +15,15 @@ export interface MakeupStakeResult {
   makeupReturn: number;
   /** 两侧返还之差（正=补单侧返还更高） */
   returnDiff: number;
+  /** 总投入 = 已成 + 补单 */
+  totalStake: number;
+  /**
+   * 保底盈利金额 = min(两侧返还) − 总投入。
+   * 取较小返还，避免取整后一侧虚高。
+   */
+  profitAmount: number;
+  /** 保底利润率 = 盈利金额 / 总投入 */
+  profitRate: number;
 }
 
 export function calcMakeupStake(input: MakeupStakeInput): MakeupStakeResult | null {
@@ -25,12 +34,21 @@ export function calcMakeupStake(input: MakeupStakeInput): MakeupStakeResult | nu
     return null;
 
   const makeupMoney = Math.round((refMoney * refOdds) / targetOdds);
+  if (!(makeupMoney > 0))
+    return null;
+
   const refReturn = refMoney * refOdds;
   const makeupReturn = makeupMoney * targetOdds;
+  const totalStake = refMoney + makeupMoney;
+  const profitAmount = Math.min(refReturn, makeupReturn) - totalStake;
+  const profitRate = profitAmount / totalStake;
   return {
     makeupMoney,
     refReturn,
     makeupReturn,
     returnDiff: makeupReturn - refReturn,
+    totalStake,
+    profitAmount,
+    profitRate,
   };
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive } from "vue";
+import { percent } from "@changmen/client-core/shared/format";
 import { calcMakeupStake } from "@/domain/betting/makeupStakeCalc";
 
 const form = reactive({
@@ -18,6 +19,14 @@ const result = computed(() =>
 
 function fmt(n: number, digits = 0): string {
   return Number.isFinite(n) ? n.toFixed(digits) : "—";
+}
+
+function fmtProfit(n: number): string {
+  if (!Number.isFinite(n))
+    return "—";
+  const rounded = Math.round(n * 100) / 100;
+  const body = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+  return rounded > 0 ? `+${body}` : body;
 }
 </script>
 
@@ -70,6 +79,16 @@ function fmt(n: number, digits = 0): string {
         <template v-if="result">
           <span class="sailor-calc__money">
             补单 <strong>{{ result.makeupMoney }}</strong>
+          </span>
+          <span
+            class="sailor-calc__profit"
+            :class="{
+              'is-gain': result.profitAmount > 0,
+              'is-loss': result.profitAmount < 0,
+            }"
+          >
+            利润率 <strong>{{ percent(result.profitRate, 1) }}</strong>
+            · 盈利 <strong>{{ fmtProfit(result.profitAmount) }}</strong>
           </span>
           <span class="sailor-calc__meta">
             返还 {{ fmt(result.refReturn) }}/{{ fmt(result.makeupReturn) }}
@@ -172,6 +191,25 @@ function fmt(n: number, digits = 0): string {
   font-weight: 700;
   color: #4ade80;
   font-variant-numeric: tabular-nums;
+}
+
+.sailor-calc__profit {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.sailor-calc__profit strong {
+  margin-left: 2px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.sailor-calc__profit.is-gain strong {
+  color: #4ade80;
+}
+
+.sailor-calc__profit.is-loss strong {
+  color: #f87171;
 }
 
 .sailor-calc__meta,
