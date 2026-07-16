@@ -1,6 +1,101 @@
 /** 套利 LinkID 下限（与 SaveOrderBind Date.now() 对齐） */
 export const ARB_LINK_MIN = 1_000_000_000_000;
 
+/** 与 client-core format.VALUE_BET_LINK_BASE 对齐：正 EV 编码基线 */
+export const VALUE_BET_LINK_BASE = 7_000_000_000_000_000;
+
+/**
+ * 侧栏/改绑排序键：正 EV 还原真实时间戳，其余取绝对值。
+ * 与 packages/client-core orderLinkSortKey 一致。
+ */
+export function orderLinkSortKey(link) {
+  const n = Math.abs(Number(link)) || 0;
+  if (n >= VALUE_BET_LINK_BASE)
+    return n - VALUE_BET_LINK_BASE;
+  return n;
+}
+
+/**
+ * [changmen 扩展] 手动改绑：仅允许把较新的 Link 改到较老的 Link。
+ * from !== to 且双方非 0。
+ */
+export function canRebindLinkNewerToOlder(fromLink, toLink) {
+  const from = Number(fromLink);
+  const to = Number(toLink);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from === 0 || to === 0)
+    return false;
+  if (from === to)
+    return false;
+  return orderLinkSortKey(from) > orderLinkSortKey(to);
+}
+
+/** 从 bet 抽出地图槽（全场 / 地图N）；无法识别则 "—" */
+export function parseBetMapLabel(bet) {
+  const s = String(bet || "").trim();
+  if (!s)
+    return "—";
+  const bracketMap = /^\[地图\s*(\d+)\]/.exec(s);
+  if (bracketMap)
+    return `地图${bracketMap[1]}`;
+  const bracketFull = /^\[全场\]/.exec(s);
+  if (bracketFull)
+    return "全场";
+  const plainMap = /^地图\s*(\d+)/.exec(s);
+  if (plainMap)
+    return `地图${plainMap[1]}`;
+  const enMap = /^Map\s*(\d+)\b/i.exec(s);
+  if (enMap)
+    return `地图${enMap[1]}`;
+  if (/全场/.test(s))
+    return "全场";
+  return "—";
+}
+
+/** 归一化对阵标题：去 HTML、运动前缀、Game/Map 后缀；主客对调视为同场 */
+export function normalizeOrderMatchKey(match) {
+  let raw = String(match || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!raw)
+    return "";
+  // PM 等：`LoL: Team A vs Team B - Game 2 Winner`
+  raw = raw.replace(
+    /^(lol|league of legends|dota\s*2?|cs:?go|cs2|counter[- ]?strike|valorant|val|kog|王者荣耀|英雄联盟)\s*[:：\-–—]\s*/i,
+    "",
+  );
+  const parts = raw.split(/\s+vs\.?\s+|\s+v\.?\s+/i);
+  if (parts.length === 2) {
+    const clean = (s) => String(s || "")
+      .replace(/\s*[-–—]\s*(game|map|地图)\s*\d+\b.*$/i, "")
+      .replace(/\s*[-–—]\s*.*\b(winner|获胜|胜负)\b.*$/i, "")
+      .trim();
+    const a = clean(parts[0]);
+    const b = clean(parts[1]);
+    if (a && b)
+      return [a, b].sort().join(" vs ");
+  }
+  return raw;
+}
+
+/**
+ * [changmen 扩展] 手动改绑：须同场（Match）且同地图槽（Bet 前缀）。
+ * 无法解析地图时拒绝。
+ */
+export function isSameOrderMatchMap(a, b) {
+  const matchA = normalizeOrderMatchKey(a?.match ?? a?.Match);
+  const matchB = normalizeOrderMatchKey(b?.match ?? b?.Match);
+  if (!matchA || !matchB || matchA !== matchB)
+    return false;
+  const mapA = parseBetMapLabel(a?.bet ?? a?.Bet);
+  const mapB = parseBetMapLabel(b?.bet ?? b?.Bet);
+  if (mapA === "—" || mapB === "—")
+    return false;
+  return mapA === mapB;
+}
+
 /**
  * [changmen 推测] 旧占位：link = create_at（场馆时间 ms）；仅 legacy 读路径/迁移用。
  */

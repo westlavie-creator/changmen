@@ -51,3 +51,16 @@ export async function saveOrderBind(body: Record<string, unknown>): Promise<bool
   const data = await post<boolean>("Client_SaveOrderBind", body, "", { errorTip: false });
   return data.success === 1;
 }
+
+/** [changmen 扩展] 侧栏手动改绑：单笔订单 link 新→老 */
+export async function rebindOrderLink(body: {
+  orderId: string;
+  toLinkId: number;
+}): Promise<{ orderId: string; fromLinkId: number; toLinkId: number }> {
+  return unwrap(
+    await post<{ orderId: string; fromLinkId: number; toLinkId: number }>(
+      "Client_RebindOrderLink",
+      body,
+    ),
+  );
+}

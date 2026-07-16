@@ -45,7 +45,7 @@ export {
   saveScore,
 } from "@/api/match";
 
-export { getOrderList, saveOrder, saveOrderBind } from "@/api/order";
+export { getOrderList, saveOrder, saveOrderBind, rebindOrderLink } from "@/api/order";
 
 export { getCollectPlatform, getGames, updatePlatform } from "@/api/platform";
 

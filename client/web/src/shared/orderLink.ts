@@ -55,9 +55,12 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
   return hasOpenPolymarketPosition(row);
 }
 
-/** 侧栏列表展示行：PM 卖单不占独立行（历史数据兜底） */
+/** 侧栏列表展示行：PM 卖单不占独立行；已取消补单占位不展示 */
 export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
-  return rows.filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"));
+  return rows.filter(r =>
+    !(isPolymarketOrderRow(r) && r.PmSide === "sell")
+    && !isMakeupCancelledOrderRow(r),
+  );
 }
 
 export function isMakeupPendingOrderRow(row: OrderRow): boolean {
@@ -78,6 +81,110 @@ export function isMakeupCancelledOrderRow(row: OrderRow): boolean {
 
 export function isMakeupSyntheticOrderRow(row: OrderRow): boolean {
   return isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row);
+}
+
+/** [changmen 扩展] 手动改绑：源 Link 须严格新于目标 Link */
+export function canRebindOrderLinkTo(
+  fromLink: number | null | undefined,
+  toLink: number | null | undefined,
+): boolean {
+  const from = Number(fromLink);
+  const to = Number(toLink);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from === 0 || to === 0)
+    return false;
+  if (from === to)
+    return false;
+  return orderLinkSortKey(from) > orderLinkSortKey(to);
+}
+
+/** 从 bet 抽出地图槽（全场 / 地图N）；无法识别则 "—" */
+export function parseOrderBetMapLabel(bet: string | null | undefined): string {
+  const s = String(bet || "").trim();
+  if (!s)
+    return "—";
+  const bracketMap = /^\[地图\s*(\d+)\]/.exec(s);
+  if (bracketMap)
+    return `地图${bracketMap[1]}`;
+  const bracketFull = /^\[全场\]/.exec(s);
+  if (bracketFull)
+    return "全场";
+  const plainMap = /^地图\s*(\d+)/.exec(s);
+  if (plainMap)
+    return `地图${plainMap[1]}`;
+  const enMap = /^Map\s*(\d+)\b/i.exec(s);
+  if (enMap)
+    return `地图${enMap[1]}`;
+  if (/全场/.test(s))
+    return "全场";
+  return "—";
+}
+
+/** 归一化对阵：去 HTML、运动前缀、Game/Map 后缀；主客对调视为同场 */
+export function normalizeOrderMatchKey(match: string | null | undefined): string {
+  let raw = String(match || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!raw)
+    return "";
+  // PM 等：`LoL: Team A vs Team B - Game 2 Winner`
+  raw = raw.replace(
+    /^(lol|league of legends|dota\s*2?|cs:?go|cs2|counter[- ]?strike|valorant|val|kog|王者荣耀|英雄联盟)\s*[:：\-–—]\s*/i,
+    "",
+  );
+  const parts = raw.split(/\s+vs\.?\s+|\s+v\.?\s+/i);
+  if (parts.length === 2) {
+    const clean = (s: string) => s
+      .replace(/\s*[-–—]\s*(game|map|地图)\s*\d+\b.*$/i, "")
+      .replace(/\s*[-–—]\s*.*\b(winner|获胜|胜负)\b.*$/i, "")
+      .trim();
+    const a = clean(parts[0]);
+    const b = clean(parts[1]);
+    if (a && b)
+      return [a, b].sort().join(" vs ");
+  }
+  return raw;
+}
+
+export type OrderMatchMapFields = {
+  Match?: string | null;
+  Bet?: string | null;
+  match?: string | null;
+  bet?: string | null;
+};
+
+/** [changmen 扩展] 同场且同地图槽才允许手动关联 */
+export function isSameOrderMatchMap(a: OrderMatchMapFields, b: OrderMatchMapFields): boolean {
+  const matchA = normalizeOrderMatchKey(a.Match ?? a.match);
+  const matchB = normalizeOrderMatchKey(b.Match ?? b.match);
+  if (!matchA || !matchB || matchA !== matchB)
+    return false;
+  const mapA = parseOrderBetMapLabel(a.Bet ?? a.bet);
+  const mapB = parseOrderBetMapLabel(b.Bet ?? b.bet);
+  if (mapA === "—" || mapB === "—")
+    return false;
+  return mapA === mapB;
+}
+
+/** 真实 RDS 订单行（可拖场馆徽章改绑） */
+export function isRebindableOrderRow(row: OrderRow): boolean {
+  if (isMakeupSyntheticOrderRow(row))
+    return false;
+  const id = String(row.OrderID ?? "").trim();
+  if (!id || id.startsWith("makeup-"))
+    return false;
+  const link = Number(row.Link);
+  return Number.isFinite(link) && link !== 0;
+}
+
+/** 拖放改绑：仅校验新→老 Link（同场同图由用户在确认框核对） */
+export function canRebindOrderOnto(
+  from: { Link?: number },
+  to: { Link?: number },
+): boolean {
+  return canRebindOrderLinkTo(from.Link, to.Link);
 }
 
 export function makeupBetIdFromPendingRow(row: OrderRow): number | null {
@@ -173,7 +280,7 @@ export function mergePendingMakeupIntoOrderGroups(
   groups: Map<number, OrderRow[]>,
   loseOrders: Map<number, LoseOrder>,
   makeProfit: number,
-  cancelledMakeup: Map<number, LoseOrderCancelledRecord> = new Map(),
+  _cancelledMakeup: Map<number, LoseOrderCancelledRecord> = new Map(),
 ): Map<number, OrderRow[]> {
   const allRows: OrderRow[] = [];
   for (const rows of groups.values())
@@ -186,14 +293,7 @@ export function mergePendingMakeupIntoOrderGroups(
       continue;
     allRows.push(loseOrderToPendingRow(order, makeProfit));
   }
-  for (const record of cancelledMakeup.values()) {
-    if (!record.linkId)
-      continue;
-    const syntheticId = `makeup-cancelled-${record.betId}`;
-    if (allRows.some(r => String(r.OrderID) === syntheticId))
-      continue;
-    allRows.push(loseOrderToCancelledRow(record));
-  }
+  // 手动取消的补单不再并入侧栏（取消即消失，不留 MakeupCancelled 占位）
   return groupOrdersByLink(allRows);
 }
 

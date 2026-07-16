@@ -134,7 +134,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(publishLoseOrderMessage).not.toHaveBeenCalled();
   });
 
-  it("cancelMakeupManually moves queue item to cancelled and removes active entry", () => {
+  it("cancelMakeupManually removes queue item without keeping cancelled placeholder", () => {
     const store = useLoseOrderStore();
     store.createOrder(
       new LoseOrder({
@@ -154,32 +154,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     );
     store.cancelMakeupManually(42);
     expect(store.orders.has(42)).toBe(false);
-    expect(store.cancelledOrders.get(42)?.linkId).toBe(999);
-    expect(store.cancelledOrders.get(42)?.cancelledAt).toBeGreaterThan(0);
-  });
-
-  it("cancelMakeupManually replaces cancelledOrders Map for reactivity", () => {
-    const store = useLoseOrderStore();
-    store.createOrder(
-      new LoseOrder({
-        accountId: 1,
-        matchId: 1,
-        betId: 42,
-        target: "Away",
-        betMoney: 100,
-        betOdds: 2.1,
-        match: "A vs B",
-        bet: "map1",
-        linkId: 999,
-        createAt: Date.now(),
-        isCreateOrder: false,
-        betCount: 1,
-      }),
-    );
-    const before = store.cancelledOrders;
-    store.cancelMakeupManually(42);
-    expect(store.cancelledOrders).not.toBe(before);
-    expect(store.cancelledOrders.size).toBe(1);
+    expect(store.cancelledOrders.has(42)).toBe(false);
   });
 
   it("removeOrders keeps arb-linked makeup when bet left match list", () => {

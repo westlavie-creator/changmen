@@ -25,6 +25,7 @@ export const ESPORT_ACTIONS = [
   "Client_GetOrderList",
   "Client_SaveOrder",
   "Client_SaveOrderBind",
+  "Client_RebindOrderLink",
   "API_SaveScore",
   "Client_SaveMoneyLog",
   "Client_DeleteMoneyLog",

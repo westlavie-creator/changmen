@@ -454,4 +454,9 @@ export async function saveOrderBind(orders, userId) {
   return ok;
 }
 
+/** [changmen 扩展] 侧栏手动改绑单笔 Link（新→老） */
+export async function rebindOrderLink(userId, orderId, toLinkId) {
+  return sb.rebindOrderLink(userId, orderId, toLinkId);
+}
+
 export function ensureSeed() {}

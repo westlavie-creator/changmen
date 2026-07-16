@@ -4,6 +4,10 @@ import {
   ARB_LINK_MIN,
   backendBindLinkFromCreateAt,
   CLIENT_ORDER_LIST_SQL,
+  canRebindLinkNewerToOlder,
+  isSameOrderMatchMap,
+  normalizeOrderMatchKey,
+  parseBetMapLabel,
   isArbBindLink,
   isBackendBindPlaceholderLink,
   isClientOrderListVisible,
@@ -12,6 +16,7 @@ import {
   isInsertTimePlaceholderLink,
   isOrderListVisible,
   isPbHashOrder,
+  orderLinkSortKey,
   orderVisibleSqlAnd,
   placeholderLinkFromCreateAt,
   placeholderLinkFromInsertAt,
@@ -157,6 +162,48 @@ describe("order_link_filter", () => {
       shouldAllowOrderBind(
         { link: createAt2 - 1, create_at: createAt2 },
         1_783_646_881_736,
+      ),
+      true,
+    );
+  });
+
+  it("orderLinkSortKey and canRebindLinkNewerToOlder enforce newer→older", () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    assert.equal(orderLinkSortKey(newer) > orderLinkSortKey(older), true);
+    assert.equal(canRebindLinkNewerToOlder(newer, older), true);
+    assert.equal(canRebindLinkNewerToOlder(older, newer), false);
+    assert.equal(canRebindLinkNewerToOlder(newer, newer), false);
+    assert.equal(canRebindLinkNewerToOlder(0, older), false);
+  });
+
+  it("isSameOrderMatchMap requires same match and map", () => {
+    assert.equal(parseBetMapLabel("[地图2] 获胜"), "地图2");
+    assert.equal(normalizeOrderMatchKey("B vs A"), normalizeOrderMatchKey("A vs B"));
+    assert.equal(
+      isSameOrderMatchMap(
+        { match: "A vs B", bet: "[地图2] 获胜" },
+        { match: "B vs A", bet: "[地图2] 让分" },
+      ),
+      true,
+    );
+    assert.equal(
+      isSameOrderMatchMap(
+        { match: "A vs B", bet: "[地图2] 获胜" },
+        { match: "A vs B", bet: "[地图1] 获胜" },
+      ),
+      false,
+    );
+    assert.equal(
+      isSameOrderMatchMap(
+        {
+          match: "LoL: Team Secret vs Karmine Corp - Game 2 Winner",
+          bet: "地图2",
+        },
+        {
+          match: "Team Secret vs Karmine Corp",
+          bet: "[地图2]单局 - 获胜",
+        },
       ),
       true,
     );

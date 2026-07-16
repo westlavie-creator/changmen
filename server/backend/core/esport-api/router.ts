@@ -476,6 +476,10 @@ async function handle(
       const saved = await accountService.handleSaveOrderBind(body, ctx.user.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
+    case "Client_RebindOrderLink": {
+      const rebound = await accountService.handleRebindOrderLink(body, ctx.user.id);
+      return rebound.ok ? ok(rebound.info) : fail(rebound.msg);
+    }
     case "API_SaveScore":
       return ok(true);
     case "Client_SaveMoneyLog": {

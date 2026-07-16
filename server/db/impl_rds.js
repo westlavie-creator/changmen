@@ -68,6 +68,7 @@ export {
   setOrdersBoundHook,
   setOrdersInsertedHook,
   updateOrderBind,
+  rebindOrderLink,
   upsertOrders,
 } from "./rds/orders_store.js";
 

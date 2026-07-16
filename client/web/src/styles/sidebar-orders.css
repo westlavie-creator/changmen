@@ -453,3 +453,55 @@
 .orders.loading .orderlink {
   visibility: hidden;
 }
+
+/* [changmen 扩展] 场馆徽章拖放改绑 Link */
+.orders .order__platform-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  touch-action: none;
+  user-select: none;
+}
+
+.orders .order__platform-badge--rebindable {
+  cursor: grab;
+}
+
+.orders .order__platform-badge--rebindable:active,
+.orders .order__platform-badge--dragging {
+  cursor: grabbing;
+}
+
+.orders .order__platform-badge--dragging {
+  box-shadow: 0 0 0 2px #7ec8ff;
+  opacity: 0.85;
+}
+
+.orders .order__platform-badge--drop-ok {
+  box-shadow: 0 0 0 2px #67c23a, 0 0 10px rgba(103, 194, 58, 0.55);
+}
+
+.orders--rebind-active .order__platform-badge--drop-blocked {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+body.order-link-rebind-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.order-link-rebind-line {
+  pointer-events: none;
+}
+
+/* 改绑确认：多行展示两单对阵/盘口/选项 */
+.order-link-rebind-confirm .el-message-box__message {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  max-height: min(60vh, 420px);
+  overflow: auto;
+}

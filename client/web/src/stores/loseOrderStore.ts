@@ -191,24 +191,12 @@ export const useLoseOrderStore = defineStore("loseorder", {
       this.persist();
     },
 
-    /** [changmen 扩展] 侧栏补单行手动取消：出队但保留 Link 组展示 */
+    /** [changmen 扩展] 侧栏补单行手动取消：出队即消失，不留占位行 */
     cancelMakeupManually(betId: number) {
       const existing = this.orders.get(betId);
       if (!existing)
         return;
-      const nextCancelled = new Map(this.cancelledOrders);
-      nextCancelled.set(betId, {
-        betId,
-        linkId: existing.linkId,
-        match: existing.match,
-        bet: existing.bet,
-        target: existing.target,
-        createAt: existing.createAt,
-        cancelledAt: Date.now(),
-      });
-      this.cancelledOrders = nextCancelled;
       this.removeOrder(betId, true);
-      this.persistCancelled();
       void import("@/stores/activeBetRunStore")
         .then(({ useActiveBetRunStore }) => useActiveBetRunStore().removeRun(betId))
         .catch(() => {});

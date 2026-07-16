@@ -372,6 +372,27 @@ async function handleSaveOrderBind(body, userId) {
   return { ok: true, info: true };
 }
 
+/** [changmen 扩展] 侧栏手动改绑：单笔订单 link 新→老 */
+async function handleRebindOrderLink(body, userId) {
+  const orderId = String(body?.orderId ?? body?.OrderID ?? "").trim();
+  const toLinkId = Number(body?.toLinkId ?? body?.toLink ?? body?.LinkID);
+  if (!orderId)
+    return { ok: false, msg: "orderId 必填" };
+  if (!Number.isFinite(toLinkId) || toLinkId === 0)
+    return { ok: false, msg: "toLinkId 无效" };
+  const result = await orderStore.rebindOrderLink(userId, orderId, toLinkId);
+  if (!result?.ok)
+    return { ok: false, msg: result?.msg || "改绑失败" };
+  return {
+    ok: true,
+    info: {
+      orderId: result.orderId,
+      fromLinkId: result.fromLinkId,
+      toLinkId: result.toLinkId,
+    },
+  };
+}
+
 function syncAccountRowInKv(accountId, updates, userId) {
   const list = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
   const idx = list.findIndex(row => String(row.accountId) === String(accountId));
@@ -560,6 +581,7 @@ export {
   handleSaveMoneyLog,
   handleSaveOrder,
   handleSaveOrderBind,
+  handleRebindOrderLink,
   handleSaveUserLog,
   handleUpdateBalance,
   refreshAccountBalance,

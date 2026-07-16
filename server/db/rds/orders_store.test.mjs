@@ -5,6 +5,7 @@ import {
   fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,
+  rebindOrderLink,
   setOrdersBoundHook,
   updateOrderBind,
   upsertOrders,
@@ -354,5 +355,120 @@ describe("updateOrderBind bound hook", () => {
     expect(ok).toBe(false);
     expect(hook).not.toHaveBeenCalled();
     expect(queryMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("rebindOrderLink", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("updates single order when from link is newer than to link", async () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: "src",
+          user_id: "u1",
+          link: newer,
+          provider: "OB",
+          match: "A vs B",
+          bet: "[地图1] 获胜",
+        }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: "peer",
+          user_id: "u1",
+          link: older,
+          match: "A vs B",
+          bet: "[地图1] 让分",
+        }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    const result = await rebindOrderLink("u1", "src", older);
+
+    expect(result.ok).toBe(true);
+    expect(result.fromLinkId).toBe(newer);
+    expect(result.toLinkId).toBe(older);
+    const updateCall = queryMock.mock.calls.find(([sql]) => String(sql).includes("UPDATE orders SET link"));
+    expect(updateCall).toBeTruthy();
+    expect(updateCall[1]).toEqual([older, "u1", "src"]);
+  });
+
+  it("refuses older→newer rebind", async () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    queryMock.mockResolvedValueOnce({
+      rows: [{
+        order_id: "src",
+        user_id: "u1",
+        link: older,
+        provider: "OB",
+        match: "A vs B",
+        bet: "[地图1] 获胜",
+      }],
+    });
+
+    const result = await rebindOrderLink("u1", "src", newer);
+
+    expect(result.ok).toBe(false);
+    expect(result.msg).toMatch(/较新/);
+    expect(queryMock).toHaveBeenCalledOnce();
+  });
+
+  it("refuses when target link has no peer orders", async () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: "src",
+          user_id: "u1",
+          link: newer,
+          provider: "OB",
+          match: "A vs B",
+          bet: "[地图1] 获胜",
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await rebindOrderLink("u1", "src", older);
+
+    expect(result.ok).toBe(false);
+    expect(result.msg).toMatch(/目标 Link/);
+  });
+
+  it("allows rebind when match or map differs from target peers", async () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    queryMock
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: "src",
+          user_id: "u1",
+          link: newer,
+          provider: "OB",
+          match: "A vs B",
+          bet: "[地图1] 获胜",
+        }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          order_id: "peer",
+          user_id: "u1",
+          link: older,
+          match: "A vs B",
+          bet: "[地图2] 获胜",
+        }],
+      })
+      .mockResolvedValueOnce({ rowCount: 1 });
+
+    const result = await rebindOrderLink("u1", "src", older);
+
+    expect(result.ok).toBe(true);
+    expect(result.toLinkId).toBe(older);
   });
 });

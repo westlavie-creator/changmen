@@ -90,6 +90,10 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
 function onCancelMakeup(betId: number) {
   loseStore.cancelMakeupManually(betId);
 }
+
+async function onLinkRebindDone() {
+  await reload();
+}
 </script>
 
 <template>
@@ -138,7 +142,9 @@ function onCancelMakeup(betId: number) {
     :loading="loading || viewLoading"
     :player-label="playerLabel"
     :platform-class="platformClass"
+    :allow-link-rebind="!embedded"
     @cancel-makeup="onCancelMakeup"
+    @link-rebind-done="onLinkRebindDone"
   />
   </div>
 </template>

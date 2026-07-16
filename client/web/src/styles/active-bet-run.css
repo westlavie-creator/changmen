@@ -177,6 +177,7 @@
   line-height: 1.35;
   min-width: 0;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -243,7 +244,7 @@
   gap: 2px;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: 120px;
+  /* 吃满 300px 面板剩余高度，内容多了再滚，避免框很高却只滚 120px */
   overflow-y: auto;
 }
 

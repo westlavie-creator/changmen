@@ -1,10 +1,14 @@
 import { LoseOrder } from "@/models/loseOrder";
 import { describe, expect, it } from "vitest";
 import {
+  canRebindOrderLinkTo,
+  canRebindOrderOnto,
+  isSameOrderMatchMap,
   compareOrderLinkDesc,
   computeOrderGroupProfit,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
+  isRebindableOrderRow,
   linkIdGroupKey,
   loseOrderToPendingRow,
   makeupPendingProfitLabel,
@@ -176,7 +180,7 @@ describe("orderLink A8 parity", () => {
     expect(makeupPendingProfitLabel(row)).toBe("下单中");
   });
 
-  it("mergePendingMakeupIntoOrderGroups folds cancelled makeup into arb link", () => {
+  it("mergePendingMakeupIntoOrderGroups does not fold cancelled makeup into arb link", () => {
     const link = 1_700_000_000_999;
     const groups = groupOrdersByLink([
       { OrderID: "pm-1", Link: link, Type: "Polymarket", Status: "None", BetMoney: 100, Odds: 2.6 },
@@ -196,7 +200,77 @@ describe("orderLink A8 parity", () => {
       ],
     ]);
     const merged = mergePendingMakeupIntoOrderGroups(groups, new Map(), 1.01, cancelled);
-    expect(merged.get(link)?.map(r => r.OrderID)).toEqual(["pm-1", "makeup-cancelled-42"]);
-    expect(merged.get(link)?.[1]?.Player?.UserName).toBe("补单已手动取消");
+    expect(merged.get(link)?.map(r => r.OrderID)).toEqual(["pm-1"]);
+  });
+
+  it("canRebindOrderLinkTo only allows newer link onto older link", () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    expect(canRebindOrderLinkTo(newer, older)).toBe(true);
+    expect(canRebindOrderLinkTo(older, newer)).toBe(false);
+    expect(canRebindOrderLinkTo(newer, newer)).toBe(false);
+  });
+
+  it("isSameOrderMatchMap requires same match and map slot", () => {
+    expect(isSameOrderMatchMap(
+      { Match: "A vs B", Bet: "[地图2] 获胜" },
+      { Match: "B vs A", Bet: "[地图2] 让分" },
+    )).toBe(true);
+    expect(isSameOrderMatchMap(
+      { Match: "A vs B", Bet: "[地图2] 获胜" },
+      { Match: "A vs B", Bet: "[地图1] 获胜" },
+    )).toBe(false);
+    expect(isSameOrderMatchMap(
+      { Match: "A vs B", Bet: "[地图2] 获胜" },
+      { Match: "C vs D", Bet: "[地图2] 获胜" },
+    )).toBe(false);
+    expect(isSameOrderMatchMap(
+      { Match: "A vs B", Bet: "未知盘口" },
+      { Match: "A vs B", Bet: "未知盘口" },
+    )).toBe(false);
+  });
+
+  it("isSameOrderMatchMap tolerates PM LoL/Game suffix vs venue title", () => {
+    expect(isSameOrderMatchMap(
+      {
+        Match: "LoL: Team Secret vs Karmine Corp - Game 2 Winner",
+        Bet: "地图2",
+      },
+      {
+        Match: "Team Secret vs Karmine Corp",
+        Bet: "[地图2]单局 - 获胜",
+      },
+    )).toBe(true);
+  });
+
+  it("canRebindOrderOnto only checks newer→older link", () => {
+    const older = 1_700_000_000_100;
+    const newer = 1_700_000_000_200;
+    expect(canRebindOrderOnto(
+      { Link: newer, Match: "A vs B", Bet: "[地图1] 获胜" },
+      { Link: older, Match: "A vs B", Bet: "[地图1] 让分" },
+    )).toBe(true);
+    expect(canRebindOrderOnto(
+      { Link: newer, Match: "A vs B", Bet: "[地图1] 获胜" },
+      { Link: older, Match: "C vs D", Bet: "[地图2] 获胜" },
+    )).toBe(true);
+    expect(canRebindOrderOnto(
+      { Link: older },
+      { Link: newer },
+    )).toBe(false);
+  });
+
+  it("isRebindableOrderRow excludes makeup synthetics", () => {
+    expect(isRebindableOrderRow({
+      OrderID: "real-1",
+      Link: 1_700_000_000_100,
+      Type: "OB",
+      Status: "Win",
+    } as any)).toBe(true);
+    expect(isRebindableOrderRow({
+      OrderID: "makeup-42",
+      Link: 1_700_000_000_100,
+      Status: "Makeup",
+    } as any)).toBe(false);
   });
 });

@@ -2,7 +2,11 @@
  * orders 表读写 — upsert、查询、管理端、SaveOrderBind。
  */
 
-import { shouldAllowOrderBind, shouldFireOrderBoundHook } from "../order_link_filter.js";
+import {
+  canRebindLinkNewerToOlder,
+  shouldAllowOrderBind,
+  shouldFireOrderBoundHook,
+} from "../order_link_filter.js";
 import { _jsonb, getPgPool } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
@@ -638,6 +642,73 @@ export async function updateOrderBind(orderId, userId, link, opts = {}) {
       `| opts=${JSON.stringify(opts)}`,
     );
     return false;
+  }
+}
+
+/**
+ * [changmen 扩展] 用户侧栏手动改绑：单笔 order 的 link 改为 toLink（仅新→老）。
+ * 不走 shouldAllowOrderBind。
+ * @returns {{ ok: boolean, msg?: string, orderId?: string, fromLinkId?: number, toLinkId?: number }}
+ */
+export async function rebindOrderLink(userId, orderId, toLinkId) {
+  const uid = String(userId || "").trim();
+  const oid = String(orderId || "").trim();
+  const toLink = Number(toLinkId);
+  if (!uid || !oid)
+    return { ok: false, msg: "orderId 必填" };
+  if (!Number.isFinite(toLink) || toLink === 0)
+    return { ok: false, msg: "toLinkId 无效" };
+
+  const pool = getPgPool();
+  if (!pool)
+    return { ok: false, msg: "数据库不可用" };
+
+  try {
+    const prev = await fetchOrderByOrderId(uid, oid);
+    if (!prev)
+      return { ok: false, msg: "订单不存在" };
+
+    const fromLink = Number(prev.link) || 0;
+    if (fromLink === toLink)
+      return { ok: true, orderId: oid, fromLinkId: fromLink, toLinkId: toLink };
+
+    if (!canRebindLinkNewerToOlder(fromLink, toLink)) {
+      return {
+        ok: false,
+        msg: "只能把较新的 Link 并入较老的 Link",
+        orderId: oid,
+        fromLinkId: fromLink,
+        toLinkId: toLink,
+      };
+    }
+
+    const peers = await fetchOrdersByLink(uid, toLink);
+    if (!peers.length) {
+      return {
+        ok: false,
+        msg: "目标 Link 下没有本用户订单",
+        orderId: oid,
+        fromLinkId: fromLink,
+        toLinkId: toLink,
+      };
+    }
+
+    const res = await pool.query(
+      `UPDATE orders SET link = $1 WHERE user_id = $2 AND order_id = $3`,
+      [toLink, uid, oid],
+    );
+    if (!(res.rowCount > 0))
+      return { ok: false, msg: "更新失败", orderId: oid, fromLinkId: fromLink, toLinkId: toLink };
+
+    console.info(
+      "[rds] rebindOrderLink:",
+      `| userId=${uid} orderId=${oid} from=${fromLink} to=${toLink}`,
+    );
+    return { ok: true, orderId: oid, fromLinkId: fromLink, toLinkId: toLink };
+  }
+  catch (err) {
+    console.warn("[rds] rebindOrderLink:", err.message, `| orderId=${oid} to=${toLink}`);
+    return { ok: false, msg: err.message || "改绑失败" };
   }
 }
 
