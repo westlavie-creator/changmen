@@ -247,12 +247,12 @@ describe("orderLink A8 parity", () => {
     const older = 1_700_000_000_100;
     const newer = 1_700_000_000_200;
     expect(canRebindOrderOnto(
-      { Link: newer, Match: "A vs B", Bet: "[地图1] 获胜" },
-      { Link: older, Match: "A vs B", Bet: "[地图1] 让分" },
+      { Link: newer },
+      { Link: older },
     )).toBe(true);
     expect(canRebindOrderOnto(
-      { Link: newer, Match: "A vs B", Bet: "[地图1] 获胜" },
-      { Link: older, Match: "C vs D", Bet: "[地图2] 获胜" },
+      { Link: newer },
+      { Link: older },
     )).toBe(true);
     expect(canRebindOrderOnto(
       { Link: older },

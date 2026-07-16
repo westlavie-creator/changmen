@@ -13,10 +13,10 @@ export async function writeClientMatches(info, builtAt = Date.now()) {
 
   try {
     const { setClientMatchesFromMatchMerge } = await import(
-      "../../backend/core/db/store.js"
+      "../../../backend/core/db/store.js"
     );
     const { isEmbeddedMatcher } = await import(
-      "../../backend/core/shared/matcher_mode.js"
+      "../../../backend/core/shared/matcher_mode.js"
     );
     if (isEmbeddedMatcher())
       setClientMatchesFromMatchMerge(info, builtAt);
@@ -26,7 +26,7 @@ export async function writeClientMatches(info, builtAt = Date.now()) {
   }
 
   try {
-    const store = (await import("../../backend/core/esport-api/store.js")).default;
+    const store = (await import("../../../backend/core/esport-api/store.js")).default;
     store.patchCollectorMatchClientIds?.(info);
   }
   catch (err) {
