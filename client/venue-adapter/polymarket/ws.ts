@@ -76,8 +76,14 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
 
   function connect() {
     if (stopped || ws) return;
+    const url = resolvePolymarketMarketWsUrl();
+    if (!url) {
+      setPolymarketWsStatus("error");
+      scheduleReconnect();
+      return;
+    }
     setPolymarketWsStatus("connecting");
-    ws = new WebSocket(resolvePolymarketMarketWsUrl());
+    ws = new WebSocket(url);
 
     ws.onopen = () => {
       setPolymarketWsStatus("connected");

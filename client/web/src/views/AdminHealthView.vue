@@ -38,6 +38,25 @@ interface EsportApiHealth {
   slowRecent: EsportSlowRow[];
   byAction: EsportActionStat[];
 }
+interface PmMarketHubClient {
+  id: number;
+  userId?: string;
+  assetCount: number;
+  connectedForSec: number;
+  idleSubscribeSec: number | null;
+  lastBufferedAmount: number;
+  droppedToClient: number;
+  sentToClient: number;
+  remoteAddress: string;
+  xForwardedFor?: string;
+  userAgent: string;
+}
+interface PmMarketHubStatus {
+  activeClients: number;
+  subscribedAssets: number;
+  upstreamConnected: boolean;
+  slowClients: PmMarketHubClient[];
+}
 interface HealthData {
   status: string;
   uptime: number;
@@ -49,6 +68,7 @@ interface HealthData {
     enabled: boolean;
     platforms: string[];
     platformStats?: Record<string, PlatformStat>;
+    hubs?: { pmMarket?: PmMarketHubStatus } | null;
   };
   esportApi?: EsportApiHealth;
 }
@@ -343,6 +363,77 @@ onUnmounted(() => {
             <span />
             <span class="health-val--bad">{{ health.wsForward.platformStats[pid].lastError }}</span>
           </div>
+        </div>
+      </div>
+
+      <!-- PM-MARKET Hub 连接监测 -->
+      <div
+        v-if="health.wsForward.hubs?.pmMarket"
+        class="health-card health-card--wide"
+      >
+        <div class="health-card__title">
+          PM-MARKET Hub
+        </div>
+        <div class="health-row">
+          <span>上游</span>
+          <el-tag
+            :type="health.wsForward.hubs.pmMarket.upstreamConnected ? 'success' : 'info'"
+            size="small"
+            effect="dark"
+          >
+            {{ health.wsForward.hubs.pmMarket.upstreamConnected ? '已连接' : '未连接' }}
+          </el-tag>
+        </div>
+        <div class="health-row">
+          <span>客户端</span>
+          <span class="health-val">
+            {{ health.wsForward.hubs.pmMarket.activeClients }} 连接
+            <span class="health-sub">
+              · 上游订阅 {{ health.wsForward.hubs.pmMarket.subscribedAssets }} assets
+            </span>
+          </span>
+        </div>
+        <div
+          v-if="health.wsForward.hubs.pmMarket.slowClients?.length"
+          class="health-api-table-wrap"
+        >
+          <table class="health-api-table">
+            <thead>
+              <tr>
+                <th>userId</th>
+                <th>IP</th>
+                <th>assets</th>
+                <th>drop</th>
+                <th>buf</th>
+                <th>时长</th>
+                <th>UA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in health.wsForward.hubs.pmMarket.slowClients"
+                :key="row.id"
+              >
+                <td>{{ row.userId || '—' }}</td>
+                <td>{{ row.remoteAddress || '—' }}</td>
+                <td>{{ row.assetCount }}</td>
+                <td :class="{ 'health-val--bad': row.droppedToClient > 0 }">
+                  {{ row.droppedToClient }}
+                </td>
+                <td>{{ row.lastBufferedAmount }}</td>
+                <td>{{ row.connectedForSec }}s</td>
+                <td class="health-sub">
+                  {{ row.userAgent || '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div
+          v-else
+          class="health-row health-row--sub"
+        >
+          <span class="health-sub">暂无客户端连接</span>
         </div>
       </div>
     </div>

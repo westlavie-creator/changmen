@@ -316,7 +316,12 @@ async function buildHealthData() {
       accounts: countAccounts(),
       clientMatches: matches?.length ?? 0,
     },
-    wsForward: { enabled: ws.enabled, platforms: ws.platforms, platformStats: ws.platformStats },
+    wsForward: {
+      enabled: ws.enabled,
+      platforms: ws.platforms,
+      platformStats: ws.platformStats,
+      hubs: ws.hubs || null,
+    },
     esportApi: getEsportRequestTimingSnapshot(),
   };
 }

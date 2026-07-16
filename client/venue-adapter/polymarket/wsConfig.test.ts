@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   PM_MARKET_WS_FORWARD_PATH,
   PM_USER_WS_FORWARD_PATH,
@@ -8,6 +8,7 @@ import {
 import { POLYMARKET_MARKET_WS, POLYMARKET_USER_WS } from "./api";
 import { resetPmMarketWsSourceModeForTests, setPmMarketWsSourceMode } from "./pmMarketWsMode";
 import { resetPmUserWsSourceModeForTests, setPmUserWsSourceMode } from "./pmUserWsMode";
+import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 
 vi.mock("@changmen/client-core/shared/hkRelayOrigin", () => ({
   resolveHkRelayHttpOrigin: () => "http://127.0.0.1:3560",
@@ -22,10 +23,18 @@ describe("polymarket wsConfig", () => {
   beforeEach(() => {
     resetPmMarketWsSourceModeForTests("changmen");
     resetPmUserWsSourceModeForTests("changmen");
+    setChangmenAuthTokenGetter(() => "test-jwt");
   });
 
-  test("changmen 模式走 ws-forward", () => {
-    expect(resolvePolymarketMarketWsUrl()).toBe(`ws://127.0.0.1:3560${PM_MARKET_WS_FORWARD_PATH}`);
+  test("changmen 模式走 ws-forward 并带 token", () => {
+    expect(resolvePolymarketMarketWsUrl()).toBe(
+      `ws://127.0.0.1:3560${PM_MARKET_WS_FORWARD_PATH}?token=test-jwt`,
+    );
+  });
+
+  test("changmen 模式无 token 返回 null", () => {
+    setChangmenAuthTokenGetter(() => null);
+    expect(resolvePolymarketMarketWsUrl()).toBeNull();
   });
 
   test("official 模式直连 Polymarket", () => {

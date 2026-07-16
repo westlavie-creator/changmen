@@ -1,8 +1,10 @@
 /**
  * Polymarket MARKET WebSocket Hub — 全站合并 asset 订阅，单条上游连 PM。
  * 浏览器仍连 /esport/ws-forward/PM-MARKET；PM-USER 保持 1:1 raw 转发。
+ * 升级握手要求 JWT（?token= 或 Authorization: Bearer）。
  */
 import { WebSocketServer, WebSocket } from "ws";
+import store from "../../backend/core/esport-api/store.js";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
 import { createWsRelayGuard } from "./ws_backpressure.js";
@@ -14,6 +16,7 @@ const UPSTREAM_IDLE_MS = 60_000;
 
 /** @typedef {{
  *   id: number,
+ *   userId: string,
  *   assetIds: Set<string>,
  *   connectedAt: number,
  *   lastSubscribeAt: number,
@@ -24,6 +27,43 @@ const UPSTREAM_IDLE_MS = 60_000;
  *   xForwardedFor: string,
  *   userAgent: string,
  * }} HubClient */
+
+/**
+ * 从 upgrade 请求提取 JWT（query token 优先，其次 Authorization Bearer / token 头）。
+ * @param {{ url?: string, headers?: Record<string, string|string[]|undefined> }} request
+ * @returns {string}
+ */
+export function extractPmMarketUpgradeToken(request) {
+  try {
+    const u = new URL(request?.url || "/", "http://localhost");
+    const q = String(u.searchParams.get("token") || "").trim();
+    if (q)
+      return q;
+  }
+  catch { /* ignore */ }
+  const headers = request?.headers || {};
+  const rawAuth = headers.authorization ?? headers.Authorization;
+  const auth = Array.isArray(rawAuth) ? String(rawAuth[0] || "") : String(rawAuth || "");
+  const bearer = auth.match(/^Bearer\s+(.+)$/i);
+  if (bearer?.[1])
+    return bearer[1].trim();
+  const rawTok = headers.token ?? headers.Token;
+  const tok = Array.isArray(rawTok) ? String(rawTok[0] || "") : String(rawTok || "");
+  return tok.trim();
+}
+
+function rejectUpgrade(socket, status = 401, reason = "Unauthorized") {
+  try {
+    socket.write(
+      `HTTP/1.1 ${status} ${reason}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`,
+    );
+  }
+  catch { /* ignore */ }
+  try {
+    socket.destroy();
+  }
+  catch { /* ignore */ }
+}
 
 /** @type {WebSocketServer | null} */
 let wss = null;
@@ -341,9 +381,15 @@ function detachClient(clientWs) {
     ensureUpstream();
 }
 
-function attachClient(clientWs, request) {
+/**
+ * @param {import("ws").WebSocket} clientWs
+ * @param {import("node:http").IncomingMessage} request
+ * @param {{ userId?: string }} [meta]
+ */
+function attachClient(clientWs, request, meta = {}) {
   clients.set(clientWs, {
     id: nextClientId++,
+    userId: String(meta.userId || "").trim(),
     assetIds: new Set(),
     connectedAt: Date.now(),
     lastSubscribeAt: 0,
@@ -397,19 +443,41 @@ export function attachPmMarketHub(httpServer) {
     if (pathname !== PM_MARKET_HUB_PATH && !pathname.startsWith(`${PM_MARKET_HUB_PATH}/`))
       return;
 
-    wss.handleUpgrade(request, socket, head, (clientWs) => {
-      wss.emit("connection", clientWs, request);
-    });
+    void (async () => {
+      try {
+        const token = extractPmMarketUpgradeToken(request);
+        if (!token) {
+          rejectUpgrade(socket, 401, "Unauthorized");
+          return;
+        }
+        const user = await store.getUserByToken(token);
+        const userId = String(user?.id ?? user?.userId ?? "").trim();
+        if (!userId) {
+          rejectUpgrade(socket, 401, "Unauthorized");
+          return;
+        }
+        if (!wss || socket.destroyed)
+          return;
+        wss.handleUpgrade(request, socket, head, (clientWs) => {
+          wss.emit("connection", clientWs, request, { userId });
+        });
+      }
+      catch (err) {
+        recordError(HUB_ID, err?.message || "upgrade auth error");
+        rejectUpgrade(socket, 500, "Internal Server Error");
+      }
+    })();
   });
 
-  wss.on("connection", (clientWs, request) => {
-    attachClient(clientWs, request);
+  wss.on("connection", (clientWs, request, meta) => {
+    attachClient(clientWs, request, meta || {});
   });
 }
 
 export function getPmMarketHubStatus() {
   const rows = [...clients.values()].map(row => ({
     id: row.id,
+    userId: row.userId || "",
     assetCount: row.assetIds.size,
     connectedForSec: Math.max(0, Math.round((Date.now() - row.connectedAt) / 1000)),
     idleSubscribeSec: row.lastSubscribeAt

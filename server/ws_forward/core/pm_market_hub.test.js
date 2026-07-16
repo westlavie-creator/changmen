@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   extractAssetIdsFromPmMarketMessage,
+  extractPmMarketUpgradeToken,
   mergeHubAssetIds,
 } from "./pm_market_hub.js";
 
@@ -37,5 +38,26 @@ describe("pm_market_hub", () => {
       best_ask: "0.51",
     }));
     expect([...ids]).toEqual(["asset-home"]);
+  });
+
+  test("extractPmMarketUpgradeToken from query", () => {
+    expect(extractPmMarketUpgradeToken({
+      url: "/esport/ws-forward/PM-MARKET?token=abc%2B1",
+      headers: {},
+    })).toBe("abc+1");
+  });
+
+  test("extractPmMarketUpgradeToken from Bearer", () => {
+    expect(extractPmMarketUpgradeToken({
+      url: "/esport/ws-forward/PM-MARKET",
+      headers: { authorization: "Bearer tok-xyz" },
+    })).toBe("tok-xyz");
+  });
+
+  test("extractPmMarketUpgradeToken empty", () => {
+    expect(extractPmMarketUpgradeToken({
+      url: "/esport/ws-forward/PM-MARKET",
+      headers: {},
+    })).toBe("");
   });
 });
