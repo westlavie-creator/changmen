@@ -38,6 +38,25 @@ export async function fetchAllCanonicalTeams() {
   );
 }
 
+/**
+ * 队名映射 revision：合场进程用其判断是否需重载内存 plugin。
+ * 覆盖 insert / 待识别→已识别（gb 填充）/ 换 gb；不依赖 updated_at 列。
+ */
+export async function fetchTeamMapsRevision() {
+  const pool = getPgPool();
+  if (!pool)
+    return "0";
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::bigint AS n,
+            COUNT(gb_team_id)::bigint AS mapped,
+            COALESCE(SUM(gb_team_id), 0)::bigint AS gb_sum,
+            COALESCE(MAX(id), 0)::bigint AS max_id
+     FROM team_venue_maps`,
+  );
+  const r = rows[0] || {};
+  return `${r.n || 0}:${r.mapped || 0}:${r.gb_sum || 0}:${r.max_id || 0}`;
+}
+
 export async function fetchAllTeamPlatformMaps() {
   const pool = getPgPool();
   const pidCol = await resolveVenueTeamIdColumn(pool);

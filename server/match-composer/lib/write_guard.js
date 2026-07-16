@@ -12,7 +12,10 @@ import {
   readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
 } from "../../matcher/lib/heartbeat.js";
-import { COMPOSER_HEARTBEAT_PATH } from "./heartbeat.js";
+import {
+  COMPOSER_HEARTBEAT_PATH,
+  sanitizeComposerHeartbeat,
+} from "./heartbeat.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTOR_HB = path.join(__dirname, "../../match-projector/.projector-heartbeat.json");
@@ -82,8 +85,9 @@ export function assertComposerMayWrite(opts = {}) {
     };
   }
 
-  // 其它 composer WRITE 进程（viaMatcherWriter 也必须挡）
+  // 其它 composer WRITE 进程（viaMatcherWriter 也必须挡）；已死 pid 先清掉
   if (process.env.MATCH_COMPOSER_ALLOW_MULTI !== "1") {
+    sanitizeComposerHeartbeat();
     const peer = heartbeatActive(COMPOSER_HEARTBEAT_PATH, { requireWrote: true });
     if (peer) {
       const peerPid = Number(peer.pid) || 0;

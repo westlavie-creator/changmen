@@ -46,16 +46,34 @@ describe("write_guard", () => {
     assert.match(g.reason, /projector/i);
   });
 
-  it("viaMatcherWriter still blocked by other composer WRITE", () => {
+  it("viaMatcherWriter still blocked by other live composer WRITE", () => {
+    const otherPid = process.ppid && process.ppid !== process.pid
+      ? process.ppid
+      : null;
+    if (!otherPid) {
+      // 无可用存活异 pid 时跳过（sanitize 会清掉已死 pid）
+      return;
+    }
+    fs.writeFileSync(COMPOSER_HEARTBEAT_PATH, JSON.stringify({
+      mode: "composer",
+      wrote: true,
+      lastRun: Date.now(),
+      pid: otherPid,
+    }));
+    const g = assertComposerMayWrite({ skipMatcherHeartbeat: true });
+    assert.equal(g.ok, false);
+    assert.match(g.reason, /composer WRITE/i);
+  });
+
+  it("dead composer WRITE pid does not block", () => {
     fs.writeFileSync(COMPOSER_HEARTBEAT_PATH, JSON.stringify({
       mode: "composer",
       wrote: true,
       lastRun: Date.now(),
       pid: process.pid + 12345,
     }));
-    const g = assertComposerMayWrite({ skipMatcherHeartbeat: true });
-    assert.equal(g.ok, false);
-    assert.match(g.reason, /composer WRITE/i);
+    assert.equal(assertComposerMayWrite({ skipMatcherHeartbeat: true }).ok, true);
+    assert.equal(fs.existsSync(COMPOSER_HEARTBEAT_PATH), false);
   });
 
   it("same pid composer HB does not block", () => {

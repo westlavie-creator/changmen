@@ -1,5 +1,5 @@
 import { attachForwardEngine, closeForwardEngine } from "./core/forward_engine.js";
-import { attachPmMarketHub, closePmMarketHub } from "./core/pm_market_hub.js";
+import { attachPmMarketHub, closePmMarketHub, getPmMarketHubStatus } from "./core/pm_market_hub.js";
 import { attachPredictFunMarketHub, closePredictFunMarketHub } from "./core/predictfun_market_hub.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
 import { getForwardStats } from "./core/forward_stats.js";
@@ -56,6 +56,9 @@ export function getWsForwardStatus() {
     wsForward: enabled,
     platforms,
     platformStats: stats,
+    hubs: {
+      pmMarket: getPmMarketHubStatus(),
+    },
   };
 }
 

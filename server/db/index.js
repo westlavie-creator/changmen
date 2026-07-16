@@ -184,6 +184,7 @@ export const {
 export const {
   fetchAllCanonicalTeams,
   fetchAllTeamPlatformMaps,
+  fetchTeamMapsRevision,
   fetchExistingTeamMapKeys,
   loadTeamMapsForMatcher,
   resolvePlatformMatchTeamId,

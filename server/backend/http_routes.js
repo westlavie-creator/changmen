@@ -216,6 +216,8 @@ export function createHttpHandler({ port, serveStatic }) {
           wsRelay: ws.wsForward,
           wsForward: ws.wsForward,
           platforms: ws.platforms,
+          platformStats: ws.platformStats,
+          hubs: ws.hubs,
         });
         return;
       }

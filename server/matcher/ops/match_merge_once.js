@@ -35,15 +35,22 @@ import "../lib/env.js";
  */
 
 let _pluginReady = null;
+/** @type {string|null} */
+let _pluginMapsRevision = null;
 let _matchMergeInFlight = null;
 
 function resetTeamPluginCache() {
   _pluginReady = null;
+  _pluginMapsRevision = null;
 }
 
 /** 队伍映射 / canonical 写入后调用，使下次 matchMerge 重载 team-resolver */
 function invalidateTeamPlugin() {
   resetTeamPluginCache();
+  // composer 与 legacy 各有一份 plugin 缓存；手动关联后两边都要失效
+  import("../../match-composer/src/io/snapshot.js")
+    .then((m) => m.resetTeamPluginCache?.())
+    .catch(() => { /* revision 热检仍会兜底 */ });
 }
 
 function sourceFromBet(provider, b) {
@@ -59,8 +66,27 @@ function sourceFromBet(provider, b) {
 }
 
 async function ensureTeamPlugin() {
-  if (_pluginReady)
+  let revision = null;
+  try {
+    if (typeof db.fetchTeamMapsRevision === "function")
+      revision = await db.fetchTeamMapsRevision();
+  }
+  catch (err) {
+    console.warn("[matchMerge] fetchTeamMapsRevision:", err.message);
+  }
+
+  if (_pluginReady && revision != null && revision === _pluginMapsRevision)
     return _pluginReady;
+  if (_pluginReady && revision == null)
+    return _pluginReady;
+
+  if (_pluginReady && revision != null && revision !== _pluginMapsRevision) {
+    console.log(
+      `[matchMerge] team-resolver 映射变更 ${_pluginMapsRevision} → ${revision}，重载`,
+    );
+  }
+
+  _pluginMapsRevision = revision;
   _pluginReady = (async () => {
     try {
       const { loadAndCreatePlugin } = await import("@changmen/team-resolver/team_db.js");
@@ -69,6 +95,7 @@ async function ensureTeamPlugin() {
     }
     catch (err) {
       console.warn("[matchMerge] team-resolver 加载失败:", err.message);
+      _pluginMapsRevision = null;
     }
   })();
   return _pluginReady;

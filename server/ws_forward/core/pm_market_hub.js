@@ -12,7 +12,18 @@ const HUB_ID = "PM-MARKET";
 const UPSTREAM_PING_MS = 10_000;
 const UPSTREAM_IDLE_MS = 60_000;
 
-/** @typedef {{ assetIds: Set<string> }} HubClient */
+/** @typedef {{
+ *   id: number,
+ *   assetIds: Set<string>,
+ *   connectedAt: number,
+ *   lastSubscribeAt: number,
+ *   lastBufferedAmount: number,
+ *   droppedToClient: number,
+ *   sentToClient: number,
+ *   remoteAddress: string,
+ *   xForwardedFor: string,
+ *   userAgent: string,
+ * }} HubClient */
 
 /** @type {WebSocketServer | null} */
 let wss = null;
@@ -26,8 +37,27 @@ let upstreamConnecting = false;
 /** @type {Set<string>} */
 let upstreamSubscribed = new Set();
 let upstreamInitialPending = false;
+let nextClientId = 1;
 
 const toClientGuard = createWsRelayGuard(HUB_ID, "to-client");
+
+function summarizeText(value, max = 120) {
+  const s = String(value || "").trim();
+  if (!s)
+    return "";
+  return s.length > max ? `${s.slice(0, max)}...` : s;
+}
+
+function detectRemoteAddress(request) {
+  const forwarded = String(request?.headers?.["x-forwarded-for"] || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)[0];
+  return forwarded
+    || String(request?.headers?.["x-real-ip"] || "").trim()
+    || String(request?.socket?.remoteAddress || "").trim()
+    || "";
+}
 
 /**
  * 从 PM market 推送帧提取 asset_id（用于 fan-out 过滤）。
@@ -264,8 +294,14 @@ function ensureUpstream() {
         if (!hit)
           continue;
       }
-      if (toClientGuard.canSend(clientWs))
+      row.lastBufferedAmount = Number(clientWs.bufferedAmount) || 0;
+      if (toClientGuard.canSend(clientWs)) {
+        row.sentToClient += 1;
         clientWs.send(raw);
+      }
+      else {
+        row.droppedToClient += 1;
+      }
     }
   });
 
@@ -288,6 +324,7 @@ function onClientSubscribe(clientWs, assetIds, initialDump) {
   if (!row)
     return;
   row.assetIds = new Set(assetIds);
+  row.lastSubscribeAt = Date.now();
   syncUpstreamSubscription(initialDump);
   ensureUpstream();
 }
@@ -304,8 +341,19 @@ function detachClient(clientWs) {
     ensureUpstream();
 }
 
-function attachClient(clientWs) {
-  clients.set(clientWs, { assetIds: new Set() });
+function attachClient(clientWs, request) {
+  clients.set(clientWs, {
+    id: nextClientId++,
+    assetIds: new Set(),
+    connectedAt: Date.now(),
+    lastSubscribeAt: 0,
+    lastBufferedAmount: 0,
+    droppedToClient: 0,
+    sentToClient: 0,
+    remoteAddress: detectRemoteAddress(request),
+    xForwardedFor: summarizeText(request?.headers?.["x-forwarded-for"] || "", 80),
+    userAgent: summarizeText(request?.headers?.["user-agent"] || "", 120),
+  });
   recordConnect(HUB_ID);
   clearUpstreamIdleTimer();
 
@@ -354,9 +402,37 @@ export function attachPmMarketHub(httpServer) {
     });
   });
 
-  wss.on("connection", (clientWs) => {
-    attachClient(clientWs);
+  wss.on("connection", (clientWs, request) => {
+    attachClient(clientWs, request);
   });
+}
+
+export function getPmMarketHubStatus() {
+  const rows = [...clients.values()].map(row => ({
+    id: row.id,
+    assetCount: row.assetIds.size,
+    connectedForSec: Math.max(0, Math.round((Date.now() - row.connectedAt) / 1000)),
+    idleSubscribeSec: row.lastSubscribeAt
+      ? Math.max(0, Math.round((Date.now() - row.lastSubscribeAt) / 1000))
+      : null,
+    lastBufferedAmount: row.lastBufferedAmount,
+    droppedToClient: row.droppedToClient,
+    sentToClient: row.sentToClient,
+    remoteAddress: row.remoteAddress,
+    xForwardedFor: row.xForwardedFor,
+    userAgent: row.userAgent,
+  }));
+  rows.sort((a, b) =>
+    (b.droppedToClient - a.droppedToClient)
+    || (b.lastBufferedAmount - a.lastBufferedAmount)
+    || (b.assetCount - a.assetCount),
+  );
+  return {
+    activeClients: rows.length,
+    subscribedAssets: upstreamSubscribed.size,
+    upstreamConnected: upstream?.readyState === WebSocket.OPEN,
+    slowClients: rows.slice(0, 10),
+  };
 }
 
 export function closePmMarketHub() {

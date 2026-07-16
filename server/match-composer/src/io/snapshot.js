@@ -8,6 +8,8 @@ import * as db from "@changmen/db";
 import { setTeamPlugin } from "@changmen/match-engine/teams/team_key.js";
 
 let _pluginReady = null;
+/** @type {string|null} */
+let _pluginMapsRevision = null;
 
 export function normalizeMatchesShape(raw) {
   const out = {};
@@ -29,8 +31,27 @@ export function normalizeMatchesShape(raw) {
 }
 
 export async function ensureTeamPlugin() {
-  if (_pluginReady)
+  let revision = null;
+  try {
+    if (typeof db.fetchTeamMapsRevision === "function")
+      revision = await db.fetchTeamMapsRevision();
+  }
+  catch (err) {
+    console.warn("[match-composer] fetchTeamMapsRevision:", err.message);
+  }
+
+  if (_pluginReady && revision != null && revision === _pluginMapsRevision)
     return _pluginReady;
+  if (_pluginReady && revision == null)
+    return _pluginReady;
+
+  if (_pluginReady && revision != null && revision !== _pluginMapsRevision) {
+    console.log(
+      `[match-composer] team-resolver 映射变更 ${_pluginMapsRevision} → ${revision}，重载`,
+    );
+  }
+
+  _pluginMapsRevision = revision;
   _pluginReady = (async () => {
     try {
       const { loadAndCreatePlugin } = await import("@changmen/team-resolver/team_db.js");
@@ -39,6 +60,7 @@ export async function ensureTeamPlugin() {
     }
     catch (err) {
       console.warn("[match-composer] team-resolver 加载失败:", err.message);
+      _pluginMapsRevision = null;
     }
   })();
   return _pluginReady;
@@ -46,6 +68,7 @@ export async function ensureTeamPlugin() {
 
 export function resetTeamPluginCache() {
   _pluginReady = null;
+  _pluginMapsRevision = null;
 }
 
 function enrichMatchesRawWithDbBindings(matchesRaw, bindingsByClientId) {
