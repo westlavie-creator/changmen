@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -12,10 +11,6 @@ const { matchCount, loading } = storeToRefs(matchStore);
 
 <template>
   <header class="app-header flex flex-between flex-middle">
-    <div class="app-header__title flex flex-middle">
-      <strong>电竞聚合控制台</strong>
-      <ExtensionsBadge />
-    </div>
     <div class="app-header__actions flex flex-middle">
       <span class="app-header__meta">{{ userName }} · {{ matchCount }} 场</span>
       <button
@@ -37,14 +32,9 @@ const { matchCount, loading } = storeToRefs(matchStore);
   border-bottom: 1px solid #ffffff1a;
   color: #e2e8f0;
 }
-.app-header__title {
-  gap: 10px;
-}
-.app-header__title strong {
-  font-size: 14px;
-}
 .app-header__actions {
   gap: 10px;
+  margin-left: auto;
 }
 .app-header__meta {
   font-size: 12px;

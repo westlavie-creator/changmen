@@ -5,7 +5,6 @@ import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
-import ExtensionsBadge from "@/components/layout/ExtensionsBadge.vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
 import BaseballBoard from "@/components/match/BaseballBoard.vue";
@@ -107,7 +106,6 @@ async function logout() {
         <AccountBar />
         <div class="home-header-trailing">
           <DirectRealtimeBadge />
-          <ExtensionsBadge />
         </div>
         <p v-if="!extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。

@@ -9,7 +9,7 @@ html {
 }
 
 body {
-  width:100%;height:100%;padding:0;margin:0;position:relative;background-color:var(--cm-body-bg-overlay, #000000b3);background-image:var(--cm-body-bg-image, url(/esport2/assets/B7Mt9vLb.webp));background-size:cover;background-repeat:no-repeat;background-attachment:fixed;overflow:hidden;
+  width:100%;height:100%;padding:0;margin:0;position:relative;background-color:var(--cm-body-bg, #0f172a);background-image:var(--cm-body-bg-gradient);background-size:cover;background-repeat:no-repeat;background-attachment:fixed;overflow:hidden;
 }
 
 * {

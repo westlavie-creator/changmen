@@ -1,40 +1,7 @@
 /**
- * changmen 扩展版本角标 + 未连通提示。
- * DOM 保持 A8 class：.version / .extension-banner
+ * changmen 扩展未连通提示。
+ * DOM 保持 A8 class：.extension-banner
  */
-
-.version {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  font-size: 12px;
-  color: #ffffff1a;
-  cursor: default;
-  padding-right: 6px;
-}
-
-.version:hover {
-  color: #fff;
-}
-
-.version::before {
-  content: "";
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background-color: #67c23a;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
-.version.new::before {
-  background-color: red;
-}
-
-.version.web {
-  top: 24px;
-}
 
 .extension-banner {
   margin: 8px 0 0;
@@ -42,7 +9,7 @@
   color: #fbbf24;
 }
 
-/* HomeView 顶栏右上角：扩展版本 + 直连推送（自 ep-fallback 迁入 modules 侧） */
+/* HomeView 顶栏右上角：直连推送状态 */
 .common-layout.home-view .el-header .home-header-trailing {
   position: absolute;
   right: 8px;
@@ -57,16 +24,4 @@
 
 .common-layout.home-view .el-header .home-header-trailing > * {
   pointer-events: auto;
-}
-
-.common-layout.home-view .el-header .home-header-trailing .version {
-  position: static;
-  font-size: 13px;
-  color: #ffffff59;
-  padding-right: 8px;
-}
-
-.common-layout.home-view .el-header .home-header-trailing .version::before {
-  width: 6px;
-  height: 6px;
 }

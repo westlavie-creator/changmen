@@ -60,7 +60,6 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElText: typeof import('element-plus/es')['ElText']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
-    ExtensionsBadge: typeof import('./src/components/layout/ExtensionsBadge.vue')['default']
     GalaxySpinner: typeof import('./src/components/layout/GalaxySpinner.vue')['default']
     LimitDiagDialog: typeof import('./src/components/match/LimitDiagDialog.vue')['default']
     LoginPanel: typeof import('./src/components/auth/LoginPanel.vue')['default']
