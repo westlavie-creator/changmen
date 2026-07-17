@@ -5,7 +5,7 @@ import { useUserStore } from "@/stores/userStore";
 
 let sessionBooted = false;
 
-/** [A8 可证实] 采集/HG 跟单在 SPA bundle（index.js）内启动，扩展 background 仅 HTTP 中继 */
+/** 采集在 SPA 内启动；HG 跟单已暂停 */
 export async function bootSessionRuntime(): Promise<void> {
   if (sessionBooted)
     return;
@@ -16,18 +16,13 @@ export async function bootSessionRuntime(): Promise<void> {
   await Promise.all([collectStore.init(), userStore.loadConfig()]);
   const { startCollectors } = await import("@/runtime/collectors");
   await startCollectors();
-  const [{ primeStakeTabId }, { startHgFollowLoop }] = await Promise.all([
-    import("@changmen/venue-adapter/stake"),
-    import("@changmen/venue-adapter/hg"),
-  ]);
+  const { primeStakeTabId } = await import("@changmen/venue-adapter/stake");
   primeStakeTabId();
-  startHgFollowLoop();
 }
 
 export function stopSessionRuntime(): void {
   if (!sessionBooted)
     return;
   sessionBooted = false;
-  void import("@changmen/venue-adapter/hg").then(({ stopHgFollowLoop }) => stopHgFollowLoop());
   void import("@/runtime/collectors").then(({ stopCollectors }) => stopCollectors());
 }

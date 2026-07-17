@@ -3,14 +3,12 @@ import { directGet } from "@changmen/client-core/shared/http";
 import { changmenHttpBaseToWs, resolveChangmenWsBase } from "../shared/changmenWsBase";
 import {
   OB_A8_MQTT_PASSWORD,
-  OB_A8_MQTT_URL,
   OB_A8_MQTT_USERNAME,
   OB_WS_FORWARD_PATH,
-  OB_MQTT_CLIENT_ID,
   buildObOfficialMqttClientId,
 } from "./mqttConfig";
 
-export type ObMqttEndpointSource = "demo" | "changmen" | "a8";
+export type ObMqttEndpointSource = "demo" | "changmen";
 
 export type ObMqttConnectConfig = {
   url: string;
@@ -83,17 +81,6 @@ async function fetchObDemoMemberId(entry: ObEntry, token: string): Promise<strin
   return "";
 }
 
-/** A8 `yIe` [A8 可证实]：固定 admin / Qazqaz123...，与 platform token 无关 */
-export function getObA8MqttConfig(): ObMqttConnectConfig {
-  return {
-    url: OB_A8_MQTT_URL,
-    username: OB_A8_MQTT_USERNAME,
-    password: OB_A8_MQTT_PASSWORD,
-    clientId: OB_MQTT_CLIENT_ID,
-    source: "a8",
-  };
-}
-
 /**
  * CHANGMEN：服务端透明中继到官方 demo MQTT（`?u=` 传官方 wss 地址）。
  * 浏览器 mqtt 选项与 demo 相同，仅 url 不同。
@@ -116,7 +103,7 @@ export function getObChangmenMqttConfig(
 
 /**
  * 试玩 login 返回的 OB 源站 MQTT（clientId = mqttjs_dj{memberId}）。
- * 每次调用都会重新请求 login，用于 A8 中继失败后的地址刷新。
+ * 每次调用都会重新请求 login，用于地址刷新。
  */
 export async function fetchObDemoMqttConfig(): Promise<ObMqttConnectConfig | null> {
   let mqttEndpoints: string[] = [];

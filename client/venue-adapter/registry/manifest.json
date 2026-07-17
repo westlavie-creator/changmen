@@ -23,17 +23,14 @@
     "icon": "im.png",
     "sort": 1,
     "collect": false,
-    "bet": true,
+    "bet": false,
     "label": "IM",
     "labelZh": "IM",
     "collectionMode": "aggregator_ws",
-    "collectionDesc": "A8 公共 Socket.IO 频道 IM（聚合推送）",
+    "collectionDesc": "已暂停（原 A8 Socket.IO 频道）",
     "implementation": "paused",
     "a8Channel": true,
-    "streamMeta": {
-      "key": "ws",
-      "protocol": "Socket.IO"
-    }
+    "streamMeta": null
   },
   {
     "id": "RAY",
@@ -59,17 +56,13 @@
     "icon": "tf.png",
     "sort": 3,
     "collect": false,
-    "bet": true,
+    "bet": false,
     "label": "TF",
     "labelZh": "TF",
     "collectionMode": "http_ws",
-    "collectionDesc": "HTTP events 快照 + A8 代理 WebSocket",
+    "collectionDesc": "已暂停（原 HTTP + A8 聚合 WS）",
     "implementation": "paused",
-    "saveMatchIntervalMs": 60000,
-    "streamMeta": {
-      "key": "ws",
-      "protocol": "WS"
-    }
+    "streamMeta": null
   },
   {
     "id": "IA",
@@ -115,13 +108,10 @@
     "label": "XBet",
     "labelZh": "XBet",
     "collectionMode": "aggregator_ws",
-    "collectionDesc": "A8 公共 Socket.IO XBet / XBet:Score",
+    "collectionDesc": "已暂停（原 A8 Socket.IO 频道）",
     "implementation": "paused",
     "a8Channel": true,
-    "streamMeta": {
-      "key": "ws",
-      "protocol": "Socket.IO"
-    }
+    "streamMeta": null
   },
   {
     "id": "PB",
@@ -157,11 +147,11 @@
     "icon": "hg.png",
     "sort": 9,
     "collect": false,
-    "bet": true,
+    "bet": false,
     "label": "HG",
     "labelZh": "皇冠",
     "collectionMode": "plugin_http",
-    "collectionDesc": "transform.php 账户/订单，非标准赔率流",
+    "collectionDesc": "transform.php 账户/订单，非标准赔率流（已暂停）",
     "implementation": "paused",
     "streamMeta": null
   },

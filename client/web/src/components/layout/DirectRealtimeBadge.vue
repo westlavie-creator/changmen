@@ -176,11 +176,11 @@ function tooltip(status: DirectRealtimeStatus): string {
     lines.push(`MQTT 订阅 ${status.forwardedTopics} 个 topic`);
   if (status.platform === "OB") {
     lines.push(`当前选择：${obMqttSourceModeLabel(obSourceMode.value)}`);
-    lines.push("点击切换 官方 / CHANGMEN / A8");
+    lines.push("点击切换 官方 / CHANGMEN");
   }
   if (status.platform === "RAY") {
     lines.push(`当前选择：${rayWsSourceModeLabel(raySourceMode.value)}`);
-    lines.push("点击切换 官方 / CHANGMEN / A8");
+    lines.push("点击切换 官方 / CHANGMEN");
   }
   return lines.join("\n");
 }
@@ -250,7 +250,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 IA OB RAY TF HUB；第二行 PM PF DEX LM"
+    aria-label="直连推送状态 IA OB RAY HUB；第二行 PM PF DEX LM"
   >
     <div class="direct-realtime-row direct-realtime-row--primary">
       <span

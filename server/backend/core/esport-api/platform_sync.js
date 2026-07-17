@@ -136,20 +136,20 @@ function syncPbFromSession(session) {
   return true;
 }
 
-async function syncTfFromA8() {
+async function syncTfFromLocal() {
   try {
     const { getTfA8CollectCredentials } = requirePlatform("TF", "node", "collect_credentials.js");
-    const a8 = await getTfA8CollectCredentials();
+    const creds = await getTfA8CollectCredentials();
     store.setPlatform("TF", {
-      gateway: a8.gateway,
-      token: a8.token,
-      betName: a8.betName || store.getPlatform("TF")?.betName || "^????",
-      games: a8.games.length ? a8.games : getActivePlatformGameIds("TF").map(String),
+      gateway: creds.gateway,
+      token: creds.token,
+      betName: creds.betName || store.getPlatform("TF")?.betName || "^????",
+      games: creds.games.length ? creds.games : getActivePlatformGameIds("TF").map(String),
     });
     return true;
   }
   catch (err) {
-    console.warn("[platform-sync] TF A8 collect failed:", err.message);
+    console.warn("[platform-sync] TF local collect failed:", err.message);
     return false;
   }
 }
@@ -247,7 +247,7 @@ function syncImtFromSession(session) {
 
 function syncImFromEnv() {
   store.setPlatform("IM", {
-    gateway: process.env.A8_WS_URL || "https://47.115.75.57",
+    gateway: process.env.A8_WS_URL || "",
     token: process.env.A8_SOCKET_TOKEN || "",
     betName: ".*",
     games: getActivePlatformGameIds("IM").map(String),
@@ -257,7 +257,7 @@ function syncImFromEnv() {
 
 function syncXbetFromEnv() {
   store.setPlatform("XBet", {
-    gateway: process.env.A8_WS_URL || "https://47.115.75.57",
+    gateway: process.env.A8_WS_URL || "",
     token: process.env.A8_SOCKET_TOKEN || "",
     betName: ".*",
     games: getActivePlatformGameIds("XBet").map(String),
@@ -369,9 +369,9 @@ async function ensurePlatformCredentials() {
     pbSynced = syncPbFromEnv();
   }
 
-  let tfSynced = await syncTfFromA8();
+  let tfSynced = syncTfFromEnv();
   if (!tfSynced) {
-    tfSynced = syncTfFromEnv();
+    tfSynced = await syncTfFromLocal();
   }
 
   const iaSynced = syncIaFromEnv() || syncIaFromA8Defaults();
@@ -422,8 +422,9 @@ export {
   syncSabaFromSession,
   syncStakeFromEnv,
   syncStakeFromSession,
-  syncTfFromA8,
+  syncTfFromLocal,
   syncTfFromEnv,
   syncTfFromSession,
+  syncTfFromLocal as syncTfFromA8,
   syncXbetFromEnv,
 };

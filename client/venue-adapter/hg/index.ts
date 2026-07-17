@@ -1,14 +1,6 @@
 import type { PlatformAdapter } from "../contract";
-import { hgProvider } from "./bet";
-import { startHgCollector } from "./collect";
 
-export { hgProvider, startHgCollector };
-export * from "./bet";
-export * from "./collect";
-export * from "./follow";
-
+/** HG 已暂停：不注册采集 / 下注 */
 export const hgAdapter: PlatformAdapter = {
   id: "HG",
-  collector: startHgCollector,
-  provider: hgProvider,
 };

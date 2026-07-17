@@ -1,29 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   OB_A8_MQTT_PASSWORD,
-  OB_A8_MQTT_URL,
   OB_A8_MQTT_USERNAME,
-  OB_MQTT_CLIENT_ID,
 } from "./mqttConfig";
-import { fetchObDemoMqttConfig, getObA8MqttConfig, getObChangmenMqttConfig } from "./mqttSession";
+import { fetchObDemoMqttConfig, getObChangmenMqttConfig } from "./mqttSession";
 
 vi.mock("@changmen/client-core/shared/http", () => ({
   directGet: vi.fn(),
 }));
 
 import { directGet } from "@changmen/client-core/shared/http";
-
-describe("getObA8MqttConfig", () => {
-  test("returns A8 relay credentials from bundle", () => {
-    expect(getObA8MqttConfig()).toEqual({
-      url: OB_A8_MQTT_URL,
-      username: OB_A8_MQTT_USERNAME,
-      password: OB_A8_MQTT_PASSWORD,
-      clientId: OB_MQTT_CLIENT_ID,
-      source: "a8",
-    });
-  });
-});
 
 describe("getObChangmenMqttConfig", () => {
   test("builds ws-forward url with encoded upstream mqtt wss", () => {

@@ -1,14 +1,6 @@
 import type { PlatformAdapter } from "../contract";
-import { imProvider } from "./bet";
-import { startImCollector } from "./collect";
 
-export { imProvider, startImCollector };
-export * from "./bet";
-export * from "./collect";
-export * from "./parse";
-
+/** IM 已暂停：不注册采集 / 下注 */
 export const imAdapter: PlatformAdapter = {
   id: "IM",
-  collector: startImCollector,
-  provider: imProvider,
 };

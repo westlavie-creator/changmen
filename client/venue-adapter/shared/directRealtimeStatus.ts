@@ -47,8 +47,8 @@ const EMPTY = (platform: string): DirectRealtimeStatus => ({
   mode: "direct",
 });
 
-/** IA / OB / RAY / TF 使用本模块（浏览器直连，不经 A8 聚合 Socket） */
-export const DIRECT_REALTIME_PLATFORMS = ["IA", "OB", "RAY", "TF"] as const;
+/** IA / OB / RAY 使用本模块（浏览器直连） */
+export const DIRECT_REALTIME_PLATFORMS = ["IA", "OB", "RAY"] as const;
 
 export type DirectRealtimePlatformId = (typeof DIRECT_REALTIME_PLATFORMS)[number];
 

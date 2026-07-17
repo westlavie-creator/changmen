@@ -1,10 +1,6 @@
 import type { PlatformAdapter } from "../contract";
-import { startXbetCollector } from "./collect";
 
-export { startXbetCollector };
-export * from "./collect";
-
+/** XBet 已暂停：不注册采集 / 下注 */
 export const xbetAdapter: PlatformAdapter = {
   id: "XBet",
-  collector: startXbetCollector,
 };

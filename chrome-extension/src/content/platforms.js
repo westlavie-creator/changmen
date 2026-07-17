@@ -15,4 +15,11 @@ export const PLATFORMS = Object.freeze({
   Polymarket: "Polymarket",
 });
 
-export const PLATFORM_LIST = Object.values(PLATFORMS);
+export const PLATFORM_LIST = Object.values(PLATFORMS).filter(
+  (id) =>
+    id !== PLATFORMS.HG
+    && id !== PLATFORMS.HGA
+    && id !== PLATFORMS.IM
+    && id !== PLATFORMS.TF
+    && id !== PLATFORMS.XBet,
+);

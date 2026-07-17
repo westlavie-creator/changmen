@@ -7,10 +7,9 @@ import {
   upstreamRouteFromUrl,
 } from "../shared/directRealtimeStatus";
 import { PLATFORMS } from "../shared/platforms";
-import { OB_MQTT_CLIENT_ID, OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
+import { OB_MQTT_CONNECT_TIMEOUT_MS } from "./mqttConfig";
 import {
   fetchObDemoMqttConfig,
-  getObA8MqttConfig,
   getObChangmenMqttConfig,
   type ObMqttConnectConfig,
   type ObMqttEndpointSource,
@@ -19,7 +18,7 @@ import {
 const PLATFORM = PLATFORMS.OB;
 
 const OB_MQTT_SOURCE_MODE_KEY = "changmen:ob:mqtt-source-mode";
-const FAILOVER_ORDER: ObMqttEndpointSource[] = ["demo", "changmen", "a8"];
+const FAILOVER_ORDER: ObMqttEndpointSource[] = ["demo", "changmen"];
 const SOURCE_MODE_ORDER = FAILOVER_ORDER;
 
 export type ObMqttSourceMode = ObMqttEndpointSource;
@@ -51,8 +50,8 @@ export type ObRealtimeClient = {
 function readStoredSourceMode(): ObMqttSourceMode {
   try {
     const value = globalThis.localStorage?.getItem(OB_MQTT_SOURCE_MODE_KEY);
-    if (value === "official") return "demo";
-    if (value === "changmen" || value === "a8" || value === "demo") return value;
+    if (value === "official" || value === "a8") return "demo";
+    if (value === "changmen" || value === "demo") return value;
     return "demo";
   } catch {
     return "demo";
@@ -69,8 +68,6 @@ export function obMqttSourceModeLabel(mode: ObMqttSourceMode = obMqttSourceMode)
   switch (mode) {
     case "changmen":
       return "CHANGMEN 转发";
-    case "a8":
-      return "A8 聚合";
     default:
       return "官方源";
   }
@@ -81,7 +78,9 @@ function upstreamRouteForMode(mode: ObMqttSourceMode) {
 }
 
 export function setObMqttSourceMode(mode: ObMqttSourceMode): ObMqttSourceMode {
-  obMqttSourceMode = mode;
+  // 历史 localStorage 可能存 a8；一律落到官方 demo
+  obMqttSourceMode = mode === "changmen" ? "changmen" : "demo";
+  mode = obMqttSourceMode;
   try {
     globalThis.localStorage?.setItem(OB_MQTT_SOURCE_MODE_KEY, mode);
   } catch {
@@ -110,8 +109,6 @@ async function resolveConfigForSourceMode(
   cachedDemo: ObMqttConnectConfig | null = null,
 ): Promise<ObMqttConnectConfig | null> {
   switch (mode) {
-    case "a8":
-      return getObA8MqttConfig();
     case "changmen": {
       const demo = cachedDemo ?? await fetchObDemoMqttConfig();
       if (!demo?.url) return null;
@@ -139,7 +136,7 @@ function createDirectObRealtimeClient(): ObRealtimeClient {
   let connectTimer: ReturnType<typeof setTimeout> | null = null;
 
   const mqttOptionsForConfig = (config: ObMqttConnectConfig) => {
-    const clientId = config.clientId || (config.source === "a8" ? OB_MQTT_CLIENT_ID : "");
+    const clientId = config.clientId || "";
     if (!clientId) return null;
     return {
       username: config.username,

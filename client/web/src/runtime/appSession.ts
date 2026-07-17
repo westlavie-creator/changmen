@@ -40,7 +40,7 @@ export function startAppSession(): void {
   syncArbRuntime();
 }
 
-/** HomeView onMounted：用户信息、账号列表、采集/HG 运行时 */
+/** HomeView onMounted：用户信息、账号列表、采集运行时 */
 export async function mountAppSession(): Promise<void> {
   const user = useUserStore();
   if (!user.userId) {

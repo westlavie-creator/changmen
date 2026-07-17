@@ -1,32 +1,26 @@
-/** A8 `d4e` [A8 可证实]：TF 赔率 WS 经 A8 聚合，host 在 api.a8.to ↔ 47.115.75.57 轮换 */
-export const TF_WS_HOSTS = ["api.a8.to", "47.115.75.57"] as const;
+/** TF 实时赔率 WS 曾经 A8 聚合（api.a8.to / 47.115.75.57）；已禁用，仅保留 HTTP 采集。 */
 
-export const TF_WS_PATH = "/esport/ws/TF";
-
-/** A8 `c4e` ReconnectingWebSocket */
 export const TF_WS_CONNECTION_TIMEOUT_MS = 4_000;
 export const TF_WS_RECONNECT_MIN_MS = 1_000;
 export const TF_WS_RECONNECT_MAX_MS = 5_000;
 
-let wsHostRotate = 0;
+/** @deprecated A8 聚合 WS 已移除；无替代 host */
+export const TF_WS_HOSTS: readonly string[] = [];
 
-export function resetTfWsHostRotateForTests() {
-  wsHostRotate = 0;
+export const TF_WS_PATH = "/esport/ws/TF";
+
+export function resetTfWsHostRotateForTests(): void {
+  /* no-op：A8 host 轮换已移除 */
 }
 
-/** 每次 connect / 重连调用，对齐 A8 `T5++` 轮换 */
+/** @deprecated A8 聚合 WS 已移除 */
 export function nextTfWsHost(): string {
-  const host = TF_WS_HOSTS[wsHostRotate % TF_WS_HOSTS.length]!;
-  wsHostRotate += 1;
-  return host;
+  throw new Error("TF A8 WebSocket hosts removed; realtime odds WS disabled");
 }
 
-/**
- * A8 `d4e(gateway, token)` — gateway 仅做 replace 不入 URL；auth_token 去 `Token ` 前缀。
- */
-export function buildTfWsUrl(authToken: string, host = nextTfWsHost()): string {
-  const auth = String(authToken || "").replace(/^Token\s+/i, "");
-  return `wss://${host}${TF_WS_PATH}?auth_token=${auth}&combo=false`;
+/** @deprecated A8 聚合 WS 已移除 */
+export function buildTfWsUrl(_authToken: string, _host?: string): string {
+  throw new Error("TF A8 WebSocket hosts removed; realtime odds WS disabled");
 }
 
 /** @deprecated 使用 buildTfWsUrl */

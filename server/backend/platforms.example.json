@@ -52,7 +52,7 @@
     "updatedAt": 0
   },
   "IM": {
-    "gateway": "https://47.115.75.57",
+    "gateway": "",
     "token": "",
     "betName": ".*",
     "games": [],
@@ -60,7 +60,7 @@
     "updatedAt": 0
   },
   "XBet": {
-    "gateway": "https://47.115.75.57",
+    "gateway": "",
     "token": "",
     "betName": ".*",
     "games": [],

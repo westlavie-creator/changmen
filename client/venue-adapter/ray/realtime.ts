@@ -8,7 +8,6 @@ import {
 } from "../shared/directRealtimeStatus";
 import { PLATFORMS } from "../shared/platforms";
 import {
-  getRayA8ScConfig,
   getRayChangmenScConfig,
   getRayOfficialScConfig,
   RAY_SC_CHANNEL,
@@ -20,7 +19,7 @@ import {
 const PLATFORM = PLATFORMS.RAY;
 
 const RAY_WS_SOURCE_MODE_KEY = "changmen:ray:ws-source-mode";
-const FAILOVER_ORDER: RayWsEndpointSource[] = ["official", "changmen", "a8"];
+const FAILOVER_ORDER: RayWsEndpointSource[] = ["official", "changmen"];
 const SOURCE_MODE_ORDER = FAILOVER_ORDER;
 
 export type RayWsSourceMode = RayWsEndpointSource;
@@ -28,7 +27,7 @@ export type RayWsSourceMode = RayWsEndpointSource;
 function readStoredSourceMode(): RayWsSourceMode {
   try {
     const value = globalThis.localStorage?.getItem(RAY_WS_SOURCE_MODE_KEY);
-    if (value === "changmen" || value === "a8") return value;
+    if (value === "changmen") return value;
     return "official";
   } catch {
     return "official";
@@ -45,15 +44,15 @@ export function rayWsSourceModeLabel(mode: RayWsSourceMode = rayWsSourceMode): s
   switch (mode) {
     case "changmen":
       return "CHANGMEN 转发";
-    case "a8":
-      return "A8 聚合";
     default:
       return "官方源";
   }
 }
 
 export function setRayWsSourceMode(mode: RayWsSourceMode): RayWsSourceMode {
-  rayWsSourceMode = mode;
+  // 历史 localStorage 可能存 a8；一律落到官方
+  rayWsSourceMode = mode === "changmen" ? "changmen" : "official";
+  mode = rayWsSourceMode;
   try {
     globalThis.localStorage?.setItem(RAY_WS_SOURCE_MODE_KEY, mode);
   } catch {
@@ -77,8 +76,6 @@ function configForSourceMode(mode: RayWsSourceMode): RayScConnectConfig {
   switch (mode) {
     case "changmen":
       return getRayChangmenScConfig();
-    case "a8":
-      return getRayA8ScConfig();
     default:
       return getRayOfficialScConfig();
   }
@@ -117,8 +114,6 @@ function nextFailoverConfig(failedSource: RayWsEndpointSource): RayScConnectConf
       return getRayOfficialScConfig();
     case "changmen":
       return getRayChangmenScConfig();
-    case "a8":
-      return getRayA8ScConfig();
     default:
       return getRayOfficialScConfig();
   }

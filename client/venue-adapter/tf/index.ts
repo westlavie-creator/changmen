@@ -1,14 +1,6 @@
 import type { PlatformAdapter } from "../contract";
-import { tfProvider } from "./bet";
-import { startTfCollector } from "./collect";
 
-export { tfProvider, startTfCollector };
-export * from "./auth";
-export * from "./bet";
-export * from "./collect";
-
+/** TF 已暂停：不注册采集 / 下注 */
 export const tfAdapter: PlatformAdapter = {
   id: "TF",
-  collector: startTfCollector,
-  provider: tfProvider,
 };

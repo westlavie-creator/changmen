@@ -1,20 +1,12 @@
 import { RAY_A8_COLLECT, RAY_WS } from "./a8Collect";
 import { resolveChangmenWsBase } from "../shared/changmenWsBase";
 
-/** A8 `bQe` oqe [A8 可证实] */
-export const RAY_A8_WS = {
-  hostname: "47.115.75.57",
-  path: "/esport/ws/RAY",
-  secure: true,
-  port: 443,
-} as const;
-
 export const RAY_WS_FORWARD_PATH = "/esport/ws-forward/RAY";
 
 export const RAY_WS_CONNECT_TIMEOUT_MS = 15_000;
 export const RAY_SC_CHANNEL = RAY_WS.channel;
 
-export type RayWsEndpointSource = "official" | "changmen" | "a8";
+export type RayWsEndpointSource = "official" | "changmen";
 
 export type RayScConnectConfig = {
   hostname: string;
@@ -68,18 +60,6 @@ export function getRayChangmenScConfig(): RayScConnectConfig {
     secure: base.protocol === "https:",
     path: RAY_WS_FORWARD_PATH,
     source: "changmen",
-    wsOptions: buildRayWsHeaders(),
-  };
-}
-
-/** A8 聚合 47.115.75.57/esport/ws/RAY */
-export function getRayA8ScConfig(): RayScConnectConfig {
-  return {
-    hostname: RAY_A8_WS.hostname,
-    port: RAY_A8_WS.port,
-    secure: RAY_A8_WS.secure,
-    path: RAY_A8_WS.path,
-    source: "a8",
     wsOptions: buildRayWsHeaders(),
   };
 }

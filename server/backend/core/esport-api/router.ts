@@ -338,7 +338,7 @@ async function handle(
           return ok({ Gateway: a8.gateway, Token: a8.token, BetName: a8.betName || betName });
         }
         catch (err: any) {
-          console.warn("[TF] A8 Client_GetCollectPlatform failed:", err.message);
+          console.warn("[TF] local Client_GetCollectPlatform failed:", err.message);
           const fallback = store.getPlatform("TF");
           if (fallback?.gateway && fallback?.token) {
             return ok({ Gateway: fallback.gateway, Token: fallback.token, BetName: fallback.betName || betName });
@@ -837,13 +837,14 @@ export async function handleEsportRequest(
       }
     }
 
-    const token = String(req.headers.token || ""); // Node.js ???????????
-    const user = await store.getUserByToken(token);
-
+    const token = String(req.headers.token || ""); // Node.js 请求头键名一律小写
+    // 登录不依赖既有 session；先走 login，避免 RDS/池堵死时 getUserByToken 拖死登录
     if (action === "Client_Login") {
       sendJson(res, 200, await handleClientLogin(body, clientIpFromRequest(req)));
       return true;
     }
+
+    const user = await store.getUserByToken(token);
 
     sendJson(res, 200, await handle(action, body, { token, user }));
     return true;

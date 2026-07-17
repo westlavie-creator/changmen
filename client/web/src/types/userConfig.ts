@@ -27,7 +27,7 @@ export function createDefaultUserConfig(): UserConfig {
     betSorting: "Custom",
     winRateValue: 0.15,
     providerSortValue: [...ALL_PLATFORMS],
-    providerFixed: ["IM"],
+    providerFixed: [],
     profit: 1.03,
     maxProfit: 1.2,
     minOdds: 1.3,

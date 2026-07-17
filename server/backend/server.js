@@ -65,7 +65,18 @@ const server = http.createServer(
   }),
 );
 
-attachWsForward(server, { platforms: ["IA", "OB", "RAY", "PM-MARKET", "PM-USER", "PREDICTFUN-MARKET"] });
+const DEFAULT_WS_FORWARD_PLATFORMS = ["IA", "OB", "RAY", "PM-MARKET", "PM-USER", "PREDICTFUN-MARKET"];
+
+function resolveWsForwardPlatforms() {
+  const raw = String(process.env.WS_FORWARD_PLATFORMS || "").trim();
+  if (!raw)
+    return DEFAULT_WS_FORWARD_PLATFORMS;
+  if (raw === "0" || raw.toLowerCase() === "off" || raw.toLowerCase() === "none")
+    return [];
+  return raw.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
+attachWsForward(server, { platforms: resolveWsForwardPlatforms() });
 attachChangmenRealtimeHub(server);
 
 ensurePlatformCredentials()
@@ -163,8 +174,7 @@ function onListen() {
   });
 
   void restoreCollectorHotSnapshot();
-  const v4Base = (process.env.A8_V4_URL || "https://api.a8.to/v4.0").replace(/\/+$/, "");
-  console.log(`[v4] proxy only → ${v4Base}/ (no mock)`);
+  console.log("[v4] credit plate disabled (no api.a8.to)");
   console.log(
     `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );

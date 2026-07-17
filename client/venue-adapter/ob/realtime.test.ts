@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_URL, OB_A8_MQTT_USERNAME, OB_MQTT_CLIENT_ID } from "./mqttConfig";
+import { OB_A8_MQTT_PASSWORD, OB_A8_MQTT_USERNAME } from "./mqttConfig";
 import { createObRealtimeClient, setObMqttSourceMode, type ObMqttMessage } from "./realtime";
 
 const connectMock = vi.fn();
 const fetchObDemoMqttConfig = vi.fn();
-const getObA8MqttConfig = vi.fn();
 const getObChangmenMqttConfig = vi.fn();
 
 vi.mock("mqtt", () => ({
@@ -15,7 +14,6 @@ vi.mock("mqtt", () => ({
 
 vi.mock("./mqttSession", () => ({
   fetchObDemoMqttConfig: (...args: unknown[]) => fetchObDemoMqttConfig(...args),
-  getObA8MqttConfig: (...args: unknown[]) => getObA8MqttConfig(...args),
   getObChangmenMqttConfig: (...args: unknown[]) => getObChangmenMqttConfig(...args),
 }));
 
@@ -57,19 +55,9 @@ const changmenConfig = {
   source: "changmen" as const,
 };
 
-const a8Config = {
-  url: OB_A8_MQTT_URL,
-  username: OB_A8_MQTT_USERNAME,
-  password: OB_A8_MQTT_PASSWORD,
-  clientId: OB_MQTT_CLIENT_ID,
-  source: "a8" as const,
-};
-
 beforeEach(() => {
   fetchObDemoMqttConfig.mockReset();
-  getObA8MqttConfig.mockReset();
   getObChangmenMqttConfig.mockReset();
-  getObA8MqttConfig.mockReturnValue(a8Config);
   getObChangmenMqttConfig.mockReturnValue(changmenConfig);
   setObMqttSourceMode("demo");
 });
@@ -136,15 +124,15 @@ describe("createObRealtimeClient", () => {
     await client.stop();
   });
 
-  test("falls back to A8 when CHANGMEN forward errors in demo mode", async () => {
+  test("cycles back to demo when CHANGMEN forward errors (no A8)", async () => {
     fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
     const demoClient = fakeMqttClient();
     const changmenClient = fakeMqttClient();
-    const a8Client = fakeMqttClient();
+    const demoRetry = fakeMqttClient();
     connectMock
       .mockReturnValueOnce(demoClient)
       .mockReturnValueOnce(changmenClient)
-      .mockReturnValueOnce(a8Client);
+      .mockReturnValueOnce(demoRetry);
 
     const client = createObRealtimeClient();
     await client.start(() => {});
@@ -156,34 +144,26 @@ describe("createObRealtimeClient", () => {
     await vi.waitFor(() => expect(connectMock).toHaveBeenCalledTimes(3));
     expect(connectMock).toHaveBeenNthCalledWith(
       3,
-      OB_A8_MQTT_URL,
+      demoConfig.url,
       expect.objectContaining({
-        clientId: OB_MQTT_CLIENT_ID,
+        clientId: "mqttjs_dj53795844534217162",
       }),
     );
 
     await client.stop();
   });
 
-  test("connects selected A8 source with fixed clientId", async () => {
-    setObMqttSourceMode("a8");
-    const a8Client = fakeMqttClient();
-    connectMock.mockReturnValueOnce(a8Client);
+  test("maps legacy a8 localStorage mode to demo", async () => {
+    setObMqttSourceMode("a8" as never);
+    fetchObDemoMqttConfig.mockResolvedValue(demoConfig);
+    const demoClient = fakeMqttClient();
+    connectMock.mockReturnValueOnce(demoClient);
 
     const client = createObRealtimeClient();
     await client.start(() => {});
 
-    expect(connectMock).toHaveBeenNthCalledWith(
-      1,
-      OB_A8_MQTT_URL,
-      expect.objectContaining({
-        username: OB_A8_MQTT_USERNAME,
-        password: OB_A8_MQTT_PASSWORD,
-        clientId: OB_MQTT_CLIENT_ID,
-        reconnectPeriod: 5000,
-      }),
-    );
-    expect(fetchObDemoMqttConfig).not.toHaveBeenCalled();
+    expect(connectMock).toHaveBeenCalledWith(demoConfig.url, expect.any(Object));
+    expect(fetchObDemoMqttConfig).toHaveBeenCalled();
 
     await client.stop();
   });

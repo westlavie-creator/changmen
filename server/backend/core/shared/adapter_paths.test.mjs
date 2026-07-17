@@ -52,13 +52,18 @@ describe("adapter_paths", () => {
     expect(typeof tryLoadSession).toBe("function");
   });
 
-  it("requirePlatform loads TF collect_credentials (ESM backend)", async () => {
+  it("requirePlatform loads TF collect_credentials (local only)", async () => {
     const { getTfA8CollectCredentials } = requirePlatform("TF", "node", "collect_credentials.js");
     expect(typeof getTfA8CollectCredentials).toBe("function");
-    const creds = await getTfA8CollectCredentials();
-    expect(creds.provider).toBe("TF");
-    expect(creds.gateway).toBeTruthy();
-    expect(creds.token).toBeTruthy();
+    try {
+      const creds = await getTfA8CollectCredentials();
+      expect(creds.provider).toBe("TF");
+      expect(creds.gateway).toBeTruthy();
+      expect(creds.token).toBeTruthy();
+    }
+    catch (err) {
+      expect(String(err.message || err)).toMatch(/TF 采集凭证未配置/);
+    }
   });
 
   it("requirePlatform loads IA session module (ESM backend)", () => {

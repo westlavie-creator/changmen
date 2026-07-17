@@ -140,8 +140,8 @@ describe("createRayRealtimeClient", () => {
     await client.stop();
   });
 
-  test("connects selected A8 source directly", async () => {
-    setRayWsSourceMode("a8");
+  test("maps legacy a8 mode to official", async () => {
+    setRayWsSourceMode("a8" as never);
     createMock.mockReturnValue(mockSocketCluster([]));
 
     const client = createRayRealtimeClient();
@@ -150,10 +150,8 @@ describe("createRayRealtimeClient", () => {
     expect(createMock).toHaveBeenCalledOnce();
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        hostname: "47.115.75.57",
-        port: 443,
-        secure: true,
-        path: "/esport/ws/RAY",
+        hostname: "cfsocket.365raylinks.com",
+        path: "/socketcluster/",
       }),
     );
 

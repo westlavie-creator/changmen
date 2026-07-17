@@ -106,6 +106,30 @@
     return true;
   }
 
+  // src/content/hga-poll.js
+  function maybeStartHgaPoll(_meta) {
+  }
+
+  // src/content/platforms.js
+  var PLATFORMS = Object.freeze({
+    OB: "OB",
+    RAY: "RAY",
+    IA: "IA",
+    IM: "IM",
+    TF: "TF",
+    SABA: "SABA",
+    PB: "PB",
+    IMT: "IMT",
+    HGA: "HGA",
+    HG: "HG",
+    Stake: "Stake",
+    Dex: "Dex",
+    Polymarket: "Polymarket"
+  });
+  var PLATFORM_LIST = Object.values(PLATFORMS).filter(
+    (id) => id !== PLATFORMS.HG && id !== PLATFORMS.HGA && id !== PLATFORMS.IM && id !== PLATFORMS.TF && id !== PLATFORMS.XBet
+  );
+
   // ../node_modules/axios/lib/helpers/bind.js
   function bind(fn, thisArg) {
     return function wrap() {
@@ -3291,104 +3315,6 @@
       withCredentials: options.withCredentials !== false
     });
   }
-  async function postFormUrlEncoded(url, fields, headers = {}) {
-    const body = new URLSearchParams();
-    for (const [k, v] of Object.entries(fields)) {
-      body.set(k, String(v ?? ""));
-    }
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers },
-      body,
-      credentials: "include"
-    });
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
-  }
-
-  // src/content/hga-poll.js
-  var SAVE_URL = "https://api.a8.to/Common/API_SaveData";
-  var maxId = 0;
-  var pollCount = 0;
-  var wagers = [];
-  var pollStarted = false;
-  function wagerTimeMs(w) {
-    const dt = /* @__PURE__ */ new Date(`${w.DATE} ${w.TIME}`);
-    dt.setHours(dt.getHours() + 12);
-    return dt.getTime();
-  }
-  async function saveWagers(username, rows) {
-    if (!rows.length) return;
-    await postFormUrlEncoded(`${SAVE_URL}?key=HG:${encodeURIComponent(username)}`, {
-      content: JSON.stringify(rows)
-    });
-  }
-  async function pollLoop(gateway, uid, ver, username) {
-    if (!uid || !ver) return;
-    const confirmBtn = document.querySelector(".gamebet-collect-panel-confirm");
-    for (; ; ) {
-      try {
-        const url = `${gateway}/transform.php?ver=${ver}`;
-        const data = await postFormUrlEncoded(url, {
-          login_layer: "ag",
-          uid,
-          langx: "zh-cn",
-          ver,
-          p: "get_wmc_list_bet",
-          totalBets: "wmc",
-          gtype: "ALL",
-          sel_maxid: String(maxId)
-        });
-        if (data?.maxid) maxId = data.maxid;
-        if (data?.wagers?.length) {
-          const cutoff = Date.now() - 6e5;
-          for (const w of data.wagers) {
-            if (!wagers.some((x) => x.TID === w.TID)) wagers.push(w);
-          }
-          await saveWagers(
-            username,
-            wagers.filter((w) => wagerTimeMs(w) > cutoff)
-          );
-        }
-      } catch (err) {
-        console.warn("[HGA] poll error", err);
-      } finally {
-        pollCount += 1;
-        if (confirmBtn) {
-          confirmBtn.disabled = true;
-          confirmBtn.innerHTML = `\u7B2C${pollCount}\u6B21\u76D1\u542C`;
-        }
-        await sleep(3e3);
-      }
-    }
-  }
-  function maybeStartHgaPoll(meta) {
-    if (pollStarted || !meta?.uid || !meta?.ver || !meta?.username) return;
-    pollStarted = true;
-    void pollLoop(meta.gateway, meta.uid, meta.ver, meta.username);
-  }
-
-  // src/content/platforms.js
-  var PLATFORMS = Object.freeze({
-    OB: "OB",
-    RAY: "RAY",
-    IA: "IA",
-    IM: "IM",
-    TF: "TF",
-    SABA: "SABA",
-    PB: "PB",
-    IMT: "IMT",
-    HGA: "HGA",
-    HG: "HG",
-    Stake: "Stake",
-    Dex: "Dex",
-    Polymarket: "Polymarket"
-  });
-  var PLATFORM_LIST = Object.values(PLATFORMS);
 
   // src/content/polymarket/init.js
   var CLOB_API = "https://clob.polymarket.com";
@@ -3976,36 +3902,12 @@
   }
 
   // src/content/config.js
-  var DEFAULT_A8_WS = "https://47.115.75.57";
   var STAKE_LOCKDOWN_TOKEN = "s5MNWtjTM5TvCMkAzxov";
 
   // src/content/stake/a8-bridge.js
-  function createA8Bridge(channel) {
-    const ioFn = globalThis.io;
-    if (typeof ioFn !== "function") {
-      console.warn("[Stake] socket.io \u672A\u52A0\u8F7D\uFF0C\u5B9E\u65F6\u9891\u9053\u4E0D\u53EF\u7528");
-      return { send() {
-      } };
-    }
-    const socket = ioFn(DEFAULT_A8_WS, {
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1e3,
-      reconnectionDelayMax: 5e3,
-      randomizationFactor: 0.5,
-      timeout: 2e4
-    });
-    socket.on("connect", () => {
-      console.log("\u2705 \u5DF2\u8FDE\u63A5\u5230 A8 Socket", {
-        socketId: socket.id,
-        connected: socket.connected
-      });
-    });
+  function createA8Bridge(_channel) {
     return {
-      send(message) {
-        if (socket.connected) {
-          socket.emit("chat message", JSON.stringify({ channel, message }));
-        }
+      send() {
       }
     };
   }

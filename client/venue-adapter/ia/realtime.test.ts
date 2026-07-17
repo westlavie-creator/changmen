@@ -3,17 +3,9 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createIaRealtimeClient, type IaRealtimeMessage } from "./realtime";
 
 import {
-
-  IA_A8_WS,
-
-  IA_A8_WS_PATH,
-
   IA_OFFICIAL_WS,
-
   IA_OFFICIAL_WS_PATH,
-
   IA_WS_FORWARD_PATH,
-
 } from "./wsConfig";
 
 
@@ -226,7 +218,7 @@ describe("createIaRealtimeClient", () => {
 
 
 
-  test("falls back to A8 when CHANGMEN forward fails", async () => {
+  test("cycles back to official when CHANGMEN forward fails (no A8)", async () => {
 
     vi.stubGlobal("window", { location: { origin: "http://localhost:5274" } });
 
@@ -234,9 +226,9 @@ describe("createIaRealtimeClient", () => {
 
     const changmen = mockSocket();
 
-    const a8 = mockSocket();
+    const officialRetry = mockSocket();
 
-    ioMock.mockReturnValueOnce(official).mockReturnValueOnce(changmen).mockReturnValueOnce(a8);
+    ioMock.mockReturnValueOnce(official).mockReturnValueOnce(changmen).mockReturnValueOnce(officialRetry);
 
 
 
@@ -260,21 +252,11 @@ describe("createIaRealtimeClient", () => {
 
     expect(ioMock).toHaveBeenLastCalledWith(
 
-      IA_A8_WS,
+      IA_OFFICIAL_WS,
 
       expect.objectContaining({
 
-        path: IA_A8_WS_PATH,
-
-        extraHeaders: {
-
-          Origin: "https://ilustre-analytics.org",
-
-          token: "hello",
-
-        },
-
-        auth: { token: "https://ilustre-analytics.org" },
+        path: IA_OFFICIAL_WS_PATH,
 
       }),
 
