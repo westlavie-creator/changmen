@@ -7,11 +7,36 @@ export function setChangmenAuthTokenGetter(getter: AuthTokenGetter | null): void
   _getter = getter;
 }
 
-export function getChangmenAuthToken(): string {
+function readTokenFromStorage(): string {
   try {
-    return String(_getter?.() || "").trim();
+    if (typeof localStorage !== "undefined") {
+      const fromLs = String(localStorage.getItem("app:token") || "").trim();
+      if (fromLs)
+        return fromLs;
+    }
+  }
+  catch {
+    /* ignore */
+  }
+  try {
+    if (typeof document === "undefined")
+      return "";
+    const m = document.cookie.match(/(?:^|; )app_token=([^;]*)/);
+    return m ? decodeURIComponent(m[1]).trim() : "";
   }
   catch {
     return "";
   }
+}
+
+export function getChangmenAuthToken(): string {
+  try {
+    const fromGetter = String(_getter?.() || "").trim();
+    if (fromGetter)
+      return fromGetter;
+  }
+  catch {
+    /* fall through */
+  }
+  return readTokenFromStorage();
 }

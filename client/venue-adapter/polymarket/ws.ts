@@ -51,12 +51,11 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
 
-  function cleanup() {
+  function clearPing() {
     if (pingTimer) {
       clearInterval(pingTimer);
       pingTimer = null;
     }
-    ws = null;
   }
 
   function clearActiveIfSelf(handle: PolymarketMarketWsHandle) {
@@ -76,24 +75,24 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
 
   function connect() {
     if (stopped || ws) return;
-    const url = resolvePolymarketMarketWsUrl();
-    if (!url) {
-      setPolymarketWsStatus("error");
-      scheduleReconnect();
-      return;
-    }
     setPolymarketWsStatus("connecting");
-    ws = new WebSocket(url);
+    const socket = new WebSocket(resolvePolymarketMarketWsUrl());
+    ws = socket;
 
-    ws.onopen = () => {
+    socket.onopen = () => {
+      if (ws !== socket)
+        return;
       setPolymarketWsStatus("connected");
       opts.onOpen();
+      clearPing();
       pingTimer = setInterval(() => {
         if (ws?.readyState === WebSocket.OPEN) ws.send("PING");
       }, WS_PING_MS);
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws !== socket)
+        return;
       const raw = String(event.data);
       if (raw === "PONG") return;
       if (!raw.trim().startsWith("{") && !raw.trim().startsWith("[")) return;
@@ -104,15 +103,20 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
       }
     };
 
-    ws.onclose = () => {
-      cleanup();
+    socket.onclose = () => {
+      if (ws !== socket)
+        return;
+      clearPing();
+      ws = null;
       setPolymarketWsStatus(stopped ? "disconnected" : "error");
       scheduleReconnect();
     };
 
-    ws.onerror = () => {
+    socket.onerror = () => {
+      if (ws !== socket)
+        return;
       setPolymarketWsStatus("error");
-      ws?.close();
+      socket.close();
     };
   }
 
@@ -124,9 +128,20 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
     },
     stop() {
       stopped = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      cleanup();
-      ws?.close();
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      clearPing();
+      const socket = ws;
+      ws = null;
+      // 必须先取出再 close：若先 cleanup 置空，旧连接会成 hub 僵尸客户端
+      try {
+        socket?.close();
+      }
+      catch {
+        /* ignore */
+      }
       setPolymarketWsStatus("disconnected");
       clearActiveIfSelf(handle);
     },

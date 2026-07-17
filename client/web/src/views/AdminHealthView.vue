@@ -41,6 +41,7 @@ interface EsportApiHealth {
 interface PmMarketHubClient {
   id: number;
   userId?: string;
+  userName?: string;
   assetCount: number;
   connectedForSec: number;
   idleSubscribeSec: number | null;
@@ -400,7 +401,7 @@ onUnmounted(() => {
           <table class="health-api-table">
             <thead>
               <tr>
-                <th>userId</th>
+                <th>用户</th>
                 <th>IP</th>
                 <th>assets</th>
                 <th>drop</th>
@@ -414,7 +415,9 @@ onUnmounted(() => {
                 v-for="row in health.wsForward.hubs.pmMarket.slowClients"
                 :key="row.id"
               >
-                <td>{{ row.userId || '—' }}</td>
+                <td :title="row.userId || undefined">
+                  {{ row.userName || row.userId || '未鉴权' }}
+                </td>
                 <td>{{ row.remoteAddress || '—' }}</td>
                 <td>{{ row.assetCount }}</td>
                 <td :class="{ 'health-val--bad': row.droppedToClient > 0 }">

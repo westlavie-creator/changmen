@@ -5,6 +5,7 @@ import {
 } from "./ws";
 import { POLYMARKET_MARKET_WS } from "./api";
 import { resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
+import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -41,11 +42,13 @@ describe("polymarket market ws", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
     resetPmMarketWsSourceModeForTests("changmen");
+    setChangmenAuthTokenGetter(() => "test-jwt");
     vi.stubGlobal("WebSocket", Object.assign(MockWebSocket, { OPEN: 1 }) as unknown as typeof WebSocket);
   });
 
   afterEach(() => {
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} }).stop();
+    setChangmenAuthTokenGetter(null);
     vi.unstubAllGlobals();
   });
 
@@ -76,6 +79,15 @@ describe("polymarket market ws", () => {
     handle.send("after-cycle");
     expect(second.sent).toContain("after-cycle");
     expect(MockWebSocket.instances[0]!.sent).not.toContain("after-cycle");
+  });
+
+  it("stop closes the live socket (no hub zombie)", () => {
+    const handle = startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    const first = MockWebSocket.instances[0]!;
+    first.open();
+    const closeSpy = vi.spyOn(first, "close");
+    handle.stop();
+    expect(closeSpy).toHaveBeenCalled();
   });
 
   it("second startPolymarketMarketWs still allows mode cycle", () => {

@@ -84,6 +84,30 @@ export async function getUserByToken(token) {
   return profile || null;
 }
 
+/**
+ * WS hub 等只需身份：JWT 有效即返回 userId；profile 缺失不判失败。
+ * @returns {Promise<{ userId: string, userName: string } | null>}
+ */
+export async function resolveUserIdentityByToken(token) {
+  if (!token)
+    return null;
+  const auth = await sb.authGetUser(token);
+  const userId = String(auth?.userId || "").trim();
+  if (!userId)
+    return null;
+  let userName = "";
+  try {
+    let profile = dbStore.getProfileById(userId);
+    if (!profile)
+      profile = await dbStore.loadProfileById(userId);
+    userName = String(profile?.userName || "").trim();
+  }
+  catch {
+    /* profile 可选 */
+  }
+  return { userId, userName };
+}
+
 // ── profile ───────────────────────────────────────────────────────────────────
 export function getUserById(uid) {
   return dbStore.getProfileById(uid);
@@ -515,6 +539,7 @@ const store = {
   DATA_DIR,
   ensureSeed,
   getUserByToken,
+  resolveUserIdentityByToken,
   getUserById,
   updateUserSetting,
   getPlatform,

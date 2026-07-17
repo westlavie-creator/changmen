@@ -20,12 +20,9 @@ function changmenPmWsUrl(path: string, withAuthToken = false): string {
   return `${url}${sep}token=${encodeURIComponent(token)}`;
 }
 
-/** relay 模式需要 JWT；无 token 时返回 null（调用方勿连）。 */
-export function resolvePolymarketMarketWsUrl(): string | null {
+/** relay 尽量带 JWT（健康页归属）；无 token 仍返回 URL，避免断采。 */
+export function resolvePolymarketMarketWsUrl(): string {
   if (getPmMarketWsSourceMode() === "official") return POLYMARKET_MARKET_WS;
-  const token = getChangmenAuthToken();
-  if (!token)
-    return null;
   return changmenPmWsUrl(PM_MARKET_WS_FORWARD_PATH, true);
 }
 

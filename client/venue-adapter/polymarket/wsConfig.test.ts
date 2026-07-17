@@ -32,9 +32,11 @@ describe("polymarket wsConfig", () => {
     );
   });
 
-  test("changmen 模式无 token 返回 null", () => {
+  test("changmen 模式无 token 仍返回 URL（不带 query）", () => {
     setChangmenAuthTokenGetter(() => null);
-    expect(resolvePolymarketMarketWsUrl()).toBeNull();
+    expect(resolvePolymarketMarketWsUrl()).toBe(
+      `ws://127.0.0.1:3560${PM_MARKET_WS_FORWARD_PATH}`,
+    );
   });
 
   test("official 模式直连 Polymarket", () => {

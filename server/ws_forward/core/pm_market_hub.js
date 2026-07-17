@@ -1,7 +1,7 @@
 /**
  * Polymarket MARKET WebSocket Hub — 全站合并 asset 订阅，单条上游连 PM。
  * 浏览器仍连 /esport/ws-forward/PM-MARKET；PM-USER 保持 1:1 raw 转发。
- * 升级握手要求 JWT（?token= 或 Authorization: Bearer）。
+ * 升级可带 JWT（?token= / Bearer）写入健康页归属；无 token / 校验失败仍放行（避免断采）。
  */
 import { WebSocketServer, WebSocket } from "ws";
 import store from "../../backend/core/esport-api/store.js";
@@ -17,6 +17,7 @@ const UPSTREAM_IDLE_MS = 60_000;
 /** @typedef {{
  *   id: number,
  *   userId: string,
+ *   userName: string,
  *   assetIds: Set<string>,
  *   connectedAt: number,
  *   lastSubscribeAt: number,
@@ -384,12 +385,13 @@ function detachClient(clientWs) {
 /**
  * @param {import("ws").WebSocket} clientWs
  * @param {import("node:http").IncomingMessage} request
- * @param {{ userId?: string }} [meta]
+ * @param {{ userId?: string, userName?: string }} [meta]
  */
 function attachClient(clientWs, request, meta = {}) {
   clients.set(clientWs, {
     id: nextClientId++,
     userId: String(meta.userId || "").trim(),
+    userName: String(meta.userName || "").trim(),
     assetIds: new Set(),
     connectedAt: Date.now(),
     lastSubscribeAt: 0,
@@ -446,24 +448,32 @@ export function attachPmMarketHub(httpServer) {
     void (async () => {
       try {
         const token = extractPmMarketUpgradeToken(request);
-        if (!token) {
-          rejectUpgrade(socket, 401, "Unauthorized");
+        let userId = "";
+        let userName = "";
+        if (token) {
+          try {
+            const identity = await store.resolveUserIdentityByToken(token);
+            userId = String(identity?.userId || "").trim();
+            userName = String(identity?.userName || "").trim();
+            if (!userId) {
+              recordError(HUB_ID, "upgrade identity: token present but invalid/expired");
+            }
+          }
+          catch (err) {
+            recordError(HUB_ID, err?.message || "upgrade identity error");
+          }
+        }
+        if (!wss || socket.destroyed) {
+          if (!socket.destroyed)
+            rejectUpgrade(socket, 503, "Service Unavailable");
           return;
         }
-        const user = await store.getUserByToken(token);
-        const userId = String(user?.id ?? user?.userId ?? "").trim();
-        if (!userId) {
-          rejectUpgrade(socket, 401, "Unauthorized");
-          return;
-        }
-        if (!wss || socket.destroyed)
-          return;
         wss.handleUpgrade(request, socket, head, (clientWs) => {
-          wss.emit("connection", clientWs, request, { userId });
+          wss.emit("connection", clientWs, request, { userId, userName });
         });
       }
       catch (err) {
-        recordError(HUB_ID, err?.message || "upgrade auth error");
+        recordError(HUB_ID, err?.message || "upgrade error");
         rejectUpgrade(socket, 500, "Internal Server Error");
       }
     })();
@@ -478,6 +488,7 @@ export function getPmMarketHubStatus() {
   const rows = [...clients.values()].map(row => ({
     id: row.id,
     userId: row.userId || "",
+    userName: row.userName || "",
     assetCount: row.assetIds.size,
     connectedForSec: Math.max(0, Math.round((Date.now() - row.connectedAt) / 1000)),
     idleSubscribeSec: row.lastSubscribeAt
