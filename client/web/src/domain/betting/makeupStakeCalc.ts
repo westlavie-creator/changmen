@@ -3,6 +3,8 @@
  * 对冲式与 LoseOrder.getBetMoney 一致：round(已成金额 × 已成赔率 / 补单赔率)。
  */
 
+import { toFixed } from "@changmen/client-core/shared/format";
+
 export interface MakeupStakeInput {
   refMoney: number;
   refOdds: number;
@@ -24,6 +26,20 @@ export interface MakeupStakeResult {
   profitAmount: number;
   /** 保底利润率 = 盈利金额 / 总投入 */
   profitRate: number;
+}
+
+/**
+ * 打平赔率：对冲后保本（利润率 0）所需的最低补单赔率。
+ * 与 LoseOrder.getOdds(1) 一致：1 / (1 − 1/已成赔率)。
+ */
+export function calcBreakEvenOdds(refOdds: number): number | null {
+  const o = Number(refOdds);
+  if (!(o > 1))
+    return null;
+  const implied = 1 / (1 - 1 / o);
+  if (!(implied > 1) || !Number.isFinite(implied))
+    return null;
+  return Number(toFixed(implied));
 }
 
 export function calcMakeupStake(input: MakeupStakeInput): MakeupStakeResult | null {

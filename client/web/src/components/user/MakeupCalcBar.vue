@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive } from "vue";
 import { percent } from "@changmen/client-core/shared/format";
-import { calcMakeupStake } from "@/domain/betting/makeupStakeCalc";
+import { calcBreakEvenOdds, calcMakeupStake } from "@/domain/betting/makeupStakeCalc";
 
 const form = reactive({
   refMoney: undefined as number | undefined,
   refOdds: undefined as number | undefined,
   targetOdds: undefined as number | undefined,
 });
+
+const breakEvenOdds = computed(() => calcBreakEvenOdds(Number(form.refOdds) || 0));
 
 const result = computed(() =>
   calcMakeupStake({
@@ -62,6 +64,13 @@ function fmtProfit(n: number): string {
             size="small"
           />
         </label>
+        <span
+          class="sailor-calc__field sailor-calc__break-even"
+          title="对冲保本所需最低补单赔率：1/(1−1/已成赔率)"
+        >
+          <span>打平赔率</span>
+          <strong>{{ breakEvenOdds != null ? fmt(breakEvenOdds, 3) : "—" }}</strong>
+        </span>
       </div>
       <label class="sailor-calc__field">
         <span>补单赔率</span>
@@ -171,6 +180,14 @@ function fmtProfit(n: number): string {
 .sailor-calc__field :deep(.el-input__inner) {
   color: #e2e8f0;
   text-align: left;
+}
+
+.sailor-calc__break-even strong {
+  min-width: 52px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
 }
 
 .sailor-calc__out {

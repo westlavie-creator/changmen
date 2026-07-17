@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { calcMakeupStake } from "@/domain/betting/makeupStakeCalc";
+import { calcBreakEvenOdds, calcMakeupStake } from "@/domain/betting/makeupStakeCalc";
+
+describe("calcBreakEvenOdds", () => {
+  it("matches LoseOrder.getOdds(1) for common refs", () => {
+    expect(calcBreakEvenOdds(2)).toBe(2);
+    expect(calcBreakEvenOdds(1.9)).toBe(2.111);
+  });
+
+  it("returns null for invalid refs", () => {
+    expect(calcBreakEvenOdds(0)).toBeNull();
+    expect(calcBreakEvenOdds(1)).toBeNull();
+  });
+});
 
 describe("calcMakeupStake", () => {
   it("hedges stake from reference odds (100@2 → 2.5 = 80)", () => {
