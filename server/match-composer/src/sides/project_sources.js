@@ -1,7 +1,11 @@
 /**
  * Sources / Reverse 投影。不经 accumulate；直接从 platform_bets 取 native。
+ *
+ * Map0→局盘回填：对齐旧 matcher——最后一图（Map=BO）禁止在投影阶段用 Map0 填缺；
+ * 仅当 Round===BO 时由 promoteMap0ToDecider 拷贝（旧路径 promoteFullMatchSourcesToLiveRound）。
  */
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
+import { resolveRowBo } from "../shape/live_shape.js";
 import { swapBetSource } from "../util/swap.js";
 import { cloneRawSource, rawSourceForMap } from "../normalize/native_bets.js";
 import {
@@ -146,6 +150,8 @@ export function projectClientMatchSides(row, {
   const orderedBets = [...(row.Bets || [])].sort(
     (a, b) => (Number(a.Map) || 0) - (Number(b.Map) || 0),
   );
+  // 对齐旧 matcher：最后一图（Map=BO）投影阶段永不 Map0 回填；决胜局由 promote 负责
+  const bo = resolveRowBo(row, matches);
 
   for (const bet of orderedBets) {
     const mapNum = Number(bet.Map) || 0;
@@ -160,6 +166,10 @@ export function projectClientMatchSides(row, {
       const raw = rawSourceForMap(platform, sourceMatchId, mapNum, bets, gameCode);
 
       if (!betHasOdds(raw) && mapNum !== 0 && betHasOdds(map0Projected[platform])) {
+        if (bo > 0 && mapNum === bo) {
+          omitted.push({ platform, map: mapNum, reason: "no_map0_fallback_on_decider_map" });
+          continue;
+        }
         nextSources[platform] = cloneRawSource(map0Projected[platform]);
         if (map0InReverse.has(platform) && !reverse.includes(platform))
           reverse.push(platform);

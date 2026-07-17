@@ -199,7 +199,13 @@ export function projectClientMatchSides(row, {
       );
 
       // 局盘无 native：原样复制已投影 Map0（禁止再 swap / 再 applyOverride）
+      // 对齐旧 matcher：最后一图 Map=BO 禁止投影回填；仅 Round===BO 时由 promote 拷贝
       if (!betHasOdds(raw) && mapNum !== 0 && betHasOdds(map0Projected[platform])) {
+        const bo = Number(row.BO) || 0;
+        if (bo > 0 && mapNum === bo) {
+          omitted.push({ platform, map: mapNum, reason: "no_map0_fallback_on_decider_map" });
+          continue;
+        }
         nextSources[platform] = cloneRawSource(map0Projected[platform]);
         if (map0InReverse.has(platform) && !reverse.includes(platform))
           reverse.push(platform);

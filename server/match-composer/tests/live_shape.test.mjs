@@ -49,6 +49,45 @@ describe("live_shape", () => {
     assert.equal(row.Bets[0].InitialAwayOdds, 2.2);
   });
 
+  it("non-decider Round does not promote Map0 onto last map", () => {
+    const row = {
+      ID: 2,
+      BO: 3,
+      Round: 1,
+      Matchs: { OB: "ob1" },
+      Bets: [{
+        Map: 0,
+        Sources: { OB: { BetID: "m0", HomeID: "h", AwayID: "a" } },
+      }, {
+        Map: 3,
+        Sources: {},
+      }],
+    };
+    promoteMap0ToDecider([row], {});
+    const last = row.Bets.find(b => b.Map === 3);
+    assert.ok(last);
+    assert.equal(Object.keys(last.Sources || {}).length, 0);
+  });
+
+  it("decider Round promotes Map0 onto last map", () => {
+    const row = {
+      ID: 3,
+      BO: 3,
+      Round: 3,
+      Matchs: { OB: "ob1" },
+      Bets: [{
+        Map: 0,
+        Sources: { OB: { BetID: "m0", HomeID: "h", AwayID: "a" } },
+      }, {
+        Map: 3,
+        Sources: {},
+      }],
+    };
+    promoteMap0ToDecider([row], {});
+    const last = row.Bets.find(b => b.Map === 3);
+    assert.equal(last.Sources.OB.BetID, "m0");
+  });
+
   it("applyLiveShape strips orphan platforms", () => {
     const matches = { OB: { ob1: { SourceMatchID: "ob1" } } };
     const row = {
