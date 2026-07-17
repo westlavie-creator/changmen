@@ -44,7 +44,6 @@ chrome-extension/
   manifest.json       # MV3，含固定公钥 key
   background.js         # esbuild 打包（源文件 src/background/）
   content.js            # esbuild 打包的可读 content（源文件 src/content/）
-  legacy/               # A8 原始 bundle 备份（content.a8.bundle.js）
   src/background/       # background + ModifyHeader（DNR）
   src/content/          # content 可读实现（见 src/content/README.md）
   vendor/               # socket.io 等第三方 bundle（Stake 桥接用）

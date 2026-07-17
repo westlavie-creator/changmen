@@ -109,33 +109,13 @@ npm run web
 
 | `ENABLE_PB_NODE` | 设为 `1` �?patch 禁用 bQ、Yn 改走 `/esport/pb/proxy`（高�?无插件场景） |
 
-| `A8_V4_URL` | 控制台「平博体育」v4 代理目标，默�?`https://api.a8.to/v4.0` |
+### 信用盘 v4
 
-| `A8_V4_USER` / `A8_V4_PASSWORD` | 本地控制台用户与 A8 不一致时，用此账号代�?v4（密码默�?`a123456`�?|
-
-### 新控制台 `/`「平博体育�?
-
-信用�?v4 流程与主�?`Client_Login` 分离；本�?dev 走同�?`/v4.0/`�? 
-**第一�?v4 登录已联调通过** �?详见 [client/web/docs/CREDIT_PLATE.md](../../../../../client/web/docs/CREDIT_PLATE.md)�?
-
-### 旧控制台 `/console/`「平博体育」（方案 A：A8 账号�?
-
-默认 **控制台登录与平博 SSO 均走 A8 真实账号**（不再使用本�?`admin` + 写死 `a123456`）�?
-
-```bash
-cd scripts
-npm run account:set-a8 -- <A8用户�? <A8密码>
-npm run web
-```
-
-�?`http://localhost:3456/console/` �?**同一 A8 用户名和密码** 登录，再点「平博体育」即可从 A8 获取 SSO 链接�?
+经 `api.a8.to` 的平博 v4 **已停用**（`/v4.0` → `V4Disabled`）。详见 [client/web/docs/CREDIT_PLATE.md](../../../../../client/web/docs/CREDIT_PLATE.md)。
 
 | 变量 | 说明 |
 |------|------|
-| `A8_AUTH` | 默认开启；设为 `0` 退回本�?`users.json` 登录 |
-| `A8_V4_URL` | v4 代理地址，默�?`https://api.a8.to/v4.0`（仅透明代理，无 mock�?|
-
-配置文件：`scripts/data/esport/a8_config.json`（可参�?`a8_config.example.json`）�?
+| `A8_AUTH` | JWT 登录开关；设为 `0` 退回本地 `users.json` |
 
 
 

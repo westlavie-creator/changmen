@@ -41,7 +41,7 @@ Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `
 |------|------|
 | `https://your-domain.com/` | 静态前端（`app:build` 产物）· **电竞控制台** |
 | `https://your-domain.com/esport/*` | server/backend（`changmen-esport`） |
-| `https://your-domain.com/v4.0/*` | 平博 v4 透明代理（可选） |
+| `https://your-domain.com/v4.0/*` | 已停用（返回 `V4Disabled`，不再转发 A8） |
 
 Nginx / Caddy 反代示例要点：
 - 静态 `/` 指向 `client/web/dist/`（推荐由 Caddy `file_server` 托管），或由 `server/backend` 读 `dist` 托管
@@ -119,8 +119,9 @@ npm install  # 首次：安装全部 workspaces（含 client/web）
 | `CHANGMEN_DB_SCRIPT` | `rds` | 数据层固定 RDS（兼容旧名 `GAMEBET_DB_SCRIPT`） |
 | `PORT` | `3456` 或反代端口 | HTTP 监听 |
 | `A8_AUTH` | **`1`（默认）** | JWT 登录；勿用 `users.json` |
-| `A8_V4_URL` | `https://api.a8.to/v4.0` | v4 上游 |
 | `NODE_ENV` | `production` | 常规 Node 约定 |
+
+**不要设置**（已停用）：`A8_V4_URL`（v4 信用盘不再转发 `api.a8.to`）。
 
 HTTP 代理（按需，见 [server/backend/proxy/README.md](./server/backend/proxy/README.md)）：
 

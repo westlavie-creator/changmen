@@ -1,40 +1,38 @@
+/**
+ * TF 实时 WS 探针 — A8 聚合已移除，默认不再连接任何 host。
+ * 若需探测，显式传入 options.wsUrl / 环境变量 TF_WS_URL。
+ */
 import { backendRequire } from "../backend/_paths.js";
 import { stripTokenPrefix } from "./auth.js";
 
 const WebSocket = backendRequire("ws");
 
-/** A8 `d4e` / `x5` [A8 可证实] */
-export const TF_WS_HOSTS = ["api.a8.to", "47.115.75.57"];
+/** @deprecated A8 聚合 WS 已移除 */
+export const TF_WS_HOSTS = [];
 export const TF_WS_PATH = "/esport/ws/TF";
 
-let hostRotate = 0;
-
 export function resetTfWsHostRotateForTests() {
-  hostRotate = 0;
+  /* no-op */
 }
 
 export function nextTfWsHost() {
-  const host = TF_WS_HOSTS[hostRotate % TF_WS_HOSTS.length];
-  hostRotate += 1;
-  return host;
+  throw new Error("TF A8 WebSocket hosts removed; set TF_WS_URL to probe a non-A8 endpoint");
 }
 
-/** 对齐 changmen 浏览器 adapter `buildTfWsUrl` */
-export function buildTfWsUrl(token, host = nextTfWsHost()) {
-  const auth = stripTokenPrefix(token);
-  return `wss://${host}${TF_WS_PATH}?auth_token=${auth}&combo=false`;
+/** @deprecated A8 聚合 WS 已移除；无默认 host */
+export function buildTfWsUrl(_token, _host) {
+  throw new Error("TF A8 WebSocket hosts removed; set TF_WS_URL to probe a non-A8 endpoint");
 }
 
 /** @deprecated 使用 buildTfWsUrl */
 export function buildTfUpstreamUrl(_gateway, token) {
-  return buildTfWsUrl(token, TF_WS_HOSTS[1]);
+  return buildTfWsUrl(token);
 }
 
 /** @deprecated 使用 buildTfWsUrl */
 export function buildA8StyleWsUrl(token) {
   return buildTfWsUrl(token);
 }
-
 
 export class TfWsClient {
   constructor(options = {}) {
@@ -52,8 +50,12 @@ export class TfWsClient {
   }
 
   resolveWsUrl() {
-    if (this.wsUrlOverride) return this.wsUrlOverride;
-    return buildTfWsUrl(this.token);
+    if (this.wsUrlOverride) {
+      return this.wsUrlOverride.includes("?")
+        ? this.wsUrlOverride
+        : `${this.wsUrlOverride}?auth_token=${stripTokenPrefix(this.token)}&combo=false`;
+    }
+    throw new Error("TF A8 WebSocket hosts removed; set TF_WS_URL or options.wsUrl");
   }
 
   onOdds(fn) {
@@ -62,14 +64,27 @@ export class TfWsClient {
 
   connect() {
     if (this._running) return Promise.resolve(this.connected);
-    if (!this.gateway || !this.token) {
-      this.lastError = "TF WS: missing gateway/token";
+    if (!this.wsUrlOverride) {
+      this.lastError = "TF WS: A8 hosts removed; set TF_WS_URL";
+      return Promise.resolve(false);
+    }
+    if (!this.token && !this.wsUrlOverride.includes("auth_token=")) {
+      this.lastError = "TF WS: missing token";
       return Promise.resolve(false);
     }
 
     this._running = true;
     return new Promise((resolve) => {
-      const url = this.resolveWsUrl();
+      let url;
+      try {
+        url = this.resolveWsUrl();
+      }
+      catch (err) {
+        this.lastError = err.message;
+        this._running = false;
+        resolve(false);
+        return;
+      }
       this.ws = new WebSocket(url);
 
       const finish = (ok) => {
@@ -86,7 +101,8 @@ export class TfWsClient {
         try {
           const msg = JSON.parse(String(data));
           if (this._onOdds) this._onOdds(msg);
-        } catch {
+        }
+        catch {
           /* ignore non-json */
         }
       });

@@ -1,15 +1,20 @@
+/**
+ * IA 实时 Socket.IO 探针 — A8 聚合（47.115.75.57）已移除。
+ * 须显式传入 options.wsBase / IA_WS_URL（官方或本站 relay），否则不连接。
+ */
 import { backendRequire } from "../backend/_paths.js";
 
 const { io } = backendRequire("socket.io-client");
 
-export const DEFAULT_A8_WS = "wss://47.115.75.57";
+/** @deprecated A8 聚合 WS 已移除；无默认基址 */
+export const DEFAULT_A8_WS = "";
 
 /**
- * IA 实时 Socket.IO（A8 模式：/esport/ws/IA 房间推送）。
+ * IA 实时 Socket.IO（须自备非 A8 的 wsBase）。
  */
 export class IaWsClient {
   constructor(options = {}) {
-    this.wsBase = options.wsBase || process.env.IA_WS_URL || process.env.A8_WS_URL || DEFAULT_A8_WS;
+    this.wsBase = options.wsBase || process.env.IA_WS_URL || "";
     this.gateway = options.gateway || process.env.IA_GATEWAY || "https://ilustre-analytics.org";
     this.reconnectMinMs = options.reconnectMinMs || 2000;
     this.reconnectMaxMs = options.reconnectMaxMs || 8000;
@@ -26,6 +31,11 @@ export class IaWsClient {
 
   connect() {
     if (this._running && this.connected) return Promise.resolve(true);
+    if (!this.wsBase) {
+      this.lastError = "IA WS: A8 hosts removed; set IA_WS_URL or options.wsBase";
+      return Promise.resolve(false);
+    }
+
     this._running = true;
 
     return new Promise((resolve) => {

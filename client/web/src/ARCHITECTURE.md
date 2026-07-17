@@ -334,12 +334,10 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | `report.ts` | 月报、利润、默认赔率 |
 | `chat.ts` | 聊天、用户列表、日志 |
 | `hg.ts` | 皇冠跟单队列（`/common`） |
-| `v4.ts` | 信用盘试玩（`/v4.0`） |
+| `v4.ts` | 信用盘试玩（OB/SABA 官方；`/v4.0` 已停用） |
 
-### 信用盘 v4（平博入口）
+### 信用盘（试玩入口）
 
-主站登录与 v4 登录账号不同；本地 Vite（Win `:5274` / 其它 `:5174`）默认**浏览器直连** `https://api.a8.to/v4.0/`（对齐 A8 bundle）；仅 `VITE_V4_PROXY=1` 时走 `/v4.0/` 经 backend 代理。
-
-**联调状态**：`user/account/login` 第一步已通过（2026-05-26）。完整流程、环境与验收见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md)。
+经 `api.a8.to` 的 v4 信用盘已停用；`/v4.0/*` 返回 `V4Disabled`。当前仅 OB / SABA 官方试玩。详见 [docs/CREDIT_PLATE.md](../docs/CREDIT_PLATE.md)。
 
 业务代码可继续 `import { … } from "@/api/esport"`，或按域从 `@/api/match` 等直接引用。
