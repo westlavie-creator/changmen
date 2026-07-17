@@ -8,7 +8,7 @@ import {
   resolvePredictFunMarketUpstream,
 } from "../platforms/predictfun.js";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
-import { createWsRelayGuard } from "./ws_backpressure.js";
+import { attachHubUpstreamBackpressure, createWsRelayGuard } from "./ws_backpressure.js";
 
 const HUB_ID = "PREDICTFUN-MARKET";
 const ORDERBOOK_TOPIC_PREFIX = "predictOrderbook/";
@@ -32,6 +32,8 @@ let upstreamSubscribed = new Set();
 let upstreamRequestId = 1;
 
 const toClientGuard = createWsRelayGuard(HUB_ID, "to-client");
+/** @type {(() => void) | null} */
+let stopHubBackpressure = null;
 
 /**
  * @param {string} topic
@@ -371,6 +373,13 @@ export function attachPredictFunMarketHub(httpServer) {
     return;
 
   wss = new WebSocketServer({ noServer: true });
+  stopHubBackpressure?.();
+  stopHubBackpressure = attachHubUpstreamBackpressure(
+    () => clients.keys(),
+    () => upstream,
+    toClientGuard,
+    HUB_ID,
+  );
 
   httpServer.on("upgrade", (request, socket, head) => {
     const pathname = new URL(request.url || "/", "http://localhost").pathname;
@@ -389,6 +398,8 @@ export function attachPredictFunMarketHub(httpServer) {
 
 export function closePredictFunMarketHub() {
   clearUpstreamReconnectTimer();
+  stopHubBackpressure?.();
+  stopHubBackpressure = null;
   for (const clientWs of [...clients.keys()]) {
     try {
       clientWs.close();

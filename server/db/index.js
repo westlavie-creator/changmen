@@ -157,6 +157,7 @@ export const {
   authSignIn,
   authSignOut,
   authGetUser,
+  authPeekAccessToken,
   authRefreshToken,
   writeUserMetadata,
   fetchSportClientMatches,

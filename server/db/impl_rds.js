@@ -9,6 +9,7 @@
 
 export {
   authGetUser,
+  authPeekAccessToken,
   authRefreshToken,
   authSignIn,
   authSignOut,

@@ -4,7 +4,12 @@
  */
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { updateClientMatchPmSport } from "@changmen/db";
+import {
+  getResolvedDatabaseLabel,
+  hasDatabaseUrlConfig,
+  initDatabaseUrl,
+  updateClientMatchPmSport,
+} from "@changmen/db";
 import WebSocket from "ws";
 import { notifyPmSportBroadcast } from "./broadcast_notify.js";
 import { refreshGammaEventIndex } from "./gamma_map.js";
@@ -135,10 +140,13 @@ function connectWs() {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    console.error("[pm-sports] DATABASE_URL 未配置");
+  if (!hasDatabaseUrlConfig()) {
+    console.error("[pm-sports] DATABASE_URL / DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL 未配置");
     process.exit(1);
   }
+  // VPS：auto 优先内网；本机：内网不可达则走 public / DATABASE_URL
+  await initDatabaseUrl();
+  console.log(`[pm-sports] RDS ${getResolvedDatabaseLabel() || "DATABASE_URL"}`);
 
   await refreshGamma();
   await runGammaPoll();

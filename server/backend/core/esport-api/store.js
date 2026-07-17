@@ -85,14 +85,30 @@ export async function getUserByToken(token) {
 }
 
 /**
- * WS hub 等只需身份：JWT 有效即返回 userId；profile 缺失不判失败。
+ * WS hub 等只需身份：优先完整 session 校验；失败时对签名有效的 access JWT 做归因回退
+ * （避免 session 踢下线 / RDS 抖动时健康页变成「未鉴权」且用户以为连不上）。
  * @returns {Promise<{ userId: string, userName: string } | null>}
  */
 export async function resolveUserIdentityByToken(token) {
   if (!token)
     return null;
-  const auth = await sb.authGetUser(token);
-  const userId = String(auth?.userId || "").trim();
+  let userId = "";
+  try {
+    const auth = await sb.authGetUser(token);
+    userId = String(auth?.userId || "").trim();
+  }
+  catch {
+    /* fall through to peek */
+  }
+  if (!userId) {
+    try {
+      const peek = sb.authPeekAccessToken?.(token);
+      userId = String(peek?.userId || "").trim();
+    }
+    catch {
+      return null;
+    }
+  }
   if (!userId)
     return null;
   let userName = "";

@@ -4,6 +4,11 @@
  */
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
+import {
+  getResolvedDatabaseLabel,
+  hasDatabaseUrlConfig,
+  initDatabaseUrl,
+} from "@changmen/db";
 
 import { runPredictFunDiscoveryCycle } from "./loop.js";
 
@@ -25,10 +30,12 @@ async function tick() {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) {
-    console.error("[predictfun-collector] DATABASE_URL 未配置");
+  if (!hasDatabaseUrlConfig()) {
+    console.error("[predictfun-collector] DATABASE_URL / DATABASE_URL_PUBLIC / DATABASE_URL_INTERNAL 未配置");
     process.exit(1);
   }
+  await initDatabaseUrl();
+  console.log(`[predictfun-collector] RDS ${getResolvedDatabaseLabel() || "DATABASE_URL"}`);
 
   await tick();
   const timer = setInterval(() => {

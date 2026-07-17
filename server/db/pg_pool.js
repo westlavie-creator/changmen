@@ -83,6 +83,9 @@ export function getPgPool(reason = "") {
       max,
       idleTimeoutMillis,
       maxLifetimeSeconds,
+      // 云上 NAT/RDS 常掐死空闲 TCP；无 keepalive 时池内连接变死连接，随后雪崩
+      keepAlive: true,
+      keepAliveInitialDelayMillis: envInt("DATABASE_POOL_KEEPALIVE_DELAY_MS", 10_000),
       query_timeout: queryTimeoutMs,
       statement_timeout: statementTimeoutMs,
       idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,

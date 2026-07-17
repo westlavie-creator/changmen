@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
-import { createWsRelayGuard } from "./ws_backpressure.js";
+import { attachRawPipeBackpressure, pauseWsSocket } from "./ws_backpressure.js";
 
 /** @type {import("ws").WebSocketServer | null} */
 let wss = null;
@@ -28,8 +28,7 @@ function pipeSockets(clientWs, upstreamWs, id, pendingClientMessages = []) {
     if (reason) console.warn(`[ws_forward/${id}] relay closed:`, reason);
   };
 
-  const toUpstream = createWsRelayGuard(id, "to-upstream");
-  const toClient = createWsRelayGuard(id, "to-client");
+  const { toUpstream, toClient } = attachRawPipeBackpressure(clientWs, upstreamWs, id);
 
   const forwardClientToUpstream = (data, isBinary) => {
     if (toUpstream.canSend(upstreamWs))
@@ -42,8 +41,12 @@ function pipeSockets(clientWs, upstreamWs, id, pendingClientMessages = []) {
 
   clientWs.on("message", (data, isBinary) => forwardClientToUpstream(data, isBinary));
   upstreamWs.on("message", (data, isBinary) => {
-    if (toClient.canSend(clientWs))
+    if (toClient.canSend(clientWs)) {
       clientWs.send(data, { binary: isBinary });
+      return;
+    }
+    // 立刻 pause，避免同一轮事件循环里继续把上游帧灌进 JS
+    pauseWsSocket(upstreamWs);
   });
   clientWs.on("close", () => closeBoth());
   clientWs.on("error", () => closeBoth());

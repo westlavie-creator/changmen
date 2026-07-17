@@ -47,6 +47,8 @@ interface PmMarketHubClient {
   idleSubscribeSec: number | null;
   lastBufferedAmount: number;
   droppedToClient: number;
+  coalescedToClient?: number;
+  pendingAssets?: number;
   sentToClient: number;
   remoteAddress: string;
   xForwardedFor?: string;
@@ -405,6 +407,8 @@ onUnmounted(() => {
                 <th>IP</th>
                 <th>assets</th>
                 <th>drop</th>
+                <th>coalesced</th>
+                <th>pending</th>
                 <th>buf</th>
                 <th>时长</th>
                 <th>UA</th>
@@ -422,6 +426,10 @@ onUnmounted(() => {
                 <td>{{ row.assetCount }}</td>
                 <td :class="{ 'health-val--bad': row.droppedToClient > 0 }">
                   {{ row.droppedToClient }}
+                </td>
+                <td>{{ row.coalescedToClient ?? 0 }}</td>
+                <td :class="{ 'health-val--warn': (row.pendingAssets ?? 0) > 0 }">
+                  {{ row.pendingAssets ?? 0 }}
                 </td>
                 <td>{{ row.lastBufferedAmount }}</td>
                 <td>{{ row.connectedForSec }}s</td>

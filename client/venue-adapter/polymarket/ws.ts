@@ -4,17 +4,22 @@ import {
   cyclePmMarketWsSourceMode,
   getPmMarketWsSourceMode,
   pmMarketWsSourceModeLabel,
+  setPmMarketWsSourceMode,
   type PmMarketWsSourceMode,
 } from "./pmMarketWsMode";
+import { setPmUserWsSourceMode } from "./pmUserWsMode";
 
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
+/** 官方源连续失败后自动回退 CHANGMEN，避免国内网络卡在「未连接」 */
+const OFFICIAL_FAIL_FALLBACK = 3;
 
 export type PolymarketWsStatus = "disconnected" | "connecting" | "connected" | "error";
 type PolymarketWsStatusListener = (status: PolymarketWsStatus) => void;
 
 let polymarketWsStatus: PolymarketWsStatus = "disconnected";
 const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
+let officialFailStreak = 0;
 
 function setPolymarketWsStatus(status: PolymarketWsStatus) {
   polymarketWsStatus = status;
@@ -44,6 +49,26 @@ type MarketWsOpts = {
 /** 真实连接；cycle 换线会替换此引用 */
 let activeMarketWsHandle: PolymarketMarketWsHandle | null = null;
 let activeMarketWsOpts: MarketWsOpts | null = null;
+
+/** @internal vitest */
+export function resetOfficialFailStreakForTests(): void {
+  officialFailStreak = 0;
+}
+
+function maybeFallbackOfficialToChangmen(): boolean {
+  if (getPmMarketWsSourceMode() !== "official") {
+    officialFailStreak = 0;
+    return false;
+  }
+  officialFailStreak += 1;
+  if (officialFailStreak < OFFICIAL_FAIL_FALLBACK)
+    return false;
+  officialFailStreak = 0;
+  setPmMarketWsSourceMode("changmen");
+  setPmUserWsSourceMode("changmen");
+  console.warn("[Polymarket WS] official unreachable, fallback to changmen relay");
+  return true;
+}
 
 function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle {
   let stopped = false;
@@ -82,6 +107,7 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
     socket.onopen = () => {
       if (ws !== socket)
         return;
+      officialFailStreak = 0;
       setPolymarketWsStatus("connected");
       opts.onOpen();
       clearPing();
@@ -108,7 +134,12 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
         return;
       clearPing();
       ws = null;
-      setPolymarketWsStatus(stopped ? "disconnected" : "error");
+      if (stopped) {
+        setPolymarketWsStatus("disconnected");
+        return;
+      }
+      setPolymarketWsStatus("error");
+      maybeFallbackOfficialToChangmen();
       scheduleReconnect();
     };
 

@@ -129,7 +129,9 @@ function _sessionCacheEvictUser(userId) {
   }
 }
 
-/** 无 active_session_id 时放行（旧会话）；有则必须与 token 内 session_id 一致 */
+/** 无 active_session_id 时放行（旧会话）；有则必须与 token 内 session_id 一致。
+ * DB 查询失败（返回 null）时 fail-open：JWT 已通过签名校验则放行，避免 RDS 抖动整站踢人。
+ */
 async function isSessionActive(userId, sessionId) {
   if (!sessionId)
     return false;
@@ -137,11 +139,16 @@ async function isSessionActive(userId, sessionId) {
   if (cached !== undefined)
     return cached;
   const active = await fetchUserActiveSessionId(userId);
-  if (active === null)
-    return false;
-  const result = !active || active === String(sessionId);
-  _sessionCacheSet(userId, sessionId, result);
-  return result;
+  if (active === null) {
+    console.warn(`[rds] isSessionActive: db unavailable, fail-open user=${userId}`);
+    return true;
+  }
+  // logged_out → 拒绝；空 active → 放行旧会话；否则必须匹配
+  const ok = active === "logged_out"
+    ? false
+    : (!active || active === String(sessionId));
+  _sessionCacheSet(userId, sessionId, ok);
+  return ok;
 }
 
 async function setActiveSessionId(userId, sessionId) {
@@ -174,6 +181,19 @@ export async function authGetUser(token) {
   if (!(await isSessionActive(payload.sub, sessionId)))
     return null;
   return { userId: String(payload.sub), metadata: {} };
+}
+
+/**
+ * 仅校验 access JWT 签名/过期，不查 session（Hub 健康页归因；API 鉴权勿用）。
+ * @returns {{ userId: string } | null}
+ */
+export function authPeekAccessToken(token) {
+  if (!token || !JWT_SECRET)
+    return null;
+  const payload = verifyJwt(token, JWT_SECRET);
+  if (!payload?.sub || payload.typ !== "access")
+    return null;
+  return { userId: String(payload.sub) };
 }
 
 /** 用 refresh token 换取新的 access/refresh token；{ revoked: true } 表示已在别处登录 */

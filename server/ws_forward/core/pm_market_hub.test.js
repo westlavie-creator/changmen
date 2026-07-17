@@ -1,8 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
+  enqueueLatestByAsset,
   extractAssetIdsFromPmMarketMessage,
   extractPmMarketUpgradeToken,
   mergeHubAssetIds,
+  pendingRawPriority,
+  takePendingRawsDeduped,
 } from "./pm_market_hub.js";
 
 describe("pm_market_hub", () => {
@@ -59,5 +62,30 @@ describe("pm_market_hub", () => {
       url: "/esport/ws-forward/PM-MARKET",
       headers: {},
     })).toBe("");
+  });
+
+  test("enqueueLatestByAsset keeps latest and counts overwrites", () => {
+    const pending = new Map();
+    expect(enqueueLatestByAsset(pending, ["a1"], "raw-old")).toBe(0);
+    expect(enqueueLatestByAsset(pending, ["a1", "a2"], "raw-new")).toBe(1);
+    expect(pending.get("a1")).toBe("raw-new");
+    expect(pending.get("a2")).toBe("raw-new");
+  });
+
+  test("takePendingRawsDeduped prefers best_bid_ask and dedupes shared raw", () => {
+    const pending = new Map();
+    const price = JSON.stringify({ event_type: "price_change", price_changes: [{ asset_id: "a1" }] });
+    const bba = JSON.stringify({ event_type: "best_bid_ask", asset_id: "a2", best_ask: "0.4" });
+    enqueueLatestByAsset(pending, ["a1"], price);
+    enqueueLatestByAsset(pending, ["a2"], bba);
+    enqueueLatestByAsset(pending, ["a3"], bba);
+    expect(pendingRawPriority(bba)).toBeGreaterThan(pendingRawPriority(price));
+    const raws = takePendingRawsDeduped(pending);
+    expect(raws).toEqual([bba, price]);
+    expect(pending.size).toBe(0);
+  });
+
+  test("takePendingRawsDeduped empty", () => {
+    expect(takePendingRawsDeduped(new Map())).toEqual([]);
   });
 });

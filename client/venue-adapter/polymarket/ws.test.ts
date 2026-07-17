@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cyclePmMarketWsSourceModeAndReconnect,
+  resetOfficialFailStreakForTests,
   startPolymarketMarketWs,
 } from "./ws";
 import { POLYMARKET_MARKET_WS } from "./api";
-import { resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
+import { getPmMarketWsSourceMode, resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
+import { resetPmUserWsSourceModeForTests } from "./pmUserWsMode";
 import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
+import { PM_MARKET_WS_FORWARD_PATH } from "./wsConfig";
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
@@ -42,13 +45,17 @@ describe("polymarket market ws", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
     resetPmMarketWsSourceModeForTests("changmen");
+    resetPmUserWsSourceModeForTests("changmen");
+    resetOfficialFailStreakForTests();
     setChangmenAuthTokenGetter(() => "test-jwt");
     vi.stubGlobal("WebSocket", Object.assign(MockWebSocket, { OPEN: 1 }) as unknown as typeof WebSocket);
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} }).stop();
     setChangmenAuthTokenGetter(null);
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -96,5 +103,19 @@ describe("polymarket market ws", () => {
 
     cyclePmMarketWsSourceModeAndReconnect();
     expect(MockWebSocket.instances.at(-1)!.url).toBe(POLYMARKET_MARKET_WS);
+  });
+
+  it("falls back to changmen after official WS fails 3 times", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    expect(MockWebSocket.instances[0]!.url).toBe(POLYMARKET_MARKET_WS);
+
+    for (let i = 0; i < 3; i++) {
+      MockWebSocket.instances.at(-1)!.close();
+      vi.advanceTimersByTime(5_000);
+    }
+
+    expect(getPmMarketWsSourceMode()).toBe("changmen");
+    expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
   });
 });
