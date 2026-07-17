@@ -423,8 +423,8 @@ describe("arrival: sticky opt-in preserves first-writer orientation", () => {
   });
 });
 
-describe("arrival: Map0 odds later than MapN promote vacuum", () => {
-  it("decider map empty until Map0 odds; then promote fills", () => {
+describe("arrival: Map0 odds later than MapN — no projection fallback", () => {
+  it("decider map stays empty when only Map0 odds exist (promote is match-engine)", () => {
     const state = {
       id: 5010,
       existing: null,
@@ -447,7 +447,7 @@ describe("arrival: Map0 odds later than MapN promote vacuum", () => {
       accumulate: { OB: { 0: rawOb } },
     }));
     assert.equal(row.Bets[0].Sources.OB.HomeID, "oid-nip");
-    assert.equal(row.Bets[1].Sources.OB.HomeID, "oid-nip");
+    assert.equal(row.Bets[1].Sources.OB, undefined, "Map3 must not inherit Map0 in projector");
   });
 });
 

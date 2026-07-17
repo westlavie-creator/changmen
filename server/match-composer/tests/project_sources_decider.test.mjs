@@ -81,11 +81,12 @@ describe("project_sources Map0 fallback vs decider map", () => {
       "Map=BO must not get Map0 copy pre-decider",
     );
     const map0 = row.Bets.find(b => Number(b.Map) === 0);
-    // 若 Map0 已投影成功，应留下 decider omit；否则双方皆空也符合「未映到最后一图」
     if (map0 && Object.keys(map0.Sources || {}).length > 0) {
       assert.ok(
-        result.omitted.some(o => o.reason === "no_map0_fallback_on_decider_map"),
-        "should record decider omit reason when Map0 was available",
+        result.omitted.some(o =>
+          o.reason === "no_map0_fallback_on_map_line"
+          || o.reason === "no_map0_fallback_on_decider_map"),
+        "should record map-line omit reason when Map0 was available",
       );
     }
   });

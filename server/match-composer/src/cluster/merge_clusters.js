@@ -21,6 +21,12 @@ export const MIN_PLATFORMS = 2;
 
 const META_PLATFORM_ORDER = ["Polymarket", "OB", "RAY", "IA", "PB", "TF"];
 
+/** BO：只信 OB；无 OB 则 0（promote 不会触发） */
+function pickBo(entries) {
+  const ob = entries.find(e => e.platform === "OB" && Number(e.BO) > 0);
+  return ob ? Number(ob.BO) : 0;
+}
+
 function pickMeta(entries) {
   let best = entries[0];
   for (const p of META_PLATFORM_ORDER) {
@@ -35,7 +41,7 @@ function pickMeta(entries) {
     StartTime: best.startMs || 0,
     Game: best.Game || "",
     GameID: best.GameID || "",
-    BO: best.BO || 0,
+    BO: pickBo(entries),
   };
 }
 

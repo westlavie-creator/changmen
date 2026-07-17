@@ -55,24 +55,16 @@ export function refreshRoundsFromTimers(rows, timersByProvider) {
   }
 }
 
+/**
+ * 决胜局 BO：完全依赖 OB。
+ * 无 OB 关联、或 OB.BO≤0 → 返回 0 → promote 不触发。
+ */
 export function resolveRowBo(row, matches) {
-  const bo = Number(row.BO) || 0;
-  if (bo > 0)
-    return bo;
-  for (const [platform, sid] of Object.entries(row.Matchs || {})) {
-    const pm = findPlatformMatch(matches, platform, sid);
-    const pmBo = Number(pm?.BO) || 0;
-    if (pmBo > 0)
-      return pmBo;
-  }
-  // 回落：用已有地图行估 BO
-  let maxMap = 0;
-  for (const bet of row.Bets || []) {
-    const map = Number(bet.Map) || 0;
-    if (map > maxMap)
-      maxMap = map;
-  }
-  return maxMap > 0 ? maxMap : 0;
+  const obSid = row?.Matchs?.OB;
+  if (obSid == null || obSid === "" || !matches)
+    return 0;
+  const pm = findPlatformMatch(matches, "OB", obSid);
+  return Number(pm?.BO) || 0;
 }
 
 export function preserveInitialOddsFromSources(bet) {
@@ -93,7 +85,8 @@ export function preserveInitialOddsFromSources(bet) {
 }
 
 /**
- * 决胜局：Map0 → Map=R；仅当无原生不同盘口时复制；禁止二次 swap。
+ * 决胜局：Map0 → Map=R；仅 Round===OB.BO 且无原生不同盘口时复制；禁止二次 swap。
+ * 无 OB 或 OB.BO≤0 时不 promote。
  */
 export function promoteMap0ToDecider(rows, matches = {}) {
   for (const row of rows || []) {

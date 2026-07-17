@@ -267,7 +267,7 @@ describe("projectClientMatchSides", () => {
     assert.equal(row.Bets[0].Sources.JUNK, undefined);
   });
 
-  it("promotes Map0 projected source when map native missing", () => {
+  it("does not fill map line with Map0 when map native missing", () => {
     installPlugin();
     const matches = { OB: { ob1: pmOb } };
     const row = {
@@ -279,7 +279,7 @@ describe("projectClientMatchSides", () => {
         { Map: 3, Sources: {} },
       ],
     };
-    projectClientMatchSides(row, {
+    const result = projectClientMatchSides(row, {
       matches,
       bets: {},
       timers: {},
@@ -288,11 +288,14 @@ describe("projectClientMatchSides", () => {
       existingRow: null,
     });
     assert.equal(row.Bets[0].Sources.OB.HomeID, "oid-nip");
-    assert.equal(row.Bets[1].Sources.OB.HomeID, "oid-nip");
+    assert.equal(row.Bets[1].Sources.OB, undefined, "Map3 must not inherit Map0");
+    assert.ok(
+      result.omitted.some(o => o.reason === "no_map0_fallback_on_map_line" && o.map === 3),
+    );
     assert.deepEqual(row.Reverse, []);
   });
 
-  it("promote respects reverse without double-swap", () => {
+  it("missing mid-map native does not inherit reversed Map0", () => {
     installPlugin();
     const matches = { OB: { ob1: pmOb } };
     const row = {
@@ -316,7 +319,7 @@ describe("projectClientMatchSides", () => {
       stickyOrientation: true,
     });
     assert.equal(row.Bets[0].Sources.OB.HomeID, "oid-k27");
-    assert.equal(row.Bets[1].Sources.OB.HomeID, "oid-k27");
+    assert.equal(row.Bets[1].Sources.OB, undefined, "Map2 must not inherit Map0");
     assert.deepEqual(row.Reverse, ["OB"]);
   });
 });

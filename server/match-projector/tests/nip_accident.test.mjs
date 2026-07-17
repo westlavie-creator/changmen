@@ -159,8 +159,8 @@ describe("NiP vs K27 accident regression", () => {
     assert.deepEqual(row.Reverse, []);
   });
 
-  it("decider map promote stays coherent for both venues", () => {
-    const { row } = (() => {
+  it("decider map stays empty in projector when only Map0 native (promote elsewhere)", () => {
+    const { row, result } = (() => {
       installPlugin();
       const matches = { OB: { ob1: pmOb }, RAY: { ray1: pmRay } };
       const r = {
@@ -171,7 +171,7 @@ describe("NiP vs K27 accident regression", () => {
           { Map: 3, Sources: {} },
         ],
       };
-      projectClientMatchSides(r, {
+      const result = projectClientMatchSides(r, {
         matches,
         bets: {},
         timers: {},
@@ -188,10 +188,12 @@ describe("NiP vs K27 accident regression", () => {
         platformOverrides: { 1189: { RAY: "force_aligned" } },
         stickyOrientation: true,
       });
-      return { row: r };
+      return { row: r, result };
     })();
-    assert.equal(row.Bets[1].Sources.OB.HomeID, "oid-k27");
-    assert.equal(row.Bets[1].Sources.RAY.HomeID, "roid-k27");
+    assert.equal(row.Bets[0].Sources.OB.HomeID, "oid-k27");
+    assert.equal(row.Bets[0].Sources.RAY.HomeID, "roid-k27");
+    assert.deepEqual(Object.keys(row.Bets[1].Sources || {}), [], "Map3 not filled by projector");
+    assert.ok(result.omitted.some(o => o.reason === "no_map0_fallback_on_map_line"));
     assert.deepEqual([...row.Reverse].sort(), ["OB", "RAY"]);
   });
 });

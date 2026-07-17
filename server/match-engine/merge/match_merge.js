@@ -1013,7 +1013,11 @@ function reconcileClientMatchReverse(rows, matches, bets, timers, sourceFromBet,
         if (raw) {
           bet.Sources[platform] = shouldSwap ? swapBetSource(raw) : { ...raw };
         }
-        // 无 native：多为决胜局 promote 副本（已相对锁对齐），禁止再 swap，否则双翻同边
+        else if (bet.Sources?.[platform]) {
+          // 无原生局盘：清掉上一拍留下的 Map0/promote 残片；
+          // 同拍后续 promoteFullMatchSourcesToLiveRound 会在 Round===BO 时再拷回。
+          delete bet.Sources[platform];
+        }
       }
     }
   }
@@ -1122,18 +1126,15 @@ function ensureMapZeroForLiveRound(rows, matches, bets, timers, sourceFromBet) {
   }
 }
 
+/**
+ * 决胜局 BO：完全依赖 OB。无 OB / OB.BO≤0 → 0 → 不 promote。
+ */
 function resolveRowBo(row, matches) {
-  const direct = Number(row.BO) || 0;
-  if (direct > 0)
-    return direct;
-  for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
-    const pm = findPlatformMatch(matches, platform, sourceMatchId);
-    const n = Number(pm?.BO);
-    if (n > 0)
-      return n;
-  }
-  const maps = (row.Bets || []).map(b => Number(b.Map) || 0);
-  return maps.length ? Math.max(...maps) : 0;
+  const obSid = row?.Matchs?.OB;
+  if (obSid == null || obSid === "" || !matches)
+    return 0;
+  const pm = findPlatformMatch(matches, "OB", obSid);
+  return Number(pm?.BO) || 0;
 }
 
 /**

@@ -2,7 +2,7 @@
  * 主客投影：锁 + native raw → Sources + Reverse。
  * I1：Sources 必须等于 needSwap ? swap(raw) : raw（结构校验，不用 odds→gb）。
  * Reverse 仅含实际写出 Sources 且做过 swap 的平台。
- * Promote：局盘无 native 时从已投影 Map0 回填（禁止二次 swap / 二次 override）。
+ * 禁止 Map0→局盘回填；决胜局全场拷贝由 match-engine promote 负责。
  */
 import { swapBetSource } from "@changmen/match-engine";
 import {
@@ -169,10 +169,8 @@ export function projectClientMatchSides(row, {
   const reverse = [];
   const omitted = [];
   const ambiguous = [];
-  /** @type {Record<string, object>} 已投影 Map0，供局盘 promote */
+  /** @type {Record<string, object>} 已投影 Map0（仅用于 omit 诊断，不再回填局盘） */
   const map0Projected = {};
-  /** Map0 已写入 Reverse 的平台 — promote 只复制，不再二次判向 */
-  const map0InReverse = new Set();
 
   const orderedBets = [...(row.Bets || [])].sort(
     (a, b) => (Number(a.Map) || 0) - (Number(b.Map) || 0),
@@ -198,17 +196,14 @@ export function projectClientMatchSides(row, {
         buildAccumulateRow,
       );
 
-      // 局盘无 native：原样复制已投影 Map0（禁止再 swap / 再 applyOverride）
-      // 对齐旧 matcher：最后一图 Map=BO 禁止投影回填；仅 Round===BO 时由 promote 拷贝
-      if (!betHasOdds(raw) && mapNum !== 0 && betHasOdds(map0Projected[platform])) {
-        const bo = Number(row.BO) || 0;
-        if (bo > 0 && mapNum === bo) {
-          omitted.push({ platform, map: mapNum, reason: "no_map0_fallback_on_decider_map" });
-          continue;
+      // 局盘无原生赔率：禁止用 Map0 全场冒充（决胜局仅由 promote 拷贝）
+      if (!betHasOdds(raw) && mapNum !== 0) {
+        if (betHasOdds(map0Projected[platform])) {
+          omitted.push({ platform, map: mapNum, reason: "no_map0_fallback_on_map_line" });
         }
-        nextSources[platform] = cloneRawSource(map0Projected[platform]);
-        if (map0InReverse.has(platform) && !reverse.includes(platform))
-          reverse.push(platform);
+        else {
+          omitted.push({ platform, map: mapNum, reason: "no_native_map_odds" });
+        }
         continue;
       }
 
@@ -227,11 +222,8 @@ export function projectClientMatchSides(row, {
         continue;
       }
       nextSources[platform] = r.source;
-      if (mapNum === 0) {
+      if (mapNum === 0)
         map0Projected[platform] = r.source;
-        if (r.inReverse)
-          map0InReverse.add(platform);
-      }
       if (r.inReverse && !reverse.includes(platform))
         reverse.push(platform);
     }

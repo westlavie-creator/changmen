@@ -262,7 +262,7 @@ describe("force_reversed / ambiguous / name fallback", () => {
 });
 
 describe("multi-map + map order + native on higher maps", () => {
-  it("processes Map3 before Map0 in array but still promote correctly", () => {
+  it("processes Map3 before Map0 in array but does not Map0-fill Map3", () => {
     installPlugin();
     const matches = { OB: { ob1: pmOb } };
     const row = {
@@ -288,7 +288,7 @@ describe("multi-map + map order + native on higher maps", () => {
     const m0 = row.Bets.find(b => b.Map === 0);
     const m3 = row.Bets.find(b => b.Map === 3);
     assert.equal(m0.Sources.OB.HomeID, "oid-k27");
-    assert.equal(m3.Sources.OB.HomeID, "oid-k27");
+    assert.equal(m3.Sources.OB, undefined, "Map3 must not inherit Map0");
     assert.equal(m3.Sources.STALE, undefined);
   });
 

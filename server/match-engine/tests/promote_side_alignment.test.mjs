@@ -372,7 +372,9 @@ it("gb12: inPlace promote 在 Reverse 含 RAY 时不二次 swap", () => {
       ],
     },
   ];
-  promoteFullMatchSourcesToLiveRoundInPlace(rows);
+  promoteFullMatchSourcesToLiveRoundInPlace(rows, {
+    OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
+  });
   const map3 = rows[0].Bets.find(b => b.Map === 3);
   assert.equal(map3.Sources.RAY.HomeOdds, 2.08);
   assertMapBetArbSidesOpposite(map3);

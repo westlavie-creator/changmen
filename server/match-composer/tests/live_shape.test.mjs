@@ -3,14 +3,22 @@ import { describe, it } from "vitest";
 import {
   applyLiveShape,
   promoteMap0ToDecider,
+  resolveRowBo,
   trimMapZeroLive,
 } from "../src/shape/live_shape.js";
 
+const obMatches = (bo = 3) => ({
+  OB: { ob1: { SourceMatchID: "ob1", BO: bo } },
+});
+
 describe("live_shape", () => {
   it("promote Map0 Sources to decider map without second swap", () => {
+    const matches = {
+      ...obMatches(3),
+      RAY: { ray1: { SourceMatchID: "ray1", BO: 0 } },
+    };
     const row = {
       ID: 1,
-      BO: 3,
       Round: 3,
       Matchs: { OB: "ob1", RAY: "ray1" },
       Reverse: ["RAY"],
@@ -22,7 +30,7 @@ describe("live_shape", () => {
         },
       }],
     };
-    promoteMap0ToDecider([row], {});
+    promoteMap0ToDecider([row], matches);
     const live = row.Bets.find(b => b.Map === 3);
     assert.ok(live);
     assert.equal(live.Sources.RAY.HomeID, "rh");
@@ -52,7 +60,6 @@ describe("live_shape", () => {
   it("non-decider Round does not promote Map0 onto last map", () => {
     const row = {
       ID: 2,
-      BO: 3,
       Round: 1,
       Matchs: { OB: "ob1" },
       Bets: [{
@@ -63,16 +70,15 @@ describe("live_shape", () => {
         Sources: {},
       }],
     };
-    promoteMap0ToDecider([row], {});
+    promoteMap0ToDecider([row], obMatches(3));
     const last = row.Bets.find(b => b.Map === 3);
     assert.ok(last);
     assert.equal(Object.keys(last.Sources || {}).length, 0);
   });
 
-  it("decider Round promotes Map0 onto last map", () => {
+  it("decider Round promotes Map0 onto last map when OB.BO matches", () => {
     const row = {
       ID: 3,
-      BO: 3,
       Round: 3,
       Matchs: { OB: "ob1" },
       Bets: [{
@@ -83,9 +89,75 @@ describe("live_shape", () => {
         Sources: {},
       }],
     };
-    promoteMap0ToDecider([row], {});
+    promoteMap0ToDecider([row], obMatches(3));
     const last = row.Bets.find(b => b.Map === 3);
     assert.equal(last.Sources.OB.BetID, "m0");
+  });
+
+  it("Round=2 with OB BO=3 does not promote (Falcons mid-series)", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+      Polymarket: { pm1: { SourceMatchID: "pm1", BO: 0 } },
+    };
+    const row = {
+      ID: 4,
+      Round: 2,
+      Matchs: { OB: "ob1", PB: "pb1", Polymarket: "pm1" },
+      Bets: [{
+        Map: 0,
+        Sources: {
+          OB: { BetID: "ob-full", HomeID: "h", AwayID: "a" },
+          PB: { BetID: "pb-full", HomeID: "ph", AwayID: "pa" },
+        },
+      }, {
+        Map: 2,
+        Sources: {
+          Polymarket: { BetID: "pm-m2", HomeID: "mh", AwayID: "ma" },
+        },
+      }],
+    };
+    assert.equal(resolveRowBo(row, matches), 3);
+    promoteMap0ToDecider([row], matches);
+    const map2 = row.Bets.find(b => b.Map === 2);
+    assert.equal(map2.Sources.PB, undefined, "PB full must not enter Map2 mid BO3");
+    assert.equal(map2.Sources.Polymarket.BetID, "pm-m2");
+  });
+
+  it("no OB linked → BO=0 → no promote", () => {
+    const matches = {
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+      Polymarket: { pm1: { SourceMatchID: "pm1", BO: 0 } },
+      RAY: { ray1: { SourceMatchID: "ray1", BO: 3 } },
+    };
+    const row = {
+      ID: 5,
+      BO: 3,
+      Round: 3,
+      Matchs: { PB: "pb1", Polymarket: "pm1", RAY: "ray1" },
+      Bets: [{
+        Map: 0,
+        Sources: {
+          PB: { BetID: "pb-full", HomeID: "h", AwayID: "a" },
+          RAY: { BetID: "ray-full", HomeID: "rh", AwayID: "ra" },
+        },
+      }, {
+        Map: 3,
+        Sources: {},
+      }],
+    };
+    assert.equal(resolveRowBo(row, matches), 0);
+    promoteMap0ToDecider([row], matches);
+    assert.deepEqual(Object.keys(row.Bets.find(b => b.Map === 3).Sources || {}), []);
+  });
+
+  it("resolveRowBo ignores row.BO and non-OB platforms", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+    };
+    assert.equal(resolveRowBo({ Matchs: { OB: "ob1", PB: "pb1" }, BO: 1 }, matches), 3);
+    assert.equal(resolveRowBo({ Matchs: { PB: "pb1" }, BO: 5 }, matches), 0);
   });
 
   it("applyLiveShape strips orphan platforms", () => {
