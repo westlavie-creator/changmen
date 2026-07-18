@@ -964,22 +964,79 @@ export async function fetchObArbOddsAnalytics(startMs, endMs, userIds) {
   }
 }
 
-/** Polymarket Builder 看板：时间范围内 changmen Polymarket 订单 */
+function polymarketOrdersRangeWhere(startMs, endMs, userIds) {
+  const params = [startMs, endMs];
+  let where = `o.create_at >= $1 AND o.create_at < $2 AND o.provider = 'Polymarket'`;
+  if (Array.isArray(userIds) && userIds.length) {
+    params.push(userIds);
+    where += ` AND o.user_id = ANY($${params.length}::uuid[])`;
+  }
+  return { params, where };
+}
+
+/** Polymarket Builder 看板：时间范围内 changmen Polymarket 订单汇总（不受列表 LIMIT 影响） */
+export async function fetchPolymarketOrderStatsInRange(startMs, endMs, userIds) {
+  const pool = getPgPool();
+  const empty = {
+    orderCount: 0,
+    totalBet: 0,
+    totalProfit: 0,
+    wins: 0,
+    losses: 0,
+    rejects: 0,
+    pending: 0,
+  };
+  if (!pool)
+    return empty;
+  try {
+    const { params, where } = polymarketOrdersRangeWhere(startMs, endMs, userIds);
+    const { rows } = await pool.query(
+      `SELECT
+        COUNT(*)::int AS order_count,
+        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
+        COALESCE(SUM(o.money), 0)::float AS total_profit,
+        COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
+        COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,
+        COUNT(*) FILTER (WHERE o.status IS DISTINCT FROM 'Win'
+          AND o.status IS DISTINCT FROM 'Lose'
+          AND o.status IS DISTINCT FROM 'Reject')::int AS pending
+       FROM orders o
+       WHERE ${where}`,
+      params,
+    );
+    const row = rows?.[0];
+    if (!row)
+      return empty;
+    return {
+      orderCount: Number(row.order_count) || 0,
+      totalBet: Number(row.total_bet) || 0,
+      totalProfit: Number(row.total_profit) || 0,
+      wins: Number(row.wins) || 0,
+      losses: Number(row.losses) || 0,
+      rejects: Number(row.rejects) || 0,
+      pending: Number(row.pending) || 0,
+    };
+  }
+  catch (err) {
+    console.warn("[rds] fetchPolymarketOrderStatsInRange:", err.message);
+    return empty;
+  }
+}
+
+/** Polymarket Builder 看板：时间范围内 changmen Polymarket 订单列表 */
 export async function fetchPolymarketOrdersInRange(startMs, endMs, userIds, limit = 100) {
   const pool = getPgPool();
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
-    let where = `o.create_at >= $1 AND o.create_at < $2 AND o.provider = 'Polymarket'`;
-    if (Array.isArray(userIds) && userIds.length) {
-      params.push(userIds);
-      where += ` AND o.user_id = ANY($${params.length}::uuid[])`;
-    }
+    const { params, where } = polymarketOrdersRangeWhere(startMs, endMs, userIds);
     params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
+    // orders 表无 message / update_at 列；文案在 raw jsonb
     const { rows } = await pool.query(
       `SELECT o.order_id, o.user_id, o.player_id, o.provider, o.match, o.bet, o.item,
-              o.status, o.message, o.bet_money, o.money, o.create_at, o.update_at,
+              o.status, o.bet_money, o.money, o.create_at,
+              COALESCE(o.raw->>'message', o.raw->>'Message', '') AS message,
               p.user_name
        FROM orders o
        LEFT JOIN profiles p ON p.id = o.user_id

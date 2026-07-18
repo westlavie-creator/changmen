@@ -48,6 +48,7 @@ export {
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
   fetchPolymarketOrdersInRange,
+  fetchPolymarketOrderStatsInRange,
   fetchArbPairAnalytics,
   fetchGameAnalytics,
   fetchHourlyAnalytics,

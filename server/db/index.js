@@ -121,6 +121,7 @@ export const {
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
   fetchPolymarketOrdersInRange,
+  fetchPolymarketOrderStatsInRange,
   fetchMoneyLogsByPlayer,
   fetchMoneyLogById,
   fetchAllMoneyLogs,

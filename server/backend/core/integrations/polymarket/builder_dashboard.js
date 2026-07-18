@@ -133,36 +133,6 @@ function parseRange(body = {}) {
   return { startMs, endMs: startMs + 86400000 };
 }
 
-function summarizeChangmenOrders(orders) {
-  let totalBet = 0;
-  let totalProfit = 0;
-  let wins = 0;
-  let losses = 0;
-  let rejects = 0;
-  let pending = 0;
-  for (const o of orders) {
-    totalBet += Number(o.bet_money) || 0;
-    totalProfit += Number(o.money) || 0;
-    if (o.status === "Win")
-      wins += 1;
-    else if (o.status === "Lose")
-      losses += 1;
-    else if (o.status === "Reject")
-      rejects += 1;
-    else
-      pending += 1;
-  }
-  return {
-    orderCount: orders.length,
-    totalBet,
-    totalProfit,
-    wins,
-    losses,
-    rejects,
-    pending,
-  };
-}
-
 function mapChangmenOrder(row) {
   let matchTitle = "";
   let betTitle = "";
@@ -190,7 +160,7 @@ function mapChangmenOrder(row) {
     betTitle,
     item: row.item || "",
     createAt: Number(row.create_at) || 0,
-    updateAt: Number(row.update_at) || 0,
+    updateAt: Number(row.update_at) || Number(row.create_at) || 0,
   };
 }
 
@@ -206,9 +176,8 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
 
   let userIds;
   const builderCode = resolvePolymarketBuilderCode();
-  const [polyResult, changmenRows, allProfiles, pmPlayerRows] = await Promise.all([
+  const [polyResult, allProfiles, pmPlayerRows] = await Promise.all([
     fetchAllBuilderTrades({ afterSec, beforeSec, maxPages }),
-    sb.fetchPolymarketOrdersInRange(startMs, endMs, undefined, orderLimit),
     sb.fetchProfilesAdmin(),
     sb.fetchPolymarketPlayersForTradeLookup(),
   ]);
@@ -219,10 +188,11 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
       userIds = [...visibleIds];
   }
 
-  const changmenRowsFiltered = userIds
-    ? changmenRows.filter(row => userIds.includes(String(row.user_id)))
-    : changmenRows;
-  const changmenOrders = changmenRowsFiltered.map(mapChangmenOrder);
+  const [changmenRows, changmenSummary] = await Promise.all([
+    sb.fetchPolymarketOrdersInRange(startMs, endMs, userIds, orderLimit),
+    sb.fetchPolymarketOrderStatsInRange(startMs, endMs, userIds),
+  ]);
+  const changmenOrders = changmenRows.map(mapChangmenOrder);
   const tradeUserIndex = buildPolymarketTradeUserIndex({
     playerRows: pmPlayerRows,
     profiles: allProfiles,
@@ -245,7 +215,7 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
     },
     changmen: {
       orders: changmenOrders,
-      summary: summarizeChangmenOrders(changmenOrders),
+      summary: changmenSummary,
     },
   };
 }
