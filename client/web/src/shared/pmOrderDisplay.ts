@@ -30,9 +30,9 @@ export function isPmBuyOrderListRow(row: OrderRow): boolean {
  */
 export function resolvePmOrderListStatusClass(row: OrderRow): string {
   if (!isPmOrderListRow(row))
-    return normalizeOrderStatus(String(row.Status ?? "None"));
+    return String(normalizeOrderStatus(String(row.Status ?? "None")));
 
-  const raw = normalizeOrderStatus(String(row.Status ?? "None"));
+  const raw = String(normalizeOrderStatus(String(row.Status ?? "None")));
   if (raw !== "None" && raw !== "Pending")
     return raw;
 
