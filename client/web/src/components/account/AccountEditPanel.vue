@@ -99,7 +99,7 @@ function unlockRate() {
         <el-col :span="5">
           <el-input
             v-model="form.playerName"
-            placeholder="选填，空则用平台账号"
+            placeholder="选填，空则用场馆账号"
             :disabled="fieldDisabled()"
           >
             <template #prepend>
@@ -110,7 +110,7 @@ function unlockRate() {
         <el-col :span="8">
           <div class="account-edit-panel__venue" title="场馆返回的真实账号信息（查余额后更新）">
             <span class="account-edit-panel__venue-item">
-              <span class="account-edit-panel__venue-label">平台账号</span>
+              <span class="account-edit-panel__venue-label">场馆账号</span>
               <span class="account-edit-panel__venue-value">{{ form.venueAccountName || "—" }}</span>
             </span>
             <span class="account-edit-panel__venue-item">

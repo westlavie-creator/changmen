@@ -104,38 +104,40 @@ export function pmOrderSharesText(row: OrderRow): string | null {
       return null;
     return formatPolymarketApiDecimal(sold);
   }
+  // 买单始终展示原始成交份额（订单记录）；剩余仓位由「已卖出/部分卖出」标签表达
   const fill = resolvePmFillShares(row);
   if (!Number.isFinite(fill) || fill <= 0.0001)
     return null;
-  const attr = Number(row.PmAttributedSellShares) || 0;
-  const soldProgress = attr > 0
-    || row.PmSellState === "partial"
-    || row.PmSellState === "closed"
-    || row.PmSellState === "settled";
-  // 有卖出进度时展示剩余份额，避免仍像满仓
-  if (soldProgress) {
-    const remaining = resolvePmRemainingShares(row);
-    return formatPolymarketApiDecimal(remaining);
-  }
   return formatPolymarketApiDecimal(fill);
 }
 
-/** 买单展示本金（CNY）：有卖出进度时用剩余 pmStakeUsdc；卖单为回款 BetMoney */
-export function pmOrderStakeDisplayCny(row: OrderRow): number {
-  if (isPmSellOrderListRow(row))
-    return Number(row.BetMoney) || 0;
+/**
+ * 买单原始本金（CNY）：订单记录口径。
+ * - 未卖出：优先库内 BetMoney（与下单落库一致）
+ * - 已有卖出进度：RDS 常把 bet_money/pmStakeUsdc 改成剩余，用 fill×买入价还原原始本金
+ */
+export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
   const attr = Number(row.PmAttributedSellShares) || 0;
   const soldProgress = attr > 0
     || row.PmSellState === "partial"
     || row.PmSellState === "closed"
     || row.PmSellState === "settled";
-  if (soldProgress) {
-    const stakeUsdc = Number(row.PmStakeUsdc);
-    if (Number.isFinite(stakeUsdc) && stakeUsdc >= 0)
-      return Math.round(stakeUsdc * getExchange(Currency.USDT));
-    return 0;
-  }
-  return Number(row.BetMoney) || 0;
+  const stored = Number(row.BetMoney) || 0;
+  if (!soldProgress && stored > 0)
+    return stored;
+
+  const fill = resolvePmFillShares(row);
+  const price = resolvePmFillPrice(row);
+  if (fill > 0.0001 && price != null && price > 0)
+    return Math.round(fill * price * getExchange(Currency.USDT));
+  return stored;
+}
+
+/** 买单展示本金（CNY）= 原始成交本金；卖单为回款 BetMoney */
+export function pmOrderStakeDisplayCny(row: OrderRow): number {
+  if (isPmSellOrderListRow(row))
+    return Number(row.BetMoney) || 0;
+  return pmOrderOriginalStakeDisplayCny(row);
 }
 
 /** 侧栏价格列标题：标明买单/卖单 */
@@ -150,15 +152,23 @@ export function pmOrderSideTagText(row: OrderRow): string | null {
   return isPmSellOrderListRow(row) ? "卖单" : "买单";
 }
 
-/** CLOB trade.price；旧单无字段时回退 stake÷shares */
+/** CLOB trade.price；旧单无字段时回退 odds；有卖出进度时勿用剩余 stake÷fill */
 export function resolvePmFillPrice(row: OrderRow): number | null {
   const stored = Number(row.PmFillPrice);
   if (Number.isFinite(stored) && stored > 0 && stored < 1)
     return stored;
 
+  const attr = Number(row.PmAttributedSellShares) || 0;
   const shares = Number(row.PmShares);
   const stakeUsdc = Number(row.PmStakeUsdc);
-  if (Number.isFinite(shares) && shares > 0.0001 && Number.isFinite(stakeUsdc) && stakeUsdc > 0) {
+  // 仅无卖出归因时 stake 才是满仓成本；partial/closed 的 pmStakeUsdc 是剩余
+  if (
+    attr <= 0
+    && Number.isFinite(shares)
+    && shares > 0.0001
+    && Number.isFinite(stakeUsdc)
+    && stakeUsdc > 0
+  ) {
     const price = stakeUsdc / shares;
     if (price > 0 && price < 1)
       return price;

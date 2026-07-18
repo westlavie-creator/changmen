@@ -8,6 +8,7 @@ import { getProvider } from "@/runtime/providers";
 import {
   bettingDetailHtml,
   bettingLoadingMessageHtml,
+  bettingNotifyAccountLine,
   bettingResultMessageHtml,
 } from "@/shared/a8Notify";
 import { playOrderSuccessSound } from "@/shared/orderSound";
@@ -28,7 +29,7 @@ function attachPolymarketAutoExitSellPref(option: BetOption): void {
 
 function notifyPolymarketAfterRejectDetection(
   account: PlatformAccount,
-  accountTitle: string,
+  accountLine: string,
   detailHtml: string,
   result: BetResult,
   option: BetOption,
@@ -38,15 +39,18 @@ function notifyPolymarketAfterRejectDetection(
     const { rejected } = await settleArbLeg(account, result, 0);
     const titleSuffix = rejected ? "未成交" : "已成交";
     ElNotification({
-      title: `${accountTitle} ${titleSuffix}`,
+      title: "",
       message: bettingResultMessageHtml(
         account.provider,
+        accountLine,
         detailHtml,
         `<p>${result.message || ""}</p>`,
+        titleSuffix,
       ),
       type: rejected ? "error" : "success",
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
+      customClass: `notification ${account.provider}`,
     });
     if (!rejected) {
       void playOrderSuccessSound({ betRowId: option.betId });
@@ -99,7 +103,7 @@ export async function placeBet(
     return new BetResult(option.type, false, "平台不支持");
 
   const platformLabel = store.getPlatformName(account.platformId, account.platformName);
-  const accountTitle = `${platformLabel} / ${account.playerName}`;
+  const accountLine = bettingNotifyAccountLine(account, platformLabel);
   const detailHtml = bettingDetailHtml({
     matchTitle: option.match?.title,
     betName: option.bet?.getBetName(),
@@ -111,8 +115,8 @@ export async function placeBet(
   });
 
   const loading = ElNotification({
-    title: `${accountTitle} 投注中...`,
-    message: bettingLoadingMessageHtml(account.provider, detailHtml),
+    title: "",
+    message: bettingLoadingMessageHtml(account.provider, accountLine, detailHtml),
     dangerouslyUseHTMLString: true,
     duration: 10_000,
     customClass: `notification loading ${account.provider}`,
@@ -147,13 +151,15 @@ export async function placeBet(
   finally {
     loading.close();
     const notifyType = result.pending ? "warning" : result.success ? "success" : "error";
-    const notifyTitle = result.pending ? `${accountTitle} 待确认` : accountTitle;
+    const statusSuffix = result.pending ? "待确认" : "";
     ElNotification({
-      title: notifyTitle,
+      title: "",
       message: bettingResultMessageHtml(
         account.provider,
+        accountLine,
         detailHtml,
         `<p>${result.message || ""}</p>`,
+        statusSuffix,
       ),
       type: notifyType,
       dangerouslyUseHTMLString: true,
@@ -174,7 +180,7 @@ export async function placeBet(
     ) {
       notifyPolymarketAfterRejectDetection(
         account,
-        accountTitle,
+        accountLine,
         detailHtml,
         result,
         option,

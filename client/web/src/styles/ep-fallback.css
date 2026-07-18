@@ -343,11 +343,33 @@
   display: none;
 }
 
+.el-notification.notification .el-notification__title:empty {
+  display: none;
+  margin: 0;
+  padding: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .el-notification .notify-provider-head,
 .el-notification .notify-loading-head {
   display: flex;
   align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.el-notification .notify-provider-head .notify-account-line,
+.el-notification .notify-loading-head .notify-account-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--el-text-color-primary, #303133);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .el-notification .notify-provider-head .provider-icon,

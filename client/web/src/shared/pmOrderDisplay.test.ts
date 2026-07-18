@@ -96,25 +96,56 @@ describe("pmOrderDisplay", () => {
     expect(pmOrderSharesText(pmBuy)).toBe("6.756753");
   });
 
-  it("shows remaining shares and stake after partial/closed sell", () => {
+  it("keeps original fill shares and stake on sold buys (order record, not remaining)", () => {
     expect(pmOrderSharesText({
       ...pmBuy,
       PmSellState: "partial",
       PmAttributedSellShares: 2,
       PmShares: 6.756753,
       PmStakeUsdc: 3,
-    })).toBe("4.7568");
+      BetMoney: 20,
+    })).toBe("6.756753");
+    // 未卖出仍用库内 BetMoney，避免 fill×价四舍五入偏差
+    expect(pmOrderStakeDisplayCny(pmBuy)).toBe(35);
+    expect(pmOrderSharesText({
+      ...pmBuy,
+      PmSellState: "closed",
+      PmAttributedSellShares: 6.756753,
+      PmShares: 6.756753,
+      PmStakeUsdc: 0,
+      BetMoney: 0,
+    })).toBe("6.756753");
+    // 6.756753 * 0.74 * 6.8 ≈ 34
     expect(pmOrderStakeDisplayCny({
       ...pmBuy,
       PmSellState: "closed",
       PmAttributedSellShares: 6.756753,
       PmStakeUsdc: 0,
-      BetMoney: 35,
-    })).toBe(0);
+      BetMoney: 0,
+    })).toBe(34);
+    // partial：BetMoney 已是剩余，仍还原原始 fill×价
+    expect(pmOrderStakeDisplayCny({
+      ...pmBuy,
+      PmSellState: "partial",
+      PmAttributedSellShares: 2,
+      PmStakeUsdc: 3,
+      BetMoney: 20,
+    })).toBe(34);
     expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖单卖出价");
     expect(pmOrderPriceLabel(pmBuy)).toBe("买单买入价");
     expect(pmOrderSideTagText({ ...pmBuy, PmSide: "sell" })).toBe("卖单");
     expect(pmOrderSideTagText(pmBuy)).toBe("买单");
+  });
+
+  it("does not derive fill price from remaining stake after partial sell", () => {
+    expect(resolvePmFillPrice({
+      ...pmBuy,
+      PmFillPrice: undefined,
+      PmAttributedSellShares: 2,
+      PmShares: 6.756753,
+      PmStakeUsdc: 3,
+      Odds: 1.351,
+    })).toBeCloseTo(1 / 1.351, 5);
   });
 
   it("prefers fo live price for unsettled buys", () => {

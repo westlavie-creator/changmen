@@ -137,7 +137,8 @@ describe("adminOrderDisplay", () => {
     expect(row.PmOrigin).toBe("changmen");
     expect(pmBuyLifecycleTagText(row)).toBe("已卖出");
     expect(resolvePmOrderListStatusClass(row)).toBe("PmSold");
-    expect(pmOrderStakeDisplayCny(row)).toBe(0);
+    // 已卖出买单仍展示原始本金（fill×价），不为 0
+    expect(pmOrderStakeDisplayCny(row)).toBe(Math.round(57.66 * 0.5 * 6.8));
   });
 
   it("uses venueAccountName in player label", () => {

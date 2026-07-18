@@ -569,7 +569,7 @@ async function buildPatch(): Promise<Partial<AccountRecord> & {
   };
 }
 
-/** [changmen 扩展] 选填 playerName → 平台账号名 / 账号ID / 编辑原值 */
+/** [changmen 扩展] 选填 playerName → 场馆账号名 / 账号ID / 编辑原值 */
 function resolvePlayerNameForSave(
   patch: Partial<AccountRecord> & { playerName: string },
 ): string {
@@ -615,7 +615,7 @@ async function probeVenueIdentityForSave(
   const venueMemberId = String(result.venueMemberId || "").trim();
   const venueAccountName = String(result.venueAccountName || "").trim() || venueMemberId;
   if (!venueMemberId)
-    throw new Error("未获取到平台账号 ID，无法保存");
+    throw new Error("未获取到场馆账号 ID，无法保存");
 
   const selfId = Number(props.account?.accountId) || 0;
   const isEdit = Boolean(selfId);
@@ -630,7 +630,7 @@ async function probeVenueIdentityForSave(
     );
     if (rdsVenueMemberId && rdsVenueMemberId !== venueMemberId) {
       throw new Error(
-        `平台账号 ID 不一致：RDS 为 ${rdsVenueMemberId}，当前凭证为 ${venueMemberId}，拒绝保存`,
+        `场馆账号 ID 不一致：RDS 为 ${rdsVenueMemberId}，当前凭证为 ${venueMemberId}，拒绝保存`,
       );
     }
     form.venueMemberId = rdsVenueMemberId || venueMemberId;
@@ -648,7 +648,7 @@ async function probeVenueIdentityForSave(
         .filter(Boolean)
         .join(" / ") || `#${dup.accountId}`;
       throw new Error(
-        `平台账号 ID ${venueMemberId} 已绑定到「${label}」，不能重复保存`,
+        `场馆账号 ID ${venueMemberId} 已绑定到「${label}」，不能重复保存`,
       );
     }
     form.venueMemberId = venueMemberId;
@@ -685,7 +685,7 @@ async function save() {
 
     let venue: AccountBalanceResult | undefined;
     if (bindVenueMember) {
-      loading = ElLoading.service({ fullscreen: true, text: "校验余额与平台账号..." });
+      loading = ElLoading.service({ fullscreen: true, text: "校验余额与场馆账号..." });
       venue = await probeVenueIdentityForSave(patch);
       patch.venueAccountName = venue.venueAccountName;
       if (venue.venueMemberId)
@@ -694,7 +694,7 @@ async function save() {
       loading = undefined;
     }
 
-    // [changmen 扩展] playerName 选填：空则回退平台账号名 / 账号ID / 编辑原值
+    // [changmen 扩展] playerName 选填：空则回退场馆账号名 / 账号ID / 编辑原值
     // CreateTagPlatform 仍需要非空 playerName（内部兼容字段，非用户必填项）
     patch.playerName = resolvePlayerNameForSave(patch);
     if (!patch.playerName) {
@@ -844,7 +844,7 @@ function unlockRate() {
     :z-index="zIndex"
     :close-on-press-escape="false"
     :close-on-click-modal="false"
-    title="平台账号设置"
+    title="场馆账号设置"
   >
     <AccountEditPanel
       v-model:form="form"
