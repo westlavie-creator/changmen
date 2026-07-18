@@ -1,6 +1,7 @@
 import type { OrderRow } from "@/types/order";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { toFixed } from "@changmen/client-core/shared/format";
+import { normalizeOrderStatus } from "@/shared/orderDisplay";
 
 /** Polymarket API 数值：保留有效小数，去掉尾部 0 */
 export function formatPolymarketApiDecimal(value: number, maxDecimals = 6): string {
@@ -21,6 +22,38 @@ export function isPmSellOrderListRow(row: OrderRow): boolean {
 
 export function isPmBuyOrderListRow(row: OrderRow): boolean {
   return isPmOrderListRow(row) && row.PmSide !== "sell";
+}
+
+/**
+ * 侧栏角标 class：手动平仓后 RDS 仍为 Status=None（挡 Gamma），
+ * 展示层把卖单按盈亏映成赢/输/退，已平仓买单映成 PmClosed。
+ */
+export function resolvePmOrderListStatusClass(row: OrderRow): string {
+  if (!isPmOrderListRow(row))
+    return normalizeOrderStatus(String(row.Status ?? "None"));
+
+  const raw = normalizeOrderStatus(String(row.Status ?? "None"));
+  if (raw !== "None" && raw !== "Pending")
+    return raw;
+
+  if (isPmSellOrderListRow(row)) {
+    const bet = Number(row.BetMoney) || 0;
+    const money = Number(row.Money) || 0;
+    // 尚未成交回款：仍待结算（延迟成交等）
+    if (bet <= 0 && money === 0)
+      return "None";
+    if (money > 0)
+      return "Win";
+    if (money < 0)
+      return "Lose";
+    return "Return";
+  }
+
+  const state = String(row.PmSellState ?? "").toLowerCase();
+  if (state === "closed" || state === "settled")
+    return "PmClosed";
+
+  return raw;
 }
 
 export function pmOrderSharesText(row: OrderRow): string | null {

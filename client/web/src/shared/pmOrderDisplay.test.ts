@@ -11,6 +11,7 @@ import {
   pmOrderSharesText,
   resolvePmFillPrice,
   resolvePmListDisplayPrice,
+  resolvePmOrderListStatusClass,
 } from "./pmOrderDisplay";
 import type { OrderRow } from "@/types/order";
 
@@ -30,6 +31,32 @@ describe("pmOrderDisplay", () => {
     expect(isPmOrderListRow(pmBuy)).toBe(true);
     expect(isPmOrderListRow({ ...pmBuy, PmSide: "sell" })).toBe(true);
     expect(isPmOrderListRow({ ...pmBuy, Type: "RAY" })).toBe(false);
+  });
+
+  it("maps closed buy / filled sell status badges away from 待结算", () => {
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "closed",
+    })).toBe("PmClosed");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSide: "sell",
+      BetMoney: 384,
+      Money: 184,
+    })).toBe("Win");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSide: "sell",
+      BetMoney: 100,
+      Money: -20,
+    })).toBe("Lose");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSide: "sell",
+      BetMoney: 0,
+      Money: 0,
+    })).toBe("None");
+    expect(resolvePmOrderListStatusClass(pmBuy)).toBe("None");
   });
 
   it("shows API fill price and share count without rounding", () => {

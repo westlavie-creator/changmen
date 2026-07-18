@@ -16,6 +16,7 @@ import {
   pmOrderFillPriceText,
   pmOrderOddsText,
   pmOrderSharesText,
+  resolvePmOrderListStatusClass,
 } from "@/shared/pmOrderDisplay";
 import {
   isArbGroup,
@@ -83,6 +84,10 @@ function isPendingRow(row: OrderRow): boolean {
   if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
     return false;
   return String(row.Status ?? "") === "None";
+}
+
+function statusClass(row: OrderRow): string {
+  return resolvePmOrderListStatusClass(row);
 }
 
 function showPmSellButton(row: OrderRow): boolean {
@@ -438,7 +443,7 @@ function badgeTitle(row: OrderRow): string {
             />
             <label class="status" :class="row.Status" />
           </div>
-          <label v-else class="status" :class="row.Status" />
+          <label v-else class="status" :class="statusClass(row)" />
           <div class="platform flex" :class="platformClass(row)">
             <span
               :class="badgeClass(row)"

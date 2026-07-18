@@ -386,6 +386,17 @@
   content: "退";
 }
 
+/* [changmen 扩展] 手动卖光后的买单：库内仍 None，角标显示已平仓 */
+.orders .status.PmClosed {
+  color: #7dcea0;
+  background: rgba(125, 206, 160, 0.12);
+  border: 1px solid #7dcea0;
+}
+
+.orders .status.PmClosed::after {
+  content: "已平仓";
+}
+
 .orders .status.Reject {
   background-image: linear-gradient(180deg, #cc4319, #280946 99%);
   color: #fff;
