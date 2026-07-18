@@ -7,9 +7,10 @@ VPS **守护进程级采集** 归集目录（浏览器采集仍在 `client/venue
 | 包 | 路径 | 职责 |
 |----|------|------|
 | `@changmen/polymarket-sports` | [polymarket-sports/](polymarket-sports/README.md) | PM Sports WS → `client_matches.pm_sport` |
+| `@changmen/polymarket-esports-collector` | [polymarket-esports/](polymarket-esports/README.md) | PM Gamma+/prices → `platform_*` + market index |
 | `@changmen/predictfun-collector` | [predictfun-collector/](predictfun-collector/README.md) | Predict.fun REST → `platform_*` |
 
-根目录 `npm run pm-sports` / `predictfun-collector` 不变；PM2 见 `deploy/ecosystem.config.cjs`。
+根目录 `npm run pm-sports` / `polymarket-collector` / `predictfun-collector`；PM2 见 `deploy/ecosystem.config.cjs`。
 
 ## 约定
 

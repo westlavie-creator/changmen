@@ -23,6 +23,7 @@
     "server/team-resolver",
     "server/value-bet",
     "server/collectors/polymarket-sports",
+    "server/collectors/polymarket-esports",
     "server/collectors/predictfun-collector"
   ],
   "scripts": {
@@ -58,6 +59,7 @@
     "composer:test": "npm test --prefix server/match-composer",
     "audit:client-sources": "node server/matcher/scripts/audit-client-sources.mjs",
     "pm-sports": "npm run start --prefix server/collectors/polymarket-sports",
+    "polymarket-collector": "npm run start --prefix server/collectors/polymarket-esports",
     "predictfun-collector": "npm run start --prefix server/collectors/predictfun-collector",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/venue-adapter",

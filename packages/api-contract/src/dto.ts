@@ -66,13 +66,38 @@ export interface PredictFunMarketIndex {
   entries: PredictFunMarketIndexEntry[];
 }
 
+/** [changmen 扩展] VPS polymarket-esports-collector 写入，浏览器 WS 订阅用 */
+export interface PolymarketMarketIndexEntry {
+  sourceMatchId: string;
+  marketId: string;
+  homeTokenId: string;
+  awayTokenId: string;
+  sourceBetId: string;
+  map: number;
+  homeName: string;
+  awayName: string;
+  homeOdds: number;
+  awayOdds: number;
+  status: string;
+  /** CLOB 概率价，供浏览器种子写 fo / 预检 */
+  homeClobPrice?: number;
+  awayClobPrice?: number;
+}
+
+/** [changmen 扩展] polymarket_market_index.json */
+export interface PolymarketMarketIndex {
+  updatedAt: number;
+  assetIds: string[];
+  entries: PolymarketMarketIndexEntry[];
+}
+
 export interface CollectPlatformInfo {
   Gateway: string;
   Token: string;
   BetName: string;
   GameOddTypes?: Record<string, ObGameOddTypeSpec>;
-  /** [changmen 扩展] PredictFun VPS 采集索引 */
-  MarketIndex?: PredictFunMarketIndex | null;
+  /** [changmen 扩展] PredictFun / Polymarket VPS 采集索引（按 provider 区分形状） */
+  MarketIndex?: PredictFunMarketIndex | PolymarketMarketIndex | null;
 }
 
 export interface BetSourceDto {

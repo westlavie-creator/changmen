@@ -12,7 +12,8 @@
     "./platform_storage.js": "./platform_storage.js",
     "./ensure_storage_seed.js": "./ensure_storage_seed.js",
     "./load_env.js": "./load_env.js",
-    "./predictfun_market_index.js": "./predictfun_market_index.js"
+    "./predictfun_market_index.js": "./predictfun_market_index.js",
+    "./polymarket_market_index.js": "./polymarket_market_index.js"
   },
   "dependencies": {
     "dotenv": "^17.4.2"

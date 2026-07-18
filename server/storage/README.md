@@ -18,6 +18,7 @@
 | `@changmen/storage/load_env.js` | 加载 `server/backend/.env` |
 | `@changmen/storage/platform_storage.js` | 平台凭证 JSON 读写 |
 | `@changmen/storage/predictfun_market_index.js` | PF 市场索引 |
+| `@changmen/storage/polymarket_market_index.js` | PM 电竞市场索引 |
 
 ## 路径规则
 

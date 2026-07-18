@@ -30,8 +30,11 @@
 
 A8 无 Polymarket。PM 不用 `a8StartTimeCollectAllowed`，单独 **过去 6h、未来 1h**：
 
-- 客户端：`venue-adapter/polymarket/api.ts` → `polymarketCollectStartTimeAllowed`
-- 服务端 Gamma 拉盘：`server/collectors/polymarket-sports/gamma_map.js`
+- **暂时双写（当前）**：浏览器仍 Gamma + `Save*` + WS→fo；VPS `changmen-polymarket-collector` **默认写** `platform_*` + `polymarket_market_index.json`
+- **切流后**：VPS 独占写库；浏览器改为 MarketIndex → WS→fo
+- 关 VPS 写库：`POLYMARKET_COLLECTOR_WRITE_PLATFORM=0`
+- 常量对齐：`venue-adapter/polymarket/api.ts` 与 collector `api.js`
+- 赛程状态另见：`server/collectors/polymarket-sports`（`pm_sport`）
 
 ## 游戏目录
 

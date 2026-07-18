@@ -1,0 +1,21 @@
+{
+  "name": "@changmen/polymarket-esports-collector",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VPS daemon: Polymarket Gamma+/prices → platform_matches/platform_bets + market index",
+  "exports": {
+    ".": "./index.js",
+    "./parse.js": "./parse.js",
+    "./loop.js": "./loop.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test parse.test.mjs api.test.mjs loop.safety.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/db": "*",
+    "@changmen/shared": "*",
+    "@changmen/storage": "*"
+  }
+}

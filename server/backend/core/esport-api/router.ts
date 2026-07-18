@@ -315,9 +315,19 @@ async function handle(
       const provider = cpParsed.success ? cpParsed.data.provider : String(body.provider || "");
       const row = store.getPlatform(provider);
       const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
-      if (!row)
-        return ok({ Gateway: "", Token: "", BetName: catalogBetName });
-
+      if (!row) {
+        const empty: Record<string, unknown> = { Gateway: "", Token: "", BetName: catalogBetName };
+        // VPS 采集索引不依赖 platforms.json 行；无行也要下发，否则浏览器永远订不到盘
+        if (provider === "PredictFun") {
+          const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
+          empty.MarketIndex = readPredictFunMarketIndex();
+        }
+        if (provider === "Polymarket") {
+          const { readPolymarketMarketIndex } = await import("@changmen/storage/polymarket_market_index.js");
+          empty.MarketIndex = readPolymarketMarketIndex();
+        }
+        return ok(empty);
+      }
       const betName = row.betName && row.betName !== ".*" ? row.betName : catalogBetName;
       let gateway: string = row.gateway || "";
       let token: string = row.token || "";
@@ -363,6 +373,10 @@ async function handle(
       if (provider === "PredictFun") {
         const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
         out.MarketIndex = readPredictFunMarketIndex();
+      }
+      if (provider === "Polymarket") {
+        const { readPolymarketMarketIndex } = await import("@changmen/storage/polymarket_market_index.js");
+        out.MarketIndex = readPolymarketMarketIndex();
       }
       return ok(out);
     }

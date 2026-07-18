@@ -12,7 +12,8 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ┌─────────────────────────────────────────────────────────┐
 │ 客户端（每台操作员机器）                                   │
 │  Vue / + Chrome 插件                                 │
-│  client/venue-adapter 采集 → API_SaveMatch / API_SaveBet     │
+│  多数场馆：venue-adapter 采集 → API_SaveMatch / API_SaveBet │
+│  Polymarket/PredictFun：仅 WS → fo（HTTP discovery 在 VPS） │
 │  oddsStore（内存 fo）· 下注 Provider · CollectConfig 门控  │
 └───────────────────────────┬─────────────────────────────┘
                             │ HTTPS（/esport/*）
@@ -21,15 +22,16 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │ 服务端（一台或多实例）                                     │
 │  server/backend    — esport-api、HTTP 代理、静态 /          │
 │  server/matcher    — 循环写 client_matches                 │
+│  polymarket-esports — Gamma+/prices → platform_* + index   │
 │  polymarket-sports — Sports WS → client_matches.pm_sport   │
-│  predictfun-collector — Predict.fun REST → platform_* + index │
+│  predictfun-collector — Predict.fun REST → platform_*（可选）│
 │  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**已删除、不再部署**：Node FeedHub、`ESPORT_BRIDGE`、本机 WS 网关（OB MQTT / RAY SC / TF / IA relay）。各平台 WebSocket 由**浏览器直连**源站或 A8 聚合机。采集**只在客户端**。
+**已删除、不再部署**：Node FeedHub、`ESPORT_BRIDGE`、本机 WS 网关（OB MQTT / RAY SC / TF / IA relay）。各平台 WebSocket 由**浏览器直连**源站、A8 聚合机或 changmen `ws_forward` hub。
 
-Parity 唯一基线：浏览器 `saveMatch` / `saveBet` + 插件 + matcher → `Client_GetMatchs`。
+**电竞列表基线**：多数场馆仍为浏览器 `saveMatch` / `saveBet`；**Polymarket** 与可选 **PredictFun** 为 VPS collector 直写 `platform_*` + matcher → `Client_GetMatchs`。实时赔率仍靠浏览器 Market WS → `fo`。
 
 ---
 
@@ -60,8 +62,9 @@ Nginx / Caddy 反代示例要点：
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
 | API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`） | `pm2 restart changmen-esport --update-env` |
+| Polymarket 电竞 HTTP 采集 | PM2：`changmen-polymarket-collector`（Gamma+/prices → `platform_*` + index） | `pm2 restart changmen-polymarket-collector --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
-| Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（REST → `platform_*` + `predictfun_market_index.json`） | `pm2 restart changmen-predictfun-collector --update-env` |
+| Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（可选；REST → `platform_*`） | `pm2 restart changmen-predictfun-collector --update-env` |
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -151,19 +154,21 @@ npm run app:build
 
 ### 3.4 进程
 
-**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports`。HK `47.57.10.202` 等节点当前即此配置。
+**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-sports` + `changmen-polymarket-collector`。
 
 **可选**：`changmen-predictfun-collector`（Predict.fun REST 采集；需 `PREDICT_FUN_API_KEY`，暂不启用可跳过）。
 
 ```bash
 cd changmen
-# 推荐：仅主栈
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports
-# 全量 start ecosystem（含 predictfun）仅在你明确要开 Predict.fun 采集时使用
-# pm2 start deploy/ecosystem.config.cjs
+# 推荐主栈（含 PM 电竞 discovery）
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector
+# predictfun 仅在你明确要开 Predict.fun 采集时使用
+# pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env
 ```
 
 `ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
+
+`changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`。**暂时默认双写** `platform_*`（与浏览器 `Save*` 并行）；设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow。切流后关浏览器 Save*，仅保留 VPS 写库。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 
