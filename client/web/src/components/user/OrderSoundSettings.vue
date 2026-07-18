@@ -9,11 +9,12 @@ import {
   clearOrderSoundCustomCache,
   currentOrderSoundUserName,
   deleteCustomOrderSound,
+  ensureCustomOrderSoundMigrated,
   isAudioFile,
+  isFileSystemAccessSupported,
   loadOrderSoundPrefs,
   pickCustomSoundViaFileSystemAccess,
   saveCustomOrderSoundBlob,
-  saveCustomOrderSoundHandle,
   saveOrderSoundPrefs,
   stopOrderSound,
 } from "@/shared/orderSound";
@@ -25,6 +26,7 @@ const props = defineProps<{
 const prefs = reactive<OrderSoundPrefs>(loadOrderSoundPrefs());
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const picking = ref(false);
+const needsReselect = ref(false);
 const { playing, preview } = useOrderSoundPlayer();
 
 const presetOptions: { value: OrderSoundPresetId; label: string }[] = [
@@ -53,22 +55,37 @@ watch(() => prefs.enabled, (enabled) => {
     void stopOrderSound();
 });
 
-onMounted(() => {
+async function refreshNeedsReselect() {
+  if (prefs.presetId !== "custom" || !prefs.customFileName) {
+    needsReselect.value = false;
+    return;
+  }
+  const ok = await ensureCustomOrderSoundMigrated(currentOrderSoundUserName(), {
+    allowPermissionPrompt: false,
+  });
   Object.assign(prefs, loadOrderSoundPrefs());
+  needsReselect.value = !ok;
+}
+
+watch(() => prefs.presetId, () => {
+  void refreshNeedsReselect();
 });
 
-async function applyCustomFile(file: File, source: "blob" | "handle", handle?: FileSystemFileHandle) {
+onMounted(() => {
+  Object.assign(prefs, loadOrderSoundPrefs());
+  void refreshNeedsReselect();
+});
+
+async function applyCustomFile(file: File) {
   const userName = currentOrderSoundUserName();
   await deleteCustomOrderSound(userName);
   clearOrderSoundCustomCache(userName);
-  if (source === "handle" && handle)
-    await saveCustomOrderSoundHandle(userName, handle);
-  else
-    await saveCustomOrderSoundBlob(userName, file);
+  await saveCustomOrderSoundBlob(userName, file);
   prefs.customFileName = file.name;
-  prefs.customSource = source;
+  prefs.customSource = "blob";
   prefs.presetId = "custom";
   prefs.enabled = true;
+  needsReselect.value = false;
   persist();
 }
 
@@ -77,10 +94,13 @@ async function onPickFile() {
     return;
   picking.value = true;
   try {
-    const picked = await pickCustomSoundViaFileSystemAccess();
-    if (picked) {
-      await applyCustomFile(picked.file, "handle", picked.handle);
-      ElMessage.success(`已选择 ${picked.file.name}`);
+    // 支持 FS Access 时只用系统选择器；取消不应再弹出 <input type=file>
+    if (isFileSystemAccessSupported()) {
+      const picked = await pickCustomSoundViaFileSystemAccess();
+      if (picked) {
+        await applyCustomFile(picked.file);
+        ElMessage.success(`已选择 ${picked.file.name}`);
+      }
       return;
     }
     fileInputRef.value?.click();
@@ -104,7 +124,7 @@ async function onFileInputChange(ev: Event) {
     return;
   }
   try {
-    await applyCustomFile(file, "blob");
+    await applyCustomFile(file);
     ElMessage.success(`已选择 ${file.name}`);
   }
   catch (e) {
@@ -121,6 +141,7 @@ async function clearCustomFile() {
     clearOrderSoundCustomCache(userName);
     prefs.customFileName = undefined;
     prefs.customSource = undefined;
+    needsReselect.value = false;
     if (prefs.presetId === "custom")
       prefs.presetId = "chime";
     persist();
@@ -137,10 +158,18 @@ async function onPreview() {
   persist();
   try {
     await preview();
+    Object.assign(prefs, loadOrderSoundPrefs());
+    await refreshNeedsReselect();
   }
   catch {
-    if (!playing.value)
-      ElMessage.warning("无法播放，请先选择文件并点击试听，或检查浏览器是否静音");
+    if (!playing.value) {
+      await refreshNeedsReselect();
+      ElMessage.warning(
+        prefs.presetId === "custom"
+          ? "无法播放，请重新选择音频文件，或检查浏览器是否静音"
+          : "无法播放，请检查浏览器是否静音",
+      );
+    }
   }
 }
 </script>
@@ -209,8 +238,11 @@ async function onPreview() {
       >
         清除
       </el-button>
+      <p v-if="needsReselect" class="order-sound-settings__file-warn">
+        旧版文件句柄已失效，请重新选择音频文件（将保存到本机浏览器）。
+      </p>
       <p class="order-sound-settings__file-hint">
-        文件保存在本机浏览器（IndexedDB），无大小限制；Chrome / Edge 会记住文件句柄，刷新后仍可播放。
+        文件副本保存在本机浏览器（IndexedDB），刷新后仍可播放，无需重复授权。
       </p>
     </el-form-item>
 
@@ -273,6 +305,14 @@ async function onPreview() {
   font-size: 11px;
   line-height: 1.45;
   color: var(--el-text-color-secondary);
+}
+
+.order-sound-settings__file-warn {
+  margin: 6px 0 0;
+  max-width: 520px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--el-color-warning);
 }
 
 .order-sound-settings :deep(.el-form-item) {

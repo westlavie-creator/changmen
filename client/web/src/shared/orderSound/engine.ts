@@ -21,7 +21,7 @@ interface ActivePlayback {
 let sessionCounter = 0;
 
 function customCacheKey(userName: string, prefs: OrderSoundPrefs) {
-  return `${userName}:${prefs.customSource ?? ""}:${prefs.customFileName ?? ""}`;
+  return `${userName}:${prefs.customFileName ?? ""}`;
 }
 
 class OrderSoundEngine {
@@ -31,6 +31,7 @@ class OrderSoundEngine {
   private readonly builtinBuffers = new Map<Exclude<OrderSoundPrefs["presetId"], "custom">, AudioBuffer>();
   private readonly customBuffers = new Map<string, AudioBuffer>();
   private readonly listeners = new Set<() => void>();
+  private unlockInstalled = false;
 
   subscribe(listener: () => void) {
     this.listeners.add(listener);
@@ -44,7 +45,24 @@ class OrderSoundEngine {
   }
 
   isUnlocked() {
-    return this.unlocked;
+    return this.unlocked && this.ctx != null && this.ctx.state === "running";
+  }
+
+  /** 首次用户手势时 resume AudioContext，避免下单回调时仍 suspended */
+  installUnlockOnGesture() {
+    if (this.unlockInstalled || typeof window === "undefined")
+      return;
+    this.unlockInstalled = true;
+    const onGesture = () => {
+      void this.ensureContext().then((ok) => {
+        if (ok && this.ctx?.state === "running") {
+          window.removeEventListener("pointerdown", onGesture, true);
+          window.removeEventListener("keydown", onGesture, true);
+        }
+      });
+    };
+    window.addEventListener("pointerdown", onGesture, true);
+    window.addEventListener("keydown", onGesture, true);
   }
 
   clearCustomBufferCache(userName?: string) {
@@ -66,6 +84,7 @@ class OrderSoundEngine {
     this.builtinBuffers.clear();
     this.customBuffers.clear();
     this.listeners.clear();
+    this.unlockInstalled = false;
     sessionCounter = 0;
   }
 
@@ -76,6 +95,13 @@ class OrderSoundEngine {
     current.session.stop();
     this.active = null;
     this.notify();
+  }
+
+  /** 仅停止试听，避免关闭设置页时打断下单成功提示音 */
+  async stopIfPreview() {
+    if (this.active?.session.purpose !== "preview")
+      return;
+    await this.stop();
   }
 
   async play(opts: {
@@ -92,7 +118,7 @@ class OrderSoundEngine {
 
     await this.stop();
 
-    const buffer = await this.resolveBuffer(prefs, userName);
+    const buffer = await this.resolveBuffer(prefs, userName, purpose);
     if (!buffer)
       return null;
 
@@ -107,7 +133,7 @@ class OrderSoundEngine {
       listener();
   }
 
-  private async ensureContext() {
+  async ensureContext() {
     if (typeof window === "undefined")
       return false;
     const Ctx = window.AudioContext
@@ -116,26 +142,43 @@ class OrderSoundEngine {
       return false;
     if (!this.ctx)
       this.ctx = new Ctx();
-    if (this.ctx.state === "suspended")
-      await this.ctx.resume();
-    this.unlocked = true;
+    if (this.ctx.state === "suspended") {
+      try {
+        await this.ctx.resume();
+      }
+      catch {
+        /* 无用户手势时可能仍 suspended；仍允许 start，待解锁后出声 */
+      }
+    }
+    this.unlocked = this.ctx.state === "running";
     return true;
   }
 
-  private async resolveBuffer(prefs: OrderSoundPrefs, userName: string) {
+  private async resolveBuffer(
+    prefs: OrderSoundPrefs,
+    userName: string,
+    purpose: OrderSoundPurpose,
+  ) {
     if (prefs.presetId === "custom") {
-      if (!prefs.customSource || !prefs.customFileName)
+      if (!prefs.customFileName)
         return null;
       const cacheKey = customCacheKey(userName, prefs);
       const cached = this.customBuffers.get(cacheKey);
       if (cached)
         return cached;
-      const blob = await loadCustomOrderSoundBlob(userName, prefs.customSource);
+      const blob = await loadCustomOrderSoundBlob(userName, {
+        allowPermissionPrompt: purpose === "preview",
+      });
       if (!blob || !this.ctx)
         return null;
-      const buffer = await this.ctx.decodeAudioData(await blob.arrayBuffer());
-      this.customBuffers.set(cacheKey, buffer);
-      return buffer;
+      try {
+        const buffer = await this.ctx.decodeAudioData(await blob.arrayBuffer());
+        this.customBuffers.set(cacheKey, buffer);
+        return buffer;
+      }
+      catch {
+        return null;
+      }
     }
 
     const cached = this.builtinBuffers.get(prefs.presetId);

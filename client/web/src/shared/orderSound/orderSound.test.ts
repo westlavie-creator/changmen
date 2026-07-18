@@ -43,6 +43,13 @@ describe("orderSound prefs", () => {
       customFileName: "order.mp3",
       customSource: "handle",
     });
+    expect(normalizeOrderSoundPrefs({
+      enabled: true,
+      presetId: "custom",
+      customFileName: "ok.wav",
+      customSource: "blob",
+      volume: 0.8,
+    }).customSource).toBe("blob");
   });
 });
 

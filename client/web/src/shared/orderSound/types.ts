@@ -12,7 +12,7 @@ export interface OrderSoundPrefs {
   playMode: OrderSoundPlayMode;
   /** 仅 presetId === 'custom'；展示用文件名 */
   customFileName?: string;
-  /** blob=IndexedDB 副本；handle=File System Access 句柄（大文件友好） */
+  /** blob=IndexedDB 副本（推荐）；handle=旧版 File System Access 句柄，播放前会迁成 blob */
   customSource?: OrderSoundCustomSource;
 }
 

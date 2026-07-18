@@ -19,17 +19,20 @@ export {
 export {
   customSoundRefForUser,
   deleteCustomOrderSound,
+  hasCustomOrderSoundBlob,
   isAudioFile,
   isFileSystemAccessSupported,
   loadCustomOrderSoundBlob,
+  migrateCustomOrderSoundHandleToBlob,
   pickCustomSoundViaFileSystemAccess,
   saveCustomOrderSoundBlob,
-  saveCustomOrderSoundHandle,
 } from "./customStore";
 export type { OrderSoundPurpose, OrderSoundSession } from "./engine";
 export { getOrderSoundEngine } from "./engine";
 export {
   clearOrderSoundCustomCache,
+  ensureCustomOrderSoundMigrated,
+  installOrderSoundAudioUnlock,
   isOrderSoundPlaying,
   isOrderSoundUnlocked,
   playOrderSuccessSound,
@@ -37,5 +40,6 @@ export {
   resetOrderSoundStateForTests,
   shouldPlayDebounced,
   stopOrderSound,
+  stopOrderSoundPreview,
   subscribeOrderSoundState,
 } from "./player";

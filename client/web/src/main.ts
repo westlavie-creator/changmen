@@ -8,6 +8,7 @@ import { initGamebetExtension } from "@changmen/client-core/chrome-plugin/bridge
 import { installClientCoreBridges } from "@/runtime/installClientCore";
 import { installVenueWebBridge } from "@/runtime/installVenueWebBridge";
 import { clearChunkReloadFlag, installChunkReloadOnDeploy } from "@/shared/chunkReload";
+import { installOrderSoundAudioUnlock } from "@/shared/orderSound";
 import { useUserStore } from "@/stores/userStore";
 import "@/styles/index.css";
 import App from "./App.vue";
@@ -16,6 +17,7 @@ import router from "./router";
 function bootstrap() {
   installChunkReloadOnDeploy();
   clearChunkReloadFlag();
+  installOrderSoundAudioUnlock();
   const pinia = createPinia();
   const app = createApp(App).use(pinia).use(router).use(ElementPlus, { locale: zhCn });
   installVenueWebBridge();

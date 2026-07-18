@@ -4,6 +4,7 @@ import {
   isOrderSoundPlaying,
   previewOrderSound,
   stopOrderSound,
+  stopOrderSoundPreview,
   subscribeOrderSoundState,
 } from "@/shared/orderSound";
 
@@ -24,7 +25,7 @@ export function useOrderSoundPlayer(userName = currentOrderSoundUserName) {
 
   onUnmounted(() => {
     unsubscribe?.();
-    void stopOrderSound();
+    void stopOrderSoundPreview();
   });
 
   async function preview() {

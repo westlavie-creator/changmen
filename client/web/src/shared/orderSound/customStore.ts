@@ -69,6 +69,7 @@ export async function saveCustomOrderSoundBlob(userName: string, blob: Blob): Pr
   return ref;
 }
 
+/** @deprecated 播放一律走 blob；仅保留供旧数据迁移内部使用 */
 export async function saveCustomOrderSoundHandle(userName: string, handle: FileSystemFileHandle): Promise<string> {
   const ref = customSoundRefForUser(userName);
   await idbPut("handle", ref, handle);
@@ -76,23 +77,85 @@ export async function saveCustomOrderSoundHandle(userName: string, handle: FileS
   return ref;
 }
 
+type FileHandleWithPermission = FileSystemFileHandle & {
+  queryPermission?: (descriptor?: { mode?: "read" | "readwrite" }) => Promise<PermissionState>;
+  requestPermission?: (descriptor?: { mode?: "read" | "readwrite" }) => Promise<PermissionState>;
+};
+
+async function ensureHandleReadable(
+  handle: FileHandleWithPermission,
+  allowPermissionPrompt: boolean,
+): Promise<boolean> {
+  if (typeof handle.queryPermission !== "function")
+    return true;
+  let state = await handle.queryPermission({ mode: "read" });
+  if (state === "granted")
+    return true;
+  if (!allowPermissionPrompt || typeof handle.requestPermission !== "function")
+    return false;
+  state = await handle.requestPermission({ mode: "read" });
+  return state === "granted";
+}
+
+/**
+ * 优先读 IndexedDB blob；若仅有旧版 FileSystemFileHandle，在可授权时拷成 blob 后返回。
+ * 下单通知应 allowPermissionPrompt=false（无用户手势）；试听/设置页可 true。
+ */
 export async function loadCustomOrderSoundBlob(
   userName: string,
-  source: "blob" | "handle",
+  opts: { allowPermissionPrompt?: boolean } | "blob" | "handle" = {},
 ): Promise<Blob | null> {
+  // 兼容旧调用：loadCustomOrderSoundBlob(user, "blob" | "handle")
+  const allowPermissionPrompt = typeof opts === "string"
+    ? opts === "handle"
+    : opts.allowPermissionPrompt === true;
+
   const ref = customSoundRefForUser(userName);
-  if (source === "handle") {
-    const handle = await idbGet<FileSystemFileHandle>("handle", ref);
-    if (!handle)
+  const existing = await idbGet<Blob>("blob", ref);
+  if (existing)
+    return existing;
+
+  const handle = await idbGet<FileHandleWithPermission>("handle", ref);
+  if (!handle)
+    return null;
+
+  try {
+    if (!(await ensureHandleReadable(handle, allowPermissionPrompt)))
       return null;
-    try {
-      return await handle.getFile();
-    }
-    catch {
-      return null;
-    }
+    const file = await handle.getFile();
+    await saveCustomOrderSoundBlob(userName, file);
+    return file;
   }
-  return idbGet<Blob>("blob", ref);
+  catch {
+    return null;
+  }
+}
+
+/** 设置页：尝试把旧 handle 迁成 blob；成功返回文件名 */
+export async function migrateCustomOrderSoundHandleToBlob(
+  userName: string,
+  opts: { allowPermissionPrompt?: boolean } = {},
+): Promise<{ ok: boolean; fileName?: string }> {
+  const ref = customSoundRefForUser(userName);
+  if (await idbGet<Blob>("blob", ref))
+    return { ok: true };
+
+  const handle = await idbGet<FileHandleWithPermission>("handle", ref);
+  if (!handle)
+    return { ok: false };
+
+  const blob = await loadCustomOrderSoundBlob(userName, {
+    allowPermissionPrompt: opts.allowPermissionPrompt === true,
+  });
+  if (!blob)
+    return { ok: false };
+  const fileName = blob instanceof File ? blob.name : undefined;
+  return { ok: true, fileName };
+}
+
+export async function hasCustomOrderSoundBlob(userName: string): Promise<boolean> {
+  const ref = customSoundRefForUser(userName);
+  return (await idbGet<Blob>("blob", ref)) != null;
 }
 
 export async function deleteCustomOrderSound(userName: string) {
@@ -137,7 +200,7 @@ function isAudioFile(file: File) {
   return /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(file.name);
 }
 
-/** 优先系统文件选择器（可记住句柄）；不支持时返回 null，由调用方回退 input */
+/** 优先系统文件选择器（仅取 File）；不支持时返回 null，由调用方回退 input */
 export async function pickCustomSoundViaFileSystemAccess(): Promise<{
   file: File;
   handle: FileSystemFileHandle;
