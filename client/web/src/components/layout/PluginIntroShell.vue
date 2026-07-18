@@ -1,57 +1,39 @@
 <script setup lang="ts">
+import LoginStarfield from "@/components/layout/LoginStarfield.vue";
+
 defineProps<{
   showLogin?: boolean;
+  showComingSoon?: boolean;
 }>();
 </script>
 
 <template>
   <div class="plugin-intro-shell">
-    <div v-if="!showLogin" class="login-page container flex flex-middle flex-center">
-      <div class="login-stage login-stage--heroes-only flex flex-middle flex-center">
-        <img
-          class="login-hero login-hero--left"
-          src="/login/nagato.png"
-          alt="长门"
-          decoding="async"
-        >
-        <img
-          class="login-hero login-hero--right"
-          src="/login/kakashi.png"
-          alt="卡卡西"
-          decoding="async"
-        >
-      </div>
-    </div>
-    <div v-else class="login-page container flex flex-middle flex-center">
-      <div class="login-stage flex flex-middle flex-center">
-        <img
-          class="login-hero login-hero--left"
-          src="/login/nagato.png"
-          alt="长门"
-          decoding="async"
-        >
-        <div class="login-center flex flex-column flex-middle">
-          <h1 class="login-jiraiya-title" aria-label="自来也">
-            <span class="login-jiraiya-char">自</span>
-            <span class="login-jiraiya-char">来</span>
-            <span class="login-jiraiya-char">也</span>
-          </h1>
-          <img
-            class="login-akatsuki"
-            src="/login/akatsuki.png"
-            alt="晓组织"
-            decoding="async"
-          >
-          <div class="loginbox">
-            <slot />
+    <div class="login-page login-page--betmoar container flex flex-middle flex-center">
+      <LoginStarfield />
+      <div class="login-stage login-stage--hero flex flex-column flex-middle flex-center">
+        <p class="login-brand hero-word hero-word-0" aria-hidden="true">
+          じらいや
+        </p>
+        <h1 class="login-hero-title" aria-label="Bet Bigger. Faster. Smarter.">
+          <span class="hero-word hero-word-1">Bet</span>
+          <span class="hero-word hero-word-2">Bigger.</span>
+          <span class="hero-word hero-word-3">Faster.</span>
+          <span class="hero-word hero-word-4 hero-word--accent">Smarter.</span>
+        </h1>
+        <template v-if="showLogin">
+          <div class="login-center login-center--enter flex flex-column flex-middle">
+            <div class="loginbox">
+              <slot />
+            </div>
           </div>
-        </div>
-        <img
-          class="login-hero login-hero--right"
-          src="/login/kakashi.png"
-          alt="卡卡西"
-          decoding="async"
+        </template>
+        <p
+          v-else-if="showComingSoon"
+          class="login-coming-soon hero-word hero-word-5"
         >
+          Coming soon
+        </p>
       </div>
     </div>
   </div>

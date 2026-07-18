@@ -5,6 +5,7 @@ import { getToken } from "@/api/client";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
 import KakashiRaikiriLoader from "@/components/layout/KakashiRaikiriLoader.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
+import { useCertGate } from "@/composables/useCertGate";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 
@@ -12,10 +13,21 @@ const HomeView = defineAsyncComponent(() => import("@/views/HomeView.vue"));
 
 const router = useRouter();
 const user = useUserStore();
-const { extensionReady } = useExtensionGate();
+const { extensionReady, extensionChecked } = useExtensionGate();
+const { certReady, certChecked } = useCertGate();
 const sessionReady = computed(() => user.ready);
 const sessionChecked = computed(() => user.sessionChecked);
-const showLoginGate = computed(() => sessionChecked.value && extensionReady.value);
+/** B：客户端证书 + Chrome 插件 都具备才出登录框 */
+const accessReady = computed(() => extensionReady.value && certReady.value);
+/** 两道门都完成首次探测后再判定 Coming soon / 登录，避免误闪 */
+const gatesChecked = computed(() => certChecked.value && extensionChecked.value);
+const showLoginGate = computed(
+  () => sessionChecked.value && gatesChecked.value && accessReady.value,
+);
+/** 会话已判定且（无证或无插件）：Coming soon */
+const showComingSoon = computed(
+  () => sessionChecked.value && gatesChecked.value && !accessReady.value,
+);
 /** restoreSession 进行中（有 token 且尚未判定完成）时显示雷切加载动画 */
 const showSessionRestore = computed(
   () => Boolean(getToken()) && !sessionReady.value && !sessionChecked.value,
@@ -38,5 +50,6 @@ async function onLoginSuccess() {
   <PluginIntroShell v-else-if="showLoginGate" :show-login="true">
     <LoginPanel @success="onLoginSuccess" />
   </PluginIntroShell>
-  <PluginIntroShell v-else :show-login="false" />
+  <PluginIntroShell v-else-if="showComingSoon" :show-coming-soon="true" />
+  <PluginIntroShell v-else />
 </template>

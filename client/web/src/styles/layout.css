@@ -125,7 +125,9 @@ a,.green {
 }
 
 aside {
-  background-image:var(--cm-sidebar-bg-image, url(/esport2/assets/XJqe1JME.webp));background-position:top;background-size:cover;box-shadow:0 2px 5px #0006;
+  background: var(--cm-sidebar-bg, #0f172a);
+  background-color: #0f172a;
+  box-shadow: 0 2px 5px #0006;
 }
 
 header {

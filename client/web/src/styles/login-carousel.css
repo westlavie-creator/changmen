@@ -1,131 +1,150 @@
-/* 登录页：changmen 独立皮肤 */
-
-@import url("https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap");
+/* 登录页：betmoar.fun 星空鼠标视差 + hero 词入场（blur + 上浮 + 错峰） */
 
 .login-page.container {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
   padding: 1.5rem;
   box-sizing: border-box;
-  /* 与 body / 登录后主界面同一灰底 + 渐变 */
-  background-color: var(--cm-body-bg, #0f172a);
-  background-image: var(--cm-body-bg-gradient);
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
+  /* Match betmoar hero: near-black void so Points read as bright discs */
+  background-color: #000000;
+  background-image: none;
   animation: none;
 }
 
-/* 角色 + 登录框同一行、垂直居中对齐 */
 .login-page .login-stage {
+  position: relative;
+  z-index: 1;
   flex: 0 1 auto;
-  gap: 0.75rem;
+  gap: 1.25rem;
   max-width: 100%;
   min-width: 0;
+  width: min(720px, 100%);
 }
 
-.login-page .login-stage--heroes-only {
-  gap: clamp(1rem, 4vw, 3rem);
-  justify-content: center;
+.login-page .login-stage--hero {
+  gap: clamp(1.25rem, 3vh, 2rem);
 }
 
-.login-page .login-stage--heroes-only .login-hero {
-  width: min(520px, 40vw);
-  max-height: min(760px, 88vh);
-}
-
-.login-page .login-hero {
-  flex: 0 0 auto;
-  width: min(420px, 32vw);
-  max-height: min(640px, 82vh);
-  height: auto;
-  object-fit: contain;
-  object-position: center center;
+.login-page .login-brand {
+  margin: 0;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  font-size: clamp(0.95rem, 2.2vw, 1.15rem);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-indent: 0.12em;
+  text-transform: none;
+  color: rgba(226, 232, 240, 0.78);
   pointer-events: none;
   user-select: none;
-  /* 透明 PNG：轻微投影增强层次，不铺底色 */
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+}
+
+.login-page .login-hero-title {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em 0.4em;
+  margin: 0;
+  padding: 0 0.5rem;
+  max-width: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(1.35rem, 4.8vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  text-align: center;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6);
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* betmoar: opacity0 + translateY(10px) + blur(4px) → heroIn */
+.login-page .hero-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(10px);
+  filter: blur(4px);
+  animation: heroIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  color: #fff;
+}
+
+.login-page .hero-word-0 { animation-delay: 0.02s; }
+.login-page .hero-word-1 { animation-delay: 0.05s; }
+.login-page .hero-word-2 { animation-delay: 0.15s; }
+.login-page .hero-word-3 { animation-delay: 0.25s; }
+.login-page .hero-word-4 { animation-delay: 0.35s; }
+.login-page .hero-word-5 { animation-delay: 0.45s; }
+
+.login-page .hero-word--accent {
+  color: #60a5fa;
+  animation-name: heroInAccent;
+}
+
+.login-page .login-coming-soon {
+  margin: 0.35rem 0 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(148, 163, 184, 0.95);
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes heroIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes heroInAccent {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    color: #60a5fa;
+    text-shadow: 0 0 20px rgba(59, 130, 246, 0.45);
+  }
 }
 
 .login-page .login-center {
   flex: 0 0 auto;
   gap: 0.65rem;
   min-width: 0;
+  width: 100%;
+  align-items: center;
 }
 
-.login-page .login-jiraiya-title {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0.12em;
-  margin: 0;
-  padding: 0 0.15rem;
-  font-family: "Ma Shan Zheng", "STKaiti", "KaiTi", "楷体", serif;
-  font-size: clamp(2.4rem, 6vw, 3.25rem);
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  pointer-events: none;
-  user-select: none;
+.login-page .login-center--enter {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: loginPanelIn 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s forwards;
 }
 
-.login-page .login-jiraiya-char {
-  display: inline-block;
-  background: linear-gradient(
-    165deg,
-    #fff7ed 0%,
-    #fcd34d 28%,
-    #f59e0b 52%,
-    #dc2626 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.85))
-    drop-shadow(0 0 18px rgba(245, 158, 11, 0.35));
-  transform-origin: center bottom;
-}
-
-.login-page .login-jiraiya-char:nth-child(1) {
-  transform: rotate(-4deg) translateY(2px);
-}
-
-.login-page .login-jiraiya-char:nth-child(2) {
-  font-size: 1.12em;
-  transform: translateY(-3px);
-  filter: drop-shadow(0 2px 0 rgba(120, 53, 15, 0.9))
-    drop-shadow(0 0 22px rgba(251, 191, 36, 0.45));
-}
-
-.login-page .login-jiraiya-char:nth-child(3) {
-  transform: rotate(5deg) translateY(1px);
-}
-
-.login-page .login-akatsuki {
-  flex: 0 0 auto;
-  width: min(160px, 40vw);
-  max-height: 100px;
-  height: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 16px rgba(214, 40, 40, 0.5));
-  pointer-events: none;
-  user-select: none;
+@keyframes loginPanelIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .login-page.container .loginbox {
   flex: 0 0 auto;
   width: min(400px, calc(100vw - 3rem));
-  margin: 0;
-  background: rgba(30, 41, 59, 0.92);
-  border: 1px solid #334155;
+  margin: 0 auto;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(51, 65, 85, 0.9);
   border-radius: 16px;
   padding: 2rem 1.75rem 1.5rem;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
   z-index: 1;
-  /* 覆盖 Element Plus 输入框默认白底。 */
   --el-fill-color-blank: #0f172a;
   --el-input-bg-color: #0f172a;
   --el-input-text-color: #f1f5f9;
@@ -134,7 +153,7 @@
   --el-input-placeholder-color: #64748b;
   --el-input-border-color: #475569;
   --el-input-hover-border-color: #64748b;
-  --el-input-focus-border-color: #38bdf8;
+  --el-input-focus-border-color: #3b82f6;
 }
 
 .login-page .loginbox .el-input__wrapper {
@@ -158,7 +177,6 @@
   color: var(--el-input-placeholder-color);
 }
 
-/* 浏览器记住账号/密码时的自动填充底色 */
 .login-page .loginbox .el-input__inner:-webkit-autofill,
 .login-page .loginbox .el-input__inner:-webkit-autofill:hover,
 .login-page .loginbox .el-input__inner:-webkit-autofill:focus {
@@ -169,27 +187,34 @@
 }
 
 .login-page .el-button--primary {
-  --el-button-bg-color: #0ea5e9;
-  --el-button-border-color: #0ea5e9;
-  --el-button-hover-bg-color: #38bdf8;
-  --el-button-hover-border-color: #38bdf8;
-  --el-button-active-bg-color: #0284c7;
-  --el-button-active-border-color: #0284c7;
+  --el-button-bg-color: #2563eb;
+  --el-button-border-color: #2563eb;
+  --el-button-hover-bg-color: #3b82f6;
+  --el-button-hover-border-color: #3b82f6;
+  --el-button-active-bg-color: #1d4ed8;
+  --el-button-active-border-color: #1d4ed8;
+  border-radius: 999px;
 }
 
 @media (max-width: 1100px) {
-  .login-page .login-stage:not(.login-stage--heroes-only) .login-hero {
-    display: none;
-  }
-
-  .login-page .login-stage--heroes-only .login-hero {
-    width: min(340px, 46vw);
-    max-height: min(560px, 78vh);
-  }
-
   .login-page .login-stage {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-page .hero-word,
+  .login-page .login-coming-soon,
+  .login-page .login-center--enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .login-page .hero-word--accent {
+    color: #60a5fa;
   }
 }
 

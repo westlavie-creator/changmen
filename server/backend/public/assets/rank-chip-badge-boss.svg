@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef9c3"/>
+      <stop offset="40%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="jewel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="48" cy="42" rx="22" ry="5" fill="#000" opacity="0.28"/>
+  <!-- crown -->
+  <path d="M18 34 L18 18 L30 28 L48 10 L66 28 L78 18 L78 34 Z" fill="url(#gold)" stroke="#92400e" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="18" y="32" width="60" height="8" rx="2" fill="url(#gold)" stroke="#92400e" stroke-width="1.5"/>
+  <circle cx="18" cy="18" r="4" fill="url(#gold)" stroke="#92400e" stroke-width="1.2"/>
+  <circle cx="48" cy="10" r="4.5" fill="url(#jewel)" stroke="#0e7490" stroke-width="1.2"/>
+  <circle cx="78" cy="18" r="4" fill="url(#gold)" stroke="#92400e" stroke-width="1.2"/>
+  <circle cx="30" cy="28" r="2.5" fill="#ef4444"/>
+  <circle cx="66" cy="28" r="2.5" fill="#3b82f6"/>
+</svg>

@@ -7,13 +7,16 @@ const DEV_SKIP_VERSION = "local-skip";
 
 export function useExtensionGate() {
   const devSkip = skipExtensionGate();
-  const extensionStatus = ref<"installed" | "missing">(devSkip ? "installed" : "missing");
+  /** pending：尚未完成首次探测，避免 Gate 误闪 Coming soon */
+  const extensionStatus = ref<"pending" | "installed" | "missing">(devSkip ? "installed" : "pending");
   const extensionVersion = ref(devSkip ? DEV_SKIP_VERSION : "");
   const extensionId = ref(devSkip ? "dev-skip" : "");
   const domExtensionId = ref("");
   const extensionReady = computed(() => extensionStatus.value === "installed");
+  const extensionChecked = computed(() => extensionStatus.value !== "pending");
 
   let probeTimer: ReturnType<typeof setInterval> | undefined;
+  let disposed = false;
 
   async function refreshExtension() {
     if (devSkip) {
@@ -25,6 +28,8 @@ export function useExtensionGate() {
 
     domExtensionId.value = readDomExtensionId();
     const info = await probeGamebetExtension();
+    if (disposed)
+      return false;
     if (info) {
       extensionStatus.value = "installed";
       extensionVersion.value = info.version ?? "";
@@ -40,6 +45,7 @@ export function useExtensionGate() {
   }
 
   onMounted(() => {
+    disposed = false;
     if (devSkip)
       return;
     void refreshExtension();
@@ -49,6 +55,7 @@ export function useExtensionGate() {
   });
 
   onUnmounted(() => {
+    disposed = true;
     if (probeTimer)
       clearInterval(probeTimer);
   });
@@ -59,6 +66,7 @@ export function useExtensionGate() {
     extensionId,
     domExtensionId,
     extensionReady,
+    extensionChecked,
     refreshExtension,
   };
 }

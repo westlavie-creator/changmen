@@ -99,6 +99,26 @@ function isLocalRequest(req) {
   return isLoopbackAddress(req.socket?.remoteAddress);
 }
 
+/**
+ * Caddy mTLS 块应注入：
+ *   header_up X-Changmen-Client-Cert 1
+ *   header_up X-Changmen-Client-Subject {http.request.tls.client.subject}
+ * HTTP 块须删除同名头，防止伪造。仅信任来自 loopback（Caddy→Node）的注入。
+ */
+function readClientCertStatus(req) {
+  const fromLoopback = isLoopbackAddress(req.socket?.remoteAddress);
+  if (!fromLoopback) {
+    return { hasClientCert: false, subject: "" };
+  }
+  const flag = String(req.headers["x-changmen-client-cert"] || "").trim().toLowerCase();
+  let subject = String(req.headers["x-changmen-client-subject"] || "").trim();
+  // Caddy 未替换占位符时会原样传来 "{http.request.tls.client.subject}"
+  if (subject.includes("{") || subject.includes("}"))
+    subject = "";
+  const hasClientCert = flag === "1" || flag === "true" || subject.length > 0;
+  return { hasClientCert, subject: hasClientCert ? subject : "" };
+}
+
 function publicHealthResponse(req, res) {
   const accept = String(req.headers.accept || "");
   if (accept.includes("application/json")) {
@@ -219,6 +239,19 @@ export function createHttpHandler({ port, serveStatic }) {
           platformStats: ws.platformStats,
           hubs: ws.hubs,
         });
+        return;
+      }
+      if (url === "/api/client-cert-status") {
+        const status = readClientCertStatus(req);
+        res.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(JSON.stringify({
+          ok: true,
+          hasClientCert: status.hasClientCert,
+          subject: status.subject,
+        }));
         return;
       }
       if (url === "/health/diag" || url === "/health/diag/heapdump") {

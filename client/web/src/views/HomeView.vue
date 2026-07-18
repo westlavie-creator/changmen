@@ -39,7 +39,7 @@ startAppSession();
 const searchQuery = ref("");
 /** 电竞 / 棒球 / 足球：仅切换列表面板；不影响 matchStore 套利主循环 */
 const sportTab = ref<"esport" | "baseball" | "football">("esport");
-const { extensionReady, refreshExtension } = useExtensionGate();
+const { extensionReady, extensionChecked, refreshExtension } = useExtensionGate();
 
 const filteredMatchs = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -107,7 +107,7 @@ async function logout() {
         <div class="home-header-trailing">
           <DirectRealtimeBadge />
         </div>
-        <p v-if="!extensionReady" class="extension-banner">
+        <p v-if="extensionChecked && !extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。
           <el-button link type="primary" @click="refreshExtension">
             重新检测

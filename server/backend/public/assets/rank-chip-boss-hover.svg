@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#78350f"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="35%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef9c3"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <radialGradient id="core" cx="40%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </radialGradient>
+    <linearGradient id="dia" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#bg)"/>
+  <!-- sparkle ring -->
+  <g stroke="#fef08a" stroke-width="2" stroke-linecap="round" opacity="0.9">
+    <line x1="64" y1="4" x2="64" y2="14"/>
+    <line x1="64" y1="114" x2="64" y2="124"/>
+    <line x1="4" y1="64" x2="14" y2="64"/>
+    <line x1="114" y1="64" x2="124" y2="64"/>
+    <line x1="18" y1="18" x2="25" y2="25"/>
+    <line x1="103" y1="18" x2="110" y2="25"/>
+    <line x1="18" y1="110" x2="25" y2="103"/>
+    <line x1="103" y1="110" x2="110" y2="103"/>
+  </g>
+  <circle cx="64" cy="64" r="52" fill="url(#rim)"/>
+  <circle cx="64" cy="64" r="42" fill="#92400e"/>
+  <circle cx="64" cy="64" r="38" fill="url(#face)"/>
+  <circle cx="64" cy="64" r="25" fill="url(#core)" stroke="#b45309" stroke-width="2.5"/>
+  <g fill="#78350f" opacity="0.65">
+    <rect x="60" y="12" width="8" height="10" rx="1"/>
+    <rect x="60" y="106" width="8" height="10" rx="1"/>
+    <rect x="12" y="60" width="10" height="8" rx="1"/>
+    <rect x="106" y="60" width="10" height="8" rx="1"/>
+  </g>
+  <path d="M64 46 L76 64 L64 82 L52 64 Z" fill="url(#dia)" stroke="#0369a1" stroke-width="1.5"/>
+  <path d="M64 46 L76 64 L64 64 Z" fill="#fff" opacity="0.55"/>
+  <circle cx="64" cy="58" r="2" fill="#fff" opacity="0.9"/>
+</svg>

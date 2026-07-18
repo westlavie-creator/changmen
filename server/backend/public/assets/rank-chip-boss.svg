@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#422006"/>
+      <stop offset="100%" stop-color="#0c0a09"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="40%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <radialGradient id="core" cx="42%" cy="32%" r="65%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </radialGradient>
+    <linearGradient id="dia" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#a5f3fc"/>
+      <stop offset="100%" stop-color="#0891b2"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="62" fill="url(#bg)"/>
+  <circle cx="64" cy="64" r="54" fill="url(#rim)"/>
+  <circle cx="64" cy="64" r="44" fill="#78350f"/>
+  <circle cx="64" cy="64" r="40" fill="url(#face)"/>
+  <circle cx="64" cy="64" r="26" fill="url(#core)" stroke="#92400e" stroke-width="2.5"/>
+  <!-- gold edge notches -->
+  <g fill="#78350f" opacity="0.7">
+    <rect x="60" y="10" width="8" height="11" rx="1"/>
+    <rect x="60" y="107" width="8" height="11" rx="1"/>
+    <rect x="10" y="60" width="11" height="8" rx="1"/>
+    <rect x="107" y="60" width="11" height="8" rx="1"/>
+    <rect x="24" y="24" width="10" height="8" rx="1" transform="rotate(-45 29 28)"/>
+    <rect x="94" y="24" width="10" height="8" rx="1" transform="rotate(45 99 28)"/>
+    <rect x="24" y="96" width="10" height="8" rx="1" transform="rotate(45 29 100)"/>
+    <rect x="94" y="96" width="10" height="8" rx="1" transform="rotate(-45 99 100)"/>
+  </g>
+  <!-- diamond center -->
+  <path d="M64 48 L74 64 L64 80 L54 64 Z" fill="url(#dia)" stroke="#0e7490" stroke-width="1.5"/>
+  <path d="M64 48 L74 64 L64 64 Z" fill="#fff" opacity="0.45"/>
+</svg>

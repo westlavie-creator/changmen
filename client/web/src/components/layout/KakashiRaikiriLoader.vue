@@ -21,12 +21,6 @@
       </svg>
 
       <div class="raikiri-loader__hero-wrap">
-        <img
-          class="raikiri-loader__hero"
-          src="/login/kakashi.png"
-          alt=""
-          decoding="async"
-        >
         <div class="raikiri-loader__hand" aria-hidden="true">
           <div class="raikiri-loader__core" />
           <div class="raikiri-loader__core raikiri-loader__core--halo" />
@@ -140,25 +134,15 @@
 .raikiri-loader__hero-wrap {
   position: relative;
   z-index: 1;
-  width: min(840px, 92vw);
-  max-height: min(1280px, 88vh);
-}
-
-.raikiri-loader__hero {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: min(1280px, 88vh);
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45));
-  animation: raikiri-hero-hum 1.4s ease-in-out infinite;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .raikiri-loader__hand {
-  position: absolute;
-  left: 28%;
-  bottom: 22%;
+  position: relative;
   width: 144px;
   height: 144px;
   pointer-events: none;
@@ -314,16 +298,6 @@
   }
 }
 
-@keyframes raikiri-hero-hum {
-  0%,
-  100% {
-    filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 0 transparent);
-  }
-  50% {
-    filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 18px rgba(56, 189, 248, 0.35));
-  }
-}
-
 @keyframes raikiri-label {
   0%,
   100% {
@@ -343,7 +317,6 @@
   .raikiri-loader__core,
   .raikiri-loader__core--halo,
   .raikiri-loader__spark,
-  .raikiri-loader__hero,
   .raikiri-loader__label-char {
     animation: none;
   }
