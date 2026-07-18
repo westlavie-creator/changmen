@@ -31,6 +31,9 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
+/** 卖出/成交份数尘量：FOK 常按 2 位撮合，fill 可能多出 ~0.01 以内 */
+export const PM_SHARE_DUST = 0.01;
+
 /** 买单/API 成交总份数（pmShares 只存官方 fill，不随平仓扣减） */
 export function resolvePmFillShares(order: OrderRowLike | VenueOrder): number {
   const row = order as OrderRowLike;
@@ -38,14 +41,15 @@ export function resolvePmFillShares(order: OrderRowLike | VenueOrder): number {
   return Number(row.PmShares ?? venue.pmShares) || 0;
 }
 
-/** 买单剩余可卖份数 = fill − 已归因卖出 */
+/** 买单剩余可卖份数 = fill − 已归因卖出；尘量视为 0 */
 export function resolvePmRemainingShares(order: OrderRowLike | VenueOrder): number {
   const fill = resolvePmFillShares(order);
   const attributed = Number(
     (order as OrderRowLike).PmAttributedSellShares
     ?? (order as VenueOrder).pmAttributedSellShares,
   ) || 0;
-  return round4(Math.max(0, fill - attributed));
+  const rem = round4(Math.max(0, fill - attributed));
+  return rem <= PM_SHARE_DUST ? 0 : rem;
 }
 
 /** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney(CNY) ÷ exchange */

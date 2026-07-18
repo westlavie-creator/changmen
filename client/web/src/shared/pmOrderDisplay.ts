@@ -1,6 +1,8 @@
 import type { OrderRow } from "@/types/order";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { toFixed } from "@changmen/client-core/shared/format";
+import { Currency, getExchange } from "@changmen/shared/currency";
+import { resolvePmFillShares, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { normalizeOrderStatus } from "@/shared/orderDisplay";
 
 /** Polymarket API 数值：保留有效小数，去掉尾部 0 */
@@ -47,7 +49,9 @@ export function isPmMarketSettledBuy(row: OrderRow): boolean {
 /** 侧栏买单生命周期小标签文案 */
 export function pmBuyLifecycleTagText(row: OrderRow): string | null {
   if (isPmManuallySoldBuy(row)) {
-    if (String(row.PmSellState ?? "").toLowerCase() === "partial")
+    const state = String(row.PmSellState ?? "").toLowerCase();
+    // partial 但剩余尘量已视为 0 → 已卖出
+    if (state === "partial" && resolvePmRemainingShares(row) > 0)
       return "部分卖出";
     return "已卖出";
   }
@@ -81,8 +85,12 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
     return "Return";
   }
 
-  if (isPmManuallySoldBuy(row) && String(row.PmSellState ?? "").toLowerCase() !== "partial")
+  if (isPmManuallySoldBuy(row)) {
+    const state = String(row.PmSellState ?? "").toLowerCase();
+    if (state === "partial" && resolvePmRemainingShares(row) > 0)
+      return raw; // 部分卖出仍待结算剩余仓
     return "PmSold";
+  }
   if (isPmMarketSettledBuy(row))
     return "PmSettled";
 
@@ -90,10 +98,49 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
 }
 
 export function pmOrderSharesText(row: OrderRow): string | null {
-  const shares = Number(row.PmShares);
-  if (!Number.isFinite(shares) || shares <= 0.0001)
+  if (isPmSellOrderListRow(row)) {
+    const sold = Number(row.PmShares);
+    if (!Number.isFinite(sold) || sold <= 0.0001)
+      return null;
+    return formatPolymarketApiDecimal(sold);
+  }
+  const fill = resolvePmFillShares(row);
+  if (!Number.isFinite(fill) || fill <= 0.0001)
     return null;
-  return formatPolymarketApiDecimal(shares);
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  const soldProgress = attr > 0
+    || row.PmSellState === "partial"
+    || row.PmSellState === "closed"
+    || row.PmSellState === "settled";
+  // 有卖出进度时展示剩余份额，避免仍像满仓
+  if (soldProgress) {
+    const remaining = resolvePmRemainingShares(row);
+    return formatPolymarketApiDecimal(remaining);
+  }
+  return formatPolymarketApiDecimal(fill);
+}
+
+/** 买单展示本金（CNY）：有卖出进度时用剩余 pmStakeUsdc；卖单为回款 BetMoney */
+export function pmOrderStakeDisplayCny(row: OrderRow): number {
+  if (isPmSellOrderListRow(row))
+    return Number(row.BetMoney) || 0;
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  const soldProgress = attr > 0
+    || row.PmSellState === "partial"
+    || row.PmSellState === "closed"
+    || row.PmSellState === "settled";
+  if (soldProgress) {
+    const stakeUsdc = Number(row.PmStakeUsdc);
+    if (Number.isFinite(stakeUsdc) && stakeUsdc >= 0)
+      return Math.round(stakeUsdc * getExchange(Currency.USDT));
+    return 0;
+  }
+  return Number(row.BetMoney) || 0;
+}
+
+/** 侧栏价格列标题：卖单用卖出价 */
+export function pmOrderPriceLabel(row: OrderRow): string {
+  return isPmSellOrderListRow(row) ? "卖出价" : "买入价";
 }
 
 /** CLOB trade.price；旧单无字段时回退 stake÷shares */

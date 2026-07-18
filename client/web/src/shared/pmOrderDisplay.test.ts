@@ -8,7 +8,9 @@ import {
   pmOrderDisplayPriceText,
   pmOrderFillPriceText,
   pmOrderOddsText,
+  pmOrderPriceLabel,
   pmOrderSharesText,
+  pmOrderStakeDisplayCny,
   pmBuyLifecycleTagText,
   resolvePmFillPrice,
   resolvePmListDisplayPrice,
@@ -71,7 +73,13 @@ describe("pmOrderDisplay", () => {
 
   it("lifecycle tag distinguishes sold vs market settled", () => {
     expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "closed" })).toBe("已卖出");
-    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "partial" })).toBe("部分卖出");
+    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "partial", PmShares: 10, PmAttributedSellShares: 4 })).toBe("部分卖出");
+    expect(pmBuyLifecycleTagText({
+      ...pmBuy,
+      PmSellState: "partial",
+      PmShares: 48.2353,
+      PmAttributedSellShares: 48.23,
+    })).toBe("已卖出");
     expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "settled" })).toBe("已结算");
     expect(pmBuyLifecycleTagText({
       ...pmBuy,
@@ -85,6 +93,25 @@ describe("pmOrderDisplay", () => {
     expect(resolvePmFillPrice(pmBuy)).toBe(0.74);
     expect(pmOrderFillPriceText(pmBuy)).toBe("0.74");
     expect(pmOrderSharesText(pmBuy)).toBe("6.756753");
+  });
+
+  it("shows remaining shares and stake after partial/closed sell", () => {
+    expect(pmOrderSharesText({
+      ...pmBuy,
+      PmSellState: "partial",
+      PmAttributedSellShares: 2,
+      PmShares: 6.756753,
+      PmStakeUsdc: 3,
+    })).toBe("4.7568");
+    expect(pmOrderStakeDisplayCny({
+      ...pmBuy,
+      PmSellState: "closed",
+      PmAttributedSellShares: 6.756753,
+      PmStakeUsdc: 0,
+      BetMoney: 35,
+    })).toBe(0);
+    expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖出价");
+    expect(pmOrderPriceLabel(pmBuy)).toBe("买入价");
   });
 
   it("prefers fo live price for unsettled buys", () => {

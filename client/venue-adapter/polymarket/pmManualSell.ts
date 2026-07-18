@@ -247,20 +247,34 @@ function buildSellAndBuyPatchOrders(params: {
     pmRealizedPnlUsdc: profitUsdc,
   };
 
-  const attributed = round4((buy.pmAttributedSellShares ?? 0) + deduct);
+  const attributedRaw = round4((buy.pmAttributedSellShares ?? 0) + deduct);
+  // FOK 卖出份数常四舍五入短一截（如 48.23 vs 48.2353），剩余尘量视为已卖光
+  const remainingAfter = resolvePmRemainingShares({
+    ...buy,
+    pmAttributedSellShares: attributedRaw,
+    pmShares: fillShares,
+  });
+  const closed = remainingAfter <= 0;
+  const attributed = closed && fillShares > 0 ? round4(fillShares) : attributedRaw;
+  const stakeLeftUsdc = closed ? 0 : round4(Math.max(0, costUsdc - costPortion));
   const buyPatch: VenueOrder = {
     ...buy,
     pmOrigin: "changmen",
     pmSide: "buy",
     pmAttributedSellShares: attributed,
-    pmSellState: attributed + 1e-6 >= fillShares ? "closed" : "partial",
-    pmStakeUsdc: round4(Math.max(0, costUsdc - costPortion)),
+    pmSellState: closed ? "closed" : "partial",
+    pmStakeUsdc: stakeLeftUsdc,
+    // 投注金额跟剩余成本，避免侧栏仍显示满仓本金
+    betMoney: closed ? 0 : Math.round(polymarketCnyFromUsdt(stakeLeftUsdc) * 100) / 100,
     money: 0,
     status: "none",
   };
 
   return [buyPatch, sell];
 }
+
+/** 单测 / 调试：手动卖出后的买卖补丁 */
+export { buildSellAndBuyPatchOrders };
 
 /**
  * [changmen 扩展] 手动卖 delayed：与买单对齐——按 conditionId 拉 `sd`、

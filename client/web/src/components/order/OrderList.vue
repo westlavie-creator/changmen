@@ -16,7 +16,9 @@ import {
   pmOddsTextFromClobPrice,
   pmOrderFillPriceText,
   pmOrderOddsText,
+  pmOrderPriceLabel,
   pmOrderSharesText,
+  pmOrderStakeDisplayCny,
   resolvePmOrderListStatusClass,
 } from "@/shared/pmOrderDisplay";
 import {
@@ -471,13 +473,13 @@ function badgeTitle(row: OrderRow): string {
             <template v-if="isPmOrderListRow(row)">
               <div class="order__profit-line">
                 <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
-                <span v-if="pmOrderFillPriceText(row)">买入价：{{ pmOrderFillPriceText(row) }} </span>
+                <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
                 <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span> </span>
                 <span v-if="isPmSellOrderListRow(row)" class="order__pm-tag">卖出</span>
                 <span v-else-if="pmBuyLifecycleTagText(row)" class="order__pm-tag">{{ pmBuyLifecycleTagText(row) }}</span>
               </div>
               <div class="order__profit-line">
-                {{ pmStakeLabel(row) }}：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
+                {{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}
                 <template v-if="isPendingRow(row) && !pmBuyLifecycleTagText(row) && !isPmSellOrderListRow(row)">
                   盈亏：待结算
                 </template>

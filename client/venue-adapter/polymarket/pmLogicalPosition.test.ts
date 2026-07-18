@@ -34,6 +34,15 @@ describe("pmLogicalPosition", () => {
     expect(resolvePmRemainingShares(order)).toBe(6);
   });
 
+  it("resolvePmRemainingShares treats FOK dust as zero", () => {
+    const order = venueOrderFromOrderRow({
+      ...baseRow,
+      PmShares: 48.2353,
+      PmAttributedSellShares: 48.23,
+    });
+    expect(resolvePmRemainingShares(order)).toBe(0);
+  });
+
   it("hasOpenPolymarketPosition false when official settled (hides sell)", () => {
     const order = venueOrderFromOrderRow({
       ...baseRow,
