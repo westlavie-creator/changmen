@@ -45,6 +45,9 @@ export async function pollLinkedPmSportFromGamma(write) {
     const msg = gammaEventToSportMessage(event, { home: row.home, away: row.away });
     if (!msg)
       continue;
+    // source_match_id 多为 Gamma event.id；写入 snapshot 供归档身份校验
+    if (!msg.eventId && row.source_match_id)
+      msg.eventId = String(row.source_match_id);
     const ok = await applyPmSportFromMessage(row.match_id, msg, write);
     if (ok) {
       written += 1;

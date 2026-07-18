@@ -5,6 +5,7 @@ import {
   filterActiveClientMatches,
   isClientMatchEnded,
   isPmSportEnded,
+  pmSportMatchesLink,
 } from "../merge/match_lifecycle.js";
 
 const NOW = Date.parse("2026-06-16T10:00:00+08:00");
@@ -33,6 +34,14 @@ describe("allMapBetsClosed", () => {
       ]),
       false,
     );
+  });
+});
+
+describe("pmSportMatchesLink", () => {
+  it("matches slug or eventId", () => {
+    assert.equal(pmSportMatchesLink("pm1", { slug: "pm1" }), true);
+    assert.equal(pmSportMatchesLink("evt-9", { eventId: "evt-9" }), true);
+    assert.equal(pmSportMatchesLink("pm1", { slug: "other", ended: true }), false);
   });
 });
 
@@ -167,7 +176,7 @@ describe("isClientMatchEnded", () => {
     );
   });
 
-  it("returns true when PM ended, map bets locked, even if OB is_live=2", () => {
+  it("dual link: PM ended + OB is_live=2 → not archived", () => {
     assert.equal(
       isClientMatchEnded(
         {
@@ -182,13 +191,91 @@ describe("isClientMatchEnded", () => {
         { OB: { 99: { SourceMatchID: "99", IsLive: 2 } } },
         {},
         NOW,
-        { ended: true, status: "finished" },
+        { slug: "pm1", ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
+
+  it("dual link: PM ended + Round>0 → not archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 2,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm1" },
+          Bets: [{ Map: 1, Sources: { OB: { Status: "Locked" } } }],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { slug: "pm1", ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
+
+  it("dual link: PM ended + OB locked + is_live=1 → archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm1" },
+          Bets: [
+            { Map: 1, Sources: { OB: { Status: "Locked" }, RAY: { Status: "Normal" } } },
+            { Map: 2, Sources: { OB: { Status: "Locked" } } },
+          ],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { slug: "pm1", ended: true, status: "finished" },
       ),
       true,
     );
   });
 
-  it("returns false when PM ended but map bets still Normal", () => {
+  it("dual link: PM ended via eventId + OB locked → archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "evt-42" },
+          Bets: [{ Map: 1, Sources: { OB: { Status: "Locked" } } }],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { eventId: "evt-42", ended: true, status: "finished" },
+      ),
+      true,
+    );
+  });
+
+  it("dual link: PM running + OB all locked → not archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm1" },
+          Bets: [
+            { Map: 1, Sources: { OB: { Status: "Locked" } } },
+            { Map: 2, Sources: { OB: { Status: "Locked" } } },
+          ],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { slug: "pm1", ended: false, status: "running" },
+      ),
+      false,
+    );
+  });
+
+  it("dual link: PM ended but OB map Normal → not archived", () => {
     assert.equal(
       isClientMatchEnded(
         {
@@ -200,9 +287,48 @@ describe("isClientMatchEnded", () => {
         { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
         {},
         NOW,
-        { ended: true, status: "finished" },
+        { slug: "pm1", ended: true, status: "finished" },
       ),
       false,
+    );
+  });
+
+  it("dual link: stale pm_sport identity mismatch → not archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { OB: "99", Polymarket: "pm-new" },
+          Bets: [
+            { Map: 1, Sources: { OB: { Status: "Locked" } } },
+            { Map: 2, Sources: { OB: { Status: "Locked" } } },
+          ],
+        },
+        { OB: { 99: { SourceMatchID: "99", IsLive: 1 } } },
+        {},
+        NOW,
+        { slug: "pm-old", ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
+
+  it("PM-only: ended with matching slug → archived", () => {
+    assert.equal(
+      isClientMatchEnded(
+        {
+          Round: 0,
+          StartTime: NOW - 3600_000,
+          Matchs: { Polymarket: "pm1" },
+          Bets: [{ Map: 1, Sources: { Polymarket: { Status: "Normal" } } }],
+        },
+        {},
+        {},
+        NOW,
+        { slug: "pm1", ended: true, status: "finished" },
+      ),
+      true,
     );
   });
 
@@ -263,11 +389,11 @@ describe("isPmSportEnded", () => {
 
 describe("filterActiveClientMatches", () => {
   const platformMatches = {
-    OB: { 99: { SourceMatchID: "99", IsLive: 2 } },
+    OB: { 99: { SourceMatchID: "99", IsLive: 1 } },
   };
-  const pmSportByClientId = new Map([[696, { ended: true, status: "finished" }]]);
+  const pmSportByClientId = new Map([[696, { slug: "pm1", ended: true, status: "finished" }]]);
 
-  it("removes ended rows from write list", () => {
+  it("removes dual-confirmed ended rows from write list", () => {
     const { list, endedCount } = filterActiveClientMatches([
       {
         ID: 696,

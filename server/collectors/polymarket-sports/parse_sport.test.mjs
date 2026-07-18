@@ -70,6 +70,26 @@ test("buildPmSportSnapshot sets label from score and period", () => {
   assert.match(snap.label, /进行中 · 2\/3 · 1-0/);
 });
 
+test("buildPmSportSnapshot keeps eventId for archive identity", () => {
+  const snap = buildPmSportSnapshot({
+    gameId: 1,
+    eventId: "evt-99",
+    slug: "team-a-vs-team-b",
+    status: "finished",
+    ended: true,
+    score: "000-000|2-0|Bo3",
+  });
+  assert.equal(snap.eventId, "evt-99");
+  assert.equal(snap.slug, "team-a-vs-team-b");
+  const fromPrev = buildPmSportSnapshot({
+    gameId: 1,
+    status: "finished",
+    ended: true,
+  }, { eventId: "evt-99", slug: "team-a-vs-team-b" });
+  assert.equal(fromPrev.eventId, "evt-99");
+  assert.equal(fromPrev.slug, "team-a-vs-team-b");
+});
+
 test("alignPmSportSnapshot flips map score when reversed", () => {
   const raw = buildPmSportSnapshot({
     gameId: 1,

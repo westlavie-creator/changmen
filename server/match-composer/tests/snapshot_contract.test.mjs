@@ -46,7 +46,7 @@ describe("snapshot row contract", () => {
     assert.equal(row2.HomeGbTeamId, GB_NIP);
   });
 
-  it("pm_sport ended needs full clientRows", () => {
+  it("pm_sport dual-confirm needs full clientRows + matching identity", () => {
     const now = Date.now();
     const row = {
       ID: 9,
@@ -58,21 +58,31 @@ describe("snapshot row contract", () => {
         Sources: { OB: { Status: "Locked" }, Polymarket: { Status: "Locked" } },
       }],
     };
-    const matches = {
+    const matchesLive = {
       Polymarket: { pm1: { SourceMatchID: "pm1" } },
       OB: { ob1: { SourceMatchID: "ob1", IsLive: 2 } },
     };
+    const matchesEnded = {
+      Polymarket: { pm1: { SourceMatchID: "pm1" } },
+      OB: { ob1: { SourceMatchID: "ob1", IsLive: 1 } },
+    };
     const byPm = buildPmSportByClientId([{
       id: 9,
-      pm_sport: { status: "finished" },
+      pm_sport: { slug: "pm1", status: "finished", ended: true },
     }]);
+    // OB still live → dual confirm fails
     assert.equal(
-      isClientMatchEnded(row, matches, {}, now, byPm.get(9)),
+      isClientMatchEnded(row, matchesLive, {}, now, byPm.get(9)),
+      false,
+    );
+    // OB ended + PM ended + identity → archived
+    assert.equal(
+      isClientMatchEnded(row, matchesEnded, {}, now, byPm.get(9)),
       true,
     );
-    // 瘦行无 pm_sport → 因 OB is_live=2 会判定未结束
+    // 瘦行无 pm_sport → 双 link 不归档
     assert.equal(
-      isClientMatchEnded(row, matches, {}, now, null),
+      isClientMatchEnded(row, matchesEnded, {}, now, null),
       false,
     );
   });

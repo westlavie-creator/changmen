@@ -75,4 +75,34 @@ describe("ended_filter + multi platform", () => {
     assert.equal(kept.length, 1);
     assert.equal(kept[0].Matchs.OB, "1");
   });
+
+  it("dual link requires PM and OB both confirm", () => {
+    const now = Date.now();
+    const row = {
+      ID: 3,
+      StartTime: now - 3600_000,
+      Round: 0,
+      Matchs: { OB: "ob1", Polymarket: "pm1" },
+      Bets: [{ Map: 1, Sources: { OB: { Status: "Locked" } } }],
+    };
+    const matches = { OB: { ob1: { SourceMatchID: "ob1", IsLive: 1 } } };
+    assert.equal(
+      isClientMatchEnded(row, matches, {}, now, { slug: "pm1", ended: true, status: "finished" }),
+      true,
+    );
+    assert.equal(
+      isClientMatchEnded(row, matches, {}, now, { slug: "pm1", ended: false, status: "running" }),
+      false,
+    );
+    assert.equal(
+      isClientMatchEnded(
+        row,
+        { OB: { ob1: { SourceMatchID: "ob1", IsLive: 2 } } },
+        {},
+        now,
+        { slug: "pm1", ended: true, status: "finished" },
+      ),
+      false,
+    );
+  });
 });

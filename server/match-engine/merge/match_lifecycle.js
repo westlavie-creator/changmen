@@ -1,5 +1,9 @@
 /**
  * client_matches 生命周期：判断比赛是否已结束（供 archive 移入 history）。
+ *
+ * 有 Polymarket+OB 双 link：须 PM∧OB 双确认才归档。
+ * 仅 PM：身份一致且 pm_sport ended。
+ * 仅 OB：原 Round/timer/锁盘/is_live 逻辑。
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
@@ -51,6 +55,20 @@ function pickCanonicalIsLive(matchs, platformMatches) {
   return null;
 }
 
+/** 仅读 OB 平台行的 is_live（双确认路径用，避免被 PM 行抢先） */
+function pickObIsLive(matchs, platformMatches) {
+  const obId = matchs?.OB;
+  if (obId == null || obId === "")
+    return null;
+  const pm = findPlatformMatch(platformMatches, "OB", obId);
+  if (!pm)
+    return null;
+  const raw = pm.IsLive ?? pm.is_live;
+  if (raw == null || raw === "")
+    return null;
+  return Number(raw);
+}
+
 /** 地图盘（Map>0）均有源且全部 Locked；若有 Map=0 全场盘且任一侧 Normal，视为未结束 */
 function allMapBetsClosed(bets) {
   const list = bets || [];
@@ -74,6 +92,22 @@ function allMapBetsClosed(bets) {
   return true;
 }
 
+/**
+ * 地图盘上 OB 源均为 Locked；若全无 OB 源则视为通过。
+ * Map=0 上若有 OB Normal → 未结束。
+ */
+function obMapSourcesLockedOrAbsent(bets) {
+  const list = bets || [];
+  for (const bet of list) {
+    const ob = bet?.Sources?.OB;
+    if (!ob)
+      continue;
+    if (String(ob.Status || "Normal") === "Normal")
+      return false;
+  }
+  return true;
+}
+
 function matchHasObLink(matchs) {
   const obId = matchs?.OB;
   return obId != null && obId !== "";
@@ -92,6 +126,55 @@ function isPmSportEnded(pmSport) {
     return true;
   const st = String(pmSport.status || "").toLowerCase();
   return st === "finished" || st === "final";
+}
+
+/**
+ * pm_sport 身份是否对应当前 Matchs.Polymarket（防 COALESCE 脏 ended）。
+ * link 可为 event id 或 slug；snapshot 带 slug / eventId / id。
+ */
+function pmSportMatchesLink(link, pmSport) {
+  const key = String(link ?? "").trim();
+  if (!key || !pmSport || typeof pmSport !== "object")
+    return false;
+  const candidates = [
+    pmSport.slug,
+    pmSport.eventId,
+    pmSport.event_id,
+    pmSport.id,
+  ];
+  for (const c of candidates) {
+    if (c != null && String(c).trim() === key)
+      return true;
+  }
+  return false;
+}
+
+/** PM 确认：身份一致 + ended + 已开赛 */
+function isPmConfirmEnded(link, pmSport, startMs, now) {
+  if (!pmSportMatchesLink(link, pmSport))
+    return false;
+  if (!isPmSportEnded(pmSport))
+    return false;
+  if (!(startMs > 0 && startMs <= now))
+    return false;
+  return true;
+}
+
+/**
+ * OB 确认结束：Round/timer 清、is_live≠2、OB 地图源 Locked（或无 OB 源）。
+ * @returns {boolean | null} null=无 OB link
+ */
+function isObConfirmEnded(row, platformMatches, timersByProvider) {
+  if (!matchHasObLink(row?.Matchs))
+    return null;
+  if (Number(row?.Round) > 0)
+    return false;
+  if (isInLiveTimer(row?.Matchs, timersByProvider))
+    return false;
+  const isLive = pickObIsLive(row?.Matchs, platformMatches);
+  if (isLive === 2)
+    return false;
+  return obMapSourcesLockedOrAbsent(row?.Bets);
 }
 
 /** 所有平台来源都已从 platform_matches 消失（saveMatch 不再上报） */
@@ -125,6 +208,22 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
     return true;
   }
 
+  const hasPm = matchHasPolymarketLink(row?.Matchs);
+  const hasOb = matchHasObLink(row?.Matchs);
+  const pmLink = row?.Matchs?.Polymarket;
+
+  // 双 link：须 PM∧OB 双确认；无可用 PM 信号时不因 OB 锁盘单方归档
+  if (hasPm && hasOb) {
+    const pmOk = isPmConfirmEnded(pmLink, pmSport, startMs, now);
+    const obOk = isObConfirmEnded(row, platformMatches, timersByProvider) === true;
+    return pmOk && obOk;
+  }
+
+  // 仅 PM：身份一致且 ended
+  if (hasPm && !hasOb)
+    return isPmConfirmEnded(pmLink, pmSport, startMs, now);
+
+  // 仅 OB（或无 PM）：原逻辑
   if (Number(row?.Round) > 0)
     return false;
   if (isInLiveTimer(row?.Matchs, timersByProvider))
@@ -133,15 +232,7 @@ function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.n
   if (startMs > now)
     return false;
 
-  const hasPm = matchHasPolymarketLink(row?.Matchs);
-  const pmEnded = hasPm && isPmSportEnded(pmSport);
   const closed = allMapBetsClosed(row?.Bets);
-
-  // PM 已结束且地图盘全锁：即使 OB is_live=2 仍视为结束（PM 赛果更准）
-  if (pmEnded && startMs <= now && closed)
-    return true;
-
-  const hasOb = matchHasObLink(row?.Matchs);
   const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
 
   if (hasOb && isLive === 2)
@@ -216,7 +307,12 @@ export {
   filterActiveClientMatches,
   isClientMatchEnded,
   isInLiveTimer,
+  isObConfirmEnded,
+  isPmConfirmEnded,
   isPmSportEnded,
   matchHasPolymarketLink,
+  obMapSourcesLockedOrAbsent,
   pickCanonicalIsLive,
+  pickObIsLive,
+  pmSportMatchesLink,
 };

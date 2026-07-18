@@ -213,6 +213,7 @@ export function gammaEventToSportMessage(event, teams = {}) {
   return {
     gameId: Number.isFinite(gameId) ? gameId : undefined,
     slug: event.slug ? String(event.slug) : undefined,
+    eventId: event.id != null ? String(event.id) : undefined,
     homeTeam,
     awayTeam,
     status,

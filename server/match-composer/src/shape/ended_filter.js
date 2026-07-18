@@ -1,5 +1,9 @@
 /**
  * 已结束场剔除（逻辑对齐 match_lifecycle，不 import merge）。
+ *
+ * 有 Polymarket+OB 双 link：须 PM∧OB 双确认才归档。
+ * 仅 PM：身份一致且 pm_sport ended。
+ * 仅 OB：原 Round/timer/锁盘/is_live 逻辑。
  */
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { findPlatformMatch } from "../sides/orientation_lock.js";
@@ -37,6 +41,19 @@ function pickCanonicalIsLive(matchs, platformMatches) {
   return null;
 }
 
+function pickObIsLive(matchs, platformMatches) {
+  const obId = matchs?.OB;
+  if (obId == null || obId === "")
+    return null;
+  const pm = findPlatformMatch(platformMatches, "OB", obId);
+  if (!pm)
+    return null;
+  const raw = pm.IsLive ?? pm.is_live;
+  if (raw == null || raw === "")
+    return null;
+  return Number(raw);
+}
+
 export function allMapBetsClosed(bets) {
   const list = bets || [];
   const full = list.find(b => (Number(b.Map) || 0) === 0);
@@ -53,6 +70,18 @@ export function allMapBetsClosed(bets) {
     if (!sources.length)
       return false;
     if (sources.some(s => String(s?.Status || "Normal") === "Normal"))
+      return false;
+  }
+  return true;
+}
+
+function obMapSourcesLockedOrAbsent(bets) {
+  const list = bets || [];
+  for (const bet of list) {
+    const ob = bet?.Sources?.OB;
+    if (!ob)
+      continue;
+    if (String(ob.Status || "Normal") === "Normal")
       return false;
   }
   return true;
@@ -78,6 +107,47 @@ function isPmSportEnded(pmSport) {
   return st === "finished" || st === "final";
 }
 
+export function pmSportMatchesLink(link, pmSport) {
+  const key = String(link ?? "").trim();
+  if (!key || !pmSport || typeof pmSport !== "object")
+    return false;
+  const candidates = [
+    pmSport.slug,
+    pmSport.eventId,
+    pmSport.event_id,
+    pmSport.id,
+  ];
+  for (const c of candidates) {
+    if (c != null && String(c).trim() === key)
+      return true;
+  }
+  return false;
+}
+
+function isPmConfirmEnded(link, pmSport, startMs, now) {
+  if (!pmSportMatchesLink(link, pmSport))
+    return false;
+  if (!isPmSportEnded(pmSport))
+    return false;
+  if (!(startMs > 0 && startMs <= now))
+    return false;
+  return true;
+}
+
+function isObConfirmEnded(row, platformMatches, timersByProvider) {
+  const hasOb = row?.Matchs?.OB != null && row.Matchs.OB !== "";
+  if (!hasOb)
+    return null;
+  if (Number(row?.Round) > 0)
+    return false;
+  if (isInLiveTimer(row?.Matchs, timersByProvider))
+    return false;
+  const isLive = pickObIsLive(row?.Matchs, platformMatches);
+  if (isLive === 2)
+    return false;
+  return obMapSourcesLockedOrAbsent(row?.Bets);
+}
+
 export function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.now(), pmSport = null) {
   const startMs = normalizeEpochMs(row?.StartTime);
 
@@ -85,6 +155,19 @@ export function isClientMatchEnded(row, platformMatches, timersByProvider, now =
     && allPlatformSourcesGone(row?.Matchs, platformMatches)) {
     return true;
   }
+
+  const hasPm = row?.Matchs?.Polymarket != null && row.Matchs.Polymarket !== "";
+  const hasOb = row?.Matchs?.OB != null && row.Matchs.OB !== "";
+  const pmLink = row?.Matchs?.Polymarket;
+
+  if (hasPm && hasOb) {
+    const pmOk = isPmConfirmEnded(pmLink, pmSport, startMs, now);
+    const obOk = isObConfirmEnded(row, platformMatches, timersByProvider) === true;
+    return pmOk && obOk;
+  }
+
+  if (hasPm && !hasOb)
+    return isPmConfirmEnded(pmLink, pmSport, startMs, now);
 
   if (Number(row?.Round) > 0)
     return false;
@@ -94,14 +177,7 @@ export function isClientMatchEnded(row, platformMatches, timersByProvider, now =
   if (startMs > now)
     return false;
 
-  const hasPm = row?.Matchs?.Polymarket != null && row.Matchs.Polymarket !== "";
-  const pmEnded = hasPm && isPmSportEnded(pmSport);
   const closed = allMapBetsClosed(row?.Bets);
-
-  if (pmEnded && startMs <= now && closed)
-    return true;
-
-  const hasOb = row?.Matchs?.OB != null && row.Matchs.OB !== "";
   const isLive = hasOb ? pickCanonicalIsLive(row?.Matchs, platformMatches) : null;
 
   if (hasOb && isLive === 2)

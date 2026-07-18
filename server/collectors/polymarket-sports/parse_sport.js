@@ -155,10 +155,17 @@ export function buildPmSportSnapshot(msg, prev = null) {
   const resolutionSource = msg.resolutionSource
     ? String(msg.resolutionSource)
     : (prev?.resolutionSource ? String(prev.resolutionSource) : undefined);
-
+  const eventIdRaw = msg.eventId != null
+    ? String(msg.eventId)
+    : (msg.event_id != null
+      ? String(msg.event_id)
+      : (msg.id != null
+        ? String(msg.id)
+        : (prev?.eventId != null ? String(prev.eventId) : undefined)));
   const snapshot = {
     gameId: msg.gameId != null ? Number(msg.gameId) : undefined,
-    slug: msg.slug ? String(msg.slug) : undefined,
+    slug: msg.slug ? String(msg.slug) : (prev?.slug ? String(prev.slug) : undefined),
+    eventId: eventIdRaw || undefined,
     leagueAbbreviation: msg.leagueAbbreviation ? String(msg.leagueAbbreviation) : undefined,
     homeTeam,
     awayTeam,
