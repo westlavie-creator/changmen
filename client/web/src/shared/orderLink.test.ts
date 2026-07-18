@@ -155,7 +155,7 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy" as const,
         CreateAt: buyAt,
         Money: 0,
-        PmSellState: "closed",
+        PmSellState: "closed" as const,
       },
       {
         OrderID: "0xsell",
