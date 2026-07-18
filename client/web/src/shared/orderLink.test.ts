@@ -129,6 +129,45 @@ describe("orderLink A8 parity", () => {
     expect(profit).toBe(184);
   });
 
+  it("orderLinkLegend uses sell P&L after dust-closed partial buy (not bet×odds)", () => {
+    const text = orderLinkLegend([
+      {
+        OrderID: "0xsell",
+        Link: 1784400520115,
+        Type: "Polymarket",
+        PmSide: "sell",
+        Status: "None",
+        BetMoney: 115,
+        Money: 3,
+        Odds: 2.857,
+        PmBuyOrderId: "0xbuy",
+      },
+      {
+        OrderID: "ray",
+        Link: 1784400520115,
+        Type: "RAY",
+        Status: "Reject",
+        BetMoney: 200,
+        Money: 0,
+        Odds: 1.64,
+      },
+      {
+        OrderID: "0xbuy",
+        Link: 1784400520115,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Status: "None",
+        BetMoney: 112,
+        Money: 0,
+        Odds: 2.941,
+        PmShares: 48.2353,
+        PmAttributedSellShares: 48.23,
+        PmSellState: "partial",
+      },
+    ]);
+    expect(text).toBe("+3");
+  });
+
   it("dropOrphanPolymarketSellGroups hides sell-only link groups", () => {
     const grouped = groupOrdersByLink([
       { OrderID: "s1", Link: 100, Type: "Polymarket", PmSide: "sell" as const },

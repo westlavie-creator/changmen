@@ -1,6 +1,6 @@
 import type { LoseOrderCancelledRecord, OrderRow } from "@/types/order";
 import type { LoseOrder } from "@/models/loseOrder";
-import { hasOpenPolymarketPosition } from "@changmen/venue-adapter/polymarket";
+import { hasOpenPolymarketPosition, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@changmen/client-core/shared/format";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
@@ -429,20 +429,29 @@ export function computeOrderGroupProfit(rows: OrderRow[]): number {
     .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
 }
 
+/** PM 买单已无剩余持仓（含 FOK 尘量卖光但仍标 partial） */
+function isPmExitedBuy(row: OrderRow): boolean {
+  if (!isPolymarketOrderRow(row) || row.PmSide === "sell")
+    return false;
+  const state = String(row.PmSellState ?? "").toLowerCase();
+  if (state === "closed" || state === "settled")
+    return true;
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  if (state === "partial" || attr > 0)
+    return resolvePmRemainingShares(row) <= 0;
+  return false;
+}
+
 /** [A8 可证实] OrderView legend：未结 Status=None 各腿 bet×odds−stake 用 ` - ` 拼接；已结为组盈亏 */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
-  const isPmClosedBuy = (r: OrderRow) =>
-    isPolymarketOrderRow(r)
-    && r.PmSide !== "sell"
-    && (r.PmSellState === "closed" || r.PmSellState === "settled");
   const stake = rows
     .filter(r =>
       !LOSE_REJECT.has(String(r.Status))
       && r.PmSide !== "sell"
       && !isMakeupSyntheticOrderRow(r)
-      && !isPmClosedBuy(r),
+      && !isPmExitedBuy(r),
     )
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
@@ -451,7 +460,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
     .filter(r =>
       String(r.Status ?? "") === "None"
       && r.PmSide !== "sell"
-      && !isPmClosedBuy(r),
+      && !isPmExitedBuy(r),
     )
     .map((r) => {
       const odds = Number(r.Odds) || 0;
