@@ -9,7 +9,7 @@ import {
   normalizeEthAddress,
 } from "./l2Auth";
 import { polymarketOrderContextFromMarket, parseJsonArray, type PolymarketRawMarket } from "./parse";
-import { hasOpenPolymarketPosition, resolveBuyStakeUsdc, resolvePmRemainingShares, stripPolymarketSellOrders } from "./pmLogicalPosition";
+import { hasOpenPolymarketPosition, resolveBuyStakeUsdc, resolvePmFillShares, resolvePmRemainingShares, stripPolymarketSellOrders } from "./pmLogicalPosition";
 import {
   markPolymarketOrdersSynced,
   PM_ORDER_FULL_LOOKBACK_MS,
@@ -23,9 +23,6 @@ const TOKEN_MICRO = 1_000_000;
 /** 订单 sync + 迟结算缓冲（Phase 2b） */
 const ORDER_LOOKBACK_MS = PM_ORDER_FULL_LOOKBACK_MS;
 const MAX_TRADE_PAGES = 5;
-/** Gamma closed 后 outcomePrices 赢家判定阈值 */
-const WINNER_PRICE_MIN = 0.99;
-
 /** CLOB 口径 USDC → 侧栏/DB CNY 展示（整条链路只 scale 一次） */
 export function scalePolymarketVenueOrdersForDisplay(orders: VenueOrder[]): VenueOrder[] {
   return orders.map(order => ({
@@ -85,12 +82,6 @@ function marketConditionId(market: PolymarketRawMarket): string {
   return normalizeConditionId(
     String(market.condition_id ?? market.conditionId ?? market.market ?? market.id ?? ""),
   );
-}
-
-function gammaUmaResolutionStatus(market: PolymarketRawMarket): string {
-  return String(market.umaResolutionStatus ?? market.uma_resolution_status ?? "")
-    .trim()
-    .toLowerCase();
 }
 
 /** 已成交 trade 是否计入订单列表（含 MINED，排除 FAILED/CANCEL） */
@@ -284,7 +275,10 @@ function gammaTokenIds(market: PolymarketRawMarket): string[] {
   return parseJsonArray(market.clobTokenIds ?? market.clob_token_ids);
 }
 
-/** Gamma closed 且 outcomePrices 有明确赢家 */
+/** outcomePrices 贴端判定阈值（启发式结算；卖出按钮仍显示） */
+const WINNER_PRICE_MIN = 0.99;
+
+/** outcomePrices ≥ WINNER_PRICE_MIN 的赢家下标；无则 -1 */
 export function findPolymarketWinnerIndex(prices: number[]): number {
   for (let i = 0; i < prices.length; i++) {
     const price = prices[i];
@@ -294,25 +288,54 @@ export function findPolymarketWinnerIndex(prices: number[]): number {
   return -1;
 }
 
-/** UMA 已 finalize，或 outcomePrices 有明确赢家（≥0.99） */
+export type PolymarketSettlementKind = "official" | "price";
+
+export type PolymarketSettlementResolution = {
+  winningAssetId: string;
+  /** official：隐藏卖出；price：判赢但保留卖出 */
+  kind: PolymarketSettlementKind;
+};
+
+/**
+ * 官方结算：CLOB `tokens[].winner === true` 的 token_id。
+ */
+export function resolvePolymarketOfficialWinningAssetId(
+  market: PolymarketRawMarket | undefined,
+): string | null {
+  const tokens = market?.tokens;
+  if (!Array.isArray(tokens) || !tokens.length) return null;
+  const winning = tokens.find(t => t?.winner === true);
+  const id = String(winning?.token_id ?? "").trim();
+  return id || null;
+}
+
+/**
+ * 解析赢家 token：优先官方 `tokens[].winner`，否则 outcomePrices ≥ 0.99。
+ */
+export function resolvePolymarketSettlement(
+  market: PolymarketRawMarket | undefined,
+): PolymarketSettlementResolution | null {
+  if (!market) return null;
+  const official = resolvePolymarketOfficialWinningAssetId(market);
+  if (official)
+    return { winningAssetId: official, kind: "official" };
+
+  const prices = gammaOutcomePrices(market);
+  const idx = findPolymarketWinnerIndex(prices);
+  if (idx < 0) return null;
+  const id = String(gammaTokenIds(market)[idx] ?? "").trim();
+  if (!id) return null;
+  return { winningAssetId: id, kind: "price" };
+}
+
+/** 市场是否已可结算（官方 winner 或价格贴端） */
 export function isPolymarketMarketResolved(market: PolymarketRawMarket | undefined): boolean {
-  if (!market) return false;
-  const uma = gammaUmaResolutionStatus(market);
-  if (uma === "settled_normal" || uma === "resolved")
-    return findPolymarketWinnerIndex(gammaOutcomePrices(market)) >= 0;
-  // Polymarket 常保持 closed=false，但 outcomePrices 已接近 0/1
-  return findPolymarketWinnerIndex(gammaOutcomePrices(market)) >= 0;
+  return resolvePolymarketSettlement(market) != null;
 }
 
 /** 已 resolve 市场的赢家 token id */
 export function resolvePolymarketWinningAssetId(market: PolymarketRawMarket | undefined): string | null {
-  if (!isPolymarketMarketResolved(market))
-    return null;
-  const prices = gammaOutcomePrices(market!);
-  const idx = findPolymarketWinnerIndex(prices);
-  if (idx < 0) return null;
-  const tokens = gammaTokenIds(market!);
-  return tokens[idx] ?? null;
+  return resolvePolymarketSettlement(market)?.winningAssetId ?? null;
 }
 
 function tradeHeldAssetId(trade: PolymarketTradeRow, market?: PolymarketRawMarket): string {
@@ -326,29 +349,49 @@ function tradeHeldAssetId(trade: PolymarketTradeRow, market?: PolymarketRawMarke
   return gammaTokenIds(market)[idx] ?? "";
 }
 
-/** Gamma 结算：none → win/lose + money/reward */
+/**
+ * 持有买单结算 → win/lose + money/reward。
+ * - official：`pmSellState=settled`（侧栏隐藏卖出）
+ * - price（≥0.99）：判赢/输但保持可卖（不写 settled）
+ * 已部分卖出时按剩余份数/剩余本金计盈亏，避免用满仓份额虚增。
+ */
 export function applyPolymarketSettlement(
   order: VenueOrder,
   trade: PolymarketTradeRow,
   market?: PolymarketRawMarket,
 ): VenueOrder {
-  const winningAssetId = resolvePolymarketWinningAssetId(market);
-  if (!winningAssetId) return order;
+  const resolved = resolvePolymarketSettlement(market);
+  if (!resolved) return order;
 
   const heldAssetId = tradeHeldAssetId(trade, market);
   if (!heldAssetId) return order;
 
-  const shares = polymarketShareCount(trade.size);
-  const stake = order.betMoney;
-  if (shares <= 0 || stake <= 0) return order;
+  const fillShares = Number(order.pmShares) > 0.0001
+    ? Number(order.pmShares)
+    : polymarketShareCount(trade.size);
+  const attributed = Number(order.pmAttributedSellShares) || 0;
+  const trackedPartial = attributed > 0
+    || order.pmSellState === "partial"
+    || order.pmSellState === "closed";
+  const shares = trackedPartial
+    ? Math.max(0, fillShares - attributed)
+    : polymarketShareCount(trade.size);
+  const stake = Number(order.pmStakeUsdc) > 0
+    ? Number(order.pmStakeUsdc)
+    : order.betMoney;
+  if (shares <= 0.0001 || stake <= 0) return order;
 
-  if (heldAssetId === winningAssetId) {
+  const base: VenueOrder = resolved.kind === "official"
+    ? { ...order, pmSellState: "settled" }
+    : { ...order, pmSellState: order.pmSellState === "settled" ? "settled" : (order.pmSellState ?? "open") };
+
+  if (heldAssetId === resolved.winningAssetId) {
     const reward = Math.round(shares * 10000) / 10000;
     const money = Math.round((reward - stake) * 10000) / 10000;
-    return { ...order, status: "win", reward, money };
+    return { ...base, status: "win", reward, money };
   }
 
-  return { ...order, status: "lose", reward: 0, money: -stake };
+  return { ...base, status: "lose", reward: 0, money: -stake };
 }
 
 /**
@@ -841,6 +884,34 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
   }
   const blockGammaSettlement = changmenSoldOutBlocksGammaSettlement(base);
   const gammaSettled = clob.status !== "none";
+  // 仅官方 winner 写 settled（隐藏卖出）；0.99 启发式判赢仍保持可卖
+  const officialSettled = clob.pmSellState === "settled";
+  const nextSellState = officialSettled && !blockGammaSettlement
+    ? "settled"
+    : (base.pmSellState ?? clob.pmSellState);
+
+  let nextStatus = blockGammaSettlement ? base.status : (gammaSettled ? clob.status : base.status);
+  let nextMoney = blockGammaSettlement ? 0 : (gammaSettled ? clob.money : base.money);
+  let nextReward = blockGammaSettlement ? 0 : (gammaSettled ? clob.reward : base.reward);
+
+  // 部分卖出后赛果结算：只按剩余持仓兑付，避免 clob 满仓份额虚增盈亏
+  if (!blockGammaSettlement && gammaSettled && (clob.status === "win" || clob.status === "lose")) {
+    const remaining = resolvePmRemainingShares(base);
+    const fill = Math.max(resolvePmFillShares(base), Number(clob.pmShares) || 0);
+    if (remaining > 0.0001 && fill > remaining + 0.0001) {
+      const stakeUsdc = Number(base.pmStakeUsdc) > 0 ? Number(base.pmStakeUsdc) : base.betMoney;
+      if (clob.status === "win") {
+        nextReward = round4(remaining);
+        nextMoney = round4(nextReward - stakeUsdc);
+      }
+      else {
+        nextReward = 0;
+        nextMoney = round4(-stakeUsdc);
+      }
+      nextStatus = clob.status;
+    }
+  }
+
   return {
     ...base,
     pmSide: "buy",
@@ -852,15 +923,12 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     })(),
     pmFillPrice: clob.pmFillPrice ?? base.pmFillPrice,
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
-    pmSellState: gammaSettled && !blockGammaSettlement
-      ? "settled"
-      : (base.pmSellState ?? clob.pmSellState),
+    pmSellState: nextSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
     odds: base.odds || clob.odds,
-    status: blockGammaSettlement ? base.status : (gammaSettled ? clob.status : base.status),
-    // 已手动平仓：盈亏只在卖单；强制 0，避免 base/Gamma 残留虚增买入日利润
-    money: blockGammaSettlement ? 0 : (gammaSettled ? clob.money : base.money),
-    reward: blockGammaSettlement ? 0 : (gammaSettled ? clob.reward : base.reward),
+    status: nextStatus,
+    money: nextMoney,
+    reward: nextReward,
     match: base.match || clob.match,
     bet: base.bet || clob.bet,
     item: base.item || clob.item,
@@ -1121,9 +1189,8 @@ async function fetchMarketsByConditionIds(
     }
   }
 
+  // 每条 condition 都 overlay CLOB：持有买单结算以官方 tokens[].winner 为准
   for (const id of unique) {
-    if (out.has(id))
-      continue;
     try {
       const clob = await polymarketPluginGet<PolymarketRawMarket>(
         `${POLYMARKET_CLOB_API}/markets/${encodeURIComponent(id)}`,
@@ -1132,20 +1199,30 @@ async function fetchMarketsByConditionIds(
       if (!tokens.length)
         continue;
       const hasWinner = tokens.some(t => t?.winner === true);
+      const existing = out.get(id);
+      const outcomePrices = hasWinner
+        ? JSON.stringify(tokens.map(t => (t?.winner === true ? "1" : "0")))
+        : (existing?.outcomePrices
+          ?? existing?.outcome_prices
+          ?? JSON.stringify(tokens.map(t => String(t?.price ?? 0))));
       rememberGammaMarket(out, {
+        ...(existing || {}),
         condition_id: id,
-        question: clob?.question,
-        title: clob?.question,
-        slug: clob?.market_slug,
-        closed: clob?.closed === true || hasWinner,
+        question: existing?.question ?? clob?.question,
+        title: existing?.title ?? existing?.question ?? clob?.question,
+        slug: existing?.slug ?? clob?.market_slug,
+        closed: Boolean(existing?.closed) || clob?.closed === true || hasWinner,
+        tokens,
         outcomes: JSON.stringify(tokens.map(t => String(t?.outcome ?? ""))),
-        outcomePrices: JSON.stringify(tokens.map(t => String(t?.price ?? 0))),
+        outcomePrices,
         clobTokenIds: JSON.stringify(tokens.map(t => String(t?.token_id ?? ""))),
-        umaResolutionStatus: hasWinner ? "settled_normal" : undefined,
+        umaResolutionStatus: hasWinner
+          ? (existing?.umaResolutionStatus || existing?.uma_resolution_status || "settled_normal")
+          : (existing?.umaResolutionStatus ?? existing?.uma_resolution_status),
       });
     }
     catch {
-      // Gamma + CLOB 均无时保持 none
+      // 单条 CLOB 失败：保留 Gamma（若有），结算可走价格兜底
     }
   }
   return out;

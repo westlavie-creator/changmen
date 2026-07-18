@@ -290,7 +290,11 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
       raw: {
         ...raw,
         ...(isUnsettled && computed.status !== "none"
-          ? { pmSellState: "settled", status: computed.status }
+          ? {
+            // 与客户端一致：仅官方 winner 写 settled（隐藏卖出）；price≥0.99 保持可卖
+            pmSellState: computed.kind === "official" ? "settled" : (raw.pmSellState || "open"),
+            status: computed.status,
+          }
           : {}),
         backfillSettlement: {
           at: Date.now(),

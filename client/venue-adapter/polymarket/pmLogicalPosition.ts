@@ -152,10 +152,12 @@ export function hasOpenPolymarketPosition(order: OrderRowLike | VenueOrder): boo
   const rowLike = order as OrderRowLike;
   const venueLike = order as VenueOrder;
   const status = String(rowLike.Status ?? venueLike.status ?? "").toLowerCase();
-  if (status && status !== "none")
+  // reject/return/pending 不可卖；win/lose 若仅 0.99 启发式（未 official settled）仍可卖
+  if (status === "reject" || status === "return" || status === "pending")
     return false;
 
   const state = rowLike.PmSellState ?? venueLike.pmSellState;
+  // official winner → settled，隐藏卖出；手动卖光 → closed
   if (state === "closed" || state === "settled")
     return false;
 

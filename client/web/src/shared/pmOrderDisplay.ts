@@ -160,10 +160,13 @@ export function resolvePmListDisplayPrice(
 ): number | null {
   const live = Number(liveClobPrice);
   const status = String(row.Status ?? "").trim().toLowerCase();
+  // 可卖持仓（含 0.99 启发式判赢仍 open）显示当前价；official settled 后不再显示
   const wantLive = isPmBuyOrderListRow(row)
     && row.PmSellState !== "closed"
     && row.PmSellState !== "settled"
-    && (!status || status === "none");
+    && status !== "reject"
+    && status !== "return"
+    && status !== "pending";
   if (wantLive && Number.isFinite(live) && live > 0 && live < 1)
     return live;
   return resolvePmFillPrice(row);

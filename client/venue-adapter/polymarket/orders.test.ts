@@ -337,13 +337,20 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     trader_side: "TAKER",
   };
 
+  const ilbirsTokenWin = "12876938733604859423663202044051912631612545733461708116502231340403727260024";
+  const ilbirsTokenLose = "64898223322413645971505217367611485629461864230905813190263318936513341854768";
+
   const ilbirsMarket: PolymarketRawMarket = {
     condition_id: "0xfaf8d69ad2f0677b6f987e7da1c94022f73073120e9ed28969fcf5153475116f",
     question: "Ilbirs vs BALU Map 1",
     closed: true,
     outcomes: "[\"Ilbirs eSports\", \"BALU\"]",
     outcomePrices: "[\"1\", \"0\"]",
-    clobTokenIds: "[\"12876938733604859423663202044051912631612545733461708116502231340403727260024\", \"64898223322413645971505217367611485629461864230905813190263318936513341854768\"]",
+    clobTokenIds: `["${ilbirsTokenWin}", "${ilbirsTokenLose}"]`,
+    tokens: [
+      { token_id: ilbirsTokenWin, outcome: "Ilbirs eSports", price: 1, winner: true },
+      { token_id: ilbirsTokenLose, outcome: "BALU", price: 0, winner: false },
+    ],
   };
 
   test("maps production CLOB decimal share sizes (Ilbirs sample)", () => {
@@ -363,7 +370,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     });
   });
 
-  test("settles Ilbirs BUY as win when Gamma market resolved", () => {
+  test("settles Ilbirs BUY as win when official tokens[].winner set", () => {
     const [order] = mapPolymarketTradesToVenueOrders(
       [ilbirsTrade],
       new Map([[String(ilbirsMarket.condition_id), ilbirsMarket]]),
@@ -374,6 +381,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       betMoney: 5,
       reward: 6.7568,
       money: 1.7568,
+      pmSellState: "settled",
     });
   });
 
@@ -381,6 +389,10 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     const lostMarket: PolymarketRawMarket = {
       ...ilbirsMarket,
       outcomePrices: "[\"0\", \"1\"]",
+      tokens: [
+        { token_id: ilbirsTokenWin, outcome: "Ilbirs eSports", price: 0, winner: false },
+        { token_id: ilbirsTokenLose, outcome: "BALU", price: 1, winner: true },
+      ],
     };
     const [order] = mapPolymarketTradesToVenueOrders(
       [ilbirsTrade],
@@ -400,6 +412,10 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       ...ilbirsMarket,
       closed: true,
       outcomePrices: "[\"0.55\", \"0.45\"]",
+      tokens: [
+        { token_id: ilbirsTokenWin, outcome: "Ilbirs eSports", price: 0.55 },
+        { token_id: ilbirsTokenLose, outcome: "BALU", price: 0.45 },
+      ],
     };
     expect(isPolymarketMarketResolved(pendingMarket)).toBe(false);
     expect(resolvePolymarketWinningAssetId(pendingMarket)).toBeNull();
@@ -417,6 +433,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       ...ilbirsMarket,
       closed: false,
       outcomePrices: "[\"0.74\", \"0.26\"]",
+      tokens: undefined,
     };
     const [order] = mapPolymarketTradesToVenueOrders(
       [ilbirsTrade],
@@ -425,24 +442,97 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(order?.status).toBe("none");
   });
 
-  test("settles when closed=false but outcomePrices show clear winner", () => {
-    const liveResolvedMarket: PolymarketRawMarket = {
+  test("does not settle when prices mid-range and no official winner", () => {
+    const priceOnlyMarket: PolymarketRawMarket = {
       ...ilbirsMarket,
       closed: false,
       acceptingOrders: true,
-      outcomePrices: "[\"0.9995\", \"0.0005\"]",
+      outcomePrices: "[\"0.55\", \"0.45\"]",
       umaResolutionStatus: "proposed",
+      tokens: undefined,
     };
-    expect(isPolymarketMarketResolved(liveResolvedMarket)).toBe(true);
+    expect(isPolymarketMarketResolved(priceOnlyMarket)).toBe(false);
 
     const [order] = mapPolymarketTradesToVenueOrders(
       [ilbirsTrade],
-      new Map([[String(liveResolvedMarket.condition_id), liveResolvedMarket]]),
+      new Map([[String(priceOnlyMarket.condition_id), priceOnlyMarket]]),
     );
-    expect(order?.status).toBe("win");
+    expect(order?.status).toBe("none");
   });
 
-  test("settles via umaResolutionStatus settled_normal without closed flag", () => {
+  test("price ≥0.99 settles as win but keeps sell open (pmSellState not settled)", () => {
+    const priceMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: false,
+      outcomePrices: "[\"0.9995\", \"0.0005\"]",
+      tokens: undefined,
+    };
+    expect(isPolymarketMarketResolved(priceMarket)).toBe(true);
+
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(priceMarket.condition_id), priceMarket]]),
+    );
+    expect(order).toMatchObject({
+      status: "win",
+      betMoney: 5,
+      reward: 6.7568,
+      pmSellState: "open",
+    });
+  });
+
+  test("official tokens[].winner settles as win and hides sell (pmSellState settled)", () => {
+    const tokenWin = String(ilbirsTrade.asset_id);
+    const tokenLose = ilbirsTokenLose;
+    const officialMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: false,
+      outcomePrices: "[\"0.55\", \"0.45\"]",
+      tokens: [
+        { token_id: tokenWin, outcome: "Ilbirs eSports", price: 0.55, winner: true },
+        { token_id: tokenLose, outcome: "BALU", price: 0.45, winner: false },
+      ],
+    };
+    expect(isPolymarketMarketResolved(officialMarket)).toBe(true);
+    expect(resolvePolymarketWinningAssetId(officialMarket)).toBe(tokenWin);
+
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(officialMarket.condition_id), officialMarket]]),
+    );
+    expect(order).toMatchObject({
+      status: "win",
+      betMoney: 5,
+      reward: 6.7568,
+      pmSellState: "settled",
+    });
+  });
+
+  test("settles held BUY as lose via official tokens[].winner on opponent", () => {
+    const tokenHeld = String(ilbirsTrade.asset_id);
+    const tokenWin = ilbirsTokenLose;
+    const officialMarket: PolymarketRawMarket = {
+      ...ilbirsMarket,
+      closed: true,
+      outcomePrices: "[\"0.40\", \"0.60\"]",
+      tokens: [
+        { token_id: tokenHeld, outcome: "Ilbirs eSports", price: 0.4, winner: false },
+        { token_id: tokenWin, outcome: "BALU", price: 0.6, winner: true },
+      ],
+    };
+    const [order] = mapPolymarketTradesToVenueOrders(
+      [ilbirsTrade],
+      new Map([[String(officialMarket.condition_id), officialMarket]]),
+    );
+    expect(order).toMatchObject({
+      status: "lose",
+      reward: 0,
+      money: -5,
+      pmSellState: "settled",
+    });
+  });
+
+  test("settles via official winner without closed flag", () => {
     const umaMarket: PolymarketRawMarket = {
       ...ilbirsMarket,
       closed: false,
@@ -453,6 +543,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       new Map([[String(umaMarket.condition_id), umaMarket]]),
     );
     expect(order?.status).toBe("win");
+    expect(order?.pmSellState).toBe("settled");
   });
 
   test("maps BUY trades only (SELL excluded — changmen 不做卖出)", () => {
@@ -666,6 +757,10 @@ describe("applyPolymarketSettlement", () => {
       outcomes: "[\"Team A\", \"Team B\"]",
       outcomePrices: "[\"0.999\", \"0.001\"]",
       clobTokenIds: "[\"token-a\", \"token-b\"]",
+      tokens: [
+        { token_id: "token-a", outcome: "Team A", price: 0.999, winner: true },
+        { token_id: "token-b", outcome: "Team B", price: 0.001, winner: false },
+      ],
     };
     const base = {
       provider: "Polymarket" as const,
@@ -691,9 +786,87 @@ describe("applyPolymarketSettlement", () => {
     expect(settled.status).toBe("win");
     expect(settled.reward).toBe(20);
     expect(settled.money).toBe(10);
+    expect(settled.pmSellState).toBe("settled");
   });
 
-  test("finalize applies Gamma win when changmen buy has full attr but pmSellState open", () => {
+  test("price ≥0.99 win keeps pmSellState open for sell button", () => {
+    const market: PolymarketRawMarket = {
+      closed: false,
+      outcomes: "[\"Team A\", \"Team B\"]",
+      outcomePrices: "[\"0.999\", \"0.001\"]",
+      clobTokenIds: "[\"token-a\", \"token-b\"]",
+    };
+    const base = {
+      provider: "Polymarket" as const,
+      orderId: "0x1",
+      odds: 2,
+      createAt: 1,
+      betMoney: 10,
+      reward: 20,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "Team A",
+      pmSellState: "open" as const,
+    };
+    const settled = applyPolymarketSettlement(base, {
+      side: "BUY",
+      size: "20",
+      price: "0.5",
+      asset_id: "token-a",
+      outcome: "Team A",
+    }, market);
+
+    expect(settled.status).toBe("win");
+    expect(settled.pmSellState).toBe("open");
+  });
+
+  test("partial sell then settle uses remaining shares only", () => {
+    const market: PolymarketRawMarket = {
+      closed: true,
+      outcomes: "[\"Team A\", \"Team B\"]",
+      outcomePrices: "[\"1\", \"0\"]",
+      clobTokenIds: "[\"token-a\", \"token-b\"]",
+      tokens: [
+        { token_id: "token-a", outcome: "Team A", price: 1, winner: true },
+        { token_id: "token-b", outcome: "Team B", price: 0, winner: false },
+      ],
+    };
+    const base = {
+      provider: "Polymarket" as const,
+      orderId: "0xpartial",
+      odds: 2,
+      createAt: 1,
+      betMoney: 5,
+      reward: 0,
+      money: 0,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "Team A",
+      pmShares: 20,
+      pmStakeUsdc: 5,
+      pmAttributedSellShares: 10,
+      pmSellState: "partial" as const,
+    };
+    const settled = applyPolymarketSettlement(base, {
+      side: "BUY",
+      size: "20",
+      price: "0.5",
+      asset_id: "token-a",
+      outcome: "Team A",
+    }, market);
+
+    expect(settled.status).toBe("win");
+    expect(settled.reward).toBe(10);
+    expect(settled.money).toBe(5);
+    expect(settled.pmSellState).toBe("settled");
+  });
+
+  test("finalize applies official win when changmen buy has full attr but pmSellState open", () => {
     const token = "75386013875837505917721651231431326866442042124939984378893288552777858059924";
     const conditionId = "0xa2888816798b8e064a8f40036b90f828d16db55a3f02aa71dc22490fc74f4af2";
     const market: PolymarketRawMarket = {
@@ -702,6 +875,15 @@ describe("applyPolymarketSettlement", () => {
       outcomes: "[\"NRG Academy\", \"Evil Geniuses Academy\"]",
       outcomePrices: "[\"0.9995\", \"0.0005\"]",
       clobTokenIds: `["${token}", "35527541898867321320561509748762864775931334607172134674404825610301564272314"]`,
+      tokens: [
+        { token_id: token, outcome: "NRG Academy", price: 0.9995, winner: true },
+        {
+          token_id: "35527541898867321320561509748762864775931334607172134674404825610301564272314",
+          outcome: "Evil Geniuses Academy",
+          price: 0.0005,
+          winner: false,
+        },
+      ],
     };
     const clob = mapPolymarketTradesToVenueOrders([{
       taker_order_id: "0xbuy-nrg",

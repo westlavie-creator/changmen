@@ -34,9 +34,22 @@ describe("pmLogicalPosition", () => {
     expect(resolvePmRemainingShares(order)).toBe(6);
   });
 
-  it("hasOpenPolymarketPosition false when market settled", () => {
-    const order = venueOrderFromOrderRow({ ...baseRow, Status: "Win" });
+  it("hasOpenPolymarketPosition false when official settled (hides sell)", () => {
+    const order = venueOrderFromOrderRow({
+      ...baseRow,
+      Status: "Win",
+      PmSellState: "settled",
+    });
     expect(hasOpenPolymarketPosition(order)).toBe(false);
+  });
+
+  it("hasOpenPolymarketPosition true when price-win keeps sell open", () => {
+    const order = venueOrderFromOrderRow({
+      ...baseRow,
+      Status: "Win",
+      PmSellState: "open",
+    });
+    expect(hasOpenPolymarketPosition(order)).toBe(true);
   });
 
   it("hasOpenPolymarketPosition false when fill shares missing", () => {

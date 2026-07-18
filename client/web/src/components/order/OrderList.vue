@@ -116,12 +116,14 @@ function pmLiveClobPrice(row: OrderRow): number | null {
   return clobPriceFromDecimalOdds(sportOddsStore.get(PLATFORMS.Polymarket, tokenId));
 }
 
-/** 未结算买单才显示「当前价」 */
+/** 可卖持仓显示「当前价」（含 0.99 判赢仍 open；官方 settled 后隐藏） */
 function pmShowLivePrice(row: OrderRow): boolean {
   if (!isPmBuyOrderListRow(row) || pmBuyLifecycleTagText(row))
     return false;
   const status = String(row.Status ?? "").trim().toLowerCase();
-  if (status && status !== "none")
+  if (status === "reject" || status === "return" || status === "pending")
+    return false;
+  if (row.PmSellState === "closed" || row.PmSellState === "settled")
     return false;
   return pmLiveClobPrice(row) != null;
 }

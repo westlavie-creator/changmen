@@ -92,10 +92,11 @@ describe("pmOrderDisplay", () => {
     expect(pmOrderDisplayPriceText(pmBuy, 0.61)).toBe("0.61");
   });
 
-  it("keeps fill price after close / sell / settled", () => {
+  it("keeps fill price after close / sell / official settled; price-win still shows live", () => {
     expect(resolvePmListDisplayPrice({ ...pmBuy, PmSellState: "closed" }, 0.61)).toBe(0.74);
     expect(resolvePmListDisplayPrice({ ...pmBuy, PmSide: "sell" }, 0.61)).toBe(0.74);
-    expect(resolvePmListDisplayPrice({ ...pmBuy, Status: "Win" }, 0.61)).toBe(0.74);
+    expect(resolvePmListDisplayPrice({ ...pmBuy, Status: "Win", PmSellState: "settled" }, 0.61)).toBe(0.74);
+    expect(resolvePmListDisplayPrice({ ...pmBuy, Status: "Win", PmSellState: "open" }, 0.61)).toBe(0.61);
   });
 
   it("odds text stays on fill price", () => {
