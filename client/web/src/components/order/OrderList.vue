@@ -460,6 +460,11 @@ function badgeTitle(row: OrderRow): string {
             <div class="player">
               {{ playerLabel(row) }}
             </div>
+            <span
+              v-if="pmOrderSideTagText(row)"
+              class="order__pm-tag order__pm-tag--side"
+              :class="isPmSellOrderListRow(row) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
+            >{{ pmOrderSideTagText(row) }}</span>
           </div>
           <div class="match" v-html="row.Match" />
           <div class="bet">
@@ -473,7 +478,6 @@ function badgeTitle(row: OrderRow): string {
           <div class="profit">
             <template v-if="isPmOrderListRow(row)">
               <div class="order__profit-line">
-                <span v-if="pmOrderSideTagText(row)" class="order__pm-tag">{{ pmOrderSideTagText(row) }}</span>
                 <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
                 <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
                 <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span> </span>

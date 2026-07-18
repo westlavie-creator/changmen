@@ -283,6 +283,26 @@
   color: #909399;
 }
 
+#app .el-aside .orders .order .order__pm-tag--side,
+.common-layout .el-aside .orders .order .order__pm-tag--side,
+.admin-orders-user-col .orders .order .order__pm-tag--side {
+  flex: 0 0 auto;
+  align-self: center;
+  font-weight: 600;
+}
+
+#app .el-aside .orders .order .order__pm-tag--buy,
+.common-layout .el-aside .orders .order .order__pm-tag--buy,
+.admin-orders-user-col .orders .order .order__pm-tag--buy {
+  color: #67c23a;
+}
+
+#app .el-aside .orders .order .order__pm-tag--sell,
+.common-layout .el-aside .orders .order .order__pm-tag--sell,
+.admin-orders-user-col .orders .order .order__pm-tag--sell {
+  color: #f56c6c;
+}
+
 #app .el-aside .orders .order .betname,
 .common-layout .el-aside .orders .order .betname,
 .admin-orders-user-col .orders .order .betname {
