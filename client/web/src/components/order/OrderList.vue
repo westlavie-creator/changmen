@@ -12,6 +12,7 @@ import {
   isPmBuyOrderListRow,
   isPmOrderListRow,
   isPmSellOrderListRow,
+  pmBuyLifecycleTagText,
   pmOddsTextFromClobPrice,
   pmOrderFillPriceText,
   pmOrderOddsText,
@@ -117,7 +118,7 @@ function pmLiveClobPrice(row: OrderRow): number | null {
 
 /** 未结算买单才显示「当前价」 */
 function pmShowLivePrice(row: OrderRow): boolean {
-  if (!isPmBuyOrderListRow(row) || pmClosedBuyLabel(row))
+  if (!isPmBuyOrderListRow(row) || pmBuyLifecycleTagText(row))
     return false;
   const status = String(row.Status ?? "").trim().toLowerCase();
   if (status && status !== "none")
@@ -144,11 +145,6 @@ async function onPmSell(row: OrderRow) {
 
 function pmStakeLabel(row: OrderRow): string {
   return isPmSellOrderListRow(row) ? "回款" : "投注金额";
-}
-
-function pmClosedBuyLabel(row: OrderRow): boolean {
-  return isPmBuyOrderListRow(row)
-    && (row.PmSellState === "closed" || row.PmSellState === "settled");
 }
 
 function onCancelMakeup(row: OrderRow) {
@@ -476,11 +472,11 @@ function badgeTitle(row: OrderRow): string {
                 <span v-if="pmOrderFillPriceText(row)">买入价：{{ pmOrderFillPriceText(row) }} </span>
                 <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span> </span>
                 <span v-if="isPmSellOrderListRow(row)" class="order__pm-tag">卖出</span>
-                <span v-else-if="pmClosedBuyLabel(row)" class="order__pm-tag">已平仓</span>
+                <span v-else-if="pmBuyLifecycleTagText(row)" class="order__pm-tag">{{ pmBuyLifecycleTagText(row) }}</span>
               </div>
               <div class="order__profit-line">
                 {{ pmStakeLabel(row) }}：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
-                <template v-if="isPendingRow(row) && !pmClosedBuyLabel(row) && !isPmSellOrderListRow(row)">
+                <template v-if="isPendingRow(row) && !pmBuyLifecycleTagText(row) && !isPmSellOrderListRow(row)">
                   盈亏：待结算
                 </template>
                 <template v-else>

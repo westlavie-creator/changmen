@@ -24,9 +24,41 @@ export function isPmBuyOrderListRow(row: OrderRow): boolean {
   return isPmOrderListRow(row) && row.PmSide !== "sell";
 }
 
+/** 手动卖出（含部分卖 / settled 但已有卖出归因） */
+export function isPmManuallySoldBuy(row: OrderRow): boolean {
+  if (!isPmBuyOrderListRow(row))
+    return false;
+  const state = String(row.PmSellState ?? "").toLowerCase();
+  if (state === "closed" || state === "partial")
+    return true;
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  return state === "settled" && attr > 0;
+}
+
+/** 赛果结算：settled 且无手动卖出归因 */
+export function isPmMarketSettledBuy(row: OrderRow): boolean {
+  if (!isPmBuyOrderListRow(row))
+    return false;
+  if (isPmManuallySoldBuy(row))
+    return false;
+  return String(row.PmSellState ?? "").toLowerCase() === "settled";
+}
+
+/** 侧栏买单生命周期小标签文案 */
+export function pmBuyLifecycleTagText(row: OrderRow): string | null {
+  if (isPmManuallySoldBuy(row)) {
+    if (String(row.PmSellState ?? "").toLowerCase() === "partial")
+      return "部分卖出";
+    return "已卖出";
+  }
+  if (isPmMarketSettledBuy(row))
+    return "已结算";
+  return null;
+}
+
 /**
  * 侧栏角标 class：手动平仓后 RDS 仍为 Status=None（挡 Gamma），
- * 展示层把卖单按盈亏映成赢/输/退，已平仓买单映成 PmClosed。
+ * 展示层把卖单按盈亏映成赢/输/退；手动卖光买单映成 PmSold。
  */
 export function resolvePmOrderListStatusClass(row: OrderRow): string {
   if (!isPmOrderListRow(row))
@@ -49,9 +81,10 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
     return "Return";
   }
 
-  const state = String(row.PmSellState ?? "").toLowerCase();
-  if (state === "closed" || state === "settled")
-    return "PmClosed";
+  if (isPmManuallySoldBuy(row) && String(row.PmSellState ?? "").toLowerCase() !== "partial")
+    return "PmSold";
+  if (isPmMarketSettledBuy(row))
+    return "PmSettled";
 
   return raw;
 }

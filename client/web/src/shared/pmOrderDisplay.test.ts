@@ -9,6 +9,7 @@ import {
   pmOrderFillPriceText,
   pmOrderOddsText,
   pmOrderSharesText,
+  pmBuyLifecycleTagText,
   resolvePmFillPrice,
   resolvePmListDisplayPrice,
   resolvePmOrderListStatusClass,
@@ -37,7 +38,16 @@ describe("pmOrderDisplay", () => {
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSellState: "closed",
-    })).toBe("PmClosed");
+    })).toBe("PmSold");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "settled",
+    })).toBe("PmSettled");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "settled",
+      Status: "Win",
+    })).toBe("Win");
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSide: "sell",
@@ -57,6 +67,18 @@ describe("pmOrderDisplay", () => {
       Money: 0,
     })).toBe("None");
     expect(resolvePmOrderListStatusClass(pmBuy)).toBe("None");
+  });
+
+  it("lifecycle tag distinguishes sold vs market settled", () => {
+    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "closed" })).toBe("已卖出");
+    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "partial" })).toBe("部分卖出");
+    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "settled" })).toBe("已结算");
+    expect(pmBuyLifecycleTagText({
+      ...pmBuy,
+      PmSellState: "settled",
+      PmAttributedSellShares: 10,
+    })).toBe("已卖出");
+    expect(pmBuyLifecycleTagText(pmBuy)).toBeNull();
   });
 
   it("shows API fill price and share count without rounding", () => {

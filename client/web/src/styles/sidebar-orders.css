@@ -386,15 +386,26 @@
   content: "退";
 }
 
-/* [changmen 扩展] 手动卖光后的买单：库内仍 None，角标显示已平仓 */
-.orders .status.PmClosed {
+/* [changmen 扩展] 手动卖光买单：库内仍 None，角标显示已卖出 */
+.orders .status.PmSold {
   color: #7dcea0;
   background: rgba(125, 206, 160, 0.12);
   border: 1px solid #7dcea0;
 }
 
-.orders .status.PmClosed::after {
-  content: "已平仓";
+.orders .status.PmSold::after {
+  content: "已卖出";
+}
+
+/* 赛果结算但 Status 仍 None 的兜底（通常已是 Win/Lose） */
+.orders .status.PmSettled {
+  color: #aeaeae;
+  background: rgba(174, 174, 174, 0.1);
+  border: 1px solid #aeaeae;
+}
+
+.orders .status.PmSettled::after {
+  content: "已结算";
 }
 
 .orders .status.Reject {
