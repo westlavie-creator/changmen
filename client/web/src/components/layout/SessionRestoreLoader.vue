@@ -1,43 +1,40 @@
-<template>
-  <div class="raikiri-loader" aria-busy="true" aria-label="加载中">
-    <div class="raikiri-loader__scene">
-      <div class="raikiri-loader__field" aria-hidden="true" />
-      <div class="raikiri-loader__ring raikiri-loader__ring--outer" aria-hidden="true" />
-      <div class="raikiri-loader__ring raikiri-loader__ring--inner" aria-hidden="true" />
+﻿<template>
+  <div class="session-loader" aria-busy="true" aria-label="加载中">
+    <div class="session-loader__scene">
+      <div class="session-loader__field" aria-hidden="true" />
+      <div class="session-loader__ring session-loader__ring--outer" aria-hidden="true" />
+      <div class="session-loader__ring session-loader__ring--inner" aria-hidden="true" />
 
-      <svg class="raikiri-loader__bolts" viewBox="0 0 240 240" aria-hidden="true">
+      <svg class="session-loader__bolts" viewBox="0 0 240 240" aria-hidden="true">
         <path
-          class="raikiri-loader__bolt raikiri-loader__bolt--a"
+          class="session-loader__bolt session-loader__bolt--a"
           d="M118 118 L92 72 L104 96 L78 48 L98 98 L84 118 Z"
         />
         <path
-          class="raikiri-loader__bolt raikiri-loader__bolt--b"
+          class="session-loader__bolt session-loader__bolt--b"
           d="M122 122 L148 78 L136 102 L162 58 L142 108 L156 128 Z"
         />
         <path
-          class="raikiri-loader__bolt raikiri-loader__bolt--c"
+          class="session-loader__bolt session-loader__bolt--c"
           d="M120 120 L96 156 L108 132 L72 176 L102 134 L88 120 Z"
         />
       </svg>
 
-      <div class="raikiri-loader__hero-wrap">
-        <div class="raikiri-loader__hand" aria-hidden="true">
-          <div class="raikiri-loader__core" />
-          <div class="raikiri-loader__core raikiri-loader__core--halo" />
-          <span v-for="n in 10" :key="n" class="raikiri-loader__spark" />
+      <div class="session-loader__hero-wrap">
+        <div class="session-loader__hand" aria-hidden="true">
+          <div class="session-loader__core" />
+          <div class="session-loader__core session-loader__core--halo" />
+          <span v-for="n in 10" :key="n" class="session-loader__spark" />
         </div>
       </div>
 
-      <p class="raikiri-loader__label">
-        <span class="raikiri-loader__label-char">雷</span>
-        <span class="raikiri-loader__label-char">切</span>
-      </p>
+      <p class="session-loader__label">加载中</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.raikiri-loader {
+.session-loader {
   position: relative;
   width: 100%;
   height: 100%;
@@ -53,7 +50,7 @@
     linear-gradient(180deg, #0a1018 0%, #111827 50%, #0a1018 100%);
 }
 
-.raikiri-loader__scene {
+.session-loader__scene {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -66,16 +63,16 @@
   box-sizing: border-box;
 }
 
-.raikiri-loader__field {
+.session-loader__field {
   position: absolute;
   inset: 4% 6%;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(56, 189, 248, 0.35) 0%, rgba(14, 165, 233, 0.08) 45%, transparent 70%);
-  animation: raikiri-field 1.4s ease-in-out infinite;
+  animation: session-field 1.4s ease-in-out infinite;
   pointer-events: none;
 }
 
-.raikiri-loader__ring {
+.session-loader__ring {
   position: absolute;
   left: 50%;
   top: 42%;
@@ -87,18 +84,18 @@
   pointer-events: none;
 }
 
-.raikiri-loader__ring--outer {
-  animation: raikiri-ring 2.2s ease-out infinite;
+.session-loader__ring--outer {
+  animation: session-ring 2.2s ease-out infinite;
 }
 
-.raikiri-loader__ring--inner {
+.session-loader__ring--inner {
   width: 240px;
   height: 240px;
   margin: -120px 0 0 -120px;
-  animation: raikiri-ring 2.2s ease-out infinite 0.55s;
+  animation: session-ring 2.2s ease-out infinite 0.55s;
 }
 
-.raikiri-loader__bolts {
+.session-loader__bolts {
   position: absolute;
   left: 50%;
   top: 40%;
@@ -109,7 +106,7 @@
   pointer-events: none;
 }
 
-.raikiri-loader__bolt {
+.session-loader__bolt {
   fill: none;
   stroke: #e0f2fe;
   stroke-width: 4;
@@ -119,19 +116,19 @@
   stroke-dashoffset: 120;
 }
 
-.raikiri-loader__bolt--a {
-  animation: raikiri-bolt 1.1s steps(2, end) infinite;
+.session-loader__bolt--a {
+  animation: session-bolt 1.1s steps(2, end) infinite;
 }
 
-.raikiri-loader__bolt--b {
-  animation: raikiri-bolt 1.3s steps(2, end) infinite 0.25s;
+.session-loader__bolt--b {
+  animation: session-bolt 1.3s steps(2, end) infinite 0.25s;
 }
 
-.raikiri-loader__bolt--c {
-  animation: raikiri-bolt 0.95s steps(2, end) infinite 0.45s;
+.session-loader__bolt--c {
+  animation: session-bolt 0.95s steps(2, end) infinite 0.45s;
 }
 
-.raikiri-loader__hero-wrap {
+.session-loader__hero-wrap {
   position: relative;
   z-index: 1;
   width: 200px;
@@ -141,14 +138,14 @@
   justify-content: center;
 }
 
-.raikiri-loader__hand {
+.session-loader__hand {
   position: relative;
   width: 144px;
   height: 144px;
   pointer-events: none;
 }
 
-.raikiri-loader__core {
+.session-loader__core {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -161,20 +158,20 @@
     0 0 12px #e0f2fe,
     0 0 28px #38bdf8,
     0 0 48px #0ea5e9;
-  animation: raikiri-core 0.55s ease-in-out infinite alternate;
+  animation: session-core 0.55s ease-in-out infinite alternate;
 }
 
-.raikiri-loader__core--halo {
+.session-loader__core--halo {
   width: 104px;
   height: 104px;
   margin: -52px 0 0 -52px;
   opacity: 0.55;
   background: radial-gradient(circle, rgba(224, 242, 254, 0.9) 0%, rgba(56, 189, 248, 0.4) 45%, transparent 72%);
   box-shadow: none;
-  animation: raikiri-halo 0.85s ease-in-out infinite;
+  animation: session-halo 0.85s ease-in-out infinite;
 }
 
-.raikiri-loader__spark {
+.session-loader__spark {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -184,50 +181,40 @@
   border-radius: 50%;
   background: #f0f9ff;
   box-shadow: 0 0 6px #7dd3fc;
-  animation: raikiri-spark 0.9s linear infinite;
+  animation: session-spark 0.9s linear infinite;
 }
 
-.raikiri-loader__spark:nth-child(3) { animation-delay: 0s; --raikiri-angle: 0deg; --raikiri-dist: 84px; }
-.raikiri-loader__spark:nth-child(4) { animation-delay: 0.09s; --raikiri-angle: 36deg; --raikiri-dist: 96px; }
-.raikiri-loader__spark:nth-child(5) { animation-delay: 0.18s; --raikiri-angle: 72deg; --raikiri-dist: 80px; }
-.raikiri-loader__spark:nth-child(6) { animation-delay: 0.27s; --raikiri-angle: 108deg; --raikiri-dist: 92px; }
-.raikiri-loader__spark:nth-child(7) { animation-delay: 0.36s; --raikiri-angle: 144deg; --raikiri-dist: 88px; }
-.raikiri-loader__spark:nth-child(8) { animation-delay: 0.45s; --raikiri-angle: 180deg; --raikiri-dist: 100px; }
-.raikiri-loader__spark:nth-child(9) { animation-delay: 0.54s; --raikiri-angle: 216deg; --raikiri-dist: 84px; }
-.raikiri-loader__spark:nth-child(10) { animation-delay: 0.63s; --raikiri-angle: 252deg; --raikiri-dist: 94px; }
-.raikiri-loader__spark:nth-child(11) { animation-delay: 0.72s; --raikiri-angle: 288deg; --raikiri-dist: 82px; }
-.raikiri-loader__spark:nth-child(12) { animation-delay: 0.81s; --raikiri-angle: 324deg; --raikiri-dist: 90px; }
+.session-loader__spark:nth-child(3) { animation-delay: 0s; --session-angle: 0deg; --session-dist: 84px; }
+.session-loader__spark:nth-child(4) { animation-delay: 0.09s; --session-angle: 36deg; --session-dist: 96px; }
+.session-loader__spark:nth-child(5) { animation-delay: 0.18s; --session-angle: 72deg; --session-dist: 80px; }
+.session-loader__spark:nth-child(6) { animation-delay: 0.27s; --session-angle: 108deg; --session-dist: 92px; }
+.session-loader__spark:nth-child(7) { animation-delay: 0.36s; --session-angle: 144deg; --session-dist: 88px; }
+.session-loader__spark:nth-child(8) { animation-delay: 0.45s; --session-angle: 180deg; --session-dist: 100px; }
+.session-loader__spark:nth-child(9) { animation-delay: 0.54s; --session-angle: 216deg; --session-dist: 84px; }
+.session-loader__spark:nth-child(10) { animation-delay: 0.63s; --session-angle: 252deg; --session-dist: 94px; }
+.session-loader__spark:nth-child(11) { animation-delay: 0.72s; --session-angle: 288deg; --session-dist: 82px; }
+.session-loader__spark:nth-child(12) { animation-delay: 0.81s; --session-angle: 324deg; --session-dist: 90px; }
 
-.raikiri-loader__label {
+.session-loader__label {
   position: fixed;
   bottom: 1.25rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
   margin: 0;
-  display: flex;
-  gap: 0.35em;
-  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
   font-weight: 600;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.45em;
   color: #e0f2fe;
   text-shadow:
     0 0 8px #38bdf8,
     0 0 20px #0ea5e9;
   pointer-events: none;
   user-select: none;
+  animation: session-label 1.4s ease-in-out infinite;
 }
 
-.raikiri-loader__label-char {
-  display: inline-block;
-  animation: raikiri-label 1.4s ease-in-out infinite;
-}
-
-.raikiri-loader__label-char:last-child {
-  animation-delay: 0.2s;
-}
-
-@keyframes raikiri-field {
+@keyframes session-field {
   0%,
   100% {
     opacity: 0.55;
@@ -239,7 +226,7 @@
   }
 }
 
-@keyframes raikiri-ring {
+@keyframes session-ring {
   0% {
     opacity: 0.85;
     transform: scale(0.35);
@@ -250,7 +237,7 @@
   }
 }
 
-@keyframes raikiri-bolt {
+@keyframes session-bolt {
   0%,
   40%,
   100% {
@@ -264,7 +251,7 @@
   }
 }
 
-@keyframes raikiri-core {
+@keyframes session-core {
   from {
     transform: scale(0.85);
     filter: brightness(1);
@@ -275,7 +262,7 @@
   }
 }
 
-@keyframes raikiri-halo {
+@keyframes session-halo {
   0%,
   100% {
     transform: scale(0.9);
@@ -287,18 +274,18 @@
   }
 }
 
-@keyframes raikiri-spark {
+@keyframes session-spark {
   0% {
     opacity: 1;
-    transform: rotate(var(--raikiri-angle, 0deg)) translateX(16px) scale(1);
+    transform: rotate(var(--session-angle, 0deg)) translateX(16px) scale(1);
   }
   100% {
     opacity: 0;
-    transform: rotate(var(--raikiri-angle, 0deg)) translateX(var(--raikiri-dist, 44px)) scale(0.2);
+    transform: rotate(var(--session-angle, 0deg)) translateX(var(--session-dist, 44px)) scale(0.2);
   }
 }
 
-@keyframes raikiri-label {
+@keyframes session-label {
   0%,
   100% {
     opacity: 0.65;
@@ -311,18 +298,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .raikiri-loader__field,
-  .raikiri-loader__ring,
-  .raikiri-loader__bolt,
-  .raikiri-loader__core,
-  .raikiri-loader__core--halo,
-  .raikiri-loader__spark,
-  .raikiri-loader__label-char {
+  .session-loader__field,
+  .session-loader__ring,
+  .session-loader__bolt,
+  .session-loader__core,
+  .session-loader__core--halo,
+  .session-loader__spark,
+  .session-loader__label {
     animation: none;
   }
 
-  .raikiri-loader__core {
+  .session-loader__core {
     transform: scale(1);
   }
 }
 </style>
+

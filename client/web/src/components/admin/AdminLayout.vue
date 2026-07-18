@@ -113,7 +113,7 @@ function onAdminWheel(e: WheelEvent) {
       <div class="admin-shell__brand">
         <i class="admin-shell__brand-icon am-icon-shield" aria-hidden="true" />
         <div class="admin-shell__brand-text">
-          <span class="admin-shell__brand-title">GameBet</span>
+          <span class="admin-shell__brand-title">じらいや</span>
           <span class="admin-shell__brand-sub">管理后台</span>
         </div>
       </div>

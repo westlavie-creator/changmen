@@ -158,7 +158,7 @@ function tooltip(status: DirectRealtimeStatus): string {
   const lines = [status.platform];
   if (status.upstreamConnected) {
     if (status.upstreamRoute === "a8")
-      lines.push("已连接 A8 聚合");
+      lines.push("已连接聚合通道");
     else if (status.upstreamRoute === "changmen")
       lines.push("已连接 CHANGMEN 转发");
     else lines.push("已连接官方上游");

@@ -124,7 +124,7 @@ function probeFromDom(): GamebetExtensionInfo | null {
   if (!extensionId || !version)
     return null;
   localStorage.setItem("gamebet:extensionId", extensionId);
-  return { name: "gamebet", version, extensionId };
+  return { name: "じらいや", version, extensionId };
 }
 
 export async function probeGamebetExtension(): Promise<GamebetExtensionInfo | null> {

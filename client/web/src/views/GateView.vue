@@ -3,7 +3,7 @@ import { computed, defineAsyncComponent } from "vue";
 import { useRouter } from "vue-router";
 import { getToken } from "@/api/client";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
-import KakashiRaikiriLoader from "@/components/layout/KakashiRaikiriLoader.vue";
+import SessionRestoreLoader from "@/components/layout/SessionRestoreLoader.vue";
 import PluginIntroShell from "@/components/layout/PluginIntroShell.vue";
 import { useCertGate } from "@/composables/useCertGate";
 import { useExtensionGate } from "@/composables/useExtensionGate";
@@ -28,7 +28,7 @@ const showLoginGate = computed(
 const showComingSoon = computed(
   () => sessionChecked.value && gatesChecked.value && !accessReady.value,
 );
-/** restoreSession 进行中（有 token 且尚未判定完成）时显示雷切加载动画 */
+/** restoreSession 进行中（有 token 且尚未判定完成）时显示会话恢复加载动画 */
 const showSessionRestore = computed(
   () => Boolean(getToken()) && !sessionReady.value && !sessionChecked.value,
 );
@@ -46,7 +46,7 @@ async function onLoginSuccess() {
   <KeepAlive v-if="sessionReady">
     <HomeView />
   </KeepAlive>
-  <KakashiRaikiriLoader v-else-if="showSessionRestore" />
+  <SessionRestoreLoader v-else-if="showSessionRestore" />
   <PluginIntroShell v-else-if="showLoginGate" :show-login="true">
     <LoginPanel @success="onLoginSuccess" />
   </PluginIntroShell>
