@@ -16,6 +16,70 @@ export function toDateKey(ts) {
   return `${y}-${m}-${day}`;
 }
 
+/** PM 卖单归账时间：对应买单 create_at（找不到则用卖单自身） */
+function orderProfitDateTsFromRaw(row, peers) {
+  const raw = row?.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+    ? row.raw
+    : {};
+  const provider = String(row?.provider || "").trim();
+  const side = String(raw.pmSide || "").toLowerCase();
+  if (provider === "Polymarket" && side === "sell") {
+    const buyId = String(raw.pmBuyOrderId || "").trim().toLowerCase();
+    if (buyId) {
+      const buy = peers.find(p => String(p?.order_id || "").trim().toLowerCase() === buyId);
+      const buyAt = Number(buy?.create_at) || 0;
+      if (buyAt > 0)
+        return buyAt;
+    }
+    const link = Number(row.link) || 0;
+    const buyAts = peers
+      .filter((p) => {
+        const pr = p?.raw && typeof p.raw === "object" && !Array.isArray(p.raw) ? p.raw : {};
+        return String(p?.provider || "").trim() === "Polymarket"
+          && String(pr.pmSide || "").toLowerCase() !== "sell"
+          && (link === 0 || (Number(p.link) || 0) === link);
+      })
+      .map(p => Number(p.create_at) || 0)
+      .filter(n => n > 0);
+    if (buyAts.length)
+      return Math.min(...buyAts);
+  }
+  return Number(row?.create_at) || 0;
+}
+
+function filterRawOrdersBelongingToDate(rows, dateKey) {
+  const list = rows || [];
+  const byLink = new Map();
+  for (const r of list) {
+    const link = Number(r.link) || 0;
+    if (!byLink.has(link))
+      byLink.set(link, []);
+    byLink.get(link).push(r);
+  }
+  const out = [];
+  for (const group of byLink.values()) {
+    const pmSells = group.filter((r) => {
+      const raw = r?.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
+      return String(r?.provider || "").trim() === "Polymarket"
+        && String(raw.pmSide || "").toLowerCase() === "sell";
+    });
+    if (pmSells.length) {
+      const anchors = pmSells
+        .map(s => orderProfitDateTsFromRaw(s, group))
+        .filter(n => n > 0);
+      if (anchors.length) {
+        const anchorDay = toDateKey(Math.min(...anchors));
+        if (anchorDay !== dateKey)
+          continue;
+      }
+      out.push(...group);
+      continue;
+    }
+    out.push(...group);
+  }
+  return out;
+}
+
 function mapStatus(raw) {
   const s = String(raw || "").toLowerCase();
   if (s === "win")
@@ -59,15 +123,53 @@ function preservePmFillPrice(prevRaw, o, merged) {
   return undefined;
 }
 
+/** order_id 大小写不敏感查找（PM 0x hex 偶发大小写不一致） */
+function findOrderRowById(byOrderId, orderId) {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return undefined;
+  const direct = byOrderId.get(id);
+  if (direct)
+    return direct;
+  const needle = id.toLowerCase();
+  for (const [key, row] of byOrderId) {
+    if (String(key).toLowerCase() === needle)
+      return row;
+  }
+  return undefined;
+}
+
+function findAssignedLink(assignedInBatch, orderId) {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return 0;
+  const direct = parseNum(assignedInBatch.get(id), 0);
+  if (direct !== 0)
+    return direct;
+  const needle = id.toLowerCase();
+  for (const [key, link] of assignedInBatch) {
+    if (String(key).toLowerCase() === needle) {
+      const n = parseNum(link, 0);
+      if (n !== 0)
+        return n;
+    }
+  }
+  return 0;
+}
+
 function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
   const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
   // PM 卖单：始终跟对应买单 Link（绑定修正时覆盖旧占位 link）
   if (provider === "Polymarket" && incomingSide === "sell" && buyOrderId) {
-    const buyLink = parseNum(existingByOrderId.get(buyOrderId)?.link, 0)
-      || parseNum(assignedInBatch.get(buyOrderId), 0);
+    const buyRow = findOrderRowById(existingByOrderId, buyOrderId);
+    const buyLink = parseNum(buyRow?.link, 0) || findAssignedLink(assignedInBatch, buyOrderId);
     if (buyLink !== 0)
       return buyLink;
+    // 买单尚未入库时：用客户端带上的买单 Link（跨日卖仍同组）
+    const incomingBuyLink = parseNum(o.link ?? o.Link ?? o.LinkID, 0);
+    if (incomingBuyLink !== 0)
+      return incomingBuyLink;
   }
 
   const boundLink = Number(linkByOrderId.get(orderId)) || 0;
@@ -158,7 +260,6 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "buy").toLowerCase();
   const isSell = incomingSide === "sell";
   const isChangmen = pmOrigin === "changmen" || prevRaw.pmOrigin === "changmen";
-  const incomingStatus = mapStatus(o.status || o.Status);
   const prevBet = parseNum(prevRaw.betMoney, parseNum(prevRow?.bet_money, 0));
   const incomingBet = parseNum(o.betMoney ?? o.BetMoney, 0);
 
@@ -215,6 +316,7 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
 
   const prevState = prevRaw.pmSellState;
   const betMoneyForMerge = prevBet > 0 ? prevBet : incomingBet;
+  const prevAttr = parseNum(prevRaw.pmAttributedSellShares, 0);
 
   const sellStateRank = (s) => {
     const v = String(s ?? "").toLowerCase();
@@ -227,14 +329,27 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     return 0;
   };
 
-  const hasClosedSellProgress = prevState === "partial" || prevState === "closed";
-  if (isChangmen && hasClosedSellProgress) {
-    const prevAttr = parseNum(prevRaw.pmAttributedSellShares, 0);
+  /**
+   * 已手动卖出归因：盈亏只在卖单行。
+   * - partial/closed：明确手动平仓
+   * - settled 且 attr>0：曾被 Gamma 误标 settled，仍视为已卖出
+   * - open 且 attr>0：历史不一致，仍允许 Gamma 结算（见下方 else / 单测）
+   */
+  const hasManualSellProgress = prevState === "partial"
+    || prevState === "closed"
+    || (prevAttr > 0 && prevState === "settled");
+  if (isChangmen && hasManualSellProgress) {
     const incomingAttr = parseNum(o.pmAttributedSellShares ?? merged.pmAttributedSellShares, 0);
     const incomingState = o.pmSellState ?? merged.pmSellState;
     // 允许 attr / state 单调前进（二次纠偏 / delayed 确认）；挡住 sync 回退
     const advanceAttr = incomingAttr > prevAttr + 1e-9;
     const advanceState = sellStateRank(incomingState) > sellStateRank(prevState);
+    // 不把 closed 抬成 settled（settled 易再被当成赛果盈亏）
+    let nextState = advanceState || advanceAttr
+      ? (incomingState ?? prevRaw.pmSellState)
+      : (prevRaw.pmSellState ?? merged.pmSellState);
+    if (String(nextState).toLowerCase() === "settled" && (prevState === "closed" || prevState === "partial"))
+      nextState = prevState;
     merged = {
       ...merged,
       pmSide: "buy",
@@ -243,26 +358,15 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
         ? (merged.pmStakeUsdc ?? o.pmStakeUsdc ?? prevRaw.pmStakeUsdc)
         : (prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc),
       betMoney: betMoneyForMerge,
-      pmSellState: advanceState || advanceAttr
-        ? (incomingState ?? prevRaw.pmSellState)
-        : (prevRaw.pmSellState ?? merged.pmSellState),
+      pmSellState: nextState,
       pmAttributedSellShares: advanceAttr
         ? incomingAttr
         : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
-      money: incomingStatus === "Win" || incomingStatus === "Lose"
-        ? (o.money ?? o.Money ?? prevRaw.money ?? merged.money)
-        : 0,
+      money: 0,
+      status: "none",
     };
     bet_money = betMoneyForMerge;
-    const prevMoney = parseNum(prevRow?.money, 0);
-    if (incomingStatus === "Win" || incomingStatus === "Lose") {
-      merged.status = o.status || o.Status;
-      merged.pmSellState = "settled";
-      money = parseNum(o.money ?? o.Money, prevMoney);
-    }
-    else {
-      money = 0;
-    }
+    money = 0;
   }
   else {
     if (betMoneyForMerge > 0) {
@@ -298,7 +402,31 @@ export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 102
   const page = Math.max(1, Number(pageIndex) || 1);
   const size = Math.max(1, Number(pageSize) || 1024);
   const { rows, total } = await sb.fetchOrdersByDatePage(target, userId, page, size);
-  return { list: rows.map(rowToOrder), total };
+  const dayRows = rows || [];
+  // [changmen 扩展] 并入同 Link 跨日订单（PM 昨天买今天卖等同组展示）
+  const links = [...new Set(
+    dayRows.map(r => Number(r.link) || 0).filter(n => n !== 0),
+  )];
+  let merged = dayRows;
+  if (links.length && typeof sb.fetchOrdersByLinks === "function") {
+    const siblings = await sb.fetchOrdersByLinks(userId, links);
+    if (siblings?.length) {
+      const byId = new Map();
+      for (const r of dayRows)
+        byId.set(String(r.order_id ?? "").trim().toLowerCase(), r);
+      for (const r of siblings) {
+        const id = String(r.order_id ?? "").trim().toLowerCase();
+        if (id && !byId.has(id))
+          byId.set(id, r);
+      }
+      merged = [...byId.values()].sort(
+        (a, b) => (Number(b.create_at) || 0) - (Number(a.create_at) || 0),
+      );
+    }
+  }
+  // PM 卖单归买单日：卖出日不再单独展示该组
+  merged = filterRawOrdersBelongingToDate(merged, target);
+  return { list: merged.map(rowToOrder), total };
 }
 
 export async function listByPlayer(playerId, userId) {
@@ -379,7 +507,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       odds: parseNum(o.odds, 0),
       bet_money,
       money,
-      status: mapStatus(o.status || o.Status),
+      status: mapStatus(raw.status ?? o.status ?? o.Status),
       create_at: createAt,
       raw,
     });

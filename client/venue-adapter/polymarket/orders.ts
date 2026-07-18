@@ -835,6 +835,7 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
       bet: base.bet || clob.bet,
       item: base.item || clob.item,
       game: base.game || clob.game,
+      link: base.link ?? clob.link,
       createAt: base.createAt || clob.createAt,
     };
   }
@@ -857,8 +858,9 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
     odds: base.odds || clob.odds,
     status: blockGammaSettlement ? base.status : (gammaSettled ? clob.status : base.status),
-    money: blockGammaSettlement ? base.money : (gammaSettled ? clob.money : base.money),
-    reward: blockGammaSettlement ? base.reward : (clob.reward ?? base.reward),
+    // 已手动平仓：盈亏只在卖单；强制 0，避免 base/Gamma 残留虚增买入日利润
+    money: blockGammaSettlement ? 0 : (gammaSettled ? clob.money : base.money),
+    reward: blockGammaSettlement ? 0 : (gammaSettled ? clob.reward : base.reward),
     match: base.match || clob.match,
     bet: base.bet || clob.bet,
     item: base.item || clob.item,

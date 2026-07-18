@@ -310,6 +310,35 @@ export async function fetchOrdersByLink(userId, link) {
   }
 }
 
+/**
+ * [changmen 扩展] 按多个 Link 拉全量订单（含跨日）。
+ * 用于侧栏按日列表并入同 Link 的买卖腿，避免「昨天买今天卖」拆组。
+ */
+export async function fetchOrdersByLinks(userId, links) {
+  const pool = getPgPool();
+  const uid = String(userId || "").trim();
+  if (!pool || !uid || !Array.isArray(links) || !links.length)
+    return [];
+  const linkVals = [...new Set(
+    links.map(l => Number(l)).filter(n => Number.isFinite(n) && n !== 0),
+  )];
+  if (!linkVals.length)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM orders
+       WHERE user_id = $1 AND link = ANY($2::bigint[])
+       ORDER BY create_at DESC`,
+      [uid, linkVals],
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchOrdersByLinks:", err.message);
+    return [];
+  }
+}
+
 /** 按 order_id 查单行 */
 export async function fetchOrderByOrderId(userId, orderId) {
   const pool = getPgPool();

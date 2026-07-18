@@ -6,7 +6,11 @@ import { adminAccountToPlatformAccount } from "@/components/admin/adminAccountDi
 import { PlatformAccount } from "@/models/platformAccount";
 import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
 import { todayKey } from "@/shared/dateKey";
-import { groupOrdersByLink } from "@/shared/orderLink";
+import {
+  dropOrphanPolymarketSellGroups,
+  filterOrdersBelongingToDate,
+  groupOrdersByLink,
+} from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -81,9 +85,12 @@ export async function loadEmbeddedUserOrders(userId: string, date: string) {
   const orderStore = useOrderStore();
   const accountStore = useAccountStore();
   const page = await getAdminOrdersAll({ userId, date });
-  const list = (page.list ?? []).map(row => adminOrderToOrderRow(row, accountStore.accounts));
-  orderStore.orders = groupOrdersByLink(list);
-  orderStore.orderDate = date || page.date || todayKey();
+  const raw = (page.list ?? []).map(row => adminOrderToOrderRow(row, accountStore.accounts));
+  const dateKey = date || page.date || todayKey();
+  // 与侧栏一致：PM 卖单归买单日；去掉孤儿卖单组（管理端未并 sibling，跨日卖可能仍缺）
+  const list = filterOrdersBelongingToDate(raw, dateKey);
+  orderStore.orders = dropOrphanPolymarketSellGroups(groupOrdersByLink(list));
+  orderStore.orderDate = dateKey;
   orderStore.updateTodayProfit(list);
 }
 

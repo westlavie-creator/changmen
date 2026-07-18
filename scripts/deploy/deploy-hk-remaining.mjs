@@ -126,7 +126,8 @@ for (const h of HOSTS) {
     ssh(h.host, [
       "set -e",
       "mv /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz",
-      "gzip -t /tmp/changmen-repo.tgz",
+      // Windows bsdtar gzip 常被 Linux gzip -t 误判；用 tar -tzf 校验即可
+      "tar -tzf /tmp/changmen-repo.tgz >/dev/null",
       `DEPLOY_REPO=${deployRepo} CHANGMEN_DEPLOY_SCRIPTS=${remoteScripts} DEPLOY_SKIP_APP_BUILD=1 DEPLOY_SKIP_POSTCHECK=1 DEPLOY_FULL=0 bash ${remoteScripts}/apply-repo-archive.sh /tmp/changmen-repo.tgz`,
       `find ${deployRepo}/deploy/scripts -name '*.sh' -exec sed -i 's/\\r$//' {} +`,
     ].join("; "));

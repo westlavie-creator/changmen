@@ -2,11 +2,16 @@ import type { OrderRow } from "@/types/order";
 import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
 import {
+  dropOrphanPolymarketSellGroups,
+  filterOrdersBelongingToDate,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   isPolymarketOpenPosition,
+  orderBelongsToDateKey,
   orderLinkLegend,
   orderLinkMapEntries,
+  toOrderDateKeyLocal,
+  computeOrderGroupProfit,
 } from "@/shared/orderLink";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { useAccountStore } from "@/stores/accountStore";
@@ -14,11 +19,30 @@ import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
 
 function todayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return toOrderDateKeyLocal(Date.now());
+}
+
+/** 已手动平仓的 PM 买单：盈亏在同组卖单，不计入买单 Money */
+function pmBuyMoneyCountsTowardDayProfit(row: OrderRow, peers: OrderRow[]): boolean {
+  if (String(row.Type ?? "").trim() !== "Polymarket")
+    return true;
+  if (row.PmSide === "sell")
+    return true;
+  const buyId = String(row.OrderID ?? "").trim().toLowerCase();
+  // 同列表已有指向本买单的卖单 → 一律不计买单 Money（防脏数据双计）
+  if (buyId && peers.some(r =>
+    String(r.Type ?? "").trim() === "Polymarket"
+    && r.PmSide === "sell"
+    && String(r.PmBuyOrderId ?? "").trim().toLowerCase() === buyId
+  ))
+    return false;
+  const state = String(row.PmSellState ?? "").toLowerCase();
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  if (state === "closed" || state === "partial")
+    return false;
+  if (state === "settled" && attr > 0)
+    return false;
+  return true;
 }
 
 export { isLinkedArbOrderGroup as isLinkedArbGroup };
@@ -78,10 +102,16 @@ export const useOrderStore = defineStore("order", {
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
         if (!page)
           return false;
-        const list = page.list ?? [];
-        this.orders = groupOrdersByLink(list);
+        // PM 卖单归买单日：后端已滤；前端再滤一次防脏数据
+        const list = filterOrdersBelongingToDate(page.list ?? [], this.orderDate);
+        this.orders = dropOrphanPolymarketSellGroups(groupOrdersByLink(list));
         this.updateTodayProfit(list);
-        useMessageStore().orderReportMessage(accountStore.accounts, list);
+        const reportRows = list
+          .filter(r => orderBelongsToDateKey(r, this.orderDate, list))
+          .map(r => (
+            pmBuyMoneyCountsTowardDayProfit(r, list) ? r : { ...r, Money: 0 }
+          ));
+        useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
         return true;
       }
       finally {
@@ -92,8 +122,12 @@ export const useOrderStore = defineStore("order", {
     updateTodayProfit(list: OrderRow[]) {
       const accountStore = useAccountStore();
       const today = this.orderDate;
+      /** 展示可含跨日 sibling；盈亏只计归账日落在当日的行（PM 卖单跟买单日） */
+      const inDay = list.filter(r => orderBelongsToDateKey(r, today, list));
+      const moneyOf = (r: OrderRow) =>
+        pmBuyMoneyCountsTowardDayProfit(r, inDay) ? (Number(r.Money) || 0) : 0;
       const byPlayer = new Map<number, OrderRow[]>();
-      for (const row of list) {
+      for (const row of inDay) {
         const pid = Number(row.PlayerID) || 0;
         if (!byPlayer.has(pid))
           byPlayer.set(pid, []);
@@ -113,7 +147,7 @@ export const useOrderStore = defineStore("order", {
         const acc = accById.get(playerId);
         if (!acc)
           continue;
-        const profit = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+        const profit = rows.reduce((sum, r) => sum + moneyOf(r), 0);
         acc.today = Math.round(profit);
         acc.orderCount = rows.length;
         if (today === todayKey()) {
@@ -132,7 +166,7 @@ export const useOrderStore = defineStore("order", {
         }
       }
 
-      this.dayProfit = list.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+      this.dayProfit = inDay.reduce((sum, r) => sum + moneyOf(r), 0);
     },
 
     linkLegend(rows: OrderRow[]) {
@@ -140,7 +174,7 @@ export const useOrderStore = defineStore("order", {
     },
 
     linkClass(rows: OrderRow[]) {
-      const total = rows.reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+      const total = computeOrderGroupProfit(rows);
       if (total === 0)
         return "default";
       return total > 0 ? "success" : "fail";

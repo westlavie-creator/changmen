@@ -58,6 +58,7 @@ export {
   fetchOrdersByDate,
   fetchOrdersByDatePage,
   fetchOrdersByLink,
+  fetchOrdersByLinks,
   fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,

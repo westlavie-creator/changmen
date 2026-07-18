@@ -6,6 +6,8 @@ import {
   isSameOrderMatchMap,
   compareOrderLinkDesc,
   computeOrderGroupProfit,
+  dropOrphanPolymarketSellGroups,
+  filterOrdersBelongingToDate,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   isRebindableOrderRow,
@@ -15,7 +17,9 @@ import {
   mergePendingMakeupIntoOrderGroups,
   orderLinkLegend,
   orderListDisplayRows,
+  orderProfitDateTs,
   sortOrdersByLinkDesc,
+  toOrderDateKeyLocal,
 } from "./orderLink";
 
 describe("orderLink A8 parity", () => {
@@ -106,7 +110,8 @@ describe("orderLink A8 parity", () => {
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 36, Status: "Win", PmSellState: "open" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
     ]);
-    expect(profitOpen).toBe(46);
+    // 有卖单指向买单时不计买单 Money；open 时也不计卖单 → 仅 OB
+    expect(profitOpen).toBe(10);
 
     const profitClosed = computeOrderGroupProfit([
       { Type: "OB", Money: 10 },
@@ -114,6 +119,70 @@ describe("orderLink A8 parity", () => {
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
     ]);
     expect(profitClosed).toBe(25);
+  });
+
+  it("computeOrderGroupProfit skips buy Money when sell exists (no double count)", () => {
+    const profit = computeOrderGroupProfit([
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 184, Status: "None", PmSellState: "settled" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 184, BetMoney: 384, PmBuyOrderId: "buy" },
+    ]);
+    expect(profit).toBe(184);
+  });
+
+  it("dropOrphanPolymarketSellGroups hides sell-only link groups", () => {
+    const grouped = groupOrdersByLink([
+      { OrderID: "s1", Link: 100, Type: "Polymarket", PmSide: "sell" as const },
+      { OrderID: "b1", Link: 200, Type: "Polymarket", PmSide: "buy" as const },
+      { OrderID: "s2", Link: 200, Type: "Polymarket", PmSide: "sell" as const, PmBuyOrderId: "b1" },
+      { OrderID: "ob", Link: 300, Type: "OB" },
+    ]);
+    const filtered = dropOrphanPolymarketSellGroups(grouped);
+    expect([...filtered.keys()].sort()).toEqual([200, 300]);
+    expect(filtered.get(100)).toBeUndefined();
+    expect(filtered.get(200)?.map(r => r.OrderID)).toEqual(["b1", "s2"]);
+  });
+
+  it("PM sell belongs to buy day for display and day profit", () => {
+    const buyAt = Date.parse("2026-07-18T15:36:00+08:00");
+    const sellAt = Date.parse("2026-07-19T00:24:00+08:00");
+    const buyDay = toOrderDateKeyLocal(buyAt);
+    const sellDay = toOrderDateKeyLocal(sellAt);
+    const rows = [
+      {
+        OrderID: "0xbuy",
+        Link: 99,
+        Type: "Polymarket",
+        PmSide: "buy" as const,
+        CreateAt: buyAt,
+        Money: 0,
+        PmSellState: "closed",
+      },
+      {
+        OrderID: "0xsell",
+        Link: 99,
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        CreateAt: sellAt,
+        Money: 12,
+        PmBuyOrderId: "0xbuy",
+      },
+    ];
+    expect(orderProfitDateTs(rows[1]!, rows)).toBe(buyAt);
+    expect(filterOrdersBelongingToDate(rows, buyDay).map(r => r.OrderID).sort())
+      .toEqual(["0xbuy", "0xsell"]);
+    expect(filterOrdersBelongingToDate(rows, sellDay)).toEqual([]);
+  });
+
+  it("filterOrdersBelongingToDate keeps cross-day arb siblings when no PM sell", () => {
+    const yday = Date.parse("2026-07-18T12:00:00+08:00");
+    const today = Date.parse("2026-07-19T12:00:00+08:00");
+    const todayKey = toOrderDateKeyLocal(today);
+    const rows = [
+      { OrderID: "ob", Link: 7, Type: "OB", CreateAt: yday, Money: 5 },
+      { OrderID: "pm", Link: 7, Type: "Polymarket", PmSide: "buy" as const, CreateAt: today, Money: 0 },
+    ];
+    expect(filterOrdersBelongingToDate(rows, todayKey).map(r => r.OrderID).sort())
+      .toEqual(["ob", "pm"]);
   });
 
   it("computeOrderGroupProfit includes sell Money on partial close", () => {

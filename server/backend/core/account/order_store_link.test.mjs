@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { saveOrder } from "./order_store.js";
+import { listByDatePage, saveOrder } from "./order_store.js";
 
 const fetchOrdersByPlayerOrderIds = vi.hoisted(() => vi.fn(async () => []));
 const upsertOrders = vi.hoisted(() => vi.fn(async () => true));
+const fetchOrdersByDatePage = vi.hoisted(() => vi.fn(async () => ({ rows: [], total: 0 })));
+const fetchOrdersByLinks = vi.hoisted(() => vi.fn(async () => []));
 
 vi.mock("@changmen/db", async (importOriginal) => {
   const actual = await importOriginal();
@@ -11,6 +13,8 @@ vi.mock("@changmen/db", async (importOriginal) => {
     ...actual,
     fetchOrdersByPlayerOrderIds,
     upsertOrders,
+    fetchOrdersByDatePage,
+    fetchOrdersByLinks,
   };
 });
 
@@ -18,8 +22,12 @@ describe("saveOrder backend bind link", () => {
   beforeEach(() => {
     fetchOrdersByPlayerOrderIds.mockReset();
     upsertOrders.mockReset();
+    fetchOrdersByDatePage.mockReset();
+    fetchOrdersByLinks.mockReset();
     fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
     upsertOrders.mockResolvedValue(true);
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [], total: 0 });
+    fetchOrdersByLinks.mockResolvedValue([]);
   });
 
   it("sets link just before create_at for new unbound order", async () => {
@@ -147,6 +155,61 @@ describe("saveOrder backend bind link", () => {
     expect(row.raw.pmBuyOrderId).toBe("0xbuy98");
   });
 
+  it("PM sell follows buy Link across days via pmBuyOrderId (case-insensitive)", async () => {
+    const buyLink = 1_781_300_000_001;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xBUYYesterday",
+        link: buyLink,
+        create_at: 1_781_300_000_000,
+        raw: { pmSide: "buy", pmOrigin: "changmen" },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xsellToday",
+        createAt: 1_781_390_000_000,
+        provider: "Polymarket",
+        pmSide: "sell",
+        pmOrigin: "changmen",
+        pmBuyOrderId: "0xbuyyesterday",
+        link: buyLink,
+        betMoney: 50,
+        money: 10,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(buyLink);
+  });
+
+  it("PM sell uses client link when buy row missing from prefetch", async () => {
+    const buyLink = 1_781_300_000_222;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xsellOrphan",
+        createAt: 1_781_390_000_000,
+        provider: "Polymarket",
+        pmSide: "sell",
+        pmOrigin: "changmen",
+        pmBuyOrderId: "0xmissingBuy",
+        link: buyLink,
+        betMoney: 50,
+        money: 10,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(buyLink);
+  });
+
   it("PM changmen buy restores pmShares from CLOB when RDS stored zero", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
@@ -233,5 +296,141 @@ describe("saveOrder backend bind link", () => {
     expect(row.status).toBe("Win");
     expect(row.money).toBe(126);
     expect(row.raw.pmSellState).toBe("settled");
+  });
+
+  it("PM manually closed buy rejects Gamma Win money (profit stays on sell day)", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xbuy-closed",
+        link: 1_784_389_005_296,
+        create_at: 1_784_389_000_000,
+        bet_money: 200,
+        money: 0,
+        status: "None",
+        raw: {
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 56.55,
+          pmStakeUsdc: 29,
+          pmSellState: "closed",
+          pmAttributedSellShares: 56.55,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy-closed",
+        createAt: 1_784_389_000_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        pmShares: 56.55,
+        pmStakeUsdc: 0,
+        pmSellState: "settled",
+        pmAttributedSellShares: 56.55,
+        betMoney: 200,
+        money: 184,
+        status: "win",
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.money).toBe(0);
+    expect(row.status).toBe("None");
+    expect(row.raw.pmSellState).toBe("closed");
+  });
+});
+
+describe("listByDatePage link siblings", () => {
+  beforeEach(() => {
+    fetchOrdersByDatePage.mockReset();
+    fetchOrdersByLinks.mockReset();
+  });
+
+  const buyAt = Date.parse("2026-07-18T15:36:00+08:00");
+  const sellAt = Date.parse("2026-07-19T00:24:00+08:00");
+  const buyDay = "2026-07-18";
+  const sellDay = "2026-07-19";
+  const buyYday = {
+    order_id: "0xbuyYday",
+    link: 1_781_300_000_999,
+    create_at: buyAt,
+    player_id: 47,
+    provider: "Polymarket",
+    bet_money: 100,
+    money: 0,
+    status: "None",
+    raw: { pmSide: "buy", pmOrigin: "changmen", pmSellState: "closed" },
+  };
+  const sellToday = {
+    order_id: "0xsellToday",
+    link: 1_781_300_000_999,
+    create_at: sellAt,
+    player_id: 47,
+    provider: "Polymarket",
+    bet_money: 50,
+    money: 10,
+    status: "None",
+    raw: { pmSide: "sell", pmBuyOrderId: "0xbuyYday", pmOrigin: "changmen" },
+  };
+
+  it("on buy day merges next-day sell into the same Link group", async () => {
+    const link = buyYday.link;
+    fetchOrdersByDatePage.mockResolvedValue({
+      rows: [buyYday],
+      total: 1,
+    });
+    fetchOrdersByLinks.mockResolvedValue([buyYday, sellToday]);
+
+    const { list, total } = await listByDatePage(buyDay, "user-1", 1, 1024);
+    expect(total).toBe(1);
+    expect(list.map(r => r.OrderID).sort()).toEqual(["0xbuyYday", "0xsellToday"]);
+    expect(list.every(r => r.Link === link)).toBe(true);
+    expect(fetchOrdersByLinks).toHaveBeenCalledWith("user-1", [link]);
+  });
+
+  it("on sell day does not show sell alone (belongs to buy day)", async () => {
+    fetchOrdersByDatePage.mockResolvedValue({
+      rows: [sellToday],
+      total: 1,
+    });
+    fetchOrdersByLinks.mockResolvedValue([buyYday, sellToday]);
+
+    const { list } = await listByDatePage(sellDay, "user-1", 1, 1024);
+    expect(list).toEqual([]);
+  });
+
+  it("keeps cross-day arb siblings when there is no PM sell", async () => {
+    const ydayAt = Date.parse("2026-07-18T12:00:00+08:00");
+    const todayAt = Date.parse("2026-07-19T12:00:00+08:00");
+    const ob = {
+      order_id: "ob-1",
+      link: 42,
+      create_at: ydayAt,
+      player_id: 1,
+      provider: "OB",
+      bet_money: 100,
+      money: 5,
+      status: "Win",
+      raw: {},
+    };
+    const pm = {
+      order_id: "pm-1",
+      link: 42,
+      create_at: todayAt,
+      player_id: 1,
+      provider: "Polymarket",
+      bet_money: 100,
+      money: 0,
+      status: "None",
+      raw: { pmSide: "buy" },
+    };
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [pm], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([ob, pm]);
+    const { list } = await listByDatePage("2026-07-19", "user-1", 1, 1024);
+    expect(list.map(r => r.OrderID).sort()).toEqual(["ob-1", "pm-1"]);
   });
 });

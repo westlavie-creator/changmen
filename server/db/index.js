@@ -101,6 +101,7 @@ export const {
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,
   fetchOrdersByLink,
+  fetchOrdersByLinks,
   fetchOrderByOrderId,
   fetchUserByName,
   fetchUserById,

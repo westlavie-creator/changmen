@@ -55,10 +55,113 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
   return hasOpenPolymarketPosition(row);
 }
 
-/** 侧栏列表展示行：PM 卖单不占独立行；已取消补单占位不展示 */
 /** 侧栏订单行：展示全部腿（含 PM changmen 卖单） */
 export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
   return rows.filter(r => !isMakeupCancelledOrderRow(r));
+}
+
+/** 本地日历日 YYYY-MM-DD（与侧栏 orderDate 一致） */
+export function toOrderDateKeyLocal(ts: number): string {
+  const d = new Date(Number(ts) || Date.now());
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * [changmen 扩展] 订单归账时间戳：PM 卖单跟对应买单 CreateAt，
+ * 使跨日卖出在买单日展示并计入当日盈亏。
+ */
+export function orderProfitDateTs(row: OrderRow, peers: OrderRow[]): number {
+  if (isPolymarketOrderRow(row) && row.PmSide === "sell") {
+    const buyId = String(row.PmBuyOrderId ?? "").trim().toLowerCase();
+    if (buyId) {
+      const buy = peers.find(r =>
+        isPolymarketOrderRow(r)
+        && r.PmSide !== "sell"
+        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
+      );
+      const buyAt = Number(buy?.CreateAt) || 0;
+      if (buyAt > 0)
+        return buyAt;
+    }
+    const link = Number(row.Link) || 0;
+    const buyAts = peers
+      .filter(r =>
+        isPolymarketOrderRow(r)
+        && r.PmSide !== "sell"
+        && (link === 0 || (Number(r.Link) || 0) === link),
+      )
+      .map(r => Number(r.CreateAt) || 0)
+      .filter(n => n > 0);
+    if (buyAts.length)
+      return Math.min(...buyAts);
+  }
+  return Number(row.CreateAt) || 0;
+}
+
+export function orderBelongsToDateKey(
+  row: OrderRow,
+  dateKey: string,
+  peers: OrderRow[],
+): boolean {
+  const at = orderProfitDateTs(row, peers);
+  if (!at)
+    return true;
+  return toOrderDateKeyLocal(at) === dateKey;
+}
+
+/**
+ * 按日展示过滤：
+ * - 含 PM 卖单的 Link 组：整组跟买单日（卖出日不再出现）
+ * - 无 PM 卖单：保留跨日 sibling 整组（套利腿不拆）
+ */
+export function filterOrdersBelongingToDate(
+  list: OrderRow[],
+  dateKey: string,
+): OrderRow[] {
+  const groups = groupOrdersByLink(list);
+  const out: OrderRow[] = [];
+  for (const rows of groups.values()) {
+    const pmSells = rows.filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell");
+    if (pmSells.length) {
+      const anchors = pmSells
+        .map(s => orderProfitDateTs(s, rows))
+        .filter(n => n > 0);
+      if (anchors.length) {
+        const anchorDay = toOrderDateKeyLocal(Math.min(...anchors));
+        if (anchorDay !== dateKey)
+          continue;
+      }
+      out.push(...rows);
+      continue;
+    }
+    out.push(...rows);
+  }
+  return out;
+}
+
+/**
+ * [changmen 扩展] 去掉「仅有 PM 卖单、无买单/他场馆腿」的 Link 组。
+ * 卖单必须跟买单同组展示；孤儿卖单不单独占一组。
+ */
+export function dropOrphanPolymarketSellGroups(
+  groups: Map<number, OrderRow[]>,
+): Map<number, OrderRow[]> {
+  const out = new Map<number, OrderRow[]>();
+  for (const [link, rows] of groups) {
+    const hasPmSell = rows.some(r => isPolymarketOrderRow(r) && r.PmSide === "sell");
+    if (!hasPmSell) {
+      out.set(link, rows);
+      continue;
+    }
+    const hasPmBuy = rows.some(r => isPolymarketOrderRow(r) && r.PmSide !== "sell");
+    const hasOtherVenue = rows.some(r => !isPolymarketOrderRow(r) && !isMakeupSyntheticOrderRow(r));
+    if (hasPmBuy || hasOtherVenue)
+      out.set(link, rows);
+  }
+  return out;
 }
 
 export function isMakeupPendingOrderRow(row: OrderRow): boolean {
@@ -295,8 +398,14 @@ export function mergePendingMakeupIntoOrderGroups(
   return groupOrdersByLink(allRows);
 }
 
-/** 组内盈亏：PM 已实现卖出计入卖单 Money；未平仓时跳过卖单避免与未结买单双计 */
+/** 组内盈亏：PM 已实现卖出计入卖单 Money；对应买单有卖单时买单 Money 不重复计 */
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
+  const buyIdsWithSell = new Set(
+    rows
+      .filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell")
+      .map(r => String(r.PmBuyOrderId ?? "").trim())
+      .filter(Boolean),
+  );
   return rows
     .filter((r) => {
       if (isMakeupSyntheticOrderRow(r))
@@ -312,6 +421,9 @@ export function computeOrderGroupProfit(rows: OrderRow[]): number {
         const state = buy.PmSellState;
         return state === "closed" || state === "settled" || state === "partial";
       }
+      // 已有挂到本买单的卖单：盈亏在卖单行，跳过买单 Money（避免双计）
+      if (isPolymarketOrderRow(r) && r.PmSide !== "sell" && buyIdsWithSell.has(String(r.OrderID ?? "").trim()))
+        return false;
       return true;
     })
     .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
