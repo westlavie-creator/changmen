@@ -28,3 +28,22 @@ export async function directPostJson<T>(
   }
   return res.data;
 }
+
+export async function directDeleteJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+): Promise<T> {
+  const res = await a8Axios.delete<T>(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+    data: body,
+  });
+  if (res.status >= 400) {
+    const text = responseBodyText(res.data);
+    throw new Error(text.slice(0, 160) || `HTTP ${res.status}`);
+  }
+  return res.data;
+}

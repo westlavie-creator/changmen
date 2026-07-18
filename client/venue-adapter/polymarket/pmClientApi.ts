@@ -31,6 +31,16 @@ export async function pmSubmitOrder<T = unknown>(
   }));
 }
 
+export async function pmCancelOrder<T = unknown>(
+  account: PlatformAccount,
+  orderId: string,
+): Promise<T> {
+  return pmEsportCall<T>("Pm_CancelOrder", esportBody(account, {
+    playerId: requirePlayerId(account),
+    orderId: String(orderId).trim(),
+  }));
+}
+
 export async function pmGetTrades<T = unknown>(
   account: PlatformAccount,
   afterSec: number,

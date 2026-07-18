@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  attachHubUpstreamBackpressure,
   attachRawPipeBackpressure,
   createWsRelayGuard,
   maxWsBufferedBytes,
@@ -60,6 +61,35 @@ describe("ws_backpressure", () => {
     ctrl.tick();
     expect(sock.paused).toBe(false);
     ctrl.stop();
+    vi.useRealTimers();
+  });
+
+  it("hub backpressure never pauses upstream when all clients overloaded", () => {
+    vi.useFakeTimers();
+    const sock = {
+      paused: false,
+      pause() { this.paused = true; },
+      resume() { this.paused = false; },
+      isPaused() { return this.paused; },
+    };
+    const slowClient = { OPEN: 1, readyState: 1, bufferedAmount: 1024 * 1024 };
+    const upstream = { OPEN: 1, readyState: 1, _socket: sock };
+    const guard = createWsRelayGuard("PM-MARKET", "to-client");
+    expect(guard.isSendAllowed(slowClient)).toBe(false);
+
+    sock.paused = true;
+    const stop = attachHubUpstreamBackpressure(
+      () => [slowClient],
+      () => upstream,
+      guard,
+      "PM-MARKET",
+    );
+    vi.advanceTimersByTime(50);
+    expect(sock.paused).toBe(false);
+    sock.paused = true;
+    vi.advanceTimersByTime(50);
+    expect(sock.paused).toBe(false);
+    stop();
     vi.useRealTimers();
   });
 });

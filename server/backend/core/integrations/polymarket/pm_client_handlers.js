@@ -243,6 +243,31 @@ export async function handlePmGetOpenOrders(body, userId) {
   }
 }
 
+/** Pm_CancelOrder — DELETE /order { orderID } */
+export async function handlePmCancelOrder(body, userId) {
+  const resolved = await resolveOwnedPmAccount(body.playerId, userId);
+  if (!resolved.ok)
+    return resolved;
+  const orderId = String(body.orderId ?? body.orderID ?? "").trim();
+  if (!orderId)
+    return { ok: false, msg: "orderId 必填" };
+  try {
+    const gateway = clobGateway(resolved.account);
+    const payload = { orderID: orderId };
+    const result = await executePolymarketHttpRequest({
+      method: "DELETE",
+      url: `${gateway}${ORDER_PATH}`,
+      l2Path: ORDER_PATH,
+      accountToken: resolved.account.token,
+      body: payload,
+    });
+    return { ok: true, info: parseUpstreamJson(result) };
+  }
+  catch (err) {
+    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** Pm_GetBook — 公开盘口，无 L2 */
 export async function handlePmGetBook(body, userId) {
   void userId;

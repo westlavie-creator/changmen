@@ -111,6 +111,14 @@ export async function a8PluginPost(
   return a8PluginSend({ type: "POST", url, data, options });
 }
 
+export async function a8PluginDelete(
+  url: string,
+  data: unknown,
+  options?: A8PluginMessage["options"],
+): Promise<unknown> {
+  return a8PluginSend({ type: "DELETE", url, data, options });
+}
+
 export interface GamebetExtensionInfo {
   name?: string;
   version?: string;

@@ -56,11 +56,9 @@ export function isPolymarketOpenPosition(row: OrderRow): boolean {
 }
 
 /** 侧栏列表展示行：PM 卖单不占独立行；已取消补单占位不展示 */
+/** 侧栏订单行：展示全部腿（含 PM changmen 卖单） */
 export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
-  return rows.filter(r =>
-    !(isPolymarketOrderRow(r) && r.PmSide === "sell")
-    && !isMakeupCancelledOrderRow(r),
-  );
+  return rows.filter(r => !isMakeupCancelledOrderRow(r));
 }
 
 export function isMakeupPendingOrderRow(row: OrderRow): boolean {
@@ -297,11 +295,25 @@ export function mergePendingMakeupIntoOrderGroups(
   return groupOrdersByLink(allRows);
 }
 
-/** 组内盈亏：各腿 Money 合计（PM 卖单跳过，避免与买单重复） */
+/** 组内盈亏：PM 已实现卖出计入卖单 Money；未平仓时跳过卖单避免与未结买单双计 */
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
   return rows
-    .filter(r => !(isPolymarketOrderRow(r) && r.PmSide === "sell"))
-    .filter(r => !isMakeupSyntheticOrderRow(r))
+    .filter((r) => {
+      if (isMakeupSyntheticOrderRow(r))
+        return false;
+      if (isPolymarketOrderRow(r) && r.PmSide === "sell") {
+        const buyId = String(r.PmBuyOrderId ?? "").trim();
+        const buy = buyId
+          ? rows.find(b => isPolymarketOrderRow(b) && b.PmSide !== "sell" && String(b.OrderID) === buyId)
+          : undefined;
+        // 无对应买单：仍计卖单；有买单则全平/部份平都计入已实现
+        if (!buy)
+          return true;
+        const state = buy.PmSellState;
+        return state === "closed" || state === "settled" || state === "partial";
+      }
+      return true;
+    })
     .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
 }
 
@@ -309,13 +321,26 @@ export function computeOrderGroupProfit(rows: OrderRow[]): number {
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
+  const isPmClosedBuy = (r: OrderRow) =>
+    isPolymarketOrderRow(r)
+    && r.PmSide !== "sell"
+    && (r.PmSellState === "closed" || r.PmSellState === "settled");
   const stake = rows
-    .filter(r => !LOSE_REJECT.has(String(r.Status)) && r.PmSide !== "sell" && !isMakeupSyntheticOrderRow(r))
+    .filter(r =>
+      !LOSE_REJECT.has(String(r.Status))
+      && r.PmSide !== "sell"
+      && !isMakeupSyntheticOrderRow(r)
+      && !isPmClosedBuy(r),
+    )
     .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
   const makeupPrefix = hasMakeup ? "补单中 · " : "";
   const unsettledPreview = rows
-    .filter(r => String(r.Status ?? "") === "None" && r.PmSide !== "sell")
+    .filter(r =>
+      String(r.Status ?? "") === "None"
+      && r.PmSide !== "sell"
+      && !isPmClosedBuy(r),
+    )
     .map((r) => {
       const odds = Number(r.Odds) || 0;
       const bet = Number(r.BetMoney) || 0;

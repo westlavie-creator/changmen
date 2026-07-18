@@ -173,7 +173,7 @@ export async function buildL2Headers(
   apiKey: string,
   secret: string,
   passphrase: string,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   requestPath: string,
   body?: string,
   timestampOverride?: number,
@@ -187,14 +187,14 @@ export async function buildL2Headers(
     "POLY_API_KEY": apiKey,
     "POLY_PASSPHRASE": passphrase,
   };
-  if (method === "POST")
+  if (method === "POST" || method === "DELETE")
     headers["Content-Type"] = "application/json";
   return headers;
 }
 
 export async function buildL2HeadersFromAccount(
   account: PlatformAccount,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   requestPath: string,
   body?: string,
   timestampOverride?: number,

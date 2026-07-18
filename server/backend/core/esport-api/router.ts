@@ -17,6 +17,7 @@ import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
 import * as accountService from "../account/account_service.js";
 import {
+  handlePmCancelOrder,
   handlePmGetBook,
   handlePmGetOpenOrders,
   handlePmGetOrder,
@@ -518,6 +519,10 @@ async function handle(
     case "Pm_SubmitOrder": {
       const submitted = await handlePmSubmitOrder(body, ctx.user.id);
       return submitted.ok ? ok(submitted.info) : fail(submitted.msg);
+    }
+    case "Pm_CancelOrder": {
+      const cancelled = await handlePmCancelOrder(body, ctx.user.id);
+      return cancelled.ok ? ok(cancelled.info) : fail(cancelled.msg);
     }
     case "Pm_GetTrades": {
       const trades = await handlePmGetTrades(body, ctx.user.id);

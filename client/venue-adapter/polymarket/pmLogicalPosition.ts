@@ -13,8 +13,10 @@ export interface OrderRowLike {
   Money?: number;
   Status?: string;
   CreateAt?: number;
+  Link?: number;
   PmTokenId?: string;
   PmShares?: number;
+  PmFillPrice?: number;
   PmStakeUsdc?: number;
   PmConditionId?: string;
   PmOrigin?: "changmen" | "external";
@@ -98,8 +100,10 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
     match: String(row.Match ?? ""),
     bet: String(row.Bet ?? ""),
     item: String(row.Item ?? ""),
+    link: Number(row.Link) || undefined,
     pmTokenId: row.PmTokenId,
     pmShares: row.PmShares,
+    pmFillPrice: row.PmFillPrice,
     pmStakeUsdc: row.PmStakeUsdc,
     pmConditionId: row.PmConditionId,
     pmOrigin: row.PmOrigin,
@@ -117,9 +121,19 @@ export function isPolymarketSellOrder(order: OrderRowLike | VenueOrder): boolean
   return rowLike.PmSide === "sell" || venueLike.pmSide === "sell";
 }
 
-/** changmen 不做卖出：同步/展示/落库均排除卖单 */
+/**
+ * 同步时剥离官网/external 卖单；保留 changmen 手动卖单（同 Link 展示）。
+ * CLOB trade 映射的 sell 默认为 external，避免与买单双计。
+ */
 export function stripPolymarketSellOrders<T extends OrderRowLike | VenueOrder>(orders: T[]): T[] {
-  return orders.filter(o => !isPolymarketSellOrder(o));
+  return orders.filter((o) => {
+    if (!isPolymarketSellOrder(o))
+      return true;
+    const row = o as OrderRowLike;
+    const venue = o as VenueOrder;
+    const origin = row.PmOrigin ?? venue.pmOrigin;
+    return origin === "changmen";
+  });
 }
 
 export function hasChangmenLogicalSell(order: VenueOrder): boolean {
@@ -146,8 +160,9 @@ export function hasOpenPolymarketPosition(order: OrderRowLike | VenueOrder): boo
     return false;
 
   const fill = resolvePmFillShares(order);
+  // 无成交份数：不算可卖持仓（避免 pmShares≈0 仍显示「卖出」）
   if (fill <= 0.0001)
-    return true;
+    return false;
 
   return resolvePmRemainingShares(order) > 0.0001;
 }

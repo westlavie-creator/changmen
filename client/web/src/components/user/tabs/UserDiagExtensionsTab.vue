@@ -70,21 +70,6 @@ async function save() {
       </p>
     </div>
 
-    <div class="extensions-tab__row">
-      <el-form-item label="PM卖单:" class="extensions-tab__control">
-        <el-switch
-          v-model="extensionPrefs.pmAutoExitSell"
-          inline-prompt
-          active-text="开启"
-          inactive-text="关闭"
-          size="large"
-        />
-      </el-form-item>
-      <p class="extensions-tab__desc">
-        Polymarket 买单确认成交后自动挂止盈卖单。默认开启。
-      </p>
-    </div>
-
     <el-divider content-position="left">
       高利润加仓
     </el-divider>

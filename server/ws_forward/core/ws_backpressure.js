@@ -146,42 +146,22 @@ export function attachRawPipeBackpressure(clientWs, upstreamWs, platformId) {
 }
 
 /**
- * Hub 共用上游：任一客户端可写则 resume；全部过载则 pause。
- * @param {() => Iterable<import("ws").WebSocket>} listClientSockets
+ * Hub 共用上游背压策略：
+ * - 不因客户端过载 pause 上游（慢连接用 per-client pending/coalesce 隔离，避免拖死全员）。
+ * - 定时 resume，防止历史 pause 或其它路径把上游 TCP 卡在 paused。
+ *
+ * listClientSockets / toClientGuard 保留参数以兼容旧调用方，当前不再用于 pause 决策。
+ * @param {() => Iterable<import("ws").WebSocket>} _listClientSockets
  * @param {() => import("ws").WebSocket | null} getUpstream
- * @param {ReturnType<typeof createWsRelayGuard>} toClientGuard
- * @param {string} platformId
+ * @param {ReturnType<typeof createWsRelayGuard>} _toClientGuard
+ * @param {string} _platformId
  */
-export function attachHubUpstreamBackpressure(listClientSockets, getUpstream, toClientGuard, platformId) {
-  let paused = false;
+export function attachHubUpstreamBackpressure(_listClientSockets, getUpstream, _toClientGuard, _platformId) {
   const timer = setInterval(() => {
     const up = getUpstream();
-    if (!up || up.readyState !== up.OPEN) {
-      paused = false;
+    if (!up || up.readyState !== up.OPEN)
       return;
-    }
-    let anyOk = false;
-    let anyClient = false;
-    for (const clientWs of listClientSockets()) {
-      if (clientWs.readyState !== clientWs.OPEN)
-        continue;
-      anyClient = true;
-      if (toClientGuard.isSendAllowed(clientWs)) {
-        anyOk = true;
-        break;
-      }
-    }
-    const shouldPause = anyClient && !anyOk;
-    if (shouldPause === paused)
-      return;
-    paused = shouldPause;
-    if (paused) {
-      pauseWsSocket(up);
-      console.warn(`[ws_forward/${platformId}] pause upstream (all clients overloaded)`);
-    }
-    else {
-      resumeWsSocket(up);
-    }
+    resumeWsSocket(up);
   }, 50);
 
   return () => clearInterval(timer);

@@ -44,6 +44,7 @@ const {
   handlePmGetTrades,
   handlePmHeartbeat,
   handlePmGetOpenOrders,
+  handlePmCancelOrder,
 } = await import("./pm_client_handlers.js");
 
 describe("pm_client_handlers", () => {
@@ -87,5 +88,28 @@ describe("pm_client_handlers", () => {
     const res = await handlePmGetOpenOrders({ playerId: 47, assetId: "123" }, "user-1");
     expect(res.ok).toBe(true);
     expect(Array.isArray(res.info)).toBe(true);
+  });
+
+  test("Pm_CancelOrder 需要 orderId", async () => {
+    const res = await handlePmCancelOrder({ playerId: 47 }, "user-1");
+    expect(res.ok).toBe(false);
+    expect(String(res.msg)).toMatch(/orderId/);
+  });
+
+  test("Pm_CancelOrder 成功", async () => {
+    const { executePolymarketHttpRequest } = await import("./clob_proxy.js");
+    vi.mocked(executePolymarketHttpRequest).mockResolvedValueOnce({
+      status: 200,
+      text: JSON.stringify({ canceled: ["oid-1"], not_canceled: {} }),
+    });
+    const res = await handlePmCancelOrder({ playerId: 47, orderId: "oid-1" }, "user-1");
+    expect(res.ok).toBe(true);
+    expect(res.info).toEqual({ canceled: ["oid-1"], not_canceled: {} });
+    expect(executePolymarketHttpRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "DELETE",
+        body: { orderID: "oid-1" },
+      }),
+    );
   });
 });

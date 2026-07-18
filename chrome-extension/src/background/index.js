@@ -48,9 +48,10 @@ async function handleExternalMessage(message, reply, sender) {
   const { type, uuid } = message;
 
   switch (type) {
-    case "GET":
-    case "POST":
-    case "": {
+      case "GET":
+      case "POST":
+      case "DELETE":
+      case "": {
       const tabId = message.options?.tabId;
       if (tabId) {
         try {

@@ -3,8 +3,8 @@
  * 业务代码只依赖 transport.ts / pmClientApi.ts，不感知 mode。
  */
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
-import { directGet, directPostJson } from "@changmen/client-core/shared/http";
+import { a8PluginGet, a8PluginPost, a8PluginDelete } from "@changmen/client-core/chrome-plugin/bridge";
+import { directGet, directPostJson, directDeleteJson } from "@changmen/client-core/shared/http";
 import {
   changmenPmEsportCall,
   changmenPmHttpRequest,
@@ -28,6 +28,8 @@ export interface PmTransportHttpOptions {
   l2Path?: string;
 }
 
+type PmHttpMethod = "GET" | "POST" | "DELETE";
+
 function pickPolyHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
   if (!headers)
     return undefined;
@@ -50,7 +52,7 @@ function unwrapJsonBody<T>(text: string): T {
 }
 
 async function resolveAuthHeaders(
-  method: "GET" | "POST",
+  method: PmHttpMethod,
   l2Path: string | undefined,
   account: PlatformAccount | undefined,
   polyFromOptions: Record<string, string> | undefined,
@@ -67,13 +69,15 @@ async function resolveAuthHeaders(
 }
 
 async function pmHttpViaDirect<T>(
-  method: "GET" | "POST",
+  method: PmHttpMethod,
   url: string,
   data: unknown | undefined,
   options?: PmTransportHttpOptions,
 ): Promise<T> {
   const l2Path = options?.l2Path;
-  const bodyText = method === "POST" && data !== undefined ? JSON.stringify(data) : "";
+  const bodyText = (method === "POST" || method === "DELETE") && data !== undefined
+    ? JSON.stringify(data)
+    : "";
   const headers = await resolveAuthHeaders(
     method,
     l2Path,
@@ -83,17 +87,21 @@ async function pmHttpViaDirect<T>(
   );
   if (method === "GET")
     return directGet<T>(url, headers);
+  if (method === "DELETE")
+    return directDeleteJson<T>(url, headers, data);
   return directPostJson<T>(url, headers, data);
 }
 
 async function pmHttpViaExtension<T>(
-  method: "GET" | "POST",
+  method: PmHttpMethod,
   url: string,
   data: unknown | undefined,
   options?: PmTransportHttpOptions,
 ): Promise<T> {
   const l2Path = options?.l2Path;
-  const bodyText = method === "POST" && data !== undefined ? JSON.stringify(data) : "";
+  const bodyText = (method === "POST" || method === "DELETE") && data !== undefined
+    ? JSON.stringify(data)
+    : "";
   const headers = await resolveAuthHeaders(
     method,
     l2Path,
@@ -104,7 +112,9 @@ async function pmHttpViaExtension<T>(
   const reqOptions = Object.keys(headers).length ? { headers } : undefined;
   const raw = method === "GET"
     ? await a8PluginGet(url, reqOptions)
-    : await a8PluginPost(url, data, reqOptions);
+    : method === "DELETE"
+      ? await a8PluginDelete(url, data, reqOptions)
+      : await a8PluginPost(url, data, reqOptions);
   return unwrapPluginResponse<T>(raw);
 }
 
@@ -123,7 +133,7 @@ function unwrapPluginResponse<T>(response: unknown): T {
 }
 
 async function pmHttpViaVps<T>(
-  method: "GET" | "POST",
+  method: PmHttpMethod,
   url: string,
   data: unknown | undefined,
   options?: PmTransportHttpOptions,
@@ -143,7 +153,7 @@ async function pmHttpViaVps<T>(
 }
 
 function dispatchHttp<T>(
-  method: "GET" | "POST",
+  method: PmHttpMethod,
   url: string,
   data: unknown | undefined,
   options?: PmTransportHttpOptions,
@@ -170,6 +180,14 @@ export async function pmTransportHttpPost<T>(
   options?: PmTransportHttpOptions,
 ): Promise<T> {
   return dispatchHttp<T>("POST", url, data, options);
+}
+
+export async function pmTransportHttpDelete<T>(
+  url: string,
+  data: unknown,
+  options?: PmTransportHttpOptions,
+): Promise<T> {
+  return dispatchHttp<T>("DELETE", url, data, options);
 }
 
 const ORDER_PATH = "/order";
@@ -263,6 +281,17 @@ async function localHttpPost<T>(
   return pmHttpViaExtension<T>("POST", url, data, options);
 }
 
+async function localHttpDelete<T>(
+  mode: LocalHttpMode,
+  url: string,
+  data: unknown,
+  options?: PmTransportHttpOptions,
+): Promise<T> {
+  if (mode === "direct")
+    return pmHttpViaDirect<T>("DELETE", url, data, options);
+  return pmHttpViaExtension<T>("DELETE", url, data, options);
+}
+
 async function fetchPolymarketTradesSinceLocal(
   mode: LocalHttpMode,
   account: PlatformAccount,
@@ -314,6 +343,17 @@ async function pmEsportCallLocal<T>(
         throw new Error("order 必填");
       const gateway = clobGatewayFromAccount(account);
       return localHttpPost<T>(mode, `${gateway}${ORDER_PATH}`, order, {
+        account,
+        l2Path: ORDER_PATH,
+      });
+    }
+    case "Pm_CancelOrder": {
+      const account = requireEsportAccount(body);
+      const orderId = String(body.orderId ?? body.orderID ?? "").trim();
+      if (!orderId)
+        throw new Error("orderId 必填");
+      const gateway = clobGatewayFromAccount(account);
+      return localHttpDelete<T>(mode, `${gateway}${ORDER_PATH}`, { orderID: orderId }, {
         account,
         l2Path: ORDER_PATH,
       });

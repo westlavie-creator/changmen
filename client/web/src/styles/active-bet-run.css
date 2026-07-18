@@ -1,12 +1,12 @@
 /** [changmen 扩展] 主区赛事列表上方「进行中订单」面板（固定占位 + 横向分栏） */
 
 .active-bet-run {
-  border: 1px solid #2a6ebb;
+  border: 1px solid #3f4a5c;
   border-radius: 5px;
   margin: 0;
   padding: 6px 8px 8px;
   min-inline-size: 0;
-  background: linear-gradient(to bottom, #1a2a3a, #0d1520);
+  background: linear-gradient(to bottom, #1a1f2a, #12151c);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -22,9 +22,9 @@
 .active-bet-run legend {
   font-size: 14px;
   padding: 0 6px;
-  color: #e8f4ff;
-  background: linear-gradient(to bottom, #3a7bd5, #1e4f8a);
-  border: 1px solid #5a9de0;
+  color: #e2e8f0;
+  background: linear-gradient(to bottom, #3f4a5c, #2a3140);
+  border: 1px solid #5b6578;
   border-radius: 3px;
 }
 
@@ -63,7 +63,7 @@
   gap: 6px;
   padding: 6px 10px 6px 12px;
   font-size: 14px;
-  color: #e8f4ffcc;
+  color: #e2e8f0cc;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3px solid transparent;
   box-sizing: border-box;
@@ -104,13 +104,13 @@
 .active-bet-run__col-label {
   font-size: 13px;
   font-weight: 700;
-  color: #b8dcff;
+  color: #cbd5e1;
   white-space: nowrap;
 }
 
 .active-bet-run__phase {
   font-size: 13px;
-  color: #7ec8ff;
+  color: #94a3b8;
   white-space: nowrap;
   text-align: right;
   flex: 1 1 auto;
@@ -225,7 +225,7 @@
 
 .active-bet-run__leg-money {
   flex: 0 0 auto;
-  color: #b8dcff;
+  color: #cbd5e1;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -264,13 +264,13 @@
 
 .active-bet-run__leg-event-stage {
   flex: 0 0 auto;
-  color: #7ec8ff;
+  color: #94a3b8;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .active-bet-run__leg-event-stage[data-layer="预检"] {
-  color: #90caf9;
+  color: #a8b4c4;
 }
 
 .active-bet-run__leg-event-stage[data-layer="下单"] {

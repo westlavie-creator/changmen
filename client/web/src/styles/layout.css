@@ -125,8 +125,8 @@ a,.green {
 }
 
 aside {
-  background: var(--cm-sidebar-bg, #0f172a);
-  background-color: #0f172a;
+  background: var(--cm-sidebar-bg, #12151c);
+  background-color: var(--cm-body-bg, #12151c);
   box-shadow: 0 2px 5px #0006;
 }
 

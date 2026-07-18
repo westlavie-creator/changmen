@@ -1,19 +1,18 @@
 # Polymarket 卖出功能 — 后期加回 Checklist
 
-> **现状（2026-07）**：changmen **买入后自动挂 GTC 止盈卖单**（tick 对齐 [0.99, 0.995] 随机）；手动平仓 UI 仍未做。  
-> **本文**：后期完善卖出归因 / 手动平仓时的设计备忘，避免再现 NRG 类 `open + full attr` 挡 Gamma 问题。
+> **现状（2026-07）**：**手动卖出** = 对当前买单剩余份额下 FOK，返回结果并落库本买卖对。  
+> 系统先买后卖；每个「卖出」按钮只服务该行买单。**不做止盈 GTC**，卖出路径不撤单、不处理其它订单。
 
-### 已落地（自动止盈挂单）
+### 已取消（止盈 GTC）
 
-- [x] `pmTickPrice.ts`：官网 tick 对齐 + `[0.99,0.995]` 合法价随机（`0.01` → 仅 0.99）
-- [x] `pmAutoExitSell.ts`：仅在买单**确认成交**后挂 GTC SELL
-  - 即时：`status=matched` 且 `takingAmount>0`
-  - delayed：settlement 后还须 `/data/trades`（或等价）解析到确认份数；仅有 delayed/受理不挂
-- [x] `pmHeartbeat.ts`：挂 GTC 前启动 `/v1/heartbeats`（约 5s），避免 ~10s 被官方清单
-- [x] 防重复挂：内存幂等 + 挂前查 `/data/orders?asset_id=` 是否已有 open SELL
-- [x] 扩展页「PM卖单」开关（`extensionPrefs.pmAutoExitSell`，默认开）
-- [ ] 卖单成交后原子写 `pmSellState` / 挡 Gamma（产品暂不需要：挂着或到期兑换）
+- [x] 扩展页「PM卖单」入口已移除；prefs 强制 `pmAutoExitSell: false`
+- [x] 卖出路径不撤挂单、失败不回挂
 
+### 已落地（手动卖出）
+
+- [x] `pmManualSell.ts`：只卖当前买单剩余份额（FOK 吃 bids）
+- [x] 卖单同 Link + `pmBuyOrderId`；`saveOrder` 写卖单 + 仅 patch 该买单
+- [x] 侧栏该买单行「卖出」按钮；不碰其它单
 ---
 
 ## 1. 产品规则（加功能前先定死）

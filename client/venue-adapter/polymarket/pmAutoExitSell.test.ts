@@ -155,9 +155,9 @@ describe("placePolymarketAutoExitSell", () => {
 });
 
 describe("isPolymarketAutoExitSellEnabled", () => {
-  it("defaults to enabled", async () => {
+  it("defaults to disabled; only explicit true enables", async () => {
     const { isPolymarketAutoExitSellEnabled, schedulePolymarketAutoExitSellAfterBuy } = await import("./pmAutoExitSell");
-    expect(isPolymarketAutoExitSellEnabled(undefined)).toBe(true);
+    expect(isPolymarketAutoExitSellEnabled(undefined)).toBe(false);
     expect(isPolymarketAutoExitSellEnabled(true)).toBe(true);
     expect(isPolymarketAutoExitSellEnabled(false)).toBe(false);
 

@@ -129,7 +129,7 @@ export function buildPolymarketL2Headers(address, apiKey, secret, passphrase, me
     "User-Agent": "@polymarket/clob-client",
     Connection: "keep-alive",
   };
-  if (String(method || "GET").toUpperCase() === "POST")
+  if (["POST", "DELETE", "PUT", "PATCH"].includes(String(method || "GET").toUpperCase()))
     headers["Content-Type"] = "application/json";
   return headers;
 }

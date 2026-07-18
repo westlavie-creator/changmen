@@ -200,6 +200,36 @@
   display: block;
 }
 
+.orders .order .profit .order__profit-line--sell-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.orders .order .profit .order__sell-row-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.orders .order .order__sell-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  line-height: 22px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: #c45656;
+  background: rgba(196, 86, 86, 0.1);
+  border: 1px solid #c45656;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
 .orders .order .betname {
   float: left;
   max-width: 45%;

@@ -143,6 +143,7 @@ async function onLinkRebindDone() {
     :player-label="playerLabel"
     :platform-class="platformClass"
     :allow-link-rebind="!embedded"
+    :allow-pm-sell="!embedded"
     @cancel-makeup="onCancelMakeup"
     @link-rebind-done="onLinkRebindDone"
   />

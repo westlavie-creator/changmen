@@ -216,16 +216,39 @@ function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   const prevState = prevRaw.pmSellState;
   const betMoneyForMerge = prevBet > 0 ? prevBet : incomingBet;
 
+  const sellStateRank = (s) => {
+    const v = String(s ?? "").toLowerCase();
+    if (v === "settled")
+      return 3;
+    if (v === "closed")
+      return 2;
+    if (v === "partial")
+      return 1;
+    return 0;
+  };
+
   const hasClosedSellProgress = prevState === "partial" || prevState === "closed";
   if (isChangmen && hasClosedSellProgress) {
+    const prevAttr = parseNum(prevRaw.pmAttributedSellShares, 0);
+    const incomingAttr = parseNum(o.pmAttributedSellShares ?? merged.pmAttributedSellShares, 0);
+    const incomingState = o.pmSellState ?? merged.pmSellState;
+    // 允许 attr / state 单调前进（二次纠偏 / delayed 确认）；挡住 sync 回退
+    const advanceAttr = incomingAttr > prevAttr + 1e-9;
+    const advanceState = sellStateRank(incomingState) > sellStateRank(prevState);
     merged = {
       ...merged,
       pmSide: "buy",
       pmOrigin: "changmen",
-      pmStakeUsdc: prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc,
+      pmStakeUsdc: advanceAttr
+        ? (merged.pmStakeUsdc ?? o.pmStakeUsdc ?? prevRaw.pmStakeUsdc)
+        : (prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc),
       betMoney: betMoneyForMerge,
-      pmSellState: prevRaw.pmSellState ?? merged.pmSellState,
-      pmAttributedSellShares: prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares,
+      pmSellState: advanceState || advanceAttr
+        ? (incomingState ?? prevRaw.pmSellState)
+        : (prevRaw.pmSellState ?? merged.pmSellState),
+      pmAttributedSellShares: advanceAttr
+        ? incomingAttr
+        : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
       money: incomingStatus === "Win" || incomingStatus === "Lose"
         ? (o.money ?? o.Money ?? prevRaw.money ?? merged.money)
         : 0,
@@ -289,12 +312,9 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   if (!orders.length)
     return true;
   const defaultProvider = String(typeFallback || "").trim();
-  const isPolymarketBatch = defaultProvider === "Polymarket"
-    || orders.some(o => String(o.provider || o.Type || "").trim() === "Polymarket");
-  const incoming = isPolymarketBatch
-    ? orders.filter(o => String(o.pmSide ?? "").toLowerCase() !== "sell")
-    : orders;
-  if (!incoming.length && !isPolymarketBatch)
+  // [changmen 扩展] 允许 changmen 手动卖单落库（同 Link + pmBuyOrderId）
+  const incoming = orders;
+  if (!incoming.length)
     return true;
   const incomingResolved = incoming.map((o) => {
     const rawCreate = o.createAt ?? o.CreateAt;
@@ -364,10 +384,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       raw,
     });
   }
-  const saved = rows.length ? await sb.upsertOrders(rows) : true;
-  if (isPolymarketBatch && isUuidUserId(userId))
-    await sb.deletePolymarketSellOrders({ userId: String(userId), playerId: Number(playerId) });
-  return saved;
+  return rows.length ? await sb.upsertOrders(rows) : true;
 }
 
 function isUuidUserId(userId) {

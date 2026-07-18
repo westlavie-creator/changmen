@@ -6,7 +6,13 @@ import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { rebindOrderLink } from "@/api/order";
 import { formatDisplayOdds, formatLinkId, formatOrderTime, toFixed } from "@changmen/client-core/shared/format";
 import {
+  clobPriceFromDecimalOdds,
+  clobPriceFromFoOddsEntry,
+  formatPolymarketApiDecimal,
+  isPmBuyOrderListRow,
   isPmOrderListRow,
+  isPmSellOrderListRow,
+  pmOddsTextFromClobPrice,
   pmOrderFillPriceText,
   pmOrderOddsText,
   pmOrderSharesText,
@@ -26,6 +32,14 @@ import {
   makeupPendingProfitLabel,
   orderListDisplayRows,
 } from "@/shared/orderLink";
+import {
+  canManualSellPmBuy,
+  confirmAndSellPmBuyOrder,
+  isPmManualSellInFlight,
+} from "@/stores/account/pmManualSell";
+import { useOddsStore } from "@/stores/oddsStore";
+import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { PLATFORMS } from "@changmen/venue-adapter/shared";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
@@ -37,12 +51,15 @@ const props = withDefaults(
     platformClass?: (row: OrderRow) => string | undefined;
     /** [changmen 扩展] 用户侧栏允许场馆徽章拖放改绑 Link */
     allowLinkRebind?: boolean;
+    /** [changmen 扩展] PM 买单行显示「卖出」 */
+    allowPmSell?: boolean;
   }>(),
   {
     loading: false,
     playerLabel: () => "",
     platformClass: () => undefined,
     allowLinkRebind: false,
+    allowPmSell: false,
   },
 );
 
@@ -66,6 +83,67 @@ function isPendingRow(row: OrderRow): boolean {
   if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
     return false;
   return String(row.Status ?? "") === "None";
+}
+
+function showPmSellButton(row: OrderRow): boolean {
+  return props.allowPmSell && canManualSellPmBuy(row);
+}
+
+const oddsStore = useOddsStore();
+const sportOddsStore = useSportOddsStore();
+
+/**
+ * 未结算买单实时价：只读、不写 fo。
+ * 与盘口同源：fo.clobPrice → fo.odds→价；体育盘口价在 sportOddsStore（不进 fo）。
+ */
+function pmLiveClobPrice(row: OrderRow): number | null {
+  void oddsStore.foRevision;
+  void sportOddsStore.tick;
+  const tokenId = String(row.PmTokenId ?? "").trim();
+  if (!tokenId)
+    return null;
+  const fromFo = clobPriceFromFoOddsEntry(
+    oddsStore.getEntry(PLATFORMS.Polymarket, tokenId),
+  );
+  if (fromFo != null)
+    return fromFo;
+  return clobPriceFromDecimalOdds(sportOddsStore.get(PLATFORMS.Polymarket, tokenId));
+}
+
+/** 未结算买单才显示「当前价」 */
+function pmShowLivePrice(row: OrderRow): boolean {
+  if (!isPmBuyOrderListRow(row) || pmClosedBuyLabel(row))
+    return false;
+  const status = String(row.Status ?? "").trim().toLowerCase();
+  if (status && status !== "none")
+    return false;
+  return pmLiveClobPrice(row) != null;
+}
+
+function pmLivePriceText(row: OrderRow): string {
+  const live = pmLiveClobPrice(row);
+  return live != null ? formatPolymarketApiDecimal(live) : "";
+}
+
+/** 最后一行赔率：有当前价则跟当前价，否则跟买入价 */
+function pmLastLineOddsText(row: OrderRow): string {
+  const live = pmLiveClobPrice(row);
+  if (pmShowLivePrice(row) && live != null)
+    return pmOddsTextFromClobPrice(live);
+  return pmOrderOddsText(row);
+}
+
+async function onPmSell(row: OrderRow) {
+  await confirmAndSellPmBuyOrder(row);
+}
+
+function pmStakeLabel(row: OrderRow): string {
+  return isPmSellOrderListRow(row) ? "回款" : "投注金额";
+}
+
+function pmClosedBuyLabel(row: OrderRow): boolean {
+  return isPmBuyOrderListRow(row)
+    && (row.PmSellState === "closed" || row.PmSellState === "settled");
 }
 
 function onCancelMakeup(row: OrderRow) {
@@ -390,17 +468,34 @@ function badgeTitle(row: OrderRow): string {
             <template v-if="isPmOrderListRow(row)">
               <div class="order__profit-line">
                 <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
-                <span v-if="pmOrderFillPriceText(row)">价格：{{ pmOrderFillPriceText(row) }} </span>
-                赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span>
+                <span v-if="pmOrderFillPriceText(row)">买入价：{{ pmOrderFillPriceText(row) }} </span>
+                <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span> </span>
+                <span v-if="isPmSellOrderListRow(row)" class="order__pm-tag">卖出</span>
+                <span v-else-if="pmClosedBuyLabel(row)" class="order__pm-tag">已平仓</span>
               </div>
               <div class="order__profit-line">
-                投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
-                <template v-if="isPendingRow(row)">
+                {{ pmStakeLabel(row) }}：{{ toFixed(Number(row.BetMoney) || 0, 0) }}
+                <template v-if="isPendingRow(row) && !pmClosedBuyLabel(row) && !isPmSellOrderListRow(row)">
                   盈亏：待结算
                 </template>
                 <template v-else>
                   盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
                 </template>
+              </div>
+              <div class="order__profit-line order__profit-line--sell-row">
+                <span class="order__sell-row-meta">
+                  <span v-if="pmShowLivePrice(row)">当前价：{{ pmLivePriceText(row) }} </span>
+                  <span v-if="pmShowLivePrice(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
+                </span>
+                <button
+                  v-if="showPmSellButton(row)"
+                  type="button"
+                  class="order__sell-btn"
+                  :disabled="isPmManualSellInFlight(row.OrderID)"
+                  @click="onPmSell(row)"
+                >
+                  {{ isPmManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                </button>
               </div>
             </template>
             <template v-else>

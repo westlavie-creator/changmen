@@ -18,14 +18,14 @@
   --cm-color-danger: #f56c6c;
   --cm-color-info: #909399;
   --cm-color-odds: #1fa2ff;
-  /* 登录后主界面：纯 CSS 深色底，不再用背景图 */
-  --cm-body-bg: #0f172a;
+  /* 登录后主界面：略灰的 slate，弱化青蓝/靛光晕 */
+  --cm-body-bg: #12151c;
   --cm-body-bg-gradient:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(56, 189, 248, 0.14), transparent),
-    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(99, 102, 241, 0.1), transparent),
-    linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #0f172a 100%);
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(148, 163, 184, 0.07), transparent),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(100, 116, 139, 0.05), transparent),
+    linear-gradient(165deg, #12151c 0%, #1a1f2a 45%, #12151c 100%);
   --cm-sidebar-bg:
-    linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 55%, rgba(15, 23, 42, 0.98) 100%);
+    linear-gradient(180deg, #12151c 0%, #181c26 55%, #12151c 100%);
 }
 
 @keyframes balance-danger-80afd9d4 {

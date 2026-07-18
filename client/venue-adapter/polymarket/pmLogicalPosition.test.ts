@@ -39,6 +39,11 @@ describe("pmLogicalPosition", () => {
     expect(hasOpenPolymarketPosition(order)).toBe(false);
   });
 
+  it("hasOpenPolymarketPosition false when fill shares missing", () => {
+    const order = venueOrderFromOrderRow({ ...baseRow, PmShares: 0 });
+    expect(hasOpenPolymarketPosition(order)).toBe(false);
+  });
+
   it("hasOpenPolymarketPosition true while Status=None and shares remain", () => {
     const order = venueOrderFromOrderRow(baseRow);
     expect(hasOpenPolymarketPosition(order)).toBe(true);

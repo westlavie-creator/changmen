@@ -3305,6 +3305,7 @@
     switch (type) {
       case "GET":
       case "POST":
+      case "DELETE":
       case "": {
         const tabId = message.options?.tabId;
         if (tabId) {

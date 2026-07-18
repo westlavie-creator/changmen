@@ -546,7 +546,7 @@ describe("mapPolymarketTradesToVenueOrders", () => {
     expect(orders.filter(o => o.pmSide === "buy")).toHaveLength(2);
   });
 
-  test("finalize strips stored changmen sell rows", () => {
+  test("finalize keeps stored changmen sell rows", () => {
     const token = "asset-a";
     const clob = mapPolymarketTradesToVenueOrders([]);
     const stored = [{
@@ -570,7 +570,12 @@ describe("mapPolymarketTradesToVenueOrders", () => {
       pmTokenId: token,
     }];
     const out = finalizePolymarketVenueOrders(clob, 47, stored);
-    expect(out.find(o => o.orderId === "0xsell98")).toBeUndefined();
+    // changmen 手动卖单应保留（同 Link 展示）；external 卖单仍被 strip
+    expect(out.find(o => o.orderId === "0xsell98")).toMatchObject({
+      pmSide: "sell",
+      pmOrigin: "changmen",
+      pmBuyOrderId: "0xbuy98",
+    });
   });
 
   test("finalize restores pmShares from CLOB when stored changmen buy has zero fill", () => {

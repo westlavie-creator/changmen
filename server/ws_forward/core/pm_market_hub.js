@@ -7,7 +7,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import store from "../../backend/core/esport-api/store.js";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
-import { attachHubUpstreamBackpressure, createWsRelayGuard, pauseWsSocket } from "./ws_backpressure.js";
+import { attachHubUpstreamBackpressure, createWsRelayGuard } from "./ws_backpressure.js";
+import { isPmHubThinFramesEnabled, thinPmMarketFrames } from "./pm_hub_thin_frame.js";
 
 export const PM_MARKET_HUB_PATH = "/esport/ws-forward/PM-MARKET";
 const HUB_ID = "PM-MARKET";
@@ -487,18 +488,25 @@ function ensureUpstream() {
     const raw = isBinary ? data.toString() : String(data);
     if (raw === "PONG")
       return;
-    // 客户端全部过载时立刻停读上游，避免 fan-out 把事件循环打满
-    let anyOk = false;
-    for (const clientWs of clients.keys()) {
-      if (clientWs.readyState === WebSocket.OPEN && toClientGuard.isSendAllowed(clientWs)) {
-        anyOk = true;
-        break;
+    // 不因慢客户端 pause/丢弃上游帧：扇出走 per-client coalesce，避免拖死全员
+
+    // 瘦帧：按 asset 拆成独立 best_bid_ask，再扇出（与浏览器取价一致）
+    if (isPmHubThinFramesEnabled()) {
+      const frames = thinPmMarketFrames(raw);
+      if (!frames.length)
+        return;
+      for (const [clientWs, row] of clients) {
+        if (clientWs.readyState !== WebSocket.OPEN)
+          continue;
+        for (const frame of frames) {
+          if (!row.assetIds.has(frame.assetId))
+            continue;
+          fanoutRawToClient(clientWs, row, frame.raw, new Set([frame.assetId]), false);
+        }
       }
-    }
-    if (clients.size > 0 && !anyOk) {
-      pauseWsSocket(ws);
       return;
     }
+
     const assetIds = extractAssetIdsFromPmMarketMessage(raw);
     const broadcastAll = assetIds.size === 0;
     for (const [clientWs, row] of clients) {

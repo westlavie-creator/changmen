@@ -100,13 +100,28 @@ describe("orderLink A8 parity", () => {
     expect(text.startsWith("💎")).toBe(true);
   });
 
-  it("computeOrderGroupProfit sums buy Money and skips PM sells", () => {
-    const profit = computeOrderGroupProfit([
+  it("computeOrderGroupProfit uses sell Money when buy is closed", () => {
+    const profitOpen = computeOrderGroupProfit([
       { Type: "OB", Money: 10 },
-      { Type: "Polymarket", PmSide: "buy", Money: 36, Status: "Win" },
-      { Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85 },
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 36, Status: "Win", PmSellState: "open" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
     ]);
-    expect(profit).toBe(46);
+    expect(profitOpen).toBe(46);
+
+    const profitClosed = computeOrderGroupProfit([
+      { Type: "OB", Money: 10 },
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "closed" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
+    ]);
+    expect(profitClosed).toBe(25);
+  });
+
+  it("computeOrderGroupProfit includes sell Money on partial close", () => {
+    const profit = computeOrderGroupProfit([
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "partial" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 8, BetMoney: 40, PmBuyOrderId: "buy" },
+    ]);
+    expect(profit).toBe(8);
   });
 
   it("isLinkedArbOrderGroup detects cross-platform arb legs on same Link", () => {
@@ -125,13 +140,13 @@ describe("orderLink A8 parity", () => {
     expect(isLinkedArbOrderGroup([{ Link: -123, OrderID: "a" }])).toBe(false);
   });
 
-  it("orderListDisplayRows hides PM sell rows but keeps buys and trad legs", () => {
+  it("orderListDisplayRows keeps PM sell rows with buys and trad legs", () => {
     const rows = [
       { OrderID: "ob", Type: "OB", PmSide: undefined },
       { OrderID: "0xbuy", Type: "Polymarket", PmSide: "buy" as const },
       { OrderID: "0xsell", Type: "Polymarket", PmSide: "sell" as const, PmBuyOrderId: "0xbuy" },
     ];
-    expect(orderListDisplayRows(rows).map(r => r.OrderID)).toEqual(["ob", "0xbuy"]);
+    expect(orderListDisplayRows(rows).map(r => r.OrderID)).toEqual(["ob", "0xbuy", "0xsell"]);
   });
 
   it("mergePendingMakeupIntoOrderGroups folds lose queue into arb link", () => {

@@ -700,9 +700,9 @@ export const polymarketProvider: PlatformProvider = {
         // delayed 仅启动确认任务；auto-exit 在 trades/份数确认后才挂卖单
         startPolymarketSettlementJob(account, bet.orderId, {
           poll,
-          autoExitSell: option.pmAutoExitSell === false
-            ? undefined
-            : { tokenId },
+          autoExitSell: option.pmAutoExitSell === true
+            ? { tokenId }
+            : undefined,
         });
       }
       return bet;

@@ -31,7 +31,7 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /**
    * Polymarket 买单确认成交后自动挂 GTC 止盈卖单。
-   * 默认开启（`!== false`）。
+   * 默认关闭；仅显式 true 开启。
    */
   pmAutoExitSell: boolean;
 }
@@ -51,7 +51,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
-    pmAutoExitSell: true,
+    pmAutoExitSell: false,
   };
 }
 
@@ -79,6 +79,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
-    pmAutoExitSell: row.pmAutoExitSell !== false,
+    // 止盈设定已取消：忽略历史存档，恒为关
+    pmAutoExitSell: false,
   };
 }

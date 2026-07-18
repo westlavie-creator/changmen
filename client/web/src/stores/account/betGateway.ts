@@ -19,11 +19,11 @@ import { useUserStore } from "@/stores/userStore";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts;
 
-/** [changmen 扩展] 将扩展页 PM卖单开关写入 option，供场馆层读取（默认开） */
+/** [changmen 扩展] 将扩展页 PM卖单开关写入 option（默认关，仅 true 开启） */
 function attachPolymarketAutoExitSellPref(option: BetOption): void {
   if (option.type !== "Polymarket")
     return;
-  option.pmAutoExitSell = useUserStore().extensionPrefs.pmAutoExitSell !== false;
+  option.pmAutoExitSell = useUserStore().extensionPrefs.pmAutoExitSell === true;
 }
 
 function notifyPolymarketAfterRejectDetection(

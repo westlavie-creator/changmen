@@ -111,7 +111,7 @@ export async function executePolymarketHttpRequest(input) {
     ...polymarketSdkTransportHeaders(method),
     ...(authHeaders || {}),
   };
-  if (method === "POST" || method === "PUT" || method === "PATCH")
+  if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE")
     headers["Content-Type"] = "application/json";
 
   const res = await fetch(url, {

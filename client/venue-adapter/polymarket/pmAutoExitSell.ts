@@ -27,6 +27,13 @@ type Hex = `0x${string}`;
 /** 同一买单只尝试挂一次止盈卖单（进程内） */
 const scheduledBuyOrderIds = new Set<string>();
 
+/** 手动卖失败回挂前：清除进程内幂等，允许再次 place */
+export function clearPolymarketAutoExitSellSchedule(buyOrderId: string): void {
+  const id = String(buyOrderId ?? "").trim();
+  if (id)
+    scheduledBuyOrderIds.delete(id);
+}
+
 interface PolymarketOrderBookResponse {
   tick_size?: string | number;
   minimum_tick_size?: string | number;
@@ -67,9 +74,9 @@ export interface PolymarketAutoExitSellResult {
   error?: string;
 }
 
-/** 扩展页开关：undefined/true = 开；false = 关 */
+/** 扩展页开关：仅显式 true = 开；默认关 */
 export function isPolymarketAutoExitSellEnabled(enabled: boolean | undefined): boolean {
-  return enabled !== false;
+  return enabled === true;
 }
 
 function resolveSdkSignatureType(value: string | number | undefined): number {

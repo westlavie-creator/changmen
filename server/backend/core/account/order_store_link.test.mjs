@@ -100,19 +100,25 @@ describe("saveOrder backend bind link", () => {
     expect(row.link).toBe(createAt - 1);
   });
 
-  it("PM sell orders are not saved (changmen 不做卖出)", async () => {
+  it("PM sell orders follow buy Link and are saved", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
-        order_id: "0xsell98",
+        order_id: "0xbuy98",
         link: 1_781_308_466_999,
-        create_at: 1_781_308_467_000,
-        bet_money: 144,
+        create_at: 1_781_308_466_000,
+        bet_money: 100,
         raw: {
-          pmSide: "sell",
-          pmOrigin: "external",
-          pmBuyOrderId: "0xbuy70",
-          pmStakeUsdc: 0.001,
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 20,
         },
+      },
+      {
+        order_id: "0xsell98",
+        link: 0,
+        create_at: 1_781_308_467_000,
+        bet_money: 0,
+        raw: {},
       },
     ]);
 
@@ -123,7 +129,7 @@ describe("saveOrder backend bind link", () => {
         createAt: 1_781_308_467_000,
         provider: "Polymarket",
         pmSide: "sell",
-        pmOrigin: "external",
+        pmOrigin: "changmen",
         pmBuyOrderId: "0xbuy98",
         pmStakeUsdc: 14,
         betMoney: 144,
@@ -133,7 +139,12 @@ describe("saveOrder backend bind link", () => {
       "user-1",
     );
 
-    expect(upsertOrders).not.toHaveBeenCalled();
+    expect(upsertOrders).toHaveBeenCalled();
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.order_id).toBe("0xsell98");
+    expect(row.link).toBe(1_781_308_466_999);
+    expect(row.raw.pmSide).toBe("sell");
+    expect(row.raw.pmBuyOrderId).toBe("0xbuy98");
   });
 
   it("PM changmen buy restores pmShares from CLOB when RDS stored zero", async () => {

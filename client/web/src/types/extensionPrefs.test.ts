@@ -13,7 +13,7 @@ const defaultPrefs = {
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
-  pmAutoExitSell: true,
+  pmAutoExitSell: false,
 };
 
 describe("extensionPrefs", () => {
@@ -50,8 +50,9 @@ describe("extensionPrefs", () => {
     });
   });
 
-  it("defaults pmAutoExitSell to true and can disable", () => {
-    expect(normalizeExtensionPrefs({}).pmAutoExitSell).toBe(true);
+  it("forces pmAutoExitSell off (feature cancelled; ignores stored true)", () => {
+    expect(normalizeExtensionPrefs({}).pmAutoExitSell).toBe(false);
+    expect(normalizeExtensionPrefs({ pmAutoExitSell: true }).pmAutoExitSell).toBe(false);
     expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
   });
 
