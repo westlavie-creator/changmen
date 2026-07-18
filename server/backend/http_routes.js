@@ -6,7 +6,7 @@ import {
   handleChangmenInternalBroadcast,
   isChangmenRealtimeHttpPath,
 } from "@changmen/realtime-hub";
-import { isAdminUser } from "./core/auth/admin_auth.js";
+import { canAccessAdminPanel } from "./core/auth/admin_auth.js";
 import { countAccounts, getClientMatches, listProfiles } from "./core/db/store.js";
 import { resolveCreditPlateUserName, tryEsportApi } from "./core/esport-api/router.js";
 import store from "./core/esport-api/store.js";
@@ -300,7 +300,7 @@ export function createHttpHandler({ port, serveStatic }) {
         const token = String(req.headers.token || req.headers.Token || "");
         if (token) {
           const user = await store.getUserByToken(token);
-          if (user && isAdminUser(user)) {
+          if (user && canAccessAdminPanel(user)) {
             await sendFullHealth();
             return;
           }

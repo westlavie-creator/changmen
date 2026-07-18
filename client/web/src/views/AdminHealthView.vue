@@ -105,7 +105,7 @@ async function fetchHealth() {
     }
     const payload: unknown = await res.json();
     if (!isFullHealthData(payload)) {
-      throw new Error("健康检查数据不完整：请确认已用管理员账号登录，且后端已部署 /health 管理员鉴权");
+      throw new Error("健康检查数据不完整：请确认已用管理员或团队长账号登录，且后端已部署 /health 鉴权");
     }
     health.value = payload;
     error.value = "";
@@ -164,7 +164,7 @@ onMounted(async () => {
       return;
     }
   }
-  if (!user.isAdmin) { await router.replace({ name: "home" }); return; }
+  if (!user.canAccessAdmin) { await router.replace({ name: "home" }); return; }
   await fetchHealth();
   timer = setInterval(fetchHealth, 5000);
 });
