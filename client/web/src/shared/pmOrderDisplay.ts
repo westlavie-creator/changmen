@@ -138,9 +138,16 @@ export function pmOrderStakeDisplayCny(row: OrderRow): number {
   return Number(row.BetMoney) || 0;
 }
 
-/** 侧栏价格列标题：卖单用卖出价 */
+/** 侧栏价格列标题：标明买单/卖单 */
 export function pmOrderPriceLabel(row: OrderRow): string {
-  return isPmSellOrderListRow(row) ? "卖出价" : "买入价";
+  return isPmSellOrderListRow(row) ? "卖单卖出价" : "买单买入价";
+}
+
+/** 侧栏侧别标签：买单 / 卖单 */
+export function pmOrderSideTagText(row: OrderRow): string | null {
+  if (!isPmOrderListRow(row))
+    return null;
+  return isPmSellOrderListRow(row) ? "卖单" : "买单";
 }
 
 /** CLOB trade.price；旧单无字段时回退 stake÷shares */

@@ -10,6 +10,7 @@ import {
   pmOrderOddsText,
   pmOrderPriceLabel,
   pmOrderSharesText,
+  pmOrderSideTagText,
   pmOrderStakeDisplayCny,
   pmBuyLifecycleTagText,
   resolvePmFillPrice,
@@ -110,8 +111,10 @@ describe("pmOrderDisplay", () => {
       PmStakeUsdc: 0,
       BetMoney: 35,
     })).toBe(0);
-    expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖出价");
-    expect(pmOrderPriceLabel(pmBuy)).toBe("买入价");
+    expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖单卖出价");
+    expect(pmOrderPriceLabel(pmBuy)).toBe("买单买入价");
+    expect(pmOrderSideTagText({ ...pmBuy, PmSide: "sell" })).toBe("卖单");
+    expect(pmOrderSideTagText(pmBuy)).toBe("买单");
   });
 
   it("prefers fo live price for unsettled buys", () => {
