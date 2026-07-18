@@ -5,7 +5,8 @@
  *
  * changmen-predictfun-collector：可选；默认 deploy 不启动（见 deploy-server-remote.sh）。
  * changmen-polymarket-collector：电竞 PM Gamma discovery；默认随 deploy 启动。
- * 暂时与浏览器 Save* 双写 platform_*；关写库设 POLYMARKET_COLLECTOR_WRITE_PLATFORM=0。
+ * 写 platform_* + MarketIndex；浏览器仅 Index → WS → fo（已切流，无浏览器 Save*）。
+ * 关写库设 POLYMARKET_COLLECTOR_WRITE_PLATFORM=0。
  */
 const path = require("node:path");
 

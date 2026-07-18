@@ -1,3 +1,8 @@
+/**
+ * Polymarket 电竞：VPS 写 platform_* + MarketIndex；浏览器只同步 Index → Market WS → fo。
+ * 不再跑 Gamma / SaveMatch / SaveBets。
+ */
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { PLATFORMS } from "../shared/platforms";
@@ -7,14 +12,11 @@ import { useCollectStore } from "../shared/webBridge";
 import { useMatchStore } from "../shared/webBridge";
 
 import {
-  fetchBatchBuyPrices,
-  fetchPolymarketEsportsMarkets,
-  polymarketCollectStartTimeAllowed,
-} from "./api";
+  applyPolymarketMarketIndex,
+  isPolymarketMarketIndex,
+} from "./marketIndex";
 import {
-  buildPolymarketMappedMarket,
   decimalOddsFromProbability,
-  parseJsonArray,
   type PolymarketMappedMarket,
 } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
@@ -26,10 +28,7 @@ import {
 } from "./marketQuoteHub";
 
 const PLATFORM = PLATFORMS.Polymarket;
-const DISCOVERY_MS = 60_000;
-const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
-const MAX_TRACKED_MARKETS = 400;
-const COLLECT_MARKET_TYPES = new Set(["moneyline", "child_moneyline"]);
+const INDEX_SYNC_MS = 30_000;
 const QUOTE_CONSUMER = "esport" as const;
 
 /** PM 写 fo 的唯一入口：decimal odds 供展示/套利，clobPrice 供预检限价 */
@@ -110,16 +109,15 @@ function saveBetOddsToFo(
 }
 
 /**
- * 电竞采集消费者：向 marketQuoteHub 登记 discovery asset，收到行情后写 fo。
- * 停采集只 unregister(esport)，不卸体育会话、不停仍有其它消费者的 hub。
+ * 电竞行情消费者：同步 VPS MarketIndex，登记 asset，收到行情后写 fo。
+ * 停采集只 unregister(esport)，不卸体育会话。
  */
 export function startPolymarketCollector(): () => void {
-  let lastSaveBetsAt = 0;
-
   const collect = useCollectStore();
   const matchStore = useMatchStore();
   const marketsById = new Map<string, PolymarketMappedMarket>();
   const assetToMarket = new Map<string, string>();
+  let lastIndexUpdatedAt = 0;
   let stopped = false;
 
   function esportAssetIds(): string[] {
@@ -177,97 +175,57 @@ export function startPolymarketCollector(): () => void {
     syncEsportAssets(true);
   });
 
-  // 登记监听；有 discovery asset 后才 ensure WS（空数组不会建连）
   syncEsportAssets();
 
-  const runDiscovery = async () => {
+  async function syncMarketIndex() {
     while (!collect.ready) {
       if (stopped)
         return;
       await wait(500);
     }
 
-    const rawMarkets = await fetchPolymarketEsportsMarkets();
-
-    const filtered: typeof rawMarkets = [];
-    for (const raw of rawMarkets) {
-      if (!COLLECT_MARKET_TYPES.has(raw.sportsMarketType ?? ""))
-        continue;
-      const assetIds = parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds);
-      if (assetIds.length !== 2)
-        continue;
-      const initial = buildPolymarketMappedMarket(raw);
-      if (!initial)
-        continue;
-      if (!polymarketCollectStartTimeAllowed(initial.match.StartTime))
-        continue;
-      filtered.push(raw);
+    const platform = await getCollectPlatform(PLATFORM);
+    const index = isPolymarketMarketIndex(platform?.MarketIndex) ? platform.MarketIndex : null;
+    if (!index?.entries?.length) {
+      // 空 Index：卸掉电竞 maps，避免幽灵 asset；勿在从未成功过时反复 clear
+      if (lastIndexUpdatedAt !== 0) {
+        marketsById.clear();
+        assetToMarket.clear();
+        lastIndexUpdatedAt = 0;
+      }
+      syncEsportAssets();
+      return;
     }
-
-    const allAssetIds = filtered.flatMap(raw => parseJsonArray(raw.clob_token_ids ?? raw.clobTokenIds));
-    const buyPrices = await fetchBatchBuyPrices(allAssetIds);
-
-    const candidates: PolymarketMappedMarket[] = [];
-    for (const raw of filtered) {
-      const mapped = buildPolymarketMappedMarket(raw, buyPrices);
-      if (mapped)
-        candidates.push(mapped);
-      if (candidates.length >= MAX_TRACKED_MARKETS)
-        break;
-    }
-
-    if (!candidates.length) {
-      // 无候选：卸掉历史电竞 maps，避免幽灵 asset 继续订 WS / 刷 fo
-      marketsById.clear();
-      assetToMarket.clear();
-      // 对标旧 collector：每轮 discovery 末都重发订阅（修半开/丢订，不等 WS 重连）
+    if (index.updatedAt === lastIndexUpdatedAt) {
       syncEsportAssets(true);
       return;
     }
+    lastIndexUpdatedAt = index.updatedAt;
 
-    const matches = [...new Map(candidates.map(row => [String(row.match.SourceMatchID), row.match])).values()];
-    const saved = await collect.saveMatch(PLATFORM, matches);
-    const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
-
-    // 每轮按本轮 candidates 重建（勿累计历史，否则已离开 discovery 的盘仍写 fo）
-    marketsById.clear();
-    assetToMarket.clear();
-
-    const betsByMatch = new Map<string, CollectBetDto[]>();
-    for (const mapped of candidates) {
-      marketsById.set(mapped.marketId, mapped);
-      assetToMarket.set(mapped.assetIds[0], mapped.marketId);
-      assetToMarket.set(mapped.assetIds[1], mapped.marketId);
+    applyPolymarketMarketIndex(index, { marketsById, assetToMarket });
+    for (const entry of index.entries) {
+      const mapped = marketsById.get(String(entry.marketId));
+      if (!mapped)
+        continue;
       saveBetOddsToFo(mapped.bet, "http", {
-        home: Number(buyPrices[mapped.assetIds[0]!]),
-        away: Number(buyPrices[mapped.assetIds[1]!]),
+        home: entry.homeClobPrice,
+        away: entry.awayClobPrice,
       });
-      if (shouldSaveBets) {
-        const sid = String(mapped.match.SourceMatchID);
-        if (!betsByMatch.has(sid))
-          betsByMatch.set(sid, []);
-        betsByMatch.get(sid)!.push(mapped.bet);
-      }
-    }
-    if (shouldSaveBets) {
-      for (const [sid, bets] of betsByMatch)
-        await collect.saveBets(PLATFORM, sid, bets);
-      lastSaveBetsAt = Date.now();
     }
     matchStore.refreshOddsOnBets();
     syncEsportAssets(true);
-  };
+  }
 
   const loop = async () => {
     while (!stopped) {
       try {
-        await runDiscovery();
+        await syncMarketIndex();
       }
       catch (err) {
-        console.warn("[Polymarket] collect error", err);
+        console.warn("[Polymarket] index sync error", err);
         notifyCollectError("Polymarket", err);
       }
-      await wait(DISCOVERY_MS);
+      await wait(INDEX_SYNC_MS);
     }
   };
 

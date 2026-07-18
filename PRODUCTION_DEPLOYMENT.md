@@ -168,7 +168,7 @@ pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,
 
 `ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
 
-`changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`。**暂时默认双写** `platform_*`（与浏览器 `Save*` 并行）；设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow。切流后关浏览器 Save*，仅保留 VPS 写库。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
+`changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`，写 `platform_*` + MarketIndex。浏览器电竞侧**不再** Gamma/`Save*`，只同步 Index → Market WS → `fo`。设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow（仅 index）。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 

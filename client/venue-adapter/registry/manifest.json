@@ -199,8 +199,8 @@
     "pluginOnly": true,
     "label": "Polymarket",
     "labelZh": "Polymarket",
-    "collectionMode": "plugin_http_ws",
-    "collectionDesc": "扩展代发 Gamma/CLOB REST（绕过 CORS）+ Market WebSocket，只读数据",
+    "collectionMode": "vps_http_ws",
+    "collectionDesc": "VPS polymarket-esports 写 platform_* + MarketIndex；浏览器仅 Index → Market WS → fo",
     "implementation": "done",
     "saveMatchIntervalMs": 60000,
     "streamMeta": {

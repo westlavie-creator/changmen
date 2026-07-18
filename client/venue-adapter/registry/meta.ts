@@ -41,6 +41,13 @@ export function collectPlatformIds(): PlatformId[] {
   return PLATFORM_REGISTRY.filter((p) => p.collect).map((p) => p.id);
 }
 
+/** 赛事采集 UI：仍走浏览器 SaveMatch/SaveBets 的平台（排除 VPS 写库场馆） */
+export function browserSaveMatchPlatformIds(): PlatformId[] {
+  return PLATFORM_REGISTRY
+    .filter((p) => p.collect && p.collectionMode !== "vps_http_ws")
+    .map((p) => p.id);
+}
+
 export function betPlatformIds(): PlatformId[] {
   return PLATFORM_REGISTRY.filter((p) => p.bet).map((p) => p.id);
 }

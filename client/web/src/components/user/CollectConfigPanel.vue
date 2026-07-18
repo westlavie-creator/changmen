@@ -6,7 +6,7 @@ import { CREDIT_PLATE_ENTRIES, enterCreditPlate } from "@/api/v4";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { syncCollectorsFromConfig } from "@/runtime/collectors";
 import { useCollectStore } from "@/stores/collectStore";
-import { ALL_PLATFORMS } from "@/types/userConfig";
+import { browserSaveMatchPlatformIds } from "@changmen/venue-adapter/registry";
 
 const collect = useCollectStore();
 const { log } = storeToRefs(collect);
@@ -14,8 +14,9 @@ const { log } = storeToRefs(collect);
 /** 对齐 A8 `UserCollectView`：各平台开关 = 是否回传 SaveMatch/SaveBets，非停采。默认锁定，双击「盘」解锁 */
 const switchesDisabled = ref(true);
 
+/** VPS 写库场馆（PM/PF）无浏览器 Save*，不在此展示开关 */
 const platformRows = computed(() =>
-  ALL_PLATFORMS.map(id => [id, collect.isEnabled(id)] as [PlatformId, boolean]),
+  browserSaveMatchPlatformIds().map(id => [id, collect.isEnabled(id)] as [PlatformId, boolean]),
 );
 
 function toggleSwitchesLock() {

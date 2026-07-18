@@ -14,9 +14,8 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 
 | 阶段 | 浏览器 | VPS collector |
 |------|--------|----------------|
-| **暂时双写（当前）** | 完整 discovery + `Save*` + WS→fo | **默认 live** 写 `platform_*` + MarketIndex |
-| **只要旁路** | 同上 | `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` → shadow |
-| **切流** | 关 Save*/Gamma，改 sync index → fo | 仅 VPS 写库 |
+| **已切流（当前）** | 仅 Index → Market WS → fo（无 Gamma/`Save*`） | **live** 写 `platform_*` + MarketIndex |
+| **旁路** | 同上 | `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` → shadow |
 
 ## 采集逻辑（一轮）
 
@@ -26,7 +25,7 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 4. 规范化类型（**无默认 moneyline**）→ allowlist → 双 token / 可解析 / 时间窗
 5. `POST /prices` `SELL` 种子价
 6. **按 SourceMatchID 整场截断**（默认最多 400 盘，不拆半场）
-7. **默认 live**：写 `platform_*` + index（与浏览器暂时双写）；`WRITE_PLATFORM=0` 仅写 index
+7. **默认 live**：写 `platform_*` + index；`WRITE_PLATFORM=0` 仅写 index
 
 ## 运行
 
@@ -38,7 +37,7 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `POLYMARKET_COLLECTOR_INTERVAL_MS` | `60000` | 周期 |
-| `POLYMARKET_COLLECTOR_WRITE_PLATFORM` | `1`（双写开） | `0`/`false` 关闭写库改 shadow |
+| `POLYMARKET_COLLECTOR_WRITE_PLATFORM` | `1`（live） | `0`/`false` 关闭写库改 shadow |
 | `POLYMARKET_COLLECTOR_EXTRA_MARKET_TYPES` | 空 | 逗号分隔额外类型（须在官方 list 内，如 `esports_match_result`） |
 
 ## 安全写库（live）

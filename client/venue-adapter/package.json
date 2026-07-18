@@ -20,7 +20,6 @@
     "./adaptation": "./adaptation/index.ts",
     "./contract": "./contract/index.ts",
     "./dex": "./dex/index.ts",
-    "./hg": "./hg/index.ts",
     "./loader/adapter_paths.js": "./loader/adapter_paths.mjs",
     "./loader/adapter_paths.mjs": "./loader/adapter_paths.mjs",
     "./ob": "./ob/index.ts",

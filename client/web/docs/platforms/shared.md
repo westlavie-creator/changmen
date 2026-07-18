@@ -30,7 +30,7 @@
 
 A8 无 Polymarket。PM 不用 `a8StartTimeCollectAllowed`，单独 **过去 6h、未来 1h**：
 
-- **暂时双写（当前）**：浏览器仍 Gamma + `Save*` + WS→fo；VPS `changmen-polymarket-collector` **默认写** `platform_*` + `polymarket_market_index.json`
+- **VPS 写库（当前）**：`changmen-polymarket-collector` 写 `platform_*` + `polymarket_market_index.json`；浏览器**不**再 Gamma/`Save*`，只 `GetCollectPlatform.MarketIndex` → Market WS → `fo`
 - **切流后**：VPS 独占写库；浏览器改为 MarketIndex → WS→fo
 - 关 VPS 写库：`POLYMARKET_COLLECTOR_WRITE_PLATFORM=0`
 - 常量对齐：`venue-adapter/polymarket/api.ts` 与 collector `api.js`

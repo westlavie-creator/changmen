@@ -1,6 +1,6 @@
 /**
- * VPS：Polymarket 电竞 HTTP 采集
- * 暂时默认双写 platform_*（与浏览器并行）；POLYMARKET_COLLECTOR_WRITE_PLATFORM=0 可改 shadow
+ * VPS：Polymarket 电竞 HTTP 采集 → platform_* + MarketIndex
+ * 浏览器仅 Index → Market WS → fo；POLYMARKET_COLLECTOR_WRITE_PLATFORM=0 可改 shadow
  */
 
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
@@ -32,7 +32,7 @@ async function tick() {
       `[polymarket-esports] cycle ok mode=${mode} matches=${stats.matches} bets=${stats.bets}`
       + (stats.truncated ? " truncated=1" : "")
       + (stats.cleared ? " cleared=1" : "")
-      + (stats.shadow ? " (shadow; dual-write off)" : " (dual-write with browser Save*)")
+      + (stats.shadow ? " (shadow; platform write off)" : " (live; browser uses MarketIndex)")
       + (stats.collectTypes ? ` types=${stats.collectTypes.join(",")}` : ""),
     );
   }

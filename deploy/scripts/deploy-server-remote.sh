@@ -335,7 +335,7 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
-  # 电竞 PM discovery：与 esport/pm-sports 同启（暂时与浏览器 Save* 双写）
+  # 电竞 PM discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*）
   if [ "$DO_PM2_WEB" = "1" ] || [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_POLYMARKET")
   fi

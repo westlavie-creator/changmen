@@ -6,6 +6,7 @@ export {
   ALL_PLATFORMS,
   PLATFORM_REGISTRY,
   betPlatformIds,
+  browserSaveMatchPlatformIds,
   collectPlatformIds,
   getPlatformMeta,
   platformDir,

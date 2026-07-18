@@ -1,10 +1,8 @@
 /**
  * Polymarket 电竞 discovery 一轮（官方对齐版）。
  *
- * 迁移阶段：
- * - 暂时双写（默认）：与浏览器 Save* 并行写 platform_* + MarketIndex
- * - 关写库：POLYMARKET_COLLECTOR_WRITE_PLATFORM=0 → 只写 MarketIndex（shadow）
- * - 切流后：关浏览器 Save*，仅保留本进程写库
+ * - live（默认）：写 platform_* + MarketIndex；浏览器只消费 Index → WS → fo
+ * - shadow：POLYMARKET_COLLECTOR_WRITE_PLATFORM=0 → 只写 MarketIndex
  *
  * 安全写库（live）：
  * - Gamma/网络抛错 → 上层 catch，本函数不写空库
@@ -32,7 +30,7 @@ import {
 const PLATFORM = "Polymarket";
 const MAX_TRACKED_MARKETS = 400;
 
-/** 暂时双写：默认 true，与浏览器 Save* 并行；切流后可改回需显式开启 */
+/** live 写库：默认 true；shadow 设 POLYMARKET_COLLECTOR_WRITE_PLATFORM=0 */
 export function isPolymarketCollectorPlatformWriteEnabled() {
   const v = String(process.env.POLYMARKET_COLLECTOR_WRITE_PLATFORM ?? "1")
     .trim()
