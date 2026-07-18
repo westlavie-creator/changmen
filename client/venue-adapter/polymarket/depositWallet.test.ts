@@ -70,6 +70,9 @@ describe("buildDepositWalletApprovalCalls", () => {
       expect(pusdApproves.has(spender)).toBe(true);
       expect(ctfApprovals.has(spender)).toBe(true);
     }
+    // Deposit Wallet allowlist 不含 V1 Exchange
+    expect(usdcApproves.has(POLYGON_POLYMARKET.CTF_EXCHANGE_V1.toLowerCase())).toBe(false);
+    expect(usdcApproves.has(POLYGON_POLYMARKET.NEG_RISK_EXCHANGE_V1.toLowerCase())).toBe(false);
   });
 
   test("matches legacy Safe/Proxy approval calldata targets", () => {

@@ -75,5 +75,7 @@ describe("buildStandardApprovalTransactions", () => {
     expect(ctfApprovals.has(POLYGON_POLYMARKET.CTF_EXCHANGE.toLowerCase())).toBe(true);
     expect(ctfApprovals.has(POLYGON_POLYMARKET.NEG_RISK_EXCHANGE.toLowerCase())).toBe(true);
     expect(ctfApprovals.has(POLYGON_POLYMARKET.NEG_RISK_ADAPTER.toLowerCase())).toBe(true);
+    expect(usdcApproves.has(POLYGON_POLYMARKET.CTF_EXCHANGE_V1.toLowerCase())).toBe(false);
+    expect(usdcApproves.has(POLYGON_POLYMARKET.NEG_RISK_EXCHANGE_V1.toLowerCase())).toBe(false);
   });
 });

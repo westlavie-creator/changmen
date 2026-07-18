@@ -117,19 +117,22 @@ export function buildStandardApprovalTransactions(): Transaction[] {
 
 function formatRelayerError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
-  try {
-    const parsed = JSON.parse(raw) as { data?: { error?: string } };
-    const detail = parsed?.data?.error;
-    if (detail?.includes("does not match auth")) {
-      return "Relayer 鉴权地址与账号私钥不一致：Relayer API Key 仅适用于 key 绑定地址 = 私钥地址；changmen 多用户请用服务端 POLY_BUILDER_*（Builder HMAC）";
+  const text = (() => {
+    try {
+      const parsed = JSON.parse(raw) as { data?: { error?: string } };
+      return parsed?.data?.error || raw;
     }
-    if (detail)
-      return detail;
+    catch {
+      return raw;
+    }
+  })();
+  if (text.includes("does not match auth")) {
+    return "Relayer 鉴权地址与账号私钥不一致：Relayer API Key 仅适用于 key 绑定地址 = 私钥地址；changmen 多用户请用服务端 POLY_BUILDER_*（Builder HMAC）";
   }
-  catch {
-    /* not JSON */
+  if (/approve spender .+ is not in the allowed list/i.test(text)) {
+    return "Deposit Wallet 拒绝了对非白名单合约的授权（通常是旧版 V1 Exchange）。请更新客户端后重试账号准备。";
   }
-  return raw || "Polymarket Relayer 请求失败";
+  return text || "Polymarket Relayer 请求失败";
 }
 
 export async function preparePolymarketWallet(
