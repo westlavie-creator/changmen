@@ -6,6 +6,7 @@ import {
   decimalOddsFromProbability,
   mapPolymarketGameId,
   parseJsonArray,
+  resolvePolymarketMapMarketOutcome,
 } from "./parse.js";
 
 describe("polymarket-esports parse", () => {
@@ -16,6 +17,26 @@ describe("polymarket-esports parse", () => {
   it("decimalOddsFromProbability truncates to 3 decimals", () => {
     assert.equal(decimalOddsFromProbability(0.5), 2);
     assert.equal(decimalOddsFromProbability(0.51), 1.96);
+  });
+
+  it("resolvePolymarketMapMarketOutcome prefers official winner", () => {
+    const out = resolvePolymarketMapMarketOutcome({
+      clob_token_ids: '["tok-h","tok-a"]',
+      outcomePrices: '["0.999","0.001"]',
+      tokens: [
+        { token_id: "tok-h", winner: false },
+        { token_id: "tok-a", winner: true },
+      ],
+    });
+    assert.deepEqual(out, { mapOutcome: "away", outcomeKind: "official" });
+  });
+
+  it("resolvePolymarketMapMarketOutcome falls back to price ≥0.99", () => {
+    const out = resolvePolymarketMapMarketOutcome({
+      clobTokenIds: '["tok-h","tok-a"]',
+      outcomePrices: '["0.9995","0.0005"]',
+    });
+    assert.deepEqual(out, { mapOutcome: "home", outcomeKind: "price" });
   });
 
   it("maps lol moneyline market", () => {
@@ -43,6 +64,27 @@ describe("polymarket-esports parse", () => {
     assert.equal(mapped.bet.Map, 0);
     assert.ok(mapped.bet.HomeOdds > 0);
     assert.equal(mapped.bet.Status, "Normal");
+  });
+
+  it("attaches mapOutcome from outcomePrices on child map market", () => {
+    const market = {
+      condition_id: "0xmap3",
+      sportsMarketType: "child_moneyline",
+      groupItemTitle: "Map 3 Winner",
+      active: true,
+      closed: false,
+      clob_token_ids: '["tok-h","tok-a"]',
+      outcomes: '["Heroic","K27"]',
+      outcomePrices: '["0.9995","0.0005"]',
+      gameStartTime: Date.now() + 600_000,
+      events: [{ id: "evt-m3", title: "Heroic vs K27" }],
+      tags: [{ slug: "cs2", label: "CS2" }],
+    };
+    const mapped = buildPolymarketMappedMarket(market, { "tok-h": 0.9995, "tok-a": 0.0005 });
+    assert.ok(mapped);
+    assert.equal(mapped.bet.Map, 3);
+    assert.equal(mapped.mapOutcome, "home");
+    assert.equal(mapped.outcomeKind, "price");
   });
 
   it("rejects yes/no outcomes", () => {

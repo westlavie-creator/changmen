@@ -6,7 +6,7 @@ import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log
 import { isAdminUser } from "../auth/admin_auth.js";
 import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";
 import { loadProfileById } from "../db/store.js";
-import { listUserProfitRank, resolveStoredLink, toDateKey } from "./order_store.js";
+import { listUserProfitRank, resolveStoredLink, rowToOrder, toDateKey } from "./order_store.js";
 import {
   lastLoginFieldsFromProfile,
   PROFILE_META_PREFERENCE_KEYS,
@@ -382,25 +382,38 @@ function mapAdminOrderRow(r, startIndex = null) {
       && (startIndex.byId instanceof Map || startIndex.byTitle instanceof Map)
       ? startIndex
       : null;
+  // 与工作台 rowToOrder 同源：卖单 Money 重算 + raw 内 Pm* 字段
+  const o = rowToOrder(r);
   return {
     id: Number(r.id),
     userId: String(r.user_id),
-    playerId: Number(r.player_id) || 0,
-    orderId: String(r.order_id || ""),
-    linkId: resolveStoredLink(r.link, r.order_id, r.create_at),
-    provider: String(r.provider || ""),
-    match: stripOrderHtml(r.match || ""),
-    bet: String(r.bet || ""),
-    item: String(r.item || ""),
-    odds: Number(r.odds) || 0,
-    betMoney: Number(r.bet_money) || 0,
-    money: Number(r.money) || 0,
-    status: String(r.status || ""),
-    createAt: Number(r.create_at) || 0,
+    playerId: Number(o.PlayerID) || 0,
+    orderId: String(o.OrderID || ""),
+    linkId: Number(o.Link) || resolveStoredLink(r.link, r.order_id, r.create_at),
+    provider: String(o.Type || ""),
+    match: stripOrderHtml(o.Match || ""),
+    bet: String(o.Bet || ""),
+    item: String(o.Item || ""),
+    odds: Number(o.Odds) || 0,
+    betMoney: Number(o.BetMoney) || 0,
+    money: Number(o.Money) || 0,
+    status: String(o.Status || ""),
+    createAt: Number(o.CreateAt) || 0,
     matchId: col.matchId,
     matchKey: col.key,
     matchLabel: col.label,
     matchStartTime: resolveMatchStartTime(col, safeStartIndex),
+    pmTokenId: o.PmTokenId,
+    pmShares: o.PmShares,
+    pmFillPrice: o.PmFillPrice,
+    pmStakeUsdc: o.PmStakeUsdc,
+    pmConditionId: o.PmConditionId,
+    pmOrigin: o.PmOrigin,
+    pmAttributedSellShares: o.PmAttributedSellShares,
+    pmRealizedPnlUsdc: o.PmRealizedPnlUsdc,
+    pmSellState: o.PmSellState,
+    pmSide: o.PmSide,
+    pmBuyOrderId: o.PmBuyOrderId,
   };
 }
 

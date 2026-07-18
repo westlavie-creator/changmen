@@ -163,6 +163,46 @@ export function decimalOddsFromProbability(price) {
   return truncateOddsTo3(1 / value);
 }
 
+/** 与浏览器订单结算一致：价决阈值 0.99 */
+const WINNER_PRICE_MIN = 0.99;
+
+/**
+ * 以 PM 为准解析该市场胜负（相对 clob_token_ids[0]=home / [1]=away）。
+ * @param {object} market
+ * @returns {{ mapOutcome: "home"|"away", outcomeKind: "official"|"price" } | null}
+ */
+export function resolvePolymarketMapMarketOutcome(market) {
+  const assetIds = parseJsonArray(market?.clob_token_ids ?? market?.clobTokenIds);
+  if (assetIds.length < 2)
+    return null;
+  const homeId = String(assetIds[0] ?? "").trim();
+  const awayId = String(assetIds[1] ?? "").trim();
+  if (!homeId || !awayId)
+    return null;
+
+  const tokens = Array.isArray(market?.tokens) ? market.tokens : [];
+  const winning = tokens.find(t => t?.winner === true);
+  if (winning) {
+    const id = String(winning.token_id ?? winning.tokenId ?? "").trim();
+    if (id && id === homeId)
+      return { mapOutcome: "home", outcomeKind: "official" };
+    if (id && id === awayId)
+      return { mapOutcome: "away", outcomeKind: "official" };
+  }
+
+  const prices = parseJsonArray(market?.outcomePrices ?? market?.outcome_prices).map(Number);
+  for (let i = 0; i < prices.length; i++) {
+    const price = prices[i];
+    if (!Number.isFinite(price) || price < WINNER_PRICE_MIN)
+      continue;
+    if (i === 0)
+      return { mapOutcome: "home", outcomeKind: "price" };
+    if (i === 1)
+      return { mapOutcome: "away", outcomeKind: "price" };
+  }
+  return null;
+}
+
 /**
  * @param {object} market
  * @param {Record<string, number|string>} [buyPrices]
@@ -198,11 +238,13 @@ export function buildPolymarketMappedMarket(market, buyPrices = {}) {
   const locked = !homeOdds || !awayOdds;
   const event = eventOf(market);
   const pandascoreId = event?.gameId ? Number(event.gameId) : undefined;
+  const outcome = resolvePolymarketMapMarketOutcome(market);
 
   return {
     marketId,
     assetIds: [homeId, awayId],
     gameId: pandascoreId,
+    ...(outcome ? { mapOutcome: outcome.mapOutcome, outcomeKind: outcome.outcomeKind } : {}),
     match: {
       Type: PLATFORM,
       SourceMatchID: sourceMatchId,

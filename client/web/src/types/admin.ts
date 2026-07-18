@@ -131,6 +131,18 @@ export interface AdminOrderRow {
   matchLabel?: string;
   /** 开赛时间 ms，来自 client_matches 或订单 raw */
   matchStartTime?: number;
+  /** [changmen 扩展] Polymarket — 与工作台 rowToOrder / OrderRow.Pm* 对齐 */
+  pmTokenId?: string;
+  pmShares?: number;
+  pmFillPrice?: number;
+  pmStakeUsdc?: number;
+  pmConditionId?: string;
+  pmOrigin?: "changmen" | "external";
+  pmAttributedSellShares?: number;
+  pmRealizedPnlUsdc?: number;
+  pmSellState?: "open" | "partial" | "closed" | "settled";
+  pmSide?: "buy" | "sell";
+  pmBuyOrderId?: string;
 }
 
 export interface AdminOrderPage {

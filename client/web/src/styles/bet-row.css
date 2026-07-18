@@ -16,6 +16,35 @@
   color:#fff;font-size:12px;text-align:center;padding-bottom:6px;
 }
 
+/* WIN 浮在胜方赔率格上方，不增加行高 */
+.matchs .bet .item .item-odds.pm-map-won {
+  border-color:#67c23a;
+  box-shadow:0 0 4px #67c23a66 inset;
+}
+
+.matchs .bet .item .item-odds.pm-map-lost {
+  opacity:0.55;
+}
+
+.matchs .bet .item .item-odds .pm-map-win-badge {
+  position:absolute;
+  left:50%;
+  top:0;
+  transform:translate(-50%, -70%);
+  z-index:2;
+  padding:0 6px;
+  border-radius:3px;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:0.06em;
+  line-height:14px;
+  color:#fff;
+  background:#67c23a;
+  box-shadow:0 1px 4px #0008;
+  pointer-events:none;
+  white-space:nowrap;
+}
+
 .matchs .bet .item {
   font-size:12px;margin-bottom:6px;
 }

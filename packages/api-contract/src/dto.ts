@@ -66,6 +66,10 @@ export interface PredictFunMarketIndex {
   entries: PredictFunMarketIndexEntry[];
 }
 
+/** [changmen 扩展] 地图/全场市场胜负（以 PM 为准） */
+export type PolymarketMapOutcomeSide = "home" | "away";
+export type PolymarketMapOutcomeKind = "official" | "price";
+
 /** [changmen 扩展] VPS polymarket-esports-collector 写入，浏览器 WS 订阅用 */
 export interface PolymarketMarketIndexEntry {
   sourceMatchId: string;
@@ -82,6 +86,12 @@ export interface PolymarketMarketIndexEntry {
   /** CLOB 概率价，供浏览器种子写 fo / 预检 */
   homeClobPrice?: number;
   awayClobPrice?: number;
+  /**
+   * [changmen 扩展] 该市场胜负（home/away 相对 Index 的 homeToken/awayToken）。
+   * official = tokens[].winner；price = outcomePrices ≥ 0.99。
+   */
+  mapOutcome?: PolymarketMapOutcomeSide;
+  outcomeKind?: PolymarketMapOutcomeKind;
 }
 
 /** [changmen 扩展] polymarket_market_index.json */

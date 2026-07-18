@@ -37,10 +37,14 @@ export function adminOrderToOrderRow(
   row: AdminOrderRow,
   accounts: AdminOrderDisplayAccount[] = [],
 ): OrderRow {
+  // Polymarket 必须 Type=Polymarket，否则 OrderList 不进 PM 模板（isPmOrderListRow）
+  const type = String(row.provider || "").trim() === "Polymarket"
+    ? "Polymarket"
+    : adminOrderDisplayProvider(row, accounts);
   return {
     OrderID: row.orderId,
     Link: row.linkId,
-    Type: adminOrderDisplayProvider(row, accounts),
+    Type: type,
     Match: row.match,
     Bet: row.bet,
     Item: row.item,
@@ -50,6 +54,17 @@ export function adminOrderToOrderRow(
     Status: normalizeStatus(row.status),
     CreateAt: row.createAt,
     PlayerID: row.playerId,
+    PmTokenId: row.pmTokenId,
+    PmShares: row.pmShares,
+    PmFillPrice: row.pmFillPrice,
+    PmStakeUsdc: row.pmStakeUsdc,
+    PmConditionId: row.pmConditionId,
+    PmOrigin: row.pmOrigin,
+    PmAttributedSellShares: row.pmAttributedSellShares,
+    PmRealizedPnlUsdc: row.pmRealizedPnlUsdc,
+    PmSellState: row.pmSellState,
+    PmSide: row.pmSide,
+    PmBuyOrderId: row.pmBuyOrderId,
   };
 }
 

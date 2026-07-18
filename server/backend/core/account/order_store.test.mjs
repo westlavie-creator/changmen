@@ -92,3 +92,73 @@ describe("listUserProfitRank", () => {
     expect(rows[0].Money).toBe(100);
   });
 });
+
+describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
+  it("allows betMoney to drop to 0 when closing a buy", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const prevRaw = {
+      pmOrigin: "changmen",
+      pmSide: "buy",
+      betMoney: 111.52,
+      pmStakeUsdc: 16.4,
+      pmShares: 48.2353,
+      pmAttributedSellShares: 0,
+      money: 0,
+      status: "none",
+    };
+    const incoming = {
+      provider: "Polymarket",
+      pmOrigin: "changmen",
+      pmSide: "buy",
+      betMoney: 0,
+      pmStakeUsdc: 0,
+      pmSellState: "closed",
+      pmAttributedSellShares: 48.2353,
+      money: 0,
+      status: "none",
+    };
+    const { raw, bet_money, money } = mergePolymarketLogicalSave(
+      { bet_money: 111.52, money: 0 },
+      prevRaw,
+      incoming,
+      "changmen",
+    );
+    expect(bet_money).toBe(0);
+    expect(raw.betMoney).toBe(0);
+    expect(raw.pmSellState).toBe("closed");
+    expect(money).toBe(0);
+  });
+
+  it("allows betMoney shrink on first partial sell patch", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const prevRaw = {
+      pmOrigin: "changmen",
+      pmSide: "buy",
+      betMoney: 112,
+      pmStakeUsdc: 16.4,
+      pmShares: 48.23,
+      money: 0,
+      status: "none",
+    };
+    const incoming = {
+      provider: "Polymarket",
+      pmOrigin: "changmen",
+      pmSide: "buy",
+      betMoney: 40,
+      pmStakeUsdc: 5.9,
+      pmSellState: "partial",
+      pmAttributedSellShares: 30,
+      money: 0,
+      status: "none",
+    };
+    const { raw, bet_money } = mergePolymarketLogicalSave(
+      { bet_money: 112, money: 0 },
+      prevRaw,
+      incoming,
+      "changmen",
+    );
+    expect(bet_money).toBe(40);
+    expect(raw.betMoney).toBe(40);
+    expect(raw.pmSellState).toBe("partial");
+  });
+});

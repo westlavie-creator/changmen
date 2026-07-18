@@ -5,6 +5,11 @@ import {
   adminPlayerLabel,
   groupAdminOrderEntries,
 } from "./adminOrderDisplay";
+import {
+  pmBuyLifecycleTagText,
+  pmOrderStakeDisplayCny,
+  resolvePmOrderListStatusClass,
+} from "./pmOrderDisplay";
 
 function order(patch: Partial<AdminOrderRow>): AdminOrderRow {
   return {
@@ -89,6 +94,50 @@ describe("adminOrderDisplay", () => {
 
   it("falls back to the stored order provider when the account is unavailable", () => {
     expect(adminOrderToOrderRow(order({ provider: "OB" }), []).Type).toBe("OB");
+  });
+
+  it("keeps Type=Polymarket even when account platform differs so PM list template applies", () => {
+    expect(adminOrderToOrderRow(
+      order({
+        provider: "Polymarket",
+        playerId: 101,
+        betMoney: 0,
+        money: 0,
+        status: "None",
+        pmSide: "buy",
+        pmSellState: "closed",
+        pmStakeUsdc: 0,
+        pmShares: 10,
+        pmAttributedSellShares: 10,
+        pmFillPrice: 0.5,
+      }),
+      [account({ accountId: 101, platform: "OB", platformName: "误配" })],
+    ).Type).toBe("Polymarket");
+  });
+
+  it("maps PM fields for workbench-parity OrderList display", () => {
+    const row = adminOrderToOrderRow(order({
+      provider: "Polymarket",
+      betMoney: 0,
+      money: 0,
+      status: "None",
+      pmSide: "buy",
+      pmSellState: "closed",
+      pmStakeUsdc: 0,
+      pmShares: 57.66,
+      pmAttributedSellShares: 57.66,
+      pmFillPrice: 0.5,
+      pmOrigin: "changmen",
+    }));
+    expect(row.PmSellState).toBe("closed");
+    expect(row.PmSide).toBe("buy");
+    expect(row.PmShares).toBe(57.66);
+    expect(row.PmAttributedSellShares).toBe(57.66);
+    expect(row.PmFillPrice).toBe(0.5);
+    expect(row.PmOrigin).toBe("changmen");
+    expect(pmBuyLifecycleTagText(row)).toBe("已卖出");
+    expect(resolvePmOrderListStatusClass(row)).toBe("PmSold");
+    expect(pmOrderStakeDisplayCny(row)).toBe(0);
   });
 
   it("uses venueAccountName in player label", () => {

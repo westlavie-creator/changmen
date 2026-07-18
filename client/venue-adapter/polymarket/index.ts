@@ -30,6 +30,7 @@ export * from "./ws";
 export * from "./pmMarketWsMode";
 export * from "./pmUserWsMode";
 export * from "./pmLogicalPosition";
+export * from "./pmMapOutcomeStore";
 export * from "./pmTransportMode";
 export * from "./credentials";
 export * from "./depositWallet";

@@ -15,6 +15,7 @@ import {
   applyPolymarketMarketIndex,
   isPolymarketMarketIndex,
 } from "./marketIndex";
+import { replacePmMapOutcomesFromIndex } from "./pmMapOutcomeStore";
 import {
   decimalOddsFromProbability,
   type PolymarketMappedMarket,
@@ -191,6 +192,7 @@ export function startPolymarketCollector(): () => void {
       if (lastIndexUpdatedAt !== 0) {
         marketsById.clear();
         assetToMarket.clear();
+        replacePmMapOutcomesFromIndex(null);
         lastIndexUpdatedAt = 0;
       }
       syncEsportAssets();
@@ -203,6 +205,7 @@ export function startPolymarketCollector(): () => void {
     lastIndexUpdatedAt = index.updatedAt;
 
     applyPolymarketMarketIndex(index, { marketsById, assetToMarket });
+    replacePmMapOutcomesFromIndex(index);
     for (const entry of index.entries) {
       const mapped = marketsById.get(String(entry.marketId));
       if (!mapped)

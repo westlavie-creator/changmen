@@ -18,8 +18,33 @@ vi.mock("@changmen/db", () => ({
     rows: [
       { id: 1, user_id: "u1", order_id: "o1", link: 0, create_at: 1, raw: {} },
       { id: 2, user_id: "u1", order_id: "o2", link: 0, create_at: 2, raw: {} },
+      {
+        id: 3,
+        user_id: "u1",
+        player_id: 146,
+        order_id: "0xpmbuy",
+        link: 1784392132946,
+        provider: "Polymarket",
+        match: "Counter-Strike: Heroic vs K27 - Map 4 Winner",
+        bet: "地图4",
+        item: "Heroic",
+        odds: 2,
+        bet_money: 0,
+        money: 0,
+        status: "None",
+        create_at: 3,
+        raw: {
+          pmSide: "buy",
+          pmSellState: "closed",
+          pmStakeUsdc: 0,
+          pmShares: 57.66,
+          pmAttributedSellShares: 57.66,
+          pmFillPrice: 0.5,
+          pmOrigin: "changmen",
+        },
+      },
     ],
-    total: 2,
+    total: 3,
   })),
   ensurePgPoolReady: vi.fn(async () => {}),
   fetchProfileById: vi.fn(async (id) => (
@@ -47,6 +72,10 @@ vi.mock("@changmen/db", () => ({
   })),
   updateUserName: vi.fn(async () => true),
   deleteOrdersByIds: vi.fn(async ids => ids.length),
+  // rowToOrder → resolveStoredLink 需要（link=0 时）
+  placeholderLinkFromCreateAt: (ca) => Number(ca) || 0,
+  backendBindLinkFromCreateAt: (ca) => Number(ca) || 0,
+  isArbBindLink: () => false,
 }));
 
 const mockProfileRow = vi.hoisted(() => ({
@@ -86,9 +115,27 @@ vi.mock("../auth/role_filter.js", () => ({
 describe("listAdminOrders", () => {
   it("maps multiple rows without treating array index as startIndex", async () => {
     const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 50 });
-    expect(page.list).toHaveLength(2);
+    expect(page.list).toHaveLength(3);
     expect(page.list[0].id).toBe(1);
     expect(page.list[1].id).toBe(2);
+  });
+
+  it("passes through Polymarket raw fields for workbench-parity display", async () => {
+    const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 50 });
+    const pm = page.list.find(r => r.orderId === "0xpmbuy");
+    expect(pm).toMatchObject({
+      provider: "Polymarket",
+      betMoney: 0,
+      money: 0,
+      status: "None",
+      pmSide: "buy",
+      pmSellState: "closed",
+      pmStakeUsdc: undefined,
+      pmShares: 57.66,
+      pmAttributedSellShares: 57.66,
+      pmFillPrice: 0.5,
+      pmOrigin: "changmen",
+    });
   });
 });
 
