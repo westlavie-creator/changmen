@@ -46,7 +46,7 @@ pm2 save
 
 `deploy/scripts/deploy-server-remote.sh` 重启 `changmen-esport` 时会一并启动 `changmen-pm-market-hub` 与 `changmen-polymarket-collector`；若误起 `changmen-predictfun-collector` 会在部署末尾删除（除非 `DEPLOY_START_PREDICTFUN_COLLECTOR=1` 且已配 `PREDICT_FUN_API_KEY`）。
 
-**PM-MARKET WS**：独立进程 `changmen-pm-market-hub`（`:3457`）。Caddy 须把 `/esport/ws-forward/PM-MARKET*` 指到 3457；esport 的 `WS_FORWARD_PLATFORMS` **不要**再含 `PM-MARKET`。本地 Vite 若设了 `VITE_HK_RELAY_ORIGIN`，PM-MARKET 仍代理到 HK；纯本机联调需另开 `npm run pm-market-hub`。
+**PM-MARKET WS**：独立进程 `changmen-pm-market-hub`（`:3457`）。Caddy 须把 `/esport/ws-forward/PM-MARKET*` 指到 3457；esport 的 `WS_FORWARD_PLATFORMS` **不要**再含 `PM-MARKET`。本地 Vite：设了 `VITE_HK_RELAY_ORIGIN` 时 PM-MARKET 代理到 HK；纯本机则 Vite 把该路径指到 `127.0.0.1:3457`，须另开 `npm run pm-market-hub`。
 
 **Watchdog**（cron 每分钟）：
 

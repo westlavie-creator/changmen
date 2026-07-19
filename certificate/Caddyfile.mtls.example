@@ -1,0 +1,72 @@
+# changmen mTLS — 无域名、公网 IP + 客户端证书
+# 使用前：把下面两处 47.57.10.202 换成你的 VPS IP
+# 证书放到 /etc/caddy/certs/（见 bash 05-print-upload-cmds.sh）
+# 安全组放行 443；确认本机已装好 ca.crt + 自己的 .p12 再 reload，避免把自己锁外面
+#
+# 登录门 B：向 Node 注入 X-Changmen-Client-Cert（见 Caddyfile.dual.example 注释）
+
+{
+	auto_https off
+}
+
+(changmen_proxy_mtls) {
+	reverse_proxy 127.0.0.1:3456 {
+		header_up X-Changmen-Client-Cert 1
+		header_up X-Changmen-Client-Subject {http.request.tls.client.subject}
+	}
+}
+
+:80 {
+	redir https://{host}{uri} permanent
+}
+
+https://47.57.10.202 {
+	tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key {
+		client_auth {
+			mode require_and_verify
+			trust_pool file /etc/caddy/certs/ca.crt
+		}
+	}
+
+	encode gzip
+
+	root * /root/changmen/client/web/dist
+
+	handle /health {
+		import changmen_proxy_mtls
+	}
+	# 须在 /esport/* 之前：PM-MARKET → 独立 hub :3457（勿进 esport，避免扇出拖死 HTTP）
+	handle /esport/ws-forward/PM-MARKET* {
+		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/* {
+		import changmen_proxy_mtls
+	}
+	handle /common/* {
+		import changmen_proxy_mtls
+	}
+	handle /api/* {
+		import changmen_proxy_mtls
+	}
+	handle /esport2/* {
+		import changmen_proxy_mtls
+	}
+	@matcher path /matcher /matcher/*
+	handle @matcher {
+		import changmen_proxy_mtls
+	}
+	handle /v4.0/* {
+		import changmen_proxy_mtls
+	}
+
+	@spa_html path / /index.html
+	header @spa_html Cache-Control "no-cache, no-store, must-revalidate"
+
+	@hashed_assets path /assets/*
+	header @hashed_assets Cache-Control "public, max-age=31536000, immutable"
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

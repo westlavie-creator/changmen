@@ -1,0 +1,139 @@
+# changmen — HTTP + HTTPS 双开（灰度）
+# :80 无客户端证书；:443 强制 mTLS
+# 证书：/etc/caddy/certs/{ca.crt,server.crt,server.key}
+#
+# 登录门 B：证书 + 插件。Caddy 须向 Node 注入（或剥离）客户端证头：
+#   X-Changmen-Client-Cert / X-Changmen-Client-Subject
+# 前端探测 GET /api/client-cert-status
+
+{
+	auto_https off
+	servers {
+		# IP + mTLS：放宽 SNI/Host 严格校验，避免浏览器/curl 421
+		strict_sni_host insecure_off
+	}
+}
+
+# 无证入口：删掉客户端可伪造的证头
+(changmen_proxy_http) {
+	reverse_proxy 127.0.0.1:3456 {
+		header_up -X-Changmen-Client-Cert
+		header_up -X-Changmen-Client-Subject
+	}
+}
+
+# mTLS 入口：注入证头供 /api/client-cert-status
+(changmen_proxy_mtls) {
+	reverse_proxy 127.0.0.1:3456 {
+		header_up X-Changmen-Client-Cert 1
+		header_up X-Changmen-Client-Subject {http.request.tls.client.subject}
+	}
+}
+
+:80 {
+	encode gzip
+
+	# 证书安装引导（无需客户端证；先下载 ca.crt）
+	handle /setup/ca.crt {
+		root * /etc/caddy/certs
+		rewrite * /ca.crt
+		header Content-Type "application/x-x509-ca-cert"
+		header Content-Disposition "attachment; filename=\"ca.crt\""
+		file_server
+	}
+	handle_path /setup/* {
+		root * /root/changmen/certificate-public
+		file_server
+	}
+
+	root * /root/changmen/client/web/dist
+
+	handle /health {
+		import changmen_proxy_http
+	}
+	# 须在 /esport/* 之前：PM-MARKET → 独立 hub :3457
+	handle /esport/ws-forward/PM-MARKET* {
+		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/* {
+		import changmen_proxy_http
+	}
+	handle /common/* {
+		import changmen_proxy_http
+	}
+	handle /api/* {
+		import changmen_proxy_http
+	}
+	handle /esport2/* {
+		import changmen_proxy_http
+	}
+	@matcher path /matcher /matcher/*
+	handle @matcher {
+		import changmen_proxy_http
+	}
+	handle /v4.0/* {
+		import changmen_proxy_http
+	}
+
+	@spa_html path / /index.html
+	header @spa_html Cache-Control "no-cache, no-store, must-revalidate"
+
+	@hashed_assets path /assets/*
+	header @hashed_assets Cache-Control "public, max-age=31536000, immutable"
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+:443 {
+	tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key {
+		client_auth {
+			mode require_and_verify
+			trust_pool file /etc/caddy/certs/ca.crt
+		}
+	}
+
+	encode gzip
+
+	root * /root/changmen/client/web/dist
+
+	handle /health {
+		import changmen_proxy_mtls
+	}
+	# 须在 /esport/* 之前：PM-MARKET → 独立 hub :3457
+	handle /esport/ws-forward/PM-MARKET* {
+		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/* {
+		import changmen_proxy_mtls
+	}
+	handle /common/* {
+		import changmen_proxy_mtls
+	}
+	handle /api/* {
+		import changmen_proxy_mtls
+	}
+	handle /esport2/* {
+		import changmen_proxy_mtls
+	}
+	@matcher_https path /matcher /matcher/*
+	handle @matcher_https {
+		import changmen_proxy_mtls
+	}
+	handle /v4.0/* {
+		import changmen_proxy_mtls
+	}
+
+	@spa_html_https path / /index.html
+	header @spa_html_https Cache-Control "no-cache, no-store, must-revalidate"
+
+	@hashed_assets_https path /assets/*
+	header @hashed_assets_https Cache-Control "public, max-age=31536000, immutable"
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

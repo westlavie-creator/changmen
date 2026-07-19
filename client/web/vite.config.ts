@@ -88,6 +88,13 @@ export default defineConfig(({ mode }) => {
     proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
   }
+  else {
+    // 纯本机：PM-MARKET 独立 hub（须在通用 /esport 代理之前；另开 npm run pm-market-hub）
+    const pmHubPort = Number(env.VITE_PM_MARKET_HUB_PORT || process.env.PM_MARKET_HUB_PORT || 3457);
+    const pmHubTarget = String(env.VITE_PM_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
+      || `http://127.0.0.1:${Number.isFinite(pmHubPort) && pmHubPort > 0 ? pmHubPort : 3457}`;
+    proxy["/esport/ws-forward/PM-MARKET"] = { target: pmHubTarget, changeOrigin: true, ws: true };
+  }
   proxy["/esport2"] = { target: API_TARGET, changeOrigin: true, ws: true };
   proxy["/esport"] = { target: API_TARGET, changeOrigin: true, ws: true };
   proxy["/common"] = { target: API_TARGET, changeOrigin: true, ws: true };

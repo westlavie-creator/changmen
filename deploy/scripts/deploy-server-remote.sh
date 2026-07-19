@@ -343,6 +343,10 @@ if command -v pm2 >/dev/null 2>&1; then
   # PM-MARKET hub 独立进程：与 esport 同启（勿挂回 esport，避免扇出拖死 HTTP）
   if [ "$DO_PM2_WEB" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_MARKET_HUB")
+    ENV_FILE="$CHANGMEN/server/backend/.env"
+    if [ -f "$ENV_FILE" ] && grep -E '^[[:space:]]*WS_FORWARD_PLATFORMS=' "$ENV_FILE" | grep -q 'PM-MARKET'; then
+      log "WARN: WS_FORWARD_PLATFORMS still contains PM-MARKET — remove it so hub stays isolated (esport will re-attach fan-out and may hang HTTP)"
+    fi
   fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"

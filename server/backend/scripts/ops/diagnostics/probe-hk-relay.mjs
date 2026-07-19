@@ -11,6 +11,9 @@
  *   node scripts/ops/diagnostics/probe-hk-relay.mjs --upstream-only
  *   ESPORT_TEST_BASE=http://127.0.0.1:3456 PROBE_TOKEN=xxx node scripts/ops/diagnostics/probe-hk-relay.mjs
  *
+ * PM-MARKET WS 默认测独立 hub（PM_MARKET_HUB_PORT / PROBE_PM_MARKET_HUB_BASE，默认 :3457），
+ * 勿对 esport :3456 做 upgrade（隔离后那里没有 handler）。
+ *
  * PROBE_TOKEN 未设时：若 JWT_SECRET + RDS 可用，自动为首个 profiles 用户签发短期 JWT。
  */
 import http from "node:http";
@@ -100,6 +103,15 @@ function resolveApiBase() {
     return fromEnv.replace(/\/+$/, "");
   const port = Number(process.env.PORT || 3456);
   return `http://127.0.0.1:${port}`;
+}
+
+/** PM-MARKET 独立 hub（默认 :3457）；可用 PROBE_PM_MARKET_HUB_BASE 覆盖（例如经 Caddy :80） */
+function resolvePmMarketHubBase() {
+  const fromEnv = String(process.env.PROBE_PM_MARKET_HUB_BASE || "").trim();
+  if (fromEnv)
+    return fromEnv.replace(/\/+$/, "");
+  const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
+  return `http://127.0.0.1:${Number.isFinite(port) && port > 0 ? port : 3457}`;
 }
 
 function nodeFetch(url, options = {}) {
@@ -296,8 +308,8 @@ function checkWsForwardRelay(apiBase, path, label, { pingProbe = true } = {}) {
   });
 }
 
-function checkPmMarketWsRelay(apiBase) {
-  return checkWsForwardRelay(apiBase, PM_WS_FORWARD_PATH, "PM-MARKET");
+function checkPmMarketWsRelay(hubBase) {
+  return checkWsForwardRelay(hubBase, PM_WS_FORWARD_PATH, "PM-MARKET");
 }
 
 function checkPredictFunWsRelay(apiBase) {
@@ -307,7 +319,8 @@ function checkPredictFunWsRelay(apiBase) {
 
 async function main() {
   const apiBase = resolveApiBase();
-  console.log(`== probe-hk-relay apiBase=${apiBase} ==`);
+  const pmHubBase = resolvePmMarketHubBase();
+  console.log(`== probe-hk-relay apiBase=${apiBase} pmHubBase=${pmHubBase} ==`);
 
   if (!relayOnly)
     await checkUpstreamDirect();
@@ -316,7 +329,7 @@ async function main() {
     await checkHttpRelay(apiBase);
     await checkProxyStatus(apiBase);
     if (!skipWs) {
-      await checkPmMarketWsRelay(apiBase);
+      await checkPmMarketWsRelay(pmHubBase);
       await checkPredictFunWsRelay(apiBase);
     }
   }
