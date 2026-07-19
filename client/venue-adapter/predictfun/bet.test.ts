@@ -36,12 +36,23 @@ describe("predictfun bet helpers", () => {
     expect(isPredictFunOrderAccepted({ })).toBe(false);
   });
 
-  it("locks detection max price from option.data", () => {
+  it("locks detection max price from option.data when clob matches odds", () => {
     const option = {
-      odds: 1.8,
+      odds: 1.818,
       data: { detectionClobPrice: 0.55 },
     } as never;
-    expect(resolvePredictFunDetectionMaxPrice(option, 1.8)).toBe(0.55);
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(0.55);
+  });
+
+  it("ignores stale fo clob when display odds disagree", () => {
+    // 展示 1.587（≈0.63），fo 旧价 0.6203（≈1.612）→ 用 1/1.587
+    const option = {
+      odds: 1.587,
+      data: { detectionClobPrice: 0.6203 },
+    } as never;
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.587)).toBe(
+      detectionMaxPriceFromOdds(1.587),
+    );
   });
 });
 

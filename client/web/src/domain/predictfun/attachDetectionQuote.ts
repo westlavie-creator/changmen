@@ -4,6 +4,7 @@ import { useOddsStore } from "@/stores/oddsStore";
 import {
   isValidPredictClobPrice,
   lookupPredictFunMarketIdByToken,
+  predictFunClobMatchesOdds,
   type PredictFunOptionQuoteData,
 } from "@changmen/venue-adapter/predictfun";
 
@@ -30,7 +31,8 @@ export function attachPredictFunDetectionQuote(option: BetOption): void {
     patch.marketId = marketId;
   if (!hasLockedPredictFunDetectionQuote(prior)) {
     const clobPrice = Number(row?.clobPrice);
-    if (isValidPredictClobPrice(clobPrice))
+    // ?? fo ?????????????????? Sources=1.587 / fo=0.62 ????
+    if (isValidPredictClobPrice(clobPrice) && predictFunClobMatchesOdds(clobPrice, option.odds))
       patch.detectionClobPrice = clobPrice;
   }
   if (patch.marketId || patch.detectionClobPrice != null)
