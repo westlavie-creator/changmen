@@ -150,10 +150,13 @@ done
 test -f ${deployRepo}/server/backend/.env
 cd ${deployRepo} && PREDICT_FUN_API_KEY='${predictKey.replace(/'/g, "'\\''")}' bash deploy/scripts/sync-hk-relay-env-remote.sh`);
 
+    // PREDICTFUN-MARKET / PM-MARKET 在独立 hub；status 经 hubs 注入 platforms，并探 :3458/health
     ssh(h.host, `set -e
 status="$(curl -sf http://127.0.0.1/api/proxy/status 2>/dev/null || curl -sf http://127.0.0.1:3456/api/proxy/status)"
 echo "$status"
-echo "$status" | grep -q '"PREDICTFUN-MARKET"'`);
+echo "$status" | grep -q '"PREDICTFUN-MARKET"'
+curl -sf http://127.0.0.1:3458/health | grep -q '"changmen-predictfun-market-hub"'
+curl -sf http://127.0.0.1:3457/health | grep -q '"changmen-pm-market-hub"' || true`);
     ssh(h.host, `curl -sf -o /dev/null http://127.0.0.1/ || curl -sf -o /dev/null http://127.0.0.1:3456/`);
     console.log(`OK ${h.label} http://${h.host}/`);
     results.push({ ...h, ok: true });
