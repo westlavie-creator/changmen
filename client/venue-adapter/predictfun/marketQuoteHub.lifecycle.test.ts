@@ -167,6 +167,21 @@ describe("PF collect / hub source contracts", () => {
     expect(src).not.toMatch(/export \{[\s\S]*setPredictFunSportMarketIds/);
   });
 
+  test("WS quote path writes fo only; Index sync may refreshOddsOnBets", () => {
+    const src = readFileSync(join(root, "collect.ts"), "utf8");
+    const quoteStart = src.indexOf("function updateBetFromMarketId");
+    const quoteEnd = src.indexOf("const unQuote", quoteStart);
+    expect(quoteStart).toBeGreaterThanOrEqual(0);
+    expect(quoteEnd).toBeGreaterThan(quoteStart);
+    const quoteBody = src.slice(quoteStart, quoteEnd);
+    expect(quoteBody).toMatch(/saveTokenQuote\(/);
+    expect(quoteBody).not.toMatch(/refreshOddsOnBets/);
+
+    const indexStart = src.indexOf("async function syncMarketIndex");
+    expect(indexStart).toBeGreaterThanOrEqual(0);
+    expect(src.slice(indexStart)).toMatch(/refreshOddsOnBets\(/);
+  });
+
   test("hub layer never imports oddsAccess", () => {
     const hub = readFileSync(join(root, "marketQuoteHub.ts"), "utf8");
     expect(hub).not.toMatch(/oddsAccess/);

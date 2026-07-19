@@ -159,6 +159,7 @@ export function startLimitlessCollector(): () => void {
     mapped.bet = next;
 
     const side = tokenId === String(next.SourceHomeID) ? "home" as const : "away" as const;
+    // Quote 只写 fo；全表 refresh 交给主循环 / discovery 灌盘（对齐 PM / A8 MQTT）
     saveTokenQuote({
       tokenId,
       clobPrice: bestAsk,
@@ -166,7 +167,6 @@ export function startLimitlessCollector(): () => void {
       side,
       locked: next.Status === "Locked" || (side === "home" ? !next.HomeOdds : !next.AwayOdds),
     }, "mqtt");
-    matchStore.refreshOddsOnBets();
   }
 
   const wsHandle = startLimitlessMarketWs({

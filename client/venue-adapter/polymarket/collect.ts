@@ -112,6 +112,10 @@ function saveBetOddsToFo(
 /**
  * 电竞行情消费者：同步 VPS MarketIndex，登记 asset，收到行情后写 fo。
  * 停采集只 unregister(esport)，不卸体育会话。
+ *
+ * Quote 只写 fo，不调 refreshOddsOnBets（对齐 A8 MQTT→Qn.save；全表同步由主循环 ~100ms
+ * + 下单前 prepareArbAttempt 的 updateOdds；展示读 oddsStore）。
+ * Index 灌盘后保留一次 refresh，便于 fallback 跟上种子价。
  */
 export function startPolymarketCollector(): () => void {
   const collect = useCollectStore();
@@ -163,7 +167,6 @@ export function startPolymarketCollector(): () => void {
       side,
       locked: next.Status === "Locked" || (side === "home" ? !next.HomeOdds : !next.AwayOdds),
     }, "mqtt");
-    matchStore.refreshOddsOnBets();
   }
 
   const unQuote = onPolymarketMarketQuote((q) => {
