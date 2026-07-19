@@ -73,13 +73,22 @@ vi.mock("./pf_house_redeem.js", () => ({
 
 vi.mock("./pf_order_service.js", () => ({
   isValidPredictClobPrice: (v) => Number.isFinite(v) && v > 0 && v < 1,
+  REUSE_BOOK_MAX_AGE_MS: 1500,
+  prepareHouseSigner: vi.fn(async () => ({
+    Side: {},
+    orderBuilder: {},
+    maker: "0xabc",
+    jwt: "jwt",
+  })),
   resolveExecutableBuy: vi.fn(async () => ({
     bookPrice: 0.4,
     bookOdds: 2.5,
-    bookFetchedAt: 1,
+    bookFetchedAt: Date.now(),
     feeRateBps: 200,
     isNegRisk: false,
     isYieldBearing: false,
+    yesBook: { asks: [], bids: [] },
+    market: {},
   })),
   createAndSubmitHouseMarketBuy: vi.fn(async () => ({
     requestBody: { data: { order: { hash: "0xhash1" } } },

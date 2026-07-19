@@ -24,7 +24,9 @@ import {
   estimatePfSharesWei,
   isPredictFunOrderAccepted,
   isValidPredictClobPrice,
+  prepareHouseSigner,
   resolveExecutableBuy,
+  REUSE_BOOK_MAX_AGE_MS,
   weiToDecimal18,
   withHouseOrderLock,
 } from "./pf_order_service.js";
@@ -284,6 +286,18 @@ export async function handlePfSubmitOrder(body, userId) {
     console.info(
       `[Pf_SubmitOrder] start player=${gate.playerId} market=${intent.marketId} stake=${intent.apiBetMoney}`,
     );
+
+    // 锁外：预热 signer + 拉盘（与预检并行），锁内只做余额校验 + 签单 POST
+    const [fresh0] = await Promise.all([
+      resolveExecutableBuy({
+        tokenId: intent.tokenId,
+        marketId: intent.marketId,
+        detectionOdds: intent.detectionOdds,
+        maxPrice: intent.detectionMaxPrice,
+      }),
+      prepareHouseSigner(),
+    ]);
+
     const submitted = await withHouseOrderLock(async () => {
       // 锁内再读一次，避免并发超扣
       const owned = await assertPlayerOwnedByUser(gate.playerId, userId);
@@ -294,12 +308,15 @@ export async function handlePfSubmitOrder(body, userId) {
       if (!liveAvail.ok)
         throw new Error(liveAvail.msg || "可用余额不足");
 
-      const fresh = await resolveExecutableBuy({
-        tokenId: intent.tokenId,
-        marketId: intent.marketId,
-        detectionOdds: intent.detectionOdds,
-        maxPrice: intent.detectionMaxPrice,
-      });
+      let fresh = fresh0;
+      if (Date.now() - Number(fresh0.bookFetchedAt || 0) > REUSE_BOOK_MAX_AGE_MS) {
+        fresh = await resolveExecutableBuy({
+          tokenId: intent.tokenId,
+          marketId: intent.marketId,
+          detectionOdds: intent.detectionOdds,
+          maxPrice: intent.detectionMaxPrice,
+        });
+      }
 
       const out = await createAndSubmitHouseMarketBuy({
         tokenId: intent.tokenId,
@@ -310,6 +327,8 @@ export async function handlePfSubmitOrder(body, userId) {
         feeRateBps: fresh.feeRateBps,
         isNegRisk: fresh.isNegRisk,
         isYieldBearing: fresh.isYieldBearing,
+        yesBook: fresh.yesBook,
+        market: fresh.market,
       });
 
       return { fresh, out, liveBal };
@@ -387,6 +406,10 @@ export async function handlePfSubmitOrder(body, userId) {
     console.warn(`[Pf_SubmitOrder] fail market=${intent?.marketId || "?"} ${msg}`);
     return { ok: false, msg };
   }
+}
+
+function rdsOrderKey(row) {
+  return String(row?.orderId ?? row?.OrderID ?? "").trim();
 }
 
 function rdsOrderStatus(row) {

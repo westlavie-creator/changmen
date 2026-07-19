@@ -76,7 +76,18 @@ async function loadPredictSdk() {
   return { sdk, ethers };
 }
 
-async function prepareHouseSigner() {
+/** 进程内缓存 OrderBuilder（make 很慢）；JWT 仍走 pf_auth 短缓存 */
+let houseBuilderCache = null;
+
+/** @internal 单测 */
+export function _resetHouseSignerCacheForTests() {
+  houseBuilderCache = null;
+}
+
+async function ensureHouseBuilder() {
+  if (houseBuilderCache)
+    return houseBuilderCache;
+
   const credentials = resolvePredictFunHouseCredentials();
   if (!credentials?.privateKey)
     throw new Error("未配置 Predict.fun 运营主号（PREDICT_FUN_PRIVY_PRIVATE_KEY）");
@@ -99,17 +110,51 @@ async function prepareHouseSigner() {
   ensureHouseWalletEventsStarted();
 
   const maker = predictAccount || await signer.getAddress();
-  const jwt = await fetchPredictFunHouseJwt({
-    apiBase,
-    signer: maker,
-    signMessage: async (message) => {
-      if (predictAccount && typeof orderBuilder.signPredictAccountMessage === "function")
-        return orderBuilder.signPredictAccountMessage(message);
-      return signer.signMessage(message);
-    },
-  });
+  const signMessage = async (message) => {
+    if (predictAccount && typeof orderBuilder.signPredictAccountMessage === "function")
+      return orderBuilder.signPredictAccountMessage(message);
+    return signer.signMessage(message);
+  };
 
-  return { Side, orderBuilder, maker, jwt };
+  houseBuilderCache = { Side, orderBuilder, maker, apiBase, signMessage };
+  console.info("[Pf_House] OrderBuilder ready");
+  return houseBuilderCache;
+}
+
+async function prepareHouseSigner() {
+  const built = await ensureHouseBuilder();
+  const jwt = await fetchPredictFunHouseJwt({
+    apiBase: built.apiBase,
+    signer: built.maker,
+    signMessage: built.signMessage,
+  });
+  return {
+    Side: built.Side,
+    orderBuilder: built.orderBuilder,
+    maker: built.maker,
+    jwt,
+  };
+}
+
+export { prepareHouseSigner };
+
+/** 预检盘口可复用的最大年龄（ms）；超时则锁内再拉一次 */
+export const REUSE_BOOK_MAX_AGE_MS = Number(process.env.PF_HOUSE_REUSE_BOOK_MS || 1500);
+
+/** 进程启动预热：SDK + approvals + JWT，避免首单 10s+ */
+export async function warmPfHouseSession() {
+  try {
+    if (!resolvePredictFunHouseCredentials()?.privateKey)
+      return { ok: false, skipped: true };
+    const t0 = Date.now();
+    await prepareHouseSigner();
+    console.info(`[Pf_House] warm ok +${Date.now() - t0}ms`);
+    return { ok: true };
+  }
+  catch (err) {
+    console.warn("[Pf_House] warm failed:", err instanceof Error ? err.message : err);
+    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export async function resolveExecutableBuy({
@@ -176,11 +221,18 @@ export async function createAndSubmitHouseMarketBuy(params) {
   const { Side, orderBuilder, maker, jwt } = await prepareHouseSigner();
   logStep("signer_ready");
 
-  const [bookRaw, market] = await Promise.all([
-    fetchPredictOrderbook(params.marketId),
-    fetchPredictMarket(params.marketId),
-  ]);
-  logStep("book_ready");
+  let bookRaw = params.yesBook || null;
+  let market = params.market || null;
+  if (!bookRaw || !market) {
+    [bookRaw, market] = await Promise.all([
+      fetchPredictOrderbook(params.marketId),
+      fetchPredictMarket(params.marketId),
+    ]);
+    logStep("book_fetched");
+  }
+  else {
+    logStep("book_reused");
+  }
   if (!bookRaw)
     throw new Error("下单前 orderbook 为空");
 

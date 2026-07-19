@@ -108,6 +108,13 @@ ensurePlatformCredentials()
     console.warn("[platform-sync] failed:", err.message);
   });
 
+// Predict.fun house：预热 OrderBuilder / approvals / JWT，缩短首单延迟
+import("./core/integrations/predictfun/pf_order_service.js")
+  .then((m) => m.warmPfHouseSession())
+  .catch((err) => {
+    console.warn("[Pf_House] warm import failed:", err?.message || err);
+  });
+
 setTimeout(() => {
   ensurePlatformCredentials().catch((err) => {
     console.warn("[platform-sync] retry failed:", err.message);
