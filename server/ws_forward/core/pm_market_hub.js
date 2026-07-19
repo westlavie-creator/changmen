@@ -3,8 +3,10 @@
  * 浏览器仍连 /esport/ws-forward/PM-MARKET；PM-USER 保持 1:1 raw 转发。
  * 升级可带 JWT（?token= / Bearer）写入健康页归属；无 token / 校验失败仍放行（避免断采）。
  *
- * 下行策略：行情按 asset coalesce，上游每 tick / 25ms 合批成单条 JSON 数组再 send，
- * 避免逐 token 立即狂刷堵死客户↔VPS 同源 HTTP（余额/延迟）。
+ * 下行策略（必须紫线 / 无法翻墙用户）：
+ * - 行情只进 pending（同 asset 只留最新），禁止上游每 tick 立刻 flush
+ * - 仅定时合批成单条 JSON 数组再 send（默认 100ms ≈ 10 batch/s）
+ * - bufferedAmount 超过软阈值时本轮跳过，继续 coalesce，避免塞满 CN↔VPS 管线饿死同源 HTTP
  */
 import { WebSocketServer, WebSocket } from "ws";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
@@ -40,8 +42,24 @@ const UPSTREAM_IDLE_MS = 60_000;
  *   userAgent: string,
  * }} HubClient */
 
-/** pending flush 间隔（ms） */
-export const PENDING_FLUSH_MS = 25;
+/** pending flush 间隔（ms）；可用 PM_HUB_PENDING_FLUSH_MS 覆盖。默认 100≈10 batch/s。 */
+export function resolvePendingFlushMs() {
+  const n = Number(process.env.PM_HUB_PENDING_FLUSH_MS);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 100;
+}
+
+/** @deprecated 读 resolvePendingFlushMs()；保留常量名供外部引用 */
+export const PENDING_FLUSH_MS = 100;
+
+/**
+ * 软背压：bufferedAmount 超过此值则本轮不发、继续 coalesce。
+ * 硬背压仍走 WS_FORWARD_MAX_BUFFERED_BYTES（默认 512KiB）。
+ * 可用 PM_HUB_SOFT_BUFFERED_BYTES 覆盖。
+ */
+export function resolveSoftBufferedBytes() {
+  const n = Number(process.env.PM_HUB_SOFT_BUFFERED_BYTES);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 64 * 1024;
+}
 
 /**
  * 从 upgrade 请求提取 JWT（query token 优先，其次 Authorization Bearer / token 头）。
@@ -267,7 +285,7 @@ function ensurePendingFlushTimer() {
     }
     if (!anyPending)
       stopPendingFlushTimer();
-  }, PENDING_FLUSH_MS);
+  }, resolvePendingFlushMs());
 }
 
 /**
@@ -281,21 +299,20 @@ function flushClientPending(clientWs, row) {
     row.pendingByAsset.clear();
     return;
   }
-  const raws = takePendingRawsDeduped(row.pendingByAsset);
-  if (!raws.length)
-    return;
-  row.lastBufferedAmount = Number(clientWs.bufferedAmount) || 0;
-  if (!toClientGuard.isSendAllowed(clientWs)) {
-    for (const stuck of raws) {
-      const ids = extractAssetIdsFromPmMarketMessage(stuck);
-      if (ids.size)
-        enqueueLatestByAsset(row.pendingByAsset, ids, stuck);
-      else
-        row.droppedToClient += 1;
-    }
+  const buffered = Number(clientWs.bufferedAmount) || 0;
+  row.lastBufferedAmount = buffered;
+  // 软背压：管线未排空则本轮跳过，pending 继续 coalesce（不 take）
+  if (buffered > resolveSoftBufferedBytes()) {
     ensurePendingFlushTimer();
     return;
   }
+  if (!toClientGuard.isSendAllowed(clientWs)) {
+    ensurePendingFlushTimer();
+    return;
+  }
+  const raws = takePendingRawsDeduped(row.pendingByAsset);
+  if (!raws.length)
+    return;
   const payload = buildBatchedPendingPayload(raws);
   if (!payload) {
     row.droppedToClient += raws.length;
@@ -360,7 +377,7 @@ function fanoutRawToClient(clientWs, row, raw, msgAssetIds, broadcastAll) {
   if (!keys.length)
     return;
 
-  // 行情：一律进 pending，由上游 tick 末尾 / 25ms timer 合批单帧下发（禁止逐 token 立即 send）
+  // 行情：一律进 pending；仅定时器合批下发（禁止上游每 tick flush，否则 CN↔VPS 仍按消息率灌管）
   row.coalescedToClient += enqueueLatestByAsset(row.pendingByAsset, keys, raw);
   ensurePendingFlushTimer();
 }
@@ -553,7 +570,6 @@ function ensureUpstream() {
           fanoutRawToClient(clientWs, row, frame.raw, new Set([frame.assetId]), false);
         }
       }
-      flushAllClientPending();
       return;
     }
 
@@ -579,8 +595,6 @@ function ensureUpstream() {
       }
       fanoutRawToClient(clientWs, row, raw, assetIds, broadcastAll);
     }
-    if (!broadcastAll)
-      flushAllClientPending();
   });
 
   ws.on("close", () => {

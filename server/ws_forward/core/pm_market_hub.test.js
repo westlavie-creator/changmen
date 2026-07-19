@@ -6,6 +6,8 @@ import {
   extractPmMarketUpgradeToken,
   mergeHubAssetIds,
   pendingRawPriority,
+  resolvePendingFlushMs,
+  resolveSoftBufferedBytes,
   takePendingRawsDeduped,
 } from "./pm_market_hub.js";
 
@@ -137,5 +139,29 @@ describe("pm_market_hub", () => {
       { assetId: "a", bestAsk: "0.58" },
     ]);
     expect([...extractAssetIdsFromPmMarketMessage(payload)].sort()).toEqual(["a", "h"]);
+  });
+
+  test("resolvePendingFlushMs defaults to 100; env override", () => {
+    const prev = process.env.PM_HUB_PENDING_FLUSH_MS;
+    delete process.env.PM_HUB_PENDING_FLUSH_MS;
+    expect(resolvePendingFlushMs()).toBe(100);
+    process.env.PM_HUB_PENDING_FLUSH_MS = "150";
+    expect(resolvePendingFlushMs()).toBe(150);
+    if (prev === undefined)
+      delete process.env.PM_HUB_PENDING_FLUSH_MS;
+    else
+      process.env.PM_HUB_PENDING_FLUSH_MS = prev;
+  });
+
+  test("resolveSoftBufferedBytes defaults to 64KiB; env override", () => {
+    const prev = process.env.PM_HUB_SOFT_BUFFERED_BYTES;
+    delete process.env.PM_HUB_SOFT_BUFFERED_BYTES;
+    expect(resolveSoftBufferedBytes()).toBe(64 * 1024);
+    process.env.PM_HUB_SOFT_BUFFERED_BYTES = "32768";
+    expect(resolveSoftBufferedBytes()).toBe(32768);
+    if (prev === undefined)
+      delete process.env.PM_HUB_SOFT_BUFFERED_BYTES;
+    else
+      process.env.PM_HUB_SOFT_BUFFERED_BYTES = prev;
   });
 });
