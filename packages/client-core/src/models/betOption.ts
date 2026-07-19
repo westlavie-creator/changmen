@@ -78,6 +78,14 @@ export class BetOption {
       this.itemId = item.getItemId(target);
       this.odds = item.getOdds(target);
       this.betMoney = normalizeOptionStake(betMoneyOrTarget);
+      // [changmen 扩展] PF：Sources 已带 HomeMarketID 时预填，避免仅靠 fo
+      if (item.type === "PredictFun") {
+        const marketId = String(
+          target === "Home" ? item.homeSubscribeId : item.awaySubscribeId,
+        ).trim();
+        if (marketId)
+          this.data = { marketId };
+      }
     }
   }
 

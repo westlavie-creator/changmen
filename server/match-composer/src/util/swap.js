@@ -8,5 +8,7 @@ export function swapBetSource(src) {
     AwayID: src.HomeID,
     HomeOdds: src.AwayOdds,
     AwayOdds: src.HomeOdds,
+    HomeMarketID: src.AwayMarketID ?? src.HomeMarketID,
+    AwayMarketID: src.HomeMarketID ?? src.AwayMarketID,
   };
 }

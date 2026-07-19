@@ -2,6 +2,7 @@ import type { PlatformProvider, ResolveLegOutcomeOpts, VenueOrder } from "../con
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import { PLATFORMS } from "../shared/platforms";
 
@@ -16,6 +17,11 @@ import {
   resolvePredictFunDetectionMaxPrice,
 } from "./pfDetection";
 import { resolvePredictFunProviderLegOutcome } from "./legOutcome";
+import {
+  isPredictFunMarketIndex,
+  lookupPredictFunMarketIdByToken,
+  rememberPredictFunTokenMarketIds,
+} from "./marketIndex";
 
 const PLATFORM = PLATFORMS.PredictFun;
 const PRECHECK_BOOK_REUSE_MS = 800;
@@ -53,10 +59,34 @@ function resolveDetectionOdds(option: BetOption): number {
   return option.odds;
 }
 
-function resolveMarketId(option: BetOption, tokenId: string): string {
+function resolveMarketIdSync(option: BetOption, tokenId: string): string {
   const fromData = option.data as { marketId?: string } | null | undefined;
+  const fromItem = option.item
+    ? String(
+      option.target === "Home"
+        ? (option.item.homeSubscribeId || "")
+        : (option.item.awaySubscribeId || ""),
+    ).trim()
+    : "";
   const cached = getVenueOddsEntry(PLATFORM, tokenId)?.marketId;
-  return String(fromData?.marketId ?? cached ?? "").trim();
+  const fromIndex = lookupPredictFunMarketIdByToken(tokenId);
+  return String(fromData?.marketId ?? fromItem ?? cached ?? fromIndex ?? "").trim();
+}
+
+async function ensureMarketId(option: BetOption, tokenId: string): Promise<string> {
+  const hit = resolveMarketIdSync(option, tokenId);
+  if (hit)
+    return hit;
+  try {
+    const platform = await getCollectPlatform(PLATFORM);
+    const index = isPredictFunMarketIndex(platform?.MarketIndex) ? platform.MarketIndex : null;
+    if (index)
+      rememberPredictFunTokenMarketIds(index);
+  }
+  catch {
+    /* ignore — 下面仍报缺 marketId */
+  }
+  return resolveMarketIdSync(option, tokenId);
 }
 
 function isPredictFunBuyCheckData(data: unknown): data is PredictFunBuyCheckData {
@@ -101,7 +131,7 @@ export function isPredictFunOrderAccepted(
 export const predictFunProvider: PlatformProvider = {
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
     const tokenId = String(option.itemId ?? "").trim();
-    const marketId = resolveMarketId(option, tokenId);
+    const marketId = await ensureMarketId(option, tokenId);
     const detectionOdds = resolveDetectionOdds(option);
     const maxPrice = resolvePredictFunDetectionMaxPrice(option, detectionOdds);
     const apiBetMoney = resolveApiBetMoney(option);

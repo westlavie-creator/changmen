@@ -9,9 +9,35 @@ import {
   obSavedBetIsMatchWinner,
   rayLegacyWinBetName,
 } from "@changmen/shared/catalog/market_catalog";
+import { readPredictFunMarketIndex } from "@changmen/storage/predictfun_market_index.js";
 
 export function betBucketKey(platform, sourceMatchId) {
   return `${platform}:${sourceMatchId}`;
+}
+
+let pfTokenMarketCache = { updatedAt: -1, byToken: new Map() };
+
+function predictFunMarketIdByToken(tokenId) {
+  const tok = String(tokenId || "").trim();
+  if (!tok)
+    return "";
+  const index = readPredictFunMarketIndex();
+  const updatedAt = Number(index?.updatedAt) || 0;
+  if (updatedAt !== pfTokenMarketCache.updatedAt) {
+    const byToken = new Map();
+    for (const entry of index?.entries || []) {
+      const homeMid = String(entry.homeMarketId || "").trim();
+      const awayMid = String(entry.awayMarketId || homeMid).trim();
+      const homeTok = String(entry.homeTokenId || "").trim();
+      const awayTok = String(entry.awayTokenId || "").trim();
+      if (homeTok && homeMid)
+        byToken.set(homeTok, homeMid);
+      if (awayTok && awayMid)
+        byToken.set(awayTok, awayMid);
+    }
+    pfTokenMarketCache = { updatedAt, byToken };
+  }
+  return pfTokenMarketCache.byToken.get(tok) || "";
 }
 
 function winPriority(bet, provider, gameCode) {
@@ -60,6 +86,8 @@ export function cloneRawSource(src) {
     HomeOdds: src.HomeOdds,
     AwayOdds: src.AwayOdds,
     Status: src.Status || "Normal",
+    ...(src.HomeMarketID ? { HomeMarketID: String(src.HomeMarketID) } : {}),
+    ...(src.AwayMarketID ? { AwayMarketID: String(src.AwayMarketID) } : {}),
   };
 }
 
@@ -67,7 +95,7 @@ export function sourceFromBet(provider, b) {
   const homeRaw = Number(b.HomeOdds) || 0;
   const awayRaw = Number(b.AwayOdds) || 0;
   const useTrunc = provider === "Polymarket" || provider === "PredictFun";
-  return {
+  const src = {
     Type: provider,
     BetID: String(b.SourceBetID),
     HomeID: String(b.SourceHomeID || ""),
@@ -76,6 +104,16 @@ export function sourceFromBet(provider, b) {
     AwayOdds: useTrunc ? truncateOddsTo3(awayRaw) : formatOdds(awayRaw),
     Status: b.Status || "Normal",
   };
+  if (provider === "PredictFun") {
+    const mid = String(b.MarketID || "").trim()
+      || predictFunMarketIdByToken(src.HomeID)
+      || predictFunMarketIdByToken(src.AwayID);
+    if (mid) {
+      src.HomeMarketID = mid;
+      src.AwayMarketID = mid;
+    }
+  }
+  return src;
 }
 
 /**

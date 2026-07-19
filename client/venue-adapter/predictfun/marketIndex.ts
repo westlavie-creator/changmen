@@ -3,11 +3,44 @@ import type { CollectBetDto } from "@changmen/client-core/types/collect";
 
 import type { PredictMappedMarket } from "./parse";
 
+/** tokenId(onChainId) → predict.fun marketId；index 同步时维护，供 checkBet 不依赖 fo */
+const tokenToMarketId = new Map<string, string>();
+
 export function isPredictFunMarketIndex(value: unknown): value is PredictFunMarketIndex {
   if (!value || typeof value !== "object")
     return false;
   const row = value as PredictFunMarketIndex;
   return Array.isArray(row.entries) && Array.isArray(row.marketIds);
+}
+
+export function rememberPredictFunTokenMarketIds(
+  index: PredictFunMarketIndex | null | undefined,
+): void {
+  tokenToMarketId.clear();
+  if (!index?.entries?.length)
+    return;
+  for (const entry of index.entries) {
+    const homeMid = String(entry.homeMarketId || "").trim();
+    const awayMid = String(entry.awayMarketId || homeMid).trim();
+    const homeTok = String(entry.homeTokenId || "").trim();
+    const awayTok = String(entry.awayTokenId || "").trim();
+    if (homeTok && homeMid)
+      tokenToMarketId.set(homeTok, homeMid);
+    if (awayTok && awayMid)
+      tokenToMarketId.set(awayTok, awayMid);
+  }
+}
+
+export function lookupPredictFunMarketIdByToken(tokenId: string): string {
+  const id = String(tokenId || "").trim();
+  if (!id)
+    return "";
+  return tokenToMarketId.get(id) || "";
+}
+
+/** 测试用 */
+export function __resetPredictFunTokenMarketIdsForTests(): void {
+  tokenToMarketId.clear();
 }
 
 export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): PredictMappedMarket {
@@ -70,6 +103,7 @@ export function applyPredictFunMarketIndex(
 ): string[] {
   maps.marketsByCategory.clear();
   maps.marketIdToCategory.clear();
+  rememberPredictFunTokenMarketIds(index);
   if (!index?.entries?.length)
     return [];
 

@@ -42,6 +42,9 @@ export class ViewBetItem {
     else if (source.Type === "PredictFun") {
       this.fallbackHomeOdds = truncateOddsTo3(Number(source.HomeOdds) || 0);
       this.fallbackAwayOdds = truncateOddsTo3(Number(source.AwayOdds) || 0);
+      // [changmen 扩展] orderbook marketId（与 onChain token HomeID 不同）；供 checkBet / 体育 WS
+      this.homeSubscribeId = String(source.HomeMarketID ?? "").trim();
+      this.awaySubscribeId = String(source.AwayMarketID ?? "").trim();
     }
     else {
       this.fallbackHomeOdds = 0;

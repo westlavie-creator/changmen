@@ -12,11 +12,15 @@ describe("ViewBetItem PredictFun Sources fallback", () => {
         HomeOdds: 2.439,
         AwayOdds: 1.612,
         Status: "Normal",
+        HomeMarketID: "844582",
+        AwayMarketID: "844582",
       },
       "218389",
     );
     expect(item.fallbackHomeOdds).toBe(2.439);
     expect(item.fallbackAwayOdds).toBe(1.612);
+    expect(item.homeSubscribeId).toBe("844582");
+    expect(item.awaySubscribeId).toBe("844582");
     // Sources 2.4391 → truncate 2.439
     const item2 = new ViewBetItem(
       {
