@@ -33,4 +33,11 @@
 | [`setup-caddy-on-server.sh`](setup-caddy-on-server.sh) | 在 VPS 上直接安装（备用） |
 | [`setup-caddy-paste-on-server.sh`](setup-caddy-paste-on-server.sh) | 粘贴式安装（备用） |
 
+## Watchdog（cron 每分钟）
+
+| 脚本 | 探测 | 动作 |
+|------|------|------|
+| [`esport-watchdog.sh`](esport-watchdog.sh) + [`install-esport-watchdog-remote.sh`](install-esport-watchdog-remote.sh) | `:3456/` | `pm2 restart changmen-esport` |
+| [`pm-market-hub-watchdog.sh`](pm-market-hub-watchdog.sh) + [`install-pm-market-hub-watchdog-remote.sh`](install-pm-market-hub-watchdog-remote.sh) | `:3457/health` | `pm2 restart changmen-pm-market-hub`（失败则从 ecosystem start） |
+
 索引：[deploy/README.md](../README.md) · [PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)

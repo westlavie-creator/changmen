@@ -1,5 +1,10 @@
 import { attachForwardEngine, closeForwardEngine } from "./core/forward_engine.js";
-import { attachPmMarketHub, closePmMarketHub, getPmMarketHubStatus } from "./core/pm_market_hub.js";
+import {
+  attachPmMarketHub,
+  closePmMarketHub,
+  getPmMarketHubStatus,
+  isPmMarketHubAttached,
+} from "./core/pm_market_hub.js";
 import { attachPredictFunMarketHub, closePredictFunMarketHub } from "./core/predictfun_market_hub.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
 import { getForwardStats } from "./core/forward_stats.js";
@@ -24,6 +29,7 @@ const PLATFORM_DEFS = {
 };
 
 let enabled = false;
+let predictFunHubAttached = false;
 
 /**
  * @param {import("node:http").Server} httpServer
@@ -37,19 +43,29 @@ export function attachWsForward(httpServer, opts = {}) {
     if (def) registerPlatformForward(def);
   }
   attachForwardEngine(httpServer);
-  if (wanted.has("PM-MARKET"))
-    attachPmMarketHub(httpServer);
-  if (wanted.has("PREDICTFUN-MARKET"))
+  // PM-MARKET 默认由独立进程 changmen-pm-market-hub 承担；仅当显式列入 platforms 时才挂本进程
+  if (wanted.has("PM-MARKET")) {
+    attachPmMarketHub(httpServer, {
+      resolveIdentity: async (token) => {
+        const { default: store } = await import("../backend/core/esport-api/store.js");
+        return store.resolveUserIdentityByToken(token);
+      },
+    });
+  }
+  if (wanted.has("PREDICTFUN-MARKET")) {
     attachPredictFunMarketHub(httpServer);
+    predictFunHubAttached = true;
+  }
   enabled = true;
 }
 
 export function getWsForwardStatus() {
   const stats = getForwardStats();
   const platforms = listPlatformForwards().map((p) => p.id);
-  if (enabled && !platforms.includes("PM-MARKET"))
+  const pmAttached = isPmMarketHubAttached();
+  if (pmAttached && !platforms.includes("PM-MARKET"))
     platforms.push("PM-MARKET");
-  if (enabled && !platforms.includes("PREDICTFUN-MARKET"))
+  if (predictFunHubAttached && !platforms.includes("PREDICTFUN-MARKET"))
     platforms.push("PREDICTFUN-MARKET");
   return {
     enabled,
@@ -57,7 +73,7 @@ export function getWsForwardStatus() {
     platforms,
     platformStats: stats,
     hubs: {
-      pmMarket: getPmMarketHubStatus(),
+      pmMarket: pmAttached ? getPmMarketHubStatus() : null,
     },
   };
 }
@@ -68,5 +84,6 @@ export function closeWsForward() {
   closePmMarketHub();
   closePredictFunMarketHub();
   closeForwardEngine();
+  predictFunHubAttached = false;
   enabled = false;
 }

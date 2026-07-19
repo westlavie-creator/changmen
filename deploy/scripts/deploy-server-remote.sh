@@ -10,6 +10,7 @@ fi
 PM2_WEB="${PM2_WEB:-changmen-esport}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
 PM2_POLYMARKET="${PM2_POLYMARKET:-changmen-polymarket-collector}"
+PM2_PM_MARKET_HUB="${PM2_PM_MARKET_HUB:-changmen-pm-market-hub}"
 PM2_PREDICTFUN="${PM2_PREDICTFUN:-changmen-predictfun-collector}"
 PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
@@ -339,6 +340,10 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "$DO_PM2_WEB" = "1" ] || [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_POLYMARKET")
   fi
+  # PM-MARKET hub 独立进程：与 esport 同启（勿挂回 esport，避免扇出拖死 HTTP）
+  if [ "$DO_PM2_WEB" = "1" ]; then
+    PM2_TARGETS+=("$PM2_PM_MARKET_HUB")
+  fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
     log "pm2 restart ${PM2_TARGETS[*]}"
     for target in "${PM2_TARGETS[@]}"; do
@@ -355,6 +360,9 @@ if command -v pm2 >/dev/null 2>&1; then
             ;;
           "$PM2_POLYMARKET")
             expected_cwd="$CHANGMEN/server/collectors/polymarket-esports"
+            ;;
+          "$PM2_PM_MARKET_HUB")
+            expected_cwd="$CHANGMEN/server/ws_forward"
             ;;
           *)
             expected_cwd=""

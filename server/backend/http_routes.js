@@ -231,13 +231,26 @@ export function createHttpHandler({ port, serveStatic }) {
       }
       if (url.toLowerCase() === "/api/proxy/status") {
         const ws = getWsForwardStatus();
+        const hubs = { ...(ws.hubs || {}) };
+        if (!hubs.pmMarket) {
+          const remote = await fetchPmMarketHubStatusRemote();
+          if (remote)
+            hubs.pmMarket = remote;
+        }
+        const platforms = [...(ws.platforms || [])];
+        // PM-MARKET 在独立 hub 进程时本机 platforms 不含它；对外状态仍应标明可用
+        if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
+          platforms.push("PM-MARKET");
         jsonResponse(res, 200, {
-          enabled: ws.enabled,
-          wsRelay: ws.wsForward,
-          wsForward: ws.wsForward,
-          platforms: ws.platforms,
+          enabled: ws.enabled || Boolean(hubs.pmMarket),
+          wsRelay: ws.wsForward || Boolean(hubs.pmMarket),
+          wsForward: ws.wsForward || Boolean(hubs.pmMarket),
+          platforms,
           platformStats: ws.platformStats,
-          hubs: ws.hubs,
+          hubs,
+          pmMarketHub: hubs.pmMarket
+            ? { isolated: !ws.hubs?.pmMarket, port: Number(process.env.PM_MARKET_HUB_PORT || 3457) }
+            : null,
         });
         return;
       }
@@ -338,6 +351,16 @@ async function buildHealthData() {
   const profiles = listProfiles();
   const matches = getClientMatches();
   const ws = getWsForwardStatus();
+  const hubs = { ...(ws.hubs || {}) };
+  // PM-MARKET 在独立进程：软拉本地 hub /health，供 Admin 页展示（失败不拖垮 /health）
+  if (!hubs.pmMarket) {
+    const remote = await fetchPmMarketHubStatusRemote();
+    if (remote)
+      hubs.pmMarket = remote;
+  }
+  const platforms = [...(ws.platforms || [])];
+  if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
+    platforms.push("PM-MARKET");
   return {
     status: db ? "ok" : "degraded",
     uptime: Math.floor(process.uptime()),
@@ -350,13 +373,35 @@ async function buildHealthData() {
       clientMatches: matches?.length ?? 0,
     },
     wsForward: {
-      enabled: ws.enabled,
-      platforms: ws.platforms,
+      enabled: ws.enabled || Boolean(hubs.pmMarket),
+      platforms,
       platformStats: ws.platformStats,
-      hubs: ws.hubs || null,
+      hubs,
     },
     esportApi: getEsportRequestTimingSnapshot(),
   };
+}
+
+/** @returns {Promise<object | null>} */
+async function fetchPmMarketHubStatusRemote() {
+  const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
+  if (!Number.isFinite(port) || port <= 0)
+    return null;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 300);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ac.signal });
+    if (!res.ok)
+      return null;
+    const json = await res.json();
+    return json?.hub && typeof json.hub === "object" ? json.hub : null;
+  }
+  catch {
+    return null;
+  }
+  finally {
+    clearTimeout(timer);
+  }
 }
 
 function renderHealthPage(d) {

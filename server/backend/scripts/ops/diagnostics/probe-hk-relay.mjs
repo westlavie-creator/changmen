@@ -4,7 +4,7 @@
  *
  * 1. VPS 直连 Polymarket / Predict.fun 上游
  * 2. 本机 http-relay 代发（Predict.fun；PM 已迁出至 Pm_HttpRequest）
- * 3. ws-forward 已注册 PM-MARKET / PM-USER / PREDICTFUN-MARKET
+ * 3. ws-forward：PM-MARKET（独立 hub :3457）/ PM-USER / PREDICTFUN-MARKET
  *
  * 用法（VPS / 本机 backend 目录）：
  *   node scripts/ops/diagnostics/probe-hk-relay.mjs
@@ -208,17 +208,30 @@ async function checkProxyStatus(apiBase) {
     }
     const data = JSON.parse(res.body.toString("utf8"));
     const platforms = Array.isArray(data.platforms) ? data.platforms : [];
-    const need = ["PM-MARKET", "PM-USER", "PREDICTFUN-MARKET"];
-    const missing = need.filter(id => !platforms.includes(id));
-    if (!data.enabled) {
-      fail("ws-forward:enabled", "ws_forward 未启用（检查 server.js attachWsForward）");
+    const hubs = data.hubs && typeof data.hubs === "object" ? data.hubs : {};
+    // PM-MARKET 由独立进程承担：platforms 含 PM-MARKET，或 hubs.pmMarket 有状态即可
+    const needLocal = ["PREDICTFUN-MARKET"];
+    // PM-USER 可选（生产常关）；有则记 pass，无则 skip 不 fail
+    const missingLocal = needLocal.filter(id => !platforms.includes(id));
+    const pmOk = platforms.includes("PM-MARKET") || Boolean(hubs.pmMarket);
+    if (!data.enabled && !pmOk) {
+      fail("ws-forward:enabled", "ws_forward 未启用（检查 server.js attachWsForward / changmen-pm-market-hub）");
       return;
     }
-    if (missing.length) {
-      fail("ws-forward:platforms", `缺少 ${missing.join(", ")}；当前: ${platforms.join(", ") || "(empty)"}`);
+    if (missingLocal.length) {
+      fail("ws-forward:platforms", `缺少 ${missingLocal.join(", ")}；当前: ${platforms.join(", ") || "(empty)"}`);
       return;
     }
-    pass("ws-forward:platforms", need.join(", "));
+    if (!pmOk) {
+      fail(
+        "ws-forward:PM-MARKET",
+        "未检测到 PM-MARKET（esport platforms 或独立 hub hubs.pmMarket）；检查 changmen-pm-market-hub :3457 与 Caddy",
+      );
+      return;
+    }
+    const bits = [`PREDICTFUN-MARKET`, pmOk ? "PM-MARKET" : null, platforms.includes("PM-USER") ? "PM-USER" : null]
+      .filter(Boolean);
+    pass("ws-forward:platforms", bits.join(", "));
   }
   catch (err) {
     fail("ws-forward:status", err instanceof Error ? err.message : String(err));
@@ -317,7 +330,7 @@ async function main() {
     console.error("修复提示:");
     console.error("  1. upstream 失败 → VPS 需能直连 polymarket.com（HK 出口）");
     console.error("  2. http-relay 失败 → 检查 HTTP_RELAY_ALLOWED_HOSTS、HTTP_RELAY_REQUIRE_TOKEN、pm2 restart changmen-esport");
-    console.error("  3. ws-forward 失败 → 确认已部署含 PM-MARKET/PM-USER/PREDICTFUN-MARKET 的代码并 restart");
+    console.error("  3. ws-forward 失败 → PREDICTFUN-MARKET 在 esport；PM-MARKET 在 changmen-pm-market-hub:3457 + Caddy；再 pm2 restart");
     console.error("  4. predict.fun 失败 → curl -I https://api.predict.fun/v1/tags -H 'x-api-key: …'；检查 HTTP_RELAY_ALLOWED_HOSTS、PREDICT_FUN_API_KEY");
     process.exit(1);
   }

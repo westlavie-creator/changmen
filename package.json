@@ -60,6 +60,7 @@
     "audit:client-sources": "node server/matcher/scripts/audit-client-sources.mjs",
     "pm-sports": "npm run start --prefix server/collectors/polymarket-sports",
     "polymarket-collector": "npm run start --prefix server/collectors/polymarket-esports",
+    "pm-market-hub": "node server/ws_forward/pm_market_hub_server.js",
     "predictfun-collector": "npm run start --prefix server/collectors/predictfun-collector",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/venue-adapter",

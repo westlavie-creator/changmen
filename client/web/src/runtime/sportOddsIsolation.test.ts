@@ -12,6 +12,12 @@ describe("sport / esport UI isolation", () => {
     expect(src).not.toMatch(/useSportOddsStore/);
   });
 
+  test("BetRow subscribes foRevision for esport fo updates without full-table refresh", () => {
+    const src = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
+    expect(src).toMatch(/void oddsStore\.foRevision/);
+    expect(src).toMatch(/oddsStore\.getOdds/);
+  });
+
   test("SportMatchBoard owns sportOddsStore and passes oddsDisplayTick", () => {
     const src = readFileSync(join(root, "components/match/SportMatchBoard.vue"), "utf8");
     expect(src).toMatch(/useSportOddsStore/);

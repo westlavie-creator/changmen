@@ -64,6 +64,12 @@ describe("pm_market_hub", () => {
     })).toBe("");
   });
 
+  test("isPmMarketHubAttached false before attach", async () => {
+    const { isPmMarketHubAttached, resetPmMarketHubForTests } = await import("./pm_market_hub.js");
+    resetPmMarketHubForTests();
+    expect(isPmMarketHubAttached()).toBe(false);
+  });
+
   test("enqueueLatestByAsset keeps latest and counts overwrites", () => {
     const pending = new Map();
     expect(enqueueLatestByAsset(pending, ["a1"], "raw-old")).toBe(0);

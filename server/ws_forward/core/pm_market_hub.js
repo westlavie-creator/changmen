@@ -4,11 +4,16 @@
  * 升级可带 JWT（?token= / Bearer）写入健康页归属；无 token / 校验失败仍放行（避免断采）。
  */
 import { WebSocketServer, WebSocket } from "ws";
-import store from "../../backend/core/esport-api/store.js";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
 import { attachHubUpstreamBackpressure, createWsRelayGuard } from "./ws_backpressure.js";
 import { isPmHubThinFramesEnabled, thinPmMarketFrames } from "./pm_hub_thin_frame.js";
+
+/** @typedef {(token: string) => Promise<{ userId?: string, userName?: string } | null | undefined>} PmMarketIdentityResolver */
+
+/** @type {PmMarketIdentityResolver | null} */
+let identityResolver = null;
+let hubAttached = false;
 
 export const PM_MARKET_HUB_PATH = "/esport/ws-forward/PM-MARKET";
 const HUB_ID = "PM-MARKET";
@@ -620,10 +625,16 @@ function attachClient(clientWs, request, meta = {}) {
 
 /**
  * @param {import("node:http").Server} httpServer
+ * @param {{ resolveIdentity?: PmMarketIdentityResolver }} [opts]
+ *   resolveIdentity 可选：有 token 时归因 userId/userName；失败/缺失仍放行连接（避免断采）。
+ *   独立 hub 进程注入轻量 DB 解析；勿在此硬依赖 esport store（防拖入 matchMerge 副作用）。
  */
-export function attachPmMarketHub(httpServer) {
+export function attachPmMarketHub(httpServer, opts = {}) {
   if (wss)
     return;
+
+  identityResolver = typeof opts.resolveIdentity === "function" ? opts.resolveIdentity : null;
+  hubAttached = true;
 
   wss = new WebSocketServer({ noServer: true });
   stopHubBackpressure?.();
@@ -644,9 +655,9 @@ export function attachPmMarketHub(httpServer) {
         const token = extractPmMarketUpgradeToken(request);
         let userId = "";
         let userName = "";
-        if (token) {
+        if (token && identityResolver) {
           try {
-            const identity = await store.resolveUserIdentityByToken(token);
+            const identity = await identityResolver(token);
             userId = String(identity?.userId || "").trim();
             userName = String(identity?.userName || "").trim();
             if (!userId) {
@@ -676,6 +687,10 @@ export function attachPmMarketHub(httpServer) {
   wss.on("connection", (clientWs, request, meta) => {
     attachClient(clientWs, request, meta || {});
   });
+}
+
+export function isPmMarketHubAttached() {
+  return hubAttached && Boolean(wss);
 }
 
 export function getPmMarketHubStatus() {
@@ -716,6 +731,8 @@ export function closePmMarketHub() {
   clearUpstreamReconnectTimer();
   stopHubBackpressure?.();
   stopHubBackpressure = null;
+  identityResolver = null;
+  hubAttached = false;
   for (const clientWs of [...clients.keys()]) {
     try {
       clientWs.close();
