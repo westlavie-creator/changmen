@@ -964,6 +964,245 @@ export async function fetchObArbOddsAnalytics(startMs, endMs, userIds) {
   }
 }
 
+const PM_PRICE_BAND_SQL = `CASE
+  WHEN fill_price IS NULL OR fill_price <= 0 THEN 'unknown'
+  WHEN fill_price < 0.30 THEN '0.00-0.30'
+  WHEN fill_price < 0.50 THEN '0.30-0.50'
+  WHEN fill_price < 0.70 THEN '0.50-0.70'
+  ELSE '0.70-1.00'
+END`;
+
+/**
+ * Polymarket Builder：持有到期 / 赛果视角策略分析（全量）。
+ * - 样本：时段内 PM 买单且有赛果（raw.pmMatchResult，兼容旧数据 status Win/Lose）
+ * - 含中途卖出单；输赢看赛果，不用实际卖出 Money
+ * - 理论盈亏：赢 = bet*(odds-1)，输 = -bet（假使持仓到结算）
+ * - 价位带 / 对手场馆按上述口径聚合
+ */
+export async function fetchPolymarketOrderAnalytics(startMs, endMs, userIds) {
+  const pool = getPgPool();
+  const empty = {
+    summary: {
+      groupCount: 0,
+      arbGroupCount: 0,
+      singleLegCount: 0,
+      soldCloseCount: 0,
+      winCount: 0,
+      loseCount: 0,
+      winRate: 0,
+      totalPmBet: 0,
+      totalHoldProfit: 0,
+      roi: 0,
+    },
+    priceBands: [],
+    venues: [],
+  };
+  if (!pool)
+    return empty;
+  try {
+    const params = [startMs, endMs];
+    const uf = appendUserIdsFilter(params, userIds);
+    const userFilter = uf ? uf.replace(/\buser_id\b/g, "pm.user_id") : "";
+
+    const groupsCte = `
+      WITH pm_buys AS (
+        SELECT
+          pm.user_id,
+          ABS(pm.link) AS link_abs,
+          pm.bet_money,
+          pm.odds,
+          COALESCE(
+            NULLIF(pm.raw->>'pmFillPrice', '')::float,
+            CASE WHEN pm.odds > 1 THEN 1.0 / pm.odds ELSE NULL END
+          ) AS fill_price,
+          LOWER(COALESCE(pm.raw->>'pmSellState', '')) AS sell_state,
+          CASE
+            WHEN LOWER(COALESCE(pm.raw->>'pmMatchResult', '')) IN ('win', 'lose')
+              THEN LOWER(pm.raw->>'pmMatchResult')
+            WHEN LOWER(pm.status) IN ('win', 'lose')
+              THEN LOWER(pm.status)
+            ELSE NULL
+          END AS match_result
+        FROM orders pm
+        WHERE pm.provider = 'Polymarket'
+          AND LOWER(COALESCE(pm.raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
+          AND pm.create_at >= $1 AND pm.create_at < $2
+          AND pm.link IS NOT NULL
+          AND ABS(pm.link) <> 0
+          ${userFilter}
+      ),
+      settled_buys AS (
+        SELECT
+          *,
+          CASE
+            WHEN match_result = 'win' AND odds > 1 THEN bet_money * (odds - 1)
+            WHEN match_result = 'lose' THEN -bet_money
+            ELSE 0
+          END AS hold_profit
+        FROM pm_buys
+        WHERE match_result IN ('win', 'lose')
+      ),
+      anchors AS (
+        SELECT
+          user_id,
+          link_abs,
+          SUM(bet_money)::float AS pm_bet,
+          SUM(hold_profit)::float AS hold_profit,
+          AVG(fill_price) FILTER (WHERE fill_price IS NOT NULL AND fill_price > 0)::float AS fill_price,
+          BOOL_OR(sell_state = 'closed') AS sold_closed,
+          -- 同组多条 PM 买单时：全赢才算赢，否则有输算输
+          CASE
+            WHEN BOOL_AND(match_result = 'win') THEN 'win'
+            ELSE 'lose'
+          END AS match_result,
+          COUNT(*) FILTER (WHERE match_result = 'win')::int AS win_legs,
+          COUNT(*) FILTER (WHERE match_result = 'lose')::int AS lose_legs
+        FROM settled_buys
+        GROUP BY user_id, link_abs
+      ),
+      groups AS (
+        SELECT
+          a.user_id,
+          a.link_abs,
+          a.pm_bet,
+          a.hold_profit,
+          a.fill_price,
+          a.sold_closed,
+          a.match_result,
+          (a.link_abs >= 1000000000000) AS is_arb_link,
+          COUNT(DISTINCT o.provider) FILTER (
+            WHERE o.provider IS DISTINCT FROM 'Polymarket'
+              AND o.provider IS NOT NULL
+              AND o.provider <> ''
+          )::int AS other_venue_count
+        FROM anchors a
+        LEFT JOIN orders o
+          ON o.user_id = a.user_id
+          AND ABS(o.link) = a.link_abs
+        GROUP BY a.user_id, a.link_abs, a.pm_bet, a.hold_profit, a.fill_price,
+          a.sold_closed, a.match_result
+      )`;
+
+    const { rows: summaryRows } = await pool.query(
+      `${groupsCte}
+      SELECT
+        COUNT(*)::int AS group_count,
+        COUNT(*) FILTER (WHERE is_arb_link AND other_venue_count > 0)::int AS arb_group_count,
+        COUNT(*) FILTER (WHERE other_venue_count = 0 OR NOT is_arb_link)::int AS single_leg_count,
+        COUNT(*) FILTER (WHERE sold_closed)::int AS sold_close_count,
+        COUNT(*) FILTER (WHERE match_result = 'win')::int AS win_count,
+        COUNT(*) FILTER (WHERE match_result = 'lose')::int AS lose_count,
+        COALESCE(SUM(pm_bet), 0)::float AS total_pm_bet,
+        COALESCE(SUM(hold_profit), 0)::float AS total_hold_profit
+      FROM groups`,
+      params,
+    );
+
+    const { rows: priceBands } = await pool.query(
+      `${groupsCte}
+      SELECT
+        ${PM_PRICE_BAND_SQL} AS price_band,
+        COUNT(*)::int AS group_count,
+        COUNT(*) FILTER (WHERE match_result = 'win')::int AS win_count,
+        COUNT(*) FILTER (WHERE match_result = 'lose')::int AS lose_count,
+        COALESCE(SUM(pm_bet), 0)::float AS pm_bet,
+        COALESCE(SUM(hold_profit), 0)::float AS hold_profit,
+        AVG(fill_price) FILTER (WHERE fill_price IS NOT NULL AND fill_price > 0)::float AS avg_fill_price
+      FROM groups
+      GROUP BY price_band
+      ORDER BY price_band`,
+      params,
+    );
+
+    const { rows: venues } = await pool.query(
+      `${groupsCte},
+      venue_groups AS (
+        SELECT
+          g.user_id,
+          g.link_abs,
+          g.pm_bet,
+          g.hold_profit,
+          g.fill_price,
+          g.match_result,
+          other.provider AS other_provider
+        FROM groups g
+        JOIN orders other
+          ON other.user_id = g.user_id
+          AND ABS(other.link) = g.link_abs
+          AND other.provider IS DISTINCT FROM 'Polymarket'
+          AND other.provider IS NOT NULL
+          AND other.provider <> ''
+        WHERE g.is_arb_link
+        GROUP BY g.user_id, g.link_abs, g.pm_bet, g.hold_profit, g.fill_price,
+          g.match_result, other.provider
+      )
+      SELECT
+        other_provider,
+        COUNT(*)::int AS group_count,
+        COUNT(*) FILTER (WHERE match_result = 'win')::int AS win_count,
+        COUNT(*) FILTER (WHERE match_result = 'lose')::int AS lose_count,
+        COALESCE(SUM(pm_bet), 0)::float AS pm_bet,
+        COALESCE(SUM(hold_profit), 0)::float AS hold_profit,
+        AVG(fill_price) FILTER (WHERE fill_price IS NOT NULL AND fill_price > 0)::float AS avg_fill_price
+      FROM venue_groups
+      GROUP BY other_provider
+      ORDER BY group_count DESC, other_provider`,
+      params,
+    );
+
+    const mapBandOrVenue = (r) => {
+      const pmBet = Number(r.pm_bet) || 0;
+      const holdProfit = Number(r.hold_profit) || 0;
+      const winCount = Number(r.win_count) || 0;
+      const loseCount = Number(r.lose_count) || 0;
+      const decided = winCount + loseCount;
+      return {
+        group_count: Number(r.group_count) || 0,
+        win_count: winCount,
+        lose_count: loseCount,
+        win_rate: decided > 0 ? winCount / decided : 0,
+        pm_bet: pmBet,
+        hold_profit: holdProfit,
+        avg_fill_price: Number(r.avg_fill_price) || 0,
+        roi: pmBet > 0 ? holdProfit / pmBet : 0,
+      };
+    };
+
+    const s = summaryRows?.[0] || {};
+    const totalPmBet = Number(s.total_pm_bet) || 0;
+    const totalHoldProfit = Number(s.total_hold_profit) || 0;
+    const winCount = Number(s.win_count) || 0;
+    const loseCount = Number(s.lose_count) || 0;
+    const decided = winCount + loseCount;
+    return {
+      summary: {
+        groupCount: Number(s.group_count) || 0,
+        arbGroupCount: Number(s.arb_group_count) || 0,
+        singleLegCount: Number(s.single_leg_count) || 0,
+        soldCloseCount: Number(s.sold_close_count) || 0,
+        winCount,
+        loseCount,
+        winRate: decided > 0 ? winCount / decided : 0,
+        totalPmBet,
+        totalHoldProfit,
+        roi: totalPmBet > 0 ? totalHoldProfit / totalPmBet : 0,
+      },
+      priceBands: (priceBands || []).map(r => ({
+        price_band: r.price_band,
+        ...mapBandOrVenue(r),
+      })),
+      venues: (venues || []).map(r => ({
+        other_provider: r.other_provider,
+        ...mapBandOrVenue(r),
+      })),
+    };
+  }
+  catch (err) {
+    console.warn("[rds] fetchPolymarketOrderAnalytics:", err.message);
+    return empty;
+  }
+}
+
 function polymarketOrdersRangeWhere(startMs, endMs, userIds) {
   const params = [startMs, endMs];
   let where = `o.create_at >= $1 AND o.create_at < $2 AND o.provider = 'Polymarket'`;
@@ -990,11 +1229,16 @@ export async function fetchPolymarketOrderStatsInRange(startMs, endMs, userIds) 
     return empty;
   try {
     const { params, where } = polymarketOrdersRangeWhere(startMs, endMs, userIds);
+    // 卖单非下注：totalBet / totalProfit 只计买单（盈亏已累加在买单 money）
     const { rows } = await pool.query(
       `SELECT
         COUNT(*)::int AS order_count,
-        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
-        COALESCE(SUM(o.money), 0)::float AS total_profit,
+        COALESCE(SUM(o.bet_money) FILTER (
+          WHERE LOWER(COALESCE(o.raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
+        ), 0)::float AS total_bet,
+        COALESCE(SUM(o.money) FILTER (
+          WHERE LOWER(COALESCE(o.raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
+        ), 0)::float AS total_profit,
         COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,

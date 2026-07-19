@@ -352,9 +352,10 @@ function tradeHeldAssetId(trade: PolymarketTradeRow, market?: PolymarketRawMarke
 }
 
 /**
- * 持有买单结算 → win/lose + money/reward。
- * - official：`pmSellState=settled`（侧栏隐藏卖出）
+ * 持有买单结算 → win/lose + money/reward；并始终写入 pmMatchResult（赛果）。
+ * - official：`pmSellState=settled`（侧栏隐藏卖出）；已 closed/partial 不改卖出状态
  * - price（≥0.99）：判赢/输但保持可卖（不写 settled）
+ * - 已卖光（剩余份额≈0）：只写 pmMatchResult，不动 status/money（盈亏已在卖出路径）
  * 已部分卖出时按剩余份数/剩余本金计盈亏，避免用满仓份额虚增。
  */
 export function applyPolymarketSettlement(
@@ -367,6 +368,8 @@ export function applyPolymarketSettlement(
 
   const heldAssetId = tradeHeldAssetId(trade, market);
   if (!heldAssetId) return order;
+
+  const matchResult: "win" | "lose" = heldAssetId === resolved.winningAssetId ? "win" : "lose";
 
   const fillShares = Number(order.pmShares) > 0.0001
     ? Number(order.pmShares)
@@ -381,13 +384,22 @@ export function applyPolymarketSettlement(
   const stake = Number(order.pmStakeUsdc) > 0
     ? Number(order.pmStakeUsdc)
     : order.betMoney;
-  if (shares <= 0.0001 || stake <= 0) return order;
 
-  const base: VenueOrder = resolved.kind === "official"
-    ? { ...order, pmSellState: "settled" }
-    : { ...order, pmSellState: order.pmSellState === "settled" ? "settled" : (order.pmSellState ?? "open") };
+  const nextSellState = resolved.kind === "official"
+    ? (order.pmSellState === "closed" ? "closed" : "settled")
+    : (order.pmSellState === "settled" ? "settled" : (order.pmSellState ?? "open"));
 
-  if (heldAssetId === resolved.winningAssetId) {
+  const base: VenueOrder = {
+    ...order,
+    pmMatchResult: matchResult,
+    pmSellState: nextSellState,
+  };
+
+  // 已卖光：赛果独立落库，不改盈亏字段
+  if (shares <= 0.0001 || stake <= 0)
+    return base;
+
+  if (matchResult === "win") {
     const reward = Math.round(shares * 10000) / 10000;
     const money = Math.round((reward - stake) * 10000) / 10000;
     return { ...base, status: "win", reward, money };
@@ -903,6 +915,11 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
   let nextMoney = blockGammaSettlement ? base.money : (gammaSettled ? clob.money : base.money);
   let nextReward = blockGammaSettlement ? base.reward : (gammaSettled ? clob.reward : base.reward);
 
+  // 赛果与盈亏脱钩：卖光仍写入/刷新 pmMatchResult
+  const nextMatchResult = clob.pmMatchResult
+    ?? ((clob.status === "win" || clob.status === "lose") ? clob.status : undefined)
+    ?? base.pmMatchResult;
+
   // 部分卖出后赛果结算：剩余仓位兑付累加到已有卖出盈亏上
   if (!blockGammaSettlement && gammaSettled && (clob.status === "win" || clob.status === "lose")) {
     const remaining = resolvePmRemainingShares(base);
@@ -937,6 +954,7 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
     pmSellState: nextSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
+    pmMatchResult: nextMatchResult,
     odds: base.odds || clob.odds,
     status: nextStatus,
     money: nextMoney,

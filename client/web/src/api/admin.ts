@@ -321,11 +321,58 @@ export interface PolymarketChangmenOrderRow {
   pmStakeUsdc: number;
   pmSellState: "" | "open" | "partial" | "closed" | "settled";
   pmAttributedSellShares: number;
+  /** 赛果（持有到期）：win/lose，与 status/money 脱钩 */
+  pmMatchResult: string;
   matchTitle: string;
   betTitle: string;
   item: string;
   createAt: number;
   updateAt: number;
+}
+
+export interface PolymarketAnalyticsSummary {
+  groupCount: number;
+  arbGroupCount: number;
+  singleLegCount: number;
+  soldCloseCount: number;
+  winCount: number;
+  loseCount: number;
+  winRate: number;
+  totalPmBet: number;
+  /** 假使持仓到结算的理论盈亏（非实际卖出 Money） */
+  totalHoldProfit: number;
+  /** holdProfit / pmBet */
+  roi: number;
+}
+
+export interface PolymarketPriceBandRow {
+  price_band: string;
+  group_count: number;
+  win_count: number;
+  lose_count: number;
+  win_rate: number;
+  pm_bet: number;
+  hold_profit: number;
+  avg_fill_price: number;
+  roi: number;
+}
+
+export interface PolymarketVenueRoiRow {
+  other_provider: string;
+  group_count: number;
+  win_count: number;
+  lose_count: number;
+  win_rate: number;
+  pm_bet: number;
+  hold_profit: number;
+  avg_fill_price: number;
+  roi: number;
+}
+
+export interface PolymarketOrderAnalyticsPayload {
+  summary: PolymarketAnalyticsSummary;
+  priceBands: PolymarketPriceBandRow[];
+  venues: PolymarketVenueRoiRow[];
 }
 
 export interface PolymarketBuilderDashboardPayload {
@@ -361,6 +408,7 @@ export interface PolymarketBuilderDashboardPayload {
       rejects: number;
       pending: number;
     };
+    analytics: PolymarketOrderAnalyticsPayload;
   };
 }
 

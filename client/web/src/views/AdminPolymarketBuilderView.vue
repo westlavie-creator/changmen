@@ -9,6 +9,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminPmOrderAnalyticsSection from "@/components/admin/AdminPmOrderAnalyticsSection.vue";
 import { todayKey } from "@/shared/dateKey";
 import { pmOrderStakeDisplayCny } from "@/shared/pmOrderDisplay";
 import { toFixed } from "@changmen/client-core/shared/format";
@@ -20,7 +21,7 @@ const UNKNOWN_USER = "__unknown__";
 const router = useRouter();
 const user = useUserStore();
 
-const rangeMode = ref<"day" | "days7" | "month">("day");
+const rangeMode = ref<"day" | "month" | "all">("day");
 const dateKey = ref(todayKey());
 const monthKey = ref((() => {
   const d = new Date();
@@ -38,6 +39,7 @@ const polyUserFilter = ref("");
 
 const polySummary = computed(() => data.value?.polymarket.summary);
 const cmSummary = computed(() => data.value?.changmen.summary);
+const cmAnalytics = computed(() => data.value?.changmen.analytics ?? null);
 const polyTrades = computed(() => data.value?.polymarket.trades ?? []);
 const cmOrders = computed(() => data.value?.changmen.orders ?? []);
 
@@ -113,7 +115,7 @@ const cmOrdersPage = computed(() => {
   return cmOrders.value.slice(start, start + PAGE_SIZE);
 });
 
-function fmtUsdc(n: number | undefined): string {
+function fmtUsdc(n: number | null | undefined): string {
   return n == null ? "-" : toFixed(n, 2);
 }
 
@@ -127,6 +129,10 @@ function fmtPrice(n: number | undefined): string {
   if (n == null || !Number.isFinite(n) || n <= 0)
     return "-";
   return toFixed(n, 4);
+}
+
+function isCmSellOrder(row: PolymarketChangmenOrderRow): boolean {
+  return String(row.pmSide || "").trim().toLowerCase() === "sell";
 }
 
 /** 与控制台 OrderList 同源：已平仓买单用 fill×价还原原始本金，不直接读库内剩余 bet_money */
@@ -152,8 +158,18 @@ function cmOrderToOrderRow(row: PolymarketChangmenOrderRow): OrderRow {
   };
 }
 
-function cmDisplayBetMoney(row: PolymarketChangmenOrderRow): number {
+/** 卖单无「下注」；买单展示原始本金 CNY */
+function cmDisplayBetMoney(row: PolymarketChangmenOrderRow): number | null {
+  if (isCmSellOrder(row))
+    return null;
   return pmOrderStakeDisplayCny(cmOrderToOrderRow(row));
+}
+
+/** 卖单盈亏已记在买单，此处不展示 */
+function cmDisplayProfit(row: PolymarketChangmenOrderRow): number | null {
+  if (isCmSellOrder(row))
+    return null;
+  return Number(row.profit) || 0;
 }
 
 function fmtTime(ms: number | null | undefined): string {
@@ -186,15 +202,10 @@ async function fetchData() {
   loading.value = true;
   error.value = "";
   try {
-    const body: Record<string, unknown> = rangeMode.value === "month"
-      ? { month: monthKey.value, maxPages: 10, orderLimit: 500 }
-      : rangeMode.value === "days7"
-        ? {
-            startMs: Date.now() - 7 * 86400000,
-            endMs: Date.now(),
-            maxPages: 10,
-            orderLimit: 500,
-          }
+    const body: Record<string, unknown> = rangeMode.value === "all"
+      ? { all: true, maxPages: 20, orderLimit: 500 }
+      : rangeMode.value === "month"
+        ? { month: monthKey.value, maxPages: 10, orderLimit: 500 }
         : { date: dateKey.value, maxPages: 5, orderLimit: 500 };
     data.value = await getAdminPolymarketBuilder(body);
     polyPage.value = 1;
@@ -244,13 +255,13 @@ onMounted(async () => {
     <template #toolbar>
       <el-radio-group v-model="rangeMode" size="small">
         <el-radio-button value="day">
-          按日
-        </el-radio-button>
-        <el-radio-button value="days7">
-          近 7 天
+          日
         </el-radio-button>
         <el-radio-button value="month">
-          按月
+          月
+        </el-radio-button>
+        <el-radio-button value="all">
+          全部
         </el-radio-button>
       </el-radio-group>
       <el-date-picker
@@ -269,6 +280,9 @@ onMounted(async () => {
         size="small"
         style="width: 130px"
       />
+      <span v-else class="range-all-hint">
+        全时段（订单分析走 RDS 全量）
+      </span>
       <el-button size="small" :loading="loading" @click="fetchData">
         刷新
       </el-button>
@@ -430,7 +444,7 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column label="盈亏" width="90">
             <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtUsdc(row.profit) }}
+              {{ fmtUsdc(cmDisplayProfit(row)) }}
             </template>
           </el-table-column>
           <el-table-column label="赔率" width="80">
@@ -458,6 +472,8 @@ onMounted(async () => {
           />
         </div>
       </section>
+
+      <AdminPmOrderAnalyticsSection :data="cmAnalytics" />
     </div>
   </AdminLayout>
 </template>
@@ -490,6 +506,11 @@ onMounted(async () => {
   margin-top: 8px;
   font-size: 12px;
   color: var(--el-color-warning);
+}
+
+.range-all-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .summary-grid {

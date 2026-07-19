@@ -344,6 +344,99 @@ describe("saveOrder backend bind link", () => {
     expect(row.status).toBe("None");
     expect(row.raw.pmSellState).toBe("closed");
   });
+
+  it("PM manually closed buy still accepts pmMatchResult without changing money/status", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xbuy-closed-mr",
+        link: 1_784_389_005_296,
+        create_at: 1_784_389_000_000,
+        bet_money: 200,
+        money: 184,
+        status: "None",
+        raw: {
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 56.55,
+          pmStakeUsdc: 0,
+          pmSellState: "closed",
+          pmAttributedSellShares: 56.55,
+          money: 184,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy-closed-mr",
+        createAt: 1_784_389_000_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        pmShares: 56.55,
+        pmStakeUsdc: 0,
+        pmSellState: "closed",
+        pmAttributedSellShares: 56.55,
+        pmMatchResult: "lose",
+        betMoney: 200,
+        money: 999,
+        status: "win",
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.money).toBe(184);
+    expect(row.status).toBe("None");
+    expect(row.raw.pmSellState).toBe("closed");
+    expect(row.raw.pmMatchResult).toBe("lose");
+  });
+
+  it("PM settled open buy keeps prev pmMatchResult when incoming omits it", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xbuy-settled-mr",
+        link: 1_784_389_005_297,
+        create_at: 1_784_389_000_000,
+        bet_money: 100,
+        money: 50,
+        status: "Win",
+        raw: {
+          pmSide: "buy",
+          pmOrigin: "changmen",
+          pmShares: 20,
+          pmStakeUsdc: 14.7,
+          pmSellState: "settled",
+          pmMatchResult: "win",
+          money: 50,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy-settled-mr",
+        createAt: 1_784_389_000_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        pmShares: 20,
+        pmStakeUsdc: 14.7,
+        pmSellState: "settled",
+        betMoney: 100,
+        money: 50,
+        status: "win",
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.status).toBe("Win");
+    expect(row.money).toBe(50);
+    expect(row.raw.pmMatchResult).toBe("win");
+  });
 });
 
 describe("listByDatePage link siblings", () => {

@@ -99,6 +99,14 @@ function parseNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** raw / 入参 → win|lose；其它返回 undefined */
+function normalizePmMatchResult(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (s === "win" || s === "lose")
+    return s;
+  return undefined;
+}
+
 /** pmShares = 官方 fill，取 RDS/CLOB/入参 最大值，避免 0 覆盖有效值 */
 function preservePmBuyFillShares(prevRaw, o, merged) {
   const prev = parseNum(prevRaw.pmShares, 0);
@@ -241,6 +249,10 @@ export function rowToOrder(r) {
       : undefined,
     PmSide: raw.pmSide === "buy" || raw.pmSide === "sell" ? raw.pmSide : undefined,
     PmBuyOrderId: raw.pmBuyOrderId ? String(raw.pmBuyOrderId) : undefined,
+    PmMatchResult: (() => {
+      const m = normalizePmMatchResult(raw.pmMatchResult);
+      return m === "win" ? "Win" : m === "lose" ? "Lose" : undefined;
+    })(),
   };
 }
 
@@ -354,6 +366,7 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     /**
      * 已手动卖光（closed）：盈亏只来自卖出累加，拒绝 Gamma 赛果 money/status 覆写。
      * 部分卖出仍允许客户端带累计盈亏（含剩余仓结算）的 patch。
+     * 赛果 pmMatchResult 与盈亏脱钩：始终允许写入/刷新。
      */
     let nextMoney;
     if (String(prevState).toLowerCase() === "closed") {
@@ -370,6 +383,9 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       if (Math.abs(incomingMoney) <= 1e-9 && Math.abs(prevMoney) > 1e-9)
         nextMoney = prevMoney;
     }
+    const nextMatchResult = normalizePmMatchResult(o.pmMatchResult ?? o.PmMatchResult)
+      ?? normalizePmMatchResult(prevRaw.pmMatchResult)
+      ?? normalizePmMatchResult(merged.pmMatchResult);
     merged = {
       ...merged,
       pmSide: "buy",
@@ -384,6 +400,7 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
         : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
       money: nextMoney,
       status: "none",
+      ...(nextMatchResult ? { pmMatchResult: nextMatchResult } : {}),
     };
     bet_money = betMoneyForMerge;
     money = nextMoney;
@@ -421,6 +438,12 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     const fillPrice = preservePmFillPrice(prevRaw, o, merged);
     if (fillPrice != null)
       merged.pmFillPrice = fillPrice;
+    // 赛果与盈亏脱钩：任意路径都保留 prev / 入参中的 pmMatchResult，避免 sync 抹掉
+    const nextMatchResult = normalizePmMatchResult(o.pmMatchResult ?? o.PmMatchResult)
+      ?? normalizePmMatchResult(merged.pmMatchResult)
+      ?? normalizePmMatchResult(prevRaw.pmMatchResult);
+    if (nextMatchResult)
+      merged.pmMatchResult = nextMatchResult;
   }
 
   return { raw: merged, money, bet_money };

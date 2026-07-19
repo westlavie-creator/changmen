@@ -34,6 +34,13 @@ describe("pmLogicalPosition", () => {
     expect(resolvePmRemainingShares(order)).toBe(6);
   });
 
+  it("venueOrderFromOrderRow maps PmMatchResult", () => {
+    const win = venueOrderFromOrderRow({ ...baseRow, PmMatchResult: "Win" });
+    expect(win.pmMatchResult).toBe("win");
+    const none = venueOrderFromOrderRow(baseRow);
+    expect(none.pmMatchResult).toBeUndefined();
+  });
+
   it("resolvePmRemainingShares treats FOK dust as zero", () => {
     const order = venueOrderFromOrderRow({
       ...baseRow,

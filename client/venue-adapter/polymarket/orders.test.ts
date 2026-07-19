@@ -787,6 +787,52 @@ describe("applyPolymarketSettlement", () => {
     expect(settled.reward).toBe(20);
     expect(settled.money).toBe(10);
     expect(settled.pmSellState).toBe("settled");
+    expect(settled.pmMatchResult).toBe("win");
+  });
+
+  test("sold-out closed buy still writes pmMatchResult without changing money/status", () => {
+    const market: PolymarketRawMarket = {
+      closed: true,
+      outcomes: "[\"Team A\", \"Team B\"]",
+      outcomePrices: "[\"0.999\", \"0.001\"]",
+      clobTokenIds: "[\"token-a\", \"token-b\"]",
+      tokens: [
+        { token_id: "token-a", outcome: "Team A", price: 0.999, winner: true },
+        { token_id: "token-b", outcome: "Team B", price: 0.001, winner: false },
+      ],
+    };
+    const base = {
+      provider: "Polymarket" as const,
+      orderId: "0xclosed",
+      odds: 2,
+      createAt: 1,
+      betMoney: 10,
+      reward: 0,
+      money: 3.5,
+      status: "none" as const,
+      game: "",
+      match: "",
+      bet: "",
+      item: "Team A",
+      pmShares: 20,
+      pmStakeUsdc: 0,
+      pmSellState: "closed" as const,
+      pmAttributedSellShares: 20,
+      pmOrigin: "changmen" as const,
+      pmSide: "buy" as const,
+    };
+    const settled = applyPolymarketSettlement(base, {
+      side: "BUY",
+      size: "20",
+      price: "0.5",
+      outcome: "Team A",
+      asset_id: "token-a",
+    }, market);
+
+    expect(settled.pmMatchResult).toBe("win");
+    expect(settled.status).toBe("none");
+    expect(settled.money).toBe(3.5);
+    expect(settled.pmSellState).toBe("closed");
   });
 
   test("price ≥0.99 win keeps pmSellState open for sell button", () => {

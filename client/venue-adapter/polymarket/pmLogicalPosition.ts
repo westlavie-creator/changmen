@@ -25,6 +25,8 @@ export interface OrderRowLike {
   PmSellState?: PolymarketSellState;
   PmSide?: "buy" | "sell";
   PmBuyOrderId?: string;
+  /** 市场赛果（持有到期）：Win/Lose */
+  PmMatchResult?: "Win" | "Lose" | "win" | "lose";
 }
 
 function round4(n: number): number {
@@ -123,6 +125,10 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
     pmSellState: row.PmSellState ?? (pmSide === "buy" ? "open" : undefined),
     pmSide,
     pmBuyOrderId: row.PmBuyOrderId,
+    pmMatchResult: (() => {
+      const m = String(row.PmMatchResult ?? "").trim().toLowerCase();
+      return m === "win" || m === "lose" ? m : undefined;
+    })(),
   };
 }
 

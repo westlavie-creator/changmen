@@ -42,6 +42,11 @@ export interface PolymarketVenueOrderExtras {
   pmSide?: PolymarketOrderSide;
   /** 卖单对应买单 orderId */
   pmBuyOrderId?: string;
+  /**
+   * [changmen 扩展] 市场赛果（持有到期视角）：win/lose。
+   * 与 status/money 脱钩——中途卖光仍可写入，供策略分析，不影响卖出盈亏统计。
+   */
+  pmMatchResult?: "win" | "lose";
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras {

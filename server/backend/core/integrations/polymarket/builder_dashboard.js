@@ -111,6 +111,12 @@ function resolveTradeUserName(trade, index) {
 }
 
 function parseRange(body = {}) {
+  if (body.all === true || body.all === "1" || body.all === 1) {
+    return {
+      startMs: 0,
+      endMs: Date.now() + 86400000,
+    };
+  }
   if (body.startMs && body.endMs) {
     return {
       startMs: Number(body.startMs),
@@ -193,6 +199,10 @@ function mapChangmenOrder(row) {
       ? sellState
       : "",
     pmAttributedSellShares: Number(raw.pmAttributedSellShares) || 0,
+    pmMatchResult: (() => {
+      const m = String(raw.pmMatchResult || "").trim().toLowerCase();
+      return m === "win" || m === "lose" ? m : "";
+    })(),
     matchTitle,
     betTitle,
     item: String(row.item || "").trim(),
@@ -225,9 +235,10 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
       userIds = [...visibleIds];
   }
 
-  const [changmenRows, changmenSummary] = await Promise.all([
+  const [changmenRows, changmenSummary, changmenAnalytics] = await Promise.all([
     sb.fetchPolymarketOrdersInRange(startMs, endMs, userIds, orderLimit),
     sb.fetchPolymarketOrderStatsInRange(startMs, endMs, userIds),
+    sb.fetchPolymarketOrderAnalytics(startMs, endMs, userIds),
   ]);
   const changmenOrders = changmenRows.map(mapChangmenOrder);
   const tradeUserIndex = buildPolymarketTradeUserIndex({
@@ -253,6 +264,7 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
     changmen: {
       orders: changmenOrders,
       summary: changmenSummary,
+      analytics: changmenAnalytics,
     },
   };
 }

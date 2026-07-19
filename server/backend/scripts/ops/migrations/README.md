@@ -12,7 +12,7 @@
 | `migrate-accounts-jsonb-to-players.mjs` | `db:migrate-accounts-from-jsonb` | `profiles.accounts` → `players.account_data` |
 | `check-players-rds-migrate.mjs` | `db:check-players` | 迁移后审计报告 |
 | `backup-profiles-accounts.mjs` | `db:backup-accounts` | 部署前 players 账号快照 |
-| `backfill-polymarket-order-settlement.mjs` | `poly:backfill-settlement` | PM 老订单结算补跑 |
+| `backfill-pm-match-result.mjs` | — | 买单回填 `raw.pmMatchResult`（只写赛果，不改 money/status） |
 | `migrate-pm-sell-pnl-to-buy.mjs` | — | 卖单 money → 买单累加；卖单 money=0（`--dry-run` / `--execute`） |
 | `restore-pm-sell-money-from-pnl-usdc.mjs` | — | 从 raw.pmRealizedPnlUsdc 恢复被 sync 清零的卖单 money |
 | `restore-pm-buy-money-from-sell-pnl.mjs` | — | closed/partial 买单 money=0 时从卖单 pnlUsdc 恢复买单 money |

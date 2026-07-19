@@ -38,6 +38,11 @@ export interface OrderRow {
   PmSide?: "buy" | "sell";
   /** 卖单对应买单 orderId */
   PmBuyOrderId?: string;
+  /**
+   * [changmen 扩展] 市场赛果（持有到期）：Win/Lose。
+   * 与 Status/Money 脱钩；中途卖出仍可有值。
+   */
+  PmMatchResult?: "Win" | "Lose";
 }
 
 export interface OrderPlayerInfo {

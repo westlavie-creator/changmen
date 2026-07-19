@@ -120,6 +120,7 @@ export const {
   fetchHourlyAnalytics,
   fetchAccountAnalytics,
   fetchObArbOddsAnalytics,
+  fetchPolymarketOrderAnalytics,
   fetchPolymarketOrdersInRange,
   fetchPolymarketOrderStatsInRange,
   fetchMoneyLogsByPlayer,
