@@ -43,6 +43,19 @@ export async function refreshPmBalance(
   return res.success === 1 && res.info ? res.info : undefined;
 }
 
+/** [changmen 扩展] PF house：按 RDS 订单重算授信台账余额 */
+export async function refreshPfBalance(
+  playerId: number,
+): Promise<AccountRecord | undefined> {
+  const res = await post<AccountRecord>(
+    "Pf_RefreshBalance",
+    { playerId },
+    "",
+    { errorTip: false },
+  );
+  return res.success === 1 && res.info ? res.info : undefined;
+}
+
 export async function deletePlayer(playerId: number, description = "") {
   await post<unknown>("Client_DeletePlayer", { playerId, description });
 }

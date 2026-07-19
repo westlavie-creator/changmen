@@ -253,6 +253,16 @@ export function rowToOrder(r) {
       const m = normalizePmMatchResult(raw.pmMatchResult);
       return m === "win" ? "Win" : m === "lose" ? "Lose" : undefined;
     })(),
+    /** [changmen 扩展] PredictFun 1:1 买卖 */
+    PfSide: raw.pfSide === "buy" || raw.pfSide === "sell" ? raw.pfSide : undefined,
+    PfBuyOrderId: raw.pfBuyOrderId ? String(raw.pfBuyOrderId) : undefined,
+    PfSellState: raw.pfSellState === "open"
+      || raw.pfSellState === "closed"
+      ? raw.pfSellState
+      : undefined,
+    PfShares: parseNum(raw.pfShares, 0) || undefined,
+    PfTokenId: raw.pfTokenId ? String(raw.pfTokenId) : undefined,
+    PfMarketId: raw.pfMarketId ? String(raw.pfMarketId) : undefined,
   };
 }
 

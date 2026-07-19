@@ -16,12 +16,16 @@ export const PREDICT_FUN_API = (
 export const PREDICT_FUN_WS = "wss://ws.predict.fun/ws";
 
 const COLLECT_PAST_MS = 6 * 3600 * 1000;
-const COLLECT_FUTURE_MS = 3600 * 1000;
+/** [changmen 临时] 与 VPS collector 一致：默认未来 12h */
+const COLLECT_FUTURE_MS = 12 * 3600 * 1000;
 const PAGE_SIZE = 50;
 const MAX_PAGES = 5;
 
 export const PREDICT_FUN_COLLECT_PAST_MS = COLLECT_PAST_MS;
 export const PREDICT_FUN_COLLECT_FUTURE_MS = COLLECT_FUTURE_MS;
+
+/** 官方 /v1/tags：Esports */
+export const PREDICT_FUN_TAG_ESPORTS = "83";
 
 interface PredictListResponse<T> {
   success?: boolean;
@@ -48,6 +52,7 @@ export function predictCollectStartTimeAllowed(startMs: number): boolean {
 export async function fetchPredictCategories(params: {
   marketVariant?: string;
   status?: string;
+  tagIds?: string;
 } = {}): Promise<PredictCategory[]> {
   const categories: PredictCategory[] = [];
   let after: string | undefined;
@@ -55,8 +60,12 @@ export async function fetchPredictCategories(params: {
     const qs = new URLSearchParams({
       first: String(PAGE_SIZE),
       status: params.status ?? "OPEN",
-      marketVariant: params.marketVariant ?? "SPORTS_TEAM_MATCH",
     });
+    const tagIds = params.tagIds ?? (params.marketVariant ? undefined : PREDICT_FUN_TAG_ESPORTS);
+    if (tagIds)
+      qs.set("tagIds", tagIds);
+    if (params.marketVariant)
+      qs.set("marketVariant", params.marketVariant);
     if (after)
       qs.set("after", after);
     const res = await predictFunHttpGet<PredictListResponse<PredictCategory>>(
@@ -111,10 +120,16 @@ export async function fetchPredictOrderbooks(
 export interface PredictMarketDetail {
   id?: number;
   feeRateBps?: number;
+  decimalPrecision?: number;
   isNegRisk?: boolean;
   isYieldBearing?: boolean;
   tradingStatus?: string;
   status?: string;
+  outcomes?: Array<{
+    name?: string;
+    indexSet?: number;
+    onChainId?: string;
+  }>;
 }
 
 export async function fetchPredictMarket(marketId: string | number): Promise<PredictMarketDetail | null> {

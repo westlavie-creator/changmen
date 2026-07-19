@@ -1,10 +1,8 @@
 /**
- * Predict.fun 模式 A（主号）：全站套利下单共用运营者一个 Predict 账号。
+ * Predict.fun 模式 A（主号 / house）：全站套利下单由 **VPS** 持 B 号私钥代签。
  * changmen 用户无需在 predict.fun 开户；用户 PlatformAccount 仅用于玩家/订单归属。
  *
- * 凭证优先级：
- * 1. 构建环境变量（运营主号，推荐生产）
- * 2. changmen 里唯一配置了私钥的 PredictFun 平台账号 token（联调/单管理员）
+ * 浏览器侧不再读取 VITE_* 私钥（防泄露）。联调若需本地验签，仅用管理员账号 token 回退（不推荐生产）。
  */
 
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
@@ -26,12 +24,6 @@ export interface PredictFunMasterCredentials {
   source: "env" | "account";
 }
 
-function readEnv(name: string): string {
-  if (typeof import.meta === "undefined")
-    return "";
-  return String((import.meta.env as Record<string, string | undefined>)?.[name] ?? "").trim();
-}
-
 function credentialsFromConfig(
   config: PredictFunTokenConfig,
   source: PredictFunMasterCredentials["source"],
@@ -49,28 +41,13 @@ function credentialsFromConfig(
   };
 }
 
-function resolveFromEnv(): PredictFunMasterCredentials | null {
-  const privateKey = readEnv("VITE_PREDICT_FUN_MASTER_PRIVATE_KEY")
-    || readEnv("VITE_PREDICT_FUN_PRIVY_PRIVATE_KEY");
-  const predictAccount = readEnv("VITE_PREDICT_FUN_PREDICT_ACCOUNT");
-  if (!privateKey)
-    return null;
-  return {
-    privateKey: privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`,
-    predictAccount: predictAccount || undefined,
-    privyPrivateKey: readEnv("VITE_PREDICT_FUN_PRIVY_PRIVATE_KEY") || undefined,
-    source: "env",
-  };
-}
-
-/** 模式 A：解析实际用于 JWT/下单的凭证（忽略用户 token 里的空占位） */
+/**
+ * @deprecated 浏览器下单已废弃；下单走 Pf_*。仅保留给运维脚本/测试探测。
+ * 生产勿再通过 VITE_* 注入私钥。
+ */
 export function resolvePredictFunMasterCredentials(
   account?: PlatformAccount,
 ): PredictFunMasterCredentials | null {
-  const fromEnv = resolveFromEnv();
-  if (fromEnv)
-    return fromEnv;
-
   const cfg = parsePredictFunTokenConfig(account?.token);
   return credentialsFromConfig(cfg, "account");
 }
@@ -86,5 +63,5 @@ export function isPredictFunHousePlaceholderAccount(account: PlatformAccount): b
     return true;
   if (resolvePredictFunPrivateKey(cfg) || resolvePredictFunPrivyPrivateKey(cfg))
     return false;
-  return resolveFromEnv() != null;
+  return true;
 }

@@ -53,6 +53,7 @@ function readStoredVenueMemberId(row: { venueMemberId?: string; venueId?: string
  * 其它场馆保持 A8：粘贴凭证即可保存，不强制余额/会员 ID。
  */
 const VENUE_MEMBER_ID_PROVIDERS = new Set(["OB", "RAY", "PB", "Polymarket"]);
+const PREDICT_FUN_HOUSE_TOKEN = JSON.stringify({ mode: "house" });
 
 function requiresVenueMemberId(provider: unknown): boolean {
   return VENUE_MEMBER_ID_PROVIDERS.has(String(provider ?? "").trim());
@@ -111,6 +112,18 @@ let form = reactive<AccountEditFormState>(
   ),
 );
 
+function applyPredictFunHouseDefaults() {
+  form.platformName = form.platformName.trim() || "PredictFun";
+  form.token = PREDICT_FUN_HOUSE_TOKEN;
+  form.gateway = "";
+  form.referer = "";
+  form.userAgent = "";
+  form.cookie = "";
+  const loginName = String(userStore.userName || "").trim();
+  if (loginName)
+    form.playerName = loginName;
+}
+
 function applyPbIdentityFromToken(token: string | undefined) {
   const identity = parsePbVenueIdentity(token);
   if (!identity)
@@ -150,6 +163,8 @@ function resetForm(acc?: PlatformAccount) {
     form.gateway ||= "https://clob.polymarket.com";
     form.referer ||= "https://polymarket.com/zh";
   }
+  if (form.provider === "PredictFun")
+    applyPredictFunHouseDefaults();
   syncPolymarketFieldsFromToken(form.token);
   if (form.provider === "PB" && !form.venueMemberId)
     applyPbIdentityFromToken(form.token);
@@ -240,6 +255,8 @@ watch(
       syncPolymarketFieldsFromToken(form.token);
       void refreshPolymarketRelayerStatus();
     }
+    if (p === "PredictFun")
+      applyPredictFunHouseDefaults();
   },
 );
 
@@ -530,9 +547,13 @@ async function buildPatch(): Promise<Partial<AccountRecord> & {
   playerName: string;
   provider: AccountRecord["provider"];
 }> {
+  if (form.provider === "PredictFun")
+    applyPredictFunHouseDefaults();
   const token = form.provider === "Polymarket"
     ? await ensurePolymarketToken()
-    : form.token.trim() || undefined;
+    : form.provider === "PredictFun"
+      ? PREDICT_FUN_HOUSE_TOKEN
+      : form.token.trim() || undefined;
   return {
     platformName: form.platformName.trim(),
     playerName: form.playerName.trim(),
@@ -970,6 +991,14 @@ function unlockRate() {
         </fieldset>
       </template>
 
+      <template v-if="form.provider === 'PredictFun'" #token>
+        <el-form-item label="下单模式：">
+          <span class="pf-house-hint">
+            运营主号代下（house）；账号名使用登录名「{{ userStore.userName || "—" }}」，无需填写 Token / 私钥
+          </span>
+        </el-form-item>
+      </template>
+
       <template v-if="adminTargetUserId && account && allowMultiplyEdit" #footer>
         <div class="el-form-submit flex flex-center">
           <el-button
@@ -1033,6 +1062,12 @@ function unlockRate() {
   margin-left: 10px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
+}
+
+.pf-house-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .poly-credential-readonly-hint {

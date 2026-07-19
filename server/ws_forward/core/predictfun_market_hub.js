@@ -24,6 +24,7 @@ let wss = null;
 const clients = new Map();
 /** @type {WebSocket | null} */
 let upstream = null;
+let hubAttached = false;
 let upstreamIdleTimer = null;
 let upstreamConnecting = false;
 let upstreamReconnectTimer = null;
@@ -372,6 +373,7 @@ export function attachPredictFunMarketHub(httpServer) {
   if (wss)
     return;
 
+  hubAttached = true;
   wss = new WebSocketServer({ noServer: true });
   stopHubBackpressure?.();
   stopHubBackpressure = attachHubUpstreamBackpressure(
@@ -396,10 +398,27 @@ export function attachPredictFunMarketHub(httpServer) {
   });
 }
 
+export function isPredictFunMarketHubAttached() {
+  return hubAttached && Boolean(wss);
+}
+
+export function getPredictFunMarketHubStatus() {
+  return {
+    attached: isPredictFunMarketHubAttached(),
+    clients: clients.size,
+    marketIds: mergeHubMarketIds(clients).size,
+    upstream: upstream
+      ? (upstream.readyState === WebSocket.OPEN ? "open" : "connecting")
+      : "idle",
+    upstreamSubscribed: upstreamSubscribed.size,
+  };
+}
+
 export function closePredictFunMarketHub() {
   clearUpstreamReconnectTimer();
   stopHubBackpressure?.();
   stopHubBackpressure = null;
+  hubAttached = false;
   for (const clientWs of [...clients.keys()]) {
     try {
       clientWs.close();

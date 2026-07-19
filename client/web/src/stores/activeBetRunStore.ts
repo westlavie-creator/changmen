@@ -130,12 +130,12 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
 }
 
 /** 进行中订单队列上限（FIFO：超出时挤掉最旧一笔） */
-export const ACTIVE_BET_RUN_QUEUE_CAP = 5;
+export const ACTIVE_BET_RUN_QUEUE_CAP = 3;
 
 /** @deprecated 保留兼容；完成后不再定时消失，改由 FIFO 队列挤出 */
 export const ACTIVE_BET_RUN_DISMISS_SEC = 0;
 
-/** [changmen 扩展] 进行中套利/补单进度（订单列表上方展示） */
+/** [changmen 扩展] 进行中套利/补单进度（主区右上浮层，不占赛事列表高度） */
 export const useActiveBetRunStore = defineStore("activeBetRun", {
   state: () => ({
     runs: new Map<number, ActiveBetRun>(),

@@ -2,19 +2,22 @@ import crypto from "node:crypto";
 import * as sb from "@changmen/db";
 import { ensurePgPoolReady, getPgPool, insertProfile } from "@changmen/db";
 import { accountProviderKey, resolveAccountMultiply } from "@changmen/shared/account_multiply";
+import { resolveAccountCurrency } from "@changmen/shared/currency";
 import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log_lookup.js";
 import { isAdminUser } from "../auth/admin_auth.js";
 import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";
-import { loadProfileById } from "../db/store.js";
+import { listProfileRows, loadAccountsForUser, loadProfileById } from "../db/store.js";
 import { listUserProfitRank, resolveStoredLink, rowToOrder, toDateKey } from "./order_store.js";
+import * as orderStore from "./order_store.js";
+import { summarizePfOrders } from "../integrations/predictfun/pf_ledger.js";
 import {
   lastLoginFieldsFromProfile,
   PROFILE_META_PREFERENCE_KEYS,
 } from "./user_login_meta.js";
 import { resolvePresenceState } from "./user_presence.js";
 import store from "../esport-api/store.js";
-import { listProfileRows } from "../db/store.js";
 import { parseFormBool } from "../shared/parse_form_bool.js";
+import * as accountStore from "./account_store.js";
 
 export { parseFormBool } from "../shared/parse_form_bool.js";
 
@@ -46,7 +49,10 @@ export function sanitizeAccountForAdmin(raw) {
     playerName: String(a.playerName ?? a.PlayerName ?? ""),
     balance: Number(a.balance ?? a.Balance) || 0,
     credit: Number(a.credit ?? a.Credit) || 0,
-    currency: String(a.currency ?? a.Currency ?? "CNY"),
+    currency: resolveAccountCurrency(
+      a.provider ?? a.Provider ?? a.platform ?? a.Platform,
+      a.currency ?? a.Currency,
+    ),
     winBalance: Number(a.winBalance ?? a.WinBalance) || 0,
     unsettle: Number(a.unsettle ?? a.Unsettle) || 0,
     proxyId: Number(a.proxyId ?? a.ProxyId) || 0,
@@ -748,8 +754,220 @@ export async function getAdminUserTradeAccounts(userId, provider, caller = null)
     .filter(row => !platform || row.provider === platform);
 }
 
+/** 管理端子账号列表（按可见用户从 RDS 回源） */
+export async function listAdminAccounts(caller = null) {
+  const allProfiles = await sb.fetchProfilesAdmin();
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  const profiles = filterProfiles(allProfiles, visibleIds);
+  const out = [];
+  await Promise.all((profiles || []).map(async (p) => {
+    const id = String(p.id);
+    await loadAccountsForUser(id);
+    const accounts = store.getAccountsForUser(id);
+    for (const raw of accounts) {
+      const detail = sanitizeAccountForAdmin(raw);
+      if (!detail)
+        continue;
+      if (String(detail.platform || detail.provider || "") === "PredictFun" && detail.accountId) {
+        try {
+          const orders = await orderStore.listByPlayer(detail.accountId, id);
+          const stats = summarizePfOrders(orders);
+          // 余额以 total_balance（detail.balance）为准；credit 对 PF 无意义
+          detail.credit = 0;
+          detail.totalProfit = stats.settledPnl;
+          detail.unsettle = stats.unsettle;
+        }
+        catch {
+          detail.credit = 0;
+        }
+      }
+      out.push({
+        userId: id,
+        userName: String(p.user_name || ""),
+        teamId: p.team_id || null,
+        ...detail,
+      });
+    }
+  }));
+  out.sort((a, b) => {
+    const u = String(a.userName).localeCompare(String(b.userName), "zh");
+    if (u)
+      return u;
+    const p = String(a.platform).localeCompare(String(b.platform));
+    if (p)
+      return p;
+    return Number(a.accountId) - Number(b.accountId);
+  });
+  return out;
+}
+
+function findPredictFunAccount(accounts) {
+  return (accounts || []).find((a) => {
+    const provider = String(a.provider ?? a.Provider ?? a.platform ?? "").trim();
+    return provider === "PredictFun";
+  }) || null;
+}
+
+/** PredictFun changmen 会员列表（每用户至多一条 PF house 子账号） */
+export async function listAdminPredictFunMembers(caller = null) {
+  if (caller && !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const allProfiles = await sb.fetchProfilesAdmin();
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  const profiles = filterProfiles(allProfiles, visibleIds);
+  const out = [];
+  await Promise.all((profiles || []).map(async (p) => {
+    const id = String(p.id);
+    const userName = String(p.user_name || "");
+    await loadAccountsForUser(id);
+    const accounts = store.getAccountsForUser(id);
+    const pf = findPredictFunAccount(accounts);
+    const detail = pf ? sanitizeAccountForAdmin(pf) : null;
+    let balance = Number(detail?.balance) || 0;
+    let totalProfit = 0;
+    if (detail?.accountId) {
+      // 历史：余额误写在 credit
+      const legacyCredit = Number(detail.credit) || 0;
+      if (balance === 0 && legacyCredit > 0)
+        balance = legacyCredit;
+      try {
+        const orders = await orderStore.listByPlayer(detail.accountId, id);
+        totalProfit = summarizePfOrders(orders).settledPnl;
+      }
+      catch {
+        totalProfit = Number(detail?.totalProfit) || 0;
+      }
+    }
+    out.push({
+      userId: id,
+      userName,
+      teamId: p.team_id || null,
+      memberName: detail?.playerName || userName || id.slice(0, 8),
+      hasAccount: Boolean(detail?.accountId),
+      accountId: detail?.accountId || 0,
+      balance,
+      maxBalance: detail?.maxBalance ?? 0,
+      multiply: detail?.multiply ?? 1,
+      pause: Boolean(detail?.pause),
+      today: detail?.today ?? 0,
+      totalProfit,
+      description: detail?.description || "",
+      currency: detail?.currency || "USDT",
+      updateTime: detail?.updateTime || 0,
+      account: detail,
+    });
+  }));
+  out.sort((a, b) => {
+    if (a.hasAccount !== b.hasAccount)
+      return a.hasAccount ? -1 : 1;
+    return String(a.userName).localeCompare(String(b.userName), "zh");
+  });
+  return out;
+}
+
+/**
+ * 管理端为用户确保 PredictFun house 会员账号：
+ * - playerName = 登录名；token = { mode: "house" }
+ * - 先 RDS 回源账号列表再合并，避免空缓存覆盖
+ */
+export async function ensurePredictFunHouseAccount(userId, caller = null) {
+  const uid = String(userId || "").trim();
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (!caller || !isAdminUser(caller))
+    throw new Error("无管理员权限");
+
+  await loadProfileById(uid);
+  const profile = listProfileRows().find(p => String(p.id) === uid);
+  if (!profile)
+    throw new Error("用户不存在");
+
+  const playerName = String(profile.user_name || "").trim() || uid.slice(0, 8);
+  await loadAccountsForUser(uid);
+  const accounts = [...store.getAccountsForUser(uid)];
+  const existing = findPredictFunAccount(accounts);
+  if (existing) {
+    const token = String(existing.token ?? "").trim();
+    let needPatch = false;
+    if (!token || !/"mode"\s*:\s*"house"/i.test(token)) {
+      existing.token = JSON.stringify({ mode: "house" });
+      needPatch = true;
+    }
+    if (String(existing.provider || "") !== "PredictFun") {
+      existing.provider = "PredictFun";
+      needPatch = true;
+    }
+    if (String(existing.playerName || "").trim() !== playerName) {
+      existing.playerName = playerName;
+      needPatch = true;
+    }
+    if (needPatch)
+      await store.setAccountsForUser(uid, accounts);
+    return {
+      created: false,
+      account: sanitizeAccountForAdmin(existing),
+    };
+  }
+
+  const created = await accountStore.createTagPlatform(
+    "PredictFun",
+    playerName,
+    uid,
+    { provider: "PredictFun" },
+  );
+  if (!created?.playerId)
+    throw new Error("CreateTagPlatform 失败");
+
+  const aid = Number(created.playerId);
+  const byId = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
+  if (byId) {
+    byId.token = JSON.stringify({ mode: "house" });
+    byId.provider = "PredictFun";
+    byId.playerName = String(created.playerName || playerName);
+    await store.setAccountsForUser(uid, accounts);
+    return { created: false, account: sanitizeAccountForAdmin(byId) };
+  }
+
+  const houseRow = {
+    accountId: aid,
+    platformId: Number(created.platformId) || 0,
+    platformName: "PredictFun",
+    playerName: String(created.playerName || playerName),
+    provider: "PredictFun",
+    token: JSON.stringify({ mode: "house" }),
+    gateway: "",
+    referer: "",
+    userAgent: "",
+    cookie: "",
+    proxyId: 0,
+    balance: 0,
+    credit: 0,
+    currency: "USDT",
+    pause: false,
+    active: true,
+    updateTime: Date.now(),
+  };
+  accounts.push(houseRow);
+  await store.setAccountsForUser(uid, accounts);
+  return {
+    created: true,
+    account: sanitizeAccountForAdmin(houseRow),
+  };
+}
+
 /** 管理端修改指定用户账号乘网（普通用户自助保存会被服务端忽略 multiply） */
 export async function updateAdminAccountMultiply(userId, accountId, multiply, caller = null) {
+  return updateAdminAccountFields(userId, accountId, { multiply }, caller);
+}
+
+/**
+ * 管理端更新子账号字段（额度 / 暂停 / 乘网 / 备注等）
+ * @param {string} userId
+ * @param {number} accountId
+ * @param {Record<string, unknown> | string} patch
+ * @param {object | null} caller
+ */
+export async function updateAdminAccountFields(userId, accountId, patch = {}, caller = null) {
   const uid = String(userId || "").trim();
   const aid = Number(accountId);
   if (!uid)
@@ -762,16 +980,77 @@ export async function updateAdminAccountMultiply(userId, accountId, multiply, ca
       throw new Error("无权操作该用户");
   }
   await loadProfileById(uid);
+  await loadAccountsForUser(uid);
   const accounts = store.getAccountsForUser(uid);
   const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
   if (!row)
     throw new Error("账号不存在");
-  const providerKey = accountProviderKey(row);
-  const next = resolveAccountMultiply(providerKey, multiply);
-  const updated = store.updateAccountForUser(uid, aid, { multiply: next });
+
+  let fields = patch;
+  if (typeof fields === "string") {
+    try {
+      fields = JSON.parse(fields);
+    }
+    catch {
+      throw new Error("patch JSON 无效");
+    }
+  }
+  if (!fields || typeof fields !== "object" || Array.isArray(fields))
+    fields = {};
+
+  const updates = {};
+  const isPf = String(row.provider || row.Provider || "") === "PredictFun"
+    || String(row.platformName || "").toLowerCase().includes("predict");
+
+  // PF：直接写 total_balance（balance）；credit 固定 0。其它场馆仍改 credit 授信
+  if (isPf && ("balance" in fields || "credit" in fields)) {
+    const targetBalance = "balance" in fields
+      ? Number(fields.balance)
+      : Number(fields.credit);
+    updates.balance = Number.isFinite(targetBalance) ? targetBalance : 0;
+    updates.credit = 0;
+  }
+  else if ("credit" in fields) {
+    updates.credit = Number(fields.credit) || 0;
+  }
+  if ("maxBalance" in fields)
+    updates.maxBalance = Number(fields.maxBalance) || 0;
+  if ("pause" in fields)
+    updates.pause = parseFormBool(fields.pause);
+  if ("description" in fields)
+    updates.description = String(fields.description ?? "");
+  if ("currency" in fields)
+    updates.currency = String(fields.currency || "").trim() || undefined;
+  if ("multiply" in fields) {
+    const providerKey = accountProviderKey(row);
+    updates.multiply = resolveAccountMultiply(providerKey, fields.multiply);
+  }
+  if (!Object.keys(updates).length)
+    throw new Error("没有可更新的字段");
+
+  const updated = await store.updateAccountForUser(uid, aid, updates);
   if (!updated)
     throw new Error("更新失败");
-  return sanitizeAccountForAdmin(updated);
+  // PredictFun house 默认 USDT：历史行可能缺 currency
+  let result = updated;
+  if (String(updated.provider || row.provider || "") === "PredictFun"
+    && !String(updated.currency || "").trim()) {
+    const withCcy = await store.updateAccountForUser(uid, aid, { currency: "USDT" });
+    result = withCcy || updated;
+  }
+  // 改余额后刷新展示字段（读 total_balance）
+  if (isPf && ("balance" in updates || "credit" in updates)) {
+    try {
+      const { handlePfRefreshBalance } = await import("../integrations/predictfun/pf_client_handlers.js");
+      const refreshed = await handlePfRefreshBalance({ playerId: aid }, uid);
+      if (refreshed.ok && refreshed.info)
+        return sanitizeAccountForAdmin({ ...result, ...refreshed.info, credit: 0 });
+    }
+    catch (err) {
+      console.warn("[admin] Pf refresh after balance update:", err?.message || err);
+    }
+  }
+  return sanitizeAccountForAdmin(result);
 }
 
 /** 管理端开关用户 BetTarget（profiles.betting_config，对齐 A8 Setting） */

@@ -8,10 +8,17 @@ export const PREDICT_FUN_API = String(
   process.env.PREDICT_FUN_API_BASE || "https://api.predict.fun",
 ).replace(/\/$/, "");
 
+/** 官方 /v1/tags：Esports */
+export const PREDICT_FUN_TAG_ESPORTS = "83";
+
 const COLLECT_PAST_MS = 6 * 3600 * 1000;
-const COLLECT_FUTURE_MS = 3600 * 1000;
+/** [changmen 临时] 默认未来 12h；可用 PREDICTFUN_COLLECTOR_FUTURE_MS 覆盖（恢复 A8 对齐时改回 1h） */
+function collectFutureMs() {
+  const n = Number(process.env.PREDICTFUN_COLLECTOR_FUTURE_MS);
+  return Number.isFinite(n) && n > 0 ? n : 12 * 3600 * 1000;
+}
 const PAGE_SIZE = 50;
-const MAX_PAGES = 5;
+const MAX_PAGES = 8;
 
 export function resolvePredictFunApiKey() {
   return String(
@@ -34,7 +41,7 @@ export function predictCollectStartTimeAllowed(startMs) {
   if (!ms)
     return true;
   const now = Date.now();
-  return ms >= now - COLLECT_PAST_MS && ms <= now + COLLECT_FUTURE_MS;
+  return ms >= now - COLLECT_PAST_MS && ms <= now + collectFutureMs();
 }
 
 async function predictHttpGet(url) {
@@ -53,8 +60,13 @@ export async function fetchPredictCategories(params = {}) {
     const qs = new URLSearchParams({
       first: String(PAGE_SIZE),
       status: params.status ?? "OPEN",
-      marketVariant: params.marketVariant ?? "SPORTS_TEAM_MATCH",
     });
+    // 电竞：按 Esports tag 拉（ESPORTS_LOL/CS2…）；勿默认 SPORTS_TEAM_MATCH（那是 MLB）
+    const tagIds = params.tagIds ?? (params.marketVariant ? undefined : PREDICT_FUN_TAG_ESPORTS);
+    if (tagIds)
+      qs.set("tagIds", String(tagIds));
+    if (params.marketVariant)
+      qs.set("marketVariant", String(params.marketVariant));
     if (after)
       qs.set("after", after);
     const res = await predictHttpGet(`${PREDICT_FUN_API}/v1/categories?${qs.toString()}`);

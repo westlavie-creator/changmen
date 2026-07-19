@@ -59,4 +59,31 @@ describe("applyUnsettledStats", () => {
     expect(acc.unsettle).toBe(0);
     expect(acc.winBalance).toBe(500);
   });
+
+  it("excludes PF sold buys and sell rows from unsettle", () => {
+    const acc = makeAccount(500);
+    applyUnsettledStats(acc, [
+      {
+        ...makeVenueOrder({ orderId: "b1", status: "none", odds: 2, betMoney: 100 }),
+        provider: "PredictFun",
+        pfSide: "buy",
+        pfSellState: "closed",
+      },
+      {
+        ...makeVenueOrder({ orderId: "s1", status: "none", odds: 1.8, betMoney: 115 }),
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "b1",
+        pfSellState: "closed",
+      },
+      {
+        ...makeVenueOrder({ orderId: "b2", status: "none", odds: 2, betMoney: 50 }),
+        provider: "PredictFun",
+        pfSide: "buy",
+        pfSellState: "open",
+      },
+    ]);
+    expect(acc.unsettle).toBe(1);
+    expect(acc.winBalance).toBe(500 + 2 * 50);
+  });
 });

@@ -86,7 +86,7 @@
     .updated-at { font-size: 12px; color: var(--muted); }
     .merge-key {
       font-family: "IBM Plex Mono", Consolas, monospace;
-      font-size: 10px; color: var(--muted); word-break: break-all; margin-top: 4px;
+      font-size: 10px; color: var(--muted); word-break: break-all;
     }
     .attention-tag {
       display: inline-block; font-size: 10px; font-weight: 650;
@@ -326,6 +326,14 @@
     .matched-header-home .title-team-slot,
     .matched-header-away .title-team-slot { flex-direction: column; align-items: flex-start; gap: 2px; max-width: 100%; }
     .matched-header-away .title-team-slot { align-items: flex-end; }
+    .matched-header-meta {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      font-size: 11px; color: var(--muted); line-height: 1.35; min-width: 0;
+    }
+    .matched-header-meta .meta-line {
+      display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px;
+    }
+    .matched-header-meta .merge-key { margin-top: 0; max-width: 28em; }
     .matched-header-center .team-card-meta { margin-top: 0; }
     .title-id-row { display: inline-flex; align-items: center; gap: 4px; }
     .title-gb-id {
@@ -360,7 +368,7 @@
     }
     .team-table th { color: var(--muted); font-weight: 500; background: var(--surface); font-size: 11px; }
     .team-table tr:last-child td { border-bottom: none; }
-    .team-table .col-platform { width: 88px; }
+    .team-table .col-platform { width: 72px; white-space: nowrap; }
     .team-table .col-action { width: 96px; text-align: right; }
     .ref-tag {
       font-size: 10px; color: #9ec5ff; background: var(--chip);
@@ -392,19 +400,28 @@
     .g-valorant { color: #f0a0ff; border-color: #6a3a8a; }
     .g-kog { color: var(--ok); border-color: #2a6a4a; }
     .g-unknown { color: var(--muted); }
+    /* 场馆徽章：对齐主站 PlatformIcon（.provider-icon） */
     .pbadge {
+      display: inline-block;
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background-color: #000c;
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: contain;
+      vertical-align: -4px;
+    }
+    .pbadge-fallback {
       font-size: 10px; padding: 1px 6px; border-radius: 999px; font-weight: 650;
       background: var(--chip); border: 1px solid var(--line); color: var(--muted);
+      vertical-align: middle;
     }
-    .p-OB { color: #9ec5ff; border-color: #3a5a8a; }
-    .p-RAY { color: #c5a0ff; border-color: #5a3a8a; }
-    .p-TF { color: #f0a0ff; border-color: #6a3a8a; }
-    .p-IA { color: #7ddea8; border-color: #2a6a4a; }
-    .p-PB { color: #e6c88a; border-color: #6a5a2a; }
-    .p-IM, .p-IMT { color: var(--muted); }
-    .p-SABA { color: #b8e070; border-color: #4a6a2a; }
-    .p-Stake { color: #7dd3e8; border-color: #2a5a6a; }
-    .p-HG { color: #f0a0a0; border-color: #6a2a3a; }
+    .platform-badges {
+      display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    }
+    .col-platform .pbadge { margin-right: 4px; }
 
     .orphan-list { display: flex; flex-direction: column; gap: 6px; }
     .orphan-row {
@@ -681,7 +698,7 @@
 </div>
 
 <script>
-const PLATFORM_REF_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'Polymarket', 'SABA', 'HG', 'Dex'];
+const PLATFORM_REF_ORDER = ['OB', 'RAY', 'PB', 'TF', 'IA', 'IMT', 'IM', 'Stake', 'Polymarket', 'PredictFun', 'SABA', 'HG', 'Dex'];
 const GAME_NAMES = { cs2: 'CS2', lol: 'LOL', dota2: 'DOTA2', valorant: 'Valorant', kog: 'KOG' };
 
 let _lastData = null;
@@ -1009,7 +1026,33 @@ function gbadge(code) {
   const name = GAME_NAMES[c] || c.toUpperCase();
   return `<span class="gbadge g-${c}">${name}</span>`;
 }
-function pbadge(p) { return `<span class="pbadge p-${p}">${p}</span>`; }
+/** 与 client/venue-adapter/registry/manifest.json icon 字段对齐 */
+const PLATFORM_ICONS = {
+  OB: 'ob.png',
+  IM: 'im.png',
+  RAY: 'ray.png',
+  TF: 'tf.png',
+  IA: 'ia.png',
+  SABA: 'saba.png',
+  XBet: 'xbet.png',
+  PB: 'pb.webp',
+  IMT: 'imt.png',
+  HG: 'hg.png',
+  Stake: 'stake.png',
+  Dex: 'dex.webp',
+  Polymarket: 'polymarket.png',
+  Limitless: 'limitless.svg',
+  SXBet: 'sxbet.webp',
+  PredictFun: 'predict.ico',
+};
+function pbadge(p) {
+  const id = String(p || '');
+  const file = PLATFORM_ICONS[id];
+  if (file) {
+    return `<span class="pbadge" title="${esc(id)}" style="background-image:url(/assets/venue/${file})" aria-label="${esc(id)}"></span>`;
+  }
+  return `<span class="pbadge-fallback" title="${esc(id)}">${esc(id)}</span>`;
+}
 function confColor(c) {
   if (c >= 0.8) return '#4ade80';
   if (c >= 0.6) return '#fbbf24';
@@ -1293,7 +1336,7 @@ function renderTeamRecCard(rec, cms, idx, teamMaps) {
         <div class="team-card-meta">
           <span>开赛 ${fmtTime(rec.startTime)}</span>
           ${rec.timeDiffMs > 0 ? `<span>平台时差 ${fmtDiff(rec.timeDiffMs)}</span>` : ''}
-          <span>${rec.platforms.map(pbadge).join(' ')}</span>
+          <span class="platform-badges">${rec.platforms.map(pbadge).join('')}</span>
         </div>
       </div>
       <div class="conf-wrap">
@@ -1306,7 +1349,7 @@ function renderTeamRecCard(rec, cms, idx, teamMaps) {
       <div class="team-card-hint">
         ${cmId
           ? `赛事 #${cmId} · 已映射 ${mappedCount}/${totalCount} 个平台 · 其余平台逐行点「确认」`
-          : `参考平台 ${esc(ref.platform)}（基准行无需确认）· 已映射 ${mappedCount}/${totalCount} · 其它平台逐行确认`}
+          : `参考平台 ${pbadge(ref.platform)}（基准行无需确认）· 已映射 ${mappedCount}/${totalCount} · 其它平台逐行确认`}
         ${pendingCount > 0 ? ` · 还剩 ${pendingCount} 个待确认` : ''}
       </div>
     </div>
@@ -1731,12 +1774,14 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
               <span class="match-id-value">#${cm.id}</span>
             </div>
           </div>
-          <div class="team-card-meta">
-            <span>开赛 ${fmtTime(cm.start_time)}</span>
-            <span>${liveRows.length}馆 ${Object.keys(cm.matchs || {}).map(pbadge).join(' ')}</span>
-            ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
+          <div class="matched-header-meta">
+            <div class="meta-line">开赛 ${fmtTime(cm.start_time)}</div>
+            <div class="meta-line">
+              <span class="platform-badges">${liveRows.length}馆 ${Object.keys(cm.matchs || {}).map(pbadge).join('')}</span>
+              ${cm.merge_mode?.label ? `<span>合并依据 ${esc(cm.merge_mode.label)}</span>` : ''}
+            </div>
+            ${mergeKey ? `<div class="meta-line merge-key" title="MergeKey">MK ${esc(mergeKey)}</div>` : ''}
           </div>
-          ${mergeKey ? `<div class="merge-key" title="MergeKey">MK ${esc(mergeKey)}</div>` : ''}
         </div>
         <div class="matched-header-away">${awaySlot}</div>
       </div>
@@ -1947,12 +1992,12 @@ function renderRecModalBody() {
       <thead><tr><th>侧</th><th>主</th><th>客</th></tr></thead>
       <tbody>
         <tr>
-          <td><span class="link-side-tag">${mode === 'client' ? '赛事 #' + cmId : '参考 ' + ref.platform}</span></td>
+          <td><span class="link-side-tag">${mode === 'client' ? '赛事 #' + cmId : '参考 ' + pbadge(ref.platform)}</span></td>
           <td>${esc(refTeams?.home || '?')}</td>
           <td>${esc(refTeams?.away || '?')}</td>
         </tr>
         <tr>
-          <td><span class="link-side-tag">${platform}</span></td>
+          <td><span class="link-side-tag">${pbadge(platform)}</span></td>
           <td>${esc(platTeams?.home || '?')}</td>
           <td>${esc(platTeams?.away || '?')}</td>
         </tr>

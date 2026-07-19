@@ -83,6 +83,13 @@ export interface AdminAccountDetail {
   venueAccountName?: string;
 }
 
+/** 管理端子账号扁平行（含归属用户） */
+export interface AdminAccountListRow extends AdminAccountDetail {
+  userId: string;
+  userName: string;
+  teamId?: string | null;
+}
+
 export type AdminUserSetting = Record<string, unknown>;
 
 export interface AdminUserRow {

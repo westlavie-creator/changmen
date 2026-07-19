@@ -10,3 +10,10 @@ it("normalizeTeam decodes &apos; and aliases Life's A Game → lag", () => {
   assert.equal(normalizeTeam("Overtake"), "overtake sector");
   assert.equal(normalizeTeam("Overtake Sector"), "overtake sector");
 });
+
+it("normalizeTeam aliases BetBoom / PARIVISION to OB title forms", () => {
+  assert.equal(normalizeTeam("BetBoom Team"), normalizeTeam("BB Team"));
+  assert.equal(normalizeTeam("PARIVISION"), normalizeTeam("TEAM VISION"));
+  assert.equal(normalizeTeam("Parivision"), normalizeTeam("TEAM VISION"));
+  assert.equal(normalizeTeam("PVISION"), normalizeTeam("TEAM VISION"));
+});

@@ -1,5 +1,5 @@
 import { replacePlatformBetsForMatch, writePlatformMatches } from "@changmen/db";
-import { formatBetOdds } from "@changmen/shared/odds_format";
+import { formatPredictionMarketBetOdds } from "@changmen/shared/odds_format";
 
 import {
   fetchPredictCategories,
@@ -21,13 +21,10 @@ export async function runPredictFunDiscoveryCycle() {
   if (!resolvePredictFunApiKey())
     throw new Error("PREDICT_FUN_API_KEY 未配置");
 
-  const rawCategories = await fetchPredictCategories({
-    marketVariant: "SPORTS_TEAM_MATCH",
-    status: "OPEN",
-  });
-  const filtered = rawCategories.filter((category) => {
-    if (!isPredictEsportsMoneylineCategory(category))
-      return false;
+  // 默认 tagIds=Esports（见 api.js）；覆盖旧 SPORTS_TEAM_MATCH→MLB 误拉
+  const rawCategories = await fetchPredictCategories({ status: "OPEN" });
+  const esportCategories = rawCategories.filter(isPredictEsportsMoneylineCategory);
+  const filtered = esportCategories.filter((category) => {
     const startMs = category.startsAt ? Date.parse(category.startsAt) : 0;
     return predictCollectStartTimeAllowed(startMs);
   });
@@ -58,9 +55,18 @@ export async function runPredictFunDiscoveryCycle() {
   }
 
   if (!candidates.length) {
-    writePlatformMatches(PLATFORM, []);
-    persistPredictFunMarketIndex([]);
-    return { matches: 0, bets: 0 };
+    // 与 polymarket-esports 同口径：过滤后 0 不 clear，避免稀疏赛程/时间窗外误抹库
+    console.warn(
+      `[predictfun-collector] skip write: raw=${rawCategories.length} esport=${esportCategories.length} inWindow=${filtered.length} mapped=0`,
+    );
+    return {
+      matches: 0,
+      bets: 0,
+      raw: rawCategories.length,
+      esport: esportCategories.length,
+      inWindow: filtered.length,
+      skippedClear: true,
+    };
   }
 
   const matches = [...new Map(
@@ -69,11 +75,20 @@ export async function runPredictFunDiscoveryCycle() {
   writePlatformMatches(PLATFORM, matches);
 
   for (const mapped of candidates) {
-    const bet = formatBetOdds(mapped.bet);
-    replacePlatformBetsForMatch(PLATFORM, mapped.match.SourceMatchID, [bet]);
+    const list = Array.isArray(mapped.bets) && mapped.bets.length
+      ? mapped.bets
+      : [mapped.bet];
+    const bets = list.map(bet => formatPredictionMarketBetOdds(bet));
+    replacePlatformBetsForMatch(PLATFORM, mapped.match.SourceMatchID, bets);
   }
 
   persistPredictFunMarketIndex(candidates);
 
-  return { matches: matches.length, bets: candidates.length };
+  return {
+    matches: matches.length,
+    bets: candidates.length,
+    raw: rawCategories.length,
+    esport: esportCategories.length,
+    inWindow: filtered.length,
+  };
 }

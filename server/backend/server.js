@@ -65,7 +65,7 @@ const server = http.createServer(
   }),
 );
 
-const DEFAULT_WS_FORWARD_PLATFORMS = ["IA", "OB", "RAY", "PM-USER", "PREDICTFUN-MARKET"];
+const DEFAULT_WS_FORWARD_PLATFORMS = ["IA", "OB", "RAY", "PM-USER"];
 
 function resolveWsForwardPlatforms() {
   const raw = String(process.env.WS_FORWARD_PLATFORMS || "").trim();
@@ -78,7 +78,10 @@ function resolveWsForwardPlatforms() {
 
 const wsForwardPlatforms = resolveWsForwardPlatforms();
 attachWsForward(server, { platforms: wsForwardPlatforms });
-console.log(`[ws_forward] platforms=${wsForwardPlatforms.join(",") || "(none)"} (PM-MARKET → changmen-pm-market-hub)`);
+console.log(
+  `[ws_forward] platforms=${wsForwardPlatforms.join(",") || "(none)"} `
+  + `(PM-MARKET → changmen-pm-market-hub; PREDICTFUN-MARKET → changmen-predictfun-market-hub)`,
+);
 attachChangmenRealtimeHub(server);
 
 ensurePlatformCredentials()

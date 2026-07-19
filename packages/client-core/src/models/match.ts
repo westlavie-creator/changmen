@@ -1,5 +1,6 @@
 import type { BetRowDto, ClientMatchDto, PlatformId, PmSportSnapshot } from "@changmen/api-contract";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
+import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { readVenueOdds } from "../bridge/oddsAccess";
 
 export type BetSide = "Home" | "Away";
@@ -32,9 +33,15 @@ export class ViewBetItem {
     this.homeId = source.HomeID;
     this.awayId = source.AwayID;
     this.sourceStatus = String(source.Status ?? "Normal");
+    // [A8 可证实] HG 用 Sources 作 fallback；其它馆默认 0，只信 fo。
+    // [changmen 扩展] PredictFun：VPS Sources 作 fallback；与 PM 同用 truncateOddsTo3。
     if (source.Type === HG_PLATFORM) {
       this.fallbackHomeOdds = Number(source.HomeOdds) || 0;
       this.fallbackAwayOdds = Number(source.AwayOdds) || 0;
+    }
+    else if (source.Type === "PredictFun") {
+      this.fallbackHomeOdds = truncateOddsTo3(Number(source.HomeOdds) || 0);
+      this.fallbackAwayOdds = truncateOddsTo3(Number(source.AwayOdds) || 0);
     }
     else {
       this.fallbackHomeOdds = 0;

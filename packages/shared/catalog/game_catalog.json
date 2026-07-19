@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-07-13",
+  "updatedAt": "2026-07-20",
   "description": "本项目聚合的游戏类型。各平台 native game_id 不同，通过 code 对齐；sport 指向 sport_catalog.code。",
   "games": [
     {
@@ -21,6 +21,7 @@
         "Stake": "counter-strike",
         "Dex": "csgo",
         "Polymarket": "cs2",
+        "PredictFun": "cs2",
         "Limitless": "cs2",
         "SXBet": "cs2",
         "Azuro": "1061",
@@ -45,6 +46,7 @@
         "Stake": "kings-of-glory",
         "Dex": "king-of-glory",
         "Polymarket": "kog",
+        "PredictFun": "kog",
         "IM": "48",
         "XBet": "43"
       }
@@ -66,6 +68,7 @@
         "Stake": "valorant",
         "Dex": "valorant",
         "Polymarket": "valorant",
+        "PredictFun": "valorant",
         "Limitless": "valorant",
         "SXBet": "valorant",
         "IM": "65",
@@ -89,6 +92,7 @@
         "Stake": "league-of-legends",
         "Dex": "lol",
         "Polymarket": "lol",
+        "PredictFun": "lol",
         "Limitless": "lol",
         "SXBet": "lol",
         "Azuro": "1002",
@@ -113,6 +117,7 @@
         "Stake": "dota-2",
         "Dex": "dota2",
         "Polymarket": "dota2",
+        "PredictFun": "dota2",
         "Limitless": "dota-2",
         "SXBet": "dota2",
         "Azuro": "1000",

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-28",
+  "updatedAt": "2026-07-20",
   "description": "Client_GetGames 默认返回值。按 venue/provider 保存各场馆 native game_id；动态平台配置仍可通过数据库 override 追加。",
   "providers": {
     "OB": [
@@ -59,6 +59,13 @@
       "dota2"
     ],
     "Polymarket": [
+      "cs2",
+      "kog",
+      "valorant",
+      "lol",
+      "dota2"
+    ],
+    "PredictFun": [
       "cs2",
       "kog",
       "valorant",

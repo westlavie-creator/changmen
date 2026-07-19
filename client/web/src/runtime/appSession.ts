@@ -22,10 +22,31 @@ async function applyPmTransportRoutingOnLogin(): Promise<void> {
   }
 }
 
+async function applyPfTransportRoutingOnLogin(): Promise<void> {
+  try {
+    const { applyPfAutoTransportOnLogin } = await import("@changmen/venue-adapter/predictfun");
+    await applyPfAutoTransportOnLogin();
+  }
+  catch (err) {
+    if (import.meta.env?.DEV)
+      console.warn("[PF transport] auto route skipped", err);
+  }
+}
+
 async function resetPmTransportRoutingOnLogout(): Promise<void> {
   try {
     const { resetPmTransportRoutingOnLogout } = await import("@changmen/venue-adapter/polymarket");
     resetPmTransportRoutingOnLogout();
+  }
+  catch {
+    /* ignore */
+  }
+}
+
+async function resetPfTransportRoutingOnLogout(): Promise<void> {
+  try {
+    const { resetPfTransportRoutingOnLogout } = await import("@changmen/venue-adapter/predictfun");
+    resetPfTransportRoutingOnLogout();
   }
   catch {
     /* ignore */
@@ -47,6 +68,7 @@ export async function mountAppSession(): Promise<void> {
     await user.fetchUserInfo();
   }
   await applyPmTransportRoutingOnLogin();
+  await applyPfTransportRoutingOnLogin();
   useAccountStore().loadAccounts(true);
   await bootSessionRuntime();
 }
@@ -54,6 +76,7 @@ export async function mountAppSession(): Promise<void> {
 /** HomeView 卸载 / logout：对称 teardown（不含 user.logout） */
 export function stopAppSession(): void {
   void resetPmTransportRoutingOnLogout();
+  void resetPfTransportRoutingOnLogout();
   stopSessionRuntime();
   teardownArbRuntimeSync();
   useMessageStore().stop();

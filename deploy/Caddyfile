@@ -1,5 +1,5 @@
 # changmen — 单机单 IP：Caddy :80 托管前端静态，API 反代到 PM2 :3456
-# PM-MARKET WS hub 独立进程 :3457（勿与 esport 同进程，避免扇出拖死 HTTP）
+# PM-MARKET WS hub 独立进程 :3457；PREDICTFUN-MARKET hub :3458（勿与 esport 同进程）
 # 扁平 VPS：/root/changmen/client/web/dist
 
 {
@@ -14,9 +14,12 @@
 	handle /health {
 		reverse_proxy 127.0.0.1:3456
 	}
-	# 须在 /esport/* 之前：PM-MARKET → 独立 hub
+	# 须在 /esport/* 之前：独立 Market WS hubs
 	handle /esport/ws-forward/PM-MARKET* {
 		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/ws-forward/PREDICTFUN-MARKET* {
+		reverse_proxy 127.0.0.1:3458
 	}
 	handle /esport/* {
 		reverse_proxy 127.0.0.1:3456

@@ -4,6 +4,7 @@ import {
   Currency,
   getCurrency,
   getExchange,
+  resolveAccountCurrency,
   scaleUsdtToCnyDisplay,
 } from "./currency.js";
 
@@ -17,7 +18,16 @@ it("getExchange mirrors A8 Pr.exchange", () => {
 it("getCurrency normalizes venue codes like A8 Pr.getCurrency", () => {
   assert.equal(getCurrency("RMB"), Currency.CNY);
   assert.equal(getCurrency("USD"), Currency.USDT);
+  assert.equal(getCurrency("usdc"), Currency.USDT);
   assert.equal(getCurrency(undefined), Currency.CNY);
+});
+
+it("resolveAccountCurrency uses venue defaults for USDT platforms", () => {
+  assert.equal(resolveAccountCurrency("PredictFun", undefined), Currency.USDT);
+  assert.equal(resolveAccountCurrency("PredictFun", "CNY"), Currency.USDT);
+  assert.equal(resolveAccountCurrency("Polymarket", ""), Currency.USDT);
+  assert.equal(resolveAccountCurrency("OB", undefined), Currency.CNY);
+  assert.equal(resolveAccountCurrency("OB", "USDT"), Currency.USDT);
 });
 
 it("scaleUsdtToCnyDisplay converts venue USDT to plan CNY", () => {

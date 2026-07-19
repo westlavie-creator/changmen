@@ -5,6 +5,10 @@
  */
 
 import { bestAskFromPredictBook } from "./parse";
+import {
+  cyclePfMarketWsSourceMode,
+  type PfMarketWsSourceMode,
+} from "./pfMarketWsMode";
 import { startPredictMarketWs, type PredictMarketWsHandle } from "./ws";
 
 export interface PredictFunMarketQuote {
@@ -147,6 +151,19 @@ export function unregisterPredictFunQuoteConsumer(consumerId: PredictFunQuoteCon
     resubscribe();
   else
     maybeStopTransport();
+}
+
+/** 角标切换 official/changmen 后重建 WS，保留已有订阅 */
+export function cyclePredictFunMarketWsSourceModeAndReconnect(): PfMarketWsSourceMode {
+  const next = cyclePfMarketWsSourceMode();
+  if (!wsHandle)
+    return next;
+  wsHandle.stop();
+  wsHandle = null;
+  readyEpoch += 1;
+  ensurePredictFunMarketQuoteHub();
+  resubscribe();
+  return next;
 }
 
 export function onPredictFunMarketQuote(fn: QuoteListener): () => void {

@@ -18,19 +18,46 @@ export function buildPredictFunMarketIndexFromMapped(entries) {
 
 /** @param {ReturnType<import("./parse.js").buildPredictMappedMarket>[]} candidates */
 export function persistPredictFunMarketIndex(candidates) {
-  const entries = candidates.map(mapped => ({
-    sourceMatchId: String(mapped.match.SourceMatchID),
-    categoryId: mapped.categoryId,
-    homeMarketId: mapped.homeMarketId,
-    awayMarketId: mapped.awayMarketId,
-    homeTokenId: mapped.homeTokenId,
-    awayTokenId: mapped.awayTokenId,
-    sourceBetId: String(mapped.bet.SourceBetID),
-    homeName: mapped.bet.HomeName,
-    awayName: mapped.bet.AwayName,
-    homeOdds: Number(mapped.bet.HomeOdds) || 0,
-    awayOdds: Number(mapped.bet.AwayOdds) || 0,
-    status: String(mapped.bet.Status ?? "Locked"),
-  }));
-  writePredictFunMarketIndex(buildPredictFunMarketIndexFromMapped(entries));
+  const marketIdSet = new Set();
+  const entries = [];
+  for (const mapped of candidates) {
+    for (const id of mapped.marketIds || []) {
+      if (id)
+        marketIdSet.add(String(id));
+    }
+    if (mapped.homeMarketId)
+      marketIdSet.add(String(mapped.homeMarketId));
+    if (mapped.awayMarketId)
+      marketIdSet.add(String(mapped.awayMarketId));
+    const list = Array.isArray(mapped.bets) && mapped.bets.length
+      ? mapped.bets
+      : [mapped.bet];
+    for (const bet of list) {
+      const mid = String(bet.MarketID || mapped.homeMarketId || "");
+      entries.push({
+        sourceMatchId: String(mapped.match.SourceMatchID),
+        categoryId: mapped.categoryId,
+        homeMarketId: mid || mapped.homeMarketId,
+        awayMarketId: mid || mapped.awayMarketId,
+        homeTokenId: String(bet.SourceHomeID || mapped.homeTokenId),
+        awayTokenId: String(bet.SourceAwayID || mapped.awayTokenId),
+        sourceBetId: String(bet.SourceBetID),
+        map: Number(bet.Map) || 0,
+        homeName: bet.HomeName,
+        awayName: bet.AwayName,
+        homeOdds: Number(bet.HomeOdds) || 0,
+        awayOdds: Number(bet.AwayOdds) || 0,
+        status: String(bet.Status ?? "Locked"),
+      });
+      if (mid)
+        marketIdSet.add(mid);
+    }
+  }
+  writePredictFunMarketIndex({
+    updatedAt: Date.now(),
+    marketIds: [...marketIdSet],
+    entries,
+  });
 }
+
+

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   detectionMaxPriceFromOdds,
   isValidPredictClobPrice,
@@ -6,6 +6,14 @@ import {
 } from "./pfDetection";
 import { parsePredictFunTokenConfig, resolvePredictFunPrivateKey } from "./credentials";
 import { isPredictFunOrderAccepted } from "./bet";
+
+const pfCheckBet = vi.hoisted(() => vi.fn());
+const pfSubmitOrder = vi.hoisted(() => vi.fn());
+
+vi.mock("./pfClientApi", () => ({
+  pfCheckBet,
+  pfSubmitOrder,
+}));
 
 describe("predictfun bet helpers", () => {
   it("parses EOA private key from token json", () => {
@@ -24,8 +32,8 @@ describe("predictfun bet helpers", () => {
   });
 
   it("accepts create-order response with orderId", () => {
-    expect(isPredictFunOrderAccepted({ success: true, data: { orderId: "123" } })).toBe(true);
-    expect(isPredictFunOrderAccepted({ success: true, data: {} })).toBe(false);
+    expect(isPredictFunOrderAccepted({ orderId: "123" })).toBe(true);
+    expect(isPredictFunOrderAccepted({ })).toBe(false);
   });
 
   it("locks detection max price from option.data", () => {
@@ -34,5 +42,42 @@ describe("predictfun bet helpers", () => {
       data: { detectionClobPrice: 0.55 },
     } as never;
     expect(resolvePredictFunDetectionMaxPrice(option, 1.8)).toBe(0.55);
+  });
+});
+
+describe("predictfun provider uses Pf_*", () => {
+  it("checkBet calls Pf_CheckBet via pfCheckBet", async () => {
+    pfCheckBet.mockReset();
+    pfCheckBet.mockResolvedValueOnce({
+      tokenId: "tok",
+      marketId: "830202",
+      apiBetMoney: 10,
+      detectionOdds: 2,
+      detectionMaxPrice: 0.5,
+      bookPrice: 0.4,
+      bookOdds: 2.5,
+      bookFetchedAt: Date.now(),
+      feeRateBps: 200,
+      isNegRisk: false,
+      isYieldBearing: false,
+      side: "BUY",
+      playerId: 42,
+    });
+
+    const { predictFunProvider } = await import("./bet");
+    const account = { accountId: 42, provider: "PredictFun", token: '{"mode":"house"}' } as never;
+    const option = {
+      itemId: "tok",
+      betMoney: 10,
+      odds: 2,
+      type: "PredictFun",
+      data: { marketId: "830202", detectionOdds: 2, detectionMaxPrice: 0.5 },
+    } as never;
+
+    const out = await predictFunProvider.checkBet(account, option);
+    expect(pfCheckBet).toHaveBeenCalledOnce();
+    expect(out.checkError).toBeFalsy();
+    expect(out.odds).toBe(2.5);
+    expect(out.data?.bookPrice).toBe(0.4);
   });
 });

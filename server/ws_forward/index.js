@@ -5,7 +5,12 @@ import {
   getPmMarketHubStatus,
   isPmMarketHubAttached,
 } from "./core/pm_market_hub.js";
-import { attachPredictFunMarketHub, closePredictFunMarketHub } from "./core/predictfun_market_hub.js";
+import {
+  attachPredictFunMarketHub,
+  closePredictFunMarketHub,
+  getPredictFunMarketHubStatus,
+  isPredictFunMarketHubAttached,
+} from "./core/predictfun_market_hub.js";
 import { registerPlatformForward, listPlatformForwards } from "./platforms/registry.js";
 import { getForwardStats } from "./core/forward_stats.js";
 import { iaForwardDefinition } from "./platforms/ia.js";
@@ -43,7 +48,7 @@ export function attachWsForward(httpServer, opts = {}) {
     if (def) registerPlatformForward(def);
   }
   attachForwardEngine(httpServer);
-  // PM-MARKET 默认由独立进程 changmen-pm-market-hub 承担；仅当显式列入 platforms 时才挂本进程
+  // PM-MARKET / PREDICTFUN-MARKET 默认由独立 hub 进程承担；仅当显式列入 platforms 时才挂本进程
   if (wanted.has("PM-MARKET")) {
     attachPmMarketHub(httpServer, {
       resolveIdentity: async (token) => {
@@ -63,9 +68,10 @@ export function getWsForwardStatus() {
   const stats = getForwardStats();
   const platforms = listPlatformForwards().map((p) => p.id);
   const pmAttached = isPmMarketHubAttached();
+  const pfAttached = isPredictFunMarketHubAttached() || predictFunHubAttached;
   if (pmAttached && !platforms.includes("PM-MARKET"))
     platforms.push("PM-MARKET");
-  if (predictFunHubAttached && !platforms.includes("PREDICTFUN-MARKET"))
+  if (pfAttached && !platforms.includes("PREDICTFUN-MARKET"))
     platforms.push("PREDICTFUN-MARKET");
   return {
     enabled,
@@ -74,6 +80,7 @@ export function getWsForwardStatus() {
     platformStats: stats,
     hubs: {
       pmMarket: pmAttached ? getPmMarketHubStatus() : null,
+      predictFunMarket: pfAttached ? getPredictFunMarketHubStatus() : null,
     },
   };
 }

@@ -83,7 +83,9 @@ async function confirmRemove() {
         error: account.balance === undefined,
       }"
     >
-      <label class="currency">{{ account.currency || "CNY" }}</label>
+      <label class="currency">
+        {{ account.currency || 'CNY' }}
+      </label>
       <template v-if="account.balance !== undefined">
         {{ formatBalance(account.balance) }}
       </template>

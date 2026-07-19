@@ -22,39 +22,31 @@
 
 
 
-### 环境变量（运营主号）
+### 环境变量（运营主号 — **仅 VPS**）
 
 
 
-生产构建注入（`.env.production` / GHA Secrets）：
+生产写入 `server/backend/.env`（**不要**再用 `VITE_PREDICT_FUN_PRIVY_*` 打进前端）：
 
 
 
 ```env
 
-VITE_PREDICT_FUN_API_BASE=https://api.predict.fun
+PREDICT_FUN_API_BASE=https://api.predict.fun
 
-VITE_PREDICT_FUN_API_KEY=<主网 API Key>
+PREDICT_FUN_API_KEY=<主网 API Key>
 
+PREDICT_FUN_PRIVY_PRIVATE_KEY=<从 predict.fun/account/settings 导出>
 
+PREDICT_FUN_PREDICT_ACCOUNT=<deposit address / Predict Account>
 
-# 模式 A 主号（Predict Account 推荐）
-
-VITE_PREDICT_FUN_PRIVY_PRIVATE_KEY=<从 predict.fun/account/settings 导出>
-
-VITE_PREDICT_FUN_PREDICT_ACCOUNT=<deposit address / Predict Account>
-
-
-
-# 或纯 EOA（少见）
-
-# VITE_PREDICT_FUN_MASTER_PRIVATE_KEY=<0x...>
+PF_HOUSE_MAX_STAKE_USDT=500
 
 ```
 
 
 
-VPS `server/backend/.env`：`PREDICT_FUN_API_KEY`（ws-forward 握手 + predictfun-collector REST，与前端 key 相同）。
+前端构建可保留 `VITE_PREDICT_FUN_API_KEY` 仅用于官方 WS 直连探测（可选）；生产推荐用户走 VPS 连接，Key 只放服务器。
 
 
 
@@ -70,7 +62,7 @@ VPS `server/backend/.env`：`PREDICT_FUN_API_KEY`（ws-forward 握手 + predictf
 
 
 
-联调时也可在**唯一** PredictFun 平台账号 token 里写私钥（`resolvePredictFunMasterCredentials` 在 env 缺失时回退）。
+须已创建 changmen `playerId`（`Client_CreateTagPlatform` 等）。下单归属靠 `playerId`，不靠 PF 开户。
 
 
 
@@ -84,9 +76,33 @@ VPS `server/backend/.env`：`PREDICT_FUN_API_KEY`（ws-forward 握手 + predictf
 
 | `server/collectors/predictfun-collector`（PM2） | 直连 `api.predict.fun`：categories → orderbook → `writePlatformMatches` / `replacePlatformBetsForMatch`；写 `predictfun_market_index.json` |
 
-| 浏览器 `collect.ts` | 经 `Client_GetCollectPlatform` 拉 `MarketIndex`；**仅** `ws-forward` hub 订阅 `predictOrderbook/{marketId}` → `fo` |
+| 浏览器 `collect.ts` | 经 `Client_GetCollectPlatform` 拉 `MarketIndex`；Market WS → `fo`（官方直连或 `ws-forward`） |
 
 | `server/ws_forward` hub | 全站单条上游 WS，合并订阅后 fan-out |
+
+
+
+### 用户连接（对齐 Polymarket）
+
+
+
+| | 直连 `direct` / `official` | 经 VPS `vps` / `changmen` |
+
+|--|--|--|
+
+| HTTP | 浏览器 → `api.predict.fun` | `/esport/http-relay` → 官方 |
+
+| Market WS | `wss://ws.predict.fun/ws` | `/esport/ws-forward/PREDICTFUN-MARKET` → **独立** `changmen-predictfun-market-hub`（`:3458`） |
+
+| 切换 | 登录探测；角标点 `predictfun-market` | 手动后跳过下次自动路由至 logout |
+
+
+
+- `localStorage.PF_HTTP_MODE` = `direct` \| `vps`
+
+- `localStorage.changmen:pf:market-ws-source-mode` = `official` \| `changmen`
+
+- 默认：官方 WS 可达 → HTTP direct + WS official；否则 HTTP vps + WS changmen
 
 
 
@@ -114,33 +130,56 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
 
 
 
-## 下注（当前）
+## 用户开号（产品约定）
 
+- **用户自己添加**：场馆选 PredictFun → 账号名自动=登录名，token 固定 `{ "mode": "house" }`，无需私钥
+- **管理端**：`/admin/predictfun-members`（仅管理员）查看/开通 PF 会员、改额度；通用「子账号」页不管开号
+- `accountId`/`playerId` 仍是 RDS `players.id`；下单走 VPS 主号代下
 
+## 下注（VPS house 代下）
 
-- `checkBet`：拉 orderbook + market 元数据，写 `PredictFunBuyCheckData`
-
-- `betting`：走 `resolvePredictFunMasterCredentials` → SDK `MARKET` FOK `BUY` → `POST /v1/orders`
-
-- `resolveLegOutcome`：占位 `timeout`（待 `predictWalletEvents` User WS）
-
-
+- 浏览器：`checkBet` → `Pf_CheckBet`；`betting` → `Pf_SubmitOrder`（changmen JWT + `playerId`）
+- 确认：`getOrders` → `Pf_GetOrders`；`resolveLegOutcome`（仅 PF provider）轮询 `Pf_GetOrder`
+  - 官方状态：`FILLED`→成交持仓；`CANCELLED`/`EXPIRED`/`INVALIDATED`→拒单并退还 `total_balance`；`OPEN`→继续等
+  - **买单拒单/成交**：`Pf_GetOrder` 走 `fetchHousePredictOrderResolved`（REST + `predictWalletEvents` hint），与卖出确认同源加速
+  - 手动下注：`betGateway` 在 `pending` 后后台 `settleArbLeg`（与 PM 同路径，仅多开 PredictFun）
+  - **不改**共享 `resolveVenueLegOutcome` / `confirmPmPost`（PM 与其它场馆路径不变）
+- 市场结算：`Market.status=RESOLVED` + outcome `WON`/`LOST`（对 token=`onChainId`）
+  - Win：`total_balance += betMoney * odds`，订单 `money=盈利`
+  - Lose：余额不变（下单已扣本金），订单 `money=-betMoney`
+  - 触发：`Pf_RefreshBalance` / `Pf_GetOrders` / `Pf_SettleOpenOrders`
+- **卖出（1:1）**：订单栏对未结买单 → `Pf_SubmitSell({ buyOrderId })`
+  - house 主号 MARKET FOK **SELL**；changmen 账号仅归属，不影响链上仓位归属逻辑
+  - POST 受理后 **轮询官方 GetOrder 至 FILLED** 才入账；CANCELLED/超时 **不** 改买单、不加余额
+  - 回款/份额优先官方 `amount` / `amountFilled` / order taker|maker，预估作 fallback
+  - 一张卖单只绑一张买单（`pfBuyOrderId`）；买单 `pfSellState=closed`，盈亏记买单 `money`
+  - 余额：`total_balance += proceeds`
+- 买单 FILLED：校正 `pfSharesWei`（`amountFilled` / takerAmount）
+- 下单前校验 `tradingStatus=OPEN` 且市场非 RESOLVED/PAUSED/REMOVED
+- 到期 Win 后 best-effort `redeemPositions`（主号回笼 USDT）；管理端 `Pf_HouseRedeemResolved`
+- 余额：`players.total_balance`（`Pf_RefreshBalance`）；下单成功扣减；**不用** A8 `credit`
+- VPS：主号 B 私钥签 PF JWT + EIP-712 MARKET FOK；No 侧 orderbook 按官方 `getComplement`
+- 首次下单前自动 `OrderBuilder.setApprovals()`（进程内只成功一次；`PF_HOUSE_SKIP_APPROVALS=1` 可跳过）
+- 订单确认：`GetOrder` 轮询 + VPS 订阅 `predictWalletEvents`（`orderTransactionSuccess`/`Cancelled` 等加速终态；`PF_HOUSE_SKIP_WALLET_EVENTS=1` 可关）
+- 用户账号：`{ "mode": "house" }` 占位，**必须有** `accountId`/`playerId`
+- 浏览器 **不再** 持有主号私钥；配置见 `server/backend/.env`：`PREDICT_FUN_PRIVY_PRIVATE_KEY` / `PREDICT_FUN_PREDICT_ACCOUNT` / `PREDICT_FUN_API_KEY`
 
 ## 与 Polymarket 差异
-
 
 
 | | Polymarket | Predict.fun（模式 A） |
 
 |--|------------|----------------------|
 
-| 账号 | 每用户 token + L2 | 运营主号 env |
+| 账号 | 每用户 token + L2 | 运营主号 env（VPS）+ 用户 house 占位 |
 
 | HTTP 采集 | 浏览器插件代发 | **VPS 单进程** |
 
-| 签名 | 私钥 + L2 HMAC | 私钥 + JWT |
+| 下单 | `Pm_*`（VPS 或浏览器 L2） | **`Pf_*` 仅 VPS 全签** |
 
-| User WS | PM-USER | 未接 |
+| 签名 | 私钥 + L2 HMAC | 私钥 + JWT（仅服务器） |
+
+| User WS | PM-USER | **VPS** `predictWalletEvents/{jwt}`（加速确认；浏览器不接） |
 
 | 推荐/PP | 无 | 主号运营 |
 
@@ -158,7 +197,9 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
 
 | `marketIndex.ts` | VPS 索引 → 本地映射 |
 
-| `bet.ts` | checkBet / betting |
+| `bet.ts` | checkBet / betting / getOrders / resolveLegOutcome |
+| `legOutcome.ts` | PF 订单确认轮询（仅本场馆） |
+| `pfClientApi.ts` | Pf_CheckBet / Submit / GetOrder / GetOrders |
 
 | `masterAccount.ts` | 模式 A 主号凭证 |
 

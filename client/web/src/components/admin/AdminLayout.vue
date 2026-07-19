@@ -15,6 +15,13 @@ const user = useUserStore();
 const navItems = [
   { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" as const } },
   { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" as const } },
+  { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" as const } },
+  {
+    name: "admin-predictfun-members",
+    label: "PF 会员",
+    icon: "am-icon-user",
+    to: { name: "admin-predictfun-members" as const },
+  },
   { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" as const } },
   {
     name: "admin-reports",
@@ -48,7 +55,11 @@ const navItems = [
   },
 ];
 
-const ADMIN_ONLY_NAV = new Set(["admin-polymarket-builder"]);
+const ADMIN_ONLY_NAV = new Set([
+  "admin-polymarket-builder",
+  "admin-accounts",
+  "admin-predictfun-members",
+]);
 
 const visibleNavItems = computed(() => {
   if (user.isAdmin)

@@ -119,7 +119,11 @@ export function promoteMap0ToDecider(rows, matches = {}) {
   }
 }
 
-/** live Round>0：Map0 仅保留 OB / Polymarket；trim 前保全 Initial* */
+/**
+ * live Round>0：Map0 仅保留全场盘馆。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（预测市仅有全场，无局盘可挂）。
+ * trim 前保全 Initial*。
+ */
 export function trimMapZeroLive(rows) {
   for (const row of rows || []) {
     const liveMap = Number(row.Round) || 0;
@@ -134,6 +138,8 @@ export function trimMapZeroLive(rows) {
       kept.OB = fullBet.Sources.OB;
     if (fullBet.Sources?.Polymarket)
       kept.Polymarket = fullBet.Sources.Polymarket;
+    if (fullBet.Sources?.PredictFun)
+      kept.PredictFun = fullBet.Sources.PredictFun;
     fullBet.Sources = kept;
   }
 }

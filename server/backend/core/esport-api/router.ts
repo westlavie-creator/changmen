@@ -25,6 +25,16 @@ import {
   handlePmHeartbeat,
   handlePmSubmitOrder,
 } from "../integrations/polymarket/pm_client_handlers.js";
+import {
+  handlePfCheckBet,
+  handlePfGetOrder,
+  handlePfGetOrders,
+  handlePfHouseRedeemResolved,
+  handlePfRefreshBalance,
+  handlePfSettleOpenOrders,
+  handlePfSubmitOrder,
+  handlePfSubmitSell,
+} from "../integrations/predictfun/pf_client_handlers.js";
 import * as accountStore from "../account/account_store.js";
 import { assertProfileActive } from "../account/admin_service.js";
 import * as adminService from "../account/admin_service.js";
@@ -558,6 +568,40 @@ async function handle(
       const openOrders = await handlePmGetOpenOrders(body, ctx.user.id);
       return openOrders.ok ? ok(openOrders.info) : fail(openOrders.msg);
     }
+    case "Pf_CheckBet": {
+      const checked = await handlePfCheckBet(body, ctx.user.id);
+      return checked.ok ? ok(checked.info) : fail(checked.msg);
+    }
+    case "Pf_SubmitOrder": {
+      const submittedPf = await handlePfSubmitOrder(body, ctx.user.id);
+      return submittedPf.ok ? ok(submittedPf.info) : fail(submittedPf.msg);
+    }
+    case "Pf_SubmitSell": {
+      const soldPf = await handlePfSubmitSell(body, ctx.user.id);
+      return soldPf.ok ? ok(soldPf.info) : fail(soldPf.msg);
+    }
+    case "Pf_RefreshBalance": {
+      const pfBal = await handlePfRefreshBalance(body, ctx.user.id);
+      return pfBal.ok ? ok(pfBal.info) : fail(pfBal.msg);
+    }
+    case "Pf_GetOrder": {
+      const pfOrder = await handlePfGetOrder(body, ctx.user.id);
+      return pfOrder.ok ? ok(pfOrder.info) : fail(pfOrder.msg);
+    }
+    case "Pf_GetOrders": {
+      const pfOrders = await handlePfGetOrders(body, ctx.user.id);
+      return pfOrders.ok ? ok(pfOrders.info) : fail(pfOrders.msg);
+    }
+    case "Pf_SettleOpenOrders": {
+      const pfSettle = await handlePfSettleOpenOrders(body, ctx.user.id);
+      return pfSettle.ok ? ok(pfSettle.info) : fail(pfSettle.msg);
+    }
+    case "Pf_HouseRedeemResolved": {
+      if (!isAdminUser(ctx.user))
+        return fail("需要管理员权限");
+      const pfRedeem = await handlePfHouseRedeemResolved(body, ctx.user.id);
+      return pfRedeem.ok ? ok(pfRedeem.info) : fail(pfRedeem.msg);
+    }
     case "Client_GetMoneyLogs": {
       const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
@@ -741,6 +785,50 @@ async function handle(
             (body.userId ?? body.id) as string,
             Number(body.accountId ?? body.playerId),
             body.multiply,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminAccounts": {
+      try {
+        return ok(await adminService.listAdminAccounts(ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminPredictFunMembers": {
+      try {
+        return ok(await adminService.listAdminPredictFunMembers(ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminEnsurePredictFunHouseAccount": {
+      try {
+        return ok(
+          await adminService.ensurePredictFunHouseAccount(
+            (body.userId ?? body.id) as string,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminUpdateAccountFields": {
+      try {
+        return ok(
+          await adminService.updateAdminAccountFields(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            (body.patch ?? body) as Record<string, unknown>,
             ctx.user,
           ),
         );

@@ -31,7 +31,7 @@ export interface OddsEntry {
   id: string;
   /** 原始赔率数值；锁盘时 UI 显示 0，不读 fallback */
   odds: number;
-  /** [changmen 扩展] Polymarket CLOB best_ask（0~1）；预检限价用，其它平台不填 */
+  /** [changmen 扩展] Polymarket / PredictFun CLOB best_ask（0~1）；预检限价用，其它平台不填 */
   clobPrice?: number;
   /** [changmen 扩展] Predict.fun market id */
   marketId?: string;
@@ -164,21 +164,19 @@ export const useOddsStore = defineStore("odds", {
 
     /**
      * 按 oddId 取展示赔率（对齐 A8 `Qn().getOdds` / `p.getOdds`）。
-     * - 无缓存：返回 formatDisplayOdds(fallback)
+     * - 无缓存：返回 fallback（经平台格式化）
      * - 有缓存且 isLock：返回 0（**不用** fallback 顶替锁盘）
-     * - 有缓存且未锁：返回 formatDisplayOdds(row.odds)
+     * - 有缓存且未锁：返回格式化后的 row.odds
+     * - Polymarket / PredictFun：truncateOddsTo3（1/price 截断）；其它馆 formatDisplayOdds（四舍五入）
      */
     getOdds(platform: PlatformId, oddsId: string, fallback = 0): number {
       const row = this.data.get(platform)?.get(String(oddsId));
+      const useTrunc = platform === PLATFORMS.Polymarket || platform === PLATFORMS.PredictFun;
       if (row === undefined)
-        return platform === PLATFORMS.Polymarket
-          ? truncateOddsTo3(fallback)
-          : formatDisplayOdds(fallback);
+        return useTrunc ? truncateOddsTo3(fallback) : formatDisplayOdds(fallback);
       if (row.isLock)
         return 0;
-      return platform === PLATFORMS.Polymarket
-        ? truncateOddsTo3(row.odds)
-        : formatDisplayOdds(row.odds);
+      return useTrunc ? truncateOddsTo3(row.odds) : formatDisplayOdds(row.odds);
     },
 
     /** 更新单条 odd 锁盘（对齐 A8 `updateOddsLock`：仅改已有行） */

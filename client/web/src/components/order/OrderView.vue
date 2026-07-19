@@ -144,6 +144,7 @@ async function onLinkRebindDone() {
     :platform-class="platformClass"
     :allow-link-rebind="!embedded"
     :allow-pm-sell="!embedded"
+    :allow-pf-sell="!embedded"
     @cancel-makeup="onCancelMakeup"
     @link-rebind-done="onLinkRebindDone"
   />

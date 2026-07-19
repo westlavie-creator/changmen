@@ -10,6 +10,10 @@ function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
     return false;
   if (o.provider === "Polymarket")
     return hasOpenPolymarketPosition(o);
+  if (o.provider === "PredictFun") {
+    if (o.pfSide === "sell" || o.pfSellState === "closed")
+      return false;
+  }
   return true;
 }
 

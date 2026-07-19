@@ -15,6 +15,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminUpsertTeam",
   "Client_AdminDeleteTeam",
   "Client_AdminPolymarketBuilder",
+  "Client_AdminAccounts",
+  "Client_AdminPredictFunMembers",
+  "Client_AdminEnsurePredictFunHouseAccount",
+  "Client_AdminUpdateAccountFields",
 ]);
 
 const LEADER_ALLOWED_ACTIONS = new Set([

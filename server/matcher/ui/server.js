@@ -34,6 +34,9 @@ app.use(express.json());
 app.use(createMatcherAuthMiddleware());
 if (isMatcherStoreReady())
   registerMatcherApiRoutes(app);
+/** 场馆徽章图：复用主站 public/assets/venue（standalone :4567 也需可访问） */
+const venueIconDir = path.join(__dirname, "../../../client/web/public/assets/venue");
+app.use("/assets/venue", express.static(venueIconDir));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((err, req, res, _next) => {

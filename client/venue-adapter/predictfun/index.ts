@@ -11,10 +11,18 @@ export * from "./credentials";
 export * from "./masterAccount";
 export * from "./marketIndex";
 export * from "./pfDetection";
+export * from "./legOutcome";
+export * from "./pfClientApi";
+export * from "./pfTransportMode";
+export * from "./pfMarketWsMode";
+export * from "./pfWsSourceMode";
+export * from "./pfOfficialReachability";
+export * from "./pfAutoTransport";
 export * from "./transport";
 export * from "./wsConfig";
 export * from "./marketQuoteHub";
 export * from "./sportQuoteHub";
+export * from "./ws";
 
 export const predictFunAdapter: PlatformAdapter = {
   id: "PredictFun",

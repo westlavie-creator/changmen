@@ -52,6 +52,8 @@ export interface PredictFunMarketIndexEntry {
   homeTokenId: string;
   awayTokenId: string;
   sourceBetId: string;
+  /** 0=全场；Game N → N */
+  map?: number;
   homeName: string;
   awayName: string;
   homeOdds: number;

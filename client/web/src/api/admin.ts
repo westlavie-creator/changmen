@@ -1,5 +1,6 @@
 import type {
   AdminAccountDetail,
+  AdminAccountListRow,
   AdminDashboard,
   AdminOrderLogLookup,
   AdminOrderMatrix,
@@ -130,6 +131,84 @@ export async function updateAdminAccountMultiply(body: {
 }) {
   return unwrap(
     await post<AdminAccountDetail>("Client_AdminUpdateAccountMultiply", body),
+  );
+}
+
+export interface AdminAccountRow extends AdminAccountDetail {
+  userId: string;
+  userName: string;
+  teamId?: string | null;
+}
+
+export async function getAdminAccounts() {
+  return unwrap(await post<AdminAccountListRow[]>("Client_AdminAccounts", {}));
+}
+
+export interface AdminPredictFunMemberRow {
+  userId: string;
+  userName: string;
+  teamId?: string | null;
+  memberName: string;
+  hasAccount: boolean;
+  accountId: number;
+  /** 当前余额（players.total_balance） */
+  balance: number;
+  maxBalance: number;
+  multiply: number;
+  pause: boolean;
+  today: number;
+  totalProfit: number;
+  description: string;
+  currency: string;
+  updateTime: number;
+  account?: AdminAccountDetail | null;
+}
+
+export async function getAdminPredictFunMembers() {
+  return unwrap(await post<AdminPredictFunMemberRow[]>("Client_AdminPredictFunMembers", {}));
+}
+
+export async function ensureAdminPredictFunHouseAccount(userId: string) {
+  return unwrap(
+    await post<{ created: boolean; account: AdminAccountDetail }>(
+      "Client_AdminEnsurePredictFunHouseAccount",
+      { userId },
+    ),
+  );
+}
+
+export async function updateAdminAccountFields(body: {
+  userId: string;
+  accountId: number;
+  /** PF：当前可用余额；其它场馆可仍传 credit */
+  balance?: number;
+  credit?: number;
+  maxBalance?: number;
+  pause?: boolean;
+  multiply?: number;
+  description?: string;
+}) {
+  const { userId, accountId, balance, credit, maxBalance, pause, multiply, description } = body;
+  // form-urlencoded 下嵌套对象会变成 JSON 字符串；扁平字段更稳
+  const patch: Record<string, unknown> = {};
+  if (balance !== undefined)
+    patch.balance = balance;
+  if (credit !== undefined)
+    patch.credit = credit;
+  if (maxBalance !== undefined)
+    patch.maxBalance = maxBalance;
+  if (pause !== undefined)
+    patch.pause = pause;
+  if (multiply !== undefined)
+    patch.multiply = multiply;
+  if (description !== undefined)
+    patch.description = description;
+  return unwrap(
+    await post<AdminAccountDetail>("Client_AdminUpdateAccountFields", {
+      userId,
+      accountId,
+      patch,
+    }),
   );
 }
 

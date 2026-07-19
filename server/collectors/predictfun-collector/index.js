@@ -21,7 +21,9 @@ async function tick() {
   try {
     const stats = await runPredictFunDiscoveryCycle();
     console.log(
-      `[predictfun-collector] cycle ok matches=${stats.matches} bets=${stats.bets}`,
+      `[predictfun-collector] cycle ok matches=${stats.matches} bets=${stats.bets}`
+      + ` raw=${stats.raw ?? "?"} esport=${stats.esport ?? "?"} inWindow=${stats.inWindow ?? "?"}`
+      + (stats.skippedClear ? " skippedClear=1" : ""),
     );
   }
   catch (err) {

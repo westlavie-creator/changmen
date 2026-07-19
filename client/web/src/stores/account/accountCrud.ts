@@ -10,6 +10,7 @@ import {
   saveAccounts,
   saveMoneyLog,
 } from "@/api/esport";
+import { resolveAccountCurrency } from "@changmen/shared/currency";
 import { PlatformAccount } from "@/models/platformAccount";
 import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
 
@@ -58,6 +59,16 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         const acc = new PlatformAccount(row);
         if (!acc.platformName && acc.platformId) {
           acc.platformName = store.getPlatformName(acc.platformId, acc.platformName);
+        }
+        // PredictFun：余额来自 players.total_balance，不用 credit
+        if (String(acc.provider) === "PredictFun") {
+          acc.currency = resolveAccountCurrency(acc.provider, acc.currency);
+          acc.credit = 0;
+          const fromRow = Number(
+            (row as { balance?: number; totalBalance?: number }).balance
+            ?? (row as { totalBalance?: number }).totalBalance,
+          );
+          acc.balance = Number.isFinite(fromRow) ? fromRow : 0;
         }
         return acc;
       });

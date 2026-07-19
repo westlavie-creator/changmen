@@ -39,5 +39,6 @@
 |------|------|------|
 | [`esport-watchdog.sh`](esport-watchdog.sh) + [`install-esport-watchdog-remote.sh`](install-esport-watchdog-remote.sh) | `:3456/` | `pm2 restart changmen-esport` |
 | [`pm-market-hub-watchdog.sh`](pm-market-hub-watchdog.sh) + [`install-pm-market-hub-watchdog-remote.sh`](install-pm-market-hub-watchdog-remote.sh) | `:3457/health` | `pm2 restart changmen-pm-market-hub`（失败则从 ecosystem start） |
+| [`predictfun-market-hub-watchdog.sh`](predictfun-market-hub-watchdog.sh) + [`install-predictfun-market-hub-watchdog-remote.sh`](install-predictfun-market-hub-watchdog-remote.sh) | `:3458/health` | `pm2 restart changmen-predictfun-market-hub` |
 
 索引：[deploy/README.md](../README.md) · [PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)

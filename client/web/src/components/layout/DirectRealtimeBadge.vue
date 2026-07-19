@@ -31,6 +31,14 @@ import {
   type PmMarketWsSourceMode,
   type PmUserWsSourceMode,
 } from "@changmen/venue-adapter/polymarket";
+import {
+  cyclePredictFunMarketWsSourceModeAndReconnect,
+  getPfMarketWsSourceMode,
+  markPfTransportManualOverride,
+  onPfAutoTransportApplied,
+  pfMarketWsSourceModeLabel,
+  type PfMarketWsSourceMode,
+} from "@changmen/venue-adapter/predictfun";
 import { ElMessage } from "element-plus";
 
 const { statuses } = useDirectRealtimeStatus();
@@ -40,8 +48,10 @@ const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
 const pmMarketWsSourceMode = ref<PmMarketWsSourceMode>(getPmMarketWsSourceMode());
 const pmUserWsSourceMode = ref<PmUserWsSourceMode>(getPmUserWsSourceMode());
+const pfMarketWsSourceMode = ref<PfMarketWsSourceMode>(getPfMarketWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
 let pmTransportUnsub: (() => void) | undefined;
+let pfTransportUnsub: (() => void) | undefined;
 
 /** 第二行：Polymarket / Predict.fun / DEX / Limitless WS */
 const VENUE_WS_SECOND_ROW_IDS = new Set([
@@ -67,10 +77,14 @@ onMounted(() => {
     pmMarketWsSourceMode.value = getPmMarketWsSourceMode();
     pmUserWsSourceMode.value = getPmUserWsSourceMode();
   });
+  pfTransportUnsub = onPfAutoTransportApplied(() => {
+    pfMarketWsSourceMode.value = getPfMarketWsSourceMode();
+  });
 });
 onUnmounted(() => {
   venueWsUnsub?.();
   pmTransportUnsub?.();
+  pfTransportUnsub?.();
 });
 
 function dotClass(status: DirectRealtimeStatus): string {
@@ -98,8 +112,10 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
     }
   }
   if (entry.id === "predictfun-market") {
+    const mode = pfMarketWsSourceMode.value;
     switch (entry.status) {
-      case "connected": return "ok-changmen";
+      case "connected":
+        return mode === "changmen" ? "ok-changmen" : "ok-official";
       case "connecting": return "connecting";
       case "error": return "err";
       default: return "idle";
@@ -149,7 +165,8 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     lines.push("点击切换 CHANGMEN / 官方");
   }
   if (entry.id === "predictfun-market") {
-    lines.push("经 CHANGMEN ws-forward hub（单上游合并订阅）");
+    lines.push(`当前选择：${pfMarketWsSourceModeLabel(pfMarketWsSourceMode.value)}`);
+    lines.push("点击切换 CHANGMEN / 官方");
   }
   return lines.join("\n");
 }
@@ -196,7 +213,7 @@ function itemClass(status: DirectRealtimeStatus): Record<string, boolean> {
 }
 
 function isClickableVenueWs(entry: VenueWsStatusEntry): boolean {
-  return entry.id === "pm-market" || entry.id === "pm-user";
+  return entry.id === "pm-market" || entry.id === "pm-user" || entry.id === "predictfun-market";
 }
 
 function venueWsItemClass(entry: VenueWsStatusEntry): Record<string, boolean> {
@@ -206,8 +223,8 @@ function venueWsItemClass(entry: VenueWsStatusEntry): Record<string, boolean> {
 }
 
 function handleVenueWsClick(entry: VenueWsStatusEntry): void {
-  markPmTransportManualOverride();
   if (entry.id === "pm-market") {
+    markPmTransportManualOverride();
     pmMarketWsSourceMode.value = cyclePmMarketWsSourceModeAndReconnect();
     ElMessage({
       message: `PM-M WS 已切换到${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}，正在重连`,
@@ -217,9 +234,20 @@ function handleVenueWsClick(entry: VenueWsStatusEntry): void {
     return;
   }
   if (entry.id === "pm-user") {
+    markPmTransportManualOverride();
     pmUserWsSourceMode.value = cyclePmUserWsSourceModeAndReconnect();
     ElMessage({
       message: `PM-U WS 已切换到${pmUserWsSourceModeLabel(pmUserWsSourceMode.value)}，正在重连`,
+      type: "success",
+      plain: true,
+    });
+    return;
+  }
+  if (entry.id === "predictfun-market") {
+    markPfTransportManualOverride();
+    pfMarketWsSourceMode.value = cyclePredictFunMarketWsSourceModeAndReconnect();
+    ElMessage({
+      message: `PF WS 已切换到${pfMarketWsSourceModeLabel(pfMarketWsSourceMode.value)}，正在重连`,
       type: "success",
       plain: true,
     });

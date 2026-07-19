@@ -37,7 +37,7 @@ describe("live_shape", () => {
     assert.equal(live.Sources.OB.HomeID, "h");
   });
 
-  it("trim Map0 to OB/Polymarket when live and preserve InitialOdds", () => {
+  it("trim Map0 to OB/Polymarket/PredictFun when live and preserve InitialOdds", () => {
     const row = {
       Round: 1,
       Bets: [{
@@ -46,14 +46,16 @@ describe("live_shape", () => {
           OB: { HomeID: "1", HomeOdds: 1.8, AwayOdds: 2.1 },
           RAY: { HomeID: "2", HomeOdds: 1.9, AwayOdds: 2.0 },
           Polymarket: { HomeID: "3", HomeOdds: 1.7, AwayOdds: 2.2 },
+          PredictFun: { HomeID: "4", HomeOdds: 2.5, AwayOdds: 1.6 },
         },
       }],
     };
     trimMapZeroLive([row]);
     assert.ok(row.Bets[0].Sources.OB);
     assert.ok(row.Bets[0].Sources.Polymarket);
+    assert.ok(row.Bets[0].Sources.PredictFun);
     assert.equal(row.Bets[0].Sources.RAY, undefined);
-    assert.equal(row.Bets[0].InitialHomeOdds, 1.9);
+    assert.equal(row.Bets[0].InitialHomeOdds, 2.5);
     assert.equal(row.Bets[0].InitialAwayOdds, 2.2);
   });
 

@@ -237,19 +237,29 @@ export function createHttpHandler({ port, serveStatic }) {
           if (remote)
             hubs.pmMarket = remote;
         }
+        if (!hubs.predictFunMarket) {
+          const remotePf = await fetchPredictFunMarketHubStatusRemote();
+          if (remotePf)
+            hubs.predictFunMarket = remotePf;
+        }
         const platforms = [...(ws.platforms || [])];
-        // PM-MARKET 在独立 hub 进程时本机 platforms 不含它；对外状态仍应标明可用
+        // 独立 hub 进程时本机 platforms 不含对应 id；对外状态仍应标明可用
         if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
           platforms.push("PM-MARKET");
+        if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
+          platforms.push("PREDICTFUN-MARKET");
         jsonResponse(res, 200, {
-          enabled: ws.enabled || Boolean(hubs.pmMarket),
-          wsRelay: ws.wsForward || Boolean(hubs.pmMarket),
-          wsForward: ws.wsForward || Boolean(hubs.pmMarket),
+          enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+          wsRelay: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+          wsForward: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
           platforms,
           platformStats: ws.platformStats,
           hubs,
           pmMarketHub: hubs.pmMarket
             ? { isolated: !ws.hubs?.pmMarket, port: Number(process.env.PM_MARKET_HUB_PORT || 3457) }
+            : null,
+          predictFunMarketHub: hubs.predictFunMarket
+            ? { isolated: !ws.hubs?.predictFunMarket, port: Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458) }
             : null,
         });
         return;
@@ -352,15 +362,22 @@ async function buildHealthData() {
   const matches = getClientMatches();
   const ws = getWsForwardStatus();
   const hubs = { ...(ws.hubs || {}) };
-  // PM-MARKET 在独立进程：软拉本地 hub /health，供 Admin 页展示（失败不拖垮 /health）
+  // 独立 Market hub：软拉本地 /health，供 Admin 页展示（失败不拖垮 /health）
   if (!hubs.pmMarket) {
     const remote = await fetchPmMarketHubStatusRemote();
     if (remote)
       hubs.pmMarket = remote;
   }
+  if (!hubs.predictFunMarket) {
+    const remotePf = await fetchPredictFunMarketHubStatusRemote();
+    if (remotePf)
+      hubs.predictFunMarket = remotePf;
+  }
   const platforms = [...(ws.platforms || [])];
   if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
     platforms.push("PM-MARKET");
+  if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
+    platforms.push("PREDICTFUN-MARKET");
   return {
     status: db ? "ok" : "degraded",
     uptime: Math.floor(process.uptime()),
@@ -373,7 +390,7 @@ async function buildHealthData() {
       clientMatches: matches?.length ?? 0,
     },
     wsForward: {
-      enabled: ws.enabled || Boolean(hubs.pmMarket),
+      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
       platforms,
       platformStats: ws.platformStats,
       hubs,
@@ -385,6 +402,28 @@ async function buildHealthData() {
 /** @returns {Promise<object | null>} */
 async function fetchPmMarketHubStatusRemote() {
   const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
+  if (!Number.isFinite(port) || port <= 0)
+    return null;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 300);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ac.signal });
+    if (!res.ok)
+      return null;
+    const json = await res.json();
+    return json?.hub && typeof json.hub === "object" ? json.hub : null;
+  }
+  catch {
+    return null;
+  }
+  finally {
+    clearTimeout(timer);
+  }
+}
+
+/** @returns {Promise<object | null>} */
+async function fetchPredictFunMarketHubStatusRemote() {
+  const port = Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458);
   if (!Number.isFinite(port) || port <= 0)
     return null;
   const ac = new AbortController();

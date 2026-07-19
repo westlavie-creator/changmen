@@ -1,7 +1,7 @@
 /**
  * 从 platform_bets 取原生盘口 Source（不经 match-engine bet_builder / accumulate）。
  */
-import { formatOdds } from "@changmen/shared/odds_format";
+import { formatOdds, truncateOddsTo3 } from "@changmen/shared/odds_format";
 import {
   iaLegacyWinBetName,
   matchesSavedBet,
@@ -26,7 +26,7 @@ function winPriority(bet, provider, gameCode) {
     return 100;
   if (provider === "IA" && iaLegacyWinBetName(name))
     return 100;
-  if (provider === "Polymarket")
+  if (provider === "Polymarket" || provider === "PredictFun")
     return 120;
   return 10;
 }
@@ -44,7 +44,7 @@ function isWinBet(bet, provider, gameCode) {
     return matchesSavedBet("RAY", bet, { gameCode }) || rayLegacyWinBetName(name);
   if (provider === "IA")
     return matchesSavedBet("IA", bet, { gameCode }) || iaLegacyWinBetName(name);
-  if (provider === "Polymarket" || provider === "PB" || provider === "TF")
+  if (provider === "Polymarket" || provider === "PredictFun" || provider === "PB" || provider === "TF")
     return true;
   return Boolean(bet?.SourceHomeID || bet?.SourceAwayID);
 }
@@ -64,13 +64,16 @@ export function cloneRawSource(src) {
 }
 
 export function sourceFromBet(provider, b) {
+  const homeRaw = Number(b.HomeOdds) || 0;
+  const awayRaw = Number(b.AwayOdds) || 0;
+  const useTrunc = provider === "Polymarket" || provider === "PredictFun";
   return {
     Type: provider,
     BetID: String(b.SourceBetID),
     HomeID: String(b.SourceHomeID || ""),
     AwayID: String(b.SourceAwayID || ""),
-    HomeOdds: formatOdds(b.HomeOdds),
-    AwayOdds: formatOdds(b.AwayOdds),
+    HomeOdds: useTrunc ? truncateOddsTo3(homeRaw) : formatOdds(homeRaw),
+    AwayOdds: useTrunc ? truncateOddsTo3(awayRaw) : formatOdds(awayRaw),
     Status: b.Status || "Normal",
   };
 }

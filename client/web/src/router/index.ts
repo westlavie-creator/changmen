@@ -29,6 +29,18 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/accounts",
+      name: "admin-accounts",
+      component: () => import("@/views/AdminAccountsView.vue"),
+      meta: { requiresAdmin: true, requiresFullAdmin: true },
+    },
+    {
+      path: "/admin/predictfun-members",
+      name: "admin-predictfun-members",
+      component: () => import("@/views/AdminPredictFunMembersView.vue"),
+      meta: { requiresAdmin: true, requiresFullAdmin: true },
+    },
+    {
       path: "/admin/orders",
       name: "admin-orders",
       component: () => import("@/views/AdminOrdersView.vue"),
@@ -91,6 +103,8 @@ router.beforeEach(async (to) => {
       }
     }
     if (!user.canAccessAdmin)
+      return { name: "home" };
+    if (to.meta.requiresFullAdmin && !user.isAdmin)
       return { name: "home" };
   }
   return true;

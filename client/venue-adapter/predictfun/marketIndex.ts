@@ -20,13 +20,31 @@ export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): Pre
   const homeOdds = Number(entry.homeOdds) || 0;
   const awayOdds = Number(entry.awayOdds) || 0;
   const status = String(entry.status ?? "Locked");
+  const mapNum = Number(entry.map) || 0;
+  const homeMarketId = String(entry.homeMarketId);
+  const awayMarketId = String(entry.awayMarketId);
+  const bet: CollectBetDto = {
+    Type: "PredictFun",
+    SourceMatchID: sourceMatchId,
+    SourceBetID: String(entry.sourceBetId || categoryId),
+    Map: mapNum,
+    BetName: mapNum > 0 ? `Game ${mapNum} Winner` : "Match Winner",
+    SourceHomeID: homeTokenId,
+    HomeName: homeName,
+    HomeOdds: homeOdds,
+    SourceAwayID: awayTokenId,
+    AwayName: awayName,
+    AwayOdds: awayOdds,
+    Status: status,
+  };
 
   return {
     categoryId,
-    homeMarketId: String(entry.homeMarketId),
-    awayMarketId: String(entry.awayMarketId),
+    homeMarketId,
+    awayMarketId,
     homeTokenId,
     awayTokenId,
+    marketIds: [...new Set([homeMarketId, awayMarketId].filter(Boolean))],
     match: {
       Type: "PredictFun",
       SourceMatchID: sourceMatchId,
@@ -38,20 +56,8 @@ export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): Pre
       Away: awayName,
       Teams: [],
     },
-    bet: {
-      Type: "PredictFun",
-      SourceMatchID: sourceMatchId,
-      SourceBetID: String(entry.sourceBetId || categoryId),
-      Map: 0,
-      BetName: "Match Winner",
-      SourceHomeID: homeTokenId,
-      HomeName: homeName,
-      HomeOdds: homeOdds,
-      SourceAwayID: awayTokenId,
-      AwayName: awayName,
-      AwayOdds: awayOdds,
-      Status: status,
-    },
+    bet,
+    bets: [bet],
   };
 }
 
@@ -68,10 +74,32 @@ export function applyPredictFunMarketIndex(
     return [];
 
   for (const entry of index.entries) {
-    const mapped = indexEntryToMappedMarket(entry);
-    maps.marketsByCategory.set(mapped.categoryId, mapped);
-    maps.marketIdToCategory.set(mapped.homeMarketId, mapped.categoryId);
-    maps.marketIdToCategory.set(mapped.awayMarketId, mapped.categoryId);
+    const categoryId = String(entry.categoryId);
+    const mappedOne = indexEntryToMappedMarket(entry);
+    const existing = maps.marketsByCategory.get(categoryId);
+    if (!existing) {
+      maps.marketsByCategory.set(categoryId, mappedOne);
+    }
+    else {
+      existing.bets = [...(existing.bets || []), ...mappedOne.bets];
+      existing.marketIds = [...new Set([
+        ...(existing.marketIds || []),
+        ...(mappedOne.marketIds || []),
+      ])];
+      if (Number(mappedOne.bet.Map) === 0)
+        existing.bet = mappedOne.bet;
+      // 全场 market id 优先挂在 mapped 顶层，便于旧逻辑
+      if (Number(mappedOne.bet.Map) === 0) {
+        existing.homeMarketId = mappedOne.homeMarketId;
+        existing.awayMarketId = mappedOne.awayMarketId;
+        existing.homeTokenId = mappedOne.homeTokenId;
+        existing.awayTokenId = mappedOne.awayTokenId;
+      }
+    }
+    if (mappedOne.homeMarketId)
+      maps.marketIdToCategory.set(mappedOne.homeMarketId, categoryId);
+    if (mappedOne.awayMarketId)
+      maps.marketIdToCategory.set(mappedOne.awayMarketId, categoryId);
   }
 
   return [...new Set((index.marketIds ?? []).map(String).filter(Boolean))];

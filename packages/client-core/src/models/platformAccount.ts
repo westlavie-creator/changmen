@@ -2,7 +2,7 @@ import type { AccountCurrency, AccountRecord } from "../types/account";
 import type { PlatformId } from "@changmen/api-contract";
 import { ALL_PLATFORMS } from "../types/platforms";
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
-import { getExchange } from "@changmen/shared/currency";
+import { getExchange, resolveAccountCurrency } from "@changmen/shared/currency";
 
 const DEFAULT_GAMES = ["英雄联盟", "DOTA2", "CS:GO", "王者荣耀", "无畏契约"];
 
@@ -91,7 +91,7 @@ export class PlatformAccount implements AccountRecord {
     this.balance = undefined;
     this.active = false;
     this.credit = raw.credit ?? 0;
-    this.currency = raw.currency ?? "CNY";
+    this.currency = resolveAccountCurrency(this.provider, raw.currency);
     this.updateTime = raw.updateTime ?? 0;
     this.today = raw.today ?? 0;
     this.orderCount = raw.orderCount ?? 0;

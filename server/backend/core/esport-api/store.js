@@ -1,6 +1,22 @@
 import * as sb from "@changmen/db";
 import { formatBetOdds } from "@changmen/shared/odds_format";
-import { a8StartTimeListAllowed } from "@changmen/shared/time/match_time";
+import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time";
+
+const PREDICTFUN_LIST_FUTURE_MS = Number(
+  process.env.PREDICTFUN_LIST_FUTURE_MS
+  || process.env.PREDICTFUN_COLLECTOR_FUTURE_MS
+  || 12 * 3600 * 1000,
+);
+
+function providerStartTimeListAllowed(provider, start) {
+  if (provider === "PredictFun") {
+    const ms = normalizeEpochMs(start);
+    if (!ms)
+      return true;
+    return ms <= Date.now() + PREDICTFUN_LIST_FUTURE_MS;
+  }
+  return a8StartTimeListAllowed(start);
+}
 import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
 import {
   ensureStorageSeed,
@@ -173,7 +189,7 @@ export function saveMatches(provider, matchs) {
     if (!m || m.SourceMatchID == null)
       continue;
     const start = Number(m.StartTime || 0);
-    if (start > 0 && !a8StartTimeListAllowed(start))
+    if (start > 0 && !providerStartTimeListAllowed(provider, start))
       continue;
     const sid = String(m.SourceMatchID);
     const prevRow = prev?.[sid];

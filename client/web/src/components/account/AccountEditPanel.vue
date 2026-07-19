@@ -49,6 +49,26 @@ function fieldDisabled(extra = false) {
   return props.readonly || extra;
 }
 
+const isPredictFunHouse = () => form.value.provider === "PredictFun";
+
+function venueIdentityTitle() {
+  if (isPredictFunHouse())
+    return "changmen 子账号（下单归属；Predict.fun 由运营主号代下）";
+  return "场馆返回的真实账号信息（查余额后更新）";
+}
+
+function displayVenueAccountName() {
+  if (isPredictFunHouse())
+    return form.value.playerName.trim() || "—";
+  return form.value.venueAccountName || "—";
+}
+
+function displayVenueMemberId() {
+  if (isPredictFunHouse())
+    return form.value.playerName.trim() || "—";
+  return form.value.venueMemberId || "—";
+}
+
 function multiplyFieldDisabled() {
   if (props.multiplyEditable)
     return false;
@@ -96,7 +116,7 @@ function unlockRate() {
           />
           <el-input v-else v-model="form.platformName" :disabled="fieldDisabled()" />
         </el-col>
-        <el-col :span="5">
+        <el-col v-if="form.provider !== 'PredictFun'" :span="5">
           <el-input
             v-model="form.playerName"
             placeholder="选填，空则用场馆账号"
@@ -107,15 +127,15 @@ function unlockRate() {
             </template>
           </el-input>
         </el-col>
-        <el-col :span="8">
-          <div class="account-edit-panel__venue" title="场馆返回的真实账号信息（查余额后更新）">
+        <el-col :span="form.provider === 'PredictFun' ? 13 : 8">
+          <div class="account-edit-panel__venue" :title="venueIdentityTitle()">
             <span class="account-edit-panel__venue-item">
-              <span class="account-edit-panel__venue-label">场馆账号</span>
-              <span class="account-edit-panel__venue-value">{{ form.venueAccountName || "—" }}</span>
+              <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
+              <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
             </span>
             <span class="account-edit-panel__venue-item">
               <span class="account-edit-panel__venue-label">账号ID</span>
-              <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ form.venueMemberId || "—" }}</span>
+              <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ displayVenueMemberId() }}</span>
             </span>
           </div>
         </el-col>
@@ -493,24 +513,24 @@ function unlockRate() {
           https://polymarket.com
         </a>
       </el-form-item>
-      <el-form-item label="网关：">
+      <el-form-item v-if="form.provider !== 'PredictFun'" label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
       </el-form-item>
       <slot name="token" />
-      <el-form-item v-if="form.provider !== 'Polymarket'" label="Token：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Token：">
         <el-input v-model="form.token" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket'" label="Referer：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Referer：">
         <el-input v-model="form.referer" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket'" label="UserAgent:">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="UserAgent:">
         <el-input
           v-model="form.userAgent"
           placeholder="请求访问的浏览器标识，不知道可留空"
           :disabled="fieldDisabled()"
         />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket'" label="Cookie：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Cookie：">
         <el-input v-model="form.cookie" :disabled="fieldDisabled()" />
       </el-form-item>
     </template>

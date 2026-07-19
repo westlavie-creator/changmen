@@ -18,7 +18,14 @@ VPS 守护进程：Predict.fun **REST discovery** → `platform_matches` / `plat
 | `DATABASE_URL` | RDS |
 | `PREDICT_FUN_API_KEY` | 主网 API（与 VPS `sync-hk-relay-env-remote.sh` / 前端 `VITE_PREDICT_FUN_API_KEY` 一致） |
 
-可选：`PREDICTFUN_COLLECTOR_INTERVAL_MS`（默认 60s）。
+可选：
+
+| 变量 | 说明 |
+|------|------|
+| `PREDICTFUN_COLLECTOR_INTERVAL_MS` | 默认 60s |
+| `PREDICTFUN_COLLECTOR_FUTURE_MS` | 采集未来窗；**当前临时默认 12h**（`43200000`）；恢复 A8 对齐时设 `3600000` |
+
+Discovery 按 `tagIds=83`（Esports）拉取 `ESPORTS_LOL` / `ESPORTS_CS2` 等；**不再**默认 `SPORTS_TEAM_MATCH`（那是 MLB）。过滤后 0 条时**不 clear** `platform_*`。
 
 本机同步 key：`node scripts/sync/sync-predictfun-key-remote.mjs <host>`。
 

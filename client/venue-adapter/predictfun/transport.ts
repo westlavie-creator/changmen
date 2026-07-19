@@ -1,6 +1,9 @@
-/** Predict.fun REST — changmen HK http-relay（固定 VPS 出海） */
+/** Predict.fun REST — 按 PF_HTTP_MODE：direct 浏览器直连 / vps 经 changmen http-relay */
 
+import { directGet, directPostJson } from "@changmen/client-core/shared/http";
 import { changmenRelayHttpRequest, parseJsonLoose } from "@changmen/client-core/shared/platformHttp";
+
+import { resolvePfHttpMode } from "./pfTransportMode";
 
 const PREDICT_FUN_RELAY_ORIGIN = "https://predict.fun/";
 
@@ -38,11 +41,23 @@ async function predictFunRelayGet<T>(
   return unwrapRelayResponse<T>(res.text);
 }
 
-/** Predict.fun REST GET（经 changmen http-relay） */
+async function predictFunDirectGet<T>(
+  url: string,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return directGet<T>(url, {
+    Accept: "application/json",
+    ...(headers || {}),
+  });
+}
+
+/** Predict.fun REST GET（direct | vps） */
 export async function predictFunHttpGet<T>(
   url: string,
   headers?: Record<string, string>,
 ): Promise<T> {
+  if (resolvePfHttpMode() === "direct")
+    return predictFunDirectGet<T>(url, headers);
   return predictFunRelayGet<T>(url, headers);
 }
 
@@ -67,12 +82,25 @@ async function predictFunRelayPost<T>(
   return unwrapRelayResponse<T>(res.text);
 }
 
-/** Predict.fun REST POST（经 changmen http-relay） */
+async function predictFunDirectPost<T>(
+  url: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  return directPostJson<T>(url, {
+    Accept: "application/json",
+    ...(headers || {}),
+  }, body);
+}
+
+/** Predict.fun REST POST（direct | vps） */
 export async function predictFunHttpPost<T>(
   url: string,
   body: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
+  if (resolvePfHttpMode() === "direct")
+    return predictFunDirectPost<T>(url, body, headers);
   return predictFunRelayPost<T>(url, body, headers);
 }
 

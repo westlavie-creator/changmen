@@ -14,6 +14,7 @@ import {
   decimalOddsFromProbability,
   type PredictMappedMarket,
 } from "./parse";
+import { detectionMaxPriceFromOdds, isValidPredictClobPrice } from "./pfDetection";
 import {
   onPredictFunMarketHubReady,
   onPredictFunMarketQuote,
@@ -71,11 +72,15 @@ function saveBetOddsToFo(
   }
   else {
     const prev = getVenueOddsEntry(PLATFORM, homeId);
+    const derived = Number(bet.HomeOdds) > 1 ? detectionMaxPriceFromOdds(Number(bet.HomeOdds)) : 0;
+    const clob = isValidPredictClobPrice(Number(prev?.clobPrice))
+      ? Number(prev!.clobPrice)
+      : (isValidPredictClobPrice(derived) ? derived : undefined);
     saveVenueOdds(PLATFORM, {
       id: homeId,
       odds: bet.HomeOdds,
       marketId: marketIds.home,
-      ...(prev?.clobPrice != null ? { clobPrice: prev.clobPrice } : {}),
+      ...(clob != null ? { clobPrice: clob } : {}),
       isLock: locked || !bet.HomeOdds,
       betId,
       side: "home",
@@ -95,11 +100,15 @@ function saveBetOddsToFo(
   }
   else {
     const prev = getVenueOddsEntry(PLATFORM, awayId);
+    const derived = Number(bet.AwayOdds) > 1 ? detectionMaxPriceFromOdds(Number(bet.AwayOdds)) : 0;
+    const clob = isValidPredictClobPrice(Number(prev?.clobPrice))
+      ? Number(prev!.clobPrice)
+      : (isValidPredictClobPrice(derived) ? derived : undefined);
     saveVenueOdds(PLATFORM, {
       id: awayId,
       odds: bet.AwayOdds,
       marketId: marketIds.away,
-      ...(prev?.clobPrice != null ? { clobPrice: prev.clobPrice } : {}),
+      ...(clob != null ? { clobPrice: clob } : {}),
       isLock: locked || !bet.AwayOdds,
       betId,
       side: "away",
@@ -118,9 +127,17 @@ export function startPredictFunCollector(): () => void {
 
   function esportMarketIds(): string[] {
     const ids: string[] = [];
-    for (const mapped of marketsByCategory.values())
+    for (const mapped of marketsByCategory.values()) {
+      for (const id of mapped.marketIds || [])
+        ids.push(String(id));
       ids.push(mapped.homeMarketId, mapped.awayMarketId);
-    return ids;
+      for (const bet of mapped.bets || []) {
+        const mid = String((bet as { MarketID?: string }).MarketID || "");
+        if (mid)
+          ids.push(mid);
+      }
+    }
+    return [...new Set(ids.filter(Boolean))];
   }
 
   function syncEsportMarkets(force = false) {
@@ -139,33 +156,22 @@ export function startPredictFunCollector(): () => void {
     if (!Number.isFinite(bestAsk) || bestAsk <= 0 || bestAsk >= 1)
       return;
 
-    const next: CollectBetDto = { ...mapped.bet };
-    const tokenId = marketId === mapped.homeMarketId
-      ? mapped.homeTokenId
-      : marketId === mapped.awayMarketId
-        ? mapped.awayTokenId
-        : "";
-    if (!tokenId)
+    const bets = Array.isArray(mapped.bets) && mapped.bets.length
+      ? mapped.bets
+      : [mapped.bet];
+    const hit = bets.find((b) => {
+      const mid = String((b as { MarketID?: string }).MarketID || "");
+      return mid === marketId;
+    });
+    // 全场双 outcome 共用一个 marketId：WS 单侧 bestAsk 无法可靠更新两侧，交给 index HTTP 灌盘
+    if (!hit) {
+      if (marketId === mapped.homeMarketId || marketId === mapped.awayMarketId)
+        return;
       return;
+    }
 
-    const decimalOdds = decimalOddsFromProbability(bestAsk);
-    if (tokenId === String(next.SourceHomeID))
-      next.HomeOdds = decimalOdds;
-    if (tokenId === String(next.SourceAwayID))
-      next.AwayOdds = decimalOdds;
-    next.Status = next.HomeOdds > 0 && next.AwayOdds > 0 ? "Normal" : "Locked";
-    mapped.bet = next;
-
-    const side = tokenId === String(next.SourceHomeID) ? "home" as const : "away" as const;
-    // Quote 只写 fo；全表 refresh 交给主循环 / Index 灌盘（对齐 PM / A8 MQTT）
-    saveTokenQuote({
-      tokenId,
-      marketId,
-      clobPrice: bestAsk,
-      betId: String(next.SourceBetID),
-      side,
-      locked: next.Status === "Locked" || (side === "home" ? !next.HomeOdds : !next.AwayOdds),
-    }, "mqtt");
+    // 局盘同样是双 outcome 同 market：不要用单一 book ask 覆盖两侧赔率
+    return;
   }
 
   const unQuote = onPredictFunMarketQuote((q) => {
@@ -205,10 +211,16 @@ export function startPredictFunCollector(): () => void {
       marketIdToCategory,
     });
     for (const mapped of marketsByCategory.values()) {
-      saveBetOddsToFo(mapped.bet, "http", {
-        home: mapped.homeMarketId,
-        away: mapped.awayMarketId,
-      });
+      const list = Array.isArray(mapped.bets) && mapped.bets.length
+        ? mapped.bets
+        : [mapped.bet];
+      for (const bet of list) {
+        const mid = String((bet as { MarketID?: string }).MarketID || mapped.homeMarketId);
+        saveBetOddsToFo(bet, "http", {
+          home: mid,
+          away: mid,
+        });
+      }
     }
     matchStore.refreshOddsOnBets();
     syncEsportMarkets(true);

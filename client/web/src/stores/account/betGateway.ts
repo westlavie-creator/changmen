@@ -14,6 +14,7 @@ import {
 import { playOrderSuccessSound } from "@/shared/orderSound";
 import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
+import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
@@ -27,7 +28,8 @@ function attachPolymarketAutoExitSellPref(option: BetOption): void {
   option.pmAutoExitSell = useUserStore().extensionPrefs.pmAutoExitSell === true;
 }
 
-function notifyPolymarketAfterRejectDetection(
+function notifyPendingVenueConfirm(
+  store: AccountStoreContext,
   account: PlatformAccount,
   accountLine: string,
   detailHtml: string,
@@ -36,8 +38,15 @@ function notifyPolymarketAfterRejectDetection(
   toastSeconds: number,
 ) {
   void (async () => {
-    const { rejected } = await settleArbLeg(account, result, 0);
-    const titleSuffix = rejected ? "未成交" : "已成交";
+    const { rejected, pendingConfirm } = await settleArbLeg(account, result, 0);
+    // PM：保持原语义（timeout 仍显示「已成交」）；PF：区分待确认
+    const isPf = account.provider === "PredictFun";
+    const stillPending = isPf && pendingConfirm;
+    const titleSuffix = stillPending
+      ? "待确认"
+      : rejected
+        ? "未成交"
+        : "已成交";
     ElNotification({
       title: "",
       message: bettingResultMessageHtml(
@@ -47,14 +56,23 @@ function notifyPolymarketAfterRejectDetection(
         `<p>${result.message || ""}</p>`,
         titleSuffix,
       ),
-      type: rejected ? "error" : "success",
+      type: stillPending ? "warning" : rejected ? "error" : "success",
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
       customClass: `notification ${account.provider}`,
     });
-    if (!rejected) {
+    if (!rejected && !stillPending) {
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
+    }
+    if (isPf) {
+      try {
+        const { refreshAccountBalance } = await import("@/stores/account/balanceRefresh");
+        await refreshAccountBalance(store, account);
+      }
+      catch {
+        /* 刷新失败不阻断 toast */
+      }
     }
   })();
 }
@@ -76,6 +94,7 @@ export async function checkBetting(
   }
   try {
     attachPolymarketDetectionQuote(option);
+    attachPredictFunDetectionQuote(option);
     attachPolymarketAutoExitSellPref(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
     option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
@@ -174,11 +193,14 @@ export async function placeBet(
     }
     if (
       result.pending
-      && account.provider === "Polymarket"
       && !option.loseOrder
-      && !option.deferPmSettlement
+      && (
+        (account.provider === "Polymarket" && !option.deferPmSettlement)
+        || account.provider === "PredictFun"
+      )
     ) {
-      notifyPolymarketAfterRejectDetection(
+      notifyPendingVenueConfirm(
+        store,
         account,
         accountLine,
         detailHtml,

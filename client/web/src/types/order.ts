@@ -43,6 +43,13 @@ export interface OrderRow {
    * 与 Status/Money 脱钩；中途卖出仍可有值。
    */
   PmMatchResult?: "Win" | "Lose";
+  /** [changmen 扩展] PredictFun 1:1 买卖 */
+  PfSide?: "buy" | "sell";
+  PfBuyOrderId?: string;
+  PfSellState?: "open" | "closed";
+  PfShares?: number;
+  PfTokenId?: string;
+  PfMarketId?: string;
 }
 
 export interface OrderPlayerInfo {

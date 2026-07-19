@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2：`changmen-esport`、`changmen-pm-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`（**默认**）；`changmen-predictfun-collector` 可选 |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2 默认：`changmen-esport`、`changmen-pm-market-hub`、`changmen-predictfun-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`、`changmen-predictfun-collector` |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/sync-git-to-flat-app.sh`](scripts/sync-git-to-flat-app.sh) | 香港：git 子目录 → 扁平 `DEPLOY_REPO` 再 deploy |
@@ -40,22 +40,27 @@ VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
 ```bash
 cd /root/changmen
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sports,changmen-polymarket-collector
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
 pm2 save
 ```
 
-`deploy/scripts/deploy-server-remote.sh` 重启 `changmen-esport` 时会一并启动 `changmen-pm-market-hub` 与 `changmen-polymarket-collector`；若误起 `changmen-predictfun-collector` 会在部署末尾删除（除非 `DEPLOY_START_PREDICTFUN_COLLECTOR=1` 且已配 `PREDICT_FUN_API_KEY`）。
+`deploy/scripts/deploy-server-remote.sh` 重启 `changmen-esport` 时会一并启动两个 Market hub、以及 PM/PF HTTP collector。`.env` 须配置 `PREDICT_FUN_API_KEY`（collector + market-hub 上游握手）。
 
-**PM-MARKET WS**：独立进程 `changmen-pm-market-hub`（`:3457`）。Caddy 须把 `/esport/ws-forward/PM-MARKET*` 指到 3457；esport 的 `WS_FORWARD_PLATFORMS` **不要**再含 `PM-MARKET`。本地 Vite：设了 `VITE_HK_RELAY_ORIGIN` 时 PM-MARKET 代理到 HK；纯本机则 Vite 把该路径指到 `127.0.0.1:3457`，须另开 `npm run pm-market-hub`。
+**Market WS hubs**：
+- `changmen-pm-market-hub`（`:3457`）→ `/esport/ws-forward/PM-MARKET*`
+- `changmen-predictfun-market-hub`（`:3458`）→ `/esport/ws-forward/PREDICTFUN-MARKET*`
+
+Caddy 须把上述路径指到对应端口；esport 的 `WS_FORWARD_PLATFORMS` **不要**再含 `PM-MARKET` / `PREDICTFUN-MARKET`。本地 Vite：纯本机分别代理到 `3457` / `3458`（`npm run pm-market-hub` / `npm run predictfun-market-hub`）。
 
 **Watchdog**（cron 每分钟）：
 
 ```bash
 bash deploy/scripts/install-esport-watchdog-remote.sh          # :3456 → restart changmen-esport
 bash deploy/scripts/install-pm-market-hub-watchdog-remote.sh   # :3457/health → restart changmen-pm-market-hub
+bash deploy/scripts/install-predictfun-market-hub-watchdog-remote.sh  # :3458/health → restart changmen-predictfun-market-hub
 ```
 
-启用 Predict.fun HTTP 采集守护进程时：
+启用 Predict.fun HTTP 采集守护进程时（已默认随主栈启动；手动补启）：
 
 ```bash
 pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env
@@ -69,7 +74,7 @@ pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --upd
 
 - **Polymarket HTTP**：`Pm_HttpRequest`（VPS 直连 Gamma/CLOB，不经 `http-relay`）
 - **Predict.fun HTTP**：`http-relay`
-- **PM / PF WebSocket**：`ws-forward`（`PM-MARKET` 走独立 hub `:3457`；`PM-USER` / `PREDICTFUN-MARKET` 仍在 esport）
+- **PM / PF WebSocket**：`ws-forward`（`PM-MARKET` → `:3457`；`PREDICTFUN-MARKET` → `:3458`；`PM-USER` 仍在 esport）
 
 部署 HK 机时需：
 
@@ -84,7 +89,7 @@ cd server/backend && node scripts/ops/diagnostics/probe-hk-relay.mjs
 
 `HTTP_RELAY_ALLOWED_HOSTS` 默认含 `gamma-api.polymarket.com,clob.polymarket.com,api.predict.fun,api-testnet.predict.fun`。探针失败时检查 VPS 能否 `curl -I https://clob.polymarket.com/time` 与 `curl -I https://api.predict.fun/v1/tags -H 'x-api-key: …'`。
 
-**Predict.fun 主网**：VPS `server/backend/.env` 需 `PREDICT_FUN_API_KEY`（ws-forward 握手）；前端构建需 `VITE_PREDICT_FUN_API_KEY`（http-relay REST）。GHA 部署在 GitHub Secrets 设 `PREDICT_FUN_API_KEY`，`deploy.yml` 会注入构建与 `sync-hk-relay-env-remote.sh`。
+**Predict.fun 主网**：VPS `server/backend/.env` 需 `PREDICT_FUN_API_KEY`（ws-forward）+ house 代下 `PREDICT_FUN_PRIVY_PRIVATE_KEY` / `PREDICT_FUN_PREDICT_ACCOUNT`；前端勿再打包主号私钥。GHA 部署在 GitHub Secrets 设 `PREDICT_FUN_API_KEY`，`deploy.yml` 会注入构建与 `sync-hk-relay-env-remote.sh`。
 
 **Predict.fun 模式 A（运营主号）**：下注私钥通过构建时 `VITE_PREDICT_FUN_PRIVY_PRIVATE_KEY` + `VITE_PREDICT_FUN_PREDICT_ACCOUNT`（或 `VITE_PREDICT_FUN_MASTER_PRIVATE_KEY`）注入；用户 changmen 账号 token 仅占位 `{ "mode": "house" }`。可选 GitHub Secrets：`PREDICT_FUN_PRIVY_PRIVATE_KEY`、`PREDICT_FUN_PREDICT_ACCOUNT`（见 `deploy.yml`）。
 

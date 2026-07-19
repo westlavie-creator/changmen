@@ -9,13 +9,15 @@
 | IA | Socket.IO | `/esport/ws-forward/IA` | `wss://socket.ajj123.net`（`/socket.io`，`Origin: ilustre`） |
 | OB | raw WebSocket (MQTT) | `/esport/ws-forward/OB?u=<官方 wss>` | query `u` 指定的 OB demo MQTT wss |
 | RAY | raw WebSocket (SocketCluster) | `/esport/ws-forward/RAY` | `wss://cfsocket.365raylinks.com/socketcluster/`（服务端注入 `Origin` + `Authorization`） |
-| PM-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PM-MARKET` | 单条上游 → `wss://ws-subscriptions-clob.polymarket.com/ws/market` |
-| PM-USER | raw WebSocket | `/esport/ws-forward/PM-USER` | `wss://ws-subscriptions-clob.polymarket.com/ws/user` |
-| PREDICTFUN-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PREDICTFUN-MARKET` | 单条上游 → `wss://ws.predict.fun/ws`（`PREDICT_FUN_API_KEY` 握手） |
+| PM-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PM-MARKET` | 独立进程 `changmen-pm-market-hub` `:3457` → `wss://ws-subscriptions-clob.polymarket.com/ws/market` |
+| PM-USER | raw WebSocket | `/esport/ws-forward/PM-USER` | `wss://ws-subscriptions-clob.polymarket.com/ws/user`（仍在 esport） |
+| PREDICTFUN-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PREDICTFUN-MARKET` | 独立进程 `changmen-predictfun-market-hub` `:3458` → `wss://ws.predict.fun/ws`（`PREDICT_FUN_API_KEY` 握手） |
 
 **PM-MARKET hub**：所有浏览器仍连 changmen 同一路径；服务端维护 **一条** 上游 MARKET WS，合并全站 `asset_id` 订阅后再 fan-out。客户端协议不变（`polymarketMarketSubscribeMessage` + `PING`）。无在线客户端 60s 后关闭上游。
 
 **PREDICTFUN-MARKET hub**：浏览器仍发 `{ method: "subscribe", params: ["predictOrderbook/{marketId}"] }`；服务端合并全站 marketId，单条上游连 Predict.fun，上游 heartbeat 由 hub 代答。无在线客户端 60s 后关闭上游。
+
+esport 默认 `WS_FORWARD_PLATFORMS` **不含** `PM-MARKET` / `PREDICTFUN-MARKET`（避免扇出拖死 HTTP）。本地：`npm run pm-market-hub` / `npm run predictfun-market-hub`。
 
 Vite dev：HTTP 走 `5274/esport` 代理；**实时 WS 直连** `http://127.0.0.1:3560`（Vite 不代理 upgrade）。
 

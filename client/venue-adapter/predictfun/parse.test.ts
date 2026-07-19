@@ -4,8 +4,11 @@ import {
   bestAskFromPredictBook,
   buildPredictMappedMarket,
   decimalOddsFromProbability,
+  getPredictComplement,
   isPredictEsportsMoneylineCategory,
+  isPredictYesOutcomeToken,
   mapPredictEsportTag,
+  orderbookForOutcomeBuy,
 } from "./parse";
 
 const SAMPLE_CATEGORY = {
@@ -44,6 +47,39 @@ const SAMPLE_CATEGORY = {
   ],
 };
 
+const SAMPLE_ESPORTS_LOL = {
+  id: 220811,
+  slug: "lol-fluxo-vs-leviatan",
+  title: "LoL: Fluxo W7M vs Leviatan Esports (BO3)",
+  status: "OPEN",
+  marketVariant: "ESPORTS_LOL",
+  startsAt: "2026-07-26T16:00:00.000Z",
+  tags: [{ id: "83", name: "Esports" }, { id: "84", name: "LoL" }],
+  markets: [
+    {
+      id: 841133,
+      title: "Match Winner",
+      status: "REGISTERED",
+      tradingStatus: "OPEN",
+      marketType: "SPORTS_MONEYLINE",
+      outcomes: [
+        {
+          name: "FXW7",
+          onChainId: "1111111111111111111111111111111111111111111111111111111111111111",
+          bestAsk: { price: 0.55, size: 10 },
+          variantData: { type: "ESPORTS_LOL", team: { id: 1, name: "Fluxo W7M", abbreviation: "FX" } },
+        },
+        {
+          name: "LEV",
+          onChainId: "2222222222222222222222222222222222222222222222222222222222222222",
+          bestAsk: { price: 0.48, size: 10 },
+          variantData: { type: "ESPORTS_LOL", team: { id: 2, name: "LEVIATÁN", abbreviation: "LEV" } },
+        },
+      ],
+    },
+  ],
+};
+
 describe("predictfun parse", () => {
   it("maps esport tags to catalog codes", () => {
     assert.equal(mapPredictEsportTag("CS2"), "cs2");
@@ -55,6 +91,10 @@ describe("predictfun parse", () => {
   it("detects esports SPORTS_TEAM_MATCH categories", () => {
     assert.equal(isPredictEsportsMoneylineCategory(SAMPLE_CATEGORY), true);
     assert.equal(isPredictEsportsMoneylineCategory({ ...SAMPLE_CATEGORY, tags: [{ name: "Politics" }] }), false);
+  });
+
+  it("detects ESPORTS_LOL single-market dual-outcome categories", () => {
+    assert.equal(isPredictEsportsMoneylineCategory(SAMPLE_ESPORTS_LOL), true);
   });
 
   it("builds mapped market with orderbook buy prices", () => {
@@ -71,8 +111,88 @@ describe("predictfun parse", () => {
     assert.equal(mapped!.bet.Status, "Normal");
   });
 
+  it("builds ESPORTS_LOL mapped market from outcome variantData", () => {
+    const mapped = buildPredictMappedMarket(SAMPLE_ESPORTS_LOL);
+    assert.ok(mapped);
+    assert.equal(mapped!.match.SourceGameID, "lol");
+    assert.equal(mapped!.homeMarketId, mapped!.awayMarketId);
+    assert.equal(mapped!.bet.HomeName, "Fluxo W7M");
+    assert.equal(mapped!.bet.AwayName, "LEVIATÁN");
+    assert.equal(mapped!.bet.HomeOdds, decimalOddsFromProbability(0.55));
+    assert.equal(mapped!.bet.AwayOdds, decimalOddsFromProbability(0.48));
+    assert.equal(mapped!.bet.Status, "Normal");
+    assert.equal(mapped!.bets.length, 1);
+    assert.equal(mapped!.bets[0].Map, 0);
+  });
+
+  it("maps Game N Winner child moneylines to Map N", () => {
+    const cat = {
+      ...SAMPLE_ESPORTS_LOL,
+      marketVariant: "ESPORTS_DOTA2",
+      tags: [{ id: "83", name: "Esports" }, { id: "85", name: "Dota 2" }],
+      markets: [
+        {
+          id: 1,
+          title: "Game 1 Winner",
+          status: "RESOLVED",
+          tradingStatus: "CLOSED",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          outcomes: [
+            { name: "A", onChainId: "a1", variantData: { team: { name: "BetBoom Team" } } },
+            { name: "B", onChainId: "a2", variantData: { team: { name: "Parivision" } } },
+          ],
+        },
+        {
+          id: 2,
+          title: "Game 2 Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          outcomes: [
+            { name: "A", onChainId: "b1", bestAsk: { price: 0.4 }, variantData: { team: { name: "BetBoom Team" } } },
+            { name: "B", onChainId: "b2", bestAsk: { price: 0.6 }, variantData: { team: { name: "Parivision" } } },
+          ],
+        },
+        SAMPLE_ESPORTS_LOL.markets[0],
+      ],
+    };
+    const mapped = buildPredictMappedMarket(cat);
+    assert.ok(mapped);
+    const maps = mapped!.bets.map(b => b.Map).sort((a, b) => Number(a) - Number(b));
+    assert.deepEqual(maps, [0, 1, 2]);
+    assert.equal(mapped!.bets.find(b => b.Map === 1)?.Status, "Locked");
+    assert.equal(mapped!.bets.find(b => b.Map === 2)?.Status, "Normal");
+  });
+
   it("reads best ask from tuple orderbook", () => {
     assert.equal(bestAskFromPredictBook({ asks: [[0.55, 100], [0.56, 50]] }), 0.55);
     assert.equal(bestAskFromPredictBook({ asks: [] }), 0);
+  });
+
+  it("getPredictComplement matches official decimalPrecision rounding", () => {
+    assert.equal(getPredictComplement(0.18, 2), 0.82);
+    assert.equal(getPredictComplement(0.16, 2), 0.84);
+    assert.equal(getPredictComplement(0.33, 2), 0.67);
+  });
+
+  it("transforms Yes book to No asks via bids complement", () => {
+    const yes = {
+      marketId: 1,
+      asks: [[0.18, 200], [0.19, 100]] as [number, number][],
+      bids: [[0.16, 200], [0.15, 50]] as [number, number][],
+    };
+    const no = orderbookForOutcomeBuy(yes, { isYesOutcome: false, decimalPrecision: 2 });
+    assert.deepEqual(no.asks, [[0.84, 200], [0.85, 50]]);
+    assert.deepEqual(no.bids, [[0.82, 200], [0.81, 100]]);
+    assert.equal(bestAskFromPredictBook(no), 0.84);
+  });
+
+  it("detects Yes vs No token by indexSet / onChainId", () => {
+    const outcomes = [
+      { name: "BB4", indexSet: 1, onChainId: "tok-yes" },
+      { name: "PARI", indexSet: 2, onChainId: "tok-no" },
+    ];
+    assert.equal(isPredictYesOutcomeToken("tok-yes", outcomes), true);
+    assert.equal(isPredictYesOutcomeToken("tok-no", outcomes), false);
   });
 });

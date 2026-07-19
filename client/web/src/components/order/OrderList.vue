@@ -43,6 +43,11 @@ import {
   confirmAndSellPmBuyOrder,
   isPmManualSellInFlight,
 } from "@/stores/account/pmManualSell";
+import {
+  canManualSellPfBuy,
+  confirmAndSellPfBuyOrder,
+  isPfManualSellInFlight,
+} from "@/stores/account/pfManualSell";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 import { PLATFORMS } from "@changmen/venue-adapter/shared";
@@ -59,6 +64,8 @@ const props = withDefaults(
     allowLinkRebind?: boolean;
     /** [changmen 扩展] PM 买单行显示「卖出」 */
     allowPmSell?: boolean;
+    /** [changmen 扩展] PF 买单行显示「卖出」 */
+    allowPfSell?: boolean;
   }>(),
   {
     loading: false,
@@ -66,6 +73,7 @@ const props = withDefaults(
     platformClass: () => undefined,
     allowLinkRebind: false,
     allowPmSell: false,
+    allowPfSell: false,
   },
 );
 
@@ -88,6 +96,11 @@ let startEl: HTMLElement | null = null;
 function isPendingRow(row: OrderRow): boolean {
   if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
     return false;
+  // PF：已 1:1 卖出的买单 / 卖单行不算「待结算」
+  if (String(row.Type ?? "") === "PredictFun") {
+    if (row.PfSide === "sell" || row.PfSellState === "closed")
+      return false;
+  }
   return String(row.Status ?? "") === "None";
 }
 
@@ -97,6 +110,10 @@ function statusClass(row: OrderRow): string {
 
 function showPmSellButton(row: OrderRow): boolean {
   return props.allowPmSell && canManualSellPmBuy(row);
+}
+
+function showPfSellButton(row: OrderRow): boolean {
+  return props.allowPfSell && canManualSellPfBuy(row);
 }
 
 const oddsStore = useOddsStore();
@@ -147,6 +164,10 @@ function pmLastLineOddsText(row: OrderRow): string {
 
 async function onPmSell(row: OrderRow) {
   await confirmAndSellPmBuyOrder(row);
+}
+
+async function onPfSell(row: OrderRow) {
+  await confirmAndSellPfBuyOrder(row);
 }
 
 function pmStakeLabel(row: OrderRow): string {
@@ -524,6 +545,12 @@ function badgeTitle(row: OrderRow): string {
               投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
                 formatDisplayOdds(Number(row.Odds) || 0)
               }}</span>
+              <template v-if="row.PfSide === 'sell'">
+                （卖单）
+              </template>
+              <template v-else-if="row.PfSellState === 'closed'">
+                （已卖出）
+              </template>
               <template v-if="isMakeupPendingOrderRow(row)">
                 盈亏：{{ makeupPendingProfitLabel(row) }}
               </template>
@@ -532,6 +559,15 @@ function badgeTitle(row: OrderRow): string {
               </template>
               <template v-else-if="isPendingRow(row)">
                 盈亏：待结算
+                <button
+                  v-if="showPfSellButton(row)"
+                  type="button"
+                  class="order__sell-btn"
+                  :disabled="isPfManualSellInFlight(row.OrderID)"
+                  @click="onPfSell(row)"
+                >
+                  {{ isPfManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                </button>
               </template>
               <template v-else>
                 盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}

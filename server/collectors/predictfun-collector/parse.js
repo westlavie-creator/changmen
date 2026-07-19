@@ -1,5 +1,12 @@
 /**
  * Predict.fun 解析（与 client/venue-adapter/predictfun/parse.ts 对齐）
+ *
+ * 官方电竞现形态：
+ * - marketVariant: ESPORTS_LOL / ESPORTS_CS2 / …
+ * - 单盘 SPORTS_MONEYLINE「Match Winner」+ 双 outcome（队名在 variantData.team）
+ * - market.status 多为 REGISTERED + tradingStatus OPEN
+ *
+ * 仍兼容旧 SPORTS_TEAM_MATCH（每队一盘 Yes）。
  */
 
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
@@ -24,32 +31,18 @@ export function mapPredictEsportTag(name) {
   return null;
 }
 
-export function resolvePredictGameCode(category) {
-  for (const tag of category.tags ?? []) {
-    const code = mapPredictEsportTag(tag.name);
-    if (code)
-      return code;
-    if (ESPORT_TAG_RE.test(String(tag.name ?? ""))) {
-      const fromTag = mapPredictEsportTag(tag.name);
-      if (fromTag)
-        return fromTag;
-    }
-  }
-  for (const team of category.teams ?? []) {
-    const code = mapPredictEsportTag(team.league);
-    if (code)
-      return code;
-    if (ESPORT_LEAGUE_RE.test(String(team.league ?? ""))) {
-      const fromLeague = mapPredictEsportTag(team.league);
-      if (fromLeague)
-        return fromLeague;
-    }
-  }
-  for (const market of category.markets ?? []) {
-    const code = mapPredictEsportTag(market.team?.league);
-    if (code)
-      return code;
-  }
+export function resolvePredictGameCodeFromVariant(variant) {
+  const v = String(variant ?? "").toUpperCase();
+  if (!v.startsWith("ESPORTS_"))
+    return null;
+  if (v.includes("CS2") || v.includes("COUNTER"))
+    return "cs2";
+  if (v.includes("LOL") || v.includes("LEAGUE"))
+    return "lol";
+  if (v.includes("DOTA"))
+    return "dota2";
+  if (v.includes("VALORANT"))
+    return "valorant";
   return null;
 }
 
@@ -74,32 +67,107 @@ function resolvePredictGameCodeFromCategoryMeta(category) {
         return fromLeague;
     }
   }
-  return null;
+  return resolvePredictGameCodeFromVariant(category.marketVariant);
 }
 
-function isOpenTradingMarket(market) {
-  if (String(market.status ?? "").toUpperCase() !== "OPEN")
-    return false;
+export function resolvePredictGameCode(category) {
+  const fromMeta = resolvePredictGameCodeFromCategoryMeta(category);
+  if (fromMeta)
+    return fromMeta;
+  for (const market of category.markets ?? []) {
+    const code = mapPredictEsportTag(market.team?.league);
+    if (code)
+      return code;
+    for (const outcome of market.outcomes ?? []) {
+      const league = outcome.team?.league ?? outcome.variantData?.team?.league;
+      const fromOutcome = mapPredictEsportTag(league);
+      if (fromOutcome)
+        return fromOutcome;
+    }
+  }
+  return resolvePredictGameCodeFromVariant(category.marketVariant);
+}
+
+export function isTradablePredictMarket(market) {
   const trading = String(market.tradingStatus ?? "OPEN").toUpperCase();
   if (trading && !["OPEN", "MATCHING_NOT_PAUSED"].includes(trading))
+    return false;
+  const status = String(market.status ?? "").toUpperCase();
+  // 电竞/运动盘：REGISTERED / PRICE_PROPOSED + trading OPEN
+  if (status && !["OPEN", "REGISTERED", "PRICE_PROPOSED"].includes(status))
+    return false;
+  return true;
+}
+
+/** 局盘可入库（含已结算 → Locked） */
+function isCollectableChildMoneyline(market) {
+  if (String(market?.marketType ?? "") !== "SPORTS_CHILD_MONEYLINE")
+    return false;
+  if (parsePredictGameMapNumber(market.title) <= 0)
+    return false;
+  const status = String(market.status ?? "").toUpperCase();
+  const trading = String(market.tradingStatus ?? "").toUpperCase();
+  if (["RESOLVED", "SETTLED"].includes(status) || trading === "CLOSED")
+    return true;
+  return isTradablePredictMarket(market);
+}
+
+/** "Game 3 Winner" → 3；其它标题 → 0 */
+export function parsePredictGameMapNumber(title) {
+  const m = String(title ?? "").trim().match(/^Game\s+(\d+)\s+Winner$/i);
+  if (!m)
+    return 0;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function isDualTeamMoneylineMarket(market) {
+  if (!isTradablePredictMarket(market))
     return false;
   if (market.marketType && market.marketType !== "SPORTS_MONEYLINE")
     return false;
   const title = String(market.title ?? market.team?.name ?? "").trim().toLowerCase();
-  if (!title || title === "draw" || title === "tie")
+  if (!title || title === "draw" || title === "tie" || title === "match winner")
     return false;
-  return Boolean(market.team?.name || market.title);
+  return Boolean(market.team?.name || (title && title !== "match winner"));
 }
 
-export function isPredictEsportsMoneylineCategory(category) {
-  if (category.marketVariant !== "SPORTS_TEAM_MATCH")
-    return false;
-  if (String(category.status ?? "").toUpperCase() !== "OPEN")
-    return false;
-  if (!resolvePredictGameCodeFromCategoryMeta(category))
-    return false;
-  const teamMarkets = (category.markets ?? []).filter(isOpenTradingMarket);
-  return teamMarkets.length >= 2;
+export function readPredictTopPrice(level) {
+  if (level == null)
+    return 0;
+  if (typeof level === "number")
+    return Number.isFinite(level) && level > 0 && level < 1 ? level : 0;
+  if (typeof level === "string") {
+    const n = Number(level);
+    return Number.isFinite(n) && n > 0 && n < 1 ? n : 0;
+  }
+  if (typeof level === "object") {
+    const n = Number(level.price);
+    return Number.isFinite(n) && n > 0 && n < 1 ? n : 0;
+  }
+  return 0;
+}
+
+export function outcomeProb(outcome, bookProb = 0) {
+  const ask = readPredictTopPrice(outcome?.bestAsk);
+  const bid = readPredictTopPrice(outcome?.bestBid);
+  if (ask > 0 && bid > 0 && (ask - bid) >= 0.5)
+    return (ask + bid) / 2;
+  if (ask > 0)
+    return ask;
+  if (Number.isFinite(bookProb) && bookProb > 0 && bookProb < 1)
+    return bookProb;
+  if (bid > 0)
+    return bid;
+  return 0;
+}
+
+export function outcomeTeamName(outcome) {
+  return String(
+    outcome?.team?.name
+    ?? outcome?.variantData?.team?.name
+    ?? "",
+  ).trim();
 }
 
 export function normalizePredictTeamName(name) {
@@ -165,33 +233,119 @@ function startTimeOf(category) {
   return Date.now();
 }
 
-function pickHomeAwayMarkets(markets) {
-  const teamMarkets = markets.filter(isOpenTradingMarket);
+/** 旧形态：每队一盘 */
+function pickDualTeamMarkets(markets) {
+  const teamMarkets = markets.filter(isDualTeamMoneylineMarket);
   if (teamMarkets.length < 2)
     return null;
   const [home, away] = teamMarkets.slice(0, 2);
   if (!teamNameOf(home) || !teamNameOf(away))
     return null;
-  return { home, away };
+  return { mode: "dual", home, away };
+}
+
+/** 新形态：单盘 Match Winner + 双 outcome */
+function pickSingleMoneylineMarket(markets) {
+  const tradable = markets.filter(isTradablePredictMarket);
+  const ml = tradable.find(m => String(m.marketType ?? "") === "SPORTS_MONEYLINE")
+    || tradable.find(m => (m.outcomes ?? []).length >= 2 && parsePredictGameMapNumber(m.title) === 0);
+  if (!ml)
+    return null;
+  const outcomes = ml.outcomes ?? [];
+  if (outcomes.length < 2)
+    return null;
+  const withTeam = outcomes.filter(o => outcomeTeamName(o));
+  const homeOutcome = withTeam[0] || null;
+  const awayOutcome = withTeam[1] || null;
+  if (!homeOutcome || !awayOutcome)
+    return null;
+  return { mode: "single", market: ml, homeOutcome, awayOutcome };
+}
+
+/** Game N Winner 局盘 */
+function pickChildGameMarkets(markets) {
+  const out = [];
+  for (const market of markets || []) {
+    if (!isCollectableChildMoneyline(market))
+      continue;
+    const mapNum = parsePredictGameMapNumber(market.title);
+    if (mapNum <= 0)
+      continue;
+    const outcomes = market.outcomes ?? [];
+    const withTeam = outcomes.filter(o => outcomeTeamName(o));
+    const homeOutcome = withTeam[0] || null;
+    const awayOutcome = withTeam[1] || null;
+    if (!homeOutcome || !awayOutcome)
+      continue;
+    out.push({ mapNum, market, homeOutcome, awayOutcome });
+  }
+  return out.sort((a, b) => a.mapNum - b.mapNum);
+}
+
+function buildBetFromDualOutcomes({
+  sourceMatchId,
+  sourceBetId,
+  mapNum,
+  betName,
+  homeName,
+  awayName,
+  homeTokenId,
+  awayTokenId,
+  homeOdds,
+  awayOdds,
+  forceLocked = false,
+}) {
+  const locked = forceLocked || !homeOdds || !awayOdds;
+  return {
+    Type: PLATFORM,
+    SourceMatchID: sourceMatchId,
+    SourceBetID: sourceBetId,
+    Map: mapNum,
+    BetName: betName,
+    SourceHomeID: homeTokenId,
+    HomeName: homeName,
+    HomeOdds: homeOdds,
+    SourceAwayID: awayTokenId,
+    AwayName: awayName,
+    AwayOdds: awayOdds,
+    Status: locked ? "Locked" : "Normal",
+  };
+}
+
+export function isPredictEsportsMoneylineCategory(category) {
+  if (String(category.status ?? "").toUpperCase() !== "OPEN")
+    return false;
+  const variant = String(category.marketVariant ?? "");
+  const esportsVariant = variant.startsWith("ESPORTS_");
+  const legacyTeamMatch = variant === "SPORTS_TEAM_MATCH";
+  if (!esportsVariant && !legacyTeamMatch)
+    return false;
+  // 旧 TEAM_MATCH：只认分类 tags/teams，避免 Politics 等被 market.team.league 误放行
+  if (legacyTeamMatch && !resolvePredictGameCodeFromCategoryMeta(category))
+    return false;
+  if (esportsVariant && !resolvePredictGameCode(category))
+    return false;
+  const markets = category.markets ?? [];
+  return Boolean(
+    pickDualTeamMarkets(markets)
+    || pickSingleMoneylineMarket(markets)
+    || pickChildGameMarkets(markets).length,
+  );
 }
 
 export function buildPredictMappedMarket(category, buyPrices = {}) {
   if (!isPredictEsportsMoneylineCategory(category))
     return null;
 
-  const picked = pickHomeAwayMarkets(category.markets ?? []);
-  if (!picked)
+  const markets = category.markets ?? [];
+  const dual = pickDualTeamMarkets(markets);
+  const single = dual ? null : pickSingleMoneylineMarket(markets);
+  const childGames = dual ? [] : pickChildGameMarkets(markets);
+  if (!dual && !single && !childGames.length)
     return null;
 
   const gameId = resolvePredictGameCode(category);
   if (!gameId)
-    return null;
-
-  const homeMarketId = String(picked.home.id ?? "");
-  const awayMarketId = String(picked.away.id ?? "");
-  const homeTokenId = yesOutcomeTokenId(picked.home);
-  const awayTokenId = yesOutcomeTokenId(picked.away);
-  if (!homeMarketId || !awayMarketId || !homeTokenId || !awayTokenId)
     return null;
 
   const categoryId = String(category.slug ?? category.id ?? "");
@@ -199,17 +353,123 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
   if (!categoryId)
     return null;
 
-  const homeName = teamNameOf(picked.home);
-  const awayName = teamNameOf(picked.away);
+  let homeMarketId = "";
+  let awayMarketId = "";
+  let homeTokenId = "";
+  let awayTokenId = "";
+  let homeName = "";
+  let awayName = "";
+  let homeOdds = 0;
+  let awayOdds = 0;
+  /** @type {ReturnType<typeof buildBetFromDualOutcomes>[]} */
+  const bets = [];
+
+  if (dual) {
+    homeMarketId = String(dual.home.id ?? "");
+    awayMarketId = String(dual.away.id ?? "");
+    homeTokenId = yesOutcomeTokenId(dual.home);
+    awayTokenId = yesOutcomeTokenId(dual.away);
+    homeName = teamNameOf(dual.home);
+    awayName = teamNameOf(dual.away);
+    homeOdds = decimalOddsFromProbability(buyPrices[homeMarketId] ?? 0);
+    awayOdds = decimalOddsFromProbability(buyPrices[awayMarketId] ?? 0);
+    bets.push(buildBetFromDualOutcomes({
+      sourceMatchId,
+      sourceBetId: categoryId,
+      mapNum: 0,
+      betName: "Match Winner",
+      homeName,
+      awayName,
+      homeTokenId,
+      awayTokenId,
+      homeOdds,
+      awayOdds,
+    }));
+  }
+  else {
+    if (single) {
+      homeMarketId = String(single.market.id ?? "");
+      awayMarketId = homeMarketId;
+      homeTokenId = String(single.homeOutcome.onChainId ?? "");
+      awayTokenId = String(single.awayOutcome.onChainId ?? "");
+      homeName = outcomeTeamName(single.homeOutcome);
+      awayName = outcomeTeamName(single.awayOutcome);
+      homeOdds = decimalOddsFromProbability(outcomeProb(single.homeOutcome, buyPrices[homeMarketId] ?? 0));
+      awayOdds = decimalOddsFromProbability(outcomeProb(single.awayOutcome, buyPrices[awayMarketId] ?? 0));
+      bets.push(buildBetFromDualOutcomes({
+        sourceMatchId,
+        sourceBetId: `${categoryId}#m0`,
+        mapNum: 0,
+        betName: "Match Winner",
+        homeName,
+        awayName,
+        homeTokenId,
+        awayTokenId,
+        homeOdds,
+        awayOdds,
+      }));
+      bets[bets.length - 1].MarketID = homeMarketId;
+    }
+    else if (childGames[0]) {
+      // 仅有局盘时用 Game1 队名定主客
+      homeName = outcomeTeamName(childGames[0].homeOutcome);
+      awayName = outcomeTeamName(childGames[0].awayOutcome);
+      homeTokenId = String(childGames[0].homeOutcome.onChainId ?? "");
+      awayTokenId = String(childGames[0].awayOutcome.onChainId ?? "");
+      homeMarketId = String(childGames[0].market.id ?? "");
+      awayMarketId = homeMarketId;
+    }
+
+    for (const child of childGames) {
+      const mid = String(child.market.id ?? "");
+      const hName = outcomeTeamName(child.homeOutcome);
+      const aName = outcomeTeamName(child.awayOutcome);
+      const hTok = String(child.homeOutcome.onChainId ?? "");
+      const aTok = String(child.awayOutcome.onChainId ?? "");
+      const hOdds = decimalOddsFromProbability(
+        outcomeProb(child.homeOutcome, 0),
+      );
+      const aOdds = decimalOddsFromProbability(
+        outcomeProb(child.awayOutcome, 0),
+      );
+      const status = String(child.market.status ?? "").toUpperCase();
+      const trading = String(child.market.tradingStatus ?? "").toUpperCase();
+      const settled = ["RESOLVED", "SETTLED"].includes(status) || trading === "CLOSED";
+      if (!hName || !aName || !hTok || !aTok)
+        continue;
+      if (!homeName) {
+        homeName = hName;
+        awayName = aName;
+        homeTokenId = hTok;
+        awayTokenId = aTok;
+        homeMarketId = mid;
+        awayMarketId = mid;
+      }
+      bets.push(buildBetFromDualOutcomes({
+        sourceMatchId,
+        sourceBetId: `${categoryId}#m${child.mapNum}`,
+        mapNum: child.mapNum,
+        betName: `Game ${child.mapNum} Winner`,
+        homeName: hName,
+        awayName: aName,
+        homeTokenId: hTok,
+        awayTokenId: aTok,
+        homeOdds: hOdds,
+        awayOdds: aOdds,
+        forceLocked: settled,
+      }));
+      bets[bets.length - 1].MarketID = mid;
+    }
+  }
+
+  if (!homeMarketId || !awayMarketId || !homeTokenId || !awayTokenId || !homeName || !awayName)
+    return null;
+  if (!bets.length)
+    return null;
+
   const matchHomeId = sourceTeamId(gameId, homeName);
   const matchAwayId = sourceTeamId(gameId, awayName);
   const startTime = startTimeOf(category);
-
-  const homeProb = buyPrices[homeMarketId] ?? 0;
-  const awayProb = buyPrices[awayMarketId] ?? 0;
-  const homeOdds = decimalOddsFromProbability(homeProb);
-  const awayOdds = decimalOddsFromProbability(awayProb);
-  const locked = !homeOdds || !awayOdds;
 
   const homeTeam = {
     Type: PLATFORM,
@@ -226,12 +486,18 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
     Logo: "",
   };
 
+  const map0 = bets.find(b => Number(b.Map) === 0) || bets[0];
+  const marketIds = [...new Set(
+    [homeMarketId, awayMarketId, ...bets.map(b => String(b.MarketID || "")).filter(Boolean)],
+  )];
+
   return {
     categoryId,
     homeMarketId,
     awayMarketId,
     homeTokenId,
     awayTokenId,
+    marketIds,
     match: {
       Type: PLATFORM,
       SourceMatchID: sourceMatchId,
@@ -243,19 +509,9 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
       Away: awayName,
       Teams: [homeTeam, awayTeam],
     },
-    bet: {
-      Type: PLATFORM,
-      SourceMatchID: sourceMatchId,
-      SourceBetID: categoryId,
-      Map: 0,
-      BetName: "Match Winner",
-      SourceHomeID: homeTokenId,
-      HomeName: homeName,
-      HomeOdds: homeOdds,
-      SourceAwayID: awayTokenId,
-      AwayName: awayName,
-      AwayOdds: awayOdds,
-      Status: locked ? "Locked" : "Normal",
-    },
+    /** @deprecated 兼容 market_index：全场或首条 */
+    bet: map0,
+    bets,
   };
 }
+

@@ -12,6 +12,23 @@
 import { describePlatformGame, getGameCodeForPlatformId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time";
+
+/** [changmen 临时] PredictFun 列表未来窗默认 12h（与 collector 一致）；可用 env 覆盖 */
+const PREDICTFUN_LIST_FUTURE_MS = Number(
+  process.env.PREDICTFUN_LIST_FUTURE_MS
+  || process.env.PREDICTFUN_COLLECTOR_FUTURE_MS
+  || 12 * 3600 * 1000,
+);
+
+function platformStartTimeListAllowed(provider, startMs) {
+  if (provider === "PredictFun") {
+    const ms = normalizeEpochMs(startMs);
+    if (!ms)
+      return true;
+    return ms <= Date.now() + PREDICTFUN_LIST_FUTURE_MS;
+  }
+  return a8StartTimeListAllowed(startMs);
+}
 import {
   betKey,
   formatTitle,
@@ -1240,8 +1257,9 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
 }
 
 /**
- * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留 OB 和 Polymarket。[A8 可证实 OB 部分；changmen 扩展 Polymarket]
- * 两者均无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
+ * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留全场盘馆。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（预测市仅有全场）。
+ * 均无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
  * 须在 promoteFullMatchSourcesToLiveRound 之后调用（先复制到 Map=R，再裁剪 Map=0）。
  */
 function trimMapZeroToObOnDeciderRound(rows) {
@@ -1258,6 +1276,8 @@ function trimMapZeroToObOnDeciderRound(rows) {
       kept.OB = fullBet.Sources.OB;
     if (fullBet.Sources?.Polymarket)
       kept.Polymarket = fullBet.Sources.Polymarket;
+    if (fullBet.Sources?.PredictFun)
+      kept.PredictFun = fullBet.Sources.PredictFun;
     fullBet.Sources = kept;
   }
   sortClientMatchBets(rows);
@@ -1521,7 +1541,7 @@ function collectMergeEntries(matches, bets, timers, sourceFromBet) {
       if (manualKeys.has(rowKey))
         continue;
       const startMs = normalizeEpochMs(match.StartTime);
-      if (startMs > 0 && !a8StartTimeListAllowed(startMs))
+      if (startMs > 0 && !platformStartTimeListAllowed(provider, startMs))
         continue;
 
       let m = match;
@@ -1616,7 +1636,7 @@ function buildMatchListAccumulate(matches, bets, timers, sourceFromBet) {
       if (!match?.SourceMatchID)
         continue;
       const startMs = normalizeEpochMs(match.StartTime);
-      if (startMs > 0 && !a8StartTimeListAllowed(startMs))
+      if (startMs > 0 && !platformStartTimeListAllowed(provider, startMs))
         continue;
       if (provider === "IM") {
         const block = bets[betKey("IM", match.SourceMatchID)];

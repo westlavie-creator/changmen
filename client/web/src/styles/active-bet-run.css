@@ -1,78 +1,139 @@
-/** [changmen 扩展] 主区赛事列表上方「进行中订单」面板（固定占位 + 横向分栏） */
+/** [changmen 扩展] 进行中订单浮层（div + fixed；勿用 fieldset，Chrome 会忽略宽度） */
 
 .active-bet-run {
   border: 1px solid #3f4a5c;
   border-radius: 5px;
-  margin: 0;
   padding: 6px 8px 8px;
-  min-inline-size: 0;
   background: linear-gradient(to bottom, #1a1f2a, #12151c);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
 }
 
-.home-main .active-bet-run {
-  flex: 0 0 300px;
-  height: 300px;
-  margin: 6px 10px;
+.active-bet-run--dragging {
+  user-select: none;
+  opacity: 0.96;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
 }
 
-.active-bet-run legend {
+.active-bet-run__chrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
   font-size: 14px;
-  padding: 0 6px;
+  padding: 4px 6px 4px 10px;
+  margin-bottom: 4px;
   color: #e2e8f0;
   background: linear-gradient(to bottom, #3f4a5c, #2a3140);
   border: 1px solid #5b6578;
   border-radius: 3px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
 
-.active-bet-run__list {
+.active-bet-run--dragging .active-bet-run__chrome {
+  cursor: grabbing;
+}
+
+.active-bet-run__chrome-title {
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.active-bet-run__fold {
+  appearance: none;
+  border: 1px solid #6b7588;
+  background: #1e2430;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.active-bet-run__fold:hover {
+  filter: brightness(1.12);
+}
+
+.active-bet-run__body {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
   align-items: stretch;
-  gap: 0;
+  gap: 4px;
   flex: 1;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  min-width: 0;
+}
+
+.active-bet-run__nav {
+  appearance: none;
+  flex: 0 0 36px;
+  width: 36px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #5b6578;
+  border-radius: 4px;
+  background: #1e2430;
+  color: #e2e8f0;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-bet-run__nav:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.active-bet-run__nav:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.active-bet-run__stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .active-bet-run__empty {
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   margin: 0;
-  padding-left: 12px;
   font-size: 14px;
   color: #94a3b8;
   opacity: 0.9;
 }
 
-/* 横向一栏 = 一笔进行中的订单；最多 5 列，左新右旧，整组靠左 */
+/* 单笔舞台：与原先列表上方 .active-bet-run__col 460 同宽 */
 .active-bet-run__col {
-  flex: 0 0 460px;
-  width: 460px;
-  max-width: 460px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 6px 10px 6px 12px;
+  padding: 4px 6px;
   font-size: 14px;
   color: #e2e8f0cc;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3px solid transparent;
   box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
-}
-
-.active-bet-run__col:last-child {
-  border-right: none;
 }
 
 .active-bet-run__col--pending {
@@ -244,7 +305,7 @@
   gap: 2px;
   flex: 1 1 auto;
   min-height: 0;
-  /* 吃满 300px 面板剩余高度，内容多了再滚，避免框很高却只滚 120px */
+  /* 吃满浮层剩余高度，内容多了再滚 */
   overflow-y: auto;
 }
 

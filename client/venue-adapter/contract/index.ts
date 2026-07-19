@@ -49,7 +49,20 @@ export interface PolymarketVenueOrderExtras {
   pmMatchResult?: "win" | "lose";
 }
 
-export interface VenueOrder extends PolymarketVenueOrderExtras {
+/** [changmen 扩展] PredictFun house 1:1 买卖（会员账号仅归属，仓位共用主号） */
+export type PredictFunOrderSide = "buy" | "sell";
+export type PredictFunSellState = "open" | "closed";
+
+export interface PredictFunVenueOrderExtras {
+  pfSide?: PredictFunOrderSide;
+  pfBuyOrderId?: string;
+  pfSellState?: PredictFunSellState;
+  pfShares?: number;
+  pfTokenId?: string;
+  pfMarketId?: string;
+}
+
+export interface VenueOrder extends PolymarketVenueOrderExtras, PredictFunVenueOrderExtras {
   provider: PlatformId;
   orderId: string;
   odds: number;
