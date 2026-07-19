@@ -11,7 +11,7 @@ function hasLockedPredictFunDetectionQuote(data: PredictFunOptionQuoteData): boo
   return isValidPredictClobPrice(Number(data.detectionMaxPrice ?? data.detectionClobPrice));
 }
 
-/** PF 预检前：�?fo / MarketIndex 写入 CLOB 原价�?marketId（Sources 有赔率时 fo 可能尚无行） */
+/** PF ????? fo / MarketIndex ?? CLOB ??? marketId?Sources ???? fo ?????? */
 export function attachPredictFunDetectionQuote(option: BetOption): void {
   if (option.type !== PLATFORMS.PredictFun)
     return;
