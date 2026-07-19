@@ -14,6 +14,8 @@
 | `backup-profiles-accounts.mjs` | `db:backup-accounts` | 部署前 players 账号快照 |
 | `backfill-polymarket-order-settlement.mjs` | `poly:backfill-settlement` | PM 老订单结算补跑 |
 | `migrate-pm-sell-pnl-to-buy.mjs` | — | 卖单 money → 买单累加；卖单 money=0（`--dry-run` / `--execute`） |
+| `restore-pm-sell-money-from-pnl-usdc.mjs` | — | 从 raw.pmRealizedPnlUsdc 恢复被 sync 清零的卖单 money |
+| `restore-pm-buy-money-from-sell-pnl.mjs` | — | closed/partial 买单 money=0 时从卖单 pnlUsdc 恢复买单 money |
 | `archive-stale-client-matches.mjs` | `db:archive-stale` | `client_matches` 时间归档（手动/crontab 兜底） |
 | `prune-stale.mjs` | `db:prune` | 已废弃别名 → `archive-stale-client-matches` |
 | `migrate-order-hash-link-to-create-at.mjs` | — | 订单 hash 链补 `create_at`（`--execute` 执行） |

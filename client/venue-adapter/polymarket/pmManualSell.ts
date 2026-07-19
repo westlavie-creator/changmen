@@ -242,7 +242,7 @@ function buildSellAndBuyPatchOrders(params: {
     item: buy.item ? `平仓 ${buy.item}` : "平仓",
     link: Number(buy.link) || undefined,
     pmTokenId: buy.pmTokenId,
-    pmShares: round4(sharesSold),
+    pmShares: sharesSold,
     pmFillPrice: fillPrice,
     pmStakeUsdc: costPortion,
     pmConditionId: buy.pmConditionId,

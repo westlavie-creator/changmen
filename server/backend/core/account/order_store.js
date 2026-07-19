@@ -366,6 +366,9 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
         || Object.prototype.hasOwnProperty.call(o, "Money")
         ? incomingMoney
         : prevMoney;
+      // partial：sync 带 money=0 时勿清掉已累计卖出盈亏（与卖单保留逻辑对称）
+      if (Math.abs(incomingMoney) <= 1e-9 && Math.abs(prevMoney) > 1e-9)
+        nextMoney = prevMoney;
     }
     merged = {
       ...merged,

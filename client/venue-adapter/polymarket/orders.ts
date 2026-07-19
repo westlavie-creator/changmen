@@ -148,15 +148,16 @@ export function parsePolymarketSellOrderFill(
   response: { makingAmount?: string | number; takingAmount?: string | number } | null | undefined,
 ): { proceedsUsdc: number; sharesSold: number } {
   const proceedsUsdc = parsePolymarketMicroUsdc(response?.takingAmount);
+  // 份数保留 CLOB 原始精度，勿 round4（侧栏要展示订单原始份额）
   const sharesSold = polymarketShareCount(response?.makingAmount);
   if (proceedsUsdc > 0 && sharesSold > 0) {
     const impliedPrice = proceedsUsdc / sharesSold;
     if (impliedPrice > 0 && impliedPrice < 1)
-      return { proceedsUsdc: round4Fill(proceedsUsdc), sharesSold: round4Fill(sharesSold) };
+      return { proceedsUsdc: round4Fill(proceedsUsdc), sharesSold };
   }
   return {
     proceedsUsdc: proceedsUsdc > 0 ? round4Fill(proceedsUsdc) : 0,
-    sharesSold: sharesSold > 0 ? round4Fill(sharesSold) : 0,
+    sharesSold: sharesSold > 0 ? sharesSold : 0,
   };
 }
 
@@ -164,7 +165,8 @@ export function parsePolymarketSellOrderFill(
 export function polymarketTradeFillAmounts(
   trade: PolymarketTradeRow,
 ): { shares: number; usdc: number } {
-  const shares = round4Fill(polymarketShareCount(trade.size));
+  // 份数保留原始精度（展示用）；USDC 仍 round4
+  const shares = polymarketShareCount(trade.size);
   const usdc = polymarketTradeNotionalUsdc(trade);
   return { shares, usdc };
 }
@@ -257,7 +259,7 @@ export async function resolvePolymarketSellFillWithRetry(
       await waitMs(retryMs);
   }
 
-  const rowShares = round4Fill(polymarketShareCount(opts?.orderRow?.size_matched));
+  const rowShares = polymarketShareCount(opts?.orderRow?.size_matched);
   if (rowShares > 0 && fromPost.proceedsUsdc > 0)
     return { proceedsUsdc: fromPost.proceedsUsdc, sharesSold: rowShares };
 
