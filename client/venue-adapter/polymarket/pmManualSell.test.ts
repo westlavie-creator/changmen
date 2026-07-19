@@ -55,8 +55,10 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
     expect(buy.pmSellState).toBe("closed");
     expect(buy.pmAttributedSellShares).toBe(48.2353);
     expect(buy.pmStakeUsdc).toBe(0);
-    expect(buy.betMoney).toBe(0);
-    expect(sell.money).toBeGreaterThan(0);
+    expect(buy.betMoney).toBe(112);
+    expect(buy.money).toBeGreaterThan(0);
+    expect(sell.money).toBe(0);
+    expect(sell.betMoney).toBeGreaterThan(0);
     expect(sell.pmBuyOrderId).toBe("0xbuy");
   });
 });

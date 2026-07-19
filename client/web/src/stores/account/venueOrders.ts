@@ -2,6 +2,7 @@ import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import { hasOpenPolymarketPosition } from "@changmen/venue-adapter/polymarket";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
 function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
@@ -12,10 +13,22 @@ function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
   return true;
 }
 
+/** PM 未结敞口：剩余成本 pmStakeUsdc×汇率×赔率；勿用原始 betMoney（满仓） */
+function unsettledExposureCny(o: VenueOrder): number {
+  const odds = Number(o.odds) || 0;
+  if (o.provider === "Polymarket" && o.pmSide !== "sell") {
+    const stakeUsdc = Number(o.pmStakeUsdc) || 0;
+    if (stakeUsdc > 0)
+      return stakeUsdc * getExchange(Currency.USDT) * odds;
+    return 0;
+  }
+  return odds * (Number(o.betMoney) || 0);
+}
+
 export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder[]) {
   const open = orders.filter(isOpenUnsettledVenueOrder);
   account.unsettle = open.length;
-  const unsettledExposure = open.reduce((sum, o) => sum + o.odds * o.betMoney, 0);
+  const unsettledExposure = open.reduce((sum, o) => sum + unsettledExposureCny(o), 0);
   account.winBalance = (account.balance ?? 0) + unsettledExposure;
 }
 

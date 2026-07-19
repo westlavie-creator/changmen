@@ -72,4 +72,6 @@ it("summarizeBuilderTrades aggregates volume", () => {
   assert.ok(Math.abs(s.builderFeeUsdc - 0.05) < 1e-9);
   assert.equal(s.buyCount, 1);
   assert.equal(s.sellCount, 1);
+  assert.equal(s.buyVolumeUsdc, 10);
+  assert.equal(s.sellVolumeUsdc, 5);
 });

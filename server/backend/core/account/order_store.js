@@ -5,7 +5,6 @@ import {
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
-import { Currency, getExchange } from "@changmen/shared/currency";
 import { isAdminUser } from "../auth/admin_auth.js";
 
 export function toDateKey(ts) {
@@ -202,11 +201,7 @@ export function rowToOrder(r) {
   const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
   let betMoney = r.bet_money || 0;
   let money = r.money || 0;
-  if (raw.pmSide === "sell") {
-    const costUsdc = parseNum(raw.pmStakeUsdc, 0);
-    if (costUsdc > 0 && betMoney > 0)
-      money = Math.round(betMoney - costUsdc * getExchange(Currency.USDT));
-  }
+  // 卖单盈亏：新写入已为 0（记在买单）；旧数据 money 仍可能非 0，读出时勿清零
   return {
     OrderID: r.order_id,
     Link: resolveStoredLink(r.link, r.order_id, r.create_at),
@@ -269,29 +264,35 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
 
   if (isSell) {
     const proceedsBet = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : 0);
+    const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
+    const incomingMoney = parseNum(o.money ?? o.Money, 0);
+    /**
+     * 新模型：卖单 money 应为 0（盈亏在买单）。
+     * 但客户端 sync 会带 money=0 覆盖；未迁移旧卖单若库内仍有盈亏，必须保留，否则日盈亏被清掉。
+     */
+    let sellMoney = 0;
+    if (Math.abs(incomingMoney) > 1e-9)
+      sellMoney = incomingMoney;
+    else if (Math.abs(prevMoney) > 1e-9)
+      sellMoney = prevMoney;
+
     if (isChangmen || prevRaw.pmOrigin === "changmen") {
       merged = {
         ...merged,
         pmSide: "sell",
         pmOrigin: "changmen",
-        betMoney: prevBet > 0 ? prevBet : (incomingBet > 0 ? incomingBet : proceedsBet),
+        betMoney: incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : proceedsBet),
         pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
-        pmRealizedPnlUsdc: prevRaw.pmRealizedPnlUsdc ?? merged.pmRealizedPnlUsdc,
+        pmRealizedPnlUsdc: merged.pmRealizedPnlUsdc ?? o.pmRealizedPnlUsdc ?? prevRaw.pmRealizedPnlUsdc,
+        money: sellMoney,
       };
       bet_money = parseNum(merged.betMoney, proceedsBet);
-      money = parseNum(prevRaw.money ?? prevRow?.money, parseNum(o.money ?? o.Money, 0));
-      merged.money = money;
-      const costUsdc = parseNum(merged.pmStakeUsdc ?? prevRaw.pmStakeUsdc, 0);
-      if (costUsdc > 0 && bet_money > 0) {
-        const profitCny = Math.round(bet_money - costUsdc * getExchange(Currency.USDT));
-        merged.money = profitCny;
-        merged.pmRealizedPnlUsdc = Math.round((profitCny / getExchange(Currency.USDT)) * 10000) / 10000;
-        money = profitCny;
-      }
+      money = sellMoney;
+      merged.money = sellMoney;
       return { raw: merged, money, bet_money };
     }
 
-    // 官网/CLOB 卖单：reconcile 结果为准，允许修正错误 pmBuyOrderId
+    // 官网/CLOB 卖单
     merged = {
       ...merged,
       pmSide: "sell",
@@ -300,19 +301,10 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       betMoney: incomingBet > 0 ? incomingBet : prevBet,
       pmStakeUsdc: parseNum(merged.pmStakeUsdc ?? o.pmStakeUsdc, parseNum(prevRaw.pmStakeUsdc, 0)),
       pmRealizedPnlUsdc: merged.pmRealizedPnlUsdc ?? o.pmRealizedPnlUsdc ?? prevRaw.pmRealizedPnlUsdc,
+      money: sellMoney,
     };
     bet_money = parseNum(merged.betMoney, proceedsBet);
-    const costUsdc = parseNum(merged.pmStakeUsdc, 0);
-    if (costUsdc > 0 && bet_money > 0) {
-      const profitCny = Math.round(bet_money - costUsdc * getExchange(Currency.USDT));
-      merged.money = profitCny;
-      merged.pmRealizedPnlUsdc = Math.round((profitCny / getExchange(Currency.USDT)) * 10000) / 10000;
-      money = profitCny;
-    }
-    else {
-      money = parseNum(merged.money ?? o.money ?? o.Money, parseNum(prevRaw.money, 0));
-      merged.money = money;
-    }
+    money = sellMoney;
     return { raw: merged, money, bet_money };
   }
 
@@ -324,21 +316,13 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   const hasBetMoneyField = Object.prototype.hasOwnProperty.call(o, "betMoney")
     || Object.prototype.hasOwnProperty.call(o, "BetMoney");
   /**
-   * 手动平仓后允许本金随剩余成本下调（含卖光为 0）。
-   * 旧逻辑 `prevBet > 0 ? prevBet : incomingBet` 会把满仓本金粘死，
-   * 导致侧栏仍显示满仓、组头误算未结估盈亏。
+   * 原始投注本金（bet_money）卖出后不改写。
+   * 剩余敞口只靠 pmStakeUsdc / pmAttributedSellShares / pmSellState。
    */
-  const allowStakeUpdate = incomingSellState === "partial"
-    || incomingSellState === "closed"
-    || prevState === "partial"
-    || prevState === "closed"
-    || (prevState === "settled" && prevAttr > 0)
-    || incomingAttr > prevAttr + 1e-9;
-  let betMoneyForMerge = allowStakeUpdate && hasBetMoneyField
-    ? incomingBet
-    : (prevBet > 0 ? prevBet : incomingBet);
-  if (incomingSellState === "closed")
-    betMoneyForMerge = 0;
+  const originalBet = prevBet > 0 ? prevBet : incomingBet;
+  let betMoneyForMerge = originalBet;
+  if (!prevBet && hasBetMoneyField && incomingBet > 0)
+    betMoneyForMerge = incomingBet;
 
   const sellStateRank = (s) => {
     const v = String(s ?? "").toLowerCase();
@@ -352,26 +336,26 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   };
 
   /**
-   * 已手动卖出归因：盈亏只在卖单行。
-   * - partial/closed：明确手动平仓
-   * - settled 且 attr>0：曾被 Gamma 误标 settled，仍视为已卖出
-   * - open 且 attr>0：历史不一致，仍允许 Gamma 结算（见下方 else / 单测）
+   * 已手动卖出归因：盈亏累加在买单 money；本金保持原始。
    */
   const hasManualSellProgress = prevState === "partial"
     || prevState === "closed"
     || (prevAttr > 0 && prevState === "settled");
   if (isChangmen && hasManualSellProgress) {
-    // 允许 attr / state 单调前进（二次纠偏 / delayed 确认）；挡住 sync 回退
     const advanceAttr = incomingAttr > prevAttr + 1e-9;
     const advanceState = sellStateRank(incomingState) > sellStateRank(prevState);
-    // 不把 closed 抬成 settled（settled 易再被当成赛果盈亏）
     let nextState = advanceState || advanceAttr
       ? (incomingState ?? prevRaw.pmSellState)
       : (prevRaw.pmSellState ?? merged.pmSellState);
     if (String(nextState).toLowerCase() === "settled" && (prevState === "closed" || prevState === "partial"))
       nextState = prevState;
-    if (String(nextState).toLowerCase() === "closed")
-      betMoneyForMerge = 0;
+    const incomingMoney = parseNum(o.money ?? o.Money, 0);
+    const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
+    // 客户端 patch 已含累计盈亏时用 incoming；否则保留 prev
+    const nextMoney = incomingMoney !== 0 || Object.prototype.hasOwnProperty.call(o, "money")
+      || Object.prototype.hasOwnProperty.call(o, "Money")
+      ? incomingMoney
+      : prevMoney;
     merged = {
       ...merged,
       pmSide: "buy",
@@ -384,17 +368,27 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       pmAttributedSellShares: advanceAttr
         ? incomingAttr
         : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
-      money: 0,
+      money: nextMoney,
       status: "none",
     };
     bet_money = betMoneyForMerge;
-    money = 0;
+    money = nextMoney;
   }
   else {
-    // 首次写入 partial/closed：允许本金下调（含 0）；其它路径仍防空覆盖
-    if (allowStakeUpdate && hasBetMoneyField) {
+    // 首次写入 partial/closed：允许更新 stake/attr/money；bet_money 仍保留原始
+    const allowStakeUpdate = incomingSellState === "partial"
+      || incomingSellState === "closed"
+      || prevState === "partial"
+      || prevState === "closed"
+      || (prevState === "settled" && prevAttr > 0)
+      || incomingAttr > prevAttr + 1e-9;
+    if (allowStakeUpdate) {
       merged.betMoney = betMoneyForMerge;
       bet_money = betMoneyForMerge;
+      if (Object.prototype.hasOwnProperty.call(o, "money") || Object.prototype.hasOwnProperty.call(o, "Money")) {
+        money = parseNum(o.money ?? o.Money, 0);
+        merged.money = money;
+      }
     }
     else if (betMoneyForMerge > 0) {
       merged.betMoney = betMoneyForMerge;

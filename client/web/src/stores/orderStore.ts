@@ -1,6 +1,7 @@
 import type { OrderRow } from "@/types/order";
 import { defineStore } from "pinia";
 import { getOrderList } from "@/api/esport";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import {
   dropOrphanPolymarketSellGroups,
   filterOrdersBelongingToDate,
@@ -12,6 +13,7 @@ import {
   orderLinkMapEntries,
   toOrderDateKeyLocal,
   computeOrderGroupProfit,
+  polymarketMoneyForAggregate,
 } from "@/shared/orderLink";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { useAccountStore } from "@/stores/accountStore";
@@ -20,29 +22,6 @@ import { useUserStore } from "@/stores/userStore";
 
 function todayKey() {
   return toOrderDateKeyLocal(Date.now());
-}
-
-/** 已手动平仓的 PM 买单：盈亏在同组卖单，不计入买单 Money */
-function pmBuyMoneyCountsTowardDayProfit(row: OrderRow, peers: OrderRow[]): boolean {
-  if (String(row.Type ?? "").trim() !== "Polymarket")
-    return true;
-  if (row.PmSide === "sell")
-    return true;
-  const buyId = String(row.OrderID ?? "").trim().toLowerCase();
-  // 同列表已有指向本买单的卖单 → 一律不计买单 Money（防脏数据双计）
-  if (buyId && peers.some(r =>
-    String(r.Type ?? "").trim() === "Polymarket"
-    && r.PmSide === "sell"
-    && String(r.PmBuyOrderId ?? "").trim().toLowerCase() === buyId
-  ))
-    return false;
-  const state = String(row.PmSellState ?? "").toLowerCase();
-  const attr = Number(row.PmAttributedSellShares) || 0;
-  if (state === "closed" || state === "partial")
-    return false;
-  if (state === "settled" && attr > 0)
-    return false;
-  return true;
 }
 
 export { isLinkedArbOrderGroup as isLinkedArbGroup };
@@ -108,9 +87,7 @@ export const useOrderStore = defineStore("order", {
         this.updateTodayProfit(list);
         const reportRows = list
           .filter(r => orderBelongsToDateKey(r, this.orderDate, list))
-          .map(r => (
-            pmBuyMoneyCountsTowardDayProfit(r, list) ? r : { ...r, Money: 0 }
-          ));
+          .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, list) }));
         useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
         return true;
       }
@@ -124,8 +101,7 @@ export const useOrderStore = defineStore("order", {
       const today = this.orderDate;
       /** 展示可含跨日 sibling；盈亏只计归账日落在当日的行（PM 卖单跟买单日） */
       const inDay = list.filter(r => orderBelongsToDateKey(r, today, list));
-      const moneyOf = (r: OrderRow) =>
-        pmBuyMoneyCountsTowardDayProfit(r, inDay) ? (Number(r.Money) || 0) : 0;
+      const moneyOf = (r: OrderRow) => polymarketMoneyForAggregate(r, inDay);
       const byPlayer = new Map<number, OrderRow[]>();
       for (const row of inDay) {
         const pid = Number(row.PlayerID) || 0;
@@ -162,7 +138,16 @@ export const useOrderStore = defineStore("order", {
           acc.unsettle = unsettled.length;
           acc.winBalance
             = (acc.balance ?? 0)
-              + unsettled.reduce((sum, r) => sum + (Number(r.BetMoney) || 0) * (Number(r.Odds) || 0), 0);
+              + unsettled.reduce((sum, r) => {
+                const odds = Number(r.Odds) || 0;
+                if (String(r.Type ?? "") === "Polymarket" && r.PmSide !== "sell") {
+                  const stakeUsdc = Number(r.PmStakeUsdc) || 0;
+                  if (stakeUsdc > 0)
+                    return sum + stakeUsdc * getExchange(Currency.USDT) * odds;
+                  return sum;
+                }
+                return sum + (Number(r.BetMoney) || 0) * odds;
+              }, 0);
         }
       }
 

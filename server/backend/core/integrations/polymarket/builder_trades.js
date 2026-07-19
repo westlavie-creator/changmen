@@ -66,14 +66,21 @@ export function summarizeBuilderTrades(trades) {
   let builderFeeUsdc = 0;
   let buyCount = 0;
   let sellCount = 0;
+  let buyVolumeUsdc = 0;
+  let sellVolumeUsdc = 0;
   for (const t of trades) {
-    volumeUsdc += t.sizeUsdc;
+    const size = Number(t.sizeUsdc) || 0;
+    volumeUsdc += size;
     feeUsdc += Number(t.feeUsdc) || 0;
     builderFeeUsdc += Number(t.builderFeeUsdc) || 0;
-    if (t.side === "BUY")
+    if (t.side === "BUY") {
       buyCount += 1;
-    else if (t.side === "SELL")
+      buyVolumeUsdc += size;
+    }
+    else if (t.side === "SELL") {
       sellCount += 1;
+      sellVolumeUsdc += size;
+    }
   }
   return {
     tradeCount: trades.length,
@@ -82,6 +89,8 @@ export function summarizeBuilderTrades(trades) {
     builderFeeUsdc,
     buyCount,
     sellCount,
+    buyVolumeUsdc,
+    sellVolumeUsdc,
   };
 }
 

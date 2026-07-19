@@ -133,19 +133,44 @@ function parseRange(body = {}) {
   return { startMs, endMs: startMs + 86400000 };
 }
 
+/** orders.match / bet：PM 多为纯文本标题；其它场馆偶发 JSON `{Title}` */
+function parseOrderTextField(raw) {
+  if (raw == null)
+    return "";
+  if (typeof raw === "object" && !Array.isArray(raw))
+    return String(raw.Title || raw.title || "").trim();
+  const s = String(raw).trim();
+  if (!s)
+    return "";
+  if (s.startsWith("{")) {
+    try {
+      const o = JSON.parse(s);
+      return String(o?.Title || o?.title || s).trim();
+    }
+    catch { /* plain text */ }
+  }
+  return s;
+}
+
+function resolveOrderGame(row, matchTitle) {
+  const fromCol = String(row.game || "").trim();
+  if (fromCol)
+    return fromCol;
+  const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw) ? row.raw : {};
+  const fromRaw = String(raw.game || "").trim();
+  if (fromRaw)
+    return fromRaw;
+  // 卖单 raw.game 常空：从 "Counter-Strike: Team vs …" 抽前缀
+  const m = String(matchTitle || "").match(/^([^:：]{2,40})\s*[:：]/);
+  return m ? m[1].trim() : "";
+}
+
 function mapChangmenOrder(row) {
-  let matchTitle = "";
-  let betTitle = "";
-  try {
-    const match = typeof row.match === "string" ? JSON.parse(row.match) : row.match;
-    matchTitle = match?.Title || match?.title || "";
-  }
-  catch { /* ignore */ }
-  try {
-    const bet = typeof row.bet === "string" ? JSON.parse(row.bet) : row.bet;
-    betTitle = bet?.Title || bet?.title || "";
-  }
-  catch { /* ignore */ }
+  const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw) ? row.raw : {};
+  const matchTitle = parseOrderTextField(row.match);
+  const betTitle = parseOrderTextField(row.bet);
+  const fillPrice = Number(row.fill_price ?? raw.pmFillPrice);
+  const sellState = String(raw.pmSellState || "").trim();
   return {
     orderId: row.order_id,
     userId: row.user_id,
@@ -155,10 +180,22 @@ function mapChangmenOrder(row) {
     status: row.status,
     betMoney: Number(row.bet_money) || 0,
     profit: Number(row.money) || 0,
-    message: row.message || "",
+    odds: Number(row.odds) || 0,
+    price: Number.isFinite(fillPrice) && fillPrice > 0 ? fillPrice : 0,
+    game: resolveOrderGame(row, matchTitle),
+    pmSide: String(row.pm_side || raw.pmSide || "").trim(),
+    pmShares: Number(raw.pmShares) || 0,
+    pmStakeUsdc: Number(raw.pmStakeUsdc) || 0,
+    pmSellState: sellState === "open"
+      || sellState === "partial"
+      || sellState === "closed"
+      || sellState === "settled"
+      ? sellState
+      : "",
+    pmAttributedSellShares: Number(raw.pmAttributedSellShares) || 0,
     matchTitle,
     betTitle,
-    item: row.item || "",
+    item: String(row.item || "").trim(),
     createAt: Number(row.create_at) || 0,
     updateAt: Number(row.update_at) || Number(row.create_at) || 0,
   };
@@ -172,7 +209,7 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
   const afterSec = Math.floor(startMs / 1000);
   const beforeSec = Math.floor(endMs / 1000);
   const maxPages = Number(body.maxPages) || 5;
-  const orderLimit = Math.min(Math.max(Number(body.orderLimit) || 100, 1), 500);
+  const orderLimit = Math.min(Math.max(Number(body.orderLimit) || 500, 1), 500);
 
   let userIds;
   const builderCode = resolvePolymarketBuilderCode();

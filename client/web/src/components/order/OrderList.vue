@@ -488,7 +488,15 @@ function badgeTitle(row: OrderRow): string {
               </div>
               <div class="order__profit-line">
                 {{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}
-                <template v-if="isPendingRow(row) && !pmBuyLifecycleTagText(row) && !isPmSellOrderListRow(row)">
+                <template v-if="isPmSellOrderListRow(row)">
+                  <template v-if="Math.abs(Number(row.Money) || 0) > 0.01">
+                    盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+                  </template>
+                  <template v-else>
+                    盈亏：—
+                  </template>
+                </template>
+                <template v-else-if="isPendingRow(row) && !pmBuyLifecycleTagText(row)">
                   盈亏：待结算
                 </template>
                 <template v-else>

@@ -104,24 +104,24 @@ describe("orderLink A8 parity", () => {
     expect(text.startsWith("💎")).toBe(true);
   });
 
-  it("computeOrderGroupProfit uses sell Money when buy is closed", () => {
-    const profitOpen = computeOrderGroupProfit([
-      { Type: "OB", Money: 10 },
-      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 36, Status: "Win", PmSellState: "open" },
-      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
-    ]);
-    // 有卖单指向买单时不计买单 Money；open 时也不计卖单 → 仅 OB
-    expect(profitOpen).toBe(10);
-
-    const profitClosed = computeOrderGroupProfit([
+  it("computeOrderGroupProfit uses buy Money when present; else legacy sell Money", () => {
+    const profitLegacy = computeOrderGroupProfit([
       { Type: "OB", Money: 10 },
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "closed" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
     ]);
-    expect(profitClosed).toBe(25);
+    expect(profitLegacy).toBe(25);
+
+    const profitNew = computeOrderGroupProfit([
+      { Type: "OB", Money: 10 },
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 15, Status: "None", PmSellState: "closed" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
+    ]);
+    // 买单已有盈亏时不计卖单，防双计
+    expect(profitNew).toBe(25);
   });
 
-  it("computeOrderGroupProfit skips buy Money when sell exists (no double count)", () => {
+  it("computeOrderGroupProfit does not double-count when both have Money", () => {
     const profit = computeOrderGroupProfit([
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 184, Status: "None", PmSellState: "settled" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 184, BetMoney: 384, PmBuyOrderId: "buy" },
@@ -129,7 +129,7 @@ describe("orderLink A8 parity", () => {
     expect(profit).toBe(184);
   });
 
-  it("orderLinkLegend uses sell P&L after dust-closed partial buy (not bet×odds)", () => {
+  it("orderLinkLegend uses sell P&L when buy Money still 0 (legacy)", () => {
     const text = orderLinkLegend([
       {
         OrderID: "0xsell",
@@ -163,6 +163,7 @@ describe("orderLink A8 parity", () => {
         PmShares: 48.2353,
         PmAttributedSellShares: 48.23,
         PmSellState: "partial",
+        PmStakeUsdc: 0,
       },
     ]);
     expect(text).toBe("+3");
@@ -224,7 +225,15 @@ describe("orderLink A8 parity", () => {
       .toEqual(["ob", "pm"]);
   });
 
-  it("computeOrderGroupProfit includes sell Money on partial close", () => {
+  it("computeOrderGroupProfit includes buy Money on partial close (new model)", () => {
+    const profit = computeOrderGroupProfit([
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 8, Status: "None", PmSellState: "partial" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 0, BetMoney: 40, PmBuyOrderId: "buy" },
+    ]);
+    expect(profit).toBe(8);
+  });
+
+  it("computeOrderGroupProfit includes legacy sell Money on partial close", () => {
     const profit = computeOrderGroupProfit([
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "partial" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 8, BetMoney: 40, PmBuyOrderId: "buy" },

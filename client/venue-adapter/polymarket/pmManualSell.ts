@@ -221,6 +221,10 @@ function buildSellAndBuyPatchOrders(params: {
   const profitUsdc = round4(proceedsUsdc - costPortion);
   const proceedsCny = polymarketCnyFromUsdt(proceedsUsdc);
   const profitCny = Math.round(polymarketCnyFromUsdt(profitUsdc));
+  const prevBuyMoney = Number(buy.money) || 0;
+  const originalBetMoney = Number(buy.betMoney) > 0
+    ? Number(buy.betMoney)
+    : Math.round(polymarketCnyFromUsdt(costUsdc) * 100) / 100;
 
   const sell: VenueOrder = {
     provider: PLATFORMS.Polymarket,
@@ -229,7 +233,8 @@ function buildSellAndBuyPatchOrders(params: {
     createAt,
     betMoney: proceedsCny,
     reward: 0,
-    money: profitCny,
+    // [changmen] 已实现盈亏统一记买单；卖单只保留回款流水
+    money: 0,
     status: "none",
     game: buy.game,
     match: buy.match,
@@ -264,9 +269,10 @@ function buildSellAndBuyPatchOrders(params: {
     pmAttributedSellShares: attributed,
     pmSellState: closed ? "closed" : "partial",
     pmStakeUsdc: stakeLeftUsdc,
-    // 投注金额跟剩余成本，避免侧栏仍显示满仓本金
-    betMoney: closed ? 0 : Math.round(polymarketCnyFromUsdt(stakeLeftUsdc) * 100) / 100,
-    money: 0,
+    // 原始投注本金不改；剩余敞口只看 pmStakeUsdc / 剩余份额
+    betMoney: originalBetMoney,
+    money: prevBuyMoney + profitCny,
+    pmRealizedPnlUsdc: round4((Number(buy.pmRealizedPnlUsdc) || 0) + profitUsdc),
     status: "none",
   };
 

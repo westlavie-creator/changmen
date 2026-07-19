@@ -1025,18 +1025,19 @@ export async function fetchPolymarketOrderStatsInRange(startMs, endMs, userIds) 
 }
 
 /** Polymarket Builder 看板：时间范围内 changmen Polymarket 订单列表 */
-export async function fetchPolymarketOrdersInRange(startMs, endMs, userIds, limit = 100) {
+export async function fetchPolymarketOrdersInRange(startMs, endMs, userIds, limit = 500) {
   const pool = getPgPool();
   if (!pool)
     return [];
   try {
     const { params, where } = polymarketOrdersRangeWhere(startMs, endMs, userIds);
-    params.push(Math.min(Math.max(Number(limit) || 100, 1), 500));
-    // orders 表无 message / update_at 列；文案在 raw jsonb
+    params.push(Math.min(Math.max(Number(limit) || 500, 1), 500));
     const { rows } = await pool.query(
       `SELECT o.order_id, o.user_id, o.player_id, o.provider, o.match, o.bet, o.item,
-              o.status, o.bet_money, o.money, o.create_at,
-              COALESCE(o.raw->>'message', o.raw->>'Message', '') AS message,
+              o.status, o.bet_money, o.money, o.odds, o.create_at, o.raw,
+              COALESCE(o.raw->>'game', '') AS game,
+              COALESCE(o.raw->>'pmSide', '') AS pm_side,
+              NULLIF(o.raw->>'pmFillPrice', '')::float AS fill_price,
               p.user_name
        FROM orders o
        LEFT JOIN profiles p ON p.id = o.user_id

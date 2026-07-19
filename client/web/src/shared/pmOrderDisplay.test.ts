@@ -123,14 +123,14 @@ describe("pmOrderDisplay", () => {
       PmStakeUsdc: 0,
       BetMoney: 0,
     })).toBe(34);
-    // partial：BetMoney 已是剩余，仍还原原始 fill×价
+    // 卖出后 BetMoney 保留原始本金（不再缩成剩余）
     expect(pmOrderStakeDisplayCny({
       ...pmBuy,
       PmSellState: "partial",
       PmAttributedSellShares: 2,
       PmStakeUsdc: 3,
-      BetMoney: 20,
-    })).toBe(34);
+      BetMoney: 35,
+    })).toBe(35);
     expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖单卖出价");
     expect(pmOrderPriceLabel(pmBuy)).toBe("买单买入价");
     expect(pmOrderSideTagText({ ...pmBuy, PmSide: "sell" })).toBe("卖单");

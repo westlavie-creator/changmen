@@ -311,7 +311,16 @@ export interface PolymarketChangmenOrderRow {
   status: string;
   betMoney: number;
   profit: number;
-  message: string;
+  odds: number;
+  /** CLOB 成交价 0–1 */
+  price: number;
+  /** 比赛类型，如 cs2 / lol */
+  game: string;
+  pmSide: string;
+  pmShares: number;
+  pmStakeUsdc: number;
+  pmSellState: "" | "open" | "partial" | "closed" | "settled";
+  pmAttributedSellShares: number;
   matchTitle: string;
   betTitle: string;
   item: string;
@@ -334,6 +343,8 @@ export interface PolymarketBuilderDashboardPayload {
       builderFeeUsdc: number;
       buyCount: number;
       sellCount: number;
+      buyVolumeUsdc: number;
+      sellVolumeUsdc: number;
     };
     pagesFetched: number;
     nextCursor: string | null;

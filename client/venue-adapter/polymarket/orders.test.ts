@@ -956,7 +956,7 @@ describe("applyPolymarketSettlement", () => {
     expect(orders[0]?.pmShares).toBe(10);
     expect(orders[0]?.pmAttributedSellShares).toBe(4);
     expect(orders[0]?.pmStakeUsdc).toBe(6);
-    expect(orders[0]?.betMoney).toBe(6);
+    expect(orders[0]?.betMoney).toBe(10);
   });
 
   test("applyPolymarketNetPositions skips changmen rows", () => {

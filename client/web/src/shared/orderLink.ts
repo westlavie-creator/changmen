@@ -2,6 +2,7 @@ import type { LoseOrderCancelledRecord, OrderRow } from "@/types/order";
 import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@changmen/client-core/shared/format";
+import { Currency, getExchange } from "@changmen/shared/currency";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {
@@ -398,35 +399,35 @@ export function mergePendingMakeupIntoOrderGroups(
   return groupOrdersByLink(allRows);
 }
 
-/** 组内盈亏：PM 已实现卖出计入卖单 Money；对应买单有卖单时买单 Money 不重复计 */
+/** 组内盈亏：优先买单 Money（新模型）；买单仍为 0 时回退卖单 Money（迁移前旧数据） */
+export function polymarketMoneyForAggregate(row: OrderRow, peers: OrderRow[]): number {
+  if (isMakeupSyntheticOrderRow(row))
+    return 0;
+  if (!isPolymarketOrderRow(row))
+    return Number(row.Money) || 0;
+
+  if (row.PmSide === "sell") {
+    const buyId = String(row.PmBuyOrderId ?? "").trim().toLowerCase();
+    if (buyId) {
+      const buy = peers.find(r =>
+        isPolymarketOrderRow(r)
+        && r.PmSide !== "sell"
+        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
+      );
+      // 新模型：盈亏已累加到买单
+      if (buy && Math.abs(Number(buy.Money) || 0) > 1e-9)
+        return 0;
+    }
+    // 旧数据 / orphan：盈亏仍在卖单
+    return Number(row.Money) || 0;
+  }
+
+  return Number(row.Money) || 0;
+}
+
+/** 组内盈亏合计 */
 export function computeOrderGroupProfit(rows: OrderRow[]): number {
-  const buyIdsWithSell = new Set(
-    rows
-      .filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell")
-      .map(r => String(r.PmBuyOrderId ?? "").trim())
-      .filter(Boolean),
-  );
-  return rows
-    .filter((r) => {
-      if (isMakeupSyntheticOrderRow(r))
-        return false;
-      if (isPolymarketOrderRow(r) && r.PmSide === "sell") {
-        const buyId = String(r.PmBuyOrderId ?? "").trim();
-        const buy = buyId
-          ? rows.find(b => isPolymarketOrderRow(b) && b.PmSide !== "sell" && String(b.OrderID) === buyId)
-          : undefined;
-        // 无对应买单：仍计卖单；有买单则全平/部份平都计入已实现
-        if (!buy)
-          return true;
-        const state = buy.PmSellState;
-        return state === "closed" || state === "settled" || state === "partial";
-      }
-      // 已有挂到本买单的卖单：盈亏在卖单行，跳过买单 Money（避免双计）
-      if (isPolymarketOrderRow(r) && r.PmSide !== "sell" && buyIdsWithSell.has(String(r.OrderID ?? "").trim()))
-        return false;
-      return true;
-    })
-    .reduce((sum, r) => sum + (Number(r.Money) || 0), 0);
+  return rows.reduce((sum, r) => sum + polymarketMoneyForAggregate(r, rows), 0);
 }
 
 /** PM 买单已无剩余持仓（含 FOK 尘量卖光但仍标 partial） */
@@ -453,7 +454,16 @@ export function orderLinkLegend(rows: OrderRow[]): string {
       && !isMakeupSyntheticOrderRow(r)
       && !isPmExitedBuy(r),
     )
-    .reduce((sum, r) => sum + (Number(r.BetMoney) || 0), 0);
+    .reduce((sum, r) => {
+      if (isPolymarketOrderRow(r)) {
+        const usdc = Number(r.PmStakeUsdc) || 0;
+        if (usdc > 0)
+          return sum + usdc * getExchange(Currency.USDT);
+        // 无 pmStakeUsdc 的未卖出旧行：BetMoney 即满仓成本
+        return sum + (Number(r.BetMoney) || 0);
+      }
+      return sum + (Number(r.BetMoney) || 0);
+    }, 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
   const makeupPrefix = hasMakeup ? "补单中 · " : "";
   const unsettledPreview = rows
@@ -464,7 +474,13 @@ export function orderLinkLegend(rows: OrderRow[]): string {
     )
     .map((r) => {
       const odds = Number(r.Odds) || 0;
-      const bet = Number(r.BetMoney) || 0;
+      let bet = Number(r.BetMoney) || 0;
+      if (isPolymarketOrderRow(r)) {
+        const usdc = Number(r.PmStakeUsdc) || 0;
+        if (usdc > 0)
+          bet = usdc * getExchange(Currency.USDT);
+        // else 保留 BetMoney（未卖出满仓）
+      }
       return toFixed(bet * odds - stake, 0);
     });
   if (unsettledPreview.length)

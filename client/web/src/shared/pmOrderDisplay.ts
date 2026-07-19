@@ -73,15 +73,22 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
     return raw;
 
   if (isPmSellOrderListRow(row)) {
-    const bet = Number(row.BetMoney) || 0;
-    const money = Number(row.Money) || 0;
-    // 尚未成交回款：仍待结算（延迟成交等）
-    if (bet <= 0 && money === 0)
-      return "None";
-    if (money > 0)
+    // 盈亏已记买单；卖单 Money 应为 0。角标优先 pmRealizedPnlUsdc，兼容迁移前 Money
+    const pnl = Number(row.PmRealizedPnlUsdc);
+    if (Number.isFinite(pnl) && pnl !== 0) {
+      if (pnl > 0)
+        return "Win";
+      if (pnl < 0)
+        return "Lose";
+    }
+    const legacyMoney = Number(row.Money) || 0;
+    if (legacyMoney > 0)
       return "Win";
-    if (money < 0)
+    if (legacyMoney < 0)
       return "Lose";
+    const bet = Number(row.BetMoney) || 0;
+    if (bet <= 0)
+      return "None";
     return "Return";
   }
 
@@ -113,24 +120,27 @@ export function pmOrderSharesText(row: OrderRow): string | null {
 
 /**
  * 买单原始本金（CNY）：订单记录口径。
- * - 未卖出：优先库内 BetMoney（与下单落库一致）
- * - 已有卖出进度：RDS 常把 bet_money/pmStakeUsdc 改成剩余，用 fill×买入价还原原始本金
+ * - 优先库内 BetMoney（卖出后不再改写原始本金）
+ * - 旧数据 closed 且 bet_money=0：用 fill×买入价还原
  */
 export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
+  const stored = Number(row.BetMoney) || 0;
+  if (stored > 0)
+    return stored;
+
   const attr = Number(row.PmAttributedSellShares) || 0;
   const soldProgress = attr > 0
     || row.PmSellState === "partial"
     || row.PmSellState === "closed"
     || row.PmSellState === "settled";
-  const stored = Number(row.BetMoney) || 0;
-  if (!soldProgress && stored > 0)
-    return stored;
+  if (!soldProgress)
+    return 0;
 
   const fill = resolvePmFillShares(row);
   const price = resolvePmFillPrice(row);
   if (fill > 0.0001 && price != null && price > 0)
     return Math.round(fill * price * getExchange(Currency.USDT));
-  return stored;
+  return 0;
 }
 
 /** 买单展示本金（CNY）= 原始成交本金；卖单为回款 BetMoney */

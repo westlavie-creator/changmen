@@ -802,10 +802,13 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
     const profitUsdc = round4(proceedsUsdc - costPortion);
 
     sell.pmRealizedPnlUsdc = profitUsdc;
-    sell.money = profitUsdc;
+    // 已实现盈亏累加买单；卖单只保留回款
+    sell.money = 0;
     sell.betMoney = proceedsUsdc;
     sell.pmStakeUsdc = costPortion;
 
+    buy.money = round4((Number(buy.money) || 0) + profitUsdc);
+    buy.pmRealizedPnlUsdc = round4((Number(buy.pmRealizedPnlUsdc) || 0) + profitUsdc);
     buy._remainingShares = round4(buy._remainingShares - deduct);
     buy._remainingStake = round4(buy._remainingStake - costPortion);
     buy.pmAttributedSellShares = round4((buy.pmAttributedSellShares ?? 0) + deduct);
@@ -824,20 +827,23 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
 /** RDS 侧栏行（CNY）→ 与 CLOB 合并用的 USDC VenueOrder */
 function storedVenueOrderToUsdc(stored: VenueOrder): VenueOrder {
   const stakeUsdc = Number(stored.pmStakeUsdc) || 0;
-  const betUsdc = stored.pmSide === "sell"
-    ? round4((Number(stored.betMoney) || 0) / getExchange(Currency.USDT))
-    : (stakeUsdc > 0 ? stakeUsdc : round4((Number(stored.betMoney) || 0) / getExchange(Currency.USDT)));
+  const betUsdc = round4((Number(stored.betMoney) || 0) / getExchange(Currency.USDT));
+  const sellState = String(stored.pmSellState ?? "").toLowerCase();
+  // 原始 betMoney 始终换算保留；剩余敞口只看 pmStakeUsdc
+  let nextStake = stakeUsdc;
+  if (stored.pmSide !== "sell" && nextStake <= 0 && sellState !== "closed" && sellState !== "settled")
+    nextStake = betUsdc;
   return {
     ...stored,
     pmOrigin: "changmen",
     betMoney: betUsdc,
     money: round4((Number(stored.money) || 0) / getExchange(Currency.USDT)),
-    pmStakeUsdc: stakeUsdc > 0 ? stakeUsdc : (stored.pmSide === "buy" ? betUsdc : stakeUsdc),
+    pmStakeUsdc: nextStake,
   };
 }
 
 /**
- * 份额已全部归因卖出时，通常不再写 Gamma 赛果（盈亏在卖单行）。
+ * 份额已全部归因卖出时，不再写 Gamma 赛果（盈亏已在买单 money）。
  * 例外：pmSellState 仍为 open 但 attr 已满 — 数据不一致，允许 Gamma 结算。
  */
 export function changmenSoldOutBlocksGammaSettlement(order: VenueOrder): boolean {
@@ -859,7 +865,7 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     const costUsdc = base.pmStakeUsdc ?? 0;
     const profitUsdc = costUsdc > 0 && betUsdc > 0
       ? round4(betUsdc - costUsdc)
-      : base.money;
+      : (Number(base.pmRealizedPnlUsdc) || 0);
     return {
       ...base,
       pmSide: "sell",
@@ -872,7 +878,7 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
       odds: clob.odds || base.odds,
       pmStakeUsdc: costUsdc,
       pmRealizedPnlUsdc: profitUsdc,
-      money: profitUsdc,
+      money: 0,
       status: base.status !== "none" ? base.status : clob.status,
       match: base.match || clob.match,
       bet: base.bet || clob.bet,
@@ -890,24 +896,28 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     ? "settled"
     : (base.pmSellState ?? clob.pmSellState);
 
+  // 已卖光：保留买单上已累计的卖出盈亏，勿清零
   let nextStatus = blockGammaSettlement ? base.status : (gammaSettled ? clob.status : base.status);
-  let nextMoney = blockGammaSettlement ? 0 : (gammaSettled ? clob.money : base.money);
-  let nextReward = blockGammaSettlement ? 0 : (gammaSettled ? clob.reward : base.reward);
+  let nextMoney = blockGammaSettlement ? base.money : (gammaSettled ? clob.money : base.money);
+  let nextReward = blockGammaSettlement ? base.reward : (gammaSettled ? clob.reward : base.reward);
 
-  // 部分卖出后赛果结算：只按剩余持仓兑付，避免 clob 满仓份额虚增盈亏
+  // 部分卖出后赛果结算：剩余仓位兑付累加到已有卖出盈亏上
   if (!blockGammaSettlement && gammaSettled && (clob.status === "win" || clob.status === "lose")) {
     const remaining = resolvePmRemainingShares(base);
     const fill = Math.max(resolvePmFillShares(base), Number(clob.pmShares) || 0);
     if (remaining > 0.0001 && fill > remaining + 0.0001) {
-      const stakeUsdc = Number(base.pmStakeUsdc) > 0 ? Number(base.pmStakeUsdc) : base.betMoney;
+      const stakeUsdc = Number(base.pmStakeUsdc) > 0 ? Number(base.pmStakeUsdc) : 0;
+      const priorMoney = Number(base.money) || 0;
+      let residualPnl = 0;
       if (clob.status === "win") {
         nextReward = round4(remaining);
-        nextMoney = round4(nextReward - stakeUsdc);
+        residualPnl = round4(nextReward - stakeUsdc);
       }
       else {
         nextReward = 0;
-        nextMoney = round4(-stakeUsdc);
+        residualPnl = round4(-stakeUsdc);
       }
+      nextMoney = round4(priorMoney + residualPnl);
       nextStatus = clob.status;
     }
   }
@@ -1058,12 +1068,12 @@ export function applyPolymarketExternalSellDeduction(
       continue;
 
     const remaining = resolvePmRemainingShares(order);
-    const stake = order.pmStakeUsdc ?? order.betMoney;
+    const stake = order.pmStakeUsdc ?? 0;
     const deduct = Math.min(remaining, soldLeft);
     const ratio = remaining > 0 ? deduct / remaining : 0;
     order.pmAttributedSellShares = round4((order.pmAttributedSellShares ?? 0) + deduct);
-    order.pmStakeUsdc = round4(stake * (1 - ratio));
-    order.betMoney = round4(order.betMoney * (1 - ratio));
+    order.pmStakeUsdc = round4(Number(stake) * (1 - ratio));
+    // 原始 betMoney 不随 external 卖出扣减
     soldRemaining.set(tokenId, round4(soldLeft - deduct));
   }
   return orders;

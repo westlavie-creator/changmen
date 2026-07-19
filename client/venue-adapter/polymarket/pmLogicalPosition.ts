@@ -52,13 +52,20 @@ export function resolvePmRemainingShares(order: OrderRowLike | VenueOrder): numb
   return rem <= PM_SHARE_DUST ? 0 : rem;
 }
 
-/** 买单成本（USDC）：pmStakeUsdc 优先，否则 BetMoney(CNY) ÷ exchange */
+/** 买单成本（USDC）：剩余敞口用 pmStakeUsdc；无剩余仓时不得回落原始 BetMoney */
 export function resolveBuyStakeUsdc(buy: VenueOrder | OrderRowLike): number {
   const venue = buy as VenueOrder;
   const row = buy as OrderRowLike;
+  const remaining = resolvePmRemainingShares(buy);
+  const state = String(row.PmSellState ?? venue.pmSellState ?? "").toLowerCase();
+  if (state === "closed" || remaining <= 0)
+    return 0;
   const stakeUsdc = Number(venue.pmStakeUsdc ?? row.PmStakeUsdc);
   if (Number.isFinite(stakeUsdc) && stakeUsdc > 0)
     return round4(stakeUsdc);
+  // 仅未卖/无 stake 字段时，用 BetMoney 作满仓成本兜底
+  if (state === "partial" || (Number(row.PmAttributedSellShares ?? venue.pmAttributedSellShares) || 0) > 0)
+    return 0;
   const betDisplay = Number(venue.betMoney ?? row.BetMoney) || 0;
   if (betDisplay > 0)
     return round4(betDisplay / getExchange(Currency.USDT));
