@@ -14,7 +14,7 @@ import { runPredictFunDiscoveryCycle } from "./loop.js";
 
 loadChangmenEnv();
 
-const DISCOVERY_MS = Number(process.env.PREDICTFUN_COLLECTOR_INTERVAL_MS || 60_000);
+const DISCOVERY_MS = Number(process.env.PREDICTFUN_COLLECTOR_INTERVAL_MS || 15_000);
 let stopped = false;
 
 async function tick() {

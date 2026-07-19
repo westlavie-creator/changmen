@@ -84,6 +84,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         DATABASE_APPLICATION_NAME: "changmen-predictfun-collector",
+        PREDICTFUN_COLLECTOR_INTERVAL_MS: "15000",
         // [changmen 临时] PF 未来窗 12h；恢复 A8 1h 时删此行或改 3600000
         PREDICTFUN_COLLECTOR_FUTURE_MS: String(12 * 3600 * 1000),
       },

@@ -23,7 +23,8 @@ import {
 } from "./marketQuoteHub";
 
 const PLATFORM = PLATFORMS.PredictFun;
-const INDEX_SYNC_MS = 30_000;
+/** MarketIndex → fo；加快以缩小 Sources/列表与预检实时盘口的偏差（勿用 CheckBet 现价回写 fo） */
+const INDEX_SYNC_MS = 8_000;
 const QUOTE_CONSUMER = "esport" as const;
 
 export function saveTokenQuote(

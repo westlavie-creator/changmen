@@ -182,11 +182,15 @@ export async function resolveExecutableBuy({
   const asks = filterAsksByMaxPrice(book.asks ?? [], maxPrice);
   if (!asks.length) {
     const best = bestAskFromPredictBook(book);
+    const liveOdds = best > 0 ? truncateOddsTo3(1 / best) : 0;
+    const detectOdds = Number(detectionOdds) > 1 ? truncateOddsTo3(detectionOdds) : 0;
     throw new Error([
       "Predict.fun 盘口价高于检测价，整单取消",
       best > 0
-        ? `- 最佳卖价 ${best}（赔率 ${truncateOddsTo3(1 / best)}）高于检测上限 ${maxPrice}`
+        ? `- 现价 ${best}（赔率 ${liveOdds}）高于检测上限 ${maxPrice}`
+          + (detectOdds > 1 ? `（页面检测赔率 ${detectOdds}）` : "")
         : "- 盘口无卖单",
+      "- 列表赔率刷新有滞后；请等盘口跟上后再下（预检不会用现价改 fo）",
     ].join("\n"));
   }
 

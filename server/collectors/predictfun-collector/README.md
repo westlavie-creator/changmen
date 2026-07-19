@@ -9,7 +9,7 @@ VPS 守护进程：Predict.fun **REST discovery** → `platform_matches` / `plat
 | 环境 | 命令 |
 |------|------|
 | 开发 | 仓库根 `npm run predictfun-collector` |
-| 生产 PM2 | `changmen-predictfun-collector`（ecosystem 已注册，**默认 deploy 不启动**） |
+| 生产 PM2 | `changmen-predictfun-collector`（ecosystem 已注册，**默认随 deploy 与 PM collector 同启**） |
 
 必需 env：
 
@@ -22,7 +22,7 @@ VPS 守护进程：Predict.fun **REST discovery** → `platform_matches` / `plat
 
 | 变量 | 说明 |
 |------|------|
-| `PREDICTFUN_COLLECTOR_INTERVAL_MS` | 默认 60s |
+| `PREDICTFUN_COLLECTOR_INTERVAL_MS` | 默认 **15s**（加快列表赔率；可用环境变量覆盖） |
 | `PREDICTFUN_COLLECTOR_FUTURE_MS` | 采集未来窗；**当前临时默认 12h**（`43200000`）；恢复 A8 对齐时设 `3600000` |
 
 Discovery 按 `tagIds=83`（Esports）拉取 `ESPORTS_LOL` / `ESPORTS_CS2` 等；**不再**默认 `SPORTS_TEAM_MATCH`（那是 MLB）。过滤后 0 条时**不 clear** `platform_*`。
