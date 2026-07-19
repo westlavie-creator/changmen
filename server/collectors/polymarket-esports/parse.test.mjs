@@ -87,6 +87,30 @@ describe("polymarket-esports parse", () => {
     assert.equal(mapped.outcomeKind, "price");
   });
 
+  it("attaches resolutionSource from Gamma event", () => {
+    const market = {
+      condition_id: "0xcond",
+      sportsMarketType: "moneyline",
+      groupItemTitle: "Match Winner",
+      active: true,
+      closed: false,
+      clob_token_ids: '["tok-h","tok-a"]',
+      outcomes: '["T1","GEN"]',
+      gameStartTime: Date.now() + 600_000,
+      events: [{
+        id: "evt-1",
+        title: "T1 vs GEN",
+        slug: "lol-t1-gen",
+        resolutionSource: "https://www.twitch.tv/valorantesports_cn",
+      }],
+      tags: [{ slug: "lol", label: "LoL" }],
+    };
+    const mapped = buildPolymarketMappedMarket(market, { "tok-h": 0.55, "tok-a": 0.48 });
+    assert.ok(mapped);
+    assert.equal(mapped.resolutionSource, "https://www.twitch.tv/valorantesports_cn");
+    assert.equal(mapped.eventSlug, "lol-t1-gen");
+  });
+
   it("rejects yes/no outcomes", () => {
     const market = {
       condition_id: "0xcond",

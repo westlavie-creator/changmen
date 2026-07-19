@@ -37,6 +37,12 @@ export function persistPolymarketMarketIndex(candidates, buyPrices = {}) {
     const outcomeKind = mapped.outcomeKind === "official" || mapped.outcomeKind === "price"
       ? mapped.outcomeKind
       : undefined;
+    const resolutionSource = mapped.resolutionSource != null && String(mapped.resolutionSource).trim()
+      ? String(mapped.resolutionSource).trim()
+      : undefined;
+    const eventSlug = mapped.eventSlug != null && String(mapped.eventSlug).trim()
+      ? String(mapped.eventSlug).trim()
+      : undefined;
     return {
       sourceMatchId: String(mapped.match.SourceMatchID),
       marketId: String(mapped.marketId),
@@ -56,6 +62,8 @@ export function persistPolymarketMarketIndex(candidates, buyPrices = {}) {
         ? { awayClobPrice: awayClob }
         : {}),
       ...(mapOutcome ? { mapOutcome, outcomeKind: outcomeKind || "price" } : {}),
+      ...(resolutionSource ? { resolutionSource } : {}),
+      ...(eventSlug ? { eventSlug } : {}),
     };
   });
   writePolymarketMarketIndex(buildPolymarketMarketIndexFromEntries(entries));

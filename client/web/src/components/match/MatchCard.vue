@@ -2,10 +2,15 @@
 import type { ViewMatch } from "@/models/match";
 import BetRow from "@/components/match/BetRow.vue";
 import { formatDate } from "@changmen/client-core/shared/format";
-import { buildPmSportDisplayParts } from "@/shared/pmSportDisplay";
-import { storeToRefs } from "pinia";
+import {
+  formatResolutionSourceLabel,
+  normalizeResolutionSourceHref,
+} from "@/shared/pmSportDisplay";
+import {
+  lookupResolutionSourceBySourceMatchId,
+  pmMapOutcomeTick,
+} from "@changmen/venue-adapter/polymarket";
 import { computed } from "vue";
-import { useMatchStore } from "@/stores/matchStore";
 
 /** 默认 true：电竞 HomeView 不传时必须允许下注。
  * Vue 对 `boolean` 缺省会铸成 false；若无 default，中转 `:allow-betting` 会把电竞一并锁死。 */
@@ -20,12 +25,18 @@ const props = withDefaults(
   { allowBetting: true },
 );
 
-const { pmSportTick } = storeToRefs(useMatchStore());
-
-const pmSportParts = computed(() => {
-  void pmSportTick.value;
-  return buildPmSportDisplayParts(props.match.pmSport);
+/** Gamma resolutionSource（经 MarketIndex）；Index 未命中时回退 pm_sport 上的同字段（Gamma 合并写入，非 Sports 比分） */
+const resolutionSource = computed(() => {
+  void pmMapOutcomeTick.value;
+  const fromIndex = lookupResolutionSourceBySourceMatchId(props.match.providers?.Polymarket);
+  if (fromIndex)
+    return fromIndex;
+  const fromPmSport = String(props.match.pmSport?.resolutionSource ?? "").trim();
+  return fromPmSport || null;
 });
+
+const resolutionLabel = computed(() => formatResolutionSourceLabel(resolutionSource.value || undefined));
+const resolutionHref = computed(() => normalizeResolutionSourceHref(resolutionSource.value || undefined));
 </script>
 
 <template>
@@ -34,18 +45,13 @@ const pmSportParts = computed(() => {
       <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
-      <span v-if="pmSportParts.length" class="pm-sport">
-        <template v-for="(part, index) in pmSportParts" :key="index">
-          <span v-if="index > 0" class="pm-sport-sep"> · </span>
-          <a
-            v-if="part.kind === 'link'"
-            class="pm-sport-link"
-            :href="part.href"
-            target="_blank"
-            rel="noopener noreferrer"
-          >{{ part.text }}</a>
-          <span v-else>{{ part.text }}</span>
-        </template>
+      <span v-if="resolutionLabel && resolutionHref" class="pm-sport">
+        <a
+          class="pm-sport-link"
+          :href="resolutionHref"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{{ resolutionLabel }}</a>
       </span>
     </div>
     <div class="bets flex flex-wrap">

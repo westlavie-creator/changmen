@@ -239,12 +239,20 @@ export function buildPolymarketMappedMarket(market, buyPrices = {}) {
   const event = eventOf(market);
   const pandascoreId = event?.gameId ? Number(event.gameId) : undefined;
   const outcome = resolvePolymarketMapMarketOutcome(market);
+  const resolutionSourceRaw = event?.resolutionSource ?? market?.resolutionSource;
+  const resolutionSource = resolutionSourceRaw != null && String(resolutionSourceRaw).trim()
+    ? String(resolutionSourceRaw).trim()
+    : undefined;
+  const eventSlugRaw = event?.slug != null ? String(event.slug).trim() : "";
+  const eventSlug = eventSlugRaw && eventSlugRaw !== sourceMatchId ? eventSlugRaw : undefined;
 
   return {
     marketId,
     assetIds: [homeId, awayId],
     gameId: pandascoreId,
     ...(outcome ? { mapOutcome: outcome.mapOutcome, outcomeKind: outcome.outcomeKind } : {}),
+    ...(resolutionSource ? { resolutionSource } : {}),
+    ...(eventSlug ? { eventSlug } : {}),
     match: {
       Type: PLATFORM,
       SourceMatchID: sourceMatchId,

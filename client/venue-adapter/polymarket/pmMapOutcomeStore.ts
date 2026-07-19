@@ -1,5 +1,5 @@
 /**
- * VPS MarketIndex 下发的地图胜负（以 PM 为准）；浏览器只读展示。
+ * VPS MarketIndex 下发的地图胜负 + 直播来源（以 PM Gamma 为准）；浏览器只读展示。
  */
 import type {
   PolymarketMapOutcomeKind,
@@ -18,10 +18,12 @@ export type PmMapOutcomeHit = {
   marketId: string;
 };
 
-/** BetRow 依赖此 tick 在 Index 刷新后重算 */
+/** BetRow / MatchCard 依赖此 tick 在 Index 刷新后重算 */
 export const pmMapOutcomeTick = shallowRef(0);
 
 const byTokenId = new Map<string, PmMapOutcomeHit>();
+/** sourceMatchId → Gamma resolutionSource URL */
+const resolutionBySourceMatchId = new Map<string, string>();
 
 function hitFromEntry(entry: PolymarketMarketIndexEntry): PmMapOutcomeHit | null {
   const side = entry.mapOutcome;
@@ -38,10 +40,27 @@ function hitFromEntry(entry: PolymarketMarketIndexEntry): PmMapOutcomeHit | null
   };
 }
 
-/** Index 同步后替换本地胜负表 */
+/** Index 同步后替换本地胜负表；直播来源对已见过的 sourceMatchId 做 sticky（closed 出 Index 后仍可展示） */
 export function replacePmMapOutcomesFromIndex(index: PolymarketMarketIndex | null | undefined): void {
+  if (index == null) {
+    byTokenId.clear();
+    resolutionBySourceMatchId.clear();
+    pmMapOutcomeTick.value += 1;
+    return;
+  }
+  const prevRs = new Map(resolutionBySourceMatchId);
   byTokenId.clear();
-  for (const entry of index?.entries ?? []) {
+  resolutionBySourceMatchId.clear();
+  for (const entry of index.entries ?? []) {
+    const sourceMatchId = String(entry.sourceMatchId ?? "").trim();
+    const eventSlug = String(entry.eventSlug ?? "").trim();
+    const rs = String(entry.resolutionSource ?? "").trim();
+    if (sourceMatchId && rs && !resolutionBySourceMatchId.has(sourceMatchId))
+      resolutionBySourceMatchId.set(sourceMatchId, rs);
+    // Matchs.Polymarket 可能是 slug 而 Index 主键是 event.id
+    if (eventSlug && rs && eventSlug !== sourceMatchId && !resolutionBySourceMatchId.has(eventSlug))
+      resolutionBySourceMatchId.set(eventSlug, rs);
+
     const hit = hitFromEntry(entry);
     if (!hit)
       continue;
@@ -52,6 +71,11 @@ export function replacePmMapOutcomesFromIndex(index: PolymarketMarketIndex | nul
     if (away)
       byTokenId.set(away, hit);
   }
+  // 仍在 Index 但本轮无 URL / 已离开 Index：保留旧来源（关盘后仍显示）
+  for (const [id, url] of prevRs) {
+    if (!resolutionBySourceMatchId.has(id))
+      resolutionBySourceMatchId.set(id, url);
+  }
   pmMapOutcomeTick.value += 1;
 }
 
@@ -61,6 +85,17 @@ export function lookupPmMapOutcomeByToken(tokenId: string | undefined | null): P
   if (!id)
     return null;
   return byTokenId.get(id) ?? null;
+}
+
+/** 按 Polymarket SourceMatchID（Matchs.Polymarket）取直播/裁定来源 URL */
+export function lookupResolutionSourceBySourceMatchId(
+  sourceMatchId: string | number | undefined | null,
+): string | null {
+  void pmMapOutcomeTick.value;
+  const id = String(sourceMatchId ?? "").trim();
+  if (!id)
+    return null;
+  return resolutionBySourceMatchId.get(id) ?? null;
 }
 
 /** 展示用胜方队名：优先盘口 home/away 名，否则 Index 名 */

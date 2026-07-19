@@ -92,6 +92,10 @@ export interface PolymarketMarketIndexEntry {
    */
   mapOutcome?: PolymarketMapOutcomeSide;
   outcomeKind?: PolymarketMapOutcomeKind;
+  /** Gamma Event/Market.resolutionSource（直播/裁定来源 URL） */
+  resolutionSource?: string;
+  /** Gamma event.slug（与 sourceMatchId=event.id 并存，供 Matchs 别名查找） */
+  eventSlug?: string;
 }
 
 /** [changmen 扩展] polymarket_market_index.json */
