@@ -351,11 +351,22 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       nextState = prevState;
     const incomingMoney = parseNum(o.money ?? o.Money, 0);
     const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
-    // 客户端 patch 已含累计盈亏时用 incoming；否则保留 prev
-    const nextMoney = incomingMoney !== 0 || Object.prototype.hasOwnProperty.call(o, "money")
-      || Object.prototype.hasOwnProperty.call(o, "Money")
-      ? incomingMoney
-      : prevMoney;
+    /**
+     * 已手动卖光（closed）：盈亏只来自卖出累加，拒绝 Gamma 赛果 money/status 覆写。
+     * 部分卖出仍允许客户端带累计盈亏（含剩余仓结算）的 patch。
+     */
+    let nextMoney;
+    if (String(prevState).toLowerCase() === "closed") {
+      nextMoney = prevMoney;
+      nextState = "closed";
+    }
+    else {
+      // 客户端 patch 已含累计盈亏时用 incoming；否则保留 prev
+      nextMoney = incomingMoney !== 0 || Object.prototype.hasOwnProperty.call(o, "money")
+        || Object.prototype.hasOwnProperty.call(o, "Money")
+        ? incomingMoney
+        : prevMoney;
+    }
     merged = {
       ...merged,
       pmSide: "buy",

@@ -298,22 +298,23 @@ describe("saveOrder backend bind link", () => {
     expect(row.raw.pmSellState).toBe("settled");
   });
 
-  it("PM manually closed buy rejects Gamma Win money (profit stays on sell day)", async () => {
+  it("PM manually closed buy rejects Gamma Win money (keep buy sell PnL)", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
         order_id: "0xbuy-closed",
         link: 1_784_389_005_296,
         create_at: 1_784_389_000_000,
         bet_money: 200,
-        money: 0,
+        money: 184,
         status: "None",
         raw: {
           pmSide: "buy",
           pmOrigin: "changmen",
           pmShares: 56.55,
-          pmStakeUsdc: 29,
+          pmStakeUsdc: 0,
           pmSellState: "closed",
           pmAttributedSellShares: 56.55,
+          money: 184,
         },
       },
     ]);
@@ -331,14 +332,15 @@ describe("saveOrder backend bind link", () => {
         pmSellState: "settled",
         pmAttributedSellShares: 56.55,
         betMoney: 200,
-        money: 184,
+        money: 999,
         status: "win",
       }],
       "user-1",
     );
 
     const row = upsertOrders.mock.calls[0][0][0];
-    expect(row.money).toBe(0);
+    // 已 closed：保留卖出累计盈亏，拒绝 Gamma 覆写
+    expect(row.money).toBe(184);
     expect(row.status).toBe("None");
     expect(row.raw.pmSellState).toBe("closed");
   });

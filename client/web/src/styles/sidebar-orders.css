@@ -406,6 +406,17 @@
   content: "退";
 }
 
+/* [changmen 扩展] PM 卖单：平仓回款动作（勿用 Return「退」，易误解为退款） */
+.orders .status.PmSell {
+  color: #aeaeae;
+  background: rgba(174, 174, 174, 0.1);
+  border: 1px solid #aeaeae;
+}
+
+.orders .status.PmSell::after {
+  content: "已平仓";
+}
+
 /* [changmen 扩展] 手动卖光买单：库内仍 None，角标显示已卖出 */
 .orders .status.PmSold {
   color: #7dcea0;

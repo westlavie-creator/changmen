@@ -61,8 +61,8 @@ export function pmBuyLifecycleTagText(row: OrderRow): string | null {
 }
 
 /**
- * 侧栏角标 class：手动平仓后 RDS 仍为 Status=None（挡 Gamma），
- * 展示层把卖单按盈亏映成赢/输/退；手动卖光买单映成 PmSold。
+ * 侧栏角标 class：手动平仓后 RDS 仍为 Status=None（挡 Gamma）。
+ * 卖单只表回款动作结果（Return）；盈亏在买单；手动卖光买单映成 PmSold。
  */
 export function resolvePmOrderListStatusClass(row: OrderRow): string {
   if (!isPmOrderListRow(row))
@@ -73,23 +73,11 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
     return raw;
 
   if (isPmSellOrderListRow(row)) {
-    // 盈亏已记买单；卖单 Money 应为 0。角标优先 pmRealizedPnlUsdc，兼容迁移前 Money
-    const pnl = Number(row.PmRealizedPnlUsdc);
-    if (Number.isFinite(pnl) && pnl !== 0) {
-      if (pnl > 0)
-        return "Win";
-      if (pnl < 0)
-        return "Lose";
-    }
-    const legacyMoney = Number(row.Money) || 0;
-    if (legacyMoney > 0)
-      return "Win";
-    if (legacyMoney < 0)
-      return "Lose";
+    // 卖单只表平仓动作结果，不用 Return「退」（易误解为退款）
     const bet = Number(row.BetMoney) || 0;
     if (bet <= 0)
       return "None";
-    return "Return";
+    return "PmSell";
   }
 
   if (isPmManuallySoldBuy(row)) {
@@ -150,9 +138,37 @@ export function pmOrderStakeDisplayCny(row: OrderRow): number {
   return pmOrderOriginalStakeDisplayCny(row);
 }
 
-/** 侧栏价格列标题：标明买单/卖单 */
+/**
+ * 侧栏盈亏展示（CNY）。
+ * - 卖单：不展示（返回 null → UI 显示 —）
+ * - 买单：优先自身 Money；未迁移旧数据 Money=0 时回退汇总对应卖单 Money
+ */
+export function pmOrderProfitDisplayCny(row: OrderRow, peers: OrderRow[] = []): number | null {
+  if (isPmSellOrderListRow(row))
+    return null;
+
+  const own = Number(row.Money) || 0;
+  if (Math.abs(own) > 1e-9)
+    return own;
+
+  if (!isPmManuallySoldBuy(row))
+    return own;
+
+  const buyId = String(row.OrderID ?? "").trim().toLowerCase();
+  if (!buyId)
+    return own;
+
+  return peers
+    .filter(p =>
+      isPmSellOrderListRow(p)
+      && String(p.PmBuyOrderId ?? "").trim().toLowerCase() === buyId,
+    )
+    .reduce((sum, p) => sum + (Number(p.Money) || 0), 0);
+}
+
+/** 侧栏价格列标题 */
 export function pmOrderPriceLabel(row: OrderRow): string {
-  return isPmSellOrderListRow(row) ? "卖单卖出价" : "买单买入价";
+  return isPmSellOrderListRow(row) ? "卖单卖出价" : "买入价";
 }
 
 /** 侧栏侧别标签：买单 / 卖单 */

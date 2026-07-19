@@ -9,6 +9,7 @@ import {
   pmOrderFillPriceText,
   pmOrderOddsText,
   pmOrderPriceLabel,
+  pmOrderProfitDisplayCny,
   pmOrderSharesText,
   pmOrderSideTagText,
   pmOrderStakeDisplayCny,
@@ -56,13 +57,13 @@ describe("pmOrderDisplay", () => {
       PmSide: "sell",
       BetMoney: 384,
       Money: 184,
-    })).toBe("Win");
+    })).toBe("PmSell");
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSide: "sell",
       BetMoney: 100,
       Money: -20,
-    })).toBe("Lose");
+    })).toBe("PmSell");
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSide: "sell",
@@ -132,7 +133,7 @@ describe("pmOrderDisplay", () => {
       BetMoney: 35,
     })).toBe(35);
     expect(pmOrderPriceLabel({ ...pmBuy, PmSide: "sell" })).toBe("卖单卖出价");
-    expect(pmOrderPriceLabel(pmBuy)).toBe("买单买入价");
+    expect(pmOrderPriceLabel(pmBuy)).toBe("买入价");
     expect(pmOrderSideTagText({ ...pmBuy, PmSide: "sell" })).toBe("卖单");
     expect(pmOrderSideTagText(pmBuy)).toBe("买单");
   });
@@ -183,5 +184,26 @@ describe("pmOrderDisplay", () => {
   it("formats API decimals without trailing zeros", () => {
     expect(formatPolymarketApiDecimal(0.68, 6)).toBe("0.68");
     expect(formatPolymarketApiDecimal(7.352941, 6)).toBe("7.352941");
+  });
+
+  it("pmOrderProfitDisplayCny hides sell and falls back to linked sell Money for unsynced buy", () => {
+    const buy: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xbuy",
+      Money: 0,
+      PmSellState: "closed",
+      PmAttributedSellShares: 6.756753,
+    };
+    const sell: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xsell",
+      PmSide: "sell",
+      Money: 65,
+      BetMoney: 191,
+      PmBuyOrderId: "0xbuy",
+    };
+    expect(pmOrderProfitDisplayCny(sell, [buy, sell])).toBeNull();
+    expect(pmOrderProfitDisplayCny(buy, [buy, sell])).toBe(65);
+    expect(pmOrderProfitDisplayCny({ ...buy, Money: 12 }, [buy, sell])).toBe(12);
   });
 });

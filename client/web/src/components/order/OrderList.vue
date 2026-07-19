@@ -17,6 +17,7 @@ import {
   pmOrderFillPriceText,
   pmOrderOddsText,
   pmOrderPriceLabel,
+  pmOrderProfitDisplayCny,
   pmOrderSharesText,
   pmOrderSideTagText,
   pmOrderStakeDisplayCny,
@@ -477,47 +478,47 @@ function badgeTitle(row: OrderRow): string {
           </div>
           <div class="profit">
             <template v-if="isPmOrderListRow(row)">
-              <div class="order__profit-line">
-                <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
-                <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
-                <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span> </span>
-                <span
-                  v-if="!isPmSellOrderListRow(row) && pmBuyLifecycleTagText(row)"
-                  class="order__pm-tag"
-                >{{ pmBuyLifecycleTagText(row) }}</span>
-              </div>
-              <div class="order__profit-line">
-                {{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}
-                <template v-if="isPmSellOrderListRow(row)">
-                  <template v-if="Math.abs(Number(row.Money) || 0) > 0.01">
-                    盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+              <template v-if="isPmSellOrderListRow(row)">
+                <div class="order__profit-line">
+                  <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
+                  <span>{{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}</span>
+                </div>
+                <div class="order__profit-line">
+                  <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
+                  <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span></span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="order__profit-line">
+                  <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
+                  <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
+                  <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span></span>
+                </div>
+                <div class="order__profit-line">
+                  {{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}
+                  <template v-if="isPendingRow(row) && !pmBuyLifecycleTagText(row)">
+                    盈亏：待结算
                   </template>
                   <template v-else>
-                    盈亏：—
+                    盈亏：{{ toFixed(pmOrderProfitDisplayCny(row, rows) ?? 0, 0) }}
                   </template>
-                </template>
-                <template v-else-if="isPendingRow(row) && !pmBuyLifecycleTagText(row)">
-                  盈亏：待结算
-                </template>
-                <template v-else>
-                  盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
-                </template>
-              </div>
-              <div class="order__profit-line order__profit-line--sell-row">
-                <span class="order__sell-row-meta">
-                  <span v-if="pmShowLivePrice(row)">当前价：{{ pmLivePriceText(row) }} </span>
-                  <span v-if="pmShowLivePrice(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
-                </span>
-                <button
-                  v-if="showPmSellButton(row)"
-                  type="button"
-                  class="order__sell-btn"
-                  :disabled="isPmManualSellInFlight(row.OrderID)"
-                  @click="onPmSell(row)"
-                >
-                  {{ isPmManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
-                </button>
-              </div>
+                </div>
+                <div class="order__profit-line order__profit-line--sell-row">
+                  <span class="order__sell-row-meta">
+                    <span v-if="pmShowLivePrice(row)">当前价：{{ pmLivePriceText(row) }} </span>
+                    <span v-if="pmShowLivePrice(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
+                  </span>
+                  <button
+                    v-if="showPmSellButton(row)"
+                    type="button"
+                    class="order__sell-btn"
+                    :disabled="isPmManualSellInFlight(row.OrderID)"
+                    @click="onPmSell(row)"
+                  >
+                    {{ isPmManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                  </button>
+                </div>
+              </template>
             </template>
             <template v-else>
               投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
