@@ -88,13 +88,25 @@ type PfAction =
   | "Pf_SettleOpenOrders"
   | "Pf_HouseRedeemResolved";
 
+/** house 下单/卖出含签名+上游+RDS，常超过 a8Axios 默认 15s */
+const PF_SLOW_ACTIONS = new Set<PfAction>([
+  "Pf_SubmitOrder",
+  "Pf_SubmitSell",
+  "Pf_CheckBet",
+]);
+const PF_SLOW_TIMEOUT_MS = 60_000;
+
 /** 复用 esport POST 通道（与 Pm_* 相同鉴权头） */
 async function pfEsportCall<T>(
   action: PfAction,
   body: Record<string, unknown>,
 ): Promise<T> {
   try {
-    return await changmenPmEsportCall<T>(action, body);
+    return await changmenPmEsportCall<T>(
+      action,
+      body,
+      PF_SLOW_ACTIONS.has(action) ? { timeoutMs: PF_SLOW_TIMEOUT_MS } : undefined,
+    );
   }
   catch (err) {
     const raw = err instanceof Error ? err.message : String(err);

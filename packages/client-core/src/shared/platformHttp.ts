@@ -209,6 +209,7 @@ export interface ChangmenPmHttpRequestInput {
 export async function changmenPmEsportCall<T>(
   action: string,
   body: Record<string, unknown>,
+  opts?: { timeoutMs?: number },
 ): Promise<T> {
   const token = requireHttpCtx().getToken();
   if (!token)
@@ -218,7 +219,10 @@ export async function changmenPmEsportCall<T>(
     const res = await a8Axios.post<{ success?: number; msg?: string; info?: T }>(
       buildEsportUrl(action, "", requireHttpCtx().getApiBase()),
       toEsportPostBody(body),
-      { headers: { ...FORM_HEADERS, token } },
+      {
+        headers: { ...FORM_HEADERS, token },
+        ...(opts?.timeoutMs != null ? { timeout: opts.timeoutMs } : {}),
+      },
     );
     const json = res.data;
     if (json?.success !== 1) {
