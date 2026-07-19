@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  buildBatchedPendingPayload,
   enqueueLatestByAsset,
   extractAssetIdsFromPmMarketMessage,
   extractPmMarketUpgradeToken,
@@ -93,5 +94,48 @@ describe("pm_market_hub", () => {
 
   test("takePendingRawsDeduped empty", () => {
     expect(takePendingRawsDeduped(new Map())).toEqual([]);
+  });
+
+  test("buildBatchedPendingPayload empty / single keeps shape", () => {
+    expect(buildBatchedPendingPayload([])).toBeNull();
+    const one = JSON.stringify({ event_type: "best_bid_ask", asset_id: "a1", best_ask: "0.4" });
+    expect(buildBatchedPendingPayload([one])).toBe(one);
+  });
+
+  test("buildBatchedPendingPayload multi → one JSON array; latest prices preserved", () => {
+    const a1 = JSON.stringify({ event_type: "best_bid_ask", asset_id: "a1", best_ask: "0.41" });
+    const a2 = JSON.stringify({ event_type: "best_bid_ask", asset_id: "a2", best_ask: "0.55" });
+    const pending = new Map();
+    enqueueLatestByAsset(pending, ["a1"], JSON.stringify({ event_type: "best_bid_ask", asset_id: "a1", best_ask: "0.1" }));
+    enqueueLatestByAsset(pending, ["a1"], a1);
+    enqueueLatestByAsset(pending, ["a2"], a2);
+    const raws = takePendingRawsDeduped(pending);
+    const payload = buildBatchedPendingPayload(raws);
+    expect(payload).toBeTruthy();
+    const parsed = JSON.parse(payload);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(2);
+    const byId = Object.fromEntries(parsed.map(m => [m.asset_id, m.best_ask]));
+    expect(byId).toEqual({ a1: "0.41", a2: "0.55" });
+  });
+
+  test("batched array payload is parseable like client extractPolymarketWsBestAsks", () => {
+    const raws = [
+      JSON.stringify({ event_type: "best_bid_ask", asset_id: "h", best_ask: "0.42" }),
+      JSON.stringify({ event_type: "best_bid_ask", asset_id: "a", best_ask: "0.58" }),
+    ];
+    const payload = buildBatchedPendingPayload(raws);
+    const parsed = JSON.parse(payload);
+    const messages = Array.isArray(parsed) ? parsed : [parsed];
+    const updates = [];
+    for (const msg of messages) {
+      if (msg.event_type === "best_bid_ask" && msg.asset_id && msg.best_ask !== undefined)
+        updates.push({ assetId: String(msg.asset_id), bestAsk: msg.best_ask });
+    }
+    expect(updates).toEqual([
+      { assetId: "h", bestAsk: "0.42" },
+      { assetId: "a", bestAsk: "0.58" },
+    ]);
+    expect([...extractAssetIdsFromPmMarketMessage(payload)].sort()).toEqual(["a", "h"]);
   });
 });

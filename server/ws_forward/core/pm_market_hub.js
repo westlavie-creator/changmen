@@ -2,6 +2,9 @@
  * Polymarket MARKET WebSocket Hub — 全站合并 asset 订阅，单条上游连 PM。
  * 浏览器仍连 /esport/ws-forward/PM-MARKET；PM-USER 保持 1:1 raw 转发。
  * 升级可带 JWT（?token= / Bearer）写入健康页归属；无 token / 校验失败仍放行（避免断采）。
+ *
+ * 下行策略：行情按 asset coalesce，上游每 tick / 25ms 合批成单条 JSON 数组再 send，
+ * 避免逐 token 立即狂刷堵死客户↔VPS 同源 HTTP（余额/延迟）。
  */
 import { WebSocketServer, WebSocket } from "ws";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
@@ -211,6 +214,38 @@ export function takePendingRawsDeduped(pendingByAsset) {
   return out;
 }
 
+/**
+ * 多条 pending raw → 单次 WS 下发 payload（数组帧；单条保持原样）。
+ * 客户端 extractPolymarketWsBestAsks 已支持 JSON 数组。
+ * @param {string[]} raws
+ * @returns {string | null}
+ */
+export function buildBatchedPendingPayload(raws) {
+  if (!Array.isArray(raws) || raws.length === 0)
+    return null;
+  if (raws.length === 1)
+    return raws[0];
+  /** @type {unknown[]} */
+  const messages = [];
+  for (const raw of raws) {
+    try {
+      const parsed = JSON.parse(String(raw));
+      if (Array.isArray(parsed))
+        messages.push(...parsed);
+      else
+        messages.push(parsed);
+    }
+    catch {
+      /* 非 JSON 跳过；薄帧路径均为 JSON */
+    }
+  }
+  if (!messages.length)
+    return null;
+  if (messages.length === 1)
+    return JSON.stringify(messages[0]);
+  return JSON.stringify(messages);
+}
+
 function stopPendingFlushTimer() {
   if (pendingFlushTimer) {
     clearInterval(pendingFlushTimer);
@@ -247,23 +282,38 @@ function flushClientPending(clientWs, row) {
     return;
   }
   const raws = takePendingRawsDeduped(row.pendingByAsset);
-  for (let i = 0; i < raws.length; i++) {
-    const raw = raws[i];
-    row.lastBufferedAmount = Number(clientWs.bufferedAmount) || 0;
-    if (!toClientGuard.isSendAllowed(clientWs)) {
-      for (let j = i; j < raws.length; j++) {
-        const stuck = raws[j];
-        const ids = extractAssetIdsFromPmMarketMessage(stuck);
-        if (ids.size)
-          enqueueLatestByAsset(row.pendingByAsset, ids, stuck);
-        else
-          row.droppedToClient += 1;
-      }
-      ensurePendingFlushTimer();
-      return;
+  if (!raws.length)
+    return;
+  row.lastBufferedAmount = Number(clientWs.bufferedAmount) || 0;
+  if (!toClientGuard.isSendAllowed(clientWs)) {
+    for (const stuck of raws) {
+      const ids = extractAssetIdsFromPmMarketMessage(stuck);
+      if (ids.size)
+        enqueueLatestByAsset(row.pendingByAsset, ids, stuck);
+      else
+        row.droppedToClient += 1;
     }
+    ensurePendingFlushTimer();
+    return;
+  }
+  const payload = buildBatchedPendingPayload(raws);
+  if (!payload) {
+    row.droppedToClient += raws.length;
+    return;
+  }
+  try {
+    clientWs.send(payload);
     row.sentToClient += 1;
-    clientWs.send(raw);
+  }
+  catch {
+    for (const stuck of raws) {
+      const ids = extractAssetIdsFromPmMarketMessage(stuck);
+      if (ids.size)
+        enqueueLatestByAsset(row.pendingByAsset, ids, stuck);
+      else
+        row.droppedToClient += 1;
+    }
+    ensurePendingFlushTimer();
   }
 }
 
@@ -282,6 +332,7 @@ function flushAllClientPending() {
 function fanoutRawToClient(clientWs, row, raw, msgAssetIds, broadcastAll) {
   row.lastBufferedAmount = Number(clientWs.bufferedAmount) || 0;
 
+  // 无 asset 的系统/广播帧：仍可立即发（先冲掉 pending 行情）
   if (broadcastAll || msgAssetIds.size === 0) {
     if (toClientGuard.isSendAllowed(clientWs) && row.pendingByAsset.size === 0) {
       row.sentToClient += 1;
@@ -309,16 +360,9 @@ function fanoutRawToClient(clientWs, row, raw, msgAssetIds, broadcastAll) {
   if (!keys.length)
     return;
 
-  const canImmediate = toClientGuard.isSendAllowed(clientWs) && row.pendingByAsset.size === 0;
-  if (canImmediate) {
-    row.sentToClient += 1;
-    clientWs.send(raw);
-    return;
-  }
-
+  // 行情：一律进 pending，由上游 tick 末尾 / 25ms timer 合批单帧下发（禁止逐 token 立即 send）
   row.coalescedToClient += enqueueLatestByAsset(row.pendingByAsset, keys, raw);
   ensurePendingFlushTimer();
-  flushClientPending(clientWs, row);
 }
 
 function setsEqual(a, b) {
@@ -509,6 +553,7 @@ function ensureUpstream() {
           fanoutRawToClient(clientWs, row, frame.raw, new Set([frame.assetId]), false);
         }
       }
+      flushAllClientPending();
       return;
     }
 
@@ -534,6 +579,8 @@ function ensureUpstream() {
       }
       fanoutRawToClient(clientWs, row, raw, assetIds, broadcastAll);
     }
+    if (!broadcastAll)
+      flushAllClientPending();
   });
 
   ws.on("close", () => {
