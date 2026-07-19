@@ -443,7 +443,78 @@ function isPmExitedBuy(row: OrderRow): boolean {
   return false;
 }
 
-/** [A8 可证实] OrderView legend：未结 Status=None 各腿 bet×odds−stake 用 ` - ` 拼接；已结为组盈亏 */
+/** 选项文本归一化（去 HTML），用于同向合并 */
+export function normalizeOrderItemKey(item: string | null | undefined): string {
+  return String(item || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function sameOutcomeItemKey(a: string, b: string): boolean {
+  if (!a || !b)
+    return false;
+  if (a === b)
+    return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  if (short.length < 3)
+    return false;
+  return long.includes(short);
+}
+
+function orderLegendExposureBet(row: OrderRow): number {
+  if (isPolymarketOrderRow(row)) {
+    const usdc = Number(row.PmStakeUsdc) || 0;
+    if (usdc > 0)
+      return usdc * getExchange(Currency.USDT);
+  }
+  return Number(row.BetMoney) || 0;
+}
+
+/**
+ * [changmen 扩展] 按选项（同向）合并：一腿可多笔（跨场馆同选）。
+ * 无 Item 时不互并，避免误把双腿合成一腿。
+ */
+export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
+  const groups: { map: string; item: string; rows: OrderRow[] }[] = [];
+  for (const row of rows) {
+    const item = normalizeOrderItemKey(row.Item);
+    const map = parseOrderBetMapLabel(row.Bet);
+    let placed = false;
+    if (item) {
+      for (const g of groups) {
+        if (map !== "—" && g.map !== "—" && map !== g.map)
+          continue;
+        if (!sameOutcomeItemKey(item, g.item))
+          continue;
+        g.rows.push(row);
+        if (item.length > g.item.length)
+          g.item = item;
+        if (g.map === "—" && map !== "—")
+          g.map = map;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      groups.push({
+        map: item ? map : "—",
+        item: item || `row:${String(row.OrderID ?? groups.length)}`,
+        rows: [row],
+      });
+    }
+  }
+  return groups.map(g => g.rows);
+}
+
+/**
+ * [A8 可证实] OrderView legend：未结预览 bet×odds−stake；已结为组盈亏。
+ * [changmen 扩展]
+ * - 分隔符用 ` / `（A8 为 ` - `），避免负数拼成 `-281 - -114`
+ * - 同向多笔（同一选项下了两次）合并为一条腿：Σ(bet×odds)−stake，仍按两条结果方向展示
+ */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
   const prefix = isSingleLegLink(link) ? `${formatLinkId(link)} ` : "";
@@ -454,37 +525,24 @@ export function orderLinkLegend(rows: OrderRow[]): string {
       && !isMakeupSyntheticOrderRow(r)
       && !isPmExitedBuy(r),
     )
-    .reduce((sum, r) => {
-      if (isPolymarketOrderRow(r)) {
-        const usdc = Number(r.PmStakeUsdc) || 0;
-        if (usdc > 0)
-          return sum + usdc * getExchange(Currency.USDT);
-        // 无 pmStakeUsdc 的未卖出旧行：BetMoney 即满仓成本
-        return sum + (Number(r.BetMoney) || 0);
-      }
-      return sum + (Number(r.BetMoney) || 0);
-    }, 0);
+    .reduce((sum, r) => sum + orderLegendExposureBet(r), 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
   const makeupPrefix = hasMakeup ? "补单中 · " : "";
-  const unsettledPreview = rows
-    .filter(r =>
-      String(r.Status ?? "") === "None"
-      && r.PmSide !== "sell"
-      && !isPmExitedBuy(r),
-    )
-    .map((r) => {
-      const odds = Number(r.Odds) || 0;
-      let bet = Number(r.BetMoney) || 0;
-      if (isPolymarketOrderRow(r)) {
-        const usdc = Number(r.PmStakeUsdc) || 0;
-        if (usdc > 0)
-          bet = usdc * getExchange(Currency.USDT);
-        // else 保留 BetMoney（未卖出满仓）
-      }
-      return toFixed(bet * odds - stake, 0);
-    });
+  const unsettled = rows.filter(r =>
+    String(r.Status ?? "") === "None"
+    && r.PmSide !== "sell"
+    && !isPmExitedBuy(r),
+  );
+  const sideGroups = groupRowsByOutcomeSide(unsettled);
+  const unsettledPreview = sideGroups.map((sideRows) => {
+    const payout = sideRows.reduce(
+      (sum, r) => sum + orderLegendExposureBet(r) * (Number(r.Odds) || 0),
+      0,
+    );
+    return toFixed(payout - stake, 0);
+  });
   if (unsettledPreview.length)
-    return makeupPrefix + prefix + unsettledPreview.join(" - ");
+    return makeupPrefix + prefix + unsettledPreview.join(" / ");
   const total = computeOrderGroupProfit(rows);
   const sign = total > 0 ? "+" : "";
   return makeupPrefix + prefix + sign + toFixed(total, 0);

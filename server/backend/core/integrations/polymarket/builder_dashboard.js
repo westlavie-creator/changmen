@@ -110,8 +110,16 @@ function resolveTradeUserName(trade, index) {
   return addr ? (index.byAddress.get(addr) || "") : "";
 }
 
+/** form-urlencoded 会把 boolean 变成字符串 `"true"`，不能只认严格 true */
+function wantsAllRange(body = {}) {
+  const v = body.all;
+  if (v === true || v === 1 || v === "1" || v === "true" || v === "yes")
+    return true;
+  return body.period === "all" || body.range === "all";
+}
+
 function parseRange(body = {}) {
-  if (body.all === true || body.all === "1" || body.all === 1) {
+  if (wantsAllRange(body)) {
     return {
       startMs: 0,
       endMs: Date.now() + 86400000,

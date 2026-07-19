@@ -65,20 +65,60 @@ describe("orderLink A8 parity", () => {
     expect(grouped.get(link)?.map(r => r.OrderID)).toEqual(["a", "b"]);
   });
 
-  it("legend joins unsettled preview with dash", () => {
+  it("legend joins unsettled preview with slash", () => {
     const text = orderLinkLegend([
-      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "OB" },
-      { Status: "None", BetMoney: 100, Odds: 2.2, Money: 0, Type: "RAY" },
+      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "OB", Item: "Home", OrderID: "a" },
+      { Status: "None", BetMoney: 100, Odds: 2.2, Money: 0, Type: "RAY", Item: "Away", OrderID: "b" },
     ]);
-    expect(text).toContain(" - ");
+    expect(text).toContain(" / ");
   });
 
-  it("legend joins unsettled OB + PM preview with dash", () => {
+  it("legend joins unsettled OB + PM preview without double-dash", () => {
     const text = orderLinkLegend([
-      { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB" },
-      { Status: "None", BetMoney: 100, Odds: 1.8, Money: 0, Type: "Polymarket", PmSide: "buy" },
+      { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB", Item: "Alpha", OrderID: "a" },
+      { Status: "None", BetMoney: 100, Odds: 1.8, Money: 0, Type: "Polymarket", PmSide: "buy", Item: "Beta", OrderID: "b" },
     ]);
-    expect(text).toBe("100 - -20");
+    expect(text).toBe("100 / -20");
+  });
+
+  it("legend merges same-side double bets into two outcome legs", () => {
+    // Gen.G 下了两次（pm+od），对冲 Nongshim 一次 → 仍显示两条腿
+    const text = orderLinkLegend([
+      {
+        OrderID: "pm-geng",
+        Status: "None",
+        BetMoney: 50,
+        Odds: 1.408,
+        Money: 0,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Gen.G Esports",
+        Bet: "[地图1] 单局获胜",
+      },
+      {
+        OrderID: "od-geng",
+        Status: "None",
+        BetMoney: 182,
+        Odds: 1.3,
+        Money: 0,
+        Type: "OD",
+        Item: "Gen.G Esports",
+        Bet: "[地图1] 单局获胜方",
+      },
+      {
+        OrderID: "pm-ns",
+        Status: "None",
+        BetMoney: 119,
+        Odds: 2.857,
+        Money: 0,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Nongshim RedForce",
+        Bet: "[地图1] 单局获胜",
+      },
+    ]);
+    // stake=351; Gen.G: 50*1.408+182*1.3-351≈-44; NS: 119*2.857-351≈-11
+    expect(text).toBe("-44 / -11");
   });
 
   it("PM unsettled uses bet×odds−stake preview like A8", () => {

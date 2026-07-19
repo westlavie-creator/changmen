@@ -76,9 +76,10 @@ function profitBarWidth(val: number): string {
 async function fetchData() {
   loading.value = true;
   try {
+    // all 用字符串：post 走 x-www-form-urlencoded，boolean true 会变成 "true"
     const body: Record<string, unknown>
       = rangeMode.value === "all"
-        ? { all: true }
+        ? { period: "all", all: "1" }
         : rangeMode.value === "month"
           ? { month: monthKey.value }
           : { date: dateKey.value };

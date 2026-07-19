@@ -941,7 +941,11 @@ export async function deleteTeam(id) {
 
 export async function getPlatformAnalytics(body = {}, caller = null) {
   let startMs, endMs;
-  if (body.all === true || body.period === "all") {
+  // form-urlencoded：all=true 会变成字符串 "true"
+  const allFlag = body.all === true || body.all === 1 || body.all === "1"
+    || body.all === "true" || body.all === "yes"
+    || body.period === "all" || body.range === "all";
+  if (allFlag) {
     // 「全部」：从 epoch 到当前时刻后 1ms（半开区间）
     startMs = 0;
     endMs = Date.now() + 1;

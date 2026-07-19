@@ -202,8 +202,9 @@ async function fetchData() {
   loading.value = true;
   error.value = "";
   try {
+    // all 用字符串：post 走 x-www-form-urlencoded，boolean true 会变成 "true"
     const body: Record<string, unknown> = rangeMode.value === "all"
-      ? { all: true, maxPages: 20, orderLimit: 500 }
+      ? { period: "all", all: "1", maxPages: 20, orderLimit: 500 }
       : rangeMode.value === "month"
         ? { month: monthKey.value, maxPages: 10, orderLimit: 500 }
         : { date: dateKey.value, maxPages: 5, orderLimit: 500 };
