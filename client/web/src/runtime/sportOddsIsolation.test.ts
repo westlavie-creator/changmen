@@ -12,10 +12,20 @@ describe("sport / esport UI isolation", () => {
     expect(src).not.toMatch(/useSportOddsStore/);
   });
 
-  test("BetRow subscribes foRevision for esport fo updates without full-table refresh", () => {
+  test("BetRow reads getOdds via reactive Map without quoteTick fan-out", () => {
     const src = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
-    expect(src).toMatch(/void oddsStore\.foRevision/);
+    expect(src).not.toMatch(/void oddsStore\.foRevision/);
+    expect(src).not.toMatch(/void oddsStore\.quoteTick/);
+    expect(src).not.toMatch(/void oddsStore\.liveQuoteTick/);
     expect(src).toMatch(/oddsStore\.getOdds/);
+  });
+
+  test("OrderList uses quoteTick for PM live price without BetRow fan-out", () => {
+    const src = readFileSync(join(root, "components/order/OrderList.vue"), "utf8");
+    expect(src).toMatch(/quoteTick/);
+    expect(src).toMatch(/storeToRefs\(oddsStore\)/);
+    expect(src).not.toMatch(/void oddsStore\.foRevision/);
+    expect(src).toMatch(/pmShowLiveOdds/);
   });
 
   test("SportMatchBoard owns sportOddsStore and passes oddsDisplayTick", () => {

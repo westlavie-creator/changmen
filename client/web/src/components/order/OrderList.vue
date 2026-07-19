@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
+import { storeToRefs } from "pinia";
 import { onUnmounted, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { rebindOrderLink } from "@/api/order";
@@ -118,14 +119,17 @@ function showPfSellButton(row: OrderRow): boolean {
 
 const oddsStore = useOddsStore();
 const sportOddsStore = useSportOddsStore();
+/** 旁路现价时钟：用 storeToRefs 保证 template/函数读价时一定建立依赖 */
+const { quoteTick } = storeToRefs(oddsStore);
+const { tick: sportOddsTick } = storeToRefs(sportOddsStore);
 
 /**
  * 未结算买单实时价：只读、不写 fo。
  * 与盘口同源：fo.clobPrice → fo.odds→价；体育盘口价在 sportOddsStore（不进 fo）。
  */
 function pmLiveClobPrice(row: OrderRow): number | null {
-  void oddsStore.foRevision;
-  void sportOddsStore.tick;
+  void quoteTick.value;
+  void sportOddsTick.value;
   const tokenId = String(row.PmTokenId ?? "").trim();
   if (!tokenId)
     return null;
@@ -137,7 +141,11 @@ function pmLiveClobPrice(row: OrderRow): number | null {
   return clobPriceFromDecimalOdds(sportOddsStore.get(PLATFORMS.Polymarket, tokenId));
 }
 
-/** 可卖持仓显示「当前价」（含 0.99 判赢仍 open；官方 settled 后隐藏） */
+/**
+ * 可卖持仓显示「当前价」行。
+ * 不要求 fo 已有报价（否则首屏/未订阅 token 时连「当前价」字样都没有）；
+ * 无 live 时文案为 —，fo/`quoteTick` 到达后填数。
+ */
 function pmShowLivePrice(row: OrderRow): boolean {
   if (!isPmBuyOrderListRow(row) || pmBuyLifecycleTagText(row))
     return false;
@@ -146,18 +154,23 @@ function pmShowLivePrice(row: OrderRow): boolean {
     return false;
   if (row.PmSellState === "closed" || row.PmSellState === "settled")
     return false;
-  return pmLiveClobPrice(row) != null;
+  return true;
 }
 
 function pmLivePriceText(row: OrderRow): string {
   const live = pmLiveClobPrice(row);
-  return live != null ? formatPolymarketApiDecimal(live) : "";
+  return live != null ? formatPolymarketApiDecimal(live) : "—";
+}
+
+/** 有 live 才显示「当前赔率」；无 live 时不跟买入赔率冒充 */
+function pmShowLiveOdds(row: OrderRow): boolean {
+  return pmShowLivePrice(row) && pmLiveClobPrice(row) != null;
 }
 
 /** 最后一行赔率：有当前价则跟当前价，否则跟买入价 */
 function pmLastLineOddsText(row: OrderRow): string {
   const live = pmLiveClobPrice(row);
-  if (pmShowLivePrice(row) && live != null)
+  if (live != null)
     return pmOddsTextFromClobPrice(live);
   return pmOrderOddsText(row);
 }
@@ -527,7 +540,7 @@ function badgeTitle(row: OrderRow): string {
                 <div class="order__profit-line order__profit-line--sell-row">
                   <span class="order__sell-row-meta">
                     <span v-if="pmShowLivePrice(row)">当前价：{{ pmLivePriceText(row) }} </span>
-                    <span v-if="pmShowLivePrice(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
+                    <span v-if="pmShowLiveOdds(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
                   </span>
                   <button
                     v-if="showPmSellButton(row)"

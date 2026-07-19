@@ -87,19 +87,25 @@ export const useOddsStore = defineStore("odds", {
      */
     flash: new Map<string, { dir: OddsFlashDir; until: number; source: OddsSaveSource }>(),
 
-    /** [changmen 扩展] fo 数据变更代际（供旁路订阅，flash 单独维护不触发） */
-    foRevision: 0,
+    /**
+     * 旁路 UI 代际（订单「当前价」等）。
+     * BetRow / 盘口格子勿订阅——否则回到全局扇出；盘口靠 reactive Map 按 oddId 追踪。
+     */
+    quoteTick: 0,
+
     _limitsCleanedAt: 0,
   }),
 
   actions: {
-    bumpFoRevision() {
-      this.foRevision += 1;
+    bumpQuoteTick() {
+      this.quoteTick += 1;
     },
 
     /**
      * 写入或覆盖一条赔率（对齐 A8 `Qn().save` / `p.save`）。
      * HTTP 灌盘与 MQTT 增量均直接覆盖，**不做**“旧 time 拒绝新数据”挡板。
+     * 盘口 UI 靠 Pinia reactive Map 按 oddId 追踪；旁路盯盘用 `$subscribe`；
+     * 订单现价等旁路读 `quoteTick`。
      */
     save(platform: PlatformId, entry: OddsEntry, source: OddsSaveSource = "http") {
       const id = String(entry.id);
@@ -124,7 +130,7 @@ export const useOddsStore = defineStore("odds", {
         });
       }
       bucket.set(id, { ...entry, id, source });
-      this.bumpFoRevision();
+      this.bumpQuoteTick();
 
       if (entry.betId) {
         const betId = String(entry.betId);
@@ -185,7 +191,7 @@ export const useOddsStore = defineStore("odds", {
       const row = this.data.get(platform)?.get(key);
       if (row && row.isLock !== locked) {
         row.isLock = locked;
-        this.bumpFoRevision();
+        this.bumpQuoteTick();
       }
     },
 
@@ -247,7 +253,7 @@ export const useOddsStore = defineStore("odds", {
       if (platform) {
         this.data.set(platform, new Map());
         this.betIndex.set(platform, new Map());
-        this.bumpFoRevision();
+        this.bumpQuoteTick();
         return;
       }
       let removed = false;
@@ -261,7 +267,7 @@ export const useOddsStore = defineStore("odds", {
         }
       }
       if (removed)
-        this.bumpFoRevision();
+        this.bumpQuoteTick();
     },
 
     maybeCleanExpiredLimits(platform?: PlatformId) {

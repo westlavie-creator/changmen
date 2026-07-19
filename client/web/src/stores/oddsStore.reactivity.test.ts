@@ -291,4 +291,103 @@ describe("真实 oddsStore（computed 不读 revision）", () => {
     expect(rayOdds.value).toBe(1.80);
     expect(tfOdds.value).toBe(1.90);
   });
+
+  /** 对齐 BetRow.oddsByItemKey：多 item 循环 getOdds，绝不读 foRevision */
+  it("BetRow 同源 oddsByItemKey：无 foRevision 仍随 save 更新", async () => {
+    const odds = useOddsStore();
+    const items = [
+      { type: "OB" as const, betId: "b1", homeId: "ob_h", awayId: "ob_a", fallbackHomeOdds: 0, fallbackAwayOdds: 0 },
+      { type: "RAY" as const, betId: "b1", homeId: "ray_h", awayId: "ray_a", fallbackHomeOdds: 0, fallbackAwayOdds: 0 },
+    ];
+
+    const oddsByItemKey = computed(() => {
+      const out = new Map<string, { home: number; away: number }>();
+      for (const item of items) {
+        out.set(`${item.type}:${item.betId}`, {
+          home: odds.getOdds(item.type, item.homeId, item.fallbackHomeOdds),
+          away: odds.getOdds(item.type, item.awayId, item.fallbackAwayOdds),
+        });
+      }
+      return out;
+    });
+
+    expect(oddsByItemKey.value.get("OB:b1")?.home).toBe(0);
+
+    odds.save("OB", { id: "ob_h", odds: 1.91, isLock: false, betId: "b1", time: Date.now() }, "mqtt");
+    odds.save("OB", { id: "ob_a", odds: 2.05, isLock: false, betId: "b1", time: Date.now() }, "mqtt");
+    await nextTick();
+    expect(oddsByItemKey.value.get("OB:b1")).toEqual({ home: 1.91, away: 2.05 });
+
+    odds.save("RAY", { id: "ray_h", odds: 1.88, isLock: false, betId: "b1", time: Date.now() }, "mqtt");
+    await nextTick();
+    expect(oddsByItemKey.value.get("RAY:b1")?.home).toBe(1.88);
+    expect(oddsByItemKey.value.get("OB:b1")?.home).toBe(1.91);
+  });
+
+  /** 对齐 OrderList.pmLiveClobPrice：getEntry 不读 foRevision */
+  it("OrderList 同源 getEntry：无 foRevision 仍随 save 更新", async () => {
+    const odds = useOddsStore();
+    const tokenId = "pm-token-1";
+    const live = computed(() => odds.getEntry("Polymarket", tokenId));
+
+    expect(live.value).toBeUndefined();
+
+    odds.save("Polymarket", {
+      id: tokenId,
+      odds: 1.95,
+      clobPrice: 0.5128,
+      isLock: false,
+      time: Date.now(),
+    }, "mqtt");
+    await nextTick();
+    expect(live.value?.clobPrice).toBe(0.5128);
+    expect(live.value?.odds).toBe(1.95);
+
+    odds.save("Polymarket", {
+      id: tokenId,
+      odds: 1.8,
+      clobPrice: 0.555,
+      isLock: false,
+      time: Date.now(),
+    }, "mqtt");
+    await nextTick();
+    expect(live.value?.clobPrice).toBe(0.555);
+  });
+
+  /** 对齐 OrderList.pmLivePriceEpoch：首屏无 fo → save 后必须出现 */
+  it("OrderList 同源 data.get：首屏 undefined 后 save 仍触发", async () => {
+    const odds = useOddsStore();
+    const tokenIds = ["tok-a", "tok-b"];
+    const epoch = computed(() => {
+      let n = 0;
+      for (const id of tokenIds) {
+        const fo = odds.data.get("Polymarket")?.get(id);
+        if (fo)
+          n += (fo.clobPrice ?? 0) + (fo.odds ?? 0);
+      }
+      return n;
+    });
+
+    expect(epoch.value).toBe(0);
+
+    odds.save("Polymarket", {
+      id: "tok-a",
+      odds: 2,
+      clobPrice: 0.5,
+      isLock: false,
+      time: Date.now(),
+    }, "mqtt");
+    await nextTick();
+    expect(epoch.value).toBeGreaterThan(0);
+
+    odds.save("Polymarket", {
+      id: "tok-b",
+      odds: 1.8,
+      clobPrice: 0.55,
+      isLock: false,
+      time: Date.now(),
+    }, "mqtt");
+    await nextTick();
+    expect(epoch.value).toBeGreaterThan(2);
+  });
 });

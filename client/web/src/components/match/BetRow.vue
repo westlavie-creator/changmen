@@ -70,8 +70,7 @@ const evMarker = useEvMarker(() => props.bet, extensionsEnabled);
 
 const oddsByItemKey = computed(() => {
   void props.oddsDisplayTick;
-  // 电竞：MQTT/WS 只写 fo 时靠 foRevision 触发重算（OrderList 同款；勿再依赖全表 refreshOddsOnBets）
-  void oddsStore.foRevision;
+  // 电竞：MQTT/WS 只写 fo；靠 Pinia reactive Map 按 oddId 追踪 getOdds（勿用全局 foRevision 扇出）
   const out = new Map<string, { home: number; away: number }>();
   for (const item of props.bet.items) {
     out.set(`${item.type}:${item.betId}`, {
@@ -83,7 +82,6 @@ const oddsByItemKey = computed(() => {
 });
 
 const limitByItemKey = computed(() => {
-  void oddsStore.foRevision;
   const out = new Map<string, boolean>();
   for (const item of props.bet.items) {
     out.set(

@@ -54,7 +54,7 @@
 | 1 | [`src/views/HomeView.vue`](../src/views/HomeView.vue) | 登录后 [`runtime/appSession.ts`](../src/runtime/appSession.ts)：`startAppSession` / `mountAppSession` |
 | 2 | [`src/stores/matchStore.ts`](../src/stores/matchStore.ts) | `getMatchs`、主循环内 `refreshOddsOnBets`（100ms 轮） |
 | 3 | [`src/models/match.ts`](../src/models/match.ts) | `ViewBetItem.getOdds` / `updateOdds` |
-| 4 | [`src/components/match/BetRow.vue`](../src/components/match/BetRow.vue) | 赔率格子、`revision` / `tick` 触发刷新 |
+| 4 | [`src/components/match/BetRow.vue`](../src/components/match/BetRow.vue) | 赔率格子；`getOdds` 靠 reactive Map 按 oddId 追踪（体育板另传 `oddsDisplayTick`） |
 | 5 | [`src/stores/oddsStore.ts`](../src/stores/oddsStore.ts) | 数字从哪来 |
 
 **数据从哪进界面**：
