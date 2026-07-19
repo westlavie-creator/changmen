@@ -76,52 +76,58 @@ describe("orderLink A8 parity", () => {
   it("legend joins unsettled OB + PM preview without double-dash", () => {
     const text = orderLinkLegend([
       { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB", Item: "Alpha", OrderID: "a" },
-      { Status: "None", BetMoney: 100, Odds: 1.8, Money: 0, Type: "Polymarket", PmSide: "buy", Item: "Beta", OrderID: "b" },
+      {
+        Status: "None",
+        BetMoney: 100,
+        Odds: 1.8,
+        Money: 0,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Beta",
+        OrderID: "b",
+        PmTokenId: "tok-b",
+      },
     ]);
-    expect(text).toBe("100 / -20");
+    // stake=200; OB 按订单: 100*3-200=100; PM token: 100*1.8-200=-20
+    expect(text).toBe("-20 / 100");
   });
 
-  it("legend merges same-side double bets into two outcome legs", () => {
-    // Gen.G 下了两次（pm+od），对冲 Nongshim 一次 → 仍显示两条腿
+  it("legend does not merge venue order into PM by team/Item name", () => {
     const text = orderLinkLegend([
       {
         OrderID: "pm-geng",
         Status: "None",
         BetMoney: 50,
         Odds: 1.408,
-        Money: 0,
         Type: "Polymarket",
         PmSide: "buy",
         Item: "Gen.G Esports",
-        Bet: "[地图1] 单局获胜",
+        PmTokenId: "tok-geng",
       },
       {
         OrderID: "od-geng",
         Status: "None",
         BetMoney: 182,
         Odds: 1.3,
-        Money: 0,
         Type: "OD",
         Item: "Gen.G Esports",
-        Bet: "[地图1] 单局获胜方",
       },
       {
         OrderID: "pm-ns",
         Status: "None",
         BetMoney: 119,
         Odds: 2.857,
-        Money: 0,
         Type: "Polymarket",
         PmSide: "buy",
         Item: "Nongshim RedForce",
-        Bet: "[地图1] 单局获胜",
+        PmTokenId: "tok-ns",
       },
     ]);
-    // stake=351; Gen.G: 50*1.408+182*1.3-351≈-44; NS: 119*2.857-351≈-11
-    expect(text).toBe("-44 / -11");
+    // stake=351; PM geng / PM ns / OD 各算：约 -281 / -11 / -114
+    expect(text).toBe("-281 / -11 / -114");
   });
 
-  it("legend merges RAY short code with PM full team name into two sides", () => {
+  it("legend keeps venue orders per-order; only PM same-token merges", () => {
     const text = orderLinkLegend([
       {
         OrderID: "pm-trace",
@@ -180,8 +186,8 @@ describe("orderLink A8 parity", () => {
         Item: "NV",
       },
     ]);
-    // stake=574; Trace token+TE: 50*1.587+164*2.35-574≈-109; Nova token: …≈-68
-    expect(text).toBe("-109 / -68");
+    // stake=574; Trace / Nova(merged) / RAY TE ≈ -495 / -68 / -189
+    expect(text).toBe("-495 / -68 / -189");
   });
 
   it("legend merges PM same-token buys even when Item text differs slightly", () => {

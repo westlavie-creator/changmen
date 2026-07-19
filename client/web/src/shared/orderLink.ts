@@ -443,49 +443,6 @@ function isPmExitedBuy(row: OrderRow): boolean {
   return false;
 }
 
-/** 选项文本归一化（去 HTML），用于同向合并 */
-export function normalizeOrderItemKey(item: string | null | undefined): string {
-  return String(item || "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function itemAliasKeys(item: string): string[] {
-  const words = item.split(/[^a-z0-9\u4e00-\u9fff]+/i).filter(Boolean);
-  const keys = new Set<string>([item]);
-  if (words[0] && words[0].length >= 3)
-    keys.add(words[0]);
-  if (words.length >= 2) {
-    const initials = words.map(w => w[0]!).join("");
-    if (initials.length >= 2)
-      keys.add(initials);
-  }
-  return [...keys];
-}
-
-function sameOutcomeItemKey(a: string, b: string): boolean {
-  if (!a || !b)
-    return false;
-  if (a === b)
-    return true;
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
-  if (short.length < 3)
-    return false;
-  return long.includes(short);
-}
-
-/** 场馆短码/别名是否对应某 PM 选项文案（TE ↔ Trace Esports） */
-function itemMatchesOutcomeLabel(item: string, label: string): boolean {
-  if (!item || !label)
-    return false;
-  if (sameOutcomeItemKey(item, label))
-    return true;
-  return itemAliasKeys(label).includes(item);
-}
-
 function orderLegendExposureBet(row: OrderRow): number {
   if (isPolymarketOrderRow(row)) {
     const usdc = Number(row.PmStakeUsdc) || 0;
@@ -501,48 +458,14 @@ function pmTokenKey(row: OrderRow): string {
   return String(row.PmTokenId ?? "").trim().toLowerCase();
 }
 
-/** Item 文本兜底分组（无 token 可对齐时） */
-function groupRowsByItemText(rows: OrderRow[]): OrderRow[][] {
-  const groups: { map: string; item: string; rows: OrderRow[] }[] = [];
-  for (const row of rows) {
-    const item = normalizeOrderItemKey(row.Item);
-    const map = parseOrderBetMapLabel(row.Bet);
-    let placed = false;
-    if (item) {
-      for (const g of groups) {
-        if (map !== "—" && g.map !== "—" && map !== g.map)
-          continue;
-        if (!sameOutcomeItemKey(item, g.item))
-          continue;
-        g.rows.push(row);
-        if (item.length > g.item.length)
-          g.item = item;
-        if (g.map === "—" && map !== "—")
-          g.map = map;
-        placed = true;
-        break;
-      }
-    }
-    if (!placed) {
-      groups.push({
-        map: item ? map : "—",
-        item: item || `row:${String(row.OrderID ?? groups.length)}`,
-        rows: [row],
-      });
-    }
-  }
-  return groups.map(g => g.rows);
-}
-
 /**
- * [changmen 扩展] 按结果方向合并：
+ * [changmen 扩展] 未结预览分组：
  * - PM：同一 `PmTokenId` = 同一腿（同向多笔）
- * - 其它场馆：Item 对齐到已有 PM 腿的选项文案（含短码 TE↔全称）
- * - 其余：Item 文本兜底
+ * - 其它场馆 / 无 token：每笔订单单独一腿（不按队名/Item 互并）
  */
 export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
   const tokenBuckets = new Map<string, OrderRow[]>();
-  const rest: OrderRow[] = [];
+  const perOrder: OrderRow[][] = [];
 
   for (const row of rows) {
     const token = pmTokenKey(row);
@@ -552,45 +475,17 @@ export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
       tokenBuckets.set(token, list);
       continue;
     }
-    rest.push(row);
+    perOrder.push([row]);
   }
 
-  if (!tokenBuckets.size)
-    return groupRowsByItemText(rows);
-
-  const sides = [...tokenBuckets.values()];
-  const orphans: OrderRow[] = [];
-  for (const row of rest) {
-    const item = normalizeOrderItemKey(row.Item);
-    if (!item) {
-      orphans.push(row);
-      continue;
-    }
-    let attached = false;
-    for (const side of sides) {
-      const labels = side
-        .map(r => normalizeOrderItemKey(r.Item))
-        .filter(Boolean);
-      if (labels.some(label => itemMatchesOutcomeLabel(item, label))) {
-        side.push(row);
-        attached = true;
-        break;
-      }
-    }
-    if (!attached)
-      orphans.push(row);
-  }
-
-  if (!orphans.length)
-    return sides;
-  return [...sides, ...groupRowsByItemText(orphans)];
+  return [...tokenBuckets.values(), ...perOrder];
 }
 
 /**
  * [A8 可证实] OrderView legend：未结预览 bet×odds−stake；已结为组盈亏。
  * [changmen 扩展]
  * - 分隔符用 ` / `（A8 为 ` - `），避免负数拼成 `-281 - -114`
- * - 同向多笔合并为一条腿：PM 按 PmTokenId；场馆 Item 对齐 PM 选项
+ * - PM 同 token 合并为一腿；其它场馆按订单各算一条
  */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
