@@ -167,12 +167,20 @@ export async function createAndSubmitHouseMarketBuy(params) {
   if (Number(params.apiBetMoney) > maxStake + 1e-9)
     throw new Error(`单笔超过上限 ${maxStake} USDT`);
 
+  const t0 = Date.now();
+  const logStep = (step) => {
+    console.info(`[Pf_SubmitBuy] ${step} market=${params.marketId} +${Date.now() - t0}ms`);
+  };
+  logStep("start");
+
   const { Side, orderBuilder, maker, jwt } = await prepareHouseSigner();
+  logStep("signer_ready");
 
   const [bookRaw, market] = await Promise.all([
     fetchPredictOrderbook(params.marketId),
     fetchPredictMarket(params.marketId),
   ]);
+  logStep("book_ready");
   if (!bookRaw)
     throw new Error("下单前 orderbook 为空");
 
@@ -221,6 +229,7 @@ export async function createAndSubmitHouseMarketBuy(params) {
   });
   const signedOrder = await orderBuilder.signTypedDataOrder(typedData);
   const hash = orderBuilder.buildTypedDataHash(typedData);
+  logStep("signed");
 
   const body = {
     data: {
@@ -233,7 +242,9 @@ export async function createAndSubmitHouseMarketBuy(params) {
     },
   };
 
+  logStep("post_orders");
   const result = await predictFunPost("/v1/orders", body, jwt);
+  logStep(`post_ok accepted=${Boolean(result?.data?.orderId || result?.success)}`);
   const bookPrice = bestAskFromPredictBook({ asks: cappedAsks });
   return {
     requestBody: body,

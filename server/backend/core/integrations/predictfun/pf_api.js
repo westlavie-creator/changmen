@@ -8,6 +8,9 @@ import {
   resolvePredictFunApiKey,
 } from "./house_credentials.js";
 
+/** 单次上游 HTTP 上限；避免裸 fetch 挂死拖垮 house 锁与客户端 */
+const PREDICT_FUN_FETCH_TIMEOUT_MS = Number(process.env.PF_HOUSE_FETCH_TIMEOUT_MS || 12_000);
+
 export function predictFunApiHeaders(extra = {}) {
   const headers = {
     Accept: "application/json",
@@ -17,6 +20,15 @@ export function predictFunApiHeaders(extra = {}) {
   if (apiKey)
     headers["x-api-key"] = apiKey;
   return headers;
+}
+
+function fetchSignal(timeoutMs = PREDICT_FUN_FETCH_TIMEOUT_MS) {
+  const ms = Math.max(1000, Number(timeoutMs) || PREDICT_FUN_FETCH_TIMEOUT_MS);
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function")
+    return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 async function parseJsonResponse(res) {
@@ -42,9 +54,25 @@ async function parseJsonResponse(res) {
   return body;
 }
 
-export async function predictFunGet(path) {
+async function predictFunFetch(path, init = {}) {
   const base = resolvePredictFunApiBase();
-  const res = await fetch(`${base}${path}`, {
+  const url = `${base}${path}`;
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: init.signal || fetchSignal(),
+    });
+  }
+  catch (err) {
+    const name = err?.name || "";
+    if (name === "TimeoutError" || name === "AbortError")
+      throw new Error(`Predict.fun 上游超时（${path}，${PREDICT_FUN_FETCH_TIMEOUT_MS}ms）`);
+    throw err;
+  }
+}
+
+export async function predictFunGet(path) {
+  const res = await predictFunFetch(path, {
     method: "GET",
     headers: predictFunApiHeaders(),
   });
@@ -53,11 +81,10 @@ export async function predictFunGet(path) {
 
 /** 需 JWT 的 GET（订单查询等） */
 export async function predictFunGetAuth(path, jwt) {
-  const base = resolvePredictFunApiBase();
   const headers = predictFunApiHeaders();
   if (jwt)
     headers.Authorization = `Bearer ${jwt}`;
-  const res = await fetch(`${base}${path}`, {
+  const res = await predictFunFetch(path, {
     method: "GET",
     headers,
   });
@@ -65,13 +92,12 @@ export async function predictFunGetAuth(path, jwt) {
 }
 
 export async function predictFunPost(path, body, jwt) {
-  const base = resolvePredictFunApiBase();
   const headers = predictFunApiHeaders({
     "Content-Type": "application/json",
   });
   if (jwt)
     headers.Authorization = `Bearer ${jwt}`;
-  const res = await fetch(`${base}${path}`, {
+  const res = await predictFunFetch(path, {
     method: "POST",
     headers,
     body: JSON.stringify(body ?? {}),

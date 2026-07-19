@@ -281,6 +281,9 @@ export async function handlePfSubmitOrder(body, userId) {
     if (!avail.ok)
       return avail;
 
+    console.info(
+      `[Pf_SubmitOrder] start player=${gate.playerId} market=${intent.marketId} stake=${intent.apiBetMoney}`,
+    );
     const submitted = await withHouseOrderLock(async () => {
       // 锁内再读一次，避免并发超扣
       const owned = await assertPlayerOwnedByUser(gate.playerId, userId);
@@ -311,6 +314,7 @@ export async function handlePfSubmitOrder(body, userId) {
 
       return { fresh, out, liveBal };
     });
+    console.info(`[Pf_SubmitOrder] lock_done player=${gate.playerId} market=${intent.marketId}`);
 
     const { fresh, out, liveBal } = submitted;
     if (!isPredictFunOrderAccepted(out.result)) {
@@ -379,12 +383,10 @@ export async function handlePfSubmitOrder(body, userId) {
     };
   }
   catch (err) {
-    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[Pf_SubmitOrder] fail market=${intent?.marketId || "?"} ${msg}`);
+    return { ok: false, msg };
   }
-}
-
-function rdsOrderKey(row) {
-  return String(row?.orderId ?? row?.OrderID ?? "").trim();
 }
 
 function rdsOrderStatus(row) {
