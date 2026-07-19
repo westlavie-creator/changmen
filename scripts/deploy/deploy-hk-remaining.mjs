@@ -71,11 +71,11 @@ function run(cmd, args, opts = {}) {
 }
 
 function ssh(host, remoteCmd) {
-  run("ssh", [...sshBase, `root@${host}`, remoteCmd]);
+  run("ssh", [...sshBase, `root@${host}`, remoteCmd], { shell: false });
 }
 
 function scp(host, local, remotePath) {
-  run("scp", [...sshBase, local, `root@${host}:${remotePath}`]);
+  run("scp", [...sshBase, local, `root@${host}:${remotePath}`], { shell: false });
 }
 
 function packLocalDist() {
@@ -121,7 +121,7 @@ for (const h of HOSTS) {
   try {
     scp(h.host, repoArchive, "/tmp/changmen-repo.upload.tgz");
     ssh(h.host, `mkdir -p ${remoteScripts}`);
-    run("scp", [...sshBase, ...scriptPaths, `root@${h.host}:${remoteScripts}/`]);
+    run("scp", [...sshBase, ...scriptPaths, `root@${h.host}:${remoteScripts}/`], { shell: false });
     ssh(h.host, `sed -i 's/\\r$//' ${remoteScripts}/*.sh`);
     ssh(h.host, [
       "set -e",

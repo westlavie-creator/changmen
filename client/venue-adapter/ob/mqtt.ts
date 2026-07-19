@@ -48,27 +48,7 @@ export function obSourceMatchId(match: ViewMatch): string | null {
 
 let realtime: ObRealtimeClient | null = null;
 const subscribedIds = new Set<string>();
-let onRefresh: (() => void) | null = null;
-let refreshDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let latestCollectPlatform: CollectPlatformInfo | null = null;
-
-const MQTT_REFRESH_DEBOUNCE_MS = 200;
-
-function scheduleMqttRefresh(): void {
-  if (!onRefresh) return;
-  if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
-  refreshDebounceTimer = setTimeout(() => {
-    refreshDebounceTimer = null;
-    onRefresh?.();
-  }, MQTT_REFRESH_DEBOUNCE_MS);
-}
-
-function clearMqttRefreshDebounce(): void {
-  if (refreshDebounceTimer) {
-    clearTimeout(refreshDebounceTimer);
-    refreshDebounceTimer = null;
-  }
-}
 
 /** 是否已连上 OB relay；对齐 A8 仍每轮 HTTP 灌盘，MQTT 仅增量改 fo */
 export function isObMqttConnected(): boolean {
@@ -83,13 +63,15 @@ export function setObMqttCollectPlatform(platform: CollectPlatformInfo | null): 
   latestCollectPlatform = platform;
 }
 
+/**
+ * [A8 可证实] UMe message：只写 fo（save / updateBetLock），不扫 match 表。
+ * 全表 refreshOddsOnBets 由主循环 ~100ms 负责（与 A8 O() 一致）。
+ */
 export function handleObMqttMessage(
   topic: string,
   payload: string,
-  refresh: () => void = scheduleMqttRefresh,
   now = Date.now(),
 ) {
-
   updateVenueOddsMessage(PLATFORM, payload);
   const parsed = parseTopic(topic);
   if (!parsed) return;
@@ -122,19 +104,16 @@ export function handleObMqttMessage(
           "mqtt",
         );
       }
-      refresh();
       break;
     case "/market/statusUpdate/":
       for (const row of rows) {
         updateVenueBetLock(PLATFORM, String(row.market_id ?? ""), true);
       }
-      refresh();
       break;
     case "/market/suspended/":
       for (const row of rows) {
         updateVenueBetLock(PLATFORM, String(row.market_id ?? ""), row.suspended === 1);
       }
-      refresh();
       break;
     default:
       // /odd/*、/market/visible/ 等：A8 UMe 同样无 handler，仅订阅保持与源站一致
@@ -142,8 +121,8 @@ export function handleObMqttMessage(
   }
 }
 
-export function connectObMqtt(refresh: () => void): void {
-  onRefresh = refresh;
+/** 连接 OB MQTT；只写 fo，不对齐 changmen 旧版 debounce 全表 refresh。 */
+export function connectObMqtt(): void {
   if (!realtime) realtime = createObRealtimeClient();
   if (realtime.connected()) return;
 
@@ -155,7 +134,6 @@ export function connectObMqtt(refresh: () => void): void {
         void realtime?.subscribe(topic);
       }
     }
-    scheduleMqttRefresh();
   });
 }
 
@@ -164,18 +142,17 @@ export type { ObMqttSourceMode };
 
 export function cycleObMqttSourceModeAndReconnect(): ObMqttSourceMode {
   const next = cycleObMqttSourceMode();
-  if (!realtime || !onRefresh) return next;
+  if (!realtime) return next;
 
   const oldRealtime = realtime;
   realtime = null;
   void oldRealtime.stop().finally(() => {
-    if (onRefresh) connectObMqtt(onRefresh);
+    connectObMqtt();
   });
   return next;
 }
 
 export function disconnectObMqtt(): void {
-  clearMqttRefreshDebounce();
   for (const id of [...subscribedIds]) {
     for (const topic of obSubscribeTopics(id)) {
       void realtime?.unsubscribe(topic);

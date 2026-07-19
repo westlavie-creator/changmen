@@ -18,7 +18,6 @@ import {
 import { num } from "./parse";
 import { directGet } from "@changmen/client-core/shared/http";
 import { useCollectStore } from "../shared/webBridge";
-import { useMatchStore } from "../shared/webBridge";
 import type { CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
 
@@ -189,7 +188,6 @@ export function startObCollector(): () => void {
   let loopPromise: Promise<void> | null = null;
 
   const collect = useCollectStore();
-  const matchStore = useMatchStore();
 
   const poll = async () => {
     while (!stopped) {
@@ -267,7 +265,8 @@ export function startObCollector(): () => void {
   void (async () => {
     await wait(3000);
     if (stopped) return;
-    connectObMqtt(() => matchStore.refreshOddsOnBets());
+    // [A8 可证实] MQTT 只写 fo；全表 refreshOddsOnBets 由主循环负责
+    connectObMqtt();
     loopPromise = poll();
   })();
 
