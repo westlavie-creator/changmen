@@ -3,6 +3,7 @@ import { ElMessageBox } from "element-plus";
 import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption } from "@changmen/client-core/models/betOption";
+import { wait } from "@changmen/client-core/shared/wait";
 import { manualBetToastSeconds } from "@/shared/betTiming";
 import { useAccountStore } from "@/stores/accountStore";
 import {
@@ -10,6 +11,7 @@ import {
   buildManualBetContextLines,
   buildManualBetOrderFailureHtml,
 } from "@/stores/betting/manualBetAlert";
+import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
@@ -112,6 +114,15 @@ export async function runManualBet(
   if (result?.success) {
     markSuccessfulBet(account, bet.id, side, option.odds);
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
+    // [changmen 扩展] 对齐正 EV：立刻 sync 入库并刷侧栏，避免干等 Io.f 2–3 分钟
+    try {
+      await wait(result.orderId ? 400 : 1500);
+      await accountStore.updateVenueOrders(account);
+      refreshOrderListAfterBind();
+    }
+    catch {
+      // updateVenueOrders 已吞错；此处仅兜底 wait/刷新异常，不影响成功提示
+    }
     void accountStore.refreshBalance(account);
   }
   else {

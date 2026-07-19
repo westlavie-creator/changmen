@@ -121,6 +121,106 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("-44 / -11");
   });
 
+  it("legend merges RAY short code with PM full team name into two sides", () => {
+    const text = orderLinkLegend([
+      {
+        OrderID: "pm-trace",
+        Status: "None",
+        BetMoney: 50,
+        Odds: 1.587,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Trace Esports",
+        PmTokenId: "token-trace",
+      },
+      {
+        OrderID: "pm-nova-a",
+        Status: "None",
+        BetMoney: 50,
+        Odds: 1.388,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Nova Esports",
+        PmTokenId: "token-nova",
+      },
+      {
+        OrderID: "pm-nova-b",
+        Status: "None",
+        BetMoney: 50,
+        Odds: 1.298,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Nova Esports",
+        PmTokenId: "token-nova",
+      },
+      {
+        OrderID: "pm-nova-c",
+        Status: "None",
+        BetMoney: 260,
+        Odds: 1.428,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Nova Esports",
+        PmTokenId: "token-nova",
+      },
+      {
+        OrderID: "ray-te",
+        Status: "None",
+        BetMoney: 164,
+        Odds: 2.35,
+        Type: "RAY",
+        Item: "TE",
+      },
+      {
+        OrderID: "ray-nv-reject",
+        Status: "Reject",
+        BetMoney: 164,
+        Odds: 2.35,
+        Type: "RAY",
+        Item: "NV",
+      },
+    ]);
+    // stake=574; Trace token+TE: 50*1.587+164*2.35-574≈-109; Nova token: …≈-68
+    expect(text).toBe("-109 / -68");
+  });
+
+  it("legend merges PM same-token buys even when Item text differs slightly", () => {
+    const text = orderLinkLegend([
+      {
+        OrderID: "a",
+        Status: "None",
+        BetMoney: 100,
+        Odds: 2,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Team A",
+        PmTokenId: "tok-a",
+      },
+      {
+        OrderID: "b",
+        Status: "None",
+        BetMoney: 50,
+        Odds: 2,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Team A (extra)",
+        PmTokenId: "tok-a",
+      },
+      {
+        OrderID: "c",
+        Status: "None",
+        BetMoney: 100,
+        Odds: 2.2,
+        Type: "Polymarket",
+        PmSide: "buy",
+        Item: "Team B",
+        PmTokenId: "tok-b",
+      },
+    ]);
+    // stake=250; A: 100*2+50*2-250=50; B: 100*2.2-250=-30
+    expect(text).toBe("50 / -30");
+  });
+
   it("PM unsettled uses bet×odds−stake preview like A8", () => {
     const text = orderLinkLegend([
       { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "Polymarket" },

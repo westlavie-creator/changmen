@@ -453,6 +453,19 @@ export function normalizeOrderItemKey(item: string | null | undefined): string {
     .toLowerCase();
 }
 
+function itemAliasKeys(item: string): string[] {
+  const words = item.split(/[^a-z0-9\u4e00-\u9fff]+/i).filter(Boolean);
+  const keys = new Set<string>([item]);
+  if (words[0] && words[0].length >= 3)
+    keys.add(words[0]);
+  if (words.length >= 2) {
+    const initials = words.map(w => w[0]!).join("");
+    if (initials.length >= 2)
+      keys.add(initials);
+  }
+  return [...keys];
+}
+
 function sameOutcomeItemKey(a: string, b: string): boolean {
   if (!a || !b)
     return false;
@@ -464,6 +477,15 @@ function sameOutcomeItemKey(a: string, b: string): boolean {
   return long.includes(short);
 }
 
+/** 场馆短码/别名是否对应某 PM 选项文案（TE ↔ Trace Esports） */
+function itemMatchesOutcomeLabel(item: string, label: string): boolean {
+  if (!item || !label)
+    return false;
+  if (sameOutcomeItemKey(item, label))
+    return true;
+  return itemAliasKeys(label).includes(item);
+}
+
 function orderLegendExposureBet(row: OrderRow): number {
   if (isPolymarketOrderRow(row)) {
     const usdc = Number(row.PmStakeUsdc) || 0;
@@ -473,11 +495,14 @@ function orderLegendExposureBet(row: OrderRow): number {
   return Number(row.BetMoney) || 0;
 }
 
-/**
- * [changmen 扩展] 按选项（同向）合并：一腿可多笔（跨场馆同选）。
- * 无 Item 时不互并，避免误把双腿合成一腿。
- */
-export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
+function pmTokenKey(row: OrderRow): string {
+  if (!isPolymarketOrderRow(row) || row.PmSide === "sell")
+    return "";
+  return String(row.PmTokenId ?? "").trim().toLowerCase();
+}
+
+/** Item 文本兜底分组（无 token 可对齐时） */
+function groupRowsByItemText(rows: OrderRow[]): OrderRow[][] {
   const groups: { map: string; item: string; rows: OrderRow[] }[] = [];
   for (const row of rows) {
     const item = normalizeOrderItemKey(row.Item);
@@ -510,10 +535,62 @@ export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
 }
 
 /**
+ * [changmen 扩展] 按结果方向合并：
+ * - PM：同一 `PmTokenId` = 同一腿（同向多笔）
+ * - 其它场馆：Item 对齐到已有 PM 腿的选项文案（含短码 TE↔全称）
+ * - 其余：Item 文本兜底
+ */
+export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
+  const tokenBuckets = new Map<string, OrderRow[]>();
+  const rest: OrderRow[] = [];
+
+  for (const row of rows) {
+    const token = pmTokenKey(row);
+    if (token) {
+      const list = tokenBuckets.get(token) ?? [];
+      list.push(row);
+      tokenBuckets.set(token, list);
+      continue;
+    }
+    rest.push(row);
+  }
+
+  if (!tokenBuckets.size)
+    return groupRowsByItemText(rows);
+
+  const sides = [...tokenBuckets.values()];
+  const orphans: OrderRow[] = [];
+  for (const row of rest) {
+    const item = normalizeOrderItemKey(row.Item);
+    if (!item) {
+      orphans.push(row);
+      continue;
+    }
+    let attached = false;
+    for (const side of sides) {
+      const labels = side
+        .map(r => normalizeOrderItemKey(r.Item))
+        .filter(Boolean);
+      if (labels.some(label => itemMatchesOutcomeLabel(item, label))) {
+        side.push(row);
+        attached = true;
+        break;
+      }
+    }
+    if (!attached)
+      orphans.push(row);
+  }
+
+  if (!orphans.length)
+    return sides;
+  return [...sides, ...groupRowsByItemText(orphans)];
+}
+
+/**
  * [A8 可证实] OrderView legend：未结预览 bet×odds−stake；已结为组盈亏。
  * [changmen 扩展]
  * - 分隔符用 ` / `（A8 为 ` - `），避免负数拼成 `-281 - -114`
- * - 同向多笔（同一选项下了两次）合并为一条腿：Σ(bet×odds)−stake，仍按两条结果方向展示
+ * - 同向多笔合并为一条腿：PM 按 PmTokenId；场馆 Item 对齐 PM 选项
  */
 export function orderLinkLegend(rows: OrderRow[]): string {
   const link = linkIdGroupKey(rows[0]?.Link);
