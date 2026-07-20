@@ -77,6 +77,20 @@ describe("resolveMakeUpSuccessReference", () => {
     expect(ref).toEqual({ betMoney: 95.2, betOdds: 1.695 });
   });
 
+  it("converts PF leg betMoney from USDT to CNY on fallback (same as PM)", () => {
+    const pfAccount = {
+      provider: "PredictFun",
+      currency: "USDT",
+    } as never;
+    const ref = resolveMakeUpSuccessReference(
+      { betMoney: 1.47, odds: 1.6, type: "PredictFun" } as BetOption,
+      [],
+      false,
+      pfAccount,
+    );
+    expect(ref).toEqual({ betMoney: 10, betOdds: 1.6 });
+  });
+
   it("converts unscaled PM venue order USDC to CNY", () => {
     const pmAccount = {
       provider: "Polymarket",

@@ -1,8 +1,10 @@
 /**
- * [A8 适配] 编排 Plan CNY ↔ 场馆原币（CNY / U / PM USDC）
+ * [A8 适配] 编排 Plan CNY ↔ 场馆原币（CNY / U / PM·PF USDT）
  *
  * 编排层（GetOrderOptions、LoseOrder、jb、anyOdds）只使用 Plan CNY；
  * 仅在 checkBetting 边界与读场馆单时调用本模块，不改动 A8 公式。
+ *
+ * PM / PF：对齐 `polymarketUsdtFromCny`（÷汇率保留 2 位），禁止 `getBetMoney` 整 U。
  */
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "../contract";
@@ -10,7 +12,7 @@ import {
   getExchange,
   scaleUsdtToCnyDisplay,
 } from "@changmen/shared/currency";
-import { isPolymarketProvider } from "@changmen/shared/account_multiply";
+import { isPredictionMarketUsdtStakeProvider } from "@changmen/shared/account_multiply";
 import { polymarketCnyFromUsdt, polymarketUsdtFromCny } from "../polymarket/pmStake";
 
 function venueToPlanExchange(account: PlatformAccount): number {
@@ -29,7 +31,7 @@ export function resolveVenueStakeFromPlanCny(
   odds: number,
   opts?: ResolveVenueStakeOpts,
 ): number {
-  if (isPolymarketProvider(account.provider))
+  if (isPredictionMarketUsdtStakeProvider(account.provider))
     return polymarketUsdtFromCny(account, planCny, odds, opts?.skipAccountRate);
   if (opts?.skipAccountRate)
     return Math.round(planCny / venueToPlanExchange(account));
@@ -41,7 +43,7 @@ export function resolvePlanCnyFromVenueStake(
   account: PlatformAccount,
   venueStake: number,
 ): number {
-  if (isPolymarketProvider(account.provider))
+  if (isPredictionMarketUsdtStakeProvider(account.provider))
     return polymarketCnyFromUsdt(venueStake);
   const exchange = venueToPlanExchange(account);
   if (exchange > 1)
@@ -49,22 +51,24 @@ export function resolvePlanCnyFromVenueStake(
   return Math.round(venueStake);
 }
 
-/** PM 场馆订单 betMoney 可能为 Display CNY 或未 scale 的 USDC */
+/** PM/PF 场馆订单 betMoney 为 USDT/USDC；PM 另可能已是 Display CNY */
 export function resolvePlanCnyFromVenueOrder(
   account: PlatformAccount,
   order: VenueOrder,
 ): number {
-  const raw = Math.round(Number(order.betMoney) || 0);
-  if (!isPolymarketProvider(account.provider))
-    return raw;
+  if (!isPredictionMarketUsdtStakeProvider(account.provider))
+    return Math.round(Number(order.betMoney) || 0);
+
+  const raw = Number(order.betMoney) || 0;
   const usdc = Number(order.pmStakeUsdc) || 0;
   if (usdc > 0 && raw <= usdc * 1.5)
-    return resolvePlanCnyFromVenueStake(account, Math.round(usdc));
+    return resolvePlanCnyFromVenueStake(account, usdc);
   if (usdc > 0 && raw > usdc * 1.5)
-    return raw;
+    return Math.round(raw);
+  // PF / 无 pmStakeUsdc：betMoney 即场馆 USDT
   if (raw > 0 && raw < 500)
     return resolvePlanCnyFromVenueStake(account, raw);
-  return raw;
+  return Math.round(raw);
 }
 
 /** 链上 USDC → UI Display CNY（订单 sync 展示，与 config.betMoney 口径一致） */

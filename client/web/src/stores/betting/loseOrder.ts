@@ -1,6 +1,6 @@
 import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
-import { PLATFORMS } from "@changmen/venue-adapter/shared";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {
@@ -74,7 +74,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       if (removeIds.has(betId))
         break;
 
-      if (order.pendingPmOrderId && item.type === PLATFORMS.Polymarket)
+      // 已有 pending 续查单时，禁止再 POST 新补单（等 tryResume / 下轮 settle）
+      if (order.pendingPmOrderId)
         break;
 
       const sideOdds = item.getOdds(order.target);
@@ -121,7 +122,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         continue;
       }
 
-      if (account.provider === PLATFORMS.Polymarket) {
+      if (isPendingConfirmVenueProvider(account.provider)) {
         await processPmMakeUpLeg({
           betId,
           order,

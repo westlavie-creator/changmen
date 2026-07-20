@@ -51,6 +51,10 @@ function isPolymarketOrderRow(row: OrderRow): boolean {
   return String(row.Type ?? "").trim() === "Polymarket";
 }
 
+function isPredictFunOrderRow(row: OrderRow): boolean {
+  return String(row.Type ?? "").trim() === "PredictFun";
+}
+
 /** PM 仍有持仓；卖单永远不算持仓 */
 export function isPolymarketOpenPosition(row: OrderRow): boolean {
   return hasOpenPolymarketPosition(row);
@@ -71,7 +75,7 @@ export function toOrderDateKeyLocal(ts: number): string {
 }
 
 /**
- * [changmen 扩展] 订单归账时间戳：PM 卖单跟对应买单 CreateAt，
+ * [changmen 扩展] 订单归账时间戳：PM/PF 卖单跟对应买单 CreateAt，
  * 使跨日卖出在买单日展示并计入当日盈亏。
  */
 export function orderProfitDateTs(row: OrderRow, peers: OrderRow[]): number {
@@ -98,6 +102,19 @@ export function orderProfitDateTs(row: OrderRow, peers: OrderRow[]): number {
       .filter(n => n > 0);
     if (buyAts.length)
       return Math.min(...buyAts);
+  }
+  if (isPredictFunOrderRow(row) && row.PfSide === "sell") {
+    const buyId = String(row.PfBuyOrderId ?? "").trim().toLowerCase();
+    if (buyId) {
+      const buy = peers.find(r =>
+        isPredictFunOrderRow(r)
+        && r.PfSide !== "sell"
+        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
+      );
+      const buyAt = Number(buy?.CreateAt) || 0;
+      if (buyAt > 0)
+        return buyAt;
+    }
   }
   return Number(row.CreateAt) || 0;
 }
@@ -403,6 +420,14 @@ export function mergePendingMakeupIntoOrderGroups(
 export function polymarketMoneyForAggregate(row: OrderRow, peers: OrderRow[]): number {
   if (isMakeupSyntheticOrderRow(row))
     return 0;
+
+  if (isPredictFunOrderRow(row)) {
+    if (row.PfSide === "sell")
+      return 0;
+    // 库内 Money 为 USDT → 图例 CNY
+    return (Number(row.Money) || 0) * getExchange(Currency.USDT);
+  }
+
   if (!isPolymarketOrderRow(row))
     return Number(row.Money) || 0;
 
@@ -443,11 +468,34 @@ function isPmExitedBuy(row: OrderRow): boolean {
   return false;
 }
 
+/** PF 买单已 1:1 卖出 */
+function isPfExitedBuy(row: OrderRow): boolean {
+  if (!isPredictFunOrderRow(row) || row.PfSide === "sell")
+    return false;
+  return String(row.PfSellState ?? "").toLowerCase() === "closed";
+}
+
+function isExitedPredictionBuy(row: OrderRow): boolean {
+  return isPmExitedBuy(row) || isPfExitedBuy(row);
+}
+
+function isPredictionSellRow(row: OrderRow): boolean {
+  if (isPolymarketOrderRow(row) && row.PmSide === "sell")
+    return true;
+  if (isPredictFunOrderRow(row) && row.PfSide === "sell")
+    return true;
+  return false;
+}
+
 function orderLegendExposureBet(row: OrderRow): number {
   if (isPolymarketOrderRow(row)) {
     const usdc = Number(row.PmStakeUsdc) || 0;
     if (usdc > 0)
       return usdc * getExchange(Currency.USDT);
+  }
+  if (isPredictFunOrderRow(row)) {
+    // 库内 BetMoney 为 USDT，图例与侧栏同 CNY 口径
+    return (Number(row.BetMoney) || 0) * getExchange(Currency.USDT);
   }
   return Number(row.BetMoney) || 0;
 }
@@ -493,17 +541,17 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const stake = rows
     .filter(r =>
       !LOSE_REJECT.has(String(r.Status))
-      && r.PmSide !== "sell"
+      && !isPredictionSellRow(r)
       && !isMakeupSyntheticOrderRow(r)
-      && !isPmExitedBuy(r),
+      && !isExitedPredictionBuy(r),
     )
     .reduce((sum, r) => sum + orderLegendExposureBet(r), 0);
   const hasMakeup = rows.some(isMakeupPendingOrderRow);
   const makeupPrefix = hasMakeup ? "补单中 · " : "";
   const unsettled = rows.filter(r =>
     String(r.Status ?? "") === "None"
-    && r.PmSide !== "sell"
-    && !isPmExitedBuy(r),
+    && !isPredictionSellRow(r)
+    && !isExitedPredictionBuy(r),
   );
   const sideGroups = groupRowsByOutcomeSide(unsettled);
   const unsettledPreview = sideGroups.map((sideRows) => {

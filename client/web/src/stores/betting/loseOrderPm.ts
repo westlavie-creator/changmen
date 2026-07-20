@@ -41,7 +41,7 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
   if (result.pending)
     syncActiveBetMakeupPmDelayed(betId, result.orderId);
 
-  await applyPmJbSettlementOutcome({
+  const outcome = await applyPmJbSettlementOutcome({
     betId,
     order,
     match,
@@ -54,7 +54,8 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
     removeIds,
     setMessage,
   });
-  markSuccessfulBet(account, bet.id, order.target);
+  if (outcome === "dequeued")
+    markSuccessfulBet(account, bet.id, order.target);
 }
 
 export type { PmJbResumeResult, PmJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";

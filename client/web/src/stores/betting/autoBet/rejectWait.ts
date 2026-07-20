@@ -2,11 +2,11 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { UserConfig } from "@/types/userConfig";
 import { a8Tip } from "@/shared/a8Notify";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
-import { PLATFORMS } from "@changmen/venue-adapter/shared";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 
-/** 套利单腿：场馆层拒单检测等待秒数（PM 走 settle，不读 waitTime） */
+/** 套利单腿：场馆层拒单检测等待秒数（PM/PF 走 settle，不读 waitTime） */
 export function legRejectWaitSec(config: UserConfig, provider: string): number {
-  if (provider === PLATFORMS.Polymarket)
+  if (isPendingConfirmVenueProvider(provider))
     return 0;
   const wait = config.waitTime[provider];
   if (wait === -1)
@@ -14,9 +14,9 @@ export function legRejectWaitSec(config: UserConfig, provider: string): number {
   return wait ?? 5;
 }
 
-/** 补单单腿：对齐 A8 Pe（max(wait,10)）；-1 由编排层跳过检测 */
+/** 补单单腿：对齐 A8 Pe（max(wait,10)）；-1 由编排层跳过检测；PM/PF 为 0 */
 export function makeupLegRejectWaitSec(config: UserConfig, provider: string): number {
-  if (provider === PLATFORMS.Polymarket)
+  if (isPendingConfirmVenueProvider(provider))
     return 0;
   if (config.waitTime[provider] === -1)
     return 0;

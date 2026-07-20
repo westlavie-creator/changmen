@@ -185,17 +185,21 @@ export async function resolvePredictFunProviderLegOutcome(
   result?: BetResult,
   opts?: ResolveLegOutcomeOpts,
 ): Promise<VenueLegOutcome> {
-  // 仅 PredictFun provider 调用本函数；pending 时自轮询，不改共享编排层 confirmPmPost
-  if (result?.success && result.orderId && result.pending) {
+  const pull = async () => {
+    if (opts?.fetchVenueOrders)
+      return sortVenueOrdersNewestFirst(await opts.fetchVenueOrders());
+    if (opts?.orders)
+      return sortVenueOrdersNewestFirst(opts.orders);
+    return sortVenueOrdersNewestFirst(await getOrders(account));
+  };
+
+  // 与 PM 一致：仅 confirmPmPost 时进 GetOrder 轮询；拉单用编排 fetchVenueOrders（含 saveOrders）
+  if (result && opts?.confirmPmPost) {
     return resolvePredictFunLegOutcome(account, result, {
       ...opts,
-      // 忽略入口预拉的 stale orders，确认后再走 getOrders（含 saveOrders 由编排层拉单回调时另注）
-      fetchVenueOrders: async () => sortVenueOrdersNewestFirst(await getOrders(account)),
+      fetchVenueOrders: pull,
     });
   }
 
-  const list = opts?.orders
-    ? sortVenueOrdersNewestFirst(opts.orders)
-    : sortVenueOrdersNewestFirst(await getOrders(account));
-  return resolvePredictFunListLegOutcome(list, result);
+  return resolvePredictFunListLegOutcome(await pull(), result);
 }

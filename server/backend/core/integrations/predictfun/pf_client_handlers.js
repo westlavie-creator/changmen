@@ -42,6 +42,7 @@ import {
   settlementFromPredictOfficialStatus,
   waitForHouseOrderTerminal,
 } from "./pf_orders.js";
+import { pfSellItemLabel, resolvePfOrderLabels } from "./pf_order_labels.js";
 
 /** 避免与 account_service 循环依赖：就地写 ACCOUNT 缓存行 */
 async function syncAccountRowInKv(accountId, updates, userId) {
@@ -94,6 +95,11 @@ function parseIntent(body) {
     detectionMaxPrice,
     detectionOdds: Number.isFinite(detectionOdds) && detectionOdds > 1 ? detectionOdds : 0,
     slippageBps,
+    display: {
+      match: String(body?.match ?? body?.Match ?? "").trim(),
+      bet: String(body?.bet ?? body?.Bet ?? "").trim(),
+      item: String(body?.item ?? body?.Item ?? "").trim(),
+    },
   };
 }
 
@@ -358,13 +364,18 @@ export async function handlePfSubmitOrder(body, userId) {
     const createAt = Date.now();
     const sharesWei = String(out.sharesWei ?? "").trim();
     const shares = Number(out.shares) || (sharesWei ? weiToDecimal18(sharesWei) : 0);
+    const labels = resolvePfOrderLabels({
+      marketId: intent.marketId,
+      tokenId: intent.tokenId,
+      fromClient: intent.display,
+    });
 
     await orderStore.saveOrder(gate.playerId, [{
       orderId,
       provider: "PredictFun",
-      match: String(intent.marketId),
-      bet: "PredictFun",
-      item: String(intent.tokenId),
+      match: labels.match,
+      bet: labels.bet,
+      item: labels.item,
       odds: bookOdds,
       betMoney: intent.apiBetMoney,
       money: 0,
@@ -442,6 +453,7 @@ function rdsToMapInput(rdsRow) {
     money: rdsRow?.money ?? rdsRow?.Money,
     createAt: rdsRow?.createAt ?? rdsRow?.CreateAt,
     match: rdsRow?.match ?? rdsRow?.Match,
+    bet: rdsRow?.bet ?? rdsRow?.Bet,
     item: rdsRow?.item ?? rdsRow?.Item,
     link: rdsRow?.link ?? rdsRow?.Link,
     pfMarketId: rdsRow?.pfMarketId,
@@ -914,14 +926,22 @@ export async function handlePfSubmitSell(body, userId) {
       const profit = roundUsdt(proceeds - stake);
       const sellOdds = Number(out.bookOdds) || 0;
       const createAt = Date.now();
+      const buyLabels = resolvePfOrderLabels({
+        marketId,
+        tokenId,
+        match: buy.match ?? buy.Match,
+        bet: buy.bet ?? buy.Bet,
+        item: buy.item ?? buy.Item,
+      });
+      const sellItem = pfSellItemLabel(buyLabels.item);
 
       await orderStore.saveOrder(gate.playerId, [
         {
           orderId: rdsOrderKey(buy),
           provider: "PredictFun",
-          match: marketId,
-          bet: "PredictFun",
-          item: tokenId,
+          match: buyLabels.match,
+          bet: buyLabels.bet,
+          item: buyLabels.item,
           odds: Number(buy.Odds ?? buy.odds) || 0,
           betMoney: stake,
           money: profit,
@@ -944,9 +964,9 @@ export async function handlePfSubmitSell(body, userId) {
         {
           orderId: sellOrderId,
           provider: "PredictFun",
-          match: marketId,
-          bet: "PredictFun",
-          item: tokenId,
+          match: buyLabels.match,
+          bet: buyLabels.bet,
+          item: sellItem,
           odds: sellOdds,
           betMoney: proceeds,
           money: 0,

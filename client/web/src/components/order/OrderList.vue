@@ -2,7 +2,7 @@
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
 import { storeToRefs } from "pinia";
-import { onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { rebindOrderLink } from "@/api/order";
 import { formatDisplayOdds, formatLinkId, formatOrderTime, toFixed } from "@changmen/client-core/shared/format";
@@ -24,6 +24,26 @@ import {
   pmOrderStakeDisplayCny,
   resolvePmOrderListStatusClass,
 } from "@/shared/pmOrderDisplay";
+import {
+  isPfBuyOrderListRow,
+  isPfOrderListRow,
+  isPfSellOrderListRow,
+  pfBuyLifecycleTagText,
+  pfOddsTextFromClobPrice,
+  pfOrderBetText,
+  pfOrderFillPriceText,
+  pfOrderItemText,
+  pfOrderMatchText,
+  pfOrderOddsText,
+  pfOrderPriceLabel,
+  pfOrderProfitDisplayCny,
+  pfOrderSharesText,
+  pfOrderSideTagText,
+  pfOrderStakeDisplayCny,
+  pfStakeLabel,
+  resolvePfOrderListStatusClass,
+} from "@/shared/pfOrderDisplay";
+import { ensurePfOrderLabelIndex } from "@/shared/pfOrderLabelIndex";
 import {
   isArbGroup,
   orderLegendModifier,
@@ -91,8 +111,32 @@ type DragState = {
 
 const drag = ref<DragState | null>(null);
 const dropTargetOrderId = ref<string | null>(null);
+/** MarketIndex 异步灌入后强制刷新 PF 队名文案 */
+const pfLabelTick = ref(0);
 let lineEl: SVGSVGElement | null = null;
 let startEl: HTMLElement | null = null;
+
+onMounted(() => {
+  void ensurePfOrderLabelIndex().then((ok) => {
+    if (ok)
+      pfLabelTick.value += 1;
+  });
+});
+
+function pfMatchText(row: OrderRow): string {
+  void pfLabelTick.value;
+  return pfOrderMatchText(row);
+}
+
+function pfBetText(row: OrderRow): string {
+  void pfLabelTick.value;
+  return pfOrderBetText(row);
+}
+
+function pfItemText(row: OrderRow): string {
+  void pfLabelTick.value;
+  return pfOrderItemText(row);
+}
 
 function isPendingRow(row: OrderRow): boolean {
   if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
@@ -106,6 +150,8 @@ function isPendingRow(row: OrderRow): boolean {
 }
 
 function statusClass(row: OrderRow): string {
+  if (isPfOrderListRow(row))
+    return resolvePfOrderListStatusClass(row);
   return resolvePmOrderListStatusClass(row);
 }
 
@@ -173,6 +219,47 @@ function pmLastLineOddsText(row: OrderRow): string {
   if (live != null)
     return pmOddsTextFromClobPrice(live);
   return pmOrderOddsText(row);
+}
+
+function pfLiveClobPrice(row: OrderRow): number | null {
+  void quoteTick.value;
+  void sportOddsTick.value;
+  const tokenId = String(row.PfTokenId ?? "").trim();
+  if (!tokenId)
+    return null;
+  const fromFo = clobPriceFromFoOddsEntry(
+    oddsStore.getEntry(PLATFORMS.PredictFun, tokenId),
+  );
+  if (fromFo != null)
+    return fromFo;
+  return clobPriceFromDecimalOdds(sportOddsStore.get(PLATFORMS.PredictFun, tokenId));
+}
+
+function pfShowLivePrice(row: OrderRow): boolean {
+  if (!isPfBuyOrderListRow(row) || pfBuyLifecycleTagText(row))
+    return false;
+  const status = String(row.Status ?? "").trim().toLowerCase();
+  if (status === "reject" || status === "return" || status === "pending")
+    return false;
+  if (row.PfSellState === "closed")
+    return false;
+  return true;
+}
+
+function pfLivePriceText(row: OrderRow): string {
+  const live = pfLiveClobPrice(row);
+  return live != null ? formatPolymarketApiDecimal(live) : "—";
+}
+
+function pfShowLiveOdds(row: OrderRow): boolean {
+  return pfShowLivePrice(row) && pfLiveClobPrice(row) != null;
+}
+
+function pfLastLineOddsText(row: OrderRow): string {
+  const live = pfLiveClobPrice(row);
+  if (live != null)
+    return pfOddsTextFromClobPrice(live);
+  return pfOrderOddsText(row);
 }
 
 async function onPmSell(row: OrderRow) {
@@ -496,18 +583,21 @@ function badgeTitle(row: OrderRow): string {
               {{ playerLabel(row) }}
             </div>
             <span
-              v-if="pmOrderSideTagText(row)"
+              v-if="pmOrderSideTagText(row) || pfOrderSideTagText(row)"
               class="order__pm-tag order__pm-tag--side"
-              :class="isPmSellOrderListRow(row) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
-            >{{ pmOrderSideTagText(row) }}</span>
+              :class="(isPmSellOrderListRow(row) || isPfSellOrderListRow(row)) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
+            >{{ pmOrderSideTagText(row) || pfOrderSideTagText(row) }}</span>
           </div>
-          <div class="match" v-html="row.Match" />
+          <div v-if="isPfOrderListRow(row)" class="match">{{ pfMatchText(row) }}</div>
+          <div v-else class="match" v-html="row.Match" />
           <div class="bet">
             <div class="betname">
-              <span v-html="row.Bet" />
+              <span v-if="isPfOrderListRow(row)">{{ pfBetText(row) }}</span>
+              <span v-else v-html="row.Bet" />
             </div>
             <div class="item">
-              <label v-html="row.Item" />
+              <label v-if="isPfOrderListRow(row)">{{ pfItemText(row) }}</label>
+              <label v-else v-html="row.Item" />
             </div>
           </div>
           <div class="profit">
@@ -554,16 +644,53 @@ function badgeTitle(row: OrderRow): string {
                 </div>
               </template>
             </template>
+            <template v-else-if="isPfOrderListRow(row)">
+              <template v-if="isPfSellOrderListRow(row)">
+                <div class="order__profit-line">
+                  <span v-if="pfOrderSharesText(row)">份额：{{ pfOrderSharesText(row) }} </span>
+                  <span>{{ pfStakeLabel(row) }}：{{ toFixed(pfOrderStakeDisplayCny(row), 1) }}</span>
+                </div>
+                <div class="order__profit-line">
+                  <span v-if="pfOrderFillPriceText(row)">{{ pfOrderPriceLabel(row) }}：{{ pfOrderFillPriceText(row) }} </span>
+                  <span v-if="pfOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pfOrderOddsText(row) }}</span></span>
+                </div>
+              </template>
+              <template v-else>
+                <div class="order__profit-line">
+                  <span v-if="pfOrderSharesText(row)">份额：{{ pfOrderSharesText(row) }} </span>
+                  <span v-if="pfOrderFillPriceText(row)">{{ pfOrderPriceLabel(row) }}：{{ pfOrderFillPriceText(row) }} </span>
+                  <span v-if="pfOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pfOrderOddsText(row) }}</span></span>
+                </div>
+                <div class="order__profit-line">
+                  {{ pfStakeLabel(row) }}：{{ toFixed(pfOrderStakeDisplayCny(row), 1) }}
+                  <template v-if="isPendingRow(row) && !pfBuyLifecycleTagText(row)">
+                    盈亏：待结算
+                  </template>
+                  <template v-else>
+                    盈亏：{{ toFixed(pfOrderProfitDisplayCny(row), 1) }}
+                  </template>
+                </div>
+                <div class="order__profit-line order__profit-line--sell-row">
+                  <span class="order__sell-row-meta">
+                    <span v-if="pfShowLivePrice(row)">当前价：{{ pfLivePriceText(row) }} </span>
+                    <span v-if="pfShowLiveOdds(row)">当前赔率：<span class="order__odds">{{ pfLastLineOddsText(row) }}</span> </span>
+                  </span>
+                  <button
+                    v-if="showPfSellButton(row)"
+                    type="button"
+                    class="order__sell-btn"
+                    :disabled="isPfManualSellInFlight(row.OrderID)"
+                    @click="onPfSell(row)"
+                  >
+                    {{ isPfManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                  </button>
+                </div>
+              </template>
+            </template>
             <template v-else>
               投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
                 formatDisplayOdds(Number(row.Odds) || 0)
               }}</span>
-              <template v-if="row.PfSide === 'sell'">
-                （卖单）
-              </template>
-              <template v-else-if="row.PfSellState === 'closed'">
-                （已卖出）
-              </template>
               <template v-if="isMakeupPendingOrderRow(row)">
                 盈亏：{{ makeupPendingProfitLabel(row) }}
               </template>
@@ -572,15 +699,6 @@ function badgeTitle(row: OrderRow): string {
               </template>
               <template v-else-if="isPendingRow(row)">
                 盈亏：待结算
-                <button
-                  v-if="showPfSellButton(row)"
-                  type="button"
-                  class="order__sell-btn"
-                  :disabled="isPfManualSellInFlight(row.OrderID)"
-                  @click="onPfSell(row)"
-                >
-                  {{ isPfManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
-                </button>
               </template>
               <template v-else>
                 盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}

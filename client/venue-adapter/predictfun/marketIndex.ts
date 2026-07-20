@@ -6,6 +6,9 @@ import type { PredictMappedMarket } from "./parse";
 /** tokenId(onChainId) → predict.fun marketId；index 同步时维护，供 checkBet 不依赖 fo */
 const tokenToMarketId = new Map<string, string>();
 
+/** 最近一次 MarketIndex，供订单侧栏把旧裸 ID 文案升级为队名 */
+let lastMarketIndex: PredictFunMarketIndex | null = null;
+
 export function isPredictFunMarketIndex(value: unknown): value is PredictFunMarketIndex {
   if (!value || typeof value !== "object")
     return false;
@@ -17,6 +20,7 @@ export function rememberPredictFunTokenMarketIds(
   index: PredictFunMarketIndex | null | undefined,
 ): void {
   tokenToMarketId.clear();
+  lastMarketIndex = index && isPredictFunMarketIndex(index) ? index : null;
   if (!index?.entries?.length)
     return;
   for (const entry of index.entries) {
@@ -31,6 +35,49 @@ export function rememberPredictFunTokenMarketIds(
   }
 }
 
+export function getCachedPredictFunMarketIndex(): PredictFunMarketIndex | null {
+  return lastMarketIndex;
+}
+
+/** 订单框：裸 marketId/tokenId → 队名/盘口（与服务端 pf_order_labels 同源） */
+export function lookupPredictFunOrderLabels(opts: {
+  marketId?: string;
+  tokenId?: string;
+}): { match: string; bet: string; item: string } | null {
+  const mid = String(opts.marketId ?? "").trim();
+  const tok = String(opts.tokenId ?? "").trim();
+  if (!mid && !tok)
+    return null;
+  const entries = lastMarketIndex?.entries;
+  if (!entries?.length)
+    return null;
+  const entry = entries.find((e) => {
+    const homeMid = String(e.homeMarketId || "").trim();
+    const awayMid = String(e.awayMarketId || e.homeMarketId || "").trim();
+    const homeTok = String(e.homeTokenId || "").trim();
+    const awayTok = String(e.awayTokenId || "").trim();
+    if (mid && (mid === homeMid || mid === awayMid))
+      return true;
+    if (tok && (tok === homeTok || tok === awayTok))
+      return true;
+    return false;
+  });
+  if (!entry)
+    return null;
+  const home = String(entry.homeName || "").trim() || "主队";
+  const away = String(entry.awayName || "").trim() || "客队";
+  const homeTok = String(entry.homeTokenId || "").trim();
+  const mapNum = Number(entry.map) || 0;
+  const isHome = tok
+    ? tok === homeTok
+    : mid === String(entry.homeMarketId || "").trim();
+  return {
+    match: `${home} vs ${away}`,
+    bet: mapNum > 0 ? `[地图${mapNum}] 获胜` : "全场胜负",
+    item: isHome ? home : away,
+  };
+}
+
 export function lookupPredictFunMarketIdByToken(tokenId: string): string {
   const id = String(tokenId || "").trim();
   if (!id)
@@ -41,6 +88,7 @@ export function lookupPredictFunMarketIdByToken(tokenId: string): string {
 /** 测试用 */
 export function __resetPredictFunTokenMarketIdsForTests(): void {
   tokenToMarketId.clear();
+  lastMarketIndex = null;
 }
 
 export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): PredictMappedMarket {

@@ -18,6 +18,10 @@ export interface PfCheckBetRequest {
   detectionMaxPrice: number;
   detectionOdds?: number;
   slippageBps?: string | number;
+  /** 侧栏可读文案（对齐 PM Match/Bet/Item） */
+  match?: string;
+  bet?: string;
+  item?: string;
 }
 
 export interface PfCheckBetResult {
@@ -141,6 +145,9 @@ export async function pfSubmitOrder(
     detectionMaxPrice: req.detectionMaxPrice,
     detectionOdds: req.detectionOdds,
     slippageBps: req.slippageBps,
+    match: req.match,
+    bet: req.bet,
+    item: req.item,
   });
 }
 

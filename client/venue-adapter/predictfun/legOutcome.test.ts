@@ -43,7 +43,7 @@ describe("resolvePredictFunProviderLegOutcome", () => {
     pfGetOrder.mockReset();
   });
 
-  it("polls Pf_GetOrder when result.pending", async () => {
+  it("polls Pf_GetOrder when confirmPmPost", async () => {
     pfGetOrder.mockResolvedValue({
       orderId: "0xh",
       found: true,
@@ -63,7 +63,8 @@ describe("resolvePredictFunProviderLegOutcome", () => {
         item: "t",
       },
     });
-    const getOrders = vi.fn(async () => [
+    const getOrders = vi.fn(async () => []);
+    const fetchVenueOrders = vi.fn(async () => [
       {
         provider: "PredictFun",
         orderId: "0xh",
@@ -87,14 +88,15 @@ describe("resolvePredictFunProviderLegOutcome", () => {
       getOrders,
       { provider: "PredictFun", accountId: 1 } as never,
       result,
-      { orders: [] },
+      { confirmPmPost: true, fetchVenueOrders },
     );
     expect(pfGetOrder).toHaveBeenCalled();
     expect(out.settlement).toBe("filled");
-    expect(getOrders).toHaveBeenCalled();
+    expect(fetchVenueOrders).toHaveBeenCalled();
+    expect(getOrders).not.toHaveBeenCalled();
   });
 
-  it("uses list path when not pending", async () => {
+  it("uses list path when confirmPmPost is off", async () => {
     const getOrders = vi.fn(async () => [
       {
         provider: "PredictFun",
@@ -113,7 +115,7 @@ describe("resolvePredictFunProviderLegOutcome", () => {
     ]);
     const result = Object.assign(new BetResult("PredictFun", true), {
       orderId: "0xh",
-      pending: false,
+      pending: true,
     });
     const out = await resolvePredictFunProviderLegOutcome(
       getOrders,

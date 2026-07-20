@@ -41,8 +41,10 @@ export function resolveMakeUpSuccessReference(
     }
   }
   const raw = Math.round(Number(leg.betMoney) || 0);
-  const betMoney = account && leg.type === PLATFORMS.Polymarket
-    ? resolvePlanCnyFromVenueStake(account, raw)
+  const betMoney = account && (
+    leg.type === PLATFORMS.Polymarket || leg.type === PLATFORMS.PredictFun
+  )
+    ? resolvePlanCnyFromVenueStake(account, Number(leg.betMoney) || 0)
     : raw;
   const betOdds = Number(leg.newOdds ?? leg.odds) || 0;
   return { betMoney, betOdds };

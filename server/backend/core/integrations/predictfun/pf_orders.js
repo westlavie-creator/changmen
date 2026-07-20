@@ -9,6 +9,7 @@
 
 import { predictFunGetAuth } from "./pf_api.js";
 import { fetchPredictFunHouseOrderJwt } from "./pf_house_session.js";
+import { resolvePfOrderLabels, isBarePfItemLabel, extractPfMarketIdHint } from "./pf_order_labels.js";
 import {
   ensureHouseWalletEventsStarted,
   getHouseWalletSettlementHint,
@@ -102,7 +103,7 @@ export async function fetchHousePredictOrderByHash(hash) {
 }
 
 /**
- * GetOrder + wallet hint：REST 非终态时，用 predictWalletEvents 加速买单拒单/成交确认。
+ * GetOrder + wallet hint：优先 predictWalletEvents 终态，REST Get-by-hash 兜底/校正金额。
  * @param {string} hashOrId
  * @param {{ fetchOrder?: (h: string) => Promise<object|null> }} [opts]
  * @returns {Promise<object|null>}
@@ -115,26 +116,38 @@ export async function fetchHousePredictOrderResolved(hashOrId, opts = {}) {
   ensureHouseWalletEventsStarted();
   const fetchOrder = opts.fetchOrder || fetchHousePredictOrderByHash;
 
+  const resolveHint = (official) => (
+    getHouseWalletSettlementHint(key)
+    || (official?.id ? getHouseWalletSettlementHint(String(official.id)) : null)
+    || (extractPredictOrderHash(official)
+      ? getHouseWalletSettlementHint(extractPredictOrderHash(official))
+      : null)
+  );
+
+  // Wallet-first：拒单可直接 stub（省 REST）；成交尽量先 REST 校正金额
+  const earlyHint = resolveHint(null);
+  if (earlyHint && earlyHint.settlement !== "pending") {
+    if (earlyHint.settlement === "unfilled") {
+      const stub = officialStubFromWalletHint(earlyHint);
+      if (stub)
+        return stub;
+    }
+    const officialFilled = await fetchOrder(key);
+    if (officialFilled && isPredictOfficialTerminal(officialFilled.status))
+      return officialFilled;
+    return officialStubFromWalletHint(earlyHint) || officialFilled;
+  }
+
   let official = await fetchOrder(key);
   if (official && isPredictOfficialTerminal(official.status))
     return official;
 
-  const hint = getHouseWalletSettlementHint(key)
-    || (official?.id ? getHouseWalletSettlementHint(String(official.id)) : null)
-    || (extractPredictOrderHash(official)
-      ? getHouseWalletSettlementHint(extractPredictOrderHash(official))
-      : null);
-
+  const hint = resolveHint(official);
   if (!hint || hint.settlement === "pending")
     return official;
 
-  // REST 可能滞后：再拉一次；仍非终态则用 wallet stub
-  official = await fetchOrder(key);
-  if (official && isPredictOfficialTerminal(official.status))
-    return official;
-
-  const stub = officialStubFromWalletHint(hint);
-  return stub || official;
+  // REST 滞后：用 wallet stub（不再二次 REST）
+  return officialStubFromWalletHint(hint) || official;
 }
 
 function sleep(ms) {
@@ -167,6 +180,12 @@ export async function waitForHouseOrderTerminal(hash, opts = {}) {
   for (let i = 0; i < attempts; i += 1) {
     const peeked = getHouseWalletSettlementHint(key);
     if (peeked && peeked.settlement !== "pending") {
+      // 拒单：wallet 即可收束；成交：优先 REST 校正金额后再 stub
+      if (peeked.settlement === "unfilled") {
+        const stub = officialStubFromWalletHint(peeked);
+        if (stub)
+          return stub;
+      }
       last = await fetchOrder(key);
       if (last && isPredictOfficialTerminal(last.status))
         return last;
@@ -201,6 +220,7 @@ export async function waitForHouseOrderTerminal(hash, opts = {}) {
 
 /**
  * 将官方 OrderData + RDS 行合并为 VenueOrder 形状（供 Pf_GetOrders）
+ * Match/Bet/Item 优先保留 RDS 可读文案（勿每次 sync 用 marketId/tokenId 盖掉）
  */
 export function mapPredictOrderToVenueOrder(official, rds = {}) {
   const hash = extractPredictOrderHash(official) || String(rds.orderId ?? rds.OrderID ?? "").trim();
@@ -211,20 +231,31 @@ export function mapPredictOrderToVenueOrder(official, rds = {}) {
   const odds = Number(rds.odds ?? rds.Odds) || 0;
   const betMoney = Number(rds.betMoney ?? rds.BetMoney) || 0;
   const createAt = Number(rds.createAt ?? rds.CreateAt) || Date.now();
+  const storedToken = String(rds.pfTokenId ?? "").trim();
+  const storedMarket = String(rds.pfMarketId ?? "").trim();
+  const rdsMatch = rds.match ?? rds.Match;
+  const rdsItem = rds.item ?? rds.Item;
+  // item 列可能是可读队名；旧单 token 可能只在 item；market 可能只在 match
   const tokenId = String(
     official?.order?.tokenId
-      ?? rds.pfTokenId
-      ?? rds.item
-      ?? rds.Item
+      ?? storedToken
+      ?? (isBarePfItemLabel(rdsItem) ? rdsItem : "")
       ?? "",
   ).trim();
   const marketId = String(
     official?.marketId
-      ?? rds.pfMarketId
-      ?? rds.match
-      ?? rds.Match
+      ?? storedMarket
+      ?? extractPfMarketIdHint(rdsMatch, storedMarket)
       ?? "",
   ).trim();
+
+  const labels = resolvePfOrderLabels({
+    marketId,
+    tokenId,
+    match: rdsMatch,
+    bet: rds.bet ?? rds.Bet,
+    item: rdsItem,
+  });
 
   return {
     provider: "PredictFun",
@@ -236,9 +267,9 @@ export function mapPredictOrderToVenueOrder(official, rds = {}) {
     money: Number(rds.money ?? rds.Money) || 0,
     status,
     game: "",
-    match: marketId,
-    bet: "PredictFun",
-    item: tokenId,
+    match: labels.match,
+    bet: labels.bet,
+    item: labels.item,
     link: (() => {
       const n = Number(rds.link ?? rds.Link);
       return Number.isFinite(n) && n !== 0 ? n : undefined;
@@ -247,6 +278,8 @@ export function mapPredictOrderToVenueOrder(official, rds = {}) {
     pfApiOrderId: apiId || undefined,
     pfOrderHash: hash || undefined,
     pfAmountFilled: official?.amountFilled != null ? String(official.amountFilled) : undefined,
+    pfMarketId: marketId || undefined,
+    pfTokenId: tokenId || undefined,
     pfSellState: rds.pfSellState ? String(rds.pfSellState) : undefined,
     pfSide: rds.pfSide ? String(rds.pfSide) : undefined,
     pfBuyOrderId: rds.pfBuyOrderId ? String(rds.pfBuyOrderId) : undefined,

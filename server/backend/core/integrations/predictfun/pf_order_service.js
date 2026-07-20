@@ -141,6 +141,19 @@ export { prepareHouseSigner };
 /** 预检盘口可复用的最大年龄（ms）；超时则锁内再拉一次 */
 export const REUSE_BOOK_MAX_AGE_MS = Number(process.env.PF_HOUSE_REUSE_BOOK_MS || 1500);
 
+/** check→submit 短缓存：同 market/token/maxPrice 少打 orderbook+market */
+/** @type {Map<string, { at: number, value: object }>} */
+const executableBuyCache = new Map();
+
+function executableBuyCacheKey(marketId, tokenId, maxPrice) {
+  return `${String(marketId)}:${String(tokenId)}:${Number(maxPrice)}`;
+}
+
+/** @internal 单测 */
+export function _resetExecutableBuyCacheForTests() {
+  executableBuyCache.clear();
+}
+
 /** 进程启动预热：SDK + approvals + JWT，避免首单 10s+ */
 export async function warmPfHouseSession() {
   try {
@@ -167,6 +180,11 @@ export async function resolveExecutableBuy({
     throw new Error(`无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
   if (!marketId)
     throw new Error("缺少 Predict.fun marketId");
+
+  const cacheKey = executableBuyCacheKey(marketId, tokenId, maxPrice);
+  const cached = executableBuyCache.get(cacheKey);
+  if (cached && Date.now() - cached.at <= REUSE_BOOK_MAX_AGE_MS)
+    return cached.value;
 
   const [yesBook, market] = await Promise.all([
     fetchPredictOrderbook(marketId),
@@ -198,7 +216,7 @@ export async function resolveExecutableBuy({
   if (!isValidPredictClobPrice(bookPrice))
     throw new Error("Predict.fun 盘口无有效 best ask");
 
-  return {
+  const value = {
     bookPrice,
     bookOdds: truncateOddsTo3(1 / bookPrice),
     bookFetchedAt: Date.now(),
@@ -209,6 +227,8 @@ export async function resolveExecutableBuy({
     sideBook: book,
     yesBook,
   };
+  executableBuyCache.set(cacheKey, { at: Date.now(), value });
+  return value;
 }
 
 export async function createAndSubmitHouseMarketBuy(params) {

@@ -8,6 +8,27 @@ export function isPolymarketProvider(provider: unknown): boolean {
   return String(provider ?? "").trim().toLowerCase() === "polymarket";
 }
 
+/** PredictFun：与 PM 同为 USDT 场馆，Plan CNY↔原币走 2 位小数汇率（勿 getBetMoney 整 U） */
+export function isPredictFunProvider(provider: unknown): boolean {
+  return String(provider ?? "").trim().toLowerCase() === "predictfun";
+}
+
+/**
+ * PM / PF 共用：编排 Plan CNY → 场馆 USDT/USDC（`polymarketUsdtFromCny`）
+ * 其它 USDT 馆（Stake 等）仍走 A8 `getBetMoney` 整 U。
+ */
+export function isPredictionMarketUsdtStakeProvider(provider: unknown): boolean {
+  return isPolymarketProvider(provider) || isPredictFunProvider(provider);
+}
+
+/**
+ * PM / PF：betting 可 `pending`，须 `resolveLegOutcome` 确认（confirmPmPost / deferPmSettlement）
+ * 与官方：PF POST 无 status，只能事后 GetOrder / wallet events。
+ */
+export function isPendingConfirmVenueProvider(provider: unknown): boolean {
+  return isPolymarketProvider(provider) || isPredictFunProvider(provider);
+}
+
 export function isMultiplyProvider(provider: unknown): boolean {
   const p = String(provider ?? "")
     .trim()

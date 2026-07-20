@@ -5,8 +5,8 @@ import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetOption as BetOptionCtor } from "@changmen/client-core/models/betOption";
 import { BetResult as BetResultCtor } from "@changmen/client-core/models/betResult";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
-import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
@@ -93,7 +93,7 @@ export async function applyPmJbSettlementOutcome(
 
   if (isVenueLegPendingConfirm(legOutcome) || isPmTimeoutReject(result)) {
     loseStore.setPendingPmOrder(betId, String(result.orderId ?? ""), account.accountId);
-    setMessage(`PM 订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
+    setMessage(`订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
     syncActiveBetMakeupPmDelayed(betId, result.orderId);
     useMessageStore().loseOrderMessage(account, order, checked, true);
     return "pending";
@@ -149,10 +149,13 @@ export async function tryResumePmPendingMakeUp(params: {
     return "not-applicable";
 
   const account = accountStore.findAccount(order.pendingPmAccountId);
-  if (!account || account.provider !== PLATFORMS.Polymarket)
+  if (!account || !isPendingConfirmVenueProvider(account.provider)) {
+    // 账号丢失/非预测馆：清掉 stale pending，避免永久阻断其它盘口补单
+    loseStore.clearPendingPmOrder(betId);
     return "not-applicable";
+  }
 
-  const ref = bet.items.find(item => item.type === PLATFORMS.Polymarket);
+  const ref = bet.items.find(item => item.type === account.provider);
   if (!ref) {
     loseStore.clearPendingPmOrder(betId);
     return "not-applicable";
@@ -162,7 +165,7 @@ export async function tryResumePmPendingMakeUp(params: {
   const checked = new BetOptionCtor(match, bet, ref, order.target, order.getBetMoney(sideOdds));
   checked.loseOrder = true;
 
-  const result = Object.assign(new BetResultCtor(PLATFORMS.Polymarket, true), {
+  const result = Object.assign(new BetResultCtor(account.provider, true), {
     orderId: pendingId,
     pending: true,
   });

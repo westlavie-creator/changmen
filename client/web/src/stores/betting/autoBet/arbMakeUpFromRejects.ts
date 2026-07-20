@@ -1,5 +1,6 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { arbMakeUpSides } from "@/stores/betting/autoBet/arbMakeUpPair";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
@@ -70,7 +71,7 @@ export async function applyArbMakeUpFromRejects(
     const orderId = String(pendingResult?.orderId ?? "").trim();
     if (!pendingAccount || !anchorAccount || !orderId)
       return false;
-    if (pendingAccount.provider !== "Polymarket")
+    if (!isPendingConfirmVenueProvider(pendingAccount.provider))
       return false;
     if (loseStore.orders.has(bet.id)) {
       loseStore.setPendingPmOrder(bet.id, orderId, pendingAccount.accountId);

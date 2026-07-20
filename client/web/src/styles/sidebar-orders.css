@@ -439,6 +439,27 @@
   content: "已结算";
 }
 
+/* [changmen 扩展] PredictFun 对齐 PM：卖单已平仓 / 买单已卖出 */
+.orders .status.PfSell {
+  color: #aeaeae;
+  background: rgba(174, 174, 174, 0.1);
+  border: 1px solid #aeaeae;
+}
+
+.orders .status.PfSell::after {
+  content: "已平仓";
+}
+
+.orders .status.PfSold {
+  color: #7dcea0;
+  background: rgba(125, 206, 160, 0.12);
+  border: 1px solid #7dcea0;
+}
+
+.orders .status.PfSold::after {
+  content: "已卖出";
+}
+
 .orders .status.Reject {
   background-image: linear-gradient(180deg, #cc4319, #280946 99%);
   color: #fff;

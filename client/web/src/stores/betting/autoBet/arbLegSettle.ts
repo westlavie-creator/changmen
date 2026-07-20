@@ -7,6 +7,7 @@ import {
 } from "@changmen/venue-adapter/contract";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { useAccountStore } from "@/stores/accountStore";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 
 export interface ArbLegSettleResult {
   orders: VenueOrder[];
@@ -41,7 +42,7 @@ export async function settleArbLeg(
       pendingBindOrderId,
     }),
     {
-      confirmPmPost: account.provider === "Polymarket" && Boolean(result),
+      confirmPmPost: isPendingConfirmVenueProvider(account.provider) && Boolean(result),
       rejectWaitSec: opts.rejectWaitSec,
     },
   );

@@ -1,0 +1,248 @@
+import type { OrderRow } from "@/types/order";
+import { truncateOddsTo3 } from "@changmen/shared/odds_format";
+import { toFixed } from "@changmen/client-core/shared/format";
+import { scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
+import { lookupPredictFunOrderLabels } from "@changmen/venue-adapter/predictfun";
+import { formatPolymarketApiDecimal } from "@/shared/pmOrderDisplay";
+import { normalizeOrderStatus } from "@/shared/orderDisplay";
+import { useMatchStore } from "@/stores/matchStore";
+
+/** PredictFun 侧栏订单（买单 + 卖单） */
+export function isPfOrderListRow(row: OrderRow): boolean {
+  return String(row.Type ?? "").trim() === "PredictFun";
+}
+
+export function isPfSellOrderListRow(row: OrderRow): boolean {
+  return isPfOrderListRow(row) && row.PfSide === "sell";
+}
+
+export function isPfBuyOrderListRow(row: OrderRow): boolean {
+  return isPfOrderListRow(row) && row.PfSide !== "sell";
+}
+
+export function isPfManuallySoldBuy(row: OrderRow): boolean {
+  return isPfBuyOrderListRow(row) && String(row.PfSellState ?? "").toLowerCase() === "closed";
+}
+
+export function pfBuyLifecycleTagText(row: OrderRow): string | null {
+  if (isPfManuallySoldBuy(row))
+    return "已卖出";
+  return null;
+}
+
+/**
+ * 侧栏角标：手动卖出后 RDS 仍可能为 None。
+ * 卖单 → PfSell；卖光买单 → PfSold。
+ */
+export function resolvePfOrderListStatusClass(row: OrderRow): string {
+  if (!isPfOrderListRow(row))
+    return String(normalizeOrderStatus(String(row.Status ?? "None")));
+
+  const raw = String(normalizeOrderStatus(String(row.Status ?? "None")));
+  if (raw !== "None" && raw !== "Pending")
+    return raw;
+
+  if (isPfSellOrderListRow(row)) {
+    const bet = Number(row.BetMoney) || 0;
+    if (bet <= 0)
+      return "None";
+    return "PfSell";
+  }
+
+  if (isPfManuallySoldBuy(row))
+    return "PfSold";
+
+  return raw;
+}
+
+/** 「市场 844582」/ 纯数字 / 占位 — 须继续升级成队名（对齐 PM） */
+export function isBarePfMatch(s: string): boolean {
+  const t = String(s ?? "").trim();
+  return !t
+    || t === "PredictFun"
+    || /^\d+$/.test(t)
+    || /^市场\s*\d+$/i.test(t);
+}
+
+export function extractPfMarketIdHint(match: string, pfMarketId = ""): string {
+  const mid = String(pfMarketId ?? "").trim();
+  if (mid && /^\d+$/.test(mid))
+    return mid;
+  const m = String(match ?? "").trim();
+  if (/^\d+$/.test(m))
+    return m;
+  const hit = /^市场\s*(\d+)$/i.exec(m);
+  return hit ? hit[1] : "";
+}
+
+export function isBarePfItem(s: string, tokenId = ""): boolean {
+  const t = String(s ?? "").trim();
+  const tok = String(tokenId ?? "").trim();
+  if (!t || t === "PredictFun")
+    return true;
+  if (tok && t === tok)
+    return true;
+  if (/^\d{16,}$/.test(t))
+    return true;
+  if (/^\d{6,}…$/.test(t) || /^\d{6,}\.{3}$/.test(t))
+    return true;
+  return false;
+}
+
+function isBarePfBet(s: string): boolean {
+  const t = String(s ?? "").trim();
+  return !t || t === "PredictFun";
+}
+
+/** 从当前 GetMatchs 盘口反查（与 PM 同屏时最准） */
+function labelsFromMatchStore(
+  marketId: string,
+  tokenId: string,
+): { match: string; bet: string; item: string } | null {
+  if (!marketId && !tokenId)
+    return null;
+  try {
+    const matchs = useMatchStore().matchs;
+    for (const match of matchs) {
+      for (const bet of match.bets) {
+        for (const src of bet.items) {
+          if (String(src.type) !== "PredictFun")
+            continue;
+          const homeMid = String(src.homeSubscribeId || "").trim();
+          const awayMid = String(src.awaySubscribeId || homeMid).trim();
+          const homeTok = String(src.homeId || "").trim();
+          const awayTok = String(src.awayId || "").trim();
+          const hitMid = Boolean(marketId) && (marketId === homeMid || marketId === awayMid);
+          const hitTok = Boolean(tokenId) && (tokenId === homeTok || tokenId === awayTok);
+          if (!hitMid && !hitTok)
+            continue;
+          const isHome = tokenId
+            ? tokenId === homeTok
+            : marketId === homeMid;
+          const home = String(bet.homeName || "").trim() || "主队";
+          const away = String(bet.awayName || "").trim() || "客队";
+          const title = String(match.title || "").trim();
+          return {
+            match: title || `${home} vs ${away}`,
+            bet: bet.getBetName(),
+            item: isHome ? home : away,
+          };
+        }
+      }
+    }
+  }
+  catch {
+    return null;
+  }
+  return null;
+}
+
+/** 旧单裸 ID / 「市场 N」：索引 → 盘口 → 兜底（永不把「市场 N」当终态若有更好来源） */
+function enrichLabels(row: OrderRow): { match: string; bet: string; item: string } {
+  const match = String(row.Match ?? "").trim();
+  const bet = String(row.Bet ?? "").trim();
+  const item = String(row.Item ?? "").trim();
+  const marketId = extractPfMarketIdHint(match, String(row.PfMarketId ?? ""));
+  const tokenId = String(
+    row.PfTokenId
+      ?? (isBarePfItem(item) ? item : ""),
+  ).trim();
+
+  if (!isBarePfMatch(match) && !isBarePfBet(bet) && !isBarePfItem(item, tokenId))
+    return { match, bet, item };
+
+  const fromIndex = lookupPredictFunOrderLabels({ marketId, tokenId });
+  const fromLive = fromIndex ? null : labelsFromMatchStore(marketId, tokenId);
+  const hit = fromIndex || fromLive;
+
+  return {
+    match: !isBarePfMatch(match) ? match : (hit?.match || (marketId ? `市场 ${marketId}` : match || "—")),
+    bet: !isBarePfBet(bet) ? bet : (hit?.bet || "全场胜负"),
+    item: !isBarePfItem(item, tokenId)
+      ? item
+      : (hit?.item || (tokenId ? `${tokenId.slice(0, 8)}…` : item || "—")),
+  };
+}
+
+export function pfOrderMatchText(row: OrderRow): string {
+  return enrichLabels(row).match;
+}
+
+export function pfOrderBetText(row: OrderRow): string {
+  return enrichLabels(row).bet;
+}
+
+export function pfOrderItemText(row: OrderRow): string {
+  return enrichLabels(row).item;
+}
+
+export function pfOrderSharesText(row: OrderRow): string | null {
+  const shares = Number(row.PfShares);
+  if (!Number.isFinite(shares) || shares <= 0.0001)
+    return null;
+  return formatPolymarketApiDecimal(shares);
+}
+
+/**
+ * 侧栏投注金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
+ * 库内 BetMoney 为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
+ */
+export function pfOrderStakeDisplayCny(row: OrderRow): number {
+  return scaleUsdtToCnyDisplay(Number(row.BetMoney) || 0);
+}
+
+/** 侧栏盈亏：USDT Money → CNY（对齐 PM orders scale） */
+export function pfOrderProfitDisplayCny(row: OrderRow): number {
+  if (isPfSellOrderListRow(row))
+    return 0;
+  return scaleUsdtToCnyDisplay(Number(row.Money) || 0);
+}
+
+export function pfStakeLabel(row: OrderRow): string {
+  return isPfSellOrderListRow(row) ? "回款" : "投注金额";
+}
+
+export function pfOrderPriceLabel(row: OrderRow): string {
+  return isPfSellOrderListRow(row) ? "卖单卖出价" : "买入价";
+}
+
+export function pfOrderSideTagText(row: OrderRow): string | null {
+  if (!isPfOrderListRow(row))
+    return null;
+  return isPfSellOrderListRow(row) ? "卖单" : "买单";
+}
+
+/** 成交概率价：用 Odds 反推 */
+export function resolvePfFillPrice(row: OrderRow): number | null {
+  const odds = Number(row.Odds);
+  if (Number.isFinite(odds) && odds > 1) {
+    const price = 1 / odds;
+    if (price > 0 && price < 1)
+      return price;
+  }
+  return null;
+}
+
+export function pfOrderFillPriceText(row: OrderRow): string | null {
+  const price = resolvePfFillPrice(row);
+  if (price == null)
+    return null;
+  return formatPolymarketApiDecimal(price);
+}
+
+export function pfOrderOddsText(row: OrderRow): string {
+  const odds = Number(row.Odds) || 0;
+  if (odds <= 0)
+    return "—";
+  return toFixed(truncateOddsTo3(odds), 3);
+}
+
+export function pfOddsTextFromClobPrice(clob: number): string {
+  if (!Number.isFinite(clob) || clob <= 0 || clob >= 1)
+    return "—";
+  return toFixed(truncateOddsTo3(1 / clob), 3);
+}
+
+export function pfMoneyText(n: number): string {
+  return toFixed(n, 0);
+}

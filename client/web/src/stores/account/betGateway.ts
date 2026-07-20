@@ -16,6 +16,7 @@ import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -194,10 +195,8 @@ export async function placeBet(
     if (
       result.pending
       && !option.loseOrder
-      && (
-        (account.provider === "Polymarket" && !option.deferPmSettlement)
-        || account.provider === "PredictFun"
-      )
+      && isPendingConfirmVenueProvider(account.provider)
+      && !option.deferPmSettlement
     ) {
       notifyPendingVenueConfirm(
         store,

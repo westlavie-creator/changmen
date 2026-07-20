@@ -1,6 +1,8 @@
 /**
  * Predict.fun house JWT 会话（与下单共用 Privy EOA / Predict Account 签名）
  * @see https://dev.predict.fun/ts-how-to-authenticate-your-api-requests-663127m0
+ *
+ * JWT 命中 pf_auth 缓存时不调用 OrderBuilder.make（GetOrder 热路径）。
  */
 
 import { fetchPredictFunHouseJwt } from "./pf_auth.js";
@@ -21,8 +23,53 @@ function resolvePredictChainId(apiBase) {
   return String(apiBase).includes("testnet") ? 97 : 56;
 }
 
+/** @type {Promise<{ orderBuilder: object, signer: object, maker: string, predictAccount: string, apiBase: string }>|null} */
+let houseSessionBuilderPromise = null;
+
+/** @internal 单测 */
+export function _resetHouseSessionBuilderCacheForTests() {
+  houseSessionBuilderPromise = null;
+}
+
+async function ensureHouseSessionBuilder() {
+  if (houseSessionBuilderPromise)
+    return houseSessionBuilderPromise;
+
+  houseSessionBuilderPromise = (async () => {
+    const credentials = resolvePredictFunHouseCredentials();
+    if (!credentials?.privateKey)
+      throw new Error("未配置 Predict.fun 运营主号（PREDICT_FUN_PRIVY_PRIVATE_KEY）");
+
+    const { sdk, ethers } = await loadPredictSdk();
+    const { Wallet } = ethers;
+    const { OrderBuilder, ChainId } = sdk;
+
+    const apiBase = resolvePredictFunApiBase();
+    const signer = new Wallet(credentials.privateKey);
+    const predictAccount = String(credentials.predictAccount ?? "").trim();
+    const chainId = resolvePredictChainId(apiBase) === 97
+      ? ChainId.BnbTestnet
+      : ChainId.BnbMainnet;
+    const orderBuilder = predictAccount
+      ? await OrderBuilder.make(chainId, signer, { predictAccount })
+      : await OrderBuilder.make(chainId, signer);
+
+    const maker = predictAccount || await signer.getAddress();
+    return { orderBuilder, signer, maker, predictAccount, apiBase };
+  })();
+
+  try {
+    return await houseSessionBuilderPromise;
+  }
+  catch (err) {
+    houseSessionBuilderPromise = null;
+    throw err;
+  }
+}
+
 /**
  * 取得 house JWT（缓存于 pf_auth）。
+ * JWT 未过期时不触碰 OrderBuilder.make。
  * @returns {Promise<{ jwt: string, maker: string, apiBase: string }>}
  */
 export async function fetchPredictFunHouseOrderJwt() {
@@ -30,28 +77,21 @@ export async function fetchPredictFunHouseOrderJwt() {
   if (!credentials?.privateKey)
     throw new Error("未配置 Predict.fun 运营主号（PREDICT_FUN_PRIVY_PRIVATE_KEY）");
 
-  const { sdk, ethers } = await loadPredictSdk();
+  const { ethers } = await loadPredictSdk();
   const { Wallet } = ethers;
-  const { OrderBuilder, ChainId } = sdk;
-
   const apiBase = resolvePredictFunApiBase();
-  const signer = new Wallet(credentials.privateKey);
+  const eoa = new Wallet(credentials.privateKey);
   const predictAccount = String(credentials.predictAccount ?? "").trim();
-  const chainId = resolvePredictChainId(apiBase) === 97
-    ? ChainId.BnbTestnet
-    : ChainId.BnbMainnet;
-  const orderBuilder = predictAccount
-    ? await OrderBuilder.make(chainId, signer, { predictAccount })
-    : await OrderBuilder.make(chainId, signer);
+  const maker = predictAccount || await eoa.getAddress();
 
-  const maker = predictAccount || await signer.getAddress();
   const jwt = await fetchPredictFunHouseJwt({
     apiBase,
     signer: maker,
     signMessage: async (message) => {
-      if (predictAccount && typeof orderBuilder.signPredictAccountMessage === "function")
-        return orderBuilder.signPredictAccountMessage(message);
-      return signer.signMessage(message);
+      const built = await ensureHouseSessionBuilder();
+      if (built.predictAccount && typeof built.orderBuilder.signPredictAccountMessage === "function")
+        return built.orderBuilder.signPredictAccountMessage(message);
+      return built.signer.signMessage(message);
     },
   });
 

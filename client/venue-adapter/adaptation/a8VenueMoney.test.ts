@@ -41,6 +41,21 @@ describe("a8VenueMoney (A8 adaptation)", () => {
     expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(95.2);
   });
 
+  it("PredictFun: same USDT 2-decimal path as Polymarket (not getBetMoney int)", () => {
+    const acc = new PlatformAccount({
+      accountId: 5,
+      provider: "PredictFun",
+      playerName: "pf",
+      currency: "USDT",
+    });
+    // 10 CNY / 6.8 → 1.47（非整 U 的 Math.round→1）
+    expect(resolveVenueStakeFromPlanCny(acc, 10, 1.6)).toBe(1.47);
+    expect(resolvePlanCnyFromVenueStake(acc, 1.47)).toBe(10);
+    expect(
+      resolvePlanCnyFromVenueOrder(acc, { betMoney: 1.47 } as never),
+    ).toBe(10);
+  });
+
   it("skipAccountRate: 9999 预检不按比例放大", () => {
     const acc = new PlatformAccount({
       accountId: 4,

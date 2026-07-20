@@ -9,7 +9,7 @@ import type {
 } from "@/stores/betting/autoBet/phases/types";
 import { resolveArbLegPlaceOutcome } from "@/stores/betting/autoBet/phases/types";
 import { formatBetResult } from "@/shared/arbBetTraceFormat";
-import { PLATFORMS } from "@changmen/venue-adapter/shared";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import {
@@ -55,9 +55,9 @@ export async function placeArbLegs(
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
 
-  if (legA.type === PLATFORMS.Polymarket)
+  if (isPendingConfirmVenueProvider(legA.type))
     legA.deferPmSettlement = true;
-  if (legB.type === PLATFORMS.Polymarket)
+  if (isPendingConfirmVenueProvider(legB.type))
     legB.deferPmSettlement = true;
 
   syncActiveBetPhase(bet.id, "placing", "提交场馆订单");

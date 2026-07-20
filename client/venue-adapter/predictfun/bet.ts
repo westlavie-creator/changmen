@@ -51,6 +51,29 @@ function resolveApiBetMoney(option: BetOption): number {
   return Math.round(value * 100) / 100;
 }
 
+/** 侧栏 Match/Bet/Item：与 PM 一样用队名/盘口，不用裸 ID */
+export function buildPfOrderDisplayLabels(option: BetOption): {
+  match: string;
+  bet: string;
+  item: string;
+} {
+  const bet = option.bet;
+  const match = option.match;
+  const home = String(bet?.homeName ?? "").trim();
+  const away = String(bet?.awayName ?? "").trim();
+  const title = String(match?.title ?? "").trim();
+  const matchLabel = title || (home && away ? `${home} vs ${away}` : "");
+  const betLabel = bet?.getBetName?.() || "全场胜负";
+  const itemLabel = option.target === "Away"
+    ? (away || "客队")
+    : (home || "主队");
+  return {
+    match: matchLabel,
+    bet: betLabel,
+    item: itemLabel,
+  };
+}
+
 function resolveDetectionOdds(option: BetOption): number {
   const data = option.data as { detectionOdds?: number } | null | undefined;
   const fromData = Number(data?.detectionOdds);
@@ -186,6 +209,7 @@ export const predictFunProvider: PlatformProvider = {
     const detectionOdds = resolveDetectionOdds(option);
     const maxPrice = resolvePredictFunDetectionMaxPrice(option, detectionOdds);
     const apiBetMoney = resolveApiBetMoney(option);
+    const display = buildPfOrderDisplayLabels(option);
 
     try {
       const submitted = await pfSubmitOrder(account, {
@@ -194,6 +218,9 @@ export const predictFunProvider: PlatformProvider = {
         apiBetMoney,
         detectionMaxPrice: maxPrice,
         detectionOdds,
+        match: display.match,
+        bet: display.bet,
+        item: display.item,
       });
 
       if (!isPredictFunOrderAccepted(submitted)) {
