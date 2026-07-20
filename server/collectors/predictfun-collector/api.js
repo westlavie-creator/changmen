@@ -11,11 +11,13 @@ export const PREDICT_FUN_API = String(
 /** 官方 /v1/tags：Esports */
 export const PREDICT_FUN_TAG_ESPORTS = "83";
 
-const COLLECT_PAST_MS = 6 * 3600 * 1000;
-/** [changmen 临时] 默认未来 12h；可用 PREDICTFUN_COLLECTOR_FUTURE_MS 覆盖（恢复 A8 对齐时改回 1h） */
+/**
+ * 采集窗：OPEN 且开赛 ≤ now+future（进行中不设过去下限；未来默认 1h）。
+ * 可用 PREDICTFUN_COLLECTOR_FUTURE_MS 覆盖未来窗。
+ */
 function collectFutureMs() {
   const n = Number(process.env.PREDICTFUN_COLLECTOR_FUTURE_MS);
-  return Number.isFinite(n) && n > 0 ? n : 12 * 3600 * 1000;
+  return Number.isFinite(n) && n > 0 ? n : 3600 * 1000;
 }
 const PAGE_SIZE = 50;
 const MAX_PAGES = 8;
@@ -40,8 +42,7 @@ export function predictCollectStartTimeAllowed(startMs) {
   const ms = normalizeEpochMs(startMs);
   if (!ms)
     return true;
-  const now = Date.now();
-  return ms >= now - COLLECT_PAST_MS && ms <= now + collectFutureMs();
+  return ms <= Date.now() + collectFutureMs();
 }
 
 async function predictHttpGet(url) {

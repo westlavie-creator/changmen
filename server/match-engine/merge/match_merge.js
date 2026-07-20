@@ -13,11 +13,11 @@ import { describePlatformGame, getGameCodeForPlatformId, resolveClientGame } fro
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time";
 
-/** [changmen 临时] PredictFun 列表未来窗默认 12h（与 collector 一致）；可用 env 覆盖 */
+/** PredictFun 列表未来窗默认 1h（与 collector：进行中 ∪ 未来 1h）；可用 env 覆盖 */
 const PREDICTFUN_LIST_FUTURE_MS = Number(
   process.env.PREDICTFUN_LIST_FUTURE_MS
   || process.env.PREDICTFUN_COLLECTOR_FUTURE_MS
-  || 12 * 3600 * 1000,
+  || 3600 * 1000,
 );
 
 function platformStartTimeListAllowed(provider, startMs) {

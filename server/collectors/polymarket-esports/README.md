@@ -21,8 +21,8 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 
 1. `GET /sports` → 电竞 `series_id`（缓存 1h）
 2. `GET /sports/market-types` → 与 `moneyline`/`child_moneyline` 求交（缓存 6h；可用 env 追加类型）
-3. `GET /events/keyset`（时间窗过去 6h～未来 1h，`after_cursor` 翻页）
-4. 规范化类型（**无默认 moneyline**）→ allowlist → 双 token / 可解析 / 时间窗
+3. `GET /events/keyset` 两路合并：`live=true`（进行中）∪ `start_time` ∈ [now, now+1h]（`after_cursor` 翻页）
+4. 规范化类型（**无默认 moneyline**）→ allowlist → 双 token / 可解析 / 开赛 ≤ now+1h
 5. `POST /prices` `SELL` 种子价
 6. **按 SourceMatchID 整场截断**（默认最多 400 盘，不拆半场）
 7. **默认 live**：写 `platform_*` + index；`WRITE_PLATFORM=0` 仅写 index

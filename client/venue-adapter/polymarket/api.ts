@@ -12,10 +12,11 @@ const DEFAULT_MARKET_LIMIT = 200;
 const KEYSET_PAGE_LIMIT = 500;
 const MAX_KEYSET_PAGES = 3;
 const SPORTS_METADATA_TTL_MS = 60 * 60_000;
-const COLLECT_PAST_MS = 6 * 3600 * 1000;
+/** 过去不设下限；未来 1h（与 VPS collector：live ∪ [now, now+1h]） */
+const COLLECT_PAST_MS = 0;
 const COLLECT_FUTURE_MS = 3600 * 1000;
 
-/** [changmen 扩展] Polymarket 采集开赛窗：过去 6h、未来 1h（A8 无此场馆；其它平台仅未来 1h 上限） */
+/** [changmen 扩展] Polymarket：进行中不限过去 + 开赛未来 1h */
 export const POLYMARKET_COLLECT_PAST_MS = COLLECT_PAST_MS;
 export const POLYMARKET_COLLECT_FUTURE_MS = COLLECT_FUTURE_MS;
 
@@ -23,8 +24,7 @@ export function polymarketCollectStartTimeAllowed(startMs: number): boolean {
   const ms = normalizeEpochMs(startMs);
   if (!ms)
     return true;
-  const now = Date.now();
-  return ms >= now - COLLECT_PAST_MS && ms <= now + COLLECT_FUTURE_MS;
+  return ms <= Date.now() + COLLECT_FUTURE_MS;
 }
 
 const ESPORTS_SPORT_KEYS = ["cs2", "lol", "dota2", "hok", "val"];
@@ -123,35 +123,42 @@ export async function fetchPolymarketEsportsMarkets(limit = DEFAULT_MARKET_LIMIT
   const blocks: PolymarketRawMarket[] = [];
   const seenMarketIds = new Set<string>();
   const seriesIds = await fetchEsportsSeriesIds();
-  let cursor = "";
 
-  for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
-    const now = Date.now();
-    const params = new URLSearchParams({
-      closed: "false",
-      limit: String(pageLimit),
-      order: "startTime",
-      ascending: "true",
-      start_time_min: new Date(now - COLLECT_PAST_MS).toISOString(),
-      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
-    });
-    for (const id of seriesIds) params.append("series_id", id);
-    if (cursor) params.set("after_cursor", cursor);
+  async function keysetPass(extra: Record<string, string>) {
+    let cursor = "";
+    for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
+      const params = new URLSearchParams({
+        closed: "false",
+        limit: String(pageLimit),
+        order: "startTime",
+        ascending: "true",
+        ...extra,
+      });
+      for (const id of seriesIds) params.append("series_id", id);
+      if (cursor) params.set("after_cursor", cursor);
 
-    const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/events/keyset?${params.toString()}`);
-    const events = keysetEvents(data);
-    for (const event of events) {
-      const markets = Array.isArray(event.markets) ? event.markets : [];
-      for (const market of markets) {
-        const marketKey = marketKeyOf(market);
-        if (marketKey && seenMarketIds.has(marketKey)) continue;
-        if (marketKey) seenMarketIds.add(marketKey);
-        blocks.push(marketWithEventContext(market, event));
+      const data = await polymarketPluginGet<unknown>(`${POLYMARKET_GAMMA_API}/events/keyset?${params.toString()}`);
+      const events = keysetEvents(data);
+      for (const event of events) {
+        const markets = Array.isArray(event.markets) ? event.markets : [];
+        for (const market of markets) {
+          const marketKey = marketKeyOf(market);
+          if (marketKey && seenMarketIds.has(marketKey)) continue;
+          if (marketKey) seenMarketIds.add(marketKey);
+          blocks.push(marketWithEventContext(market, event));
+        }
       }
+      cursor = nextKeysetCursor(data);
+      if (!cursor) break;
     }
-    cursor = nextKeysetCursor(data);
-    if (!cursor) break;
   }
+
+  const now = Date.now();
+  await keysetPass({ live: "true" });
+  await keysetPass({
+    start_time_min: new Date(now).toISOString(),
+    start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
+  });
   return blocks;
 }
 

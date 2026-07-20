@@ -5,7 +5,7 @@ import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/
 const PREDICTFUN_LIST_FUTURE_MS = Number(
   process.env.PREDICTFUN_LIST_FUTURE_MS
   || process.env.PREDICTFUN_COLLECTOR_FUTURE_MS
-  || 12 * 3600 * 1000,
+  || 3600 * 1000,
 );
 
 function providerStartTimeListAllowed(provider, start) {

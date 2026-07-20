@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   fetchPolymarketEsportsMarkets,
-  POLYMARKET_COLLECT_PAST_MS,
+  POLYMARKET_COLLECT_FUTURE_MS,
   POLYMARKET_GAMMA_API,
   polymarketCollectStartTimeAllowed,
 } from "./api";
@@ -38,8 +38,14 @@ describe("Polymarket API discovery", () => {
         expect(parsed.searchParams.get("ascending")).toBe("true");
         expect(parsed.searchParams.get("closed")).toBe("false");
         expect(parsed.searchParams.getAll("series_id")).toEqual(["10310", "10311"]);
-        expect(parsed.searchParams.get("start_time_min")).toBe("2026-06-25T01:50:00.000Z");
-        expect(parsed.searchParams.get("start_time_max")).toBe("2026-06-25T08:50:00.000Z");
+        const live = parsed.searchParams.get("live");
+        if (live === "true") {
+          expect(parsed.searchParams.get("start_time_min")).toBeNull();
+        }
+        else {
+          expect(parsed.searchParams.get("start_time_min")).toBe("2026-06-25T07:50:00.000Z");
+          expect(parsed.searchParams.get("start_time_max")).toBe("2026-06-25T08:50:00.000Z");
+        }
         return {
           data: [{
             id: "618798",
@@ -79,10 +85,11 @@ describe("Polymarket API discovery", () => {
     expect(vi.mocked(polymarketPluginGet).mock.calls.map(call => new URL(call[0]).pathname)).toEqual([
       "/sports",
       "/events/keyset",
+      "/events/keyset",
     ]);
   });
 
-  test("dedupes markets returned by keyset pages", async () => {
+  test("dedupes markets returned by live and upcoming keyset passes", async () => {
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
       const parsed = new URL(url);
       if (parsed.pathname === "/sports")
@@ -102,9 +109,7 @@ describe("Polymarket API discovery", () => {
             clobTokenIds: JSON.stringify(["asset-novaq", "asset-rune"]),
           }],
         };
-        return parsed.searchParams.has("after_cursor")
-          ? { data: [event], next_cursor: null }
-          : { data: [event], next_cursor: "next-page" };
+        return { data: [event], next_cursor: null };
       }
       return [];
     });
@@ -126,9 +131,10 @@ describe("polymarketCollectStartTimeAllowed", () => {
     vi.useRealTimers();
   });
 
-  test("uses 6h past window (not global 12h)", () => {
+  test("allows any past start and rejects beyond +1h", () => {
     const now = Date.now();
-    expect(polymarketCollectStartTimeAllowed(now - POLYMARKET_COLLECT_PAST_MS + 1)).toBe(true);
-    expect(polymarketCollectStartTimeAllowed(now - POLYMARKET_COLLECT_PAST_MS - 1)).toBe(false);
+    expect(polymarketCollectStartTimeAllowed(now - 24 * 3600 * 1000)).toBe(true);
+    expect(polymarketCollectStartTimeAllowed(now + POLYMARKET_COLLECT_FUTURE_MS)).toBe(true);
+    expect(polymarketCollectStartTimeAllowed(now + POLYMARKET_COLLECT_FUTURE_MS + 1)).toBe(false);
   });
 });

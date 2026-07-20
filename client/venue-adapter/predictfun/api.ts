@@ -15,9 +15,9 @@ export const PREDICT_FUN_API = (
 
 export const PREDICT_FUN_WS = "wss://ws.predict.fun/ws";
 
-const COLLECT_PAST_MS = 6 * 3600 * 1000;
-/** [changmen 临时] 与 VPS collector 一致：默认未来 12h */
-const COLLECT_FUTURE_MS = 12 * 3600 * 1000;
+const COLLECT_PAST_MS = 0;
+/** 与 VPS collector 一致：进行中不限过去 + 开赛未来 1h */
+const COLLECT_FUTURE_MS = 3600 * 1000;
 const PAGE_SIZE = 50;
 const MAX_PAGES = 5;
 
@@ -45,8 +45,7 @@ export function predictCollectStartTimeAllowed(startMs: number): boolean {
   const ms = normalizeEpochMs(startMs);
   if (!ms)
     return true;
-  const now = Date.now();
-  return ms >= now - COLLECT_PAST_MS && ms <= now + COLLECT_FUTURE_MS;
+  return ms <= Date.now() + COLLECT_FUTURE_MS;
 }
 
 export async function fetchPredictCategories(params: {

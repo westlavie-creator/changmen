@@ -5,6 +5,8 @@
  * https://docs.polymarket.com/api-reference/sports/get-sports-metadata-information
  * https://docs.polymarket.com/api-reference/sports/get-valid-sports-market-types
  * https://docs.polymarket.com/api-reference/market-data/get-market-prices-request-body
+ *
+ * 采集窗：官方 live=true ∪ 开赛 ∈ [now, now+1h]（本地二次滤：开赛 ≤ now+1h，过去不设下限）
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
@@ -12,7 +14,8 @@ import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 
-const COLLECT_PAST_MS = 6 * 3600 * 1000;
+/** 过去不设下限（进行中可任意久）；仅作兼容导出 */
+const COLLECT_PAST_MS = 0;
 const COLLECT_FUTURE_MS = 3600 * 1000;
 const KEYSET_PAGE_LIMIT = 500;
 const MAX_KEYSET_PAGES = 3;
@@ -32,14 +35,13 @@ let esportsSeriesCache = null;
 /** @type {{ types: Set<string>, expiresAt: number, fromOfficial: boolean } | null} */
 let marketTypesCache = null;
 
+/** 开赛 ≤ now+1h（含已开赛进行中）；拒绝更远的未开赛 */
 export function polymarketCollectStartTimeAllowed(startMs) {
   const ms = normalizeEpochMs(startMs);
   if (!ms)
     return true;
-  const now = Date.now();
-  return ms >= now - COLLECT_PAST_MS && ms <= now + COLLECT_FUTURE_MS;
+  return ms <= Date.now() + COLLECT_FUTURE_MS;
 }
-
 /** 官方字段规范化；禁止默认 moneyline */
 export function normalizeSportsMarketType(market) {
   const raw = market?.sportsMarketType ?? market?.sports_market_type ?? "";
@@ -192,25 +194,23 @@ export async function resolveCollectMarketTypes() {
 }
 
 /**
- * @returns {Promise<{ markets: object[], rawEventCount: number, rawMarketCount: number }>}
+ * @param {string[]} seriesIds
+ * @param {number} pageLimit
+ * @param {Record<string, string>} extraParams
+ * @param {Set<string>} seenMarketIds
+ * @param {object[]} blocks
+ * @returns {Promise<number>} rawEventCount
  */
-export async function fetchPolymarketEsportsMarkets() {
-  const pageLimit = KEYSET_PAGE_LIMIT;
-  const blocks = [];
-  const seenMarketIds = new Set();
-  const seriesIds = await fetchEsportsSeriesIds();
+async function fetchEsportsKeysetPass(seriesIds, pageLimit, extraParams, seenMarketIds, blocks) {
   let cursor = "";
   let rawEventCount = 0;
-
   for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
-    const now = Date.now();
     const params = new URLSearchParams({
       closed: "false",
       limit: String(pageLimit),
       order: "startTime",
       ascending: "true",
-      start_time_min: new Date(now - COLLECT_PAST_MS).toISOString(),
-      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
+      ...extraParams,
     });
     for (const id of seriesIds)
       params.append("series_id", id);
@@ -235,14 +235,44 @@ export async function fetchPolymarketEsportsMarkets() {
     if (!cursor)
       break;
   }
+  return rawEventCount;
+}
+
+/**
+ * 官方：live 进行中 ∪ 开赛未来 1h 内；去重合并。
+ * @returns {Promise<{ markets: object[], rawEventCount: number, rawMarketCount: number }>}
+ */
+export async function fetchPolymarketEsportsMarkets() {
+  const pageLimit = KEYSET_PAGE_LIMIT;
+  const blocks = [];
+  const seenMarketIds = new Set();
+  const seriesIds = await fetchEsportsSeriesIds();
+  const now = Date.now();
+
+  const liveEvents = await fetchEsportsKeysetPass(
+    seriesIds,
+    pageLimit,
+    { live: "true" },
+    seenMarketIds,
+    blocks,
+  );
+  const upcomingEvents = await fetchEsportsKeysetPass(
+    seriesIds,
+    pageLimit,
+    {
+      start_time_min: new Date(now).toISOString(),
+      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
+    },
+    seenMarketIds,
+    blocks,
+  );
 
   return {
     markets: blocks,
-    rawEventCount,
+    rawEventCount: liveEvents + upcomingEvents,
     rawMarketCount: blocks.length,
   };
 }
-
 /**
  * 官方：买入看 SELL（best ask）。每批 ≤200。
  * @param {string[]} assetIds

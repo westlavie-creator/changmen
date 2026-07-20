@@ -7,7 +7,7 @@
  * 安全写库（live）：
  * - Gamma/网络抛错 → 上层 catch，本函数不写空库
  * - 有 typed ML 但解析全失败 → skipWrite，保留旧 RDS
- * - 窗口内无 ML → 才允许 clear
+ * - 窗口内无 ML → 才允许 clear（窗：live ∪ 未来 1h）
  */
 
 import { replacePlatformBetsForMatch, writePlatformMatches } from "@changmen/db";
