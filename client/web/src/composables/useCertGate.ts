@@ -1,12 +1,11 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { skipCertGate } from "@/config/mtlsGate";
 
-const PROBE_INTERVAL_MS = 3000;
-
 type CertStatus = "unknown" | "present" | "absent";
 
 /**
  * 探测本次页面是否经 mTLS（Caddy → /api/client-cert-status）。
+ * 只在挂载时探测一次；用户装证后自行刷新即可。
  * 生产 HTTPS + require_and_verify 下，协议为 https 也可作兜底（Caddy 尚未注入头时）。
  */
 export function useCertGate() {
@@ -16,7 +15,6 @@ export function useCertGate() {
   const certReady = computed(() => certStatus.value === "present");
   const certChecked = computed(() => certStatus.value !== "unknown");
 
-  let probeTimer: ReturnType<typeof setInterval> | undefined;
   let disposed = false;
 
   async function refreshCert(): Promise<boolean> {
@@ -69,15 +67,10 @@ export function useCertGate() {
     if (skipped)
       return;
     void refreshCert();
-    probeTimer = setInterval(() => {
-      void refreshCert();
-    }, PROBE_INTERVAL_MS);
   });
 
   onUnmounted(() => {
     disposed = true;
-    if (probeTimer)
-      clearInterval(probeTimer);
   });
 
   return {
