@@ -17,6 +17,7 @@ import {
   resolvePmFillPrice,
   resolvePmListDisplayPrice,
   resolvePmOrderListStatusClass,
+  resolvePmSellProceedsUsdc,
 } from "./pmOrderDisplay";
 import type { OrderRow } from "@/types/order";
 
@@ -230,5 +231,51 @@ describe("pmOrderDisplay", () => {
     expect(pmOrderProfitDisplayCny(sell, [buy, sell])).toBeNull();
     expect(pmOrderProfitDisplayCny(buy, [buy, sell])).toBe(65);
     expect(pmOrderProfitDisplayCny({ ...buy, Money: 12 }, [buy, sell])).toBe(12);
+  });
+
+  it("resolvePmSellProceedsUsdc prefers buy field and falls back to sell BetMoney", () => {
+    const buy: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xbuy",
+      PmSellState: "closed",
+      PmAttributedSellShares: 6.756753,
+      PmSellProceeds: 12.5,
+    };
+    const sell: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xsell",
+      PmSide: "sell",
+      BetMoney: 68,
+      Money: 0,
+      PmBuyOrderId: "0xbuy",
+    };
+    expect(resolvePmSellProceedsUsdc(buy, [buy, sell])).toBe(12.5);
+    // 侧栏卖单回款展示仍读自身 BetMoney，不因 helper 改变
+    expect(pmOrderStakeDisplayCny(sell)).toBe(68);
+
+    const legacyBuy: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xlegacy",
+      PmSellState: "closed",
+      PmAttributedSellShares: 10,
+    };
+    const legacySell: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xs-legacy",
+      PmSide: "sell",
+      BetMoney: 68,
+      Money: 0,
+      PmBuyOrderId: "0xlegacy",
+    };
+    const fallback = resolvePmSellProceedsUsdc(legacyBuy, [legacyBuy, legacySell]);
+    expect(fallback).not.toBeNull();
+    expect(fallback!).toBeGreaterThan(0);
+    expect(pmOrderStakeDisplayCny(legacySell)).toBe(68);
+
+    // 误写 0 不得挡住卖单兜底
+    expect(resolvePmSellProceedsUsdc({
+      ...legacyBuy,
+      PmSellProceeds: 0,
+    }, [legacyBuy, legacySell])).toBe(fallback);
   });
 });

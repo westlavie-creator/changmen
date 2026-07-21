@@ -182,6 +182,38 @@ export function pmOrderProfitDisplayCny(row: OrderRow, peers: OrderRow[] = []): 
     .reduce((sum, p) => sum + (Number(p.Money) || 0), 0);
 }
 
+/**
+ * 买单累计卖出回款 USDC（对标 PF `pfSellProceeds`）。
+ * - 优先买单 `PmSellProceeds`（新成交真相）
+ * - 旧单缺失：用关联卖单 `BetMoney`(CNY) ÷ 汇率兜底
+ * - **不改变**侧栏卖单行展示：卖单仍读自身 BetMoney（见 `pmOrderStakeDisplayCny`）
+ */
+export function resolvePmSellProceedsUsdc(buy: OrderRow, peers: OrderRow[] = []): number | null {
+  if (!isPmBuyOrderListRow(buy))
+    return null;
+  const fromBuy = Number(buy.PmSellProceeds);
+  // 仅正数视为真相；0/缺失走卖单兜底，避免 sync 误写 0 挡住旧单
+  if (Number.isFinite(fromBuy) && fromBuy > 0)
+    return fromBuy;
+
+  const buyId = String(buy.OrderID ?? "").trim().toLowerCase();
+  if (!buyId)
+    return null;
+
+  const sellCny = peers
+    .filter(p =>
+      isPmSellOrderListRow(p)
+      && String(p.PmBuyOrderId ?? "").trim().toLowerCase() === buyId,
+    )
+    .reduce((sum, p) => sum + (Number(p.BetMoney) || 0), 0);
+  if (!(sellCny > 0))
+    return null;
+  const fx = getExchange(Currency.USDT);
+  if (!(fx > 0))
+    return null;
+  return Math.round((sellCny / fx) * 10000) / 10000;
+}
+
 /** 侧栏价格列标题 */
 export function pmOrderPriceLabel(row: OrderRow): string {
   return isPmSellOrderListRow(row) ? "卖单卖出价" : "买入价";

@@ -61,8 +61,9 @@ orders / money_logs
 |--|------------|------------|
 | 绑父 | `pmBuyOrderId` | `pfBuyOrderId` |
 | 买单状态 | `pmSellState`：`open` / `partial` / `closed` / `settled` | `pfSellState`：`open` / `closed`（仅 1:1 全卖） |
-| 盈亏 | 记在**买单** `money`；卖单 `money` 恒 0 | 同左；买单另有 `pfSellProceeds` |
-| 展示 | 侧栏软附属嵌套（不改落库 Link 语义以外的字段） | 同左 |
+| 回款真相 | 买单 `pmSellProceeds`（USDC；旧单可缺，读路径兜底卖单） | 买单 `pfSellProceeds` |
+| 盈亏 | 记在**买单** `money`；卖单 `money` 恒 0 | 同左 |
+| 展示 | 侧栏软附属嵌套；卖单行回款仍读自身 `betMoney` | 同左 |
 | 归账日 | 卖单跟买单 `CreateAt`；跨日由 `mergePredictionBuySellSiblings` 并入 | 同左 |
 
 详细 checklist：`client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md`；PF 契约：`client/venue-adapter/predictfun/README.md`。

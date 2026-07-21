@@ -13,10 +13,10 @@
 | 可卖份额 | `resolvePmRemainingShares` = fill − `pmAttributedSellShares` |
 | 部分卖 | **支持** → `pmSellState`: `partial` / `closed`（卖光） |
 | 下单 | 当前买单剩余份额 **FOK 吃 bids**；不撤其它挂单 |
-| 依附字段 | 卖单 `pmBuyOrderId`；买单 `pmAttributedSellShares` + `pmSellState` |
+| 依附字段 | 卖单 `pmBuyOrderId`；买单 `pmAttributedSellShares` + `pmSellState` + **`pmSellProceeds`（回款真相 USDC，对标 PF）** |
 | 盈亏 | **记在买单 `money`**；卖单 `money` 恒 0（回款在 `betMoney`，成本/PnL 在 raw） |
 | 卖光后 | 倾向挡 Gamma 纸面结算（`changmenSoldOutBlocksGammaSettlement`；含 `open+full attr` 历史兜底） |
-| 展示 | 方案 A **软附属**：`orderListDisplayBlocks` 嵌在买单下；不改落库 |
+| 展示 | 方案 A **软附属**：`orderListDisplayBlocks` 嵌在买单下；不改落库；卖单行回款仍读自身 `BetMoney`（旧单无 `pmSellProceeds` 不影响） |
 | 归账日 | 卖单跟父买单 `CreateAt`；后端 `mergePredictionBuySellSiblings` 跨日并入 |
 | 官网卖 changmen 仓 | **不归因**（changmen 买单不进 external reconcile；仅侧栏手动卖写绑定） |
 | 卖出预检 UI | **不做**（手动卖仅简单确认份额后下单；深度校验在 FOK 下单时） |
@@ -31,10 +31,11 @@ PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏
 
 - [x] `pmManualSell.ts`：FOK 卖当前买单剩余份额；同批写卖单 + patch 买单
 - [x] 卖单：`pmSide=sell`、`pmOrigin=changmen`、`pmBuyOrderId`、`money=0`
-- [x] 买单：累加 `pmAttributedSellShares`、`pmSellState`、累加已实现 `money`（首次卖丢弃纸面 win/lose）
+- [x] 买单：累加 `pmAttributedSellShares`、`pmSellState`、累加已实现 `money` / `pmSellProceeds`（首次卖丢弃纸面 win/lose）
 - [x] `orders.ts`：external reconcile 可设 `pmBuyOrderId` / `pmSellState`（官网卖路径）
 - [x] `pmLogicalPosition.ts`：剩余份额 / 持仓判断
 - [x] SELL POST 解析 / fill 确认 / VenueOrder 映射（CLOB sync 在用）
+- [x] 回款真相对齐 PF：买单 `pmSellProceeds`；读路径 `resolvePmSellProceedsUsdc` 优先买单、旧单兜底卖单 `BetMoney`；**侧栏卖单展示仍读自身 BetMoney**
 
 > **说明**：手动卖走 `pmManualSell`，**不是** `bet.ts` 通用 `Side.SELL` 分支。§仍待办里的「bet.ts SELL」仅在要做预检深度 UI / 通用下注路径时才需要。
 

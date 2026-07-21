@@ -417,6 +417,8 @@ function mapAdminOrderRow(r, startIndex = null) {
     pmOrigin: o.PmOrigin,
     pmAttributedSellShares: o.PmAttributedSellShares,
     pmRealizedPnlUsdc: o.PmRealizedPnlUsdc,
+    pmSellProceeds: o.PmSellProceeds,
+    pmLastSellOrderId: o.PmLastSellOrderId,
     pmSellState: o.PmSellState,
     pmSide: o.PmSide,
     pmBuyOrderId: o.PmBuyOrderId,

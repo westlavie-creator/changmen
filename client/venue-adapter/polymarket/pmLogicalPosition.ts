@@ -22,6 +22,8 @@ export interface OrderRowLike {
   PmOrigin?: "changmen" | "external";
   PmAttributedSellShares?: number;
   PmRealizedPnlUsdc?: number;
+  PmSellProceeds?: number;
+  PmLastSellOrderId?: string;
   PmSellState?: PolymarketSellState;
   PmSide?: "buy" | "sell";
   PmBuyOrderId?: string;
@@ -122,6 +124,8 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
     pmOrigin: row.PmOrigin,
     pmAttributedSellShares: row.PmAttributedSellShares,
     pmRealizedPnlUsdc: row.PmRealizedPnlUsdc,
+    pmSellProceeds: row.PmSellProceeds,
+    pmLastSellOrderId: row.PmLastSellOrderId,
     pmSellState: row.PmSellState ?? (pmSide === "buy" ? "open" : undefined),
     pmSide,
     pmBuyOrderId: row.PmBuyOrderId,

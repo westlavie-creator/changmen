@@ -130,6 +130,87 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
     expect(money).toBe(3);
   });
 
+  it("stores and preserves pmSellProceeds on buy (PF-aligned)", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const first = mergePolymarketLogicalSave(
+      { bet_money: 100, money: 0 },
+      {
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmStakeUsdc: 10,
+        pmShares: 20,
+        money: 0,
+        status: "none",
+      },
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmStakeUsdc: 0,
+        pmSellState: "closed",
+        pmAttributedSellShares: 20,
+        pmSellProceeds: 11.5,
+        pmLastSellOrderId: "0xsell",
+        money: 10,
+        status: "none",
+      },
+      "changmen",
+    );
+    expect(first.raw.pmSellProceeds).toBe(11.5);
+    expect(first.raw.pmLastSellOrderId).toBe("0xsell");
+
+    // sync 不带回款字段时保留
+    const wiped = mergePolymarketLogicalSave(
+      { bet_money: 100, money: 10 },
+      first.raw,
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "closed",
+        pmAttributedSellShares: 20,
+        money: 0,
+        status: "none",
+      },
+      "changmen",
+    );
+    expect(wiped.raw.pmSellProceeds).toBe(11.5);
+    expect(wiped.raw.pmLastSellOrderId).toBe("0xsell");
+    expect(wiped.money).toBe(10);
+  });
+
+  it("does not invent pmSellProceeds=0 on legacy closed sync", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { raw } = mergePolymarketLogicalSave(
+      { bet_money: 100, money: 10 },
+      {
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "closed",
+        pmAttributedSellShares: 20,
+        money: 10,
+        status: "none",
+      },
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "closed",
+        pmAttributedSellShares: 20,
+        money: 0,
+        status: "none",
+      },
+      "changmen",
+    );
+    expect(raw.pmSellProceeds).toBeUndefined();
+    expect(raw.money).toBe(10);
+  });
+
   it("keeps original betMoney on first partial sell patch", async () => {
     const { mergePolymarketLogicalSave } = await import("./order_store.js");
     const prevRaw = {

@@ -413,6 +413,11 @@ export function rowToOrder(r) {
       : undefined,
     PmAttributedSellShares: parseNum(raw.pmAttributedSellShares, 0) || undefined,
     PmRealizedPnlUsdc: parseNum(raw.pmRealizedPnlUsdc, 0) || undefined,
+    PmSellProceeds: (() => {
+      const n = parseNum(raw.pmSellProceeds, NaN);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })(),
+    PmLastSellOrderId: raw.pmLastSellOrderId ? String(raw.pmLastSellOrderId) : undefined,
     PmSellState: raw.pmSellState === "open"
       || raw.pmSellState === "partial"
       || raw.pmSellState === "closed"
@@ -607,6 +612,28 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     const nextMatchResult = normalizePmMatchResult(o.pmMatchResult ?? o.PmMatchResult)
       ?? normalizePmMatchResult(prevRaw.pmMatchResult)
       ?? normalizePmMatchResult(merged.pmMatchResult);
+    const prevProceeds = parseNum(prevRaw.pmSellProceeds, NaN);
+    const incomingProceeds = parseNum(o.pmSellProceeds ?? merged.pmSellProceeds, NaN);
+    /**
+     * 只在有真实回款时写入；勿对旧 closed 单 sync 落 0，
+     * 否则读路径会优先 0、跳过卖单 BetMoney 兜底。
+     */
+    let nextProceeds;
+    if (String(prevState).toLowerCase() === "closed") {
+      if (Number.isFinite(prevProceeds) && prevProceeds > 0)
+        nextProceeds = prevProceeds;
+      else if (Number.isFinite(incomingProceeds) && incomingProceeds > 0)
+        nextProceeds = incomingProceeds;
+    }
+    else if (Number.isFinite(incomingProceeds) && incomingProceeds > 0) {
+      nextProceeds = incomingProceeds;
+    }
+    else if (Number.isFinite(prevProceeds) && prevProceeds > 0) {
+      nextProceeds = prevProceeds;
+    }
+    const nextLastSellId = String(o.pmLastSellOrderId ?? merged.pmLastSellOrderId ?? "").trim()
+      || String(prevRaw.pmLastSellOrderId ?? "").trim()
+      || undefined;
     merged = {
       ...merged,
       pmSide: "buy",
@@ -621,8 +648,15 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
         : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
       money: nextMoney,
       status: "none",
+      ...(Number.isFinite(nextProceeds) && nextProceeds > 0
+        ? { pmSellProceeds: nextProceeds }
+        : {}),
+      ...(nextLastSellId ? { pmLastSellOrderId: nextLastSellId } : {}),
       ...(nextMatchResult ? { pmMatchResult: nextMatchResult } : {}),
     };
+    // 显式去掉误带的 0，避免污染 raw
+    if (!(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0))
+      delete merged.pmSellProceeds;
     bet_money = betMoneyForMerge;
     money = nextMoney;
   }
@@ -665,6 +699,18 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
       ?? normalizePmMatchResult(prevRaw.pmMatchResult);
     if (nextMatchResult)
       merged.pmMatchResult = nextMatchResult;
+    // 回款字段保护（对标 pfSellProceeds）：空写入保留库内正数；勿把缺失补成 0
+    if (
+      !(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0)
+      && Number.isFinite(Number(prevRaw.pmSellProceeds))
+      && Number(prevRaw.pmSellProceeds) > 0
+    ) {
+      merged.pmSellProceeds = Number(prevRaw.pmSellProceeds);
+    }
+    if (!(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0))
+      delete merged.pmSellProceeds;
+    if (!String(merged.pmLastSellOrderId ?? "").trim() && String(prevRaw.pmLastSellOrderId ?? "").trim())
+      merged.pmLastSellOrderId = prevRaw.pmLastSellOrderId;
   }
 
   return { raw: merged, money, bet_money };

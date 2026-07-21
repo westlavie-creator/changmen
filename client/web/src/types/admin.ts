@@ -147,6 +147,9 @@ export interface AdminOrderRow {
   pmOrigin?: "changmen" | "external";
   pmAttributedSellShares?: number;
   pmRealizedPnlUsdc?: number;
+  /** 买单累计卖出回款 USDC（对标 pfSellProceeds；旧单可能缺失） */
+  pmSellProceeds?: number;
+  pmLastSellOrderId?: string;
   pmSellState?: "open" | "partial" | "closed" | "settled";
   pmSide?: "buy" | "sell";
   pmBuyOrderId?: string;

@@ -37,6 +37,13 @@ export interface PolymarketVenueOrderExtras {
   /** 本行 changmen 卖出累计份数 */
   pmAttributedSellShares?: number;
   pmRealizedPnlUsdc?: number;
+  /**
+   * [changmen 扩展] 买单累计卖出回款 USDC（对标 PF `pfSellProceeds`）。
+   * 经济真相在买单；卖单 betMoney 仍为 CNY 展示镜像，勿当本金。
+   */
+  pmSellProceeds?: number;
+  /** 最近一笔 changmen 卖单 orderId（可选） */
+  pmLastSellOrderId?: string;
   pmSellState?: PolymarketSellState;
   /** buy=买入持仓；sell=平仓成交 */
   pmSide?: PolymarketOrderSide;

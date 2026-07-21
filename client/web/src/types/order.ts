@@ -33,6 +33,13 @@ export interface OrderRow {
   PmOrigin?: "changmen" | "external";
   PmAttributedSellShares?: number;
   PmRealizedPnlUsdc?: number;
+  /**
+   * [changmen 扩展] 买单累计卖出回款 USDC（对标 PfSellProceeds）。
+   * 展示仍可读卖单 BetMoney；本字段为经济真相，旧单可能缺失。
+   */
+  PmSellProceeds?: number;
+  /** 最近一笔卖单 orderId */
+  PmLastSellOrderId?: string;
   PmSellState?: "open" | "partial" | "closed" | "settled";
   /** buy=买入；sell=平仓 */
   PmSide?: "buy" | "sell";

@@ -64,6 +64,8 @@ export function adminOrderToOrderRow(
     PmOrigin: row.pmOrigin,
     PmAttributedSellShares: row.pmAttributedSellShares,
     PmRealizedPnlUsdc: row.pmRealizedPnlUsdc,
+    PmSellProceeds: row.pmSellProceeds,
+    PmLastSellOrderId: row.pmLastSellOrderId,
     PmSellState: row.pmSellState,
     PmSide: row.pmSide,
     PmBuyOrderId: row.pmBuyOrderId,

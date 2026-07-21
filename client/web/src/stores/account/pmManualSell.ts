@@ -103,6 +103,9 @@ function venueOrdersToLocalRows(buyRow: OrderRow, orders: VenueOrder[]): OrderRo
       PmStakeUsdc: vo.pmStakeUsdc,
       PmAttributedSellShares: vo.pmAttributedSellShares,
       PmSellState: vo.pmSellState,
+      PmRealizedPnlUsdc: vo.pmRealizedPnlUsdc,
+      PmSellProceeds: vo.pmSellProceeds,
+      PmLastSellOrderId: vo.pmLastSellOrderId,
       PmSide: "buy",
       PmOrigin: vo.pmOrigin ?? buyRow.PmOrigin,
     } satisfies OrderRow;

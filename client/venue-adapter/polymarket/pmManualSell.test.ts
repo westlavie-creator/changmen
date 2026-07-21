@@ -57,9 +57,54 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
     expect(buy.pmStakeUsdc).toBe(0);
     expect(buy.betMoney).toBe(112);
     expect(buy.money).toBeGreaterThan(0);
+    expect(buy.pmSellProceeds).toBe(16.8805);
+    expect(buy.pmLastSellOrderId).toBe("0xsell");
     expect(sell.money).toBe(0);
     expect(sell.betMoney).toBeGreaterThan(0);
     expect(sell.pmBuyOrderId).toBe("0xbuy");
+  });
+
+  it("accumulates pmSellProceeds across partial sells", () => {
+    const baseBuy = {
+      provider: "Polymarket" as const,
+      orderId: "0xbuy-p",
+      odds: 2,
+      createAt: 1,
+      betMoney: 100,
+      reward: 0,
+      money: 0,
+      status: "none" as const,
+      match: "A vs B",
+      bet: "map1",
+      item: "A",
+      pmShares: 20,
+      pmFillPrice: 0.5,
+      pmStakeUsdc: 10,
+      pmOrigin: "changmen" as const,
+      pmSide: "buy" as const,
+      pmSellState: "open" as const,
+    };
+    const [buy1] = buildSellAndBuyPatchOrders({
+      buy: baseBuy,
+      sellOrderId: "0xs1",
+      sharesSold: 8,
+      proceedsUsdc: 4.4,
+      fillPrice: 0.55,
+      createAt: 2,
+    });
+    expect(buy1.pmSellState).toBe("partial");
+    expect(buy1.pmSellProceeds).toBe(4.4);
+    const [buy2] = buildSellAndBuyPatchOrders({
+      buy: buy1,
+      sellOrderId: "0xs2",
+      sharesSold: 12,
+      proceedsUsdc: 6.6,
+      fillPrice: 0.55,
+      createAt: 3,
+    });
+    expect(buy2.pmSellState).toBe("closed");
+    expect(buy2.pmSellProceeds).toBe(11);
+    expect(buy2.pmLastSellOrderId).toBe("0xs2");
   });
 
   it("ignores 0.99 price-win paper money so sell PnL is not doubled", () => {

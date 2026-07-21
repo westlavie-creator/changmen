@@ -272,6 +272,10 @@ function buildSellAndBuyPatchOrders(params: {
   const closed = remainingAfter <= 0;
   const attributed = closed && fillShares > 0 ? round4(fillShares) : attributedRaw;
   const stakeLeftUsdc = closed ? 0 : round4(Math.max(0, costUsdc - costPortion));
+  const prevProceedsUsdc = Number(buy.pmSellProceeds);
+  const nextProceedsUsdc = round4(
+    (Number.isFinite(prevProceedsUsdc) && prevProceedsUsdc > 0 ? prevProceedsUsdc : 0) + proceedsUsdc,
+  );
   const buyPatch: VenueOrder = {
     ...buy,
     pmOrigin: "changmen",
@@ -283,6 +287,9 @@ function buildSellAndBuyPatchOrders(params: {
     betMoney: originalBetMoney,
     money: prevRealizedCny + profitCny,
     pmRealizedPnlUsdc: round4(prevRealizedUsdc + profitUsdc),
+    // 回款真相在买单（对标 PF pfSellProceeds）；卖单 betMoney 仍为 CNY 镜像
+    pmSellProceeds: nextProceedsUsdc,
+    pmLastSellOrderId: sellOrderId,
     status: "none",
   };
 
