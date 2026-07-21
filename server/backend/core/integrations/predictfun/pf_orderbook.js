@@ -134,6 +134,38 @@ export function filterAsksByMaxPrice(asks, maxPrice) {
   });
 }
 
+/**
+ * 限价内 asks 是否够 FOK 吃满本金（USDT）——与 PM calculateBuyMarketLimitPrice 同语义。
+ * asks: [[price, sizeShares], ...]，已按价升序且已 filterAsksByMaxPrice。
+ */
+export function assertPredictFokBuyDepth(asks, apiBetMoney) {
+  const amount = Number(apiBetMoney);
+  if (!Number.isFinite(amount) || amount <= 0)
+    throw new Error(`无效投注金额 ${apiBetMoney}`);
+
+  let remaining = amount;
+  let available = 0;
+  for (const level of asks ?? []) {
+    const price = Number(level[0]);
+    const size = Number(level[1]);
+    if (!(Number.isFinite(price) && price > 0 && price < 1
+      && Number.isFinite(size) && size > 0))
+      continue;
+    const notional = price * size;
+    available += notional;
+    if (notional + 1e-9 >= remaining)
+      return;
+    remaining -= notional;
+  }
+
+  const availText = Number.isFinite(available) ? available.toFixed(2) : "0";
+  throw new Error([
+    "Predict.fun FOK 盘口深度不足",
+    `- 需要 ${amount} USDT，限价内可立即成交约 ${availText} USDT`,
+    "- FOK 要求整笔金额立即成交，否则整单取消。",
+  ].join("\n"));
+}
+
 /** 卖出：只保留 bid >= minPrice 的档（保护底价） */
 export function filterBidsByMinPrice(bids, minPrice) {
   const floor = Number(minPrice);

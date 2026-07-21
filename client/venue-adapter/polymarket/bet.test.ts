@@ -546,7 +546,7 @@ describe("polymarketProvider.betting", () => {
     expect(pmSubmitOrder).not.toHaveBeenCalled();
   });
 
-  test("accepts FOK when fo clobPrice matches book despite display odds rounding", async () => {
+  test("accepts FOK when fo clobPrice matches detection odds (trunc3)", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
       tick_size: "0.01",
@@ -574,12 +574,13 @@ describe("polymarketProvider.betting", () => {
       },
     }));
 
+    // 0.68 → trunc3 展示赔率 1.47（与 fo / 建腿同源）
     const result = await polymarketProvider.betting!(account, {
       itemId: "123456789",
-      odds: 1.471,
+      odds: 1.47,
       betMoney: 35,
       data: {
-        detectionOdds: 1.471,
+        detectionOdds: 1.47,
         detectionClobPrice: 0.68,
         apiBetMoney: 5,
       },
@@ -964,7 +965,7 @@ describe("polymarketProvider.checkBet", () => {
         asks: [{ price: 0.18, size: 100 }],
       },
     });
-    expect(out.odds).toBeCloseTo(5.5556, 3);
+    expect(out.odds).toBe(5.555);
     expect(out.checkError).toBeUndefined();
   });
 

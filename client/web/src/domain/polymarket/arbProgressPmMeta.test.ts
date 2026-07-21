@@ -23,7 +23,7 @@ describe("buildPolymarketArbProgressMeta", () => {
       "74711611114983512613640395677280477708501472242194933077402249873861095364481",
       35,
       "Home",
-      1.471,
+      1.47,
     );
     option.data = { detectionClobPrice: 0.68 };
 
@@ -38,7 +38,7 @@ describe("buildPolymarketArbProgressMeta", () => {
     getEntry.mockReturnValue({ clobPrice: 0.68 });
     const option = new BetOptionClass(PLATFORMS.Polymarket, "m1", "b1", "1234567890", 35, "Away", 1.47);
     option.data = {
-      detectionOdds: 1.471,
+      detectionOdds: 1.47,
       detectionMaxPrice: 0.68,
       detectionClobPrice: 0.68,
       bookPrice: 0.681,

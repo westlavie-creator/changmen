@@ -17,6 +17,7 @@ import {
   executableSellBook,
   filterAsksByMaxPrice,
   filterBidsByMinPrice,
+  assertPredictFokBuyDepth,
 } from "./pf_orderbook.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
 import {
@@ -175,6 +176,7 @@ export async function resolveExecutableBuy({
   marketId,
   detectionOdds,
   maxPrice,
+  apiBetMoney,
 }) {
   if (!isValidPredictClobPrice(maxPrice))
     throw new Error(`无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
@@ -183,51 +185,61 @@ export async function resolveExecutableBuy({
 
   const cacheKey = executableBuyCacheKey(marketId, tokenId, maxPrice);
   const cached = executableBuyCache.get(cacheKey);
-  if (cached && Date.now() - cached.at <= REUSE_BOOK_MAX_AGE_MS)
-    return cached.value;
+  let value = cached && Date.now() - cached.at <= REUSE_BOOK_MAX_AGE_MS
+    ? cached.value
+    : null;
 
-  const [yesBook, market] = await Promise.all([
-    fetchPredictOrderbook(marketId),
-    fetchPredictMarket(marketId),
-  ]);
-  if (!yesBook)
-    throw new Error(`Predict.fun orderbook 为空（market ${marketId}）`);
+  if (!value) {
+    const [yesBook, market] = await Promise.all([
+      fetchPredictOrderbook(marketId),
+      fetchPredictMarket(marketId),
+    ]);
+    if (!yesBook)
+      throw new Error(`Predict.fun orderbook 为空（market ${marketId}）`);
 
-  const book = executableBuyBook(yesBook, market, tokenId);
-  const tradable = assertPredictMarketTradable(market);
-  if (!tradable.ok)
-    throw new Error(tradable.msg);
-  const asks = filterAsksByMaxPrice(book.asks ?? [], maxPrice);
-  if (!asks.length) {
-    const best = bestAskFromPredictBook(book);
-    const liveOdds = best > 0 ? truncateOddsTo3(1 / best) : 0;
-    const detectOdds = Number(detectionOdds) > 1 ? truncateOddsTo3(detectionOdds) : 0;
-    throw new Error([
-      "Predict.fun 盘口价高于检测价，整单取消",
-      best > 0
-        ? `- 现价 ${best}（赔率 ${liveOdds}）高于检测上限 ${maxPrice}`
-          + (detectOdds > 1 ? `（页面检测赔率 ${detectOdds}）` : "")
-        : "- 盘口无卖单",
-      "- 列表赔率刷新有滞后；请等盘口跟上后再下（预检不会用现价改 fo）",
-    ].join("\n"));
+    const book = executableBuyBook(yesBook, market, tokenId);
+    const tradable = assertPredictMarketTradable(market);
+    if (!tradable.ok)
+      throw new Error(tradable.msg);
+    const asks = filterAsksByMaxPrice(book.asks ?? [], maxPrice);
+    if (!asks.length) {
+      const best = bestAskFromPredictBook(book);
+      const liveOdds = best > 0 ? truncateOddsTo3(1 / best) : 0;
+      const detectOdds = Number(detectionOdds) > 1 ? truncateOddsTo3(detectionOdds) : 0;
+      throw new Error([
+        "Predict.fun 盘口价高于检测价，整单取消",
+        best > 0
+          ? `- 现价 ${best}（赔率 ${liveOdds}）高于检测上限 ${maxPrice}`
+            + (detectOdds > 1 ? `（页面检测赔率 ${detectOdds}）` : "")
+          : "- 盘口无卖单",
+        "- 列表赔率刷新有滞后；请等盘口跟上后再下（预检不会用现价改 fo）",
+      ].join("\n"));
+    }
+
+    const bookPrice = bestAskFromPredictBook({ asks });
+    if (!isValidPredictClobPrice(bookPrice))
+      throw new Error("Predict.fun 盘口无有效 best ask");
+
+    value = {
+      bookPrice,
+      bookOdds: truncateOddsTo3(1 / bookPrice),
+      bookFetchedAt: Date.now(),
+      feeRateBps: Number(market?.feeRateBps ?? 0) || 0,
+      isNegRisk: Boolean(market?.isNegRisk),
+      isYieldBearing: Boolean(market?.isYieldBearing),
+      market,
+      sideBook: book,
+      yesBook,
+      cappedAsks: asks,
+    };
+    executableBuyCache.set(cacheKey, { at: Date.now(), value });
   }
 
-  const bookPrice = bestAskFromPredictBook({ asks });
-  if (!isValidPredictClobPrice(bookPrice))
-    throw new Error("Predict.fun 盘口无有效 best ask");
+  // 深度按本笔金额验（不进 cache key）：与 PM 预检同语义，FOK 须整笔可成交
+  const depthAsks = value.cappedAsks
+    ?? filterAsksByMaxPrice(value.sideBook?.asks ?? [], maxPrice);
+  assertPredictFokBuyDepth(depthAsks, apiBetMoney);
 
-  const value = {
-    bookPrice,
-    bookOdds: truncateOddsTo3(1 / bookPrice),
-    bookFetchedAt: Date.now(),
-    feeRateBps: Number(market?.feeRateBps ?? 0) || 0,
-    isNegRisk: Boolean(market?.isNegRisk),
-    isYieldBearing: Boolean(market?.isYieldBearing),
-    market,
-    sideBook: book,
-    yesBook,
-  };
-  executableBuyCache.set(cacheKey, { at: Date.now(), value });
   return value;
 }
 

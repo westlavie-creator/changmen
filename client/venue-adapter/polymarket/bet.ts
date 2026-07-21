@@ -2,6 +2,7 @@ import type { AccountBalanceResult, PlatformProvider, ResolveLegOutcomeOpts } fr
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { resolvePolymarketVenueStakeUsdc } from "./pmStake";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resolvePolymarketBuilderCode } from "./builder";
@@ -253,7 +254,8 @@ async function resolvePolymarketExecutableBuy(
   );
   return {
     price,
-    bookOdds: Math.round((1 / price) * 10000) / 10000,
+    // 与 fo / 页面 / 建腿同源：trunc3(1/price)，不用 round4
+    bookOdds: truncateOddsTo3(1 / price),
     orderOptions,
     bookFetchedAt: Date.now(),
   };
@@ -545,7 +547,7 @@ export const polymarketProvider: PlatformProvider = {
     }
 
     const prior = option.data as PolymarketOptionQuoteData | PolymarketBuyCheckData | null | undefined;
-    // 套利检测价：首次预检锁定 fo 赔率；PM 重检时沿用，FOK 限价不超过 fo clobPrice
+    // 套利检测价：首次预检锁定建腿赔率；限价仅在 fo clob 与该赔率同档时用 fo，否则 1/detectionOdds
     const detectionOdds = Number(prior?.detectionOdds) > 1
       ? Number(prior!.detectionOdds)
       : option.odds;

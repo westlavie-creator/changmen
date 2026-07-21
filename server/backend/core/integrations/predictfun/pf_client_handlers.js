@@ -247,6 +247,7 @@ export async function handlePfCheckBet(body, userId) {
       marketId: intent.marketId,
       detectionOdds: intent.detectionOdds,
       maxPrice: intent.detectionMaxPrice,
+      apiBetMoney: intent.apiBetMoney,
     });
     return {
       ok: true,
@@ -300,6 +301,7 @@ export async function handlePfSubmitOrder(body, userId) {
         marketId: intent.marketId,
         detectionOdds: intent.detectionOdds,
         maxPrice: intent.detectionMaxPrice,
+        apiBetMoney: intent.apiBetMoney,
       }),
       prepareHouseSigner(),
     ]);
@@ -321,6 +323,7 @@ export async function handlePfSubmitOrder(body, userId) {
           marketId: intent.marketId,
           detectionOdds: intent.detectionOdds,
           maxPrice: intent.detectionMaxPrice,
+          apiBetMoney: intent.apiBetMoney,
         });
       }
 

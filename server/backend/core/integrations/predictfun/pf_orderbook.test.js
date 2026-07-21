@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertPredictFokBuyDepth,
   bestAskFromPredictBook,
   getPredictComplement,
   isPredictYesOutcomeToken,
@@ -29,5 +30,21 @@ describe("pf_orderbook", () => {
     ];
     expect(isPredictYesOutcomeToken("tok-yes", outcomes)).toBe(true);
     expect(isPredictYesOutcomeToken("tok-no", outcomes)).toBe(false);
+  });
+});
+
+describe("assertPredictFokBuyDepth", () => {
+  it("passes when top level covers stake", () => {
+    expect(() => assertPredictFokBuyDepth([[0.4, 100]], 10)).not.toThrow();
+  });
+
+  it("passes when multiple levels cover stake", () => {
+    // 0.4*10=4 + 0.45*20=9 → 13 >= 12
+    expect(() => assertPredictFokBuyDepth([[0.4, 10], [0.45, 20]], 12)).not.toThrow();
+  });
+
+  it("rejects when depth within asks is insufficient", () => {
+    // 0.5*10 = 5 USDT only
+    expect(() => assertPredictFokBuyDepth([[0.5, 10]], 20)).toThrow(/盘口深度不足/);
   });
 });
