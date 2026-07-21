@@ -5,7 +5,7 @@ import { Currency, getExchange } from "@changmen/shared/currency";
 import {
   dropOrphanPolymarketSellGroups,
   filterOrdersBelongingToDate,
-  groupOrdersByLink,
+  groupOrdersByEffectiveLink,
   isLinkedArbOrderGroup,
   isPolymarketOpenPosition,
   orderBelongsToDateKey,
@@ -81,9 +81,9 @@ export const useOrderStore = defineStore("order", {
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
         if (!page)
           return false;
-        // PM 卖单归买单日：后端已滤；前端再滤一次防脏数据
+        // PM 卖单归买单日：后端已滤；前端再滤一次防脏数据（滤前对齐卖单 Link）
         const list = filterOrdersBelongingToDate(page.list ?? [], this.orderDate);
-        this.orders = dropOrphanPolymarketSellGroups(groupOrdersByLink(list));
+        this.orders = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink(list));
         this.updateTodayProfit(list);
         const reportRows = list
           .filter(r => orderBelongsToDateKey(r, this.orderDate, list))

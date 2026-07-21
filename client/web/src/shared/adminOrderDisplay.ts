@@ -8,6 +8,7 @@ import {
   orderStatusClass,
 } from "@/shared/orderDisplay";
 import {
+  alignPredictionSellLinksToBuys,
   groupOrdersByLink,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
@@ -101,7 +102,10 @@ export function groupAdminOrderEntries(
   orders: AdminOrderRow[],
   accounts: AdminOrderDisplayAccount[] = [],
 ) {
-  const map = groupOrdersByLink(orders.map(row => adminOrderToOrderRow(row, accounts)));
+  // 卖单 Link 对齐到父买单，再分组，否则软附属跨不了 fieldset
+  const map = groupOrdersByLink(
+    alignPredictionSellLinksToBuys(orders.map(row => adminOrderToOrderRow(row, accounts))),
+  );
   return orderLinkMapEntries(map).map(([link, orderRows]) => {
     const byId = new Map(orders.map(o => [o.orderId, o]));
     const adminRows = orderRows

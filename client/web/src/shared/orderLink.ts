@@ -90,8 +90,76 @@ function isPredictionBuyRow(row: OrderRow): boolean {
 }
 
 /**
+ * [changmen 扩展] 展示用有效 Link：PM/PF 卖单跟父买单（PmBuyOrderId / PfBuyOrderId）。
+ * 卖单自带 Link 只是镜像，可能与买单分叉；分组前须对齐，软附属才能跨原 Link 挂上。
+ * 不改落库；父买单不在 peers 时保持原 Link。
+ */
+export function effectiveOrderLink(row: OrderRow, peers: OrderRow[]): number {
+  if (isPredictionSellRow(row)) {
+    const buyId = predictionSellParentBuyId(row);
+    if (buyId) {
+      const buy = peers.find(r =>
+        isPredictionBuyRow(r)
+        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
+      );
+      const buyLink = Number(buy?.Link);
+      if (Number.isFinite(buyLink))
+        return buyLink;
+    }
+  }
+  const n = Number(row.Link);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * [changmen 扩展] 分组前把同页卖单 Link 对齐到父买单（浅拷贝，不改原数组元素引用以外的源）。
+ */
+export function alignPredictionSellLinksToBuys<T extends OrderRow>(rows: T[]): T[] {
+  if (!rows.length)
+    return rows;
+  const buyById = new Map<string, T>();
+  for (const r of rows) {
+    if (!isPredictionBuyRow(r))
+      continue;
+    const id = String(r.OrderID ?? "").trim().toLowerCase();
+    if (id)
+      buyById.set(id, r);
+  }
+  if (!buyById.size)
+    return rows;
+
+  let changed = false;
+  const out = rows.map((r) => {
+    if (!isPredictionSellRow(r))
+      return r;
+    const buyId = predictionSellParentBuyId(r);
+    if (!buyId)
+      return r;
+    const buy = buyById.get(buyId);
+    if (!buy)
+      return r;
+    const buyLink = Number(buy.Link);
+    if (!Number.isFinite(buyLink))
+      return r;
+    if (Number(r.Link) === buyLink)
+      return r;
+    changed = true;
+    return { ...r, Link: buyLink };
+  });
+  return changed ? out : rows;
+}
+
+/**
+ * [changmen 扩展] 对齐卖单 Link 后再按 Link 分组（侧栏 / 管理端共用）。
+ */
+export function groupOrdersByEffectiveLink<T extends OrderRow>(list: T[]): Map<number, T[]> {
+  return groupOrdersByLink(alignPredictionSellLinksToBuys(list));
+}
+
+/**
  * [changmen 扩展] 订单栏方案 A：PM/PF 卖单在 UI 上挂到对应买单下（软附属）。
  * 不改落库/盈亏；无父买单的孤儿卖单仍顶层展示。
+ * 调用方须保证同组内买卖 Link 已对齐（见 alignPredictionSellLinksToBuys）。
  */
 export type OrderListDisplayBlock = {
   key: string;
@@ -218,7 +286,8 @@ export function filterOrdersBelongingToDate(
   list: OrderRow[],
   dateKey: string,
 ): OrderRow[] {
-  const groups = groupOrdersByLink(list);
+  // 先对齐卖单 Link，避免 sell.link≠buy.link 时按错误组分日
+  const groups = groupOrdersByEffectiveLink(list);
   const out: OrderRow[] = [];
   for (const rows of groups.values()) {
     const pmSells = rows.filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell");
@@ -366,9 +435,11 @@ export function isSameOrderMatchMap(a: OrderMatchMapFields, b: OrderMatchMapFiel
   return mapA === mapB;
 }
 
-/** 真实 RDS 订单行（可拖场馆徽章改绑） */
+/** 真实 RDS 订单行（可拖场馆徽章改绑）；PM/PF 卖单跟买单走，不可单独改绑 */
 export function isRebindableOrderRow(row: OrderRow): boolean {
   if (isMakeupSyntheticOrderRow(row))
+    return false;
+  if (isPredictionSellRow(row))
     return false;
   const id = String(row.OrderID ?? "").trim();
   if (!id || id.startsWith("makeup-"))
@@ -492,7 +563,8 @@ export function mergePendingMakeupIntoOrderGroups(
     allRows.push(loseOrderToPendingRow(order, makeProfit));
   }
   // 手动取消的补单不再并入侧栏（取消即消失，不留 MakeupCancelled 占位）
-  return groupOrdersByLink(allRows);
+  // 防御卖单 Link，避免补单合并时把已对齐的卖单按脏 Link 拆组
+  return groupOrdersByEffectiveLink(allRows);
 }
 
 /** 组内盈亏：优先买单 Money（新模型）；买单仍为 0 时回退卖单 Money（迁移前旧数据）

@@ -10,7 +10,7 @@ import {
   sellPolymarketBuyPosition,
 } from "@changmen/venue-adapter/polymarket";
 import { saveOrders } from "@/api/order";
-import { groupOrdersByLink } from "@/shared/orderLink";
+import { groupOrdersByEffectiveLink } from "@/shared/orderLink";
 import { formatPolymarketApiDecimal } from "@/shared/pmOrderDisplay";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -123,7 +123,7 @@ function applyManualSellOrdersLocally(buyRow: OrderRow, ordersToSave: VenueOrder
       continue;
     byId.set(id, local);
   }
-  orderStore.orders = groupOrdersByLink([...byId.values()]);
+  orderStore.orders = groupOrdersByEffectiveLink([...byId.values()]);
 }
 
 export function canManualSellPmBuy(row: OrderRow): boolean {

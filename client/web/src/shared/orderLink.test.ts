@@ -8,6 +8,9 @@ import {
   computeOrderGroupProfit,
   dropOrphanPolymarketSellGroups,
   filterOrdersBelongingToDate,
+  alignPredictionSellLinksToBuys,
+  effectiveOrderLink,
+  groupOrdersByEffectiveLink,
   groupOrdersByLink,
   isLinkedArbOrderGroup,
   isRebindableOrderRow,
@@ -427,6 +430,82 @@ describe("orderLink A8 parity", () => {
     expect([...filtered.keys()].sort()).toEqual([200, 300]);
     expect(filtered.get(100)).toBeUndefined();
     expect(filtered.get(200)?.map(r => r.OrderID)).toEqual(["b1", "s2"]);
+  });
+
+  it("alignPredictionSellLinksToBuys remaps sell Link to parent buy", () => {
+    const rows = alignPredictionSellLinksToBuys([
+      {
+        OrderID: "0xbuy",
+        Link: 200,
+        Type: "Polymarket",
+        PmSide: "buy" as const,
+        PmSellState: "closed" as const,
+      },
+      {
+        OrderID: "0xsell",
+        Link: 100,
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "0xBUY",
+        Money: 0,
+        BetMoney: 50,
+      },
+      {
+        OrderID: "orphan",
+        Link: 50,
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "missing",
+      },
+    ]);
+    expect(effectiveOrderLink(rows[1]!, rows)).toBe(200);
+    expect(rows[1]!.Link).toBe(200);
+    expect(rows[2]!.Link).toBe(50);
+  });
+
+  it("groupOrdersByEffectiveLink nests mismatched-link sell under buy", () => {
+    const grouped = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink([
+      {
+        OrderID: "0xbuy",
+        Link: 200,
+        Type: "Polymarket",
+        PmSide: "buy" as const,
+        PmSellState: "closed" as const,
+        Money: 10,
+        CreateAt: 100,
+      },
+      {
+        OrderID: "0xsell",
+        Link: 100,
+        Type: "Polymarket",
+        PmSide: "sell" as const,
+        PmBuyOrderId: "0xbuy",
+        Money: 0,
+        BetMoney: 80,
+        CreateAt: 200,
+      },
+    ]));
+    expect([...grouped.keys()]).toEqual([200]);
+    const blocks = orderListDisplayBlocks(grouped.get(200)!);
+    expect(blocks.map(b => ({ id: b.row.OrderID, attach: b.attach }))).toEqual([
+      { id: "0xbuy", attach: false },
+      { id: "0xsell", attach: true },
+    ]);
+  });
+
+  it("isRebindableOrderRow rejects PM/PF sells", () => {
+    expect(isRebindableOrderRow({
+      OrderID: "0xsell",
+      Link: 200,
+      Type: "Polymarket",
+      PmSide: "sell",
+    })).toBe(false);
+    expect(isRebindableOrderRow({
+      OrderID: "0xbuy",
+      Link: 200,
+      Type: "Polymarket",
+      PmSide: "buy",
+    })).toBe(true);
   });
 
   it("PM sell belongs to buy day for display and day profit", () => {

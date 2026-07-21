@@ -147,4 +147,34 @@ describe("adminOrderDisplay", () => {
       [account({ accountId: 101, venueAccountName: "ray_live", playerName: "old" })],
     )).toBe("平博 / ray_live");
   });
+
+  it("groupAdminOrderEntries aligns PM sell link to parent buy before grouping", () => {
+    const buyLink = 1_781_300_000_200;
+    const sellWrongLink = 1_781_300_000_100;
+    const grouped = groupAdminOrderEntries([
+      order({
+        id: 1,
+        orderId: "0xbuy",
+        linkId: buyLink,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmSellState: "closed",
+        money: 5,
+      }),
+      order({
+        id: 2,
+        orderId: "0xsell",
+        linkId: sellWrongLink,
+        provider: "Polymarket",
+        pmSide: "sell",
+        pmBuyOrderId: "0xbuy",
+        money: 0,
+        betMoney: 40,
+      }),
+    ]);
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]!.link).toBe(buyLink);
+    expect(grouped[0]!.orderRows.map(r => r.OrderID).sort()).toEqual(["0xbuy", "0xsell"]);
+    expect(grouped[0]!.orderRows.find(r => r.OrderID === "0xsell")?.Link).toBe(buyLink);
+  });
 });
