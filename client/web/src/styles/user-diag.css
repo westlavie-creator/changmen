@@ -25,6 +25,12 @@
   font-family: ui-monospace, monospace;
 }
 
+.user-diag-dialog.el-dialog {
+  width: fit-content !important;
+  max-width: min(96vw, 1280px);
+  min-width: min(420px, 96vw);
+}
+
 .user-diag-dialog.el-dialog .el-dialog__body {
   padding: 0 12px 12px;
   max-height: min(80vh, 720px);
@@ -35,6 +41,22 @@
   border: none;
   box-shadow: none;
   background: transparent;
+}
+
+.user-diag-dialog .el-tabs__header {
+  margin: 0;
+}
+
+.user-diag-dialog .el-tabs__nav-wrap {
+  overflow: visible;
+}
+
+.user-diag-dialog .el-tabs__nav-scroll {
+  overflow: visible;
+}
+
+.user-diag-dialog .el-tabs__nav {
+  white-space: nowrap;
 }
 
 .user-diag-dialog .el-tabs__content {

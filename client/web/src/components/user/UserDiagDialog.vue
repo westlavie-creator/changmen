@@ -2,7 +2,7 @@
 import type { Component } from "vue";
 import { storeToRefs } from "pinia";
 /**
- * 对齐 console bundle `UserDiagView`（dHe）：`el-dialog` width 880 + `border-card` tabs。
+ * 用户中心弹窗：`border-card` tabs；宽度随 Tab/内容自适应（勿写死 880，主题下 Tab 易挤）。
  */
 import { computed, onMounted, ref, watch } from "vue";
 import UserDiagChatTab from "@/components/user/tabs/UserDiagChatTab.vue";
@@ -95,7 +95,7 @@ function onDialogClosed() {
   <el-dialog
     v-model="visible"
     class="user-diag-dialog"
-    width="880"
+    width="fit-content"
     :show-close="false"
     append-to-body
     destroy-on-close
