@@ -127,13 +127,13 @@ html[data-ui-theme="brutal"] .loseorder-container {
   color: var(--brutal-ink) !important;
 }
 
-/* 侧栏订单 */
+/* 侧栏订单：勿加左右 margin，否则卡片左边框不贴侧栏（默认主题也无此 inset） */
 html[data-ui-theme="brutal"] .orders {
   color: var(--brutal-ink) !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  margin: 8px;
+  margin: 0;
 }
 
 html[data-ui-theme="brutal"] .orders legend {

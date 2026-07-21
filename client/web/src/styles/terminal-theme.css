@@ -113,12 +113,13 @@ html[data-ui-theme="terminal"] .loseorder-container {
   font-family: var(--term-font);
 }
 
+/* 侧栏订单：勿加左右 margin，否则卡片左边框不贴侧栏 */
 html[data-ui-theme="terminal"] .orders {
   color: var(--term-ink) !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  margin: 8px;
+  margin: 0;
   font-family: var(--term-font);
 }
 

@@ -107,12 +107,13 @@ html[data-ui-theme="paper"] .loseorder-container {
   color: var(--paper-ink) !important;
 }
 
+/* 侧栏订单：勿加左右 margin，否则卡片左边框不贴侧栏 */
 html[data-ui-theme="paper"] .orders {
   color: var(--paper-ink) !important;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  margin: 8px;
+  margin: 0;
 }
 
 html[data-ui-theme="paper"] .orders legend {

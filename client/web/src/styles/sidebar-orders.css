@@ -80,9 +80,21 @@
   box-sizing: border-box;
   border: 1px solid rgba(0, 0, 0, 0.5);
   border-radius: 12px;
-  margin-bottom: 10px;
+  /* 覆盖 ep-fallback fieldset{margin:5px}，避免卡片左右缩进、左边框不贴齐 */
+  margin: 0 0 10px;
   overflow: visible;
   padding: 0 4px 4px;
+}
+
+/* 组盈亏贴 fieldset 顶边靠左；勿 float:right（会挡右上输赢 .status） */
+.orders .orderlink > legend {
+  float: none;
+  margin-left: 0;
+  margin-right: 8px;
+  max-width: calc(100% - 72px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #app .el-aside .orders .orderlink--paired,
@@ -173,11 +185,13 @@
   position: absolute;
   left: -5px;
   top: -12px;
-  z-index: 2;
+  /* 低于 .status：platform 在 DOM 里更靠后，同 z-index 会盖住输赢角标 */
+  z-index: 1;
   display: flex;
   align-items: center;
   width: auto;
-  max-width: calc(100% + 6px);
+  /* 右侧给 Win/Lose 留空，账号名过长时截断而不是压住 status */
+  max-width: calc(100% - 52px);
   height: auto;
   min-height: 22px;
   line-height: 22px;
@@ -387,7 +401,7 @@
   position: absolute;
   right: -5px;
   top: -12px;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -670,81 +684,4 @@ body.order-link-rebind-dragging {
   line-height: 1.45;
   max-height: min(60vh, 420px);
   overflow: auto;
-}
-
-/*
- * 非默认皮肤：fieldset>legend（盈亏 chip）默认贴左上，会压住 .platform 角标。
- * 必须带 #app .el-aside / .common-layout，否则会被 sidebar 里 ID 选择器盖掉。
- */
-html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink,
-html[data-ui-theme="paper"] #app .el-aside .orders .orderlink,
-html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink,
-html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink,
-html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink,
-html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink,
-html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink,
-html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink,
-html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink {
-  position: relative;
-  overflow: visible !important;
-}
-
-html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink > legend,
-html[data-ui-theme="paper"] #app .el-aside .orders .orderlink > legend,
-html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink > legend,
-html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink > legend,
-html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink > legend,
-html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink > legend,
-html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink > legend,
-html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink > legend,
-html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink > legend {
-  float: right !important;
-  position: relative !important;
-  inset: auto !important;
-  left: auto !important;
-  top: auto !important;
-  right: auto !important;
-  transform: none !important;
-  z-index: 4;
-  width: auto !important;
-  max-width: calc(100% - 130px);
-  margin: -12px 6px 2px 8px !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink > .order,
-html[data-ui-theme="paper"] #app .el-aside .orders .orderlink > .order,
-html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink > .order,
-html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink > .order,
-html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink > .order,
-html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink > .order,
-html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink > .order,
-html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink > .order,
-html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink > .order {
-  clear: both;
-}
-
-/* 盈亏 legend 改右上后，输赢 status 下移进卡片，避免再和 legend 叠 */
-html[data-ui-theme="brutal"] #app .el-aside .orders .order > .status,
-html[data-ui-theme="paper"] #app .el-aside .orders .order > .status,
-html[data-ui-theme="terminal"] #app .el-aside .orders .order > .status,
-html[data-ui-theme="brutal"] .common-layout .el-aside .orders .order > .status,
-html[data-ui-theme="paper"] .common-layout .el-aside .orders .order > .status,
-html[data-ui-theme="terminal"] .common-layout .el-aside .orders .order > .status,
-html[data-ui-theme="brutal"] .admin-orders-user-col .orders .order > .status,
-html[data-ui-theme="paper"] .admin-orders-user-col .orders .order > .status,
-html[data-ui-theme="terminal"] .admin-orders-user-col .orders .order > .status,
-html[data-ui-theme="brutal"] #app .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="paper"] #app .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="terminal"] #app .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="brutal"] .common-layout .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="paper"] .common-layout .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="terminal"] .common-layout .el-aside .orders .order > .order__status-anchor,
-html[data-ui-theme="brutal"] .admin-orders-user-col .orders .order > .order__status-anchor,
-html[data-ui-theme="paper"] .admin-orders-user-col .orders .order > .order__status-anchor,
-html[data-ui-theme="terminal"] .admin-orders-user-col .orders .order > .order__status-anchor {
-  top: 4px !important;
-  right: 6px !important;
 }
