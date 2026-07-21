@@ -47,9 +47,6 @@ async function save() {
           </el-radio>
         </el-radio-group>
       </el-form-item>
-      <p class="extensions-tab__desc">
-        只换显示样式，不改控制台结构。切换后立即预览，点保存才会持久化。
-      </p>
     </div>
 
     <div class="extensions-tab__row">

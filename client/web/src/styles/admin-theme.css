@@ -465,6 +465,8 @@ html.admin-route #app > * {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
+  box-sizing: border-box;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .admin-quick__item:hover {

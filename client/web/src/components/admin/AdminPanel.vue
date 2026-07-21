@@ -182,6 +182,15 @@ onMounted(() => {
             <i class="am-icon-bar-chart" aria-hidden="true" />
             <span>报表查询</span>
           </button>
+          <a
+            class="admin-quick__item"
+            href="/matcher/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i class="am-icon-th" aria-hidden="true" />
+            <span>赛事匹配</span>
+          </a>
         </div>
       </section>
 

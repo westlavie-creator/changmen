@@ -12,46 +12,60 @@ const route = useRoute();
 const router = useRouter();
 const user = useUserStore();
 
-const navItems = [
-  { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" as const } },
-  { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" as const } },
-  { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" as const } },
+type AdminNavItem = {
+  name: string;
+  label: string;
+  icon: string;
+  to?: { name: string };
+  href?: string;
+};
+
+const navItems: AdminNavItem[] = [
+  { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" } },
+  { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" } },
+  { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" } },
   {
     name: "admin-predictfun-members",
     label: "PF 会员",
     icon: "am-icon-user",
-    to: { name: "admin-predictfun-members" as const },
+    to: { name: "admin-predictfun-members" },
   },
-  { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" as const } },
+  { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" } },
   {
     name: "admin-reports",
     label: "报表查询",
     icon: "am-icon-bar-chart",
-    to: { name: "admin-reports" as const },
+    to: { name: "admin-reports" },
   },
   {
     name: "admin-analytics",
     label: "数据分析",
     icon: "am-icon-line-chart",
-    to: { name: "admin-analytics" as const },
+    to: { name: "admin-analytics" },
   },
   {
     name: "admin-polymarket-builder",
     label: "Poly Builder",
     icon: "am-icon-flash",
-    to: { name: "admin-polymarket-builder" as const },
+    to: { name: "admin-polymarket-builder" },
+  },
+  {
+    name: "admin-matcher",
+    label: "赛事匹配",
+    icon: "am-icon-th",
+    href: "/matcher/",
   },
   {
     name: "admin-health",
     label: "系统健康",
     icon: "am-icon-heartbeat",
-    to: { name: "admin-health" as const },
+    to: { name: "admin-health" },
   },
   {
     name: "admin-value-bet",
     label: "价值投注",
     icon: "am-icon-flash",
-    to: { name: "admin-value-bet" as const },
+    to: { name: "admin-value-bet" },
   },
 ];
 
@@ -135,16 +149,27 @@ function onAdminWheel(e: WheelEvent) {
       </div>
 
       <nav class="admin-shell__nav" aria-label="后台导航">
-        <router-link
-          v-for="item in visibleNavItems"
-          :key="item.name"
-          :to="item.to"
-          class="admin-shell__nav-item"
-          :class="{ 'admin-shell__nav-item--active': activeTab === item.name }"
-        >
-          <i :class="item.icon" class="admin-shell__nav-icon" aria-hidden="true" />
-          <span>{{ item.label }}</span>
-        </router-link>
+        <template v-for="item in visibleNavItems" :key="item.name">
+          <a
+            v-if="item.href"
+            :href="item.href"
+            class="admin-shell__nav-item"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i :class="item.icon" class="admin-shell__nav-icon" aria-hidden="true" />
+            <span>{{ item.label }}</span>
+          </a>
+          <router-link
+            v-else
+            :to="item.to!"
+            class="admin-shell__nav-item"
+            :class="{ 'admin-shell__nav-item--active': activeTab === item.name }"
+          >
+            <i :class="item.icon" class="admin-shell__nav-icon" aria-hidden="true" />
+            <span>{{ item.label }}</span>
+          </router-link>
+        </template>
       </nav>
 
       <div class="admin-shell__sidebar-foot">

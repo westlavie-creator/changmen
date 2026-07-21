@@ -44,7 +44,7 @@ async function openCredit(platform: PlatformId) {
 </script>
 
 <template>
-  <el-row class="providers" :gutter="8">
+  <el-row class="providers collect-providers" :gutter="8">
     <el-col :span="4">
       <el-switch
         :disabled="switchesDisabled"
@@ -57,15 +57,17 @@ async function openCredit(platform: PlatformId) {
       />
     </el-col>
     <el-col v-for="[id, on] in platformRows" :key="id" :span="4" class="provider">
-      <el-switch
-        :disabled="switchesDisabled"
-        size="large"
-        inline-prompt
-        :active-text="id"
-        :inactive-text="id"
-        :model-value="on"
-        @change="(v: boolean) => togglePlatform(id, v)"
-      />
+      <div class="collect-provider">
+        <span class="collect-provider__badge" :title="id">
+          <PlatformIcon :platform="id" />
+        </span>
+        <el-switch
+          :disabled="switchesDisabled"
+          size="large"
+          :model-value="on"
+          @change="(v: boolean) => togglePlatform(id, v)"
+        />
+      </div>
     </el-col>
   </el-row>
 
@@ -86,3 +88,26 @@ async function openCredit(platform: PlatformId) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.collect-provider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.collect-provider__badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.collect-provider__badge :deep(.provider-icon),
+.collect-provider__badge :deep(.cm-platform-icon) {
+  width: 22px;
+  height: 22px;
+}
+</style>
