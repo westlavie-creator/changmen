@@ -583,6 +583,7 @@
       <span class="matcher-dot"></span>
       <span class="matcher-label">检测中…</span>
     </span>
+    <a class="composer-link" id="admin-back-link" href="/admin" target="_blank" rel="noopener" title="返回管理后台" hidden>管理后台</a>
     <a class="composer-link" id="composer-ui-link" href="http://127.0.0.1:4568/" target="_blank" rel="noopener" title="match-composer 只读对照页（默认 4568）">Composer 对照</a>
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
@@ -729,6 +730,8 @@ let _reverseSubmitting = false;
 let _teamSearchDebounceTimer = null;
 /** load 序号：丢弃过期的并发响应，避免后发先至覆盖 */
 let _loadSeq = 0;
+/** 上次成功渲染的数据指纹（排除 updatedAt）；相同则跳过整页重绘 */
+let _lastDataFingerprint = null;
 
 function clientMatchPlatformCount(cm) {
   return Object.keys(cm?.matchs || {}).length;
@@ -946,6 +949,34 @@ function schedulePolledLoad() {
 function schedulePolledMatcherStatus() {
   if (shouldSkipBackgroundRefresh()) return;
   void refreshMatcherStatus();
+}
+
+/** 内容指纹：忽略每次请求都会变的 updatedAt，避免无意义全量重绘 */
+function matcherDataFingerprint(d) {
+  if (!d || typeof d !== 'object') return '';
+  try {
+    const { updatedAt: _ignore, ...rest } = d;
+    return JSON.stringify(rest);
+  } catch {
+    return '';
+  }
+}
+
+function touchUpdatedAtLabel(d) {
+  const el = document.getElementById('updated-at');
+  if (el) el.textContent = '更新 ' + fmtTime(d?.updatedAt || Date.now());
+}
+
+function initAdminBackLink() {
+  const a = document.getElementById('admin-back-link');
+  if (!a) return;
+  // 生产同源 /matcher/ 可回后台；独立 matcher:ui(:4567) 隐藏，避免点进 404
+  if (/\/matcher(\/|$)/.test(location.pathname || '')) {
+    a.hidden = false;
+    a.href = '/admin';
+  } else {
+    a.hidden = true;
+  }
 }
 
 function parseTeamsArray(m) {
@@ -3215,6 +3246,18 @@ async function load(opts = {}) {
     if (seq !== _loadSeq) return;
     if (d.error) throw new Error(d.error);
     _lastData = d;
+    const fp = matcherDataFingerprint(d);
+    // 内容未变：只刷新时间戳，避免三栏 innerHTML 闪烁（强制重绘 / 定位卡片除外）
+    const skipRender = !opts.forceRender
+      && opts.focusCmId == null
+      && fp
+      && fp === _lastDataFingerprint
+      && document.getElementById('matched-id-panels')?.querySelector('.team-card, .empty');
+    if (skipRender) {
+      touchUpdatedAtLabel(d);
+      return;
+    }
+    _lastDataFingerprint = fp;
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
     const teamMaps = d.teamMaps || {};
     renderStats(d, displayCms);
@@ -3237,7 +3280,7 @@ async function load(opts = {}) {
     bindTeamLinkDrag();
     bindMatchLinkDrag();
     scheduleRedrawCanonicalTeamLinks();
-    document.getElementById('updated-at').textContent = '更新 ' + fmtTime(d.updatedAt || Date.now());
+    touchUpdatedAtLabel(d);
     // 请求期间若输入已变但防抖未到，按当前框值再滤一次，避免短暂错筛
     const liveQ = (searchInput?.value || '').trim();
     if (liveQ !== _teamSearchQuery) applyTeamSearchFromInput();
@@ -3259,6 +3302,7 @@ async function load(opts = {}) {
     if (opts.focusCmId != null) focusLinkedClientMatch(opts.focusCmId);
   } catch (err) {
     if (seq !== _loadSeq) return;
+    _lastDataFingerprint = null;
     const errHtml = `<div class="empty" style="color:#f87171">加载失败: ${esc(err.message)}</div>`;
     document.getElementById('matched-id-panels') && (document.getElementById('matched-id-panels').innerHTML = errHtml);
     document.getElementById('matched-name-panels') && (document.getElementById('matched-name-panels').innerHTML = errHtml);
@@ -3303,6 +3347,14 @@ document.querySelectorAll('[data-matched-filter]').forEach(btn => {
 document.getElementById('team-search-input')?.addEventListener('input', scheduleTeamSearchFromInput);
 document.getElementById('team-search-input')?.addEventListener('search', flushTeamSearchFromInput);
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || shouldSkipBackgroundRefresh()) return;
+  // 切回标签页时补一次；内容未变会走指纹短路，不会闪屏
+  void load({ preserveScroll: true });
+  void refreshMatcherStatus();
+});
+
+initAdminBackLink();
 load();
 refreshMatcherStatus();
 setInterval(schedulePolledLoad, 30000);
