@@ -1,7 +1,9 @@
-import ElementPlus from "element-plus";
-import zhCn from "element-plus/es/locale/lang/zh-cn";
-import "element-plus/dist/index.css";
 import "element-plus/theme-chalk/dark/css-vars.css";
+// 显式 `import { ElMessage } from "element-plus"` 不会走 unplugin 样式注入
+import "element-plus/es/components/message/style/css";
+import "element-plus/es/components/message-box/style/css";
+import "element-plus/es/components/notification/style/css";
+import "element-plus/es/components/loading/style/css";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
 import { initGamebetExtension } from "@changmen/client-core/chrome-plugin/bridge";
@@ -19,7 +21,7 @@ function bootstrap() {
   clearChunkReloadFlag();
   installOrderSoundAudioUnlock();
   const pinia = createPinia();
-  const app = createApp(App).use(pinia).use(router).use(ElementPlus, { locale: zhCn });
+  const app = createApp(App).use(pinia).use(router);
   installVenueWebBridge();
   installClientCoreBridges();
   app.mount("#app");

@@ -59,7 +59,7 @@
 - `betGateway`：仅 `!deferPmSettlement` 时后台 settle（双腿套利防双 settle）
 - timeout：**不补新单**；挂 `pendingPmOrderId`（字段复用）由 jb / `arbMakeUpFromRejects` 续查原单
 
-确认实现：VPS `predictWalletEvents` **优先**；`fetchHousePredictOrderResolved` / `Pf_GetOrder` REST 兜底。勿依赖列表 filter 判拒。
+确认实现：VPS `predictWalletEvents` **优先**（`orderNotAccepted` 快拒不打 REST；`orderTransactionSuccess` 先 REST 校正金额再 stub）；`fetchHousePredictOrderResolved` / `waitForHouseOrderTerminal` / `Pf_GetOrder` REST 兜底。客户端 confirm 轮询前密后疏（有 hint 首轮收束）。勿依赖列表 filter 判拒。
 
 ## A8 场馆（OB / RAY / …）
 

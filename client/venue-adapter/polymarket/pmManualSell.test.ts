@@ -61,6 +61,42 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
     expect(sell.betMoney).toBeGreaterThan(0);
     expect(sell.pmBuyOrderId).toBe("0xbuy");
   });
+
+  it("ignores 0.99 price-win paper money so sell PnL is not doubled", () => {
+    // 58.5833×0.6 cost ≈35.15；卖出 58.58×0.999 ≈58.52；PnL≈23.38 USDC → ~159 CNY
+    const [buy] = buildSellAndBuyPatchOrders({
+      buy: {
+        provider: "Polymarket",
+        orderId: "0xbuy-saw",
+        odds: 1.666,
+        createAt: 1,
+        betMoney: 239,
+        reward: 0,
+        // 启发式已写入纸面赢利（与真实卖出盈亏同量级）
+        money: 159,
+        status: "win",
+        match: "SAW Youngsters vs Misa Espo",
+        bet: "地图2",
+        item: "SAW Youngsters",
+        pmShares: 58.5833,
+        pmFillPrice: 0.6,
+        pmStakeUsdc: 35.15,
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        pmSellState: "open",
+      },
+      sellOrderId: "0xsell-saw",
+      sharesSold: 58.58,
+      proceedsUsdc: 58.5214,
+      fillPrice: 0.999,
+      createAt: 2,
+    });
+    expect(buy.pmSellState).toBe("closed");
+    expect(buy.status).toBe("none");
+    // 应为单份卖出盈亏，而非 159+159=318
+    expect(buy.money).toBe(159);
+    expect(buy.money).not.toBe(318);
+  });
 });
 
 describe("stripPolymarketSellOrders keeps changmen sells", () => {

@@ -15,13 +15,22 @@ import { sortVenueOrdersNewestFirst } from "../contract";
 import { venueRejectWaitBeforePoll } from "../shared/rejectWait";
 import { pfGetOrder } from "./pfClientApi";
 
-const DEFAULT_POLL_ATTEMPTS = 20;
-const DEFAULT_POLL_INTERVAL_MS = 400;
+/** 前密后疏：服务端 wallet-first，前几轮快收；无 hint 时拉长间隔少打 REST（守 240rpm） */
+const DEFAULT_POLL_ATTEMPTS = 12;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
+}
+
+/** @param attemptIndex 0-based，刚完成的轮次下标 */
+function pollIntervalMs(attemptIndex: number): number {
+  if (attemptIndex < 3)
+    return 200;
+  if (attemptIndex < 6)
+    return 400;
+  return 700;
 }
 
 function rejectVenueOrder(
@@ -86,6 +95,7 @@ export async function resolvePredictFunLegOutcome(
 
   for (let i = 0; i < attempts; i += 1) {
     try {
+      // Pf_GetOrder → fetchHousePredictOrderResolved：有 wallet hint 立即 filled/unfilled
       const info = await pfGetOrder(account, orderId);
       lastSettlement = info.settlement;
       if (info.order)
@@ -124,7 +134,7 @@ export async function resolvePredictFunLegOutcome(
     }
 
     if (i < attempts - 1)
-      await sleep(DEFAULT_POLL_INTERVAL_MS);
+      await sleep(pollIntervalMs(i));
   }
 
   if (opts?.fetchVenueOrders) {

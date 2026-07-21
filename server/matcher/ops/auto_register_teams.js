@@ -10,7 +10,17 @@ import { formatPbTeamPlatformId } from "@changmen/shared/catalog/pb_team_platfor
  * 仅写入待识别记录（gb_team_id 为 NULL），不分配编号。
  */
 
-const AUTO_REGISTER_PLATFORMS = new Set(["TF", "OB", "RAY", "IA", "PB", "Stake", "Polymarket", "PredictFun"]);
+const AUTO_REGISTER_PLATFORMS = new Set([
+  "TF",
+  "OB",
+  "RAY",
+  "IA",
+  "PB",
+  "Stake",
+  "Polymarket",
+  "PredictFun",
+  "Limitless",
+]);
 const AUTO_REGISTER_PLATFORM_LABEL = [...AUTO_REGISTER_PLATFORMS].join("/");
 const UPSERT_BATCH = 200;
 

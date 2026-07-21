@@ -727,6 +727,9 @@ type PmReconcileBuy = VenueOrder & {
   _fillShares: number;
   _remainingShares: number;
   _remainingStake: number;
+  /** 仅卖出已实现盈亏累加器；不含 0.99/Gamma 纸面 money */
+  _realizedMoney: number;
+  _realizedPnlUsdc: number;
 };
 
 /** 卖单 → 对应买单：changmen 用 persist 写入的 pmBuyOrderId；官网卖单按份额匹配 */
@@ -776,13 +779,24 @@ export function reconcilePolymarketBuySellOrders(orders: VenueOrder[]): VenueOrd
 function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
   const buys: PmReconcileBuy[] = orders
     .filter(o => o.pmSide !== "sell")
-    .map(o => ({
-      ...o,
-      pmSide: o.pmSide ?? "buy" as const,
-      _fillShares: Number(o.pmShares) || 0,
-      _remainingShares: resolvePmRemainingShares(o),
-      _remainingStake: resolveBuyStakeUsdc(o),
-    }));
+    .map((o) => {
+      const attr = Number(o.pmAttributedSellShares) || 0;
+      const hasPriorSell = attr > 0.0001
+        || o.pmSellState === "partial"
+        || o.pmSellState === "closed";
+      // 无卖出归因时 money 可能是 0.99/Gamma 纸面盈亏，不纳入卖出累加
+      const realized = hasPriorSell ? (Number(o.money) || 0) : 0;
+      const realizedPnl = hasPriorSell ? (Number(o.pmRealizedPnlUsdc) || 0) : 0;
+      return {
+        ...o,
+        pmSide: o.pmSide ?? "buy" as const,
+        _fillShares: Number(o.pmShares) || 0,
+        _remainingShares: resolvePmRemainingShares(o),
+        _remainingStake: resolveBuyStakeUsdc(o),
+        _realizedMoney: realized,
+        _realizedPnlUsdc: realizedPnl,
+      };
+    });
   const sellCopies = orders
     .filter(o => o.pmSide === "sell")
     .map(o => ({ ...o }))
@@ -821,15 +835,24 @@ function reconcileExternalPolymarketOrders(orders: VenueOrder[]): VenueOrder[] {
     sell.betMoney = proceedsUsdc;
     sell.pmStakeUsdc = costPortion;
 
-    buy.money = round4((Number(buy.money) || 0) + profitUsdc);
-    buy.pmRealizedPnlUsdc = round4((Number(buy.pmRealizedPnlUsdc) || 0) + profitUsdc);
+    buy._realizedMoney = round4(buy._realizedMoney + profitUsdc);
+    buy._realizedPnlUsdc = round4(buy._realizedPnlUsdc + profitUsdc);
+    buy.money = buy._realizedMoney;
+    buy.pmRealizedPnlUsdc = buy._realizedPnlUsdc;
     buy._remainingShares = round4(buy._remainingShares - deduct);
     buy._remainingStake = round4(buy._remainingStake - costPortion);
     buy.pmAttributedSellShares = round4((buy.pmAttributedSellShares ?? 0) + deduct);
     buy.pmSellState = buy._remainingShares <= 0.0001 ? "closed" : "partial";
   }
 
-  const normalizedBuys = buys.map(({ _remainingShares, _remainingStake, _fillShares, ...b }) => ({
+  const normalizedBuys = buys.map(({
+    _remainingShares,
+    _remainingStake,
+    _fillShares,
+    _realizedMoney,
+    _realizedPnlUsdc,
+    ...b
+  }) => ({
     ...b,
     pmShares: round4(_fillShares),
     pmStakeUsdc: _remainingStake > 0 ? round4(_remainingStake) : 0,

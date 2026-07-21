@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { visualizer } from "rollup-plugin-visualizer";
+import AutoImport from "unplugin-auto-import/vite";
+import Components from "unplugin-vue-components/vite";
+import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { matcherDevRedirect } from "./vite/plugins/matcherDevRedirect";
@@ -10,6 +13,8 @@ import {
   VENUE_ADAPTER_REL,
   VENUE_ADAPTER_ROOT,
 } from "../../server/storage/paths.js";
+
+const elementPlusResolver = ElementPlusResolver({ importStyle: "css" });
 
 const WEB_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const CLIENT_CORE_SRC = path.resolve(WEB_ROOT, "../../packages/client-core/src");
@@ -112,6 +117,14 @@ export default defineConfig(({ mode }) => {
   base: "/",
   plugins: [
     vue(),
+    AutoImport({
+      resolvers: [elementPlusResolver],
+      dts: path.resolve(WEB_ROOT, "auto-imports.d.ts"),
+    }),
+    Components({
+      resolvers: [elementPlusResolver],
+      dts: path.resolve(WEB_ROOT, "components.d.ts"),
+    }),
     matcherDevRedirect(),
     mode === "analyze"
       ? visualizer({

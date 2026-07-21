@@ -2,16 +2,17 @@
 /**
  * betmoar.fun hero starfield — Three.js Points + mouse camera parallax.
  * Port of their landing chunk (10000 points, size 0.02, color 0x607d8b, disc map).
+ * three 仅动态 import，且 idle 后再拉，避免挡登录首屏。
  */
 import { onMounted, onUnmounted, ref } from "vue";
-import type {
-  BufferGeometry,
-  CanvasTexture,
-  PerspectiveCamera,
-  Points,
-  Scene,
-  WebGLRenderer,
-} from "three";
+
+type ThreeModule = typeof import("three");
+type ThreeScene = InstanceType<ThreeModule["Scene"]>;
+type ThreeCamera = InstanceType<ThreeModule["PerspectiveCamera"]>;
+type ThreeRenderer = InstanceType<ThreeModule["WebGLRenderer"]>;
+type ThreePoints = InstanceType<ThreeModule["Points"]>;
+type ThreeTexture = InstanceType<ThreeModule["CanvasTexture"]>;
+type ThreeGeometry = InstanceType<ThreeModule["BufferGeometry"]>;
 
 const hostRef = ref<HTMLElement | null>(null);
 
@@ -23,15 +24,16 @@ let contextLost = false;
 let reducedMotion = false;
 let rebuild: (() => void) | null = null;
 let startLoop: (() => void) | null = null;
+let idleHandle: number | null = null;
 
-let scene: Scene | null = null;
-let camera: PerspectiveCamera | null = null;
-let renderer: WebGLRenderer | null = null;
-let points: Points | null = null;
-let discTex: CanvasTexture | null = null;
-let geometry: BufferGeometry | null = null;
+let scene: ThreeScene | null = null;
+let camera: ThreeCamera | null = null;
+let renderer: ThreeRenderer | null = null;
+let points: ThreePoints | null = null;
+let discTex: ThreeTexture | null = null;
+let geometry: ThreeGeometry | null = null;
 
-function makeDiscTexture(THREE: typeof import("three")): CanvasTexture {
+function makeDiscTexture(THREE: ThreeModule): ThreeTexture {
   const size = 64;
   const c = document.createElement("canvas");
   c.width = size;
@@ -106,6 +108,107 @@ function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+function scheduleIdle(cb: () => void) {
+  const ric = window.requestIdleCallback;
+  if (typeof ric === "function") {
+    idleHandle = ric(() => cb(), { timeout: 1200 });
+    return;
+  }
+  idleHandle = window.setTimeout(cb, 0) as unknown as number;
+}
+
+function cancelIdle() {
+  if (idleHandle == null) return;
+  if (typeof window.cancelIdleCallback === "function") {
+    window.cancelIdleCallback(idleHandle);
+  } else {
+    clearTimeout(idleHandle);
+  }
+  idleHandle = null;
+}
+
+function bootThree(THREE: ThreeModule, host: HTMLElement) {
+  if (disposed || !hostRef.value) return;
+
+  rebuild = () => {
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 2.5;
+
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    } catch {
+      renderer = null;
+      return;
+    }
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 0);
+    host.appendChild(renderer.domElement);
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost, false);
+    renderer.domElement.addEventListener("webglcontextrestored", onContextRestored, false);
+
+    geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(30000);
+    for (let i = 0; i < 10000; i++) {
+      const t = 3 * i;
+      positions[t] = (Math.random() - 0.5) * 10;
+      positions[t + 1] = (Math.random() - 0.5) * 10;
+      positions[t + 2] = (Math.random() - 0.5) * 10;
+    }
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+    discTex = makeDiscTexture(THREE);
+    const material = new THREE.PointsMaterial({
+      size: 0.02,
+      color: 0x607d8b,
+      map: discTex,
+      alphaTest: 0.5,
+      transparent: true,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+
+    points = new THREE.Points(geometry, material);
+    scene.add(points);
+  };
+
+  const animate = () => {
+    if (!renderer || !camera || !scene || !points || contextLost || disposed) return;
+    raf = requestAnimationFrame(animate);
+
+    if (!reducedMotion) {
+      const t = 1e-4 * Date.now();
+      points.rotation.x = 0.25 * t;
+      points.rotation.y = 0.5 * t;
+      camera.position.x += (mouseX - camera.position.x) * 0.05;
+      camera.position.y += (-mouseY - camera.position.y) * 0.05;
+      camera.lookAt(scene.position);
+    }
+
+    renderer.render(scene, camera);
+  };
+
+  startLoop = () => {
+    if (!renderer || !scene || !camera) return;
+    if (reducedMotion) {
+      renderer.render(scene, camera);
+      return;
+    }
+    if (!raf) animate();
+  };
+
+  rebuild();
+  if (!renderer) return;
+
+  window.addEventListener("resize", onResize);
+  if (!reducedMotion) {
+    document.addEventListener("mousemove", onMouse, { passive: true });
+  }
+  startLoop();
+}
+
 onMounted(() => {
   const host = hostRef.value;
   if (!host) return;
@@ -113,91 +216,17 @@ onMounted(() => {
   reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   disposed = false;
 
-  void import("three").then((THREE) => {
+  scheduleIdle(() => {
     if (disposed || !hostRef.value) return;
-
-    rebuild = () => {
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 2.5;
-
-      try {
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      } catch {
-        renderer = null;
-        return;
-      }
-
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setClearColor(0x000000, 0);
-      host.appendChild(renderer.domElement);
-      renderer.domElement.addEventListener("webglcontextlost", onContextLost, false);
-      renderer.domElement.addEventListener("webglcontextrestored", onContextRestored, false);
-
-      geometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(30000);
-      for (let i = 0; i < 10000; i++) {
-        const t = 3 * i;
-        positions[t] = (Math.random() - 0.5) * 10;
-        positions[t + 1] = (Math.random() - 0.5) * 10;
-        positions[t + 2] = (Math.random() - 0.5) * 10;
-      }
-      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-
-      discTex = makeDiscTexture(THREE);
-      const material = new THREE.PointsMaterial({
-        size: 0.02,
-        color: 0x607d8b,
-        map: discTex,
-        alphaTest: 0.5,
-        transparent: true,
-        depthWrite: false,
-        sizeAttenuation: true,
-      });
-
-      points = new THREE.Points(geometry, material);
-      scene.add(points);
-    };
-
-    const animate = () => {
-      if (!renderer || !camera || !scene || !points || contextLost || disposed) return;
-      raf = requestAnimationFrame(animate);
-
-      if (!reducedMotion) {
-        const t = 1e-4 * Date.now();
-        points.rotation.x = 0.25 * t;
-        points.rotation.y = 0.5 * t;
-        camera.position.x += (mouseX - camera.position.x) * 0.05;
-        camera.position.y += (-mouseY - camera.position.y) * 0.05;
-        camera.lookAt(scene.position);
-      }
-
-      renderer.render(scene, camera);
-    };
-
-    startLoop = () => {
-      if (!renderer || !scene || !camera) return;
-      if (reducedMotion) {
-        renderer.render(scene, camera);
-        return;
-      }
-      if (!raf) animate();
-    };
-
-    rebuild();
-    if (!renderer) return;
-
-    window.addEventListener("resize", onResize);
-    if (!reducedMotion) {
-      document.addEventListener("mousemove", onMouse, { passive: true });
-    }
-    startLoop();
+    void import("three").then((THREE) => {
+      bootThree(THREE, host);
+    });
   });
 });
 
 onUnmounted(() => {
   disposed = true;
+  cancelIdle();
   window.removeEventListener("resize", onResize);
   document.removeEventListener("mousemove", onMouse);
   disposeGl();

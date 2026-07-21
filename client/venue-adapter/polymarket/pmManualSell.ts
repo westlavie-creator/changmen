@@ -221,7 +221,17 @@ function buildSellAndBuyPatchOrders(params: {
   const profitUsdc = round4(proceedsUsdc - costPortion);
   const proceedsCny = polymarketCnyFromUsdt(proceedsUsdc);
   const profitCny = Math.round(polymarketCnyFromUsdt(profitUsdc));
-  const prevBuyMoney = Number(buy.money) || 0;
+  /**
+   * 已实现盈亏只累加「卖出归因」。
+   * 0.99 启发式 / Gamma 可能已把纸面 win/lose 写入 buy.money；首次卖出时必须丢弃，
+   * 否则会出现 proceeds−cost 被加两次（截图 318 = 2×159）。
+   */
+  const priorAttr = Number(buy.pmAttributedSellShares) || 0;
+  const hasPriorSellRealization = priorAttr > 0.0001
+    || buy.pmSellState === "partial"
+    || buy.pmSellState === "closed";
+  const prevRealizedCny = hasPriorSellRealization ? (Number(buy.money) || 0) : 0;
+  const prevRealizedUsdc = hasPriorSellRealization ? (Number(buy.pmRealizedPnlUsdc) || 0) : 0;
   const originalBetMoney = Number(buy.betMoney) > 0
     ? Number(buy.betMoney)
     : Math.round(polymarketCnyFromUsdt(costUsdc) * 100) / 100;
@@ -271,8 +281,8 @@ function buildSellAndBuyPatchOrders(params: {
     pmStakeUsdc: stakeLeftUsdc,
     // 原始投注本金不改；剩余敞口只看 pmStakeUsdc / 剩余份额
     betMoney: originalBetMoney,
-    money: prevBuyMoney + profitCny,
-    pmRealizedPnlUsdc: round4((Number(buy.pmRealizedPnlUsdc) || 0) + profitUsdc),
+    money: prevRealizedCny + profitCny,
+    pmRealizedPnlUsdc: round4(prevRealizedUsdc + profitUsdc),
     status: "none",
   };
 

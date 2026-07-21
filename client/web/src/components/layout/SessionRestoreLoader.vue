@@ -1,5 +1,7 @@
 ﻿<script setup lang="ts">
-import LoginStarfield from "@/components/layout/LoginStarfield.vue";
+import { defineAsyncComponent } from "vue";
+
+const LoginStarfield = defineAsyncComponent(() => import("@/components/layout/LoginStarfield.vue"));
 </script>
 
 <template>
