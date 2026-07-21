@@ -26,6 +26,9 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .admin-orders-user-col .orders,
@@ -40,6 +43,10 @@
   color: #fff;
   white-space: nowrap;
   position: relative;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 6px;
 }
 
 .orders legend {
@@ -64,10 +71,18 @@
 }
 
 .orders .orderlink {
+  /* fieldset 默认 min-inline-size:min-content，子级 width:100% 会缩在旧内容宽上 */
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-inline-size: 0;
+  box-sizing: border-box;
   border: 1px solid rgba(0, 0, 0, 0.5);
   border-radius: 12px;
   margin-bottom: 10px;
   overflow: visible;
+  padding: 0 4px 4px;
 }
 
 #app .el-aside .orders .orderlink--paired,
@@ -117,19 +132,24 @@
 
 .orders .order {
   position: relative;
+  display: block;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 4px;
   margin: 10px 0 5px;
-  padding: 16px 4px 4px;
+  padding: 16px 6px 4px;
   line-height: 22px;
-  width: 236px;
+  /* 铺满 orderlink；勿写死 px（左栏加宽后会右侧留白） */
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow: visible;
 }
 
 /* 方案 A：PM/PF 卖单挂在买单下（软附属，不改盈亏口径） */
 .orders .order.order--sell-attach {
   margin-left: 12px;
-  width: 224px;
+  width: auto;
+  max-width: calc(100% - 12px);
   margin-top: 2px;
   padding-top: 20px;
   background: rgba(255, 255, 255, 0.035);

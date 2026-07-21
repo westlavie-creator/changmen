@@ -27,10 +27,11 @@
 }
 
 .home-main {
-  display: flex;
+  display: flex !important;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  /* 禁止整栏滚动，否则电竞/棒球/足球 tab + 水手公式会跟着滚走 */
+  overflow: hidden !important;
 }
 
 .home-main .match-search {
@@ -45,6 +46,13 @@
   gap: 10px;
   margin: 0 10px 8px;
   min-width: 0;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  /* 与主区底色一致，避免下方赛单透出 */
+  background: var(--cm-body-bg, #12151c);
+  background-image: var(--cm-body-bg-gradient, none);
+  padding: 6px 0 4px;
 }
 
 .home-main .sport-tab {
@@ -52,14 +60,31 @@
   margin: 0;
 }
 
+/* 赛单列表独占剩余高度并内部滚动 */
 .home-main .matchs,
 .home-main .match-empty {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
 }
 
-.home-main .match-empty {
+.home-main .sport-board {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-main .sport-board .match-search,
+.home-main .sport-board .sport-toolbar__error {
+  flex: 0 0 auto;
+}
+
+.home-main .sport-board .matchs,
+.home-main .sport-board .match-empty {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
 }
 

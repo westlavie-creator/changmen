@@ -98,7 +98,7 @@ async function logout() {
     @close="createLoseDialog.close()"
   />
   <el-container class="common-layout home-view">
-    <el-aside width="260px">
+    <el-aside width="300px">
       <AppSidebar @logout="logout" />
     </el-aside>
     <el-container>
@@ -131,17 +131,19 @@ async function logout() {
           <MakeupCalcBar />
         </div>
         <template v-if="sportTab === 'esport'">
-          <el-input
-            v-model="searchQuery"
-            placeholder="搜索队名 / 比赛ID / 游戏..."
-            clearable
-            class="match-search"
-          />
-          <div v-if="filteredMatchs.length" class="matchs">
-            <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
-          </div>
-          <div v-else-if="searchQuery" class="match-empty">
-            无匹配比赛
+          <div class="sport-board">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索队名 / 比赛ID / 游戏..."
+              clearable
+              class="match-search"
+            />
+            <div v-if="filteredMatchs.length" class="matchs">
+              <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
+            </div>
+            <div v-else-if="searchQuery" class="match-empty">
+              无匹配比赛
+            </div>
           </div>
         </template>
         <!-- v-if：切走即卸载板子并 stopPolling，避免棒球+足球同时狂拉 Gamma -->

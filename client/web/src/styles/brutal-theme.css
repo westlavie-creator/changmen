@@ -240,6 +240,11 @@ html[data-ui-theme="brutal"] .sport-tab-row {
   color: var(--brutal-ink);
 }
 
+html[data-ui-theme="brutal"] .home-main .sport-tab-row {
+  background: var(--brutal-paper, var(--cm-body-bg));
+  background-image: none;
+}
+
 html[data-ui-theme="brutal"] .match-empty {
   color: var(--brutal-muted) !important;
 }

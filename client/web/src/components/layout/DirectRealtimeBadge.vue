@@ -53,13 +53,14 @@ let venueWsUnsub: (() => void) | undefined;
 let pmTransportUnsub: (() => void) | undefined;
 let pfTransportUnsub: (() => void) | undefined;
 
-/** 第二行：Polymarket / Predict.fun / DEX / Limitless WS */
+/** 第二行：Polymarket / Predict.fun / DEX / Limitless / SXBet WS */
 const VENUE_WS_SECOND_ROW_IDS = new Set([
   "pm-market",
   "pm-user",
   "predictfun-market",
   "dex",
   "lm-market",
+  "sx-market",
 ]);
 
 const venueWsFirstRow = computed(() =>
@@ -145,6 +146,7 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     "pm-user": "Polymarket User WS（订单/拒单检测；登录后预连）",
     "lm-market": "Limitless Market WS（orderbook 推送）",
     "predictfun-market": "Predict.fun Market WS（orderbook 推送）",
+    "sx-market": "SX Bet Market WS（best_odds Centrifugo）",
     "dex": "DexSport WS",
     "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
   };

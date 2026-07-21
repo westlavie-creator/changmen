@@ -60,28 +60,30 @@ const count = computed(() => matchs.value.length);
 </script>
 
 <template>
-  <div class="match-search sport-toolbar">
-    <span class="sport-toolbar__meta">
-      {{ metaLabel }} · {{ count }} 场
-    </span>
-    <el-button link type="primary" :loading="loading" @click="store.fetchMatchs(true)">
-      刷新
-    </el-button>
-  </div>
-  <p v-if="error" class="sport-toolbar__error">
-    {{ error }}
-  </p>
-  <div v-if="matchs.length" class="matchs">
-    <MatchCard
-      v-for="m in matchs"
-      :key="m.id"
-      :match="m"
-      :odds-display-tick="oddsDisplayTick"
-      :allow-betting="false"
-    />
-  </div>
-  <div v-else-if="!loading && !error" class="match-empty">
-    {{ emptyLabel }}
+  <div class="sport-board">
+    <div class="match-search sport-toolbar">
+      <span class="sport-toolbar__meta">
+        {{ metaLabel }} · {{ count }} 场
+      </span>
+      <el-button link type="primary" :loading="loading" @click="store.fetchMatchs(true)">
+        刷新
+      </el-button>
+    </div>
+    <p v-if="error" class="sport-toolbar__error">
+      {{ error }}
+    </p>
+    <div v-if="matchs.length" class="matchs">
+      <MatchCard
+        v-for="m in matchs"
+        :key="m.id"
+        :match="m"
+        :odds-display-tick="oddsDisplayTick"
+        :allow-betting="false"
+      />
+    </div>
+    <div v-else-if="!loading && !error" class="match-empty">
+      {{ emptyLabel }}
+    </div>
   </div>
 </template>
 
