@@ -14,6 +14,7 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   pmAutoExitSell: false,
+  uiTheme: "default" as const,
 };
 
 describe("extensionPrefs", () => {
@@ -88,5 +89,11 @@ describe("extensionPrefs", () => {
       multiplier: 2,
       skipAccountRateOnScale: false,
     });
+  });
+
+  it("accepts uiTheme brutal and falls back unknown", () => {
+    expect(normalizeExtensionPrefs({ uiTheme: "brutal" }).uiTheme).toBe("brutal");
+    expect(normalizeExtensionPrefs({ uiTheme: "neon" }).uiTheme).toBe("default");
+    expect(normalizeExtensionPrefs({}).uiTheme).toBe("default");
   });
 });

@@ -16,6 +16,11 @@ export interface StakeScaleByProfitPrefs {
   skipAccountRateOnScale: boolean;
 }
 
+/** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
+export type UiTheme = "default" | "brutal";
+
+export const UI_THEMES: readonly UiTheme[] = ["default", "brutal"];
+
 /** [changmen 扩展] 用户中心「扩展」选项卡配置（Client_SaveData key=Extensions） */
 export interface ExtensionPrefs extends Record<string, unknown> {
   /** BetRow 套利划线、利润角标、赔率 flash、EV 标记 */
@@ -34,6 +39,15 @@ export interface ExtensionPrefs extends Record<string, unknown> {
    * 默认关闭；仅显式 true 开启。
    */
   pmAutoExitSell: boolean;
+  /**
+   * 控制台 UI 皮肤。
+   * default = 现有深色；brutal = neo-brutalism（粗边框/硬阴影/浅底）。
+   */
+  uiTheme: UiTheme;
+}
+
+export function normalizeUiTheme(raw: unknown): UiTheme {
+  return raw === "brutal" ? "brutal" : "default";
 }
 
 export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
@@ -52,6 +66,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     pmAutoExitSell: false,
+    uiTheme: "default",
   };
 }
 
@@ -81,5 +96,6 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     // 止盈设定已取消：忽略历史存档，恒为关
     pmAutoExitSell: false,
+    uiTheme: normalizeUiTheme(row.uiTheme),
   };
 }

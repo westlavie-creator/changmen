@@ -2,11 +2,18 @@
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
+import type { UiTheme } from "@/types/extensionPrefs";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const { extensionPrefs } = storeToRefs(user);
 const saving = ref(false);
+
+const uiThemeOptions: { value: UiTheme; label: string }[] = [
+  { value: "default", label: "默认深色" },
+  { value: "brutal", label: "Brutal（粗边框）" },
+];
+
 
 async function save() {
   saving.value = true;
@@ -25,6 +32,22 @@ async function save() {
 
 <template>
   <el-form label-width="150px" class="extensions-tab">
+    <div class="extensions-tab__row">
+      <el-form-item label="界面皮肤:" class="extensions-tab__control">
+        <el-select v-model="extensionPrefs.uiTheme" size="large" style="width: 200px">
+          <el-option
+            v-for="opt in uiThemeOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        只换显示样式，不改控制台结构。切换后立即预览，点保存才会持久化。
+      </p>
+    </div>
+
     <div class="extensions-tab__row">
       <el-form-item label="BetRow 扩展 UI:" class="extensions-tab__control">
         <el-switch

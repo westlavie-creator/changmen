@@ -1,0 +1,642 @@
+/**
+ * [changmen 扩展] neo-brutalism 皮肤（v2）
+ * 目标：去掉深色渐变/半透明叠层，改成纸面 + 粗黑边 + 硬阴影；仅覆盖显示，不改 DOM。
+ */
+
+html[data-ui-theme="brutal"] {
+  color-scheme: light;
+
+  --cm-body-bg: #9f9786;
+  --cm-body-bg-gradient: none;
+  --cm-sidebar-bg: #9f9786;
+  --cm-color-success: #15803d;
+  --cm-color-warning: #b45309;
+  --cm-color-danger: #db2777;
+  --cm-color-info: #475569;
+  --cm-color-odds: #1d4ed8;
+
+  --brutal-ink: #0a0a0a;
+  /* 右栏底：再暗一档灰米 */
+  --brutal-paper: #9f9786;
+  --brutal-panel: #b8b09e;
+  --brutal-muted: #525252;
+  --brutal-yellow: #ffe566;
+  --brutal-pink: #ff4d9a;
+  --brutal-green: #34d399;
+  --brutal-blue: #60a5fa;
+  --brutal-border: 2px solid var(--brutal-ink);
+  --brutal-shadow: 3px 3px 0 var(--brutal-ink);
+  --brutal-radius: 0;
+
+  --el-color-primary: #0a0a0a;
+  --el-color-success: #15803d;
+  --el-color-warning: #b45309;
+  --el-color-danger: #db2777;
+  --el-color-info: #64748b;
+  --el-bg-color: var(--brutal-panel);
+  --el-bg-color-overlay: var(--brutal-panel);
+  --el-bg-color-page: var(--brutal-paper);
+  --el-text-color-primary: var(--brutal-ink);
+  --el-text-color-regular: #171717;
+  --el-text-color-secondary: var(--brutal-muted);
+  --el-text-color-placeholder: #737373;
+  --el-border-color: var(--brutal-ink);
+  --el-border-color-light: var(--brutal-ink);
+  --el-border-color-lighter: #262626;
+  --el-border-color-extra-light: #404040;
+  --el-fill-color-blank: var(--brutal-panel);
+  --el-fill-color-light: #b8b09e;
+  --el-fill-color: #a89f8d;
+  --el-fill-color-lighter: #c4bcae;
+  --el-mask-color: rgba(0, 0, 0, 0.4);
+  --el-box-shadow: var(--brutal-shadow);
+  --el-box-shadow-light: var(--brutal-shadow);
+  --el-border-radius-base: 0;
+  --el-border-radius-small: 0;
+  --el-border-radius-round: 0;
+}
+
+html[data-ui-theme="brutal"] body {
+  background-color: var(--cm-body-bg) !important;
+  background-image: none !important;
+  color: var(--brutal-ink);
+}
+
+/* ════════════════════════════════════════
+   主控制台：侧栏 / 顶栏 / 赛单（截图痛点）
+   ════════════════════════════════════════ */
+
+html[data-ui-theme="brutal"] #app .el-aside,
+html[data-ui-theme="brutal"] .common-layout .el-aside {
+  background: var(--brutal-paper) !important;
+  border-right: var(--brutal-border);
+  box-shadow: none;
+}
+
+html[data-ui-theme="brutal"] #app .el-main,
+html[data-ui-theme="brutal"] .common-layout .el-main,
+html[data-ui-theme="brutal"] .home-main {
+  background: var(--brutal-paper) !important;
+}
+
+/* 侧栏用户区：原白字 → 黑字；账号名贴左边 */
+html[data-ui-theme="brutal"] .userinfo {
+  border-bottom: var(--brutal-border) !important;
+  background: transparent;
+  box-shadow: none;
+  padding: 8px 8px 8px 2px;
+}
+
+html[data-ui-theme="brutal"] .userinfo .info {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+html[data-ui-theme="brutal"] .userinfo .userName {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+html[data-ui-theme="brutal"] .userinfo .userName .el-button-group {
+  margin-left: 0;
+}
+
+html[data-ui-theme="brutal"] .userinfo .info,
+html[data-ui-theme="brutal"] .userinfo .report {
+  color: var(--brutal-ink) !important;
+  border-color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .userinfo .info .ms {
+  color: var(--brutal-muted) !important;
+}
+
+html[data-ui-theme="brutal"] .userinfo .report-number .el-statistic__head,
+html[data-ui-theme="brutal"] .userinfo .report-number .el-statistic__number {
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .date,
+html[data-ui-theme="brutal"] .loseorder-container {
+  margin: 8px;
+  padding: 8px;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  background: var(--brutal-panel) !important;
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+  color: var(--brutal-ink) !important;
+}
+
+/* 侧栏订单 */
+html[data-ui-theme="brutal"] .orders {
+  color: var(--brutal-ink) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 8px;
+}
+
+html[data-ui-theme="brutal"] .orders legend {
+  color: var(--brutal-ink) !important;
+  text-shadow: none !important;
+  border: var(--brutal-border);
+  font-weight: 700;
+}
+
+html[data-ui-theme="brutal"] .orders legend.default {
+  background: #d4d4d4;
+}
+html[data-ui-theme="brutal"] .orders legend.success {
+  background: var(--brutal-green);
+}
+html[data-ui-theme="brutal"] .orders legend.fail {
+  background: var(--brutal-pink);
+  color: #fff !important;
+}
+
+html[data-ui-theme="brutal"] .orders .orderlink {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  background: var(--brutal-panel);
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .order-makeup-status {
+  background: var(--brutal-yellow) !important;
+  color: var(--brutal-ink) !important;
+  text-shadow: none !important;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+/* 顶栏账号条：去掉毛玻璃深色；首个账号名往左靠 */
+html[data-ui-theme="brutal"] .providers {
+  background: var(--brutal-panel) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: var(--brutal-border);
+  min-height: 72px;
+  padding-left: 2px;
+}
+
+html[data-ui-theme="brutal"] .providers .actions {
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .providers .account {
+  background-image: none !important;
+  background: #c4bcae !important;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+  color: var(--brutal-ink) !important;
+  margin: 10px 10px 10px 4px;
+}
+
+html[data-ui-theme="brutal"] .providers .account:first-child {
+  margin-left: 0;
+}
+
+html[data-ui-theme="brutal"] .providers .account .platform {
+  background: var(--brutal-yellow) !important;
+  color: var(--brutal-ink) !important;
+  border: var(--brutal-border);
+  border-radius: 0 !important;
+  left: -2px;
+  padding-left: 14px;
+}
+
+html[data-ui-theme="brutal"] .providers .account.selected .platform {
+  background: var(--brutal-ink) !important;
+  color: var(--brutal-yellow) !important;
+}
+
+html[data-ui-theme="brutal"] .providers .account .balance .currency {
+  color: var(--brutal-muted) !important;
+}
+
+html[data-ui-theme="brutal"] .providers .account .cm-platform-icon,
+html[data-ui-theme="brutal"] .providers .account .provider-icon {
+  width: 28px !important;
+  height: 28px !important;
+  border: var(--brutal-border);
+  border-radius: 0 !important;
+  box-shadow: 1px 1px 0 var(--brutal-ink);
+  box-sizing: border-box;
+}
+
+html[data-ui-theme="brutal"] .providers .account .totalProfit {
+  background: var(--brutal-yellow) !important;
+  border: 1px solid var(--brutal-ink);
+  border-radius: 0 !important;
+  color: var(--brutal-ink);
+}
+
+/* 工具条 / 搜索 */
+html[data-ui-theme="brutal"] .match-search,
+html[data-ui-theme="brutal"] .sport-toolbar,
+html[data-ui-theme="brutal"] .sport-tab-row {
+  color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .match-empty {
+  color: var(--brutal-muted) !important;
+}
+
+html[data-ui-theme="brutal"] .pos {
+  color: #15803d !important;
+}
+html[data-ui-theme="brutal"] .neg {
+  color: #db2777 !important;
+}
+
+/* ── 赛事块：去掉半透明黑底 ── */
+html[data-ui-theme="brutal"] .matchs .match {
+  background: var(--brutal-panel) !important;
+  border: var(--brutal-border);
+  border-radius: 0 !important;
+  box-shadow: var(--brutal-shadow);
+  margin: 12px;
+  padding: 12px;
+}
+
+html[data-ui-theme="brutal"] .matchs .match .match-title {
+  color: var(--brutal-ink) !important;
+  font-weight: 700;
+  font-size: 13px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--brutal-ink);
+  margin-bottom: 10px;
+}
+
+html[data-ui-theme="brutal"] .matchs .match .match-title .pm-sport,
+html[data-ui-theme="brutal"] .matchs .match .match-title .pm-sport-link,
+html[data-ui-theme="brutal"] .matchs .match .match-title .startTime,
+html[data-ui-theme="brutal"] .matchs .match .match-title .game-tag {
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .match .match-title .pm-sport-link {
+  text-decoration-thickness: 2px;
+}
+
+/* ── 赔率卡：去掉蓝红渐变，改纸面硬边 ── */
+html[data-ui-theme="brutal"] .matchs .bet {
+  background-image: none !important;
+  background: #c4bcae !important;
+  border: var(--brutal-border);
+  border-radius: 0 !important;
+  box-shadow: 3px 3px 0 var(--brutal-ink);
+  padding: 10px 8px 8px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .bet-title {
+  color: var(--brutal-ink) !important;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds {
+  background-image: none !important;
+  background: var(--brutal-paper) !important;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  color: var(--brutal-ink) !important;
+  font-weight: 700;
+  min-height: 28px;
+  height: 28px;
+  line-height: 26px;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds.home {
+  background: #eff6ff !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds.away {
+  background: #fff1f2 !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .bet-items .item.defaultOdds .item-odds {
+  color: #15803d !important;
+  text-shadow: none !important;
+  background: #dcfce7 !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
+  color: #9d174d !important;
+  background: #fce7f3 !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds.target {
+  border-color: var(--brutal-ink) !important;
+  box-shadow: inset 0 0 0 2px var(--brutal-green);
+  background: #dcfce7 !important;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds.lock:after {
+  background-color: rgba(10, 10, 10, 0.55) !important;
+  border-radius: 0 !important;
+}
+
+/* 盘口左侧图标（含顶部赔率/胜率行）与顶栏场馆徽章同为 28px */
+html[data-ui-theme="brutal"] .matchs .bet .item .item-type,
+html[data-ui-theme="brutal"] .matchs .bet .item .provider-icon,
+html[data-ui-theme="brutal"] .matchs .bet .item.defaultOdds .item-type {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  background-color: var(--brutal-panel) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  margin-right: 6px;
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds .pm-map-win-badge {
+  border-radius: 0 !important;
+  border: 1px solid var(--brutal-ink);
+  background: var(--brutal-green) !important;
+  color: var(--brutal-ink) !important;
+  box-shadow: 1px 1px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .matchs .bet .item .item-odds.pm-map-won {
+  border-color: var(--brutal-ink) !important;
+  box-shadow: inset 0 0 0 2px #15803d;
+}
+
+html[data-ui-theme="brutal"] .odds-src {
+  color: var(--brutal-muted) !important;
+}
+
+/* 进行中订单浮层 */
+html[data-ui-theme="brutal"] .active-bet-run,
+html[data-ui-theme="brutal"] .active-bet-run__chrome,
+html[data-ui-theme="brutal"] .active-bet-run__col {
+  background: var(--brutal-panel) !important;
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--brutal-shadow) !important;
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .active-bet-run__chrome-title,
+html[data-ui-theme="brutal"] .active-bet-run__match,
+html[data-ui-theme="brutal"] .active-bet-run__leg {
+  color: var(--brutal-ink) !important;
+}
+
+/* ════════════════════════════════════════
+   管理后台
+   ════════════════════════════════════════ */
+
+html[data-ui-theme="brutal"] .admin-shell,
+html[data-ui-theme="brutal"] .admin-drawer,
+html[data-ui-theme="brutal"] .admin-dialog {
+  --adm-bg-deep: #9f9786;
+  --adm-bg: #a89f8d;
+  --adm-surface: #b8b09e;
+  --adm-surface-2: #c4bcae;
+  --adm-surface-hover: #ffe566;
+  --adm-border: #0a0a0a;
+  --adm-border-strong: #0a0a0a;
+  --adm-text: #0a0a0a;
+  --adm-text-secondary: #262626;
+  --adm-text-muted: #525252;
+  --adm-accent: #0a0a0a;
+  --adm-accent-soft: #ffe566;
+  --adm-accent-glow: #0a0a0a;
+  --adm-gold: #ca8a04;
+  --adm-gold-soft: rgba(202, 138, 4, 0.2);
+  --adm-purple: #7c3aed;
+  --adm-purple-soft: rgba(124, 58, 237, 0.12);
+  --adm-success: #15803d;
+  --adm-success-soft: rgba(21, 128, 61, 0.12);
+  --adm-danger: #db2777;
+  --adm-danger-soft: rgba(219, 39, 119, 0.12);
+  --adm-warning: #b45309;
+  --adm-warning-soft: rgba(180, 83, 9, 0.12);
+  --adm-radius: 0;
+  --adm-radius-lg: 0;
+  --adm-shadow: 3px 3px 0 #0a0a0a;
+}
+
+html[data-ui-theme="brutal"] .admin-shell {
+  background: var(--adm-bg-deep);
+  color: var(--adm-text);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__sidebar {
+  background: var(--brutal-paper);
+  border-right: var(--brutal-border);
+  box-shadow: none;
+}
+
+html[data-ui-theme="brutal"] .admin-shell__brand,
+html[data-ui-theme="brutal"] .admin-shell__sidebar-foot {
+  border-color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__brand-icon {
+  border-radius: 0;
+  border: var(--brutal-border);
+  background: var(--brutal-panel);
+  color: var(--brutal-ink);
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__nav-item {
+  border: var(--brutal-border);
+  border-radius: 0;
+  background: var(--brutal-panel);
+  color: var(--brutal-ink);
+  margin-bottom: 6px;
+}
+
+html[data-ui-theme="brutal"] .admin-shell__nav-item:hover {
+  background: #fff8cc;
+  color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__nav-item--active {
+  background: var(--brutal-yellow);
+  color: var(--brutal-ink);
+  box-shadow: 3px 3px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__back {
+  border: var(--brutal-border);
+  border-radius: 0;
+  background: var(--brutal-panel);
+  color: var(--brutal-ink);
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__main,
+html[data-ui-theme="brutal"] .admin-shell__content {
+  background: var(--brutal-paper);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__topbar {
+  border-bottom: var(--brutal-border);
+  background: var(--brutal-panel);
+}
+
+html[data-ui-theme="brutal"] .admin-shell__user,
+html[data-ui-theme="brutal"] .admin-card,
+html[data-ui-theme="brutal"] .admin-panel,
+html[data-ui-theme="brutal"] .admin-stat,
+html[data-ui-theme="brutal"] .admin-toolbar {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--brutal-shadow);
+  background: var(--brutal-panel);
+}
+
+/* ════════════════════════════════════════
+   Element Plus
+   ════════════════════════════════════════ */
+
+html[data-ui-theme="brutal"] .el-button {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+  font-weight: 700;
+}
+
+html[data-ui-theme="brutal"] .el-button--primary {
+  --el-button-bg-color: var(--brutal-yellow);
+  --el-button-border-color: var(--brutal-ink);
+  --el-button-text-color: var(--brutal-ink);
+  --el-button-hover-bg-color: #fff08a;
+  --el-button-hover-border-color: var(--brutal-ink);
+  --el-button-hover-text-color: var(--brutal-ink);
+  background: var(--brutal-yellow) !important;
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .el-button--danger {
+  background: var(--brutal-pink) !important;
+  color: #fff !important;
+  border-color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .el-input__wrapper,
+html[data-ui-theme="brutal"] .el-textarea__inner,
+html[data-ui-theme="brutal"] .el-select__wrapper,
+html[data-ui-theme="brutal"] .el-input-number {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: var(--brutal-panel) !important;
+}
+
+html[data-ui-theme="brutal"] .el-card,
+html[data-ui-theme="brutal"] .el-dialog,
+html[data-ui-theme="brutal"] .el-drawer,
+html[data-ui-theme="brutal"] .el-message-box,
+html[data-ui-theme="brutal"] .el-popover.el-popper,
+html[data-ui-theme="brutal"] .el-dropdown-menu,
+html[data-ui-theme="brutal"] .el-select-dropdown {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--brutal-shadow) !important;
+  background: var(--brutal-panel) !important;
+}
+
+html[data-ui-theme="brutal"] .el-table {
+  --el-table-bg-color: var(--brutal-panel);
+  --el-table-tr-bg-color: var(--brutal-panel);
+  --el-table-header-bg-color: var(--brutal-yellow);
+  --el-table-row-hover-bg-color: #fff8cc;
+  --el-table-border-color: var(--brutal-ink);
+  --el-table-text-color: var(--brutal-ink);
+  --el-table-header-text-color: var(--brutal-ink);
+  border: var(--brutal-border);
+  border-radius: 0;
+}
+
+html[data-ui-theme="brutal"] .el-table th.el-table__cell,
+html[data-ui-theme="brutal"] .el-table td.el-table__cell {
+  border-color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .el-tabs__item {
+  border: var(--brutal-border) !important;
+  border-radius: 0 !important;
+  margin-right: 6px;
+  background: var(--brutal-panel);
+  color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .el-tabs__item.is-active {
+  background: var(--brutal-yellow);
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .el-tag {
+  border: 2px solid var(--brutal-ink) !important;
+  border-radius: 0 !important;
+  font-weight: 700;
+}
+
+html[data-ui-theme="brutal"] .el-pagination button,
+html[data-ui-theme="brutal"] .el-pager li {
+  border: 2px solid var(--brutal-ink) !important;
+  border-radius: 0 !important;
+  background: var(--brutal-panel) !important;
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .el-pager li.is-active {
+  background: var(--brutal-yellow) !important;
+}
+
+html[data-ui-theme="brutal"] .el-switch.is-checked .el-switch__core {
+  background: var(--brutal-green) !important;
+  border-color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .el-switch__core {
+  border: 2px solid var(--brutal-ink) !important;
+  border-radius: 0 !important;
+}
+
+html[data-ui-theme="brutal"] .el-menu {
+  background: transparent !important;
+  border-right: none !important;
+}
+
+html[data-ui-theme="brutal"] .el-menu-item {
+  border: var(--brutal-border);
+  border-radius: 0;
+  margin: 4px 8px;
+  background: var(--brutal-panel);
+  color: var(--brutal-ink) !important;
+}
+
+html[data-ui-theme="brutal"] .el-menu-item.is-active {
+  background: var(--brutal-yellow) !important;
+  box-shadow: 2px 2px 0 var(--brutal-ink);
+}
+
+/* 侧栏里 EP 控件文字 */
+html[data-ui-theme="brutal"] .el-aside .el-button,
+html[data-ui-theme="brutal"] .el-aside .el-input__inner,
+html[data-ui-theme="brutal"] .el-aside .el-select__placeholder,
+html[data-ui-theme="brutal"] .el-aside .el-select__selected-item {
+  color: var(--brutal-ink) !important;
+}
