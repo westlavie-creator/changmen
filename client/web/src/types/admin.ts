@@ -159,7 +159,7 @@ export interface AdminOrderRow {
   pfMarketId?: string;
   /** 买单关联卖单 orderId */
   pfSellOrderId?: string;
-  /** 卖出回款 USDT（记在买单 raw） */
+  /** 卖出回款 USDT（记在买单 raw；经济真相。卖单 betMoney 为订单栏镜像） */
   pfSellProceeds?: number;
   /** [changmen 扩展] PredictFun wallet 实扣手续费 */
   pfFeeAmountWei?: string;

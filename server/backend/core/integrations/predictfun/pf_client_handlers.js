@@ -32,7 +32,7 @@ import {
 } from "./pf_order_service.js";
 import { fetchPredictMarket } from "./pf_api.js";
 import { computePfSettlement, resolvePfMarketOutcome } from "./pf_settle.js";
-import { extractBuyFillShares, extractSellFill } from "./pf_fill.js";
+import { extractBuyFillCostUsdt, extractBuyFillShares, extractSellFill } from "./pf_fill.js";
 import { resolvePfFeeSavePatch } from "./pf_fee.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
 import { tryRedeemHouseMarketAfterSettle, redeemHouseResolvedPositions } from "./pf_house_redeem.js";
@@ -541,9 +541,16 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
   if (venueOrder.status === "none" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
     const fill = extractBuyFillShares(official, rdsRow?.pfSharesWei);
     const feePatch = resolvePfFeeSavePatch(official, rdsRow);
+    const isSellRow = String(rdsRow?.pfSide ?? rdsRow?.PfSide ?? "").toLowerCase() === "sell";
+    const planned = rdsBetMoney(rdsRow);
+    // 买单：betMoney 回写官方成交 USDT（executedValue / makerAmount）；余额仍以下单扣款为准，不退差
+    const betMoney = !isSellRow
+      ? (extractBuyFillCostUsdt(official, planned) || planned)
+      : planned;
     await orderStore.saveOrder(playerId, [{
       ...venueOrder,
       status: "none",
+      betMoney,
       pfOfficialStatus: official?.status,
       pfOrderHash: rdsPfHash(rdsRow),
       pfApiOrderId: rdsPfApiOrderId(rdsRow),
@@ -978,6 +985,8 @@ export async function handlePfSubmitSell(body, userId) {
       const filledSharesWei = fill.sharesWei > 0n ? fill.sharesWei : sharesWei;
       const stake = rdsBetMoney(buy);
       const profit = roundUsdt(proceeds - stake);
+      // 经济口径：买单 pfSellProceeds（回款真相）+ money（盈亏）；
+      // 卖单 betMoney=proceeds 仅订单栏「回款」镜像，money 恒 0 不进组盈亏。
       const sellOdds = Number(out.bookOdds) || 0;
       const createAt = Date.now();
       const buyLabels = resolvePfOrderLabels({

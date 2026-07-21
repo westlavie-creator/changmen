@@ -274,6 +274,43 @@ describe("pf_client_handlers", () => {
     expect(accountStore.updatePlayerBalance).toHaveBeenCalled();
   });
 
+  it("getOrder FILLED rewrites betMoney to official cost without balance adjust", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xhash1",
+      status: "Pending",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "t",
+      link: 0,
+      raw: { pfOrderHash: "0xhash1", pfApiOrderId: "ord-1", pfSide: "buy" },
+    }]);
+    fetchHousePredictOrderByHash.mockResolvedValue({
+      id: "ord-1",
+      status: "FILLED",
+      marketId: 830202,
+      amountFilled: "25000000000000000000",
+      order: {
+        hash: "0xhash1",
+        tokenId: "t",
+        side: 0,
+        makerAmount: "9800000000000000000",
+        takerAmount: "25000000000000000000",
+      },
+    });
+    accountStore.updatePlayerBalance.mockClear();
+    const r = await handlePfGetOrder({ playerId: 42, orderId: "0xhash1" }, "u1");
+    expect(r.ok).toBe(true);
+    expect(r.info.settlement).toBe("filled");
+    expect(orderStore.saveOrder).toHaveBeenCalled();
+    const saved = orderStore.saveOrder.mock.calls[0][1][0];
+    expect(saved.betMoney).toBe(9.8);
+    expect(saved.pfShares).toBe(25);
+    expect(accountStore.updatePlayerBalance).not.toHaveBeenCalled();
+  });
+
   it("refreshBalance returns total_balance", async () => {
     const r = await handlePfRefreshBalance({ playerId: 42 }, "u1");
     expect(r.ok).toBe(true);
@@ -327,8 +364,12 @@ describe("pf_client_handlers", () => {
     expect(saved).toHaveLength(2);
     expect(saved[0].pfSellState).toBe("closed");
     expect(saved[0].money).toBe(3.75);
+    expect(saved[0].pfSellProceeds).toBe(13.75);
     expect(saved[1].pfSide).toBe("sell");
     expect(saved[1].pfBuyOrderId).toBe("0xbuy1");
+    // 卖单 betMoney = 回款镜像（订单栏展示）；money 恒 0
+    expect(saved[1].betMoney).toBe(13.75);
+    expect(saved[1].money).toBe(0);
   });
 
   it("submitSell does not credit when official status is not FILLED", async () => {

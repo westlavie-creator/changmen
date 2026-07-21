@@ -77,6 +77,53 @@ export function extractBuyFillShares(official, fallbackWei) {
 }
 
 /**
+ * BUY FILLED：实际付出 USDT（交易本金，不含 SHARES 手续费）
+ * 优先 amount（人类）→ wallet executedValueWei → BUY makerAmount；
+ * wallet stub 为 SELL 形（maker=份额、taker=USDT）时只用 taker；
+ * stub 缺 value 时勿把份额 maker 当 U，退回 fallbackUsdt。
+ * @param {object|null|undefined} official
+ * @param {number} [fallbackUsdt]
+ * @returns {number}
+ */
+export function extractBuyFillCostUsdt(official, fallbackUsdt = 0) {
+  let cost = 0;
+  const amountStr = String(official?.amount ?? "").trim();
+  if (amountStr.includes(".")) {
+    const n = Number(amountStr);
+    if (Number.isFinite(n) && n > 0)
+      cost = n;
+  }
+  if (cost <= 0) {
+    const execRaw = official?.pfExecutedValueWei
+      ?? official?.executedValueWei
+      ?? (official?.fill && typeof official.fill === "object"
+        ? /** @type {Record<string, unknown>} */ (official.fill).executedValueWei
+        : undefined);
+    const execWei = parsePredictQuantityToWei(execRaw);
+    if (execWei > 0n)
+      cost = weiToDecimal18(execWei);
+  }
+  if (cost <= 0) {
+    const makerWei = parsePredictQuantityToWei(official?.order?.makerAmount);
+    const takerWei = parsePredictQuantityToWei(official?.order?.takerAmount);
+    const filledWei = parsePredictQuantityToWei(official?.amountFilled);
+    const side = orderSide(official);
+    // wallet stub：amountFilled === makerAmount（均为 size），maker 不是 USDT
+    const stubShaped = filledWei > 0n && makerWei > 0n && filledWei === makerWei;
+    if (side === "sell" || stubShaped) {
+      if (takerWei > 0n)
+        cost = weiToDecimal18(takerWei);
+    }
+    else if (makerWei > 0n) {
+      cost = weiToDecimal18(makerWei);
+    }
+  }
+  if (cost <= 0)
+    cost = Number(fallbackUsdt) || 0;
+  return roundUsdt(cost);
+}
+
+/**
  * SELL FILLED：回款优先 amount（人类 USDT）→ order.takerAmount wei → fallback 预估
  * 份额：amountFilled → order.makerAmount → fallbackSharesWei
  * @param {object|null|undefined} official

@@ -81,6 +81,19 @@ describe("pfOrderDisplay", () => {
     })).toBe(3.4);
   });
 
+  it("sell row stake display uses BetMoney mirror; sell profit display is 0", () => {
+    const sell: OrderRow = {
+      Type: "PredictFun",
+      PfSide: "sell",
+      BetMoney: 13.75,
+      Money: 99,
+      Status: "None",
+    };
+    expect(pfOrderStakeDisplayCny(sell)).toBe(13.75 * 6.8);
+    expect(pfOrderProfitDisplayCny(sell)).toBe(0);
+    expect(resolvePfOrderListStatusClass(sell)).toBe("PfSell");
+  });
+
   it("treats 市场 N as bare and enriches from MarketIndex", () => {
     rememberPredictFunTokenMarketIds({
       updatedAt: Date.now(),

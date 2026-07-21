@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractBuyFillCostUsdt,
   extractBuyFillShares,
   extractSellFill,
   parsePredictQuantityToWei,
@@ -20,6 +21,52 @@ describe("pf_fill", () => {
     }, "1");
     expect(r.sharesWei).toBe(10000000000000000000n);
     expect(r.shares).toBe(10);
+  });
+
+  it("extracts buy fill cost from BUY makerAmount", () => {
+    const r = extractBuyFillCostUsdt({
+      amountFilled: "10000000000000000000",
+      order: {
+        side: 0,
+        makerAmount: "4000000000000000000",
+        takerAmount: "10000000000000000000",
+      },
+    }, 10);
+    expect(r).toBe(4);
+  });
+
+  it("extracts buy fill cost from wallet executedValueWei", () => {
+    const r = extractBuyFillCostUsdt({
+      amountFilled: "10000000000000000000",
+      pfExecutedValueWei: "4500000000000000000",
+      order: {
+        makerAmount: "10000000000000000000",
+        takerAmount: "4500000000000000000",
+      },
+    }, 10);
+    expect(r).toBe(4.5);
+  });
+
+  it("stub without executedValueWei falls back (does not treat shares as USDT)", () => {
+    const r = extractBuyFillCostUsdt({
+      amountFilled: "25000000000000000000",
+      order: {
+        makerAmount: "25000000000000000000",
+        // taker / pfExecutedValueWei 缺失：勿把 maker(份额) 当本金
+      },
+    }, 10);
+    expect(r).toBe(10);
+  });
+
+  it("stub with takerAmount uses taker as USDT", () => {
+    const r = extractBuyFillCostUsdt({
+      amountFilled: "25000000000000000000",
+      order: {
+        makerAmount: "25000000000000000000",
+        takerAmount: "9800000000000000000",
+      },
+    }, 10);
+    expect(r).toBe(9.8);
   });
 
   it("extracts sell proceeds from amount decimal", () => {

@@ -51,6 +51,7 @@ export interface OrderRow {
   PfTokenId?: string;
   PfMarketId?: string;
   PfSellOrderId?: string;
+  /** [changmen 扩展] 买单上官方卖出回款 USDT（经济真相；卖单 BetMoney 为其展示镜像） */
   PfSellProceeds?: number;
   PfFeeAmountWei?: string;
   PfFeeType?: "COLLATERAL" | "SHARES";

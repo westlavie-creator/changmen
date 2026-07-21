@@ -152,9 +152,11 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
   - house 主号 MARKET FOK **SELL**；changmen 账号仅归属，不影响链上仓位归属逻辑
   - POST 受理后 **轮询官方 GetOrder 至 FILLED** 才入账；CANCELLED/超时 **不** 改买单、不加余额
   - 回款/份额优先官方 `amount` / `amountFilled` / order taker|maker，预估作 fallback
-  - 一张卖单只绑一张买单（`pfBuyOrderId`）；买单 `pfSellState=closed`，盈亏记买单 `money`
+  - **经济口径在买单**：`pfSellProceeds`=官方回款真相源，`money`=盈亏（proceeds−stake），`pfSellState=closed`
+  - **卖单行**：官方卖出凭证 + 订单栏展示；`betMoney`=回款镜像（勿当本金），`money` 恒 0（不进组盈亏）
+  - 一张卖单只绑一张买单（`pfBuyOrderId`）
   - 余额：`total_balance += proceeds`
-- 买单 FILLED：校正 `pfSharesWei`（`amountFilled` / takerAmount）
+- 买单 FILLED：校正 `pfSharesWei`，并把 `betMoney` 回写为官方成交 USDT（`executedValue` / BUY `makerAmount`）；会员余额仍以下单扣款为准
 - 下单前校验 `tradingStatus=OPEN` 且市场非 RESOLVED/PAUSED/REMOVED
 - 到期 Win 后 best-effort `redeemPositions`（主号回笼 USDT）；管理端 `Pf_HouseRedeemResolved`
 - 余额：`players.total_balance`（`Pf_RefreshBalance`）；下单成功扣减；**不用** A8 `credit`

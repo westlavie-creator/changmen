@@ -131,15 +131,19 @@ export function parsePredictWalletEvent(raw) {
  * @param {{ feeAmountWei?: string, feeType?: string }|null|undefined} hint
  */
 export function attachWalletFeeToOfficial(official, hint) {
-  if (!official || !hint?.feeAmountWei)
+  if (!official || !hint)
     return official ?? null;
-  return {
-    ...official,
-    pfWalletFee: {
+  /** @type {Record<string, unknown>} */
+  const out = { ...official };
+  if (hint.feeAmountWei) {
+    out.pfWalletFee = {
       amountWei: String(hint.feeAmountWei),
       type: hint.feeType === "SHARES" ? "SHARES" : "COLLATERAL",
-    },
-  };
+    };
+  }
+  if (hint.executedValueWei != null && String(hint.executedValueWei).trim())
+    out.pfExecutedValueWei = String(hint.executedValueWei);
+  return out;
 }
 
 /**
@@ -151,12 +155,28 @@ export function officialStubFromWalletHint(hint) {
     return null;
   const hash = String(hint.orderHash ?? "").trim();
   if (hint.settlement === "filled") {
+    const valueWei = hint.executedValueWei != null ? String(hint.executedValueWei) : undefined;
+    let amountHuman;
+    if (valueWei && /^\d+$/.test(valueWei)) {
+      try {
+        const n = Number(BigInt(valueWei)) / 1e18;
+        if (Number.isFinite(n) && n > 0)
+          amountHuman = String(Math.round(n * 1e6) / 1e6);
+      }
+      catch {
+        /* ignore */
+      }
+    }
     const stub = {
       status: "FILLED",
       id: hint.orderId || undefined,
       amountFilled: hint.executedSizeWei,
+      // 人类 USDT（含小数点，供 extractBuyFillCostUsdt / extractSellFill）
+      ...(amountHuman && amountHuman.includes(".") ? { amount: amountHuman } : {}),
+      ...(valueWei ? { pfExecutedValueWei: valueWei } : {}),
       order: {
         hash,
+        // 与 wallet fill 一致：size / value（SELL 形；BUY 实付读 pfExecutedValueWei）
         makerAmount: hint.executedSizeWei,
         takerAmount: hint.executedValueWei,
       },

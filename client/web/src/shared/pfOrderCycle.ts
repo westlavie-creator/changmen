@@ -1,5 +1,8 @@
 /**
- * PF 会员订单：买卖闭环（买单为主行，卖单挂接）
+ * PF 会员订单：买卖闭环（买单为主行 / 经济真相；卖单挂接为凭证+展示）
+ *
+ * - 回款真相：买单 `pfSellProceeds`（官方）；卖单 `betMoney` 仅镜像兜底，勿当本金
+ * - 盈亏：买单 `money`；卖单 `money` 恒 0，不进套利组合计
  */
 import type { AdminOrderRow } from "@/types/admin";
 import { resolvePfFillPrice } from "@/shared/pfOrderDisplay";
@@ -18,13 +21,13 @@ export interface PfOrderCycle {
   netShares: number | null;
   /** 官方费率 bps */
   feeRateBps: number | null;
-  /** 卖出回款 U */
+  /** 卖出回款 U（优先买单 pfSellProceeds） */
   sellProceedsUsdt: number | null;
   /** 卖手续费份额 */
   sellFeeShares: number | null;
-  /** 卖手续费 U（COLLATERAL 或 SHARES×卖出价） */
+  /** 卖手续费 U（仅展示；最终到手不扣） */
   sellFeeUsdt: number | null;
-  /** 最终到手 U；未完结为 null */
+  /** 最终到手 U（已卖=官方回款）；未完结为 null */
   finalUsdt: number | null;
   /** 盈亏 = 最终到手 − 买入；未完结为 null */
   profitUsdt: number | null;
@@ -76,8 +79,8 @@ export function pfNetShares(buyShares: number | null, buyFeeShares: number | nul
 }
 
 /**
- * 最终到手：
- * 1. 已卖出 → 卖出回款 − 卖手续费U
+ * 最终到手 U（以官方成交口径为准；手续费仅展示，不从回款再扣）：
+ * 1. 已卖出 → 官方卖出回款（买单 pfSellProceeds 优先；无则卖单 betMoney 旧单兜底）
  * 2. Win → betMoney + money
  * 3. Lose → 0
  * 4. Reject → null（—）
@@ -87,16 +90,14 @@ export function resolvePfCycleFinalUsdt(input: {
   buy: AdminOrderRow;
   sold: boolean;
   sellProceedsUsdt: number | null;
-  sellFeeUsdt: number | null;
 }): number | null {
-  const { buy, sold, sellProceedsUsdt, sellFeeUsdt } = input;
+  const { buy, sold, sellProceedsUsdt } = input;
   const status = String(buy.status || "").toLowerCase();
 
   if (sold) {
     if (sellProceedsUsdt == null || !Number.isFinite(sellProceedsUsdt))
       return null;
-    const fee = sellFeeUsdt != null && sellFeeUsdt > 0 ? sellFeeUsdt : 0;
-    return Math.max(0, sellProceedsUsdt - fee);
+    return sellProceedsUsdt;
   }
   if (status === "reject")
     return null;
@@ -152,6 +153,7 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       : null;
 
     let sellProceedsUsdt: number | null = null;
+    // 回款真相在买单；卖单 betMoney 仅旧单/镜像兜底（勿当投注本金）
     const fromBuy = Number(buy.pfSellProceeds);
     if (Number.isFinite(fromBuy) && fromBuy >= 0)
       sellProceedsUsdt = fromBuy;
@@ -173,7 +175,6 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       buy,
       sold,
       sellProceedsUsdt,
-      sellFeeUsdt,
     });
     const profitUsdt = resolvePfCycleProfitUsdt(buyStakeUsdt, finalUsdt);
 

@@ -36,13 +36,13 @@ describe("pfOrderCycle", () => {
     expect(pfNetShares(null, 0.84)).toBeNull();
   });
 
-  it("final: sold = proceeds - sell fee", () => {
+  it("final: sold = official proceeds (fee is display-only)", () => {
     expect(resolvePfCycleFinalUsdt({
       buy: buy({ pfSellState: "closed" }),
       sold: true,
       sellProceedsUsdt: 12,
       sellFeeUsdt: 0.3,
-    })).toBeCloseTo(11.7, 5);
+    })).toBe(12);
   });
 
   it("final: win = stake + money", () => {
@@ -125,5 +125,33 @@ describe("pfOrderCycle", () => {
     expect(cycles[0].profitUsdt).toBe(-5);
     expect(cycles[1].finalUsdt).toBe(0);
     expect(cycles[1].profitUsdt).toBe(-13);
+  });
+
+  it("sellProceeds prefers buy.pfSellProceeds over sell.betMoney mirror", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xbuy1",
+        betMoney: 10,
+        pfSellState: "closed",
+        pfSellOrderId: "0xsell1",
+        pfSellProceeds: 12.5,
+        status: "None",
+      }),
+      {
+        ...buy({
+          id: 2,
+          orderId: "0xsell1",
+          pfSide: "sell",
+          pfBuyOrderId: "0xbuy1",
+          betMoney: 99,
+          money: 0,
+          status: "None",
+        }),
+      },
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].sellProceedsUsdt).toBe(12.5);
+    expect(cycles[0].finalUsdt).toBe(12.5);
+    expect(cycles[0].profitUsdt).toBe(2.5);
   });
 });

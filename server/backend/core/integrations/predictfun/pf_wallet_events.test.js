@@ -75,10 +75,11 @@ describe("parsePredictWalletEvent", () => {
       settlement: "filled",
       type: "orderTransactionSuccess",
       executedSizeWei: "1",
-      executedValueWei: "2",
+      executedValueWei: "2000000000000000000",
     });
     expect(stub?.status).toBe("FILLED");
     expect(stub?.order?.hash).toBe("0xabc");
+    expect(stub?.pfExecutedValueWei).toBe("2000000000000000000");
   });
 });
 

@@ -275,6 +275,32 @@ describe("orderLink A8 parity", () => {
     expect(profit).toBe(184);
   });
 
+  it("PF computeOrderGroupProfit uses buy Money only; sell BetMoney ignored", () => {
+    const profit = computeOrderGroupProfit([
+      {
+        OrderID: "0xbuy",
+        Type: "PredictFun",
+        PfSide: "buy",
+        Money: 3.75,
+        BetMoney: 10,
+        PfSellState: "closed",
+        PfSellProceeds: 13.75,
+        Status: "None",
+      },
+      {
+        OrderID: "0xsell",
+        Type: "PredictFun",
+        PfSide: "sell",
+        Money: 0,
+        BetMoney: 13.75,
+        PfBuyOrderId: "0xbuy",
+        Status: "None",
+      },
+    ]);
+    // Money 为 USDT，图例 × 汇率 6.8
+    expect(profit).toBe(3.75 * 6.8);
+  });
+
   it("orderLinkLegend uses sell P&L when buy Money still 0 (legacy)", () => {
     const text = orderLinkLegend([
       {

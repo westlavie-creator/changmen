@@ -185,13 +185,15 @@ export function pfOrderSharesText(row: OrderRow): string | null {
 
 /**
  * 侧栏投注金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
- * 库内 BetMoney 为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
+ * - 买单 BetMoney = 买入实付 USDT
+ * - 卖单 BetMoney = 回款镜像（与买单 pfSellProceeds 同值；订单栏仍读此字段）
+ * 库内为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
  */
 export function pfOrderStakeDisplayCny(row: OrderRow): number {
   return scaleUsdtToCnyDisplay(Number(row.BetMoney) || 0);
 }
 
-/** 侧栏盈亏：USDT Money → CNY（对齐 PM orders scale） */
+/** 侧栏盈亏：USDT Money → CNY（对齐 PM orders scale）；卖单恒 0（盈亏在买单） */
 export function pfOrderProfitDisplayCny(row: OrderRow): number {
   if (isPfSellOrderListRow(row))
     return 0;

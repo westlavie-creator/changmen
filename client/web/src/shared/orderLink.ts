@@ -416,7 +416,9 @@ export function mergePendingMakeupIntoOrderGroups(
   return groupOrdersByLink(allRows);
 }
 
-/** 组内盈亏：优先买单 Money（新模型）；买单仍为 0 时回退卖单 Money（迁移前旧数据） */
+/** 组内盈亏：优先买单 Money（新模型）；买单仍为 0 时回退卖单 Money（迁移前旧数据）
+ * PF：只认买单 Money；卖单恒 0（卖单 betMoney 是回款镜像，不进合计）
+ */
 export function polymarketMoneyForAggregate(row: OrderRow, peers: OrderRow[]): number {
   if (isMakeupSyntheticOrderRow(row))
     return 0;
