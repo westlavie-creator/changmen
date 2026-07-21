@@ -41,7 +41,6 @@ describe("pfOrderCycle", () => {
       buy: buy({ pfSellState: "closed" }),
       sold: true,
       sellProceedsUsdt: 12,
-      sellFeeUsdt: 0.3,
     })).toBe(12);
   });
 
@@ -50,7 +49,6 @@ describe("pfOrderCycle", () => {
       buy: buy({ status: "Win", betMoney: 13, money: 27.656 }),
       sold: false,
       sellProceedsUsdt: null,
-      sellFeeUsdt: null,
     })).toBeCloseTo(40.656, 5);
   });
 
@@ -59,19 +57,16 @@ describe("pfOrderCycle", () => {
       buy: buy({ status: "Lose" }),
       sold: false,
       sellProceedsUsdt: null,
-      sellFeeUsdt: null,
     })).toBe(0);
     expect(resolvePfCycleFinalUsdt({
       buy: buy({ status: "Reject" }),
       sold: false,
       sellProceedsUsdt: null,
-      sellFeeUsdt: null,
     })).toBeNull();
     expect(resolvePfCycleFinalUsdt({
       buy: buy({ status: "Pending" }),
       sold: false,
       sellProceedsUsdt: null,
-      sellFeeUsdt: null,
     })).toBeNull();
   });
 
