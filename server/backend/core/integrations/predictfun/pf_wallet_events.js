@@ -13,6 +13,7 @@ import { fetchPredictFunHouseOrderJwt } from "./pf_house_session.js";
 import {
   officialStubFromWalletHint,
   parsePredictWalletEvent,
+  attachWalletFeeToOfficial,
 } from "./pf_wallet_events_parse.js";
 
 const HEARTBEAT_TOPIC = "heartbeat";
@@ -66,7 +67,28 @@ function storeHint(hint) {
   pruneHints();
   const at = Date.now();
   for (const key of hintKeys(hint)) {
+    const prev = hintsByKey.get(key)?.hint;
+    // 勿用 orderAccepted / Submitted（pending）盖住已有 filled/unfilled
+    if (
+      prev
+      && prev.settlement !== "pending"
+      && hint.settlement === "pending"
+    ) {
+      continue;
+    }
+    // 同为终态：带 fee 的 success 可升级无 fee 的旧 hint
+    if (
+      prev
+      && prev.settlement === "filled"
+      && hint.settlement === "filled"
+      && prev.feeAmountWei
+      && !hint.feeAmountWei
+    ) {
+      continue;
+    }
     hintsByKey.set(key, { hint, at });
+    if (hint.settlement === "pending")
+      continue;
     const waiters = waitersByKey.get(key);
     if (waiters) {
       for (const fn of waiters)
@@ -266,7 +288,7 @@ export function ensureHouseWalletEventsStarted() {
 }
 
 /** 将 wallet 提示转为 REST OrderData stub（供 wait 使用） */
-export { officialStubFromWalletHint };
+export { officialStubFromWalletHint, attachWalletFeeToOfficial };
 
 /** @internal */
 export function _ingestWalletEventForTests(raw) {

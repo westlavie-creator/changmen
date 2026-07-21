@@ -33,6 +33,7 @@ import {
 import { fetchPredictMarket } from "./pf_api.js";
 import { computePfSettlement, resolvePfMarketOutcome } from "./pf_settle.js";
 import { extractBuyFillShares, extractSellFill } from "./pf_fill.js";
+import { resolvePfFeeSavePatch } from "./pf_fee.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
 import { tryRedeemHouseMarketAfterSettle, redeemHouseResolvedPositions } from "./pf_house_redeem.js";
 import {
@@ -168,6 +169,22 @@ async function loadPfOrders(playerId, userId) {
       pfSellState: raw.pfSellState ? String(raw.pfSellState) : undefined,
       pfSide: raw.pfSide ? String(raw.pfSide) : undefined,
       pfBuyOrderId: raw.pfBuyOrderId ? String(raw.pfBuyOrderId) : undefined,
+      pfFeeAmountWei: raw.pfFeeAmountWei ? String(raw.pfFeeAmountWei) : undefined,
+      pfFeeType: raw.pfFeeType === "SHARES" || raw.pfFeeType === "COLLATERAL"
+        ? raw.pfFeeType
+        : undefined,
+      pfFeeUsdt: raw.pfFeeUsdt != null && Number.isFinite(Number(raw.pfFeeUsdt))
+        ? Number(raw.pfFeeUsdt)
+        : undefined,
+      pfFeeRateBps: (() => {
+        const n = Number(raw.pfFeeRateBps);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      })(),
+      pfSellOrderId: raw.pfSellOrderId ? String(raw.pfSellOrderId) : undefined,
+      pfSellProceeds: (() => {
+        const n = Number(raw.pfSellProceeds);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      })(),
     };
   });
 }
@@ -393,6 +410,9 @@ export async function handlePfSubmitOrder(body, userId) {
       pfShares: shares > 0 ? shares : undefined,
       pfSide: "buy",
       pfSellState: "open",
+      pfFeeRateBps: Number(fresh.feeRateBps ?? out.feeRateBps) >= 0
+        ? Number(fresh.feeRateBps ?? out.feeRateBps)
+        : undefined,
     }], userId, "PredictFun");
 
     const nextBalance = balanceAfterStake(liveBal, intent.apiBetMoney);
@@ -466,6 +486,10 @@ function rdsToMapInput(rdsRow) {
     pfSide: rdsRow?.pfSide ?? rdsRow?.PfSide,
     pfBuyOrderId: rdsRow?.pfBuyOrderId ?? rdsRow?.PfBuyOrderId,
     pfShares: rdsRow?.pfShares ?? rdsRow?.PfShares,
+    pfFeeAmountWei: rdsRow?.pfFeeAmountWei ?? rdsRow?.PfFeeAmountWei,
+    pfFeeType: rdsRow?.pfFeeType ?? rdsRow?.PfFeeType,
+    pfFeeUsdt: rdsRow?.pfFeeUsdt ?? rdsRow?.PfFeeUsdt,
+    pfFeeRateBps: rdsRow?.pfFeeRateBps ?? rdsRow?.PfFeeRateBps,
   };
 }
 
@@ -516,6 +540,7 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
 
   if (venueOrder.status === "none" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
     const fill = extractBuyFillShares(official, rdsRow?.pfSharesWei);
+    const feePatch = resolvePfFeeSavePatch(official, rdsRow);
     await orderStore.saveOrder(playerId, [{
       ...venueOrder,
       status: "none",
@@ -529,7 +554,32 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
             pfShares: fill.shares,
           }
         : {}),
+      ...feePatch,
     }], userId, "PredictFun");
+  }
+  else if (
+    venueOrder.status === "none"
+    && String(rdsOrderStatus(rdsRow)).toLowerCase() === "none"
+    && !String(rdsRow?.pfFeeAmountWei ?? "").trim()
+  ) {
+    // 已成交：补写迟到的 wallet fee（不改状态）
+    const feePatch = resolvePfFeeSavePatch(official, rdsRow);
+    if (feePatch.pfFeeAmountWei) {
+      await orderStore.saveOrder(playerId, [{
+        ...venueOrder,
+        status: "none",
+        pfOfficialStatus: official?.status,
+        pfOrderHash: rdsPfHash(rdsRow),
+        pfApiOrderId: rdsPfApiOrderId(rdsRow),
+        pfSharesWei: rdsRow?.pfSharesWei,
+        pfShares: rdsRow?.pfShares,
+        pfSide: rdsRow?.pfSide,
+        pfSellState: rdsRow?.pfSellState,
+        pfBuyOrderId: rdsRow?.pfBuyOrderId,
+        pfBookPrice: rdsRow?.pfBookPrice,
+        ...feePatch,
+      }], userId, "PredictFun");
+    }
   }
   else if (venueOrder.status === "pending" && String(rdsOrderStatus(rdsRow)).toLowerCase() !== "pending") {
     await orderStore.saveOrder(playerId, [{
@@ -923,6 +973,7 @@ export async function handlePfSubmitSell(body, userId) {
         fallbackProceedsUsdt: out.proceedsUsdt,
         fallbackSharesWei: sharesWei,
       });
+      const sellFeePatch = resolvePfFeeSavePatch(official, null);
       const proceeds = roundUsdt(fill.proceedsUsdt);
       const filledSharesWei = fill.sharesWei > 0n ? fill.sharesWei : sharesWei;
       const stake = rdsBetMoney(buy);
@@ -963,6 +1014,7 @@ export async function handlePfSubmitSell(body, userId) {
           pfSellOrderId: sellOrderId,
           pfSellProceeds: proceeds,
           pfAmountFilled: fill.amountFilledRaw,
+          pfFeeRateBps: buy.pfFeeRateBps,
         },
         {
           orderId: sellOrderId,
@@ -983,11 +1035,15 @@ export async function handlePfSubmitSell(body, userId) {
           pfSharesWei: String(filledSharesWei),
           pfShares: weiToDecimal18(filledSharesWei),
           pfBookPrice: out.bookPrice,
+          pfFeeRateBps: Number(market?.feeRateBps ?? buy.pfFeeRateBps) >= 0
+            ? Number(market?.feeRateBps ?? buy.pfFeeRateBps)
+            : undefined,
           pfSide: "sell",
           pfBuyOrderId: rdsOrderKey(buy),
           pfSellState: "closed",
           pfOfficialStatus: official?.status,
           pfAmountFilled: fill.amountFilledRaw,
+          ...sellFeePatch,
         },
       ], userId, "PredictFun");
 

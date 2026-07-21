@@ -150,6 +150,23 @@ export interface AdminOrderRow {
   pmSellState?: "open" | "partial" | "closed" | "settled";
   pmSide?: "buy" | "sell";
   pmBuyOrderId?: string;
+  /** [changmen 扩展] PredictFun — 与工作台 OrderRow.Pf* 对齐 */
+  pfSide?: "buy" | "sell";
+  pfBuyOrderId?: string;
+  pfSellState?: "open" | "closed";
+  pfShares?: number;
+  pfTokenId?: string;
+  pfMarketId?: string;
+  /** 买单关联卖单 orderId */
+  pfSellOrderId?: string;
+  /** 卖出回款 USDT（记在买单 raw） */
+  pfSellProceeds?: number;
+  /** [changmen 扩展] PredictFun wallet 实扣手续费 */
+  pfFeeAmountWei?: string;
+  pfFeeType?: "COLLATERAL" | "SHARES";
+  pfFeeUsdt?: number;
+  /** [changmen 扩展] PredictFun 官方市场 feeRateBps */
+  pfFeeRateBps?: number;
 }
 
 export interface AdminOrderPage {

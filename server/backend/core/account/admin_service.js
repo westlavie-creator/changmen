@@ -420,6 +420,18 @@ function mapAdminOrderRow(r, startIndex = null) {
     pmSellState: o.PmSellState,
     pmSide: o.PmSide,
     pmBuyOrderId: o.PmBuyOrderId,
+    pfSide: o.PfSide,
+    pfBuyOrderId: o.PfBuyOrderId,
+    pfSellState: o.PfSellState,
+    pfShares: o.PfShares,
+    pfTokenId: o.PfTokenId,
+    pfMarketId: o.PfMarketId,
+    pfSellOrderId: o.PfSellOrderId,
+    pfSellProceeds: o.PfSellProceeds,
+    pfFeeAmountWei: o.PfFeeAmountWei,
+    pfFeeType: o.PfFeeType,
+    pfFeeUsdt: o.PfFeeUsdt,
+    pfFeeRateBps: o.PfFeeRateBps,
   };
 }
 
@@ -429,6 +441,8 @@ export async function listAdminOrders(body = {}, caller = null) {
   const pageSize = Math.min(200, Math.max(1, Number(body.pageSize) || 50));
   const userId = body.userId ? String(body.userId) : "";
   const provider = body.provider ? String(body.provider) : "";
+  const playerIdRaw = Number(body.playerId ?? body.player_id ?? 0);
+  const playerId = Number.isFinite(playerIdRaw) && playerIdRaw > 0 ? playerIdRaw : undefined;
 
   let userIds;
   if (caller && !isAdminUser(caller)) {
@@ -446,6 +460,7 @@ export async function listAdminOrders(body = {}, caller = null) {
     dateKey,
     userId: userId || undefined,
     provider: provider || undefined,
+    playerId,
     userIds,
   };
   const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });

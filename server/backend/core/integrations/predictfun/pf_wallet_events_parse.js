@@ -4,10 +4,48 @@
  */
 
 /** @typedef {"filled"|"unfilled"|"pending"} PfWalletSettlement */
+/** @typedef {"COLLATERAL"|"SHARES"} PfWalletFeeType */
+
+/**
+ * @param {unknown} feeRaw
+ * @returns {{ amountWei: string, type: PfWalletFeeType }|null}
+ */
+export function parsePredictWalletFee(feeRaw) {
+  if (!feeRaw || typeof feeRaw !== "object")
+    return null;
+  const amountWei = String(/** @type {Record<string, unknown>} */ (feeRaw).amountWei ?? "").trim();
+  if (!amountWei || !/^\d+$/.test(amountWei))
+    return null;
+  const typeRaw = String(/** @type {Record<string, unknown>} */ (feeRaw).type ?? "").trim().toUpperCase();
+  const type = typeRaw === "SHARES" ? "SHARES" : "COLLATERAL";
+  return { amountWei, type };
+}
+
+/**
+ * @param {string|undefined} amountWei
+ * @param {PfWalletFeeType|string|undefined} type
+ * @returns {number|undefined} COLLATERAL → USDT；SHARES 不换算
+ */
+export function pfFeeAmountWeiToUsdt(amountWei, type) {
+  if (String(type ?? "").toUpperCase() === "SHARES")
+    return undefined;
+  const s = String(amountWei ?? "").trim();
+  if (!s || !/^\d+$/.test(s))
+    return undefined;
+  try {
+    const n = Number(BigInt(s)) / 1e18;
+    if (!Number.isFinite(n) || n < 0)
+      return undefined;
+    return Math.round(n * 1e6) / 1e6;
+  }
+  catch {
+    return undefined;
+  }
+}
 
 /**
  * @param {unknown} raw 整帧 JSON 或 data 对象
- * @returns {{ orderHash: string, orderId: string, type: string, settlement: PfWalletSettlement, executedSizeWei?: string, executedValueWei?: string, executedPriceWei?: string }|null}
+ * @returns {{ orderHash: string, orderId: string, type: string, settlement: PfWalletSettlement, executedSizeWei?: string, executedValueWei?: string, executedPriceWei?: string, feeAmountWei?: string, feeType?: PfWalletFeeType }|null}
  */
 export function parsePredictWalletEvent(raw) {
   let msg = raw;
@@ -49,6 +87,8 @@ export function parsePredictWalletEvent(raw) {
     ? /** @type {Record<string, unknown>} */ (fillRaw)
     : {};
 
+  const fee = parsePredictWalletFee(ev["fee"] ?? details["fee"] ?? null);
+
   /** @type {PfWalletSettlement} */
   let settlement = "pending";
   if (
@@ -80,19 +120,38 @@ export function parsePredictWalletEvent(raw) {
     executedSizeWei: fillObj.executedSizeWei != null ? String(fillObj.executedSizeWei) : undefined,
     executedValueWei: fillObj.executedValueWei != null ? String(fillObj.executedValueWei) : undefined,
     executedPriceWei: fillObj.executedPriceWei != null ? String(fillObj.executedPriceWei) : undefined,
+    feeAmountWei: fee?.amountWei,
+    feeType: fee?.type,
+  };
+}
+
+/**
+ * 将 wallet fee 挂到官方 OrderData（REST 无实扣费字段时用）
+ * @param {object|null|undefined} official
+ * @param {{ feeAmountWei?: string, feeType?: string }|null|undefined} hint
+ */
+export function attachWalletFeeToOfficial(official, hint) {
+  if (!official || !hint?.feeAmountWei)
+    return official ?? null;
+  return {
+    ...official,
+    pfWalletFee: {
+      amountWei: String(hint.feeAmountWei),
+      type: hint.feeType === "SHARES" ? "SHARES" : "COLLATERAL",
+    },
   };
 }
 
 /**
  * Wallet 终态提示 → 最小 OrderData（REST 滞后时的 fallback）
- * @param {{ orderHash: string, orderId?: string, type?: string, settlement: PfWalletSettlement, executedSizeWei?: string, executedValueWei?: string }} hint
+ * @param {{ orderHash: string, orderId?: string, type?: string, settlement: PfWalletSettlement, executedSizeWei?: string, executedValueWei?: string, feeAmountWei?: string, feeType?: string }} hint
  */
 export function officialStubFromWalletHint(hint) {
   if (!hint || hint.settlement === "pending")
     return null;
   const hash = String(hint.orderHash ?? "").trim();
   if (hint.settlement === "filled") {
-    return {
+    const stub = {
       status: "FILLED",
       id: hint.orderId || undefined,
       amountFilled: hint.executedSizeWei,
@@ -103,6 +162,7 @@ export function officialStubFromWalletHint(hint) {
       },
       pfWalletEvent: hint.type,
     };
+    return attachWalletFeeToOfficial(stub, hint);
   }
   return {
     status: "CANCELLED",

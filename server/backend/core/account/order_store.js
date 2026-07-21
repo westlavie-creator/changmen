@@ -263,6 +263,20 @@ export function rowToOrder(r) {
     PfShares: parseNum(raw.pfShares, 0) || undefined,
     PfTokenId: raw.pfTokenId ? String(raw.pfTokenId) : undefined,
     PfMarketId: raw.pfMarketId ? String(raw.pfMarketId) : undefined,
+    PfSellOrderId: raw.pfSellOrderId ? String(raw.pfSellOrderId) : undefined,
+    PfSellProceeds: (() => {
+      const n = parseNum(raw.pfSellProceeds, NaN);
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    })(),
+    PfFeeAmountWei: raw.pfFeeAmountWei ? String(raw.pfFeeAmountWei) : undefined,
+    PfFeeType: raw.pfFeeType === "SHARES" || raw.pfFeeType === "COLLATERAL"
+      ? raw.pfFeeType
+      : undefined,
+    PfFeeUsdt: parseNum(raw.pfFeeUsdt, 0) || undefined,
+    PfFeeRateBps: (() => {
+      const n = parseNum(raw.pfFeeRateBps, NaN);
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    })(),
   };
 }
 
@@ -273,8 +287,33 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   let money = parseNum(o.money ?? o.Money, 0);
   let bet_money = parseNum(o.betMoney ?? o.BetMoney, 0);
 
-  if (provider !== "Polymarket")
+  if (provider !== "Polymarket") {
+    // PredictFun 等：save 常只带部分字段；勿丢掉已落库的手续费 / 费率
+    if (!String(merged.pfFeeAmountWei ?? "").trim() && String(prevRaw.pfFeeAmountWei ?? "").trim()) {
+      merged.pfFeeAmountWei = prevRaw.pfFeeAmountWei;
+      if (prevRaw.pfFeeType === "SHARES" || prevRaw.pfFeeType === "COLLATERAL")
+        merged.pfFeeType = prevRaw.pfFeeType;
+      if (merged.pfFeeUsdt == null && prevRaw.pfFeeUsdt != null)
+        merged.pfFeeUsdt = prevRaw.pfFeeUsdt;
+    }
+    if (
+      !(Number.isFinite(Number(merged.pfFeeRateBps)) && Number(merged.pfFeeRateBps) >= 0)
+      && Number.isFinite(Number(prevRaw.pfFeeRateBps))
+      && Number(prevRaw.pfFeeRateBps) >= 0
+    ) {
+      merged.pfFeeRateBps = Number(prevRaw.pfFeeRateBps);
+    }
+    if (!String(merged.pfSellOrderId ?? "").trim() && String(prevRaw.pfSellOrderId ?? "").trim())
+      merged.pfSellOrderId = prevRaw.pfSellOrderId;
+    if (
+      !(Number.isFinite(Number(merged.pfSellProceeds)) && Number(merged.pfSellProceeds) >= 0)
+      && Number.isFinite(Number(prevRaw.pfSellProceeds))
+      && Number(prevRaw.pfSellProceeds) >= 0
+    ) {
+      merged.pfSellProceeds = Number(prevRaw.pfSellProceeds);
+    }
     return { raw: merged, money, bet_money };
+  }
 
   const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "buy").toLowerCase();
   const isSell = incomingSide === "sell";

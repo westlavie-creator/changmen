@@ -5,6 +5,17 @@ vi.mock("./pf_wallet_events.js", () => ({
   getHouseWalletSettlementHint: vi.fn(() => null),
   waitForHouseWalletSettlementHint: vi.fn(async () => null),
   officialStubFromWalletHint: vi.fn(() => null),
+  attachWalletFeeToOfficial: vi.fn((official, hint) => {
+    if (!official || !hint?.feeAmountWei)
+      return official ?? null;
+    return {
+      ...official,
+      pfWalletFee: {
+        amountWei: String(hint.feeAmountWei),
+        type: hint.feeType === "SHARES" ? "SHARES" : "COLLATERAL",
+      },
+    };
+  }),
 }));
 
 import {
@@ -19,6 +30,7 @@ import {
 import {
   getHouseWalletSettlementHint,
   officialStubFromWalletHint,
+  waitForHouseWalletSettlementHint,
 } from "./pf_wallet_events.js";
 
 beforeEach(() => {
@@ -26,6 +38,8 @@ beforeEach(() => {
   getHouseWalletSettlementHint.mockReturnValue(null);
   officialStubFromWalletHint.mockReset();
   officialStubFromWalletHint.mockReturnValue(null);
+  waitForHouseWalletSettlementHint.mockReset();
+  waitForHouseWalletSettlementHint.mockResolvedValue(null);
 });
 
 describe("pf_orders official status mapping", () => {
@@ -112,6 +126,40 @@ describe("pf_orders official status mapping", () => {
       fetchOrder: async () => ({ status: "OPEN" }),
     });
     expect(official?.status).toBe("FILLED");
+  });
+
+  it("waitForHouseOrderTerminal wakes early when wallet hint arrives mid-interval", async () => {
+    const hint = {
+      orderHash: "0xwake",
+      settlement: "unfilled",
+      type: "orderNotAccepted",
+    };
+    getHouseWalletSettlementHint.mockReturnValue(null);
+    waitForHouseWalletSettlementHint.mockImplementation(
+      () => new Promise((resolve) => {
+        setTimeout(() => resolve(hint), 30);
+      }),
+    );
+    officialStubFromWalletHint.mockReturnValue({
+      status: "CANCELLED",
+      order: { hash: "0xwake" },
+      pfWalletEvent: "orderNotAccepted",
+    });
+    let n = 0;
+    const t0 = Date.now();
+    const official = await waitForHouseOrderTerminal("0xwake", {
+      attempts: 5,
+      intervalMs: 500,
+      fetchOrder: async () => {
+        n += 1;
+        return { status: "OPEN" };
+      },
+    });
+    const elapsed = Date.now() - t0;
+    expect(official?.status).toBe("CANCELLED");
+    // 应在 mid-interval 被 wallet 唤醒，远少于 5×500ms
+    expect(elapsed).toBeLessThan(400);
+    expect(n).toBeLessThanOrEqual(2);
   });
 
   it("fetchHousePredictOrderResolved uses wallet stub when REST still OPEN", async () => {

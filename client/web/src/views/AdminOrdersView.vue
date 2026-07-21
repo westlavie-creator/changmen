@@ -20,10 +20,20 @@ const router = useRouter();
 const userStore = useUserStore();
 
 const date = ref(String(route.query.date || todayKey()));
-const filterProvider = ref("");
+const filterProvider = ref(String(route.query.provider || ""));
 const filterUserId = ref(String(route.query.userId || ""));
+const filterPlayerId = ref(
+  (() => {
+    const n = Number(route.query.playerId);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  })(),
+);
 const groupMode = ref<GroupMode>(
-  route.query.view === "account" ? "account" : "user",
+  route.query.view === "account"
+    || filterPlayerId.value
+    || String(route.query.provider || "") === "PredictFun"
+    ? "account"
+    : "user",
 );
 const loading = ref(false);
 const orders = ref<AdminOrderRow[]>([]);
@@ -60,9 +70,12 @@ const accountById = computed(() => {
 });
 
 const filteredOrders = computed(() => {
-  if (!filterUserId.value)
-    return orders.value;
-  return orders.value.filter(r => r.userId === filterUserId.value);
+  let list = orders.value;
+  if (filterUserId.value)
+    list = list.filter(r => r.userId === filterUserId.value);
+  if (filterPlayerId.value)
+    list = list.filter(r => Number(r.playerId) === filterPlayerId.value);
+  return list;
 });
 
 const userFilterOptions = computed(() =>
@@ -195,7 +208,9 @@ async function loadOrders() {
   try {
     const page = await getAdminOrdersAll({
       date: date.value,
+      userId: filterUserId.value || undefined,
       provider: filterProvider.value || undefined,
+      playerId: filterPlayerId.value || undefined,
     });
     orders.value = page.list ?? [];
   }
@@ -218,6 +233,10 @@ function syncRouteQuery() {
     query.view = "account";
   if (filterUserId.value)
     query.userId = filterUserId.value;
+  if (filterProvider.value.trim())
+    query.provider = filterProvider.value.trim();
+  if (filterPlayerId.value)
+    query.playerId = String(filterPlayerId.value);
   router.replace({
     name: "admin-orders",
     query,

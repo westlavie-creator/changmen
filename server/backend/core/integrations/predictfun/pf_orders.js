@@ -15,6 +15,7 @@ import {
   getHouseWalletSettlementHint,
   officialStubFromWalletHint,
   waitForHouseWalletSettlementHint,
+  attachWalletFeeToOfficial,
 } from "./pf_wallet_events.js";
 
 /** 官方状态 → VenueOrder.status */
@@ -134,13 +135,15 @@ export async function fetchHousePredictOrderResolved(hashOrId, opts = {}) {
     }
     const officialFilled = await fetchOrder(key);
     if (officialFilled && isPredictOfficialTerminal(officialFilled.status))
-      return officialFilled;
+      return attachWalletFeeToOfficial(officialFilled, earlyHint);
     return officialStubFromWalletHint(earlyHint) || officialFilled;
   }
 
   let official = await fetchOrder(key);
-  if (official && isPredictOfficialTerminal(official.status))
-    return official;
+  if (official && isPredictOfficialTerminal(official.status)) {
+    const hintAfter = resolveHint(official);
+    return attachWalletFeeToOfficial(official, hintAfter);
+  }
 
   const hint = resolveHint(official);
   if (!hint || hint.settlement === "pending")
@@ -157,8 +160,29 @@ function sleep(ms) {
 }
 
 /**
+ * 用 wallet hint 收束（拒单可 stub；成交优先 REST 校正金额）。
+ * @param {string} key
+ * @param {object} hint
+ * @param {(h: string) => Promise<object|null>} fetchOrder
+ * @returns {Promise<object|null>}
+ */
+async function resolveFromWalletHint(key, hint, fetchOrder) {
+  if (!hint || hint.settlement === "pending")
+    return null;
+  if (hint.settlement === "unfilled") {
+    const stub = officialStubFromWalletHint(hint);
+    if (stub)
+      return stub;
+  }
+  const official = await fetchOrder(key);
+  if (official && isPredictOfficialTerminal(official.status))
+    return attachWalletFeeToOfficial(official, hint);
+  return officialStubFromWalletHint(hint) || official;
+}
+
+/**
  * 轮询官方 GetOrder 直至终态（FILLED / CANCELLED / …）或超时。
- * 并行消费 house `predictWalletEvents`（加速确认；REST 仍优先）。
+ * 并行消费 house `predictWalletEvents`：间隔内 race hint，有终态立即收束（少打 REST）。
  * @param {string} hash typed-data hash
  * @param {{ attempts?: number, intervalMs?: number, fetchOrder?: (h: string) => Promise<object|null> }} [opts]
  * @returns {Promise<object|null>} 最后一次官方 OrderData；超时可能仍为 OPEN
@@ -171,6 +195,7 @@ export async function waitForHouseOrderTerminal(hash, opts = {}) {
   const intervalMs = Math.max(50, Number(opts.intervalMs) || 300);
   const fetchOrder = opts.fetchOrder || fetchHousePredictOrderByHash;
   const timeoutMs = attempts * intervalMs;
+  const deadline = Date.now() + timeoutMs;
 
   ensureHouseWalletEventsStarted();
 
@@ -180,39 +205,49 @@ export async function waitForHouseOrderTerminal(hash, opts = {}) {
   for (let i = 0; i < attempts; i += 1) {
     const peeked = getHouseWalletSettlementHint(key);
     if (peeked && peeked.settlement !== "pending") {
-      // 拒单：wallet 即可收束；成交：优先 REST 校正金额后再 stub
-      if (peeked.settlement === "unfilled") {
-        const stub = officialStubFromWalletHint(peeked);
-        if (stub)
-          return stub;
-      }
-      last = await fetchOrder(key);
-      if (last && isPredictOfficialTerminal(last.status))
-        return last;
-      const stub = officialStubFromWalletHint(peeked);
-      if (stub)
-        return stub;
+      const fromHint = await resolveFromWalletHint(key, peeked, fetchOrder);
+      if (fromHint)
+        return fromHint;
     }
 
     last = await fetchOrder(key);
     if (last && isPredictOfficialTerminal(last.status))
       return last;
 
-    if (i + 1 < attempts)
-      await sleep(intervalMs);
+    if (i + 1 >= attempts)
+      break;
+
+    const remaining = Math.max(0, deadline - Date.now());
+    if (remaining <= 0)
+      break;
+
+    // 间隔内若 wallet 终态到达则立即醒来，勿干等 interval
+    const early = await Promise.race([
+      walletHintPromise,
+      sleep(Math.min(intervalMs, remaining)).then(() => null),
+    ]);
+    if (early && early.settlement !== "pending") {
+      const fromHint = await resolveFromWalletHint(key, early, fetchOrder);
+      if (fromHint)
+        return fromHint;
+    }
   }
 
-  const lateHint = await Promise.race([
-    walletHintPromise,
-    Promise.resolve(null),
-  ]);
+  // 循环结束后再 peek / 在剩余时限内等 hint（修复旧版 Promise.race(resolve(null)) 空转）
+  let lateHint = getHouseWalletSettlementHint(key);
+  if (!lateHint || lateHint.settlement === "pending") {
+    const left = Math.max(0, deadline - Date.now());
+    if (left > 0) {
+      lateHint = await Promise.race([
+        walletHintPromise,
+        sleep(left).then(() => null),
+      ]);
+    }
+  }
   if (lateHint && lateHint.settlement !== "pending") {
-    last = await fetchOrder(key);
-    if (last && isPredictOfficialTerminal(last.status))
-      return last;
-    const stub = officialStubFromWalletHint(lateHint);
-    if (stub)
-      return stub;
+    const fromHint = await resolveFromWalletHint(key, lateHint, fetchOrder);
+    if (fromHint)
+      return fromHint;
   }
 
   return last;
@@ -284,6 +319,17 @@ export function mapPredictOrderToVenueOrder(official, rds = {}) {
     pfSide: rds.pfSide ? String(rds.pfSide) : undefined,
     pfBuyOrderId: rds.pfBuyOrderId ? String(rds.pfBuyOrderId) : undefined,
     pfShares: Number(rds.pfShares) > 0 ? Number(rds.pfShares) : undefined,
+    pfFeeAmountWei: rds.pfFeeAmountWei ? String(rds.pfFeeAmountWei) : undefined,
+    pfFeeType: rds.pfFeeType === "SHARES" || rds.pfFeeType === "COLLATERAL"
+      ? rds.pfFeeType
+      : undefined,
+    pfFeeUsdt: rds.pfFeeUsdt != null && Number.isFinite(Number(rds.pfFeeUsdt))
+      ? Number(rds.pfFeeUsdt)
+      : undefined,
+    pfFeeRateBps: (() => {
+      const n = Number(rds.pfFeeRateBps);
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    })(),
   };
 }
 

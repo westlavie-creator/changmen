@@ -35,6 +35,29 @@ describe("parsePredictWalletEvent", () => {
     expect(parsePredictWalletEvent({ type: "orderCancelled", orderHash: "0x1" })?.settlement).toBe("unfilled");
     expect(parsePredictWalletEvent({ type: "orderNotAccepted", orderHash: "0x1" })?.settlement).toBe("unfilled");
     expect(parsePredictWalletEvent({ type: "orderTransactionFailed", orderHash: "0x1" })?.settlement).toBe("unfilled");
+    expect(parsePredictWalletEvent({ type: "orderExpired", orderHash: "0x1" })?.settlement).toBe("unfilled");
+  });
+
+  it("maps orderAccepted / Submitted to pending (keep waiting)", () => {
+    expect(parsePredictWalletEvent({ type: "orderAccepted", orderHash: "0x1" })?.settlement).toBe("pending");
+    expect(parsePredictWalletEvent({
+      type: "orderTransactionSubmitted",
+      orderHash: "0x1",
+    })?.settlement).toBe("pending");
+  });
+
+  it("parses optional fee on orderTransactionSuccess", () => {
+    const h = parsePredictWalletEvent({
+      type: "orderTransactionSuccess",
+      orderHash: "0xfee",
+      fill: { executedSizeWei: "1" },
+      fee: { amountWei: "2000000000000000000", type: "COLLATERAL" },
+    });
+    expect(h?.settlement).toBe("filled");
+    expect(h?.feeAmountWei).toBe("2000000000000000000");
+    expect(h?.feeType).toBe("COLLATERAL");
+    const stub = officialStubFromWalletHint(h);
+    expect(stub?.pfWalletFee?.amountWei).toBe("2000000000000000000");
   });
 
   it("unwraps type M envelope", () => {
@@ -83,6 +106,20 @@ describe("house wallet hint store", () => {
     }, 20);
     const hint = await p;
     expect(hint?.settlement).toBe("unfilled");
+  });
+
+  it("does not let pending overwrite terminal hint", () => {
+    _ingestWalletEventForTests({
+      type: "orderTransactionSuccess",
+      orderHash: "0xkeep",
+      fill: { executedSizeWei: "1" },
+    });
+    _ingestWalletEventForTests({
+      type: "orderAccepted",
+      orderHash: "0xkeep",
+    });
+    expect(getHouseWalletSettlementHint("0xkeep")?.settlement).toBe("filled");
+    expect(getHouseWalletSettlementHint("0xkeep")?.type).toBe("orderTransactionSuccess");
   });
 });
 

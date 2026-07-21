@@ -50,6 +50,12 @@ export interface OrderRow {
   PfShares?: number;
   PfTokenId?: string;
   PfMarketId?: string;
+  PfSellOrderId?: string;
+  PfSellProceeds?: number;
+  PfFeeAmountWei?: string;
+  PfFeeType?: "COLLATERAL" | "SHARES";
+  PfFeeUsdt?: number;
+  PfFeeRateBps?: number;
 }
 
 export interface OrderPlayerInfo {

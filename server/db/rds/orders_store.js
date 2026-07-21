@@ -432,6 +432,7 @@ export async function fetchOrdersAdminPage({
   dateKey,
   userId,
   provider,
+  playerId,
   pageIndex,
   pageSize,
   userIds,
@@ -455,6 +456,11 @@ export async function fetchOrdersAdminPage({
     if (provider) {
       params.push(String(provider));
       where += ` AND provider = $${params.length}`;
+    }
+    const pid = Number(playerId);
+    if (Number.isFinite(pid) && pid > 0) {
+      params.push(pid);
+      where += ` AND player_id = $${params.length}`;
     }
     const countRes = await pool.query(`SELECT COUNT(*)::int AS n FROM orders WHERE ${where}`, params);
     const total = countRes.rows[0]?.n ?? 0;
