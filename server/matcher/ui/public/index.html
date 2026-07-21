@@ -725,6 +725,10 @@ let _hiddenPanelOpen = false;
 let _hiddenClientMatchesLoaded = false;
 let _hiddenClientMatchesLoading = false;
 let _reverseSubmitting = false;
+/** 队名搜索防抖（仅 input；筛选 chip / search 清空仍立即应用） */
+let _teamSearchDebounceTimer = null;
+/** load 序号：丢弃过期的并发响应，避免后发先至覆盖 */
+let _loadSeq = 0;
 
 function clientMatchPlatformCount(cm) {
   return Object.keys(cm?.matchs || {}).length;
@@ -871,6 +875,77 @@ function applyTeamSearchFromInput() {
   );
   updateTeamSearchHint(recs.length, unmatchedCount, idCount, nameCount);
   scheduleRedrawCanonicalTeamLinks();
+}
+
+function scheduleTeamSearchFromInput() {
+  if (_teamSearchDebounceTimer) clearTimeout(_teamSearchDebounceTimer);
+  _teamSearchDebounceTimer = setTimeout(() => {
+    _teamSearchDebounceTimer = null;
+    applyTeamSearchFromInput();
+  }, 220);
+}
+
+function flushTeamSearchFromInput() {
+  if (_teamSearchDebounceTimer) {
+    clearTimeout(_teamSearchDebounceTimer);
+    _teamSearchDebounceTimer = null;
+  }
+  applyTeamSearchFromInput();
+}
+
+function isMatcherModalOpen() {
+  const link = document.getElementById('link-modal');
+  const archive = document.getElementById('archive-modal');
+  return Boolean(
+    (link && !link.classList.contains('hidden'))
+    || (archive && !archive.classList.contains('hidden')),
+  );
+}
+
+/** 操作中 / 拖线 / 弹窗：后台轮询应跳过，避免打断确认流 */
+function isMatcherUiBusy() {
+  return Boolean(
+    _linkSubmitting
+    || _matcherBusy
+    || _matchMergeBusy
+    || _teamLinkSubmitting
+    || _teamRegisterSubmitting
+    || _matchLinkSubmitting
+    || _reverseSubmitting
+    || _hiddenClientMatchesLoading
+    || _teamDrag
+    || _matchDrag
+    || isMatcherModalOpen(),
+  );
+}
+
+function shouldSkipBackgroundRefresh() {
+  if (typeof document !== 'undefined' && document.hidden) return true;
+  return isMatcherUiBusy();
+}
+
+function captureBoardScroll() {
+  const bodies = document.querySelectorAll('.team-link-board .split-col-body');
+  return Array.from(bodies, (el) => el.scrollTop);
+}
+
+function restoreBoardScroll(saved) {
+  if (!saved || !saved.length) return;
+  const bodies = document.querySelectorAll('.team-link-board .split-col-body');
+  saved.forEach((top, i) => {
+    const el = bodies[i];
+    if (el) el.scrollTop = top;
+  });
+}
+
+function schedulePolledLoad() {
+  if (shouldSkipBackgroundRefresh()) return;
+  void load({ preserveScroll: true });
+}
+
+function schedulePolledMatcherStatus() {
+  if (shouldSkipBackgroundRefresh()) return;
+  void refreshMatcherStatus();
 }
 
 function parseTeamsArray(m) {
@@ -3125,9 +3200,19 @@ function linkedClientMatchColumnHint(cmId) {
 }
 
 async function load(opts = {}) {
+  const seq = ++_loadSeq;
+  // 定位到某条时由 focusLinkedClientMatch 滚，勿还原旧 scroll
+  const preserveScroll = opts.focusCmId == null && opts.preserveScroll !== false;
+  const scrollSnap = preserveScroll ? captureBoardScroll() : null;
+  const searchInput = document.getElementById('team-search-input');
+  const searchFocused = document.activeElement === searchInput;
+  const searchCaret = searchFocused && searchInput
+    ? { start: searchInput.selectionStart, end: searchInput.selectionEnd }
+    : null;
   try {
     const url = opts.bustCache ? `/api/data?_=${Date.now()}` : '/api/data';
     const { data: d } = await fetchJson(url);
+    if (seq !== _loadSeq) return;
     if (d.error) throw new Error(d.error);
     _lastData = d;
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
@@ -3140,6 +3225,7 @@ async function load(opts = {}) {
       if (body) body.innerHTML = '<div class="empty" style="padding:20px">点击“历史赛事”后加载</div>';
     } else if (!_hiddenClientMatchesLoaded) {
       await loadHiddenClientMatches();
+      if (seq !== _loadSeq) return;
     }
     const recs = filterRecsByTeamSearch(d.recommendations || [], _teamSearchQuery);
     renderTeamQueue(recs, d.clientMatches || [], teamMaps);
@@ -3152,8 +3238,27 @@ async function load(opts = {}) {
     bindMatchLinkDrag();
     scheduleRedrawCanonicalTeamLinks();
     document.getElementById('updated-at').textContent = '更新 ' + fmtTime(d.updatedAt || Date.now());
+    // 请求期间若输入已变但防抖未到，按当前框值再滤一次，避免短暂错筛
+    const liveQ = (searchInput?.value || '').trim();
+    if (liveQ !== _teamSearchQuery) applyTeamSearchFromInput();
+    if (scrollSnap) {
+      restoreBoardScroll(scrollSnap);
+      requestAnimationFrame(() => restoreBoardScroll(scrollSnap));
+    }
+    if (searchFocused && searchInput) {
+      searchInput.focus({ preventScroll: true });
+      if (searchCaret && typeof searchCaret.start === 'number') {
+        try {
+          searchInput.setSelectionRange(
+            searchCaret.start,
+            typeof searchCaret.end === 'number' ? searchCaret.end : searchCaret.start,
+          );
+        } catch { /* type=search 偶发不可设选区，忽略 */ }
+      }
+    }
     if (opts.focusCmId != null) focusLinkedClientMatch(opts.focusCmId);
   } catch (err) {
+    if (seq !== _loadSeq) return;
     const errHtml = `<div class="empty" style="color:#f87171">加载失败: ${esc(err.message)}</div>`;
     document.getElementById('matched-id-panels') && (document.getElementById('matched-id-panels').innerHTML = errHtml);
     document.getElementById('matched-name-panels') && (document.getElementById('matched-name-panels').innerHTML = errHtml);
@@ -3195,13 +3300,13 @@ document.querySelectorAll('[data-matched-filter]').forEach(btn => {
   });
 });
 
-document.getElementById('team-search-input')?.addEventListener('input', applyTeamSearchFromInput);
-document.getElementById('team-search-input')?.addEventListener('search', applyTeamSearchFromInput);
+document.getElementById('team-search-input')?.addEventListener('input', scheduleTeamSearchFromInput);
+document.getElementById('team-search-input')?.addEventListener('search', flushTeamSearchFromInput);
 
 load();
 refreshMatcherStatus();
-setInterval(load, 30000);
-setInterval(refreshMatcherStatus, 10000);
+setInterval(schedulePolledLoad, 30000);
+setInterval(schedulePolledMatcherStatus, 10000);
 </script>
 </body>
 </html>
