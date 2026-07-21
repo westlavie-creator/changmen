@@ -56,6 +56,9 @@ const POLYMARKET_ALIASES: Record<string, string> = {
 /** Limitless metadata.esportTitle → catalog code */
 const LIMITLESS_ALIASES: Record<string, string> = {
   "cs2": "cs2",
+  "cs-go": "cs2",
+  "csgo": "cs2",
+  "counter-strike": "cs2",
   "counter-strike-2": "cs2",
   "lol": "lol",
   "league-of-legends": "lol",

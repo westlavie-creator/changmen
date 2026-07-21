@@ -24,6 +24,8 @@ assert.deepEqual(g.resolveClientGame("PredictFun", "lol"), { Game: "英雄联盟
 assert.equal(g.getPlatformGameId("PredictFun", "valorant"), "valorant");
 assert.equal(g.getGameCodeForPlatformId("Limitless", "dota-2"), "dota2");
 assert.equal(g.getGameCodeForPlatformId("Limitless", "league-of-legends"), "lol");
+assert.equal(g.getGameCodeForPlatformId("Limitless", "cs-go"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("Limitless", "cs2"), "cs2");
 assert.equal(g.getGameCodeForPlatformId("SXBet", "lol"), "lol");
 assert.equal(g.getGameCodeForPlatformId("SXBet", "dota2"), "dota2");
 assert.equal(g.getGameCodeForPlatformId("Azuro", "1061"), "cs2");

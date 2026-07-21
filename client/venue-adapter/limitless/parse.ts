@@ -64,7 +64,16 @@ export function mapLimitlessEsportTitle(title: string | undefined): string | nul
   const raw = String(title ?? "").trim().toLowerCase();
   if (!raw)
     return null;
-  if (raw === "cs2" || raw === "counter-strike-2")
+  // 官网/API 现多用 cs-go；旧样本偶见 cs2 / counter-strike-2
+  if (
+    raw === "cs2"
+    || raw === "cs-go"
+    || raw === "csgo"
+    || raw === "counter-strike"
+    || raw === "counter-strike-2"
+    || raw === "counter strike"
+    || raw === "counter strike 2"
+  )
     return "cs2";
   if (raw === "lol" || raw === "league-of-legends")
     return "lol";

@@ -56,7 +56,48 @@ describe("limitless parse", () => {
   it("maps esport titles to catalog codes", () => {
     assert.equal(mapLimitlessEsportTitle("dota-2"), "dota2");
     assert.equal(mapLimitlessEsportTitle("league-of-legends"), "lol");
+    assert.equal(mapLimitlessEsportTitle("cs-go"), "cs2");
+    assert.equal(mapLimitlessEsportTitle("csgo"), "cs2");
+    assert.equal(mapLimitlessEsportTitle("cs2"), "cs2");
     assert.equal(mapLimitlessEsportTitle("unknown"), null);
+  });
+
+  it("accepts cs-go match_winner groups from live API shape", () => {
+    const group = {
+      ...SAMPLE_GROUP,
+      title: "Team Nemesis vs Astralis",
+      metadata: {
+        homeTeam: "Team Nemesis",
+        awayTeam: "Astralis",
+        esportTitle: "cs-go",
+        marketType: "match_winner",
+        startMatchTimestampInUTC: 1783414800,
+      },
+      markets: [
+        {
+          slug: "team-nemesis-yes",
+          title: "Team Nemesis",
+          status: "FUNDED",
+          expired: false,
+          tokens: { yes: "nem-yes" },
+          prices: [0.4, 0.6],
+        },
+        {
+          slug: "astralis-yes",
+          title: "Astralis",
+          status: "FUNDED",
+          expired: false,
+          tokens: { yes: "ast-yes" },
+          prices: [0.6, 0.4],
+        },
+      ],
+    };
+    assert.equal(isLimitlessEsportsMatchWinnerGroup(group), true);
+    const mapped = buildLimitlessMappedMarket(group);
+    assert.ok(mapped);
+    assert.equal(mapped!.match.SourceGameID, "cs2");
+    assert.equal(mapped!.bet.Map, 0);
+    assert.equal(mapped!.bet.SourceHomeID, "nem-yes");
   });
 
   it("detects esports match_winner groups", () => {
