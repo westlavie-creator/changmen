@@ -1,6 +1,6 @@
 /**
  * [Polymarket 可证实] CLOB heartbeat：约 10s 无有效心跳会取消该用户全部 open 订单。
- * 自动 GTC 止盈卖单必须维持心跳，否则挂单会很快被清掉。
+ * 当前生产无调用方（GTC 止盈已取消；手动卖为 FOK）。保留供将来挂单类功能复用。
  * @see https://docs.polymarket.com/trading/orders/overview
  * SDK path: POST /v1/heartbeats  body `{ heartbeat_id }`
  */

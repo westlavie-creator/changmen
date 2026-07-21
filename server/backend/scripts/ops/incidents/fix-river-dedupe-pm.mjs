@@ -2,7 +2,7 @@
 /** Remove duplicate Polymarket account 45 from River; keep 47 (primary PM). */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
-import { loadProfileById } from "../core/db/store.js";
+import { loadProfileById } from "../../../core/db/store.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const DROP_ID = 45;

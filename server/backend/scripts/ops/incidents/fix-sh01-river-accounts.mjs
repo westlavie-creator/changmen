@@ -5,7 +5,7 @@
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
-import { loadProfileById, pullProfilesFromDb } from "../core/db/store.js";
+import { loadProfileById, pullProfilesFromDb } from "../../../core/db/store.js";
 
 const dryRun = process.argv.includes("--dry-run");
 loadChangmenEnv();

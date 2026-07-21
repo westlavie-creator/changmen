@@ -24,12 +24,6 @@ vi.mock("./pmClientApi", () => ({
   pmGetTrades,
 }));
 
-vi.mock("./pmAutoExitSell", () => ({
-  schedulePolymarketAutoExitSellAfterBuy: vi.fn(),
-  placePolymarketAutoExitSell: vi.fn(async () => ({ ok: true })),
-  clearPolymarketAutoExitSellScheduleForTests: vi.fn(),
-}));
-
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
   return {
     provider: "Polymarket",

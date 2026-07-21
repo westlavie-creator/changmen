@@ -35,11 +35,6 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   /** 利润达阈值时放大下注金额 */
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /**
-   * Polymarket 买单确认成交后自动挂 GTC 止盈卖单。
-   * 默认关闭；仅显式 true 开启。
-   */
-  pmAutoExitSell: boolean;
-  /**
    * 控制台 UI 皮肤。
    * default = 现有深色；brutal = neo-brutalism（粗边框/硬阴影/浅底）。
    */
@@ -65,7 +60,6 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
-    pmAutoExitSell: false,
     uiTheme: "default",
   };
 }
@@ -94,8 +88,6 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
-    // 止盈设定已取消：忽略历史存档，恒为关
-    pmAutoExitSell: false,
     uiTheme: normalizeUiTheme(row.uiTheme),
   };
 }

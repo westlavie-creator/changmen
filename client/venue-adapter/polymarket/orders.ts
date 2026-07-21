@@ -1064,108 +1064,6 @@ export function finalizePolymarketVenueOrders(
   return stripPolymarketSellOrders(reconcilePolymarketBuySellOrders(merged));
 }
 
-/** 汇总已确认 SELL 成交的卖出份数（按 asset_id） */
-export function aggregatePolymarketSellSharesByAsset(
-  trades: PolymarketTradeRow[],
-): Map<string, number> {
-  const sold = new Map<string, number>();
-  for (const trade of trades) {
-    if (String(trade.side ?? "").trim().toUpperCase() !== "SELL")
-      continue;
-    if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
-      continue;
-    const assetId = String(trade.asset_id ?? "").trim();
-    if (!assetId)
-      continue;
-    const shares = polymarketShareCount(trade.size);
-    if (shares <= 0)
-      continue;
-    sold.set(assetId, Math.round(((sold.get(assetId) ?? 0) + shares) * 10000) / 10000);
-  }
-  return sold;
-}
-
-/** 仅对官网同步行 FIFO 扣减 SELL；changmen 行由卖出归因写回，不自动扣 */
-export function applyPolymarketExternalSellDeduction(
-  orders: VenueOrder[],
-  flattenedTrades: PolymarketTradeRow[],
-): VenueOrder[] {
-  const soldByAsset = aggregatePolymarketSellSharesByAsset(flattenedTrades);
-  if (!soldByAsset.size)
-    return orders;
-
-  const soldRemaining = new Map(soldByAsset);
-  const openExternal = orders
-    .filter(o =>
-      o.pmOrigin === "external"
-      && o.status === "none"
-      && o.pmTokenId
-      && resolvePmRemainingShares(o) > 0.0001,
-    )
-    .sort((a, b) => a.createAt - b.createAt || a.orderId.localeCompare(b.orderId));
-
-  for (const order of openExternal) {
-    const tokenId = String(order.pmTokenId);
-    let soldLeft = soldRemaining.get(tokenId) ?? 0;
-    if (soldLeft <= 0)
-      continue;
-
-    const remaining = resolvePmRemainingShares(order);
-    const stake = order.pmStakeUsdc ?? 0;
-    const deduct = Math.min(remaining, soldLeft);
-    const ratio = remaining > 0 ? deduct / remaining : 0;
-    order.pmAttributedSellShares = round4((order.pmAttributedSellShares ?? 0) + deduct);
-    order.pmStakeUsdc = round4(Number(stake) * (1 - ratio));
-    // 原始 betMoney 不随 external 卖出扣减
-    soldRemaining.set(tokenId, round4(soldLeft - deduct));
-  }
-  return orders;
-}
-
-/** @deprecated 使用 applyPolymarketExternalSellDeduction；保留单测兼容 */
-export function applyPolymarketNetPositions(
-  orders: VenueOrder[],
-  flattenedTrades: PolymarketTradeRow[],
-): VenueOrder[] {
-  for (const order of orders) {
-    if (!order.pmOrigin)
-      order.pmOrigin = "external";
-  }
-  return applyPolymarketExternalSellDeduction(orders, flattenedTrades);
-}
-
-/** 存在未归因卖出时告警（不改行） */
-export function warnPolymarketPositionDrift(
-  orders: VenueOrder[],
-  flattenedTrades: PolymarketTradeRow[],
-): void {
-  const soldByAsset = aggregatePolymarketSellSharesByAsset(flattenedTrades);
-  if (!soldByAsset.size)
-    return;
-
-  for (const [tokenId, soldTotal] of soldByAsset) {
-    const attributed = orders
-      .filter(o => String(o.pmTokenId) === tokenId)
-      .reduce((sum, o) => sum + (o.pmAttributedSellShares ?? 0), 0);
-    const openChangmen = orders.filter(o =>
-      o.pmOrigin === "changmen"
-      && String(o.pmTokenId) === tokenId
-      && o.status === "none"
-      && (o.pmShares ?? 0) > 0.0001,
-    );
-    const unexplained = Math.round((soldTotal - attributed) * 10000) / 10000;
-    if (unexplained > 0.01 && openChangmen.length > 0) {
-      console.warn("[Polymarket] position drift alert: 链上卖出未归因到 changmen 行", {
-        tokenId,
-        soldTotal,
-        attributed,
-        unexplained,
-        changmenOrderIds: openChangmen.map(o => o.orderId),
-      });
-    }
-  }
-}
-
 async function fetchGammaMarketsChunk(params: URLSearchParams): Promise<PolymarketRawMarket[]> {
   try {
     const data = await polymarketPluginGet<unknown>(
@@ -1377,6 +1275,6 @@ export function mapPolymarketTradesToVenueOrders(
     if (mapped)
       orders.push(mapped);
   }
-  // changmen 不做卖出：CLOB SELL 成交不映射为 VenueOrder
+  // changmen 仓不在官网卖路径归因：CLOB SELL 成交不映射为 VenueOrder
   return finalizePolymarketVenueOrders(orders, 0);
 }

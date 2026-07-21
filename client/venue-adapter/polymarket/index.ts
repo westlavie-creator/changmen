@@ -20,7 +20,6 @@ export * from "./pmBetGuard";
 export * from "./pmDetection";
 export * from "./pmStake";
 export * from "./pmTickPrice";
-export * from "./pmAutoExitSell";
 export * from "./pmManualSell";
 export * from "./pmHeartbeat";
 export * from "./pmStoredOrders";

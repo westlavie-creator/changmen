@@ -7,7 +7,8 @@
  *   node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --player-id 42 --execute
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { accountMultiplyScale, scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
+import { accountMultiplyScale } from "@changmen/shared/account_multiply";
+import { Currency, getExchange, scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
 import {
   fetchGammaMarketsByConditionIds,
   computePolymarketSettlement,
@@ -19,13 +20,13 @@ import {
   enrichMarketsFromClob,
   orderLabelsFromMarket,
   isHexMatchFallback,
-} from "../core/integrations/polymarket/settlement.js";
+} from "../../../core/integrations/polymarket/settlement.js";
 import {
   fetchPolymarketTradesSince,
   indexPolymarketBuyTrades,
   collectPolymarketUserAddresses,
   parsePolymarketTokenConfig,
-} from "../core/integrations/polymarket/clob_l2.js";
+} from "../../../core/integrations/polymarket/clob_l2.js";
 
 loadChangmenEnv();
 
@@ -151,9 +152,25 @@ function stakeUsdcFromRow(row) {
   if (Number.isFinite(fromRaw) && fromRaw > 0)
     return fromRaw;
   const betCny = Number(row.bet_money) || 0;
-  if (betCny > 0)
-    return Math.round((betCny / 7) * 10000) / 10000;
+  const fx = getExchange(Currency.USDT) || 6.8;
+  if (betCny > 0 && fx > 0)
+    return Math.round((betCny / fx) * 10000) / 10000;
   return 0;
+}
+
+/** 与 client changmenSoldOutBlocksGammaSettlement 对齐：卖光后不再写 Gamma 赛果 */
+function soldOutBlocksGammaSettlement(raw) {
+  const fill = Number(raw.pmShares) || 0;
+  const attr = Number(raw.pmAttributedSellShares) || 0;
+  const rem = Math.round(Math.max(0, fill - attr) * 10000) / 10000;
+  const remaining = rem <= 0.01 ? 0 : rem;
+  if (remaining > 0.0001)
+    return false;
+  const state = String(raw.pmSellState ?? "").toLowerCase();
+  // open+full attr：历史不一致，允许 Gamma（NRG 兜底）
+  if (state === "open" && attr > 0)
+    return false;
+  return attr > 0 || state === "closed";
 }
 
 function computeSettlementForRow(row, trade, market) {
@@ -178,6 +195,7 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
     stillNone: 0,
     skippedNoTrade: 0,
     skippedNoMarket: 0,
+    skippedSoldOut: 0,
     updates: [],
   };
 
@@ -185,7 +203,20 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
     console.warn(`[player ${playerId}] 无 token，仅尝试 raw+Gamma 补结算`);
   }
 
-  const minCreateAt = Math.min(...orders.map(o => Number(o.create_at) || Date.now()));
+  // 先剔除卖光未结买单，避免无意义 CLOB/Gamma，且 Gamma 失败时仍能统计跳过
+  const workOrders = [];
+  for (const row of orders) {
+    const raw = rawFromRow(row);
+    if (String(row.status) === "None" && soldOutBlocksGammaSettlement(raw)) {
+      result.skippedSoldOut += 1;
+      continue;
+    }
+    workOrders.push(row);
+  }
+  if (!workOrders.length)
+    return result;
+
+  const minCreateAt = Math.min(...workOrders.map(o => Number(o.create_at) || Date.now()));
   const afterSec = Math.floor(minCreateAt / 1000) - 86_400;
 
   let trades = [];
@@ -212,7 +243,7 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
   );
   const conditionIds = [];
   const tokenIds = [];
-  for (const row of orders) {
+  for (const row of workOrders) {
     const raw = rawFromRow(row);
     const trade = tradeByOrderId.get(String(row.order_id));
     if (trade) {
@@ -237,9 +268,11 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
     return result;
   }
 
-  for (const row of orders) {
+  for (const row of workOrders) {
     const orderId = String(row.order_id);
     const raw = rawFromRow(row);
+    const isUnsettled = String(row.status) === "None";
+
     const trade = tradeByOrderId.get(orderId);
     const marketKey = trade
       ? trade
@@ -261,7 +294,6 @@ async function settlePlayerOrders(playerId, orders, account, { maxPages, dryRun 
     const computed = computeSettlementForRow(row, trade, market);
     const labels = orderLabelsFromMarket(market);
     const needsTitleFix = isHexMatchFallback(row.match) && !!labels.match;
-    const isUnsettled = String(row.status) === "None";
 
     if (!isUnsettled && !needsTitleFix)
       continue;
@@ -368,6 +400,7 @@ let totalSettled = 0;
 let totalStillNone = 0;
 let totalSkippedTrade = 0;
 let totalSkippedMarket = 0;
+let totalSkippedSoldOut = 0;
 
 for (const [playerId, playerOrders] of byPlayer) {
   const account = accountIndex.get(playerId);
@@ -392,6 +425,7 @@ for (const [playerId, playerOrders] of byPlayer) {
   totalStillNone += summary.stillNone;
   totalSkippedTrade += summary.skippedNoTrade;
   totalSkippedMarket += summary.skippedNoMarket;
+  totalSkippedSoldOut += summary.skippedSoldOut || 0;
 
   for (const u of summary.updates.slice(0, 20))
     console.log(`  ${u.orderId.slice(0, 14)}… ${u.from} → ${u.to} money=${u.money} | ${u.item}`);
@@ -399,7 +433,7 @@ for (const [playerId, playerOrders] of byPlayer) {
     console.log(`  … 另有 ${summary.updates.length - 20} 条`);
 
   console.log(
-    `  结算 ${summary.settled}，仍 None ${summary.stillNone}，无 trade ${summary.skippedNoTrade}，无 Gamma ${summary.skippedNoMarket}`,
+    `  结算 ${summary.settled}，仍 None ${summary.stillNone}，无 trade ${summary.skippedNoTrade}，无 Gamma ${summary.skippedNoMarket}，卖光跳过 ${summary.skippedSoldOut || 0}`,
   );
 }
 
@@ -408,6 +442,7 @@ console.log(`可结算写入: ${totalSettled}${args.dryRun ? "（dry-run 未写�
 console.log(`仍 None（market 未决）: ${totalStillNone}`);
 console.log(`无 CLOB trade: ${totalSkippedTrade}`);
 console.log(`无 Gamma market: ${totalSkippedMarket}`);
+console.log(`卖光跳过 Gamma: ${totalSkippedSoldOut}`);
 
 if (args.dryRun && totalSettled > 0)
   console.log("\n确认后执行: node scripts/ops/migrations/backfill-polymarket-order-settlement.mjs --execute ...");

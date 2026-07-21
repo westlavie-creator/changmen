@@ -53,6 +53,28 @@ orders / money_logs
 | `Client_DeletePlayer` | 软删 player + 从内存账号列表移除 |
 | `Client_SaveOrder` / `SaveMoneyLog` | 仅本人 player_id |
 
+## 预测市场：卖单依附买单（`[changmen 扩展]`）
+
+仅 **Polymarket / PredictFun**。无 A8 协议字段；落在 `orders.raw` + 前端展示层。
+
+| | Polymarket | PredictFun |
+|--|------------|------------|
+| 绑父 | `pmBuyOrderId` | `pfBuyOrderId` |
+| 买单状态 | `pmSellState`：`open` / `partial` / `closed` / `settled` | `pfSellState`：`open` / `closed`（仅 1:1 全卖） |
+| 盈亏 | 记在**买单** `money`；卖单 `money` 恒 0 | 同左；买单另有 `pfSellProceeds` |
+| 展示 | 侧栏软附属嵌套（不改落库 Link 语义以外的字段） | 同左 |
+| 归账日 | 卖单跟买单 `CreateAt`；跨日由 `mergePredictionBuySellSiblings` 并入 | 同左 |
+
+详细 checklist：`client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md`；PF 契约：`client/venue-adapter/predictfun/README.md`。
+
+账本巡检（只读）：
+
+```bat
+cd changmen\server\backend
+node scripts\ops\diagnostics\audit-order-sidebar-health.mjs --days 30
+node scripts\ops\incidents\scan-fix-pm-sell-pnl-double.mjs --dry-run
+```
+
 ## 运维
 
 ```bat

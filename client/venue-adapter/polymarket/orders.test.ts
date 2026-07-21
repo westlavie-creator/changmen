@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
   aggregatePolymarketTrades,
-  applyPolymarketNetPositions,
   applyPolymarketSettlement,
   flattenPolymarketTrades,
   finalizePolymarketVenueOrders,
@@ -969,70 +968,5 @@ describe("applyPolymarketSettlement", () => {
     expect(buy?.status).toBe("win");
     expect(buy?.money).toBe(18);
     expect(buy?.pmSellState).toBe("settled");
-  });
-
-  test("applyPolymarketNetPositions tracks attributed sell shares (FIFO external only)", () => {
-    const token = "asset-a";
-    const orders = [{
-      provider: "Polymarket" as const,
-      orderId: "buy-1",
-      odds: 2,
-      createAt: 1000,
-      betMoney: 10,
-      reward: 20,
-      money: 0,
-      status: "none" as const,
-      game: "",
-      match: "",
-      bet: "",
-      item: "A",
-      pmTokenId: token,
-      pmShares: 10,
-      pmStakeUsdc: 10,
-      pmOrigin: "external" as const,
-    }];
-    const sells: PolymarketTradeRow[] = [{
-      side: "SELL",
-      status: "CONFIRMED",
-      asset_id: token,
-      size: "4",
-      price: "0.6",
-    }];
-    applyPolymarketNetPositions(orders, sells);
-    expect(orders[0]?.pmShares).toBe(10);
-    expect(orders[0]?.pmAttributedSellShares).toBe(4);
-    expect(orders[0]?.pmStakeUsdc).toBe(6);
-    expect(orders[0]?.betMoney).toBe(10);
-  });
-
-  test("applyPolymarketNetPositions skips changmen rows", () => {
-    const token = "asset-b";
-    const orders = [{
-      provider: "Polymarket" as const,
-      orderId: "buy-cm",
-      odds: 2,
-      createAt: 1000,
-      betMoney: 10,
-      reward: 20,
-      money: 0,
-      status: "none" as const,
-      game: "",
-      match: "",
-      bet: "",
-      item: "A",
-      pmTokenId: token,
-      pmShares: 10,
-      pmStakeUsdc: 10,
-      pmOrigin: "changmen" as const,
-    }];
-    const sells: PolymarketTradeRow[] = [{
-      side: "SELL",
-      status: "CONFIRMED",
-      asset_id: token,
-      size: "4",
-      price: "0.6",
-    }];
-    applyPolymarketNetPositions(orders, sells);
-    expect(orders[0]?.pmShares).toBe(10);
   });
 });

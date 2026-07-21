@@ -14,7 +14,6 @@
     "client/venue-adapter/polymarket/legOutcome.ts",
     "client/venue-adapter/polymarket/userWs.ts",
     "client/venue-adapter/polymarket/userWsMessages.ts",
-    "client/venue-adapter/polymarket/pmAutoExitSell.ts",
     "client/venue-adapter/polymarket/pmLogicalPosition.ts",
     "client/venue-adapter/polymarket/pmOrigin.ts",
     "client/venue-adapter/polymarket/pmDetection.ts",

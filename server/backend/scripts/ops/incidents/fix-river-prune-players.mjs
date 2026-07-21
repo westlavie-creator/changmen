@@ -7,7 +7,7 @@
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
-import { loadAccountsForUser, loadProfileById } from "../core/db/store.js";
+import { loadAccountsForUser, loadProfileById } from "../../../core/db/store.js";
 
 const dryRun = process.argv.includes("--dry-run");
 const KEEP = new Set([46, 47, 48]);

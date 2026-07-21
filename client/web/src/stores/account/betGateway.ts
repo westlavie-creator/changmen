@@ -18,16 +18,8 @@ import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetect
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
-import { useUserStore } from "@/stores/userStore";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts;
-
-/** [changmen 扩展] 将扩展页 PM卖单开关写入 option（默认关，仅 true 开启） */
-function attachPolymarketAutoExitSellPref(option: BetOption): void {
-  if (option.type !== "Polymarket")
-    return;
-  option.pmAutoExitSell = useUserStore().extensionPrefs.pmAutoExitSell === true;
-}
 
 function notifyPendingVenueConfirm(
   store: AccountStoreContext,
@@ -96,7 +88,6 @@ export async function checkBetting(
   try {
     attachPolymarketDetectionQuote(option);
     attachPredictFunDetectionQuote(option);
-    attachPolymarketAutoExitSellPref(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
     option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
     return await provider.checkBet(account, option);
@@ -145,7 +136,6 @@ export async function placeBet(
   const beginTime = Date.now();
   let result: BetResult = new BetResult(account.provider, false, "未知错误");
   try {
-    attachPolymarketAutoExitSellPref(option);
     if (!option.data) {
       option = await checkBetting(store, account, option);
     }

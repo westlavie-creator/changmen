@@ -6,14 +6,14 @@
  *   node scripts/manual-fix-pm-order-by-prefix.mjs --order-prefix 0x4a8d25e298ab95e84e --execute
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { scaleUsdtToCnyDisplay } from "@changmen/shared/account_multiply";
+import { Currency, getExchange, scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
 import {
   fetchGammaMarketsByConditionIds,
   computePolymarketSettlementFromOrderRaw,
   lookupGammaMarket,
   mapDbStatus,
   enrichMarketsFromClob,
-} from "../core/integrations/polymarket/settlement.js";
+} from "../../../core/integrations/polymarket/settlement.js";
 
 loadChangmenEnv();
 
@@ -43,9 +43,24 @@ function stakeUsdcFromRow(row) {
   if (Number.isFinite(fromRaw) && fromRaw > 0)
     return fromRaw;
   const betCny = Number(row.bet_money) || 0;
-  if (betCny > 0)
-    return Math.round((betCny / 7) * 10000) / 10000;
+  const fx = getExchange(Currency.USDT) || 6.8;
+  if (betCny > 0 && fx > 0)
+    return Math.round((betCny / fx) * 10000) / 10000;
   return 0;
+}
+
+/** 与 client / backfill 一致：卖光后勿 Gamma 纸面结算 */
+function soldOutBlocksGammaSettlement(raw) {
+  const fill = Number(raw.pmShares) || 0;
+  const attr = Number(raw.pmAttributedSellShares) || 0;
+  const rem = Math.round(Math.max(0, fill - attr) * 10000) / 10000;
+  const remaining = rem <= 0.01 ? 0 : rem;
+  if (remaining > 0.0001)
+    return false;
+  const state = String(raw.pmSellState ?? "").toLowerCase();
+  if (state === "open" && attr > 0)
+    return false;
+  return attr > 0 || state === "closed";
 }
 
 function rawFromRow(row) {
@@ -55,7 +70,7 @@ function rawFromRow(row) {
 const args = parseArgs(process.argv);
 if (args.help || !args.orderPrefix) {
   console.log(`用法:
-  node scripts/manual-fix-pm-order-by-prefix.mjs --order-prefix <0x...> [--player-id N] [--dry-run|--execute]`);
+  node scripts/ops/incidents/manual-fix-pm-order-by-prefix.mjs --order-prefix <0x...> [--player-id N] [--dry-run|--execute]`);
   process.exit(args.help ? 0 : 1);
 }
 
@@ -90,6 +105,10 @@ const row = rows[0];
 const raw = rawFromRow(row);
 if (!raw.pmConditionId || !raw.pmTokenId) {
   console.error("订单 raw 缺少 pmConditionId / pmTokenId，无法 Gamma 结算");
+  process.exit(1);
+}
+if (soldOutBlocksGammaSettlement(raw)) {
+  console.error("该买单已卖光（或 closed），跳过 Gamma 补结算；盈亏应已在卖出路径");
   process.exit(1);
 }
 

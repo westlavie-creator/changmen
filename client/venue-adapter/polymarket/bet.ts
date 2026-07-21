@@ -34,7 +34,6 @@ import {
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
-import { schedulePolymarketAutoExitSellAfterBuy } from "./pmAutoExitSell";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet } from "./transport";
@@ -670,16 +669,6 @@ export const polymarketProvider: PlatformProvider = {
       if (bet.orderId)
         markPolymarketChangmenOrder(account.accountId, bet.orderId);
       bumpPolymarketOrderSyncAfterBet(account.accountId);
-      if (filled && bet.orderId) {
-        // 仅 FOK matched + takingAmount>0（确认成交）后挂单；delayed 走 settlement 确认后再挂
-        schedulePolymarketAutoExitSellAfterBuy({
-          account,
-          buyOrderId: bet.orderId,
-          tokenId,
-          buyResponse: result,
-          enabled: option.pmAutoExitSell,
-        });
-      }
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
         // 官方 delay 窗：CLOB market.sd（秒）；未知时回落 1s
@@ -699,13 +688,8 @@ export const polymarketProvider: PlatformProvider = {
             "[Polymarket] delayed 单缺少 betId(condition_id)，User WS 未订阅；拒单检测仅走 REST",
           );
         }
-        // delayed 仅启动确认任务；auto-exit 在 trades/份数确认后才挂卖单
-        startPolymarketSettlementJob(account, bet.orderId, {
-          poll,
-          autoExitSell: option.pmAutoExitSell === true
-            ? { tokenId }
-            : undefined,
-        });
+        // delayed：后台确认成交（拒单/撮合）；手动卖出见 pmManualSell
+        startPolymarketSettlementJob(account, bet.orderId, { poll });
       }
       return bet;
     } catch (err) {

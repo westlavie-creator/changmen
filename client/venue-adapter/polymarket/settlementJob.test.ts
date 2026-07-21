@@ -1,8 +1,6 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
-import { resolvePolymarketBuyFill } from "./orders";
-import { placePolymarketAutoExitSell } from "./pmAutoExitSell";
 import {
   awaitPolymarketSettlementJob,
   clearPolymarketSettlementJobs,
@@ -13,18 +11,6 @@ vi.mock("./orderSettlement", () => ({
   settlePolymarketDelayedOrder: vi.fn(),
 }));
 
-vi.mock("./orders", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./orders")>();
-  return {
-    ...actual,
-    resolvePolymarketBuyFill: vi.fn(),
-  };
-});
-
-vi.mock("./pmAutoExitSell", () => ({
-  placePolymarketAutoExitSell: vi.fn(async () => ({ ok: true })),
-}));
-
 function pmAccount(accountId = 7): PlatformAccount {
   return { provider: "Polymarket", accountId } as PlatformAccount;
 }
@@ -32,9 +18,6 @@ function pmAccount(accountId = 7): PlatformAccount {
 describe("settlementJob", () => {
   beforeEach(() => {
     vi.mocked(settlePolymarketDelayedOrder).mockReset();
-    vi.mocked(resolvePolymarketBuyFill).mockReset();
-    vi.mocked(placePolymarketAutoExitSell).mockReset();
-    vi.mocked(placePolymarketAutoExitSell).mockResolvedValue({ ok: true } as any);
     clearPolymarketSettlementJobs();
   });
 
@@ -69,42 +52,18 @@ describe("settlementJob", () => {
     expect(settlePolymarketDelayedOrder).toHaveBeenCalledTimes(2);
   });
 
-  it("does not place auto-exit sell until buy fill shares are confirmed", async () => {
-    vi.useFakeTimers();
+  it("forwards poll opts to settlePolymarketDelayedOrder", async () => {
     vi.mocked(settlePolymarketDelayedOrder).mockResolvedValue({
       outcome: "matched",
-      row: { status: "MATCHED", size_matched: "10" },
+      row: { status: "MATCHED" },
     });
-    vi.mocked(resolvePolymarketBuyFill).mockResolvedValue({ stakeUsdc: 0, shares: 0 });
-
-    startPolymarketSettlementJob(pmAccount(), "0xdelayed", {
-      autoExitSell: { tokenId: "123456789" },
-    });
-    await awaitPolymarketSettlementJob(pmAccount(), "0xdelayed");
-    await vi.runAllTimersAsync();
-
-    expect(placePolymarketAutoExitSell).not.toHaveBeenCalled();
-    vi.useRealTimers();
-  });
-
-  it("places auto-exit sell only after confirmed buy shares", async () => {
-    vi.mocked(settlePolymarketDelayedOrder).mockResolvedValue({
-      outcome: "matched",
-      row: { status: "MATCHED", size_matched: "10" },
-    });
-    vi.mocked(resolvePolymarketBuyFill).mockResolvedValue({ stakeUsdc: 5, shares: 10 });
-
-    startPolymarketSettlementJob(pmAccount(), "0xfilled", {
-      autoExitSell: { tokenId: "123456789" },
-    });
-    await awaitPolymarketSettlementJob(pmAccount(), "0xfilled");
-    await new Promise(r => setTimeout(r, 30));
-
-    expect(placePolymarketAutoExitSell).toHaveBeenCalledWith({
-      account: expect.objectContaining({ accountId: 7 }),
-      buyOrderId: "0xfilled",
-      tokenId: "123456789",
-      shares: 10,
-    });
+    const poll = { initialDelayMs: 100, intervalMs: 200, maxAttempts: 3 };
+    startPolymarketSettlementJob(pmAccount(), "0xopts", { poll });
+    await awaitPolymarketSettlementJob(pmAccount(), "0xopts");
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 7 }),
+      "0xopts",
+      expect.objectContaining({ poll }),
+    );
   });
 });

@@ -32,11 +32,6 @@ export class BetOption {
   loseOrder = false;
   /** 套利/jb 由 finalize/processLoseOrders 做 PM 拒单检测；跳过 placeBet 内后台轮询 */
   deferPmSettlement = false;
-  /**
-   * [changmen 扩展] Polymarket 买单确认后是否自动挂止盈卖单。
-   * `undefined` / `true` = 开（默认）；`false` = 关。
-   */
-  pmAutoExitSell?: boolean;
   data: Record<string, unknown> | null = null;
   checkError?: string;
   orderIndex = 0;

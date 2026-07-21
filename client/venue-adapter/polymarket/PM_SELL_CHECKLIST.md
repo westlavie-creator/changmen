@@ -1,131 +1,118 @@
-# Polymarket 卖出功能 — 后期加回 Checklist
+# Polymarket 卖出 / 卖单依附买单 — Checklist
 
-> **现状（2026-07）**：**手动卖出** = 对当前买单剩余份额下 FOK，返回结果并落库本买卖对。  
-> 系统先买后卖；每个「卖出」按钮只服务该行买单。**不做止盈 GTC**，卖出路径不撤单、不处理其它订单。
-
-### 已取消（止盈 GTC）
-
-- [x] 扩展页「PM卖单」入口已移除；prefs 强制 `pmAutoExitSell: false`
-- [x] 卖出路径不撤挂单、失败不回挂
-
-### 已落地（手动卖出）
-
-- [x] `pmManualSell.ts`：只卖当前买单剩余份额（FOK 吃 bids）
-- [x] 卖单同 Link + `pmBuyOrderId`；`saveOrder` 写卖单 + 仅 patch 该买单
-- [x] 侧栏该买单行「卖出」按钮；不碰其它单
----
-
-## 1. 产品规则（加功能前先定死）
-
-| 决策项 | 待选 | 备注 |
-|--------|------|------|
-| 卖出触发 | 手动平仓 UI / 条件单 / 套利腿失败减仓 | 与 A8 无对照，纯 changmen 扩展 |
-| 可卖份额 | `resolvePmRemainingShares` = fill − attributed | 与 `pmShares`（原始成交份数）分离 |
-| 部分卖出 | 支持 / 仅全卖 | 影响 `pmSellState`: `partial` vs `closed` |
-| 卖光后买单 | 盈亏在卖单行 vs 仍等 Gamma | 现逻辑倾向：**卖光 → 不再写 Gamma 到买单** |
-| 官网手动卖 changmen 仓位 | 归因到 changmen 买单 / 忽略 | **现况：changmen 买单不参与 external reconcile** |
-| 卖出限价 | 市价 FOK / 限价 GTC | 买入已用 FOK + detectionMaxPrice 思路可类比 |
-| 与套利关系 | 独立平仓 vs arb 失败自动减仓 | 建议第一期只做独立手动平仓 |
+> **状态（2026-07-21）**：手动卖出 + 卖单依附买单 **已落地**（`[changmen 扩展]`，无 A8 对照）。  
+> 本文件分三块：**已落地** / **已取消** / **仍待办**。勿再按「无卖出」维护生产路径。
 
 ---
 
-## 2. 现有可复用代码（勿删）
+## 0. 产品口径（已定）
 
-| 模块 | 路径 | 状态 |
-|------|------|------|
-| SELL POST 解析 | `orders.ts` → `parsePolymarketSellOrderFill` | 有单测 |
-| SELL 成交确认 | `resolvePolymarketSellFill` / `WithRetry` | 有 |
-| 卖单 VenueOrder 映射 | `mapPolymarketSellTradeToVenueOrder` | CLOB sync 已在用 |
-| external 买卖 reconcile | `reconcileExternalPolymarketOrders` | **会设** `pmSellState` partial/closed |
-| changmen 卖单 merge | `mergeChangmenStoredWithClob`（sell 分支） | RDS + CLOB 合并骨架在 |
-| 卖出估价 | `parse.ts` → `estimatePolymarketSellProceedsUsdc` | 预检深度用 |
-| Server 卖单保存 | `order_store.js` → `mergePolymarketLogicalSave` sell 分支 | 有 |
-| 持仓判断 | `pmLogicalPosition.ts` | `hasOpenPolymarketPosition` 等 |
-| Gamma 挡闸 | `changmenSoldOutBlocksGammaSettlement` | 含 `open+full attr` 例外（NRG 兜底） |
+| 项 | 定案 |
+|----|------|
+| 触发 | 侧栏未结买单行「卖出」→ 手动平仓；**不做**止盈 GTC / 条件单 |
+| 可卖份额 | `resolvePmRemainingShares` = fill − `pmAttributedSellShares` |
+| 部分卖 | **支持** → `pmSellState`: `partial` / `closed`（卖光） |
+| 下单 | 当前买单剩余份额 **FOK 吃 bids**；不撤其它挂单 |
+| 依附字段 | 卖单 `pmBuyOrderId`；买单 `pmAttributedSellShares` + `pmSellState` |
+| 盈亏 | **记在买单 `money`**；卖单 `money` 恒 0（回款在 `betMoney`，成本/PnL 在 raw） |
+| 卖光后 | 倾向挡 Gamma 纸面结算（`changmenSoldOutBlocksGammaSettlement`；含 `open+full attr` 历史兜底） |
+| 展示 | 方案 A **软附属**：`orderListDisplayBlocks` 嵌在买单下；不改落库 |
+| 归账日 | 卖单跟父买单 `CreateAt`；后端 `mergePredictionBuySellSiblings` 跨日并入 |
+| 官网卖 changmen 仓 | **不归因**（changmen 买单不进 external reconcile；仅侧栏手动卖写绑定） |
+| 卖出预检 UI | **不做**（手动卖仅简单确认份额后下单；深度校验在 FOK 下单时） |
 
-### 未接线（后期二选一：接线 or 删）
-
-| 函数 | 问题 |
-|------|------|
-| `applyPolymarketExternalSellDeduction` | 只增 `pmAttributedSellShares`，**不设** `pmSellState` — finalize **未调用** |
-| `warnPolymarketPositionDrift` | 无生产调用方 |
+PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏在买单）。
 
 ---
 
-## 3. 必须新建 / 补全
+## 1. 已落地
 
-### 3.1 下单（venue-adapter）
+### 1.1 Adapter
 
-- [ ] `bet.ts`：`betting` 增加 `side: SELL` 分支（现仅 `Side.BUY`）
-- [ ] SELL 预检：`checkBet` 读 **bids** 深度 + min size（买入读 asks）
-- [ ] SELL FOK / 限价体：`createPolymarketOrderBody` 传 `Side.SELL`
-- [ ] 卖出 stake 语义：份数 vs USDC proceeds — 与 `pmStake` 对齐文档
-- [ ] delayed / User WS：卖单同样需 `condition_id`（`option.betId`）
-- [ ] `markPolymarketChangmenOrder` + `pmOrigin: changmen` + `pmSide: sell`
+- [x] `pmManualSell.ts`：FOK 卖当前买单剩余份额；同批写卖单 + patch 买单
+- [x] 卖单：`pmSide=sell`、`pmOrigin=changmen`、`pmBuyOrderId`、`money=0`
+- [x] 买单：累加 `pmAttributedSellShares`、`pmSellState`、累加已实现 `money`（首次卖丢弃纸面 win/lose）
+- [x] `orders.ts`：external reconcile 可设 `pmBuyOrderId` / `pmSellState`（官网卖路径）
+- [x] `pmLogicalPosition.ts`：剩余份额 / 持仓判断
+- [x] SELL POST 解析 / fill 确认 / VenueOrder 映射（CLOB sync 在用）
 
-### 3.2 卖单写 RDS（原子字段）
+> **说明**：手动卖走 `pmManualSell`，**不是** `bet.ts` 通用 `Side.SELL` 分支。§仍待办里的「bet.ts SELL」仅在要做预检深度 UI / 通用下注路径时才需要。
 
-卖单成交 persist 时 **同一事务** 写齐：
+### 1.2 Server
 
-```text
-卖单行:
-  pmSide=sell, pmOrigin=changmen, pmBuyOrderId=<买单 orderId>
-  pmShares, pmFillPrice, betMoney(proceeds USDC→display CNY)
-  pmStakeUsdc=<对应买单成本 USDC>, pmRealizedPnlUsdc, money
+- [x] `order_store.js`：卖单 Link 强制跟父买单；`mergePolymarketLogicalSave` sell 分支
+- [x] `mergePredictionBuySellSiblings` + `fetchPredictionSellsByBuyOrderIds`：跨日 sibling
+- [x] `getOrders` / RDS merge 统一（`fetchPolymarketVenueOrdersMerged`）
 
-买单行（同步更新）:
-  pmAttributedSellShares += sharesSold
-  pmSellState = remaining > 0 ? "partial" : "closed"
-  pmStakeUsdc 按份额比例扣减（与 reconcileExternal 768-769 行一致）
-```
+### 1.3 Frontend
 
-**禁止**：只写 `pmAttributedSellShares` 而不更新 `pmSellState`（NRG 根因）。
+- [x] 侧栏「卖出」：`stores/account/pmManualSell.ts` + `OrderList.vue`（`allowPmSell`；embedded 管理端默认关）
+- [x] 落库失败防双卖：session `persistBlocked`
+- [x] `orderLink.ts`：软附属、`alignPredictionSellLinksToBuys`、归账日、`polymarketMoneyForAggregate`（防双计）
+- [x] `pmOrderDisplay.ts`：买卖标签 / 盈亏展示口径
 
-### 3.3 finalize / sync
-
-- [ ] `reconcilePolymarketBuySellOrders`：changmen 卖单纳入匹配（现 changmen 买单被 **排除** 在 external reconcile 外）
-- [ ] 或：卖单 persist 时已写归因，finalize 以 RDS 为准、reconcile 仅校验
-- [ ] `finalizePolymarketVenueOrders`：决定 `applyPolymarketExternalSellDeduction` 去留
-- [ ] `mergeChangmenStoredWithClob`：卖光买单 `blockGammaSettlement` 行为与产品规则一致
-- [x] `getOrders` 与 RDS merge **统一**（`fetchPolymarketVenueOrdersMerged` + `registerPolymarketStoredVenueOrdersLoader`）
-
-### 3.4 Server
-
-- [ ] `order_store.js`：镜像 client `changmenSoldOutBlocksGammaSettlement`（含 `open+full attr` 例外）
-- [ ] 汇率：去掉硬编码 `×7`，改 `@changmen/shared/account_multiply`
-- [ ] `ops/migrations/backfill-polymarket-order-settlement.mjs`：卖光买单跳过 Gamma；与 client 闸一致
-
-### 3.5 前端
-
-- [ ] 平仓入口 UI（份额、预估回款、当前 bid 深度）
-- [ ] `orderLink.ts` / `pmOrderDisplay.ts`：按需展示卖单行（现 **过滤** `PmSide=sell`）
-- [ ] 订单组盈亏：`computeOrderGroupProfit` 已 skip sell — 确认卖光场景展示
-- [ ] `hasOpenPolymarketPosition` / 未结余额：卖后份额减少正确反映
-- [ ] 修复 `pmShares≈0` 仍判 open 的误判（与卖出无关但影响平仓前展示）
-
-### 3.6 钱层
-
-- [ ] 卖出 UI 输入 CNY 计划额 or 份数 — 定义 Plan CNY 边界（可扩 `a8VenueMoney`）
-- [ ] proceeds / cost / PnL 展示口径与 `resolveDisplayCnyFromVenueUsdc` 一致
-
----
-
-## 4. 测试清单（加功能时必绿）
+### 1.4 测试与巡检
 
 | 场景 | 参考 |
 |------|------|
-| 全卖 changmen 买单 | attr=fill, state=closed, 买单不再 Gamma settle |
-| 部分卖 | state=partial, 剩余份额 Gamma 仍可结算 |
-| 卖单 delayed → 确认 | `arbLegSettle` / `settlePolymarketDelayedOrder` |
-| 卖单 POST matched | `parsePolymarketSellOrderFill` |
-| persist 后 sync  round-trip | RDS attr/state 不被 CLOB merge 覆盖错 |
-| `open+full attr` 历史行 | `orders.test.ts` L710 NRG 回归 |
-| Server save | `order_store_link.test.mjs` sell/buy 配对 |
-| 订单列表 | 买单+卖单同 Link 分组（`orderStore.test.ts`） |
+| 买卖 patch / delayed | `pmManualSell.test.ts`、`pmManualSell.delayed.test.ts` |
+| Link / 跨日 / 组盈亏 | `order_store_link.test.mjs`、`orderLink.test.ts` |
+| reconcile / NRG 闸 | `orders.test.ts` |
+| 只读巡检 | `scripts/ops/diagnostics/audit-order-sidebar-health.mjs` |
+| 双计扫修 | `scripts/ops/incidents/scan-fix-pm-sell-pnl-double.mjs`（先 `--dry-run`） |
+| 历史迁移 | `migrate-pm-sell-pnl-to-buy.mjs` 等 |
+
+**巡检基线（2026-07-21，近 30 天）**：`pm_money_2x_sell_pnl` / 买卖双计 / 孤儿卖单 = 0；残留 high 仅 `pm_sold_out_but_stake_left`（stake 未扣干净，另案）。
 
 ---
 
-## 5. 已知历史事故（勿再现）
+## 2. 已取消（止盈 GTC）
+
+- [x] 扩展页「PM卖单」入口已移除
+- [x] prefs 字段 `pmAutoExitSell` 已删除（历史存档键忽略）
+- [x] `pmAutoExitSell.ts` / settlementJob·bet 钩子 / `pickPolymarketAutoExitSellPrice` **已删除**
+- [x] 卖出路径不撤挂单、失败不回挂
+
+手动卖出见 `pmManualSell.ts`（侧栏按钮），与止盈无关。
+
+---
+
+## 3. 仍待办
+
+### 3.1 死代码决策（P1）
+
+| 项 | 动作 |
+|----|------|
+| ~~`pmAutoExitSell*`~~ | **已删（2026-07-21）** |
+| ~~`applyPolymarketExternalSellDeduction` / `applyPolymarketNetPositions` / `aggregatePolymarketSellSharesByAsset`~~ | **已删（2026-07-22）** — 未接线且不设 `pmSellState`，勿半吊子接回 |
+| ~~`warnPolymarketPositionDrift`~~ | **已删（2026-07-22）** |
+| `pmHeartbeat` | 保留；文件头注明暂无生产调用 |
+
+### 3.2 产品待决后再写码（P2）
+
+| 决策项 | 定案 |
+|--------|------|
+| 官网手动卖 changmen 仓 | **不归因**（已锁定；勿接线半成品 FIFO 扣减） |
+| 卖出预检 UI | **不做**（手动卖仅简单确认） |
+| 通用 `bet.ts` SELL | 手动卖已够用；除非套利减仓要复用下注管线 |
+| 与套利关系 | 仅独立手动平仓；arb 失败自动减仓另开需求 |
+| PF 部分卖 | PF 仅 1:1；见 predictfun README |
+
+### 3.3 Server / 运维边角（P2–P3）
+
+- [x] 管理端订单列表复用 `enrichOrdersBelongingToDate` / `mergePredictionBuySellSiblings`（`listAdminOrders` + `listAdminOrdersMatrix`；多用户按 `user_id` 分桶）
+- [x] backfill / manual-fix：CNY→USDC 兜底用 `getExchange(USDT)`（去掉硬编码 `/7`）
+- [x] backfill：卖光买单跳过 Gamma（对齐 `changmenSoldOutBlocksGammaSettlement`）
+- [x] 历史 `pm_sold_out_but_stake_left`：`scripts/ops/incidents/fix-pm-sold-out-stake-left.mjs`（先 `--dry-run`）
+- [x] `tmp_fix_pf_sell_display.mjs` → `scripts/archive/fix-pf-order-display-labels.mjs`（文案修数，非卖出逻辑）
+
+### 3.4 写入纪律
+
+**禁止**只写 `pmAttributedSellShares` 而不更新 `pmSellState`（NRG 根因）。官网归因若重做，须同事务写 state，勿复活已删的「半扣减」函数。
+
+---
+
+## 4. 已知历史事故（勿再现）
 
 **NRG Academy（2026-07-05）**
 
@@ -133,56 +120,36 @@
 pmAttributedSellShares = 36（已满）
 pmSellState = open（未更新）
 → changmenSoldOutBlocksGammaSettlement 旧逻辑挡 Gamma
-→ status 卡 None，需 manual-fix SQL / mjs
+→ status 卡 None
 ```
 
-**修复态**：client `changmenSoldOutBlocksGammaSettlement` 已对 `open+full attr` 放行；  
-**后期卖出**：应从写入源头保证 state 同步，而非只靠例外兜底。
+**修复**：client 闸对 `open+full attr` 放行；**写入源头**必须 attr 与 state 同步。
+
+**盈亏双计**：纸面 Win + 卖出 PnL → `money≈2×`；或买卖行同时有 `money`。  
+读路径：`polymarketMoneyForAggregate` 兜底；写路径：盈亏只累买单；运维：`scan-fix-pm-sell-pnl-double.mjs`。
 
 ---
 
-## 6. 建议实施顺序
-
-```text
-1. 产品规则签字（§1）
-2. bet.ts SELL 预检 + 下单 + POST 解析
-3. persist 卖单 + 更新买单 attr/state（§3.2）
-4. finalize / sync 统一（§3.3）
-5. server order_store 对齐（§3.4）
-6. UI + 订单展示（§3.5）
-7. 全量单测 + 一笔小额实盘验证
-8. 清理死代码或正式接线 applyPolymarketExternalSellDeduction
-```
-
----
-
-## 7. 现阶段（无卖出）维护原则
-
-- **不要**为卖出归因修生产路径；纯买入 Gamma 结算已够用。
-- **保留** §2 所列模块与单测，避免后期从零写。
-- **可选**：历史卡单用 `manual-fix-pm-order-by-prefix.mjs`（`--dry-run` 先行）。
-- **优先**投入检测/下单速度（与卖出无关）：主循环并发、Gamma guard 缓存、SDK 预热、discovery 间隔。
-
----
-
-## 8. 相关文件索引
+## 5. 相关文件索引
 
 ```
-changmen/client/venue-adapter/polymarket/
-  bet.ts              # 现仅 BUY；后期加 SELL
-  orders.ts           # reconcile / Gamma 闸 / sell 映射
+client/venue-adapter/polymarket/
+  pmManualSell.ts          # 手动卖（主路径）
+  orders.ts                # reconcile / Gamma 闸 / sell 映射
   pmLogicalPosition.ts
-  pmStake.ts
-  parse.ts            # estimatePolymarketSellProceedsUsdc
+  parse.ts                 # estimatePolymarketSellProceedsUsdc
 
-changmen/client/venue-adapter/adaptation/a8VenueMoney.ts
-
-changmen/client/web/src/
-  shared/orderLink.ts       # 过滤卖单行
+client/web/src/
+  stores/account/pmManualSell.ts
+  shared/orderLink.ts      # 软附属 / 归账 / 组盈亏
   shared/pmOrderDisplay.ts
-  stores/account/polymarketVenueSync.ts
+  components/order/OrderList.vue
 
-changmen/server/backend/core/account/order_store.js
-changmen/server/backend/core/integrations/polymarket/settlement.js
-changmen/server/backend/scripts/ops/migrations/backfill-polymarket-order-settlement.mjs
+server/backend/core/account/order_store.js
+server/db/rds/orders_store.js   # fetchPredictionSellsByBuyOrderIds
+server/backend/scripts/ops/diagnostics/audit-order-sidebar-health.mjs
+server/backend/scripts/ops/incidents/scan-fix-pm-sell-pnl-double.mjs
+
+docs/ACCOUNT_BACKEND.md         # 买卖依附 + 盈亏口径摘要
+client/venue-adapter/predictfun/README.md   # PF 卖出契约
 ```

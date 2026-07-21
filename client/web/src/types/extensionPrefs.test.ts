@@ -13,7 +13,6 @@ const defaultPrefs = {
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
-  pmAutoExitSell: false,
   uiTheme: "default" as const,
 };
 
@@ -51,10 +50,8 @@ describe("extensionPrefs", () => {
     });
   });
 
-  it("forces pmAutoExitSell off (feature cancelled; ignores stored true)", () => {
-    expect(normalizeExtensionPrefs({}).pmAutoExitSell).toBe(false);
-    expect(normalizeExtensionPrefs({ pmAutoExitSell: true }).pmAutoExitSell).toBe(false);
-    expect(normalizeExtensionPrefs({ pmAutoExitSell: false }).pmAutoExitSell).toBe(false);
+  it("ignores legacy pmAutoExitSell key (feature removed)", () => {
+    expect(normalizeExtensionPrefs({ pmAutoExitSell: true })).toEqual(defaultPrefs);
   });
 
   it("ignores legacy venueHkEgress / pmHkEgress keys", () => {
