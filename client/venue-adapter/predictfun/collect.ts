@@ -1,6 +1,7 @@
 /**
  * PredictFun 电竞：VPS 写 platform_* + MarketIndex；浏览器 Index → Market WS → fo。
- * 对齐 Polymarket collect：实时价只走 WS token quote；Index 变更时种子 clob。
+ * 对齐 Polymarket collect：不跑 categories discovery；实时价只走 WS token quote；Index 变更时种子 clob。
+ * **禁止**浏览器 SaveMatch/SaveBets（VPS collector 独占；浏览器上报会抹局盘）。
  */
 import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";

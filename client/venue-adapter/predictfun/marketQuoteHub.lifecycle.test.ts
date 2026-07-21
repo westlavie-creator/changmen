@@ -195,6 +195,17 @@ describe("PF ws unsubscribe contract", () => {
 });
 
 describe("PF collect / hub source contracts", () => {
+  test("collect never SaveMatch/SaveBet (VPS owns platform_*)", () => {
+    const src = readFileSync(join(root, "collect.ts"), "utf8");
+    expect(src).not.toMatch(/saveBets\s*\(/);
+    expect(src).not.toMatch(/\bsaveMatch\s*\(/);
+    expect(src).not.toMatch(/saveBetSource/);
+    expect(src).not.toMatch(/saveMatchSource/);
+    expect(src).not.toMatch(/useCollectStore/);
+    expect(src).not.toMatch(/API_SaveBet/);
+    expect(src).not.toMatch(/API_SaveMatch/);
+  });
+
   test("collect stop only unregister esport; index heartbeat force; no own WS; no sport re-export", () => {
     const src = readFileSync(join(root, "collect.ts"), "utf8");
     expect(src).toMatch(/unregisterPredictFunQuoteConsumer\(QUOTE_CONSUMER\)/);

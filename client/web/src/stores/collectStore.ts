@@ -6,6 +6,11 @@ import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const CONFIG_KEY = "CollectConfig";
 
+/** VPS collector 独占写 platform_*；浏览器不得 SaveMatch/SaveBet（即便 CollectConfig 打开）。 */
+function isVpsOwnedPlatformCollect(platform: PlatformId | string): boolean {
+  return String(platform) === "PredictFun";
+}
+
 /**
  * 对齐 A8 Pinia `Tf`：`collect` 开关只控制是否调用后端 SaveMatch/SaveBets（数据回传），
  * 不控制前端是否向场馆拉数或写入 oddsStore。各采集器应常驻运行，经本 store 上报时才检查开关。
@@ -52,6 +57,8 @@ export const useCollectStore = defineStore("collect", {
     },
 
     async saveMatch(platform: PlatformId, matchs: CollectMatchDto[]): Promise<boolean> {
+      if (isVpsOwnedPlatformCollect(platform))
+        return false;
       if (!this.collect.get(platform))
         return false;
       // [A8 可证实] Pinia Af.saveMatch：仅 collect 开关门控，空数组仍 POST API_SaveMatch
@@ -68,6 +75,8 @@ export const useCollectStore = defineStore("collect", {
       matchId: string | number,
       bets: CollectBetDto[],
     ): Promise<boolean> {
+      if (isVpsOwnedPlatformCollect(platform))
+        return false;
       if (!this.collect.get(platform))
         return false;
       const ok = await saveBetSource(platform, matchId, bets);

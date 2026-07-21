@@ -180,6 +180,12 @@ function linkedClientMatchId(row) {
 }
 
 export function saveMatches(provider, matchs) {
+  // PredictFun 电竞由 VPS predictfun-collector 独占写 platform_*；
+  // 浏览器若再 SaveMatch，会 orphan-delete / 与 collector 抢写。
+  if (String(provider) === "PredictFun") {
+    console.warn("[esport-api] ignore API_SaveMatch for PredictFun (VPS collector owns platform_*)");
+    return;
+  }
   const now = Date.now();
   const next = {};
   const list = Array.isArray(matchs) ? matchs : [];
@@ -251,6 +257,14 @@ function normalizeSaveBetRows(bets) {
 }
 
 export function saveBets(provider, matchId, bets) {
+  // PredictFun 电竞由 VPS predictfun-collector 独占写；
+  // 浏览器 SaveBet 常只有 Match Winner，replace 会抹掉地图盘。
+  if (String(provider) === "PredictFun") {
+    console.warn(
+      `[esport-api] ignore API_SaveBet for PredictFun match=${matchId} (VPS collector owns platform_bets)`,
+    );
+    return;
+  }
   const key = `${provider}:${matchId}`;
   const existing = _bets[key]?.bets || [];
   const raw = Array.isArray(bets) ? bets : [];

@@ -1,10 +1,10 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { saveMatchSource } from "@/api/esport";
+import { saveBetSource, saveMatchSource } from "@/api/esport";
 import { useCollectStore } from "./collectStore";
 
 vi.mock("@/api/esport", () => ({
-  getClientData: vi.fn(async () => ({ collect: [["OB", true]], log: false })),
+  getClientData: vi.fn(async () => ({ collect: [["OB", true], ["PredictFun", true]], log: false })),
   saveClientData: vi.fn(),
   saveMatchSource: vi.fn(async () => true),
   saveBetSource: vi.fn(async () => true),
@@ -15,6 +15,7 @@ describe("collectStore.saveMatch A8 parity", () => {
   beforeEach(async () => {
     setActivePinia(createPinia());
     vi.mocked(saveMatchSource).mockClear();
+    vi.mocked(saveBetSource).mockClear();
     const store = useCollectStore();
     await store.init();
   });
@@ -32,5 +33,14 @@ describe("collectStore.saveMatch A8 parity", () => {
     const ok = await store.saveMatch("OB", []);
     expect(ok).toBe(false);
     expect(saveMatchSource).not.toHaveBeenCalled();
+  });
+
+  it("never posts SaveMatch/SaveBet for PredictFun even when collect switch is on", async () => {
+    const store = useCollectStore();
+    store.collect.set("PredictFun", true);
+    expect(await store.saveMatch("PredictFun", [])).toBe(false);
+    expect(await store.saveBets("PredictFun", "1", [])).toBe(false);
+    expect(saveMatchSource).not.toHaveBeenCalled();
+    expect(saveBetSource).not.toHaveBeenCalled();
   });
 });
