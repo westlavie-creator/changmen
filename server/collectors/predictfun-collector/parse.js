@@ -1,5 +1,7 @@
 /**
- * Predict.fun 解析（与 client/venue-adapter/predictfun/parse.ts 对齐）
+ * PredictFun 电竞 discovery 解析（**权威实现**）。
+ * VPS collector：categories → orderbook → platform_* + MarketIndex。
+ * 浏览器不跑本文件；client `venue-adapter/predictfun/parse.ts` 只做行情工具 + 测试镜像（对齐 PM）。
  *
  * 官方电竞现形态：
  * - marketVariant: ESPORTS_LOL / ESPORTS_CS2 / …
@@ -311,6 +313,72 @@ export function predictBuyAskFromYesBook(yesBook, isYesOutcome, decimalPrecision
   }));
 }
 
+/** token 是否对应官方 orderbook 的 Yes 侧 */
+export function isPredictYesOutcomeToken(tokenId, outcomes) {
+  const tid = String(tokenId ?? "").trim();
+  const list = outcomes ?? [];
+  if (!tid || !list.length)
+    return true;
+  const match = list.find(o => String(o?.onChainId ?? "").trim() === tid);
+  if (!match)
+    return String(list[0]?.onChainId ?? "").trim() === tid;
+  const name = String(match.name ?? "").trim().toLowerCase();
+  if (name === "yes")
+    return true;
+  if (name === "no")
+    return false;
+  const indexSet = Number(match.indexSet);
+  if (indexSet === 1)
+    return true;
+  if (indexSet === 2)
+    return false;
+  return String(list[0]?.onChainId ?? "").trim() === tid;
+}
+
+/**
+ * 可执行买入概率：优先官方 Yes orderbook（No 侧 getComplement）；
+ * 无 book 时仅 Yes 可用 marketYesAsk；禁止把 Yes ask 塞给 No 当 bookProb。
+ * 过薄档（≤0.02 / ≥0.98）视为不可用 → 0（避免 UI 出现 100/1.01 假可买）。
+ */
+export function resolvePredictOutcomeBuyProb(opts) {
+  const market = opts?.market;
+  const outcome = opts?.outcome;
+  const mid = String(market?.id ?? "").trim();
+  const tok = String(outcome?.onChainId ?? "").trim();
+  const precisionRaw = Number(market?.decimalPrecision);
+  const precision = Number.isFinite(precisionRaw) && precisionRaw >= 0
+    ? Math.floor(precisionRaw)
+    : 2;
+  const isYes = tok
+    ? isPredictYesOutcomeToken(tok, market?.outcomes)
+    : true;
+
+  function usableBuyProb(p) {
+    const n = Number(p);
+    if (!(n > 0.02 && n < 0.98))
+      return 0;
+    return n;
+  }
+
+  const book = mid && opts?.orderbooks ? opts.orderbooks[mid] : undefined;
+  if (book) {
+    const fromBook = predictBuyAskFromYesBook(book, isYes, precision);
+    const usable = usableBuyProb(fromBook);
+    if (usable > 0)
+      return usable;
+    // 已拉到 Yes book 但本侧无深度/过薄：勿回落 category outcome.bestAsk
+    return 0;
+  }
+
+  if (isYes && mid) {
+    const yesAsk = usableBuyProb(opts?.marketYesAsk?.[mid]);
+    if (yesAsk > 0)
+      return yesAsk;
+  }
+
+  return usableBuyProb(outcomeProb(outcome, 0));
+}
+
 export function yesOutcomeOnChainId(market) {
   const outcomes = market?.outcomes ?? [];
   const yes = outcomes.find((o) => {
@@ -448,14 +516,15 @@ export function isPredictEsportsMoneylineCategory(category) {
   );
 }
 
-export function buildPredictMappedMarket(category, buyPrices = {}) {
+export function buildPredictMappedMarket(category, buyPrices = {}, orderbooks = {}) {
   if (!isPredictEsportsMoneylineCategory(category))
     return null;
 
   const markets = category.markets ?? [];
   const dual = pickDualTeamMarkets(markets);
   const single = dual ? null : pickSingleMoneylineMarket(markets);
-  const childGames = dual ? [] : pickChildGameMarkets(markets);
+  // dual 全场（每队一盘）仍可能挂 Map/Game N Winner 子盘，不能因 dual 丢掉局盘
+  const childGames = pickChildGameMarkets(markets);
   if (!dual && !single && !childGames.length)
     return null;
 
@@ -492,6 +561,31 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
     };
   }
 
+  function oddsForOutcome(market, outcome) {
+    return decimalOddsFromProbability(resolvePredictOutcomeBuyProb({
+      market,
+      outcome,
+      orderbooks,
+      marketYesAsk: buyPrices,
+    }));
+  }
+
+  /** 每队一盘：该盘 Yes token 的可买价 */
+  function oddsForDualMarketYes(market) {
+    const mid = String(market.id ?? "").trim();
+    const yesTok = yesOutcomeOnChainId(market);
+    const yesOutcome = (market.outcomes ?? []).find(
+      o => String(o?.onChainId ?? "").trim() === yesTok,
+    ) ?? market.outcomes?.[0];
+    if (yesOutcome)
+      return oddsForOutcome(market, yesOutcome);
+    const book = mid ? orderbooks[mid] : undefined;
+    const fromBook = book ? bestAskFromPredictBook(book) : 0;
+    if (fromBook > 0 && fromBook < 1)
+      return decimalOddsFromProbability(fromBook);
+    return decimalOddsFromProbability(buyPrices[mid] ?? 0);
+  }
+
   if (dual) {
     homeMarketId = String(dual.home.id ?? "");
     awayMarketId = String(dual.away.id ?? "");
@@ -499,8 +593,8 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
     awayTokenId = yesOutcomeTokenId(dual.away);
     homeName = teamNameOf(dual.home);
     awayName = teamNameOf(dual.away);
-    homeOdds = decimalOddsFromProbability(buyPrices[homeMarketId] ?? 0);
-    awayOdds = decimalOddsFromProbability(buyPrices[awayMarketId] ?? 0);
+    homeOdds = oddsForDualMarketYes(dual.home);
+    awayOdds = oddsForDualMarketYes(dual.away);
     rememberBookMeta(dual.home, homeMarketId, homeTokenId);
     rememberBookMeta(dual.away, awayMarketId, awayTokenId);
     bets.push(buildBetFromDualOutcomes({
@@ -516,82 +610,76 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
       awayOdds,
     }));
   }
-  else {
-    if (single) {
-      homeMarketId = String(single.market.id ?? "");
-      awayMarketId = homeMarketId;
-      homeTokenId = String(single.homeOutcome.onChainId ?? "");
-      awayTokenId = String(single.awayOutcome.onChainId ?? "");
-      homeName = outcomeTeamName(single.homeOutcome);
-      awayName = outcomeTeamName(single.awayOutcome);
-      homeOdds = decimalOddsFromProbability(outcomeProb(single.homeOutcome, buyPrices[homeMarketId] ?? 0));
-      awayOdds = decimalOddsFromProbability(outcomeProb(single.awayOutcome, buyPrices[awayMarketId] ?? 0));
-      rememberBookMeta(single.market, homeMarketId, yesOutcomeOnChainId(single.market) || homeTokenId);
-      bets.push(buildBetFromDualOutcomes({
-        sourceMatchId,
-        sourceBetId: `${categoryId}#m0`,
-        mapNum: 0,
-        betName: "Match Winner",
-        homeName,
-        awayName,
-        homeTokenId,
-        awayTokenId,
-        homeOdds,
-        awayOdds,
-      }));
-      bets[bets.length - 1].MarketID = homeMarketId;
-    }
-    else if (childGames[0]) {
-      // 仅有局盘时用 Map1 队名定主客
-      homeName = childGames[0].homeName;
-      awayName = childGames[0].awayName;
-      homeTokenId = String(childGames[0].homeOutcome.onChainId ?? "");
-      awayTokenId = String(childGames[0].awayOutcome.onChainId ?? "");
-      homeMarketId = String(childGames[0].market.id ?? "");
-      awayMarketId = homeMarketId;
-    }
+  else if (single) {
+    homeMarketId = String(single.market.id ?? "");
+    awayMarketId = homeMarketId;
+    homeTokenId = String(single.homeOutcome.onChainId ?? "");
+    awayTokenId = String(single.awayOutcome.onChainId ?? "");
+    homeName = outcomeTeamName(single.homeOutcome);
+    awayName = outcomeTeamName(single.awayOutcome);
+    homeOdds = oddsForOutcome(single.market, single.homeOutcome);
+    awayOdds = oddsForOutcome(single.market, single.awayOutcome);
+    rememberBookMeta(single.market, homeMarketId, yesOutcomeOnChainId(single.market) || homeTokenId);
+    bets.push(buildBetFromDualOutcomes({
+      sourceMatchId,
+      sourceBetId: `${categoryId}#m0`,
+      mapNum: 0,
+      betName: "Match Winner",
+      homeName,
+      awayName,
+      homeTokenId,
+      awayTokenId,
+      homeOdds,
+      awayOdds,
+    }));
+    bets[bets.length - 1].MarketID = homeMarketId;
+  }
+  else if (childGames[0]) {
+    // 仅有局盘时用 Map1 队名定主客
+    homeName = childGames[0].homeName;
+    awayName = childGames[0].awayName;
+    homeTokenId = String(childGames[0].homeOutcome.onChainId ?? "");
+    awayTokenId = String(childGames[0].awayOutcome.onChainId ?? "");
+    homeMarketId = String(childGames[0].market.id ?? "");
+    awayMarketId = homeMarketId;
+  }
 
-    for (const child of childGames) {
-      const mid = String(child.market.id ?? "");
-      const hName = child.homeName;
-      const aName = child.awayName;
-      const hTok = String(child.homeOutcome.onChainId ?? "");
-      const aTok = String(child.awayOutcome.onChainId ?? "");
-      const hOdds = decimalOddsFromProbability(
-        outcomeProb(child.homeOutcome, 0),
-      );
-      const aOdds = decimalOddsFromProbability(
-        outcomeProb(child.awayOutcome, 0),
-      );
-      const status = String(child.market.status ?? "").toUpperCase();
-      const trading = String(child.market.tradingStatus ?? "").toUpperCase();
-      const settled = ["RESOLVED", "SETTLED"].includes(status) || trading === "CLOSED";
-      if (!hName || !aName || !hTok || !aTok)
-        continue;
-      if (!homeName) {
-        homeName = hName;
-        awayName = aName;
-        homeTokenId = hTok;
-        awayTokenId = aTok;
-        homeMarketId = mid;
-        awayMarketId = mid;
-      }
-      rememberBookMeta(child.market, mid, yesOutcomeOnChainId(child.market) || hTok);
-      bets.push(buildBetFromDualOutcomes({
-        sourceMatchId,
-        sourceBetId: `${categoryId}#m${child.mapNum}`,
-        mapNum: child.mapNum,
-        betName: `Map ${child.mapNum} Winner`,
-        homeName: hName,
-        awayName: aName,
-        homeTokenId: hTok,
-        awayTokenId: aTok,
-        homeOdds: hOdds,
-        awayOdds: aOdds,
-        forceLocked: settled,
-      }));
-      bets[bets.length - 1].MarketID = mid;
+  for (const child of childGames) {
+    const mid = String(child.market.id ?? "");
+    const hName = child.homeName;
+    const aName = child.awayName;
+    const hTok = String(child.homeOutcome.onChainId ?? "");
+    const aTok = String(child.awayOutcome.onChainId ?? "");
+    const hOdds = oddsForOutcome(child.market, child.homeOutcome);
+    const aOdds = oddsForOutcome(child.market, child.awayOutcome);
+    const status = String(child.market.status ?? "").toUpperCase();
+    const trading = String(child.market.tradingStatus ?? "").toUpperCase();
+    const settled = ["RESOLVED", "SETTLED"].includes(status) || trading === "CLOSED";
+    if (!hName || !aName || !hTok || !aTok)
+      continue;
+    if (!homeName) {
+      homeName = hName;
+      awayName = aName;
+      homeTokenId = hTok;
+      awayTokenId = aTok;
+      homeMarketId = mid;
+      awayMarketId = mid;
     }
+    rememberBookMeta(child.market, mid, yesOutcomeOnChainId(child.market) || hTok);
+    bets.push(buildBetFromDualOutcomes({
+      sourceMatchId,
+      sourceBetId: `${categoryId}#m${child.mapNum}`,
+      mapNum: child.mapNum,
+      betName: `Map ${child.mapNum} Winner`,
+      homeName: hName,
+      awayName: aName,
+      homeTokenId: hTok,
+      awayTokenId: aTok,
+      homeOdds: hOdds,
+      awayOdds: aOdds,
+      forceLocked: settled,
+    }));
+    bets[bets.length - 1].MarketID = mid;
   }
 
   if (!homeMarketId || !awayMarketId || !homeTokenId || !awayTokenId || !homeName || !awayName)

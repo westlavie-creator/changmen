@@ -1,4 +1,8 @@
-import { replacePlatformBetsForMatch, writePlatformMatches } from "@changmen/db";
+import {
+  deleteOrphanPlatformBetsAsync,
+  syncPlatformBetsForMatchAsync,
+  writePlatformMatchesAsync,
+} from "@changmen/db";
 import { formatPredictionMarketBetOdds } from "@changmen/shared/odds_format";
 
 import {
@@ -47,7 +51,7 @@ export async function runPredictFunDiscoveryCycle() {
 
   const candidates = [];
   for (const category of filtered) {
-    const mapped = buildPredictMappedMarket(category, buyPrices);
+    const mapped = buildPredictMappedMarket(category, buyPrices, books);
     if (mapped)
       candidates.push(mapped);
     if (candidates.length >= MAX_TRACKED_MARKETS)
@@ -62,6 +66,7 @@ export async function runPredictFunDiscoveryCycle() {
     return {
       matches: 0,
       bets: 0,
+      mapBets: 0,
       raw: rawCategories.length,
       esport: esportCategories.length,
       inWindow: filtered.length,
@@ -72,15 +77,21 @@ export async function runPredictFunDiscoveryCycle() {
   const matches = [...new Map(
     candidates.map(row => [String(row.match.SourceMatchID), row.match]),
   ).values()];
-  writePlatformMatches(PLATFORM, matches);
+  const keepIds = matches.map(m => String(m.SourceMatchID));
 
+  // matches 先落库；bets 按 source_bet_id upsert（map0 不抹 map1/2），再清本场多余 bet_id / 场级孤儿
+  await writePlatformMatchesAsync(PLATFORM, matches);
+
+  let mapBetCount = 0;
   for (const mapped of candidates) {
     const list = Array.isArray(mapped.bets) && mapped.bets.length
       ? mapped.bets
       : [mapped.bet];
     const bets = list.map(bet => formatPredictionMarketBetOdds(bet));
-    replacePlatformBetsForMatch(PLATFORM, mapped.match.SourceMatchID, bets);
+    mapBetCount += bets.filter(b => Number(b?.Map) > 0).length;
+    await syncPlatformBetsForMatchAsync(PLATFORM, mapped.match.SourceMatchID, bets);
   }
+  await deleteOrphanPlatformBetsAsync(PLATFORM, keepIds);
 
   persistPredictFunMarketIndex(candidates, books);
 
@@ -94,6 +105,7 @@ export async function runPredictFunDiscoveryCycle() {
   return {
     matches: matches.length,
     bets: betCount,
+    mapBets: mapBetCount,
     raw: rawCategories.length,
     esport: esportCategories.length,
     inWindow: filtered.length,

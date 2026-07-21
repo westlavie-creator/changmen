@@ -74,9 +74,11 @@ PF_HOUSE_MAX_STAKE_USDT=500
 
 |----|------|
 
-| `server/collectors/predictfun-collector`（PM2） | 直连 `api.predict.fun`：categories → orderbook → `writePlatformMatches` / `replacePlatformBetsForMatch`；写 `predictfun_market_index.json`（含 `yesTokenId` / clob 种子） |
+| `server/collectors/predictfun-collector`（PM2） | **Discovery 权威**：直连 `api.predict.fun` categories → orderbook → `platform_*` + `predictfun_market_index.json`（含 `yesTokenId` / clob 种子）。解析见本目录 `parse.js`。 |
 
-| 浏览器 `collect.ts` | 拉 `MarketIndex`（映射+种子）；订 Market WS；hub 将 Yes book 展开为 `{ tokenId, bestAsk }` → `fo`（对齐 PM） |
+| 浏览器 `collect.ts` | **只消费** MarketIndex（映射+种子）+ Market WS；hub 将 Yes book 展开为 `{ tokenId, bestAsk }` → `fo`（对齐 Polymarket；**不**跑 categories discovery） |
+
+| `client/.../predictfun/parse.ts` | 行情工具（complement / book→token）；`buildPredictMappedMarket` 仅测试镜像，勿与 collector 强同步 |
 
 | `server/ws_forward` hub | 全站单条上游 WS，合并订阅后 fan-out |
 

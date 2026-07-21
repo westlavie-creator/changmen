@@ -6,6 +6,7 @@ import {
   decimalOddsFromProbability,
   isPredictEsportsMoneylineCategory,
   mapPredictEsportTag,
+  resolvePredictOutcomeBuyProb,
 } from "./parse.js";
 
 const SAMPLE_CATEGORY = {
@@ -187,5 +188,95 @@ describe("predictfun-collector parse", () => {
   it("reads best ask from tuple orderbook", () => {
     assert.equal(bestAskFromPredictBook({ asks: [[0.55, 100], [0.56, 50]] }), 0.55);
     assert.equal(bestAskFromPredictBook({ asks: [] }), 0);
+  });
+
+  it("resolvePredictOutcomeBuyProb uses Yes book + No complement", () => {
+    const market = {
+      id: 100,
+      decimalPrecision: 2,
+      outcomes: [
+        { name: "HOME", onChainId: "h", indexSet: 1 },
+        { name: "AWAY", onChainId: "a", indexSet: 2 },
+      ],
+    };
+    const book = {
+      asks: [[0.18, 200], [0.19, 100]],
+      bids: [[0.16, 200], [0.15, 50]],
+    };
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[0],
+      orderbooks: { "100": book },
+    }), 0.18);
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[1],
+      orderbooks: { "100": book },
+    }), 0.84);
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[1],
+      marketYesAsk: { "100": 0.33 },
+    }), 0);
+  });
+
+  it("map child odds prefer orderbook over missing outcome.bestAsk", () => {
+    const cat = {
+      id: 222661,
+      slug: "cs2-book-map",
+      title: "Counter-Strike: Infinite vs Team Nemesis (BO3)",
+      status: "OPEN",
+      marketVariant: "ESPORTS_CS2",
+      startsAt: "2026-07-22T12:00:00.000Z",
+      tags: [{ id: "83", name: "Esports" }, { id: "86", name: "CS2" }],
+      markets: [
+        {
+          id: 847769,
+          title: "Match Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_MONEYLINE",
+          decimalPrecision: 2,
+          outcomes: [
+            {
+              name: "INF6",
+              onChainId: "mw-h",
+              bestAsk: { price: 0.99 },
+              variantData: { team: { name: "Infinite", abbreviation: "INF6" } },
+            },
+            {
+              name: "NEM",
+              onChainId: "mw-a",
+              bestAsk: { price: 0.01 },
+              variantData: { team: { name: "Team Nemesis", abbreviation: "NEM" } },
+            },
+          ],
+        },
+        {
+          id: 847767,
+          title: "Map 1 Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          decimalPrecision: 2,
+          outcomes: [
+            { name: "INF6", onChainId: "m1h" },
+            { name: "NEM", onChainId: "m1a" },
+          ],
+        },
+      ],
+    };
+    const orderbooks = {
+      "847769": { asks: [[0.55, 100]], bids: [[0.48, 80]] },
+      "847767": { asks: [[0.40, 50]], bids: [[0.35, 40]] },
+    };
+    const mapped = buildPredictMappedMarket(cat, {}, orderbooks);
+    assert.ok(mapped);
+    const m0 = mapped.bets.find(b => b.Map === 0);
+    const m1 = mapped.bets.find(b => b.Map === 1);
+    assert.equal(m0.HomeOdds, decimalOddsFromProbability(0.55));
+    assert.equal(m0.AwayOdds, decimalOddsFromProbability(0.52));
+    assert.equal(m1.HomeOdds, decimalOddsFromProbability(0.40));
+    assert.equal(m1.AwayOdds, decimalOddsFromProbability(0.65));
   });
 });

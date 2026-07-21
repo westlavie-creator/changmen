@@ -16,18 +16,28 @@ loadChangmenEnv();
 
 const DISCOVERY_MS = Number(process.env.PREDICTFUN_COLLECTOR_INTERVAL_MS || 15_000);
 let stopped = false;
+let inFlight = false;
 
 async function tick() {
+  if (inFlight) {
+    console.warn("[predictfun-collector] skip tick: previous cycle still running");
+    return;
+  }
+  inFlight = true;
   try {
     const stats = await runPredictFunDiscoveryCycle();
     console.log(
       `[predictfun-collector] cycle ok matches=${stats.matches} bets=${stats.bets}`
+      + ` mapBets=${stats.mapBets ?? "?"}`
       + ` raw=${stats.raw ?? "?"} esport=${stats.esport ?? "?"} inWindow=${stats.inWindow ?? "?"}`
       + (stats.skippedClear ? " skippedClear=1" : ""),
     );
   }
   catch (err) {
     console.warn("[predictfun-collector] cycle error:", err.message);
+  }
+  finally {
+    inFlight = false;
   }
 }
 

@@ -11,6 +11,8 @@ import {
   mapPredictEsportTag,
   orderbookForOutcomeBuy,
   predictBuyAskFromYesBook,
+  resolvePredictOutcomeBuyProb,
+  yesOutcomeOnChainId,
 } from "./parse";
 
 const SAMPLE_CATEGORY = {
@@ -296,5 +298,78 @@ describe("predictfun parse", () => {
     ];
     assert.equal(isPredictYesOutcomeToken("tok-yes", outcomes), true);
     assert.equal(isPredictYesOutcomeToken("tok-no", outcomes), false);
+  });
+
+  it("yesOutcomeOnChainId prefers indexSet=1 over outcomes[0] order", () => {
+    const market = {
+      outcomes: [
+        { name: "AwayFirst", indexSet: 2, onChainId: "tok-no" },
+        { name: "HomeSecond", indexSet: 1, onChainId: "tok-yes" },
+      ],
+    };
+    assert.equal(yesOutcomeOnChainId(market), "tok-yes");
+  });
+
+  it("resolvePredictOutcomeBuyProb uses Yes book + No complement; never feeds Yes ask to No", () => {
+    const market = {
+      id: 100,
+      decimalPrecision: 2,
+      outcomes: [
+        { name: "HOME", onChainId: "h", indexSet: 1 },
+        { name: "AWAY", onChainId: "a", indexSet: 2 },
+      ],
+    };
+    const book = {
+      asks: [[0.18, 200], [0.19, 100]] as [number, number][],
+      bids: [[0.16, 200], [0.15, 50]] as [number, number][],
+    };
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[0],
+      orderbooks: { "100": book },
+    }), 0.18);
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[1],
+      orderbooks: { "100": book },
+    }), 0.84);
+    // 仅有 Yes ask 数字时：Yes 可用，No 不得误用
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[0],
+      marketYesAsk: { "100": 0.33 },
+    }), 0.33);
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[1],
+      marketYesAsk: { "100": 0.33 },
+    }), 0);
+  });
+
+  // 局盘种子赔率（orderbook → Map N）以 collector parse.test 为准；此处不测 discovery 映射。
+
+  it("empty No-side book returns 0 (do not fall back to outcome.bestAsk)", () => {
+    const market = {
+      id: 9,
+      decimalPrecision: 2,
+      outcomes: [
+        { name: "H", onChainId: "h", indexSet: 1, bestAsk: { price: 0.6 } },
+        { name: "A", onChainId: "a", indexSet: 2, bestAsk: { price: 0.44 } },
+      ],
+    };
+    const book = {
+      asks: [[0.61, 10]],
+      bids: [],
+    };
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[0],
+      orderbooks: { "9": book },
+    }), 0.61);
+    assert.equal(resolvePredictOutcomeBuyProb({
+      market,
+      outcome: market.outcomes[1],
+      orderbooks: { "9": book },
+    }), 0);
   });
 });

@@ -25,15 +25,20 @@ function _mapLiveTimerRows(provider, timer) {
   return { plat, rows: [...seen.values()] };
 }
 
-/** 删除该平台本批快照之外的 platform_matches / platform_bets / live_timers；keepIds=[] 表示空快照全清 */
-async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatchIds) {
+/** 删除该平台本批快照之外的 platform_matches / live_timers（不含 platform_bets）。
+ * platform_bets 由 replacePlatformBets* 按场覆盖；孤儿盘口在 collector cycle 末尾单独清，
+ * 避免 matches upsert 事务里先删 bets 造成「地图盘闪没」。
+ */
+async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatchIds, { wipeBets = false } = {}) {
   const plat = String(platform);
   const ids = (keepSourceMatchIds || []).map(String);
   if (!ids.length) {
-    await exec.query(
-      `DELETE FROM platform_bets WHERE platform = $1`,
-      [plat],
-    );
+    if (wipeBets) {
+      await exec.query(
+        `DELETE FROM platform_bets WHERE platform = $1`,
+        [plat],
+      );
+    }
     await exec.query(
       `DELETE FROM live_timers WHERE platform = $1`,
       [plat],
@@ -49,11 +54,13 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
     );
     return;
   }
-  await exec.query(
-    `DELETE FROM platform_bets
-     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
-    [plat, ids],
-  );
+  if (wipeBets) {
+    await exec.query(
+      `DELETE FROM platform_bets
+       WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
+      [plat, ids],
+    );
+  }
   await exec.query(
     `DELETE FROM live_timers
      WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
@@ -75,7 +82,7 @@ async function _rdsClearPlatformMatchSnapshot(pool, platform) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await _rdsDeletePlatformSnapshotOrphans(client, platform, []);
+    await _rdsDeletePlatformSnapshotOrphans(client, platform, [], { wipeBets: true });
     await client.query("COMMIT");
   }
   catch (err) {
@@ -189,6 +196,45 @@ async function _rdsReplacePlatformBets(pool, platform, matchId, rows) {
       [String(platform), String(matchId)],
     );
     await _rdsUpsertPlatformBets(client, rows);
+    await client.query("COMMIT");
+  }
+  catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+  finally {
+    client.release();
+  }
+}
+
+/**
+ * 按 source_bet_id upsert，再删「本场不在本批里的」旧行。
+ * 与 replace（先清空整场）不同：map0 行不会先抹掉 map1/map2；
+ * 仅当本批完整快照里确实没有某 bet_id 时才删该行。
+ */
+async function _rdsSyncPlatformBetsForMatch(pool, platform, matchId, rows) {
+  const plat = String(platform);
+  const mid = String(matchId);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (rows.length)
+      await _rdsUpsertPlatformBets(client, rows);
+    const keepBetIds = rows.map(r => String(r.source_bet_id));
+    if (!keepBetIds.length) {
+      await client.query(
+        `DELETE FROM platform_bets WHERE platform = $1 AND source_match_id = $2`,
+        [plat, mid],
+      );
+    }
+    else {
+      await client.query(
+        `DELETE FROM platform_bets
+         WHERE platform = $1 AND source_match_id = $2
+           AND NOT (source_bet_id = ANY($3::text[]))`,
+        [plat, mid, keepBetIds],
+      );
+    }
     await client.query("COMMIT");
   }
   catch (err) {
@@ -417,6 +463,19 @@ export function writePlatformMatches(provider, matchs) {
   });
 }
 
+/** await 版：与 replacePlatformBetsForMatchAsync 配对，保证同 cycle 内 matches→bets 有序落库 */
+export async function writePlatformMatchesAsync(provider, matchs) {
+  if (!Array.isArray(matchs))
+    return;
+  const plat = String(provider);
+  if (!matchs.length) {
+    await _writeRdsAsync(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches");
+    return;
+  }
+  const rows = mapPlatformMatchRows(provider, matchs);
+  await _writeRdsAsync(pool => _rdsUpsertPlatformMatches(pool, rows), "platform_matches");
+}
+
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
 export async function fetchPlatformMatches() {
   const pool = getPgPool();
@@ -516,6 +575,52 @@ export function replacePlatformBetsForMatch(provider, matchId, bets) {
   _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets", {
     key: `collector:${plat}`,
   });
+}
+
+/** await 版：collector 等需在 cycle 结束前落库时用，避免 fire-and-forget 被下轮覆盖前未完成 */
+export async function replacePlatformBetsForMatchAsync(provider, matchId, bets) {
+  const rows = mapSaveBetRows(provider, matchId, bets);
+  if (!rows.length)
+    return;
+  const plat = String(provider);
+  const mid = String(matchId);
+  await _writeRdsAsync(
+    pool => _rdsReplacePlatformBets(pool, plat, mid, rows),
+    "platform_bets",
+  );
+}
+
+/**
+ * PredictFun 等 VPS collector：map0 / map1 / map2 按 source_bet_id 独立 upsert，
+ * 再删本场不在本批的旧 bet_id。避免「先清空整场」导致只有 map0 的写入抹掉地图盘。
+ */
+export async function syncPlatformBetsForMatchAsync(provider, matchId, bets) {
+  const rows = mapSaveBetRows(provider, matchId, bets);
+  if (!rows.length)
+    return;
+  const plat = String(provider);
+  const mid = String(matchId);
+  await _writeRdsAsync(
+    pool => _rdsSyncPlatformBetsForMatch(pool, plat, mid, rows),
+    "platform_bets",
+  );
+}
+
+/** 删除某平台在 keepSourceMatchIds 之外的 platform_bets（collector cycle 末尾调用） */
+export async function deleteOrphanPlatformBetsAsync(provider, keepSourceMatchIds) {
+  const plat = String(provider);
+  const ids = (keepSourceMatchIds || []).map(String);
+  await _writeRdsAsync(async (pool) => {
+    if (!ids.length) {
+      await pool.query(`DELETE FROM platform_bets WHERE platform = $1`, [plat]);
+      return;
+    }
+    await pool.query(
+      `DELETE FROM platform_bets
+       WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
+      [plat, ids],
+    );
+  }, "platform_bets_orphan");
 }
 
 /** fire-and-forget：全量替换某平台 timer 快照（对齐 A8 getTimer 整包提交；空数组清空该平台） */

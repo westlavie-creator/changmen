@@ -121,7 +121,7 @@ export function promoteMap0ToDecider(rows, matches = {}) {
 
 /**
  * live Round>0：Map0 仅保留全场盘馆。
- * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（预测市仅有全场，无局盘可挂）。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（全场仍挂 Map0；局盘在各自 Map N）。
  * trim 前保全 Initial*。
  */
 export function trimMapZeroLive(rows) {

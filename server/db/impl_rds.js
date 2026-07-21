@@ -85,11 +85,15 @@ export {
   fetchPlatformMatches,
   purgePlatformLiveTimers,
   replacePlatformBetsForMatch,
+  replacePlatformBetsForMatchAsync,
+  syncPlatformBetsForMatchAsync,
+  deleteOrphanPlatformBetsAsync,
   setPlatformMatchId,
   writeLiveTimers,
   writeLiveTimersAsync,
   writePlatformBets,
   writePlatformMatches,
+  writePlatformMatchesAsync,
 } from "./rds/platform_collector_store.js";
 
 export {
