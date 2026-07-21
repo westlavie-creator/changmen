@@ -7,11 +7,21 @@ import { useCollectStore } from "../shared/webBridge";
 import { useMatchStore } from "../shared/webBridge";
 
 import {
+  SXBET_ESPORTS_SPORT_ID,
+  SXBET_USDC,
   fetchSxActiveEsportsMoneylineMarkets,
-  fetchSxOrdersForMarkets,
+  fetchSxBestOdds,
   sxbetCollectStartTimeAllowed,
+  type SxBestOddsRow,
+  type SxBestOddsWsUpdate,
 } from "./api";
-import { buildSxMappedMarket, type SxMappedMarket } from "./parse";
+import {
+  applySxBestOddsWsUpdate,
+  bestSxDecimalOddsFromBestRow,
+  buildSxMappedMarket,
+  type SxMappedMarket,
+} from "./parse";
+import { startSxBetBestOddsWs } from "./ws";
 
 const PLATFORM = PLATFORMS.SXBet;
 const DISCOVERY_MS = 60_000;
@@ -40,11 +50,50 @@ function saveBetOddsToFo(bet: CollectBetDto, source: "http" | "mqtt") {
   }, source);
 }
 
+function applyBestOddsUpdate(
+  marketsByHash: Map<string, SxMappedMarket>,
+  bestByHash: Map<string, SxBestOddsRow>,
+  update: SxBestOddsWsUpdate,
+  matchStore: ReturnType<typeof useMatchStore>,
+) {
+  if (Number(update.sportId) > 0 && Number(update.sportId) !== SXBET_ESPORTS_SPORT_ID)
+    return;
+  const hash = String(update.marketHash ?? "").trim();
+  if (!hash)
+    return;
+  const mapped = marketsByHash.get(hash);
+  if (!mapped)
+    return;
+
+  const prev = bestByHash.get(hash);
+  const nextRow = applySxBestOddsWsUpdate(prev, update);
+  bestByHash.set(hash, nextRow);
+
+  const homeOdds = bestSxDecimalOddsFromBestRow(nextRow, true);
+  const awayOdds = bestSxDecimalOddsFromBestRow(nextRow, false);
+  const next: CollectBetDto = {
+    ...mapped.bet,
+    HomeOdds: homeOdds,
+    AwayOdds: awayOdds,
+    Status: homeOdds > 0 && awayOdds > 0 ? "Normal" : "Locked",
+  };
+  mapped.bet = next;
+  saveBetOddsToFo(next, "mqtt");
+  matchStore.refreshOddsOnBets();
+}
+
 export function startSxBetCollector(): () => void {
   let lastSaveBetsAt = 0;
   const collect = useCollectStore();
   const matchStore = useMatchStore();
   const marketsByHash = new Map<string, SxMappedMarket>();
+  const bestByHash = new Map<string, SxBestOddsRow>();
+
+  const wsHandle = startSxBetBestOddsWs({
+    onUpdate: (update) => {
+      applyBestOddsUpdate(marketsByHash, bestByHash, update, matchStore);
+    },
+  });
 
   const runDiscovery = async () => {
     while (!collect.ready) {
@@ -65,12 +114,15 @@ export function startSxBetCollector(): () => void {
       .map(row => String(row.marketHash ?? ""))
       .filter(Boolean)
       .slice(0, MAX_TRACKED_MARKETS);
-    const ordersByHash = await fetchSxOrdersForMarkets(hashes);
+    const bestOdds = await fetchSxBestOdds(hashes, SXBET_USDC);
 
     const candidates: SxMappedMarket[] = [];
     for (const market of filtered) {
       const hash = String(market.marketHash ?? "");
-      const mapped = buildSxMappedMarket(market, ordersByHash[hash] ?? []);
+      const row = bestOdds[hash];
+      if (row)
+        bestByHash.set(hash, row);
+      const mapped = buildSxMappedMarket(market, [], row);
       if (mapped)
         candidates.push(mapped);
       if (candidates.length >= MAX_TRACKED_MARKETS)
@@ -86,7 +138,9 @@ export function startSxBetCollector(): () => void {
     const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
 
     const betsByMatch = new Map<string, CollectBetDto[]>();
+    const keepHashes = new Set<string>();
     for (const mapped of candidates) {
+      keepHashes.add(mapped.marketHash);
       marketsByHash.set(mapped.marketHash, mapped);
       saveBetOddsToFo(mapped.bet, "http");
       if (shouldSaveBets) {
@@ -96,12 +150,21 @@ export function startSxBetCollector(): () => void {
         betsByMatch.get(sid)!.push(mapped.bet);
       }
     }
+    for (const hash of [...marketsByHash.keys()]) {
+      if (!keepHashes.has(hash))
+        marketsByHash.delete(hash);
+    }
+    for (const hash of [...bestByHash.keys()]) {
+      if (!keepHashes.has(hash))
+        bestByHash.delete(hash);
+    }
     if (shouldSaveBets) {
       for (const [sid, bets] of betsByMatch)
         await collect.saveBets(PLATFORM, sid, bets);
       lastSaveBetsAt = Date.now();
     }
     matchStore.refreshOddsOnBets();
+    void wsHandle.ensureConnected();
   };
 
   let stopped = false;
@@ -122,5 +185,6 @@ export function startSxBetCollector(): () => void {
 
   return () => {
     stopped = true;
+    wsHandle.stop();
   };
 }

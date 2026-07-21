@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
   bestSxDecimalOdds,
+  bestSxDecimalOddsFromBestRow,
   buildSxMappedMarket,
   isSxEsportsMoneylineMarket,
   mapSxLeagueToGameCode,
+  sxDecimalToProtocolOdds,
   sxImpliedToDecimal,
   sxRawOddsToImplied,
 } from "./parse";
@@ -64,6 +66,21 @@ describe("sxbet parse", () => {
     assert.equal(bestSxDecimalOdds(SAMPLE_ORDERS, false), sxImpliedToDecimal(0.36625));
   });
 
+  it("picks best taker odds from /orders/odds/best row", () => {
+    const row = {
+      marketHash: SAMPLE_MARKET.marketHash,
+      outcomeOne: { percentageOdds: "63375000000000000000" },
+      outcomeTwo: { percentageOdds: "32375000000000000000" },
+    };
+    // taker on outcome one faces maker-on-two
+    assert.equal(bestSxDecimalOddsFromBestRow(row, true), sxImpliedToDecimal(0.67625));
+    assert.equal(bestSxDecimalOddsFromBestRow(row, false), sxImpliedToDecimal(0.36625));
+  });
+
+  it("converts decimal odds to protocol format", () => {
+    assert.equal(sxDecimalToProtocolOdds(2), "50000000000000000000");
+  });
+
   it("builds mapped market", () => {
     const mapped = buildSxMappedMarket(SAMPLE_MARKET, SAMPLE_ORDERS);
     assert.ok(mapped);
@@ -72,5 +89,17 @@ describe("sxbet parse", () => {
     assert.equal(mapped!.bet.HomeOdds, bestSxDecimalOdds(SAMPLE_ORDERS, true));
     assert.equal(mapped!.bet.AwayOdds, bestSxDecimalOdds(SAMPLE_ORDERS, false));
     assert.equal(mapped!.bet.Status, "Normal");
+  });
+
+  it("builds mapped market from best-odds row", () => {
+    const row = {
+      marketHash: SAMPLE_MARKET.marketHash,
+      outcomeOne: { percentageOdds: "63375000000000000000" },
+      outcomeTwo: { percentageOdds: "32375000000000000000" },
+    };
+    const mapped = buildSxMappedMarket(SAMPLE_MARKET, [], row);
+    assert.ok(mapped);
+    assert.equal(mapped!.bet.HomeOdds, bestSxDecimalOddsFromBestRow(row, true));
+    assert.equal(mapped!.bet.AwayOdds, bestSxDecimalOddsFromBestRow(row, false));
   });
 });

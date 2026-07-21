@@ -81,6 +81,10 @@ export class BetOption {
         if (marketId)
           this.data = { marketId };
       }
+      // [changmen 扩展] SXBet：BetID = marketHash
+      if (item.type === "SXBet" && item.betId) {
+        this.data = { ...(this.data ?? {}), marketHash: String(item.betId) };
+      }
     }
   }
 

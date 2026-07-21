@@ -2,10 +2,11 @@ import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/c
 import type { PlatformId } from "@changmen/api-contract";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { PLATFORMS } from "../shared/platforms";
-import type { SxMarket, SxOrder } from "./api";
+import type { SxBestOddsRow, SxBestOddsWsUpdate, SxMarket, SxOrder } from "./api";
 
 const PLATFORM: PlatformId = PLATFORMS.SXBet;
-const ODDS_PRECISION = 1e20;
+export const SX_ODDS_PRECISION = 1e20;
+const ODDS_PRECISION = SX_ODDS_PRECISION;
 
 const LEAGUE_GAME_PATTERNS: Array<[RegExp, string]> = [
   [/\b(lol|league of legends)\b/i, "lol"],
@@ -47,11 +48,16 @@ export function sxImpliedToDecimal(implied: number): number {
   return truncateOddsTo3(1 / implied);
 }
 
+export function sxOrderIsActive(order: SxOrder): boolean {
+  const status = String(order.orderStatus ?? order.status ?? "").toUpperCase();
+  return !status || status === "ACTIVE";
+}
+
 /** Best taker decimal odds for outcome one (home) or two (away). */
 export function bestSxDecimalOdds(orders: SxOrder[] | undefined, forOutcomeOne: boolean): number {
   let bestImplied = 0;
   for (const order of orders ?? []) {
-    if (String(order.orderStatus ?? "").toUpperCase() !== "ACTIVE")
+    if (!sxOrderIsActive(order))
       continue;
     const makerImplied = sxRawOddsToImplied(order.percentageOdds);
     if (!makerImplied || makerImplied >= 1)
@@ -65,6 +71,86 @@ export function bestSxDecimalOdds(orders: SxOrder[] | undefined, forOutcomeOne: 
       bestImplied = takerImplied;
   }
   return sxImpliedToDecimal(bestImplied);
+}
+
+/**
+ * REST `/orders/odds/best`：outcomeX.percentageOdds 是 **maker** 视角。
+ * 吃 outcomeOne 的 taker 面对 maker-on-two → takerImplied = 1 - makerTwo。
+ */
+export function bestSxDecimalOddsFromBestRow(
+  row: SxBestOddsRow | undefined,
+  forOutcomeOne: boolean,
+): number {
+  if (!row)
+    return 0;
+  const makerOpposite = forOutcomeOne ? row.outcomeTwo : row.outcomeOne;
+  const makerImplied = sxRawOddsToImplied(makerOpposite?.percentageOdds ?? undefined);
+  if (!makerImplied || makerImplied >= 1)
+    return 0;
+  return sxImpliedToDecimal(1 - makerImplied);
+}
+
+/**
+ * 下单用 desiredOdds：直接用协议整数，避免 decimal↔truncate 往返丢精度。
+ * takerDesired = 1e20 - oppositeMakerPercentageOdds
+ */
+export function sxDesiredProtocolOddsFromBestRow(
+  row: SxBestOddsRow | undefined,
+  forOutcomeOne: boolean,
+): string {
+  if (!row)
+    return "0";
+  const makerOpposite = forOutcomeOne ? row.outcomeTwo : row.outcomeOne;
+  const raw = String(makerOpposite?.percentageOdds ?? "").trim();
+  if (!raw || raw === "null" || raw === "undefined")
+    return "0";
+  try {
+    const maker = BigInt(raw);
+    const full = 10n ** 20n;
+    if (maker <= 0n || maker >= full)
+      return "0";
+    return (full - maker).toString();
+  }
+  catch {
+    return "0";
+  }
+}
+
+/** 协议格式 percentageOdds（taker 视角 implied * 1e20） */
+export function sxDecimalToProtocolOdds(decimalOdds: number): string {
+  if (!Number.isFinite(decimalOdds) || decimalOdds <= 1)
+    return "0";
+  const implied = 1 / decimalOdds;
+  if (!(implied > 0) || !(implied < 1))
+    return "0";
+  return BigInt(Math.round(implied * ODDS_PRECISION)).toString();
+}
+
+export function sxProtocolOddsToDecimal(raw: string | number | undefined): number {
+  return sxImpliedToDecimal(sxRawOddsToImplied(raw));
+}
+
+/** 把 WS best_odds 单侧推送合并进本地 best 行 */
+export function applySxBestOddsWsUpdate(
+  prev: SxBestOddsRow | undefined,
+  update: SxBestOddsWsUpdate,
+): SxBestOddsRow {
+  const marketHash = String(update.marketHash ?? prev?.marketHash ?? "");
+  const next: SxBestOddsRow = {
+    marketHash,
+    baseToken: update.baseToken ?? prev?.baseToken,
+    outcomeOne: { ...(prev?.outcomeOne ?? {}) },
+    outcomeTwo: { ...(prev?.outcomeTwo ?? {}) },
+  };
+  const side = update.isMakerBettingOutcomeOne ? next.outcomeOne! : next.outcomeTwo!;
+  const prevAt = Number(side.updatedAt) || 0;
+  const nextAt = Number(update.updatedAt) || 0;
+  if (nextAt && prevAt && nextAt < prevAt)
+    return prev ?? next;
+  side.percentageOdds = update.percentageOdds ?? null;
+  if (nextAt)
+    side.updatedAt = nextAt;
+  return next;
 }
 
 export function normalizeSxTeamName(name: string): string {
@@ -103,6 +189,7 @@ export function isSxEsportsMoneylineMarket(market: SxMarket): boolean {
 export function buildSxMappedMarket(
   market: SxMarket,
   orders: SxOrder[] = [],
+  bestRow?: SxBestOddsRow,
 ): SxMappedMarket | null {
   if (!isSxEsportsMoneylineMarket(market))
     return null;
@@ -121,8 +208,12 @@ export function buildSxMappedMarket(
   const awayOddsId = sxOutcomeOddsId(marketHash, 2);
   const startTime = Number(market.gameTime) > 0 ? Number(market.gameTime) * 1000 : Date.now();
 
-  const homeOdds = bestSxDecimalOdds(orders, true);
-  const awayOdds = bestSxDecimalOdds(orders, false);
+  const homeOdds = bestRow
+    ? bestSxDecimalOddsFromBestRow(bestRow, true)
+    : bestSxDecimalOdds(orders, true);
+  const awayOdds = bestRow
+    ? bestSxDecimalOddsFromBestRow(bestRow, false)
+    : bestSxDecimalOdds(orders, false);
   const locked = !homeOdds || !awayOdds;
 
   const homeTeam: CollectTeamDto = {
