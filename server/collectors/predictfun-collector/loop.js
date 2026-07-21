@@ -84,9 +84,16 @@ export async function runPredictFunDiscoveryCycle() {
 
   persistPredictFunMarketIndex(candidates, books);
 
+  const betCount = candidates.reduce((n, mapped) => {
+    const list = Array.isArray(mapped.bets) && mapped.bets.length
+      ? mapped.bets
+      : (mapped.bet ? [mapped.bet] : []);
+    return n + list.length;
+  }, 0);
+
   return {
     matches: matches.length,
-    bets: candidates.length,
+    bets: betCount,
     raw: rawCategories.length,
     esport: esportCategories.length,
     inWindow: filtered.length,

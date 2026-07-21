@@ -166,6 +166,71 @@ describe("predictfun parse", () => {
     assert.equal(mapped!.bets.find(b => b.Map === 2)?.Status, "Normal");
   });
 
+  it("maps Map N Winner child markets without outcome.team via Match Winner abbr", () => {
+    const cat = {
+      id: 222661,
+      slug: "cs2-inf6-nem-2026-07-22",
+      title: "Counter-Strike: Infinite vs Team Nemesis (BO3)",
+      status: "OPEN",
+      marketVariant: "ESPORTS_CS2",
+      startsAt: "2026-07-22T12:00:00.000Z",
+      tags: [{ id: "83", name: "Esports" }, { id: "86", name: "CS2" }],
+      markets: [
+        {
+          id: 847769,
+          title: "Match Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_MONEYLINE",
+          outcomes: [
+            {
+              name: "INF6",
+              onChainId: "1111111111111111111111111111111111111111111111111111111111111111",
+              bestAsk: { price: 0.55 },
+              variantData: { team: { name: "Infinite", abbreviation: "INF6" } },
+            },
+            {
+              name: "NEM",
+              onChainId: "2222222222222222222222222222222222222222222222222222222222222222",
+              bestAsk: { price: 0.48 },
+              variantData: { team: { name: "Team Nemesis", abbreviation: "NEM" } },
+            },
+          ],
+        },
+        {
+          id: 847767,
+          title: "Map 1 Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          outcomes: [
+            { name: "INF6", onChainId: "m1h", bestAsk: { price: 0.52 } },
+            { name: "NEM", onChainId: "m1a", bestAsk: { price: 0.5 } },
+          ],
+        },
+        {
+          id: 847768,
+          title: "Map 2 Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          outcomes: [
+            { name: "INF6", onChainId: "m2h", bestAsk: { price: 0.4 } },
+            { name: "NEM", onChainId: "m2a", bestAsk: { price: 0.62 } },
+          ],
+        },
+      ],
+    };
+    const mapped = buildPredictMappedMarket(cat);
+    assert.ok(mapped);
+    const maps = mapped!.bets.map(b => b.Map).sort((a, b) => Number(a) - Number(b));
+    assert.deepEqual(maps, [0, 1, 2]);
+    assert.equal(mapped!.bets.find(b => b.Map === 1)?.HomeName, "Infinite");
+    assert.equal(mapped!.bets.find(b => b.Map === 1)?.AwayName, "Team Nemesis");
+    assert.equal(mapped!.bets.find(b => b.Map === 1)?.BetName, "Map 1 Winner");
+    assert.equal(mapped!.bets.find(b => b.Map === 2)?.SourceBetID, "cs2-inf6-nem-2026-07-22#m2");
+  });
+
   it("reads best ask from tuple orderbook", () => {
     assert.equal(bestAskFromPredictBook({ asks: [[0.55, 100], [0.56, 50]] }), 0.55);
     assert.equal(bestAskFromPredictBook({ asks: [] }), 0);

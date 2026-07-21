@@ -175,9 +175,9 @@ export function isTradablePredictMarket(market: PredictMarket): boolean {
   return true;
 }
 
-/** "Game 3 Winner" → 3 */
+/** "Game 3 Winner" / "Map 2 Winner" → N；其它标题 → 0 */
 export function parsePredictGameMapNumber(title: string | undefined): number {
-  const m = String(title ?? "").trim().match(/^Game\s+(\d+)\s+Winner$/i);
+  const m = String(title ?? "").trim().match(/^(?:Game|Map)\s+(\d+)\s+Winner$/i);
   if (!m)
     return 0;
   const n = Number(m[1]);
@@ -243,6 +243,44 @@ export function outcomeTeamName(outcome: PredictOutcome | undefined): string {
     ?? outcome?.variantData?.team?.name
     ?? "",
   ).trim();
+}
+
+/** 全场 Match Winner 的 outcome.name（如 NEM）→ 队名；局盘常无 team 字段 */
+function buildOutcomeAbbrTeamMap(markets: PredictMarket[] | undefined): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const market of markets || []) {
+    if (String(market?.marketType ?? "") !== "SPORTS_MONEYLINE")
+      continue;
+    for (const outcome of market.outcomes ?? []) {
+      const team = outcomeTeamName(outcome);
+      if (!team)
+        continue;
+      const nameKey = String(outcome?.name ?? "").trim().toUpperCase();
+      if (nameKey)
+        map.set(nameKey, team);
+      const abbr = String(
+        outcome?.team?.abbreviation
+        ?? outcome?.variantData?.team?.abbreviation
+        ?? "",
+      ).trim().toUpperCase();
+      if (abbr)
+        map.set(abbr, team);
+    }
+  }
+  return map;
+}
+
+function resolveChildOutcomeTeamName(
+  outcome: PredictOutcome | undefined,
+  abbrTeamMap: Map<string, string>,
+): string {
+  const direct = outcomeTeamName(outcome);
+  if (direct)
+    return direct;
+  const key = String(outcome?.name ?? "").trim().toUpperCase();
+  if (!key)
+    return "";
+  return abbrTeamMap.get(key) || "";
 }
 
 export function normalizePredictTeamName(name: string): string {
@@ -514,12 +552,17 @@ function pickChildGameMarkets(markets: PredictMarket[]): Array<{
   market: PredictMarket;
   homeOutcome: PredictOutcome;
   awayOutcome: PredictOutcome;
+  homeName: string;
+  awayName: string;
 }> {
+  const abbrTeamMap = buildOutcomeAbbrTeamMap(markets);
   const out: Array<{
     mapNum: number;
     market: PredictMarket;
     homeOutcome: PredictOutcome;
     awayOutcome: PredictOutcome;
+    homeName: string;
+    awayName: string;
   }> = [];
   for (const market of markets || []) {
     if (!isCollectableChildMoneyline(market))
@@ -528,12 +571,18 @@ function pickChildGameMarkets(markets: PredictMarket[]): Array<{
     if (mapNum <= 0)
       continue;
     const outcomes = market.outcomes ?? [];
-    const withTeam = outcomes.filter(o => outcomeTeamName(o));
-    const homeOutcome = withTeam[0];
-    const awayOutcome = withTeam[1];
+    if (outcomes.length < 2)
+      continue;
+    const withTeam = outcomes.filter(o => resolveChildOutcomeTeamName(o, abbrTeamMap));
+    const homeOutcome = withTeam[0] || outcomes[0];
+    const awayOutcome = withTeam[1] || outcomes[1];
     if (!homeOutcome || !awayOutcome)
       continue;
-    out.push({ mapNum, market, homeOutcome, awayOutcome });
+    const homeName = resolveChildOutcomeTeamName(homeOutcome, abbrTeamMap);
+    const awayName = resolveChildOutcomeTeamName(awayOutcome, abbrTeamMap);
+    if (!homeName || !awayName)
+      continue;
+    out.push({ mapNum, market, homeOutcome, awayOutcome, homeName, awayName });
   }
   return out.sort((a, b) => a.mapNum - b.mapNum);
 }
@@ -590,7 +639,8 @@ export function isPredictEsportsMoneylineCategory(category: PredictCategory): bo
 
 /**
  * - 旧 SPORTS_TEAM_MATCH：每队一盘 Yes
- * - 新 ESPORTS_*：Match Winner（Map0）+ Game N Winner（Map N）
+ * - 新 ESPORTS_*：Match Winner（Map0）+ Map/Game N Winner（Map N）
+ *   局盘标题官网多为 "Map N Winner"；outcome 常无 team，用全场 abbreviation 回填
  */
 export function buildPredictMappedMarket(
   category: PredictCategory,
@@ -691,8 +741,8 @@ export function buildPredictMappedMarket(
       (bets[bets.length - 1] as CollectBetDto & { MarketID?: string }).MarketID = homeMarketId;
     }
     else if (childGames[0]) {
-      homeName = outcomeTeamName(childGames[0].homeOutcome);
-      awayName = outcomeTeamName(childGames[0].awayOutcome);
+      homeName = childGames[0].homeName;
+      awayName = childGames[0].awayName;
       homeTokenId = String(childGames[0].homeOutcome.onChainId ?? "");
       awayTokenId = String(childGames[0].awayOutcome.onChainId ?? "");
       homeMarketId = String(childGames[0].market.id ?? "");
@@ -701,8 +751,8 @@ export function buildPredictMappedMarket(
 
     for (const child of childGames) {
       const mid = String(child.market.id ?? "");
-      const hName = outcomeTeamName(child.homeOutcome);
-      const aName = outcomeTeamName(child.awayOutcome);
+      const hName = child.homeName;
+      const aName = child.awayName;
       const hTok = String(child.homeOutcome.onChainId ?? "");
       const aTok = String(child.awayOutcome.onChainId ?? "");
       const hOdds = decimalOddsFromProbability(outcomeProb(child.homeOutcome, 0));
@@ -726,7 +776,7 @@ export function buildPredictMappedMarket(
         sourceMatchId,
         sourceBetId: `${categoryId}#m${child.mapNum}`,
         mapNum: child.mapNum,
-        betName: `Game ${child.mapNum} Winner`,
+        betName: `Map ${child.mapNum} Winner`,
         homeName: hName,
         awayName: aName,
         homeTokenId: hTok,
