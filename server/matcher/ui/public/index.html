@@ -943,7 +943,7 @@ function restoreBoardScroll(saved) {
 
 function schedulePolledLoad() {
   if (shouldSkipBackgroundRefresh()) return;
-  void load({ preserveScroll: true });
+  void load({ preserveScroll: true, allowSkipRender: true });
 }
 
 function schedulePolledMatcherStatus() {
@@ -965,6 +965,17 @@ function matcherDataFingerprint(d) {
 function touchUpdatedAtLabel(d) {
   const el = document.getElementById('updated-at');
   if (el) el.textContent = '更新 ' + fmtTime(d?.updatedAt || Date.now());
+}
+
+/** 三栏是否已完成过至少一次成功渲染（排除「加载中…」占位） */
+function boardsSeemRendered() {
+  const panel = document.getElementById('matched-id-panels');
+  if (!panel) return false;
+  if (panel.querySelector('.team-card')) return true;
+  const empty = panel.querySelector('.empty');
+  if (!empty) return false;
+  const t = (empty.textContent || '').trim();
+  return Boolean(t) && t !== '加载中…' && !t.startsWith('加载失败');
 }
 
 function initAdminBackLink() {
@@ -3247,17 +3258,18 @@ async function load(opts = {}) {
     if (d.error) throw new Error(d.error);
     _lastData = d;
     const fp = matcherDataFingerprint(d);
-    // 内容未变：只刷新时间戳，避免三栏 innerHTML 闪烁（强制重绘 / 定位卡片除外）
-    const skipRender = !opts.forceRender
+    // 仅后台轮询/切回标签允许跳过；手动刷新与写操作后的 load 必须重绘
+    const skipRender = Boolean(opts.allowSkipRender)
+      && !opts.forceRender
       && opts.focusCmId == null
+      && !opts.bustCache
       && fp
       && fp === _lastDataFingerprint
-      && document.getElementById('matched-id-panels')?.querySelector('.team-card, .empty');
+      && boardsSeemRendered();
     if (skipRender) {
       touchUpdatedAtLabel(d);
       return;
     }
-    _lastDataFingerprint = fp;
     const displayCms = filterDisplayClientMatches(d.clientMatches, d.platforms);
     const teamMaps = d.teamMaps || {};
     renderStats(d, displayCms);
@@ -3280,6 +3292,8 @@ async function load(opts = {}) {
     bindTeamLinkDrag();
     bindMatchLinkDrag();
     scheduleRedrawCanonicalTeamLinks();
+    // 必须在三栏渲染完成后写入，避免 await 中途被更新的 load 抢序后误 skip
+    if (seq === _loadSeq) _lastDataFingerprint = fp;
     touchUpdatedAtLabel(d);
     // 请求期间若输入已变但防抖未到，按当前框值再滤一次，避免短暂错筛
     const liveQ = (searchInput?.value || '').trim();
@@ -3349,8 +3363,8 @@ document.getElementById('team-search-input')?.addEventListener('search', flushTe
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || shouldSkipBackgroundRefresh()) return;
-  // 切回标签页时补一次；内容未变会走指纹短路，不会闪屏
-  void load({ preserveScroll: true });
+  // 切回标签页时补一次；内容未变且允许跳过时走指纹短路，不会闪屏
+  void load({ preserveScroll: true, allowSkipRender: true });
   void refreshMatcherStatus();
 });
 
