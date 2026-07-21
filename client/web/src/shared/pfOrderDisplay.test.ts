@@ -50,7 +50,13 @@ describe("pfOrderDisplay", () => {
     expect(resolvePfOrderListStatusClass({
       ...pfBuy,
       PfSellState: "closed",
-    })).toBe("PfSold");
+      Money: 1.5,
+    })).toBe("Win");
+    expect(resolvePfOrderListStatusClass({
+      ...pfBuy,
+      PfSellState: "closed",
+      Money: -0.2,
+    })).toBe("Lose");
     expect(resolvePfOrderListStatusClass({
       ...pfBuy,
       PfSide: "sell",

@@ -126,6 +126,27 @@
   overflow: visible;
 }
 
+/* 方案 A：PM/PF 卖单挂在买单下（软附属，不改盈亏口径） */
+.orders .order.order--sell-attach {
+  margin-left: 12px;
+  width: 224px;
+  margin-top: 2px;
+  padding-top: 20px;
+  background: rgba(255, 255, 255, 0.035);
+  border-left: 2px solid rgba(144, 147, 153, 0.55);
+}
+
+.orders .order__attach-label {
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  z-index: 1;
+  font-size: 11px;
+  line-height: 14px;
+  color: #a0aec0;
+  pointer-events: none;
+}
+
 #app .el-aside .orders .order .platform,
 .common-layout .el-aside .orders .order .platform,
 .admin-orders-user-col .orders .order .platform {
@@ -417,7 +438,7 @@
   content: "已平仓";
 }
 
-/* [changmen 扩展] 手动卖光买单：库内仍 None，角标显示已卖出 */
+/* [changmen 扩展] 历史 PmSold：现已改为全卖映 Win/Lose；样式保留防旧缓存 */
 .orders .status.PmSold {
   color: #7dcea0;
   background: rgba(125, 206, 160, 0.12);
@@ -428,7 +449,7 @@
   content: "已卖出";
 }
 
-/* 赛果结算但 Status 仍 None 的兜底（通常已是 Win/Lose） */
+/* 赛果结算但 Status 仍 None 的旧兜底（现已映 Win/Lose；样式保留） */
 .orders .status.PmSettled {
   color: #aeaeae;
   background: rgba(174, 174, 174, 0.1);
@@ -439,7 +460,7 @@
   content: "已结算";
 }
 
-/* [changmen 扩展] PredictFun 对齐 PM：卖单已平仓 / 买单已卖出 */
+/* [changmen 扩展] PredictFun：卖单已平仓；历史 PfSold 保留 */
 .orders .status.PfSell {
   color: #aeaeae;
   background: rgba(174, 174, 174, 0.1);

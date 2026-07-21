@@ -135,8 +135,8 @@ describe("adminOrderDisplay", () => {
     expect(row.PmAttributedSellShares).toBe(57.66);
     expect(row.PmFillPrice).toBe(0.5);
     expect(row.PmOrigin).toBe("changmen");
-    expect(pmBuyLifecycleTagText(row)).toBe("已卖出");
-    expect(resolvePmOrderListStatusClass(row)).toBe("PmSold");
+    expect(pmBuyLifecycleTagText(row)).toBeNull();
+    expect(resolvePmOrderListStatusClass(row)).toBe("Win");
     // 已卖出买单仍展示原始本金（fill×价），不为 0
     expect(pmOrderStakeDisplayCny(row)).toBe(Math.round(57.66 * 0.5 * 6.8));
   });

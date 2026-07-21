@@ -3,7 +3,7 @@ import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { toFixed } from "@changmen/client-core/shared/format";
 import { scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
 import { lookupPredictFunOrderLabels } from "@changmen/venue-adapter/predictfun";
-import { formatPolymarketApiDecimal } from "@/shared/pmOrderDisplay";
+import { formatPolymarketApiDecimal, statusClassFromRealizedMoney } from "@/shared/pmOrderDisplay";
 import { normalizeOrderStatus } from "@/shared/orderDisplay";
 import { useMatchStore } from "@/stores/matchStore";
 
@@ -24,15 +24,14 @@ export function isPfManuallySoldBuy(row: OrderRow): boolean {
   return isPfBuyOrderListRow(row) && String(row.PfSellState ?? "").toLowerCase() === "closed";
 }
 
-export function pfBuyLifecycleTagText(row: OrderRow): string | null {
-  if (isPfManuallySoldBuy(row))
-    return "已卖出";
+export function pfBuyLifecycleTagText(_row: OrderRow): string | null {
+  // 已卖光：角标改输赢；卖出看附属「卖出记录」，不再打「已卖出」
   return null;
 }
 
 /**
  * 侧栏角标：手动卖出后 RDS 仍可能为 None。
- * 卖单 → PfSell；卖光买单 → PfSold。
+ * 卖单 → PfSell；买单全卖 → 按 Money 映 Win/Lose。
  */
 export function resolvePfOrderListStatusClass(row: OrderRow): string {
   if (!isPfOrderListRow(row))
@@ -50,7 +49,7 @@ export function resolvePfOrderListStatusClass(row: OrderRow): string {
   }
 
   if (isPfManuallySoldBuy(row))
-    return "PfSold";
+    return statusClassFromRealizedMoney(row.Money);
 
   return raw;
 }

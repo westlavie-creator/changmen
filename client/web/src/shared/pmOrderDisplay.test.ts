@@ -42,11 +42,36 @@ describe("pmOrderDisplay", () => {
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSellState: "closed",
-    })).toBe("PmSold");
+      Money: 20,
+    })).toBe("Win");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "closed",
+      Money: -5,
+    })).toBe("Lose");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "partial",
+      PmShares: 10,
+      PmAttributedSellShares: 4,
+      Money: 3,
+    })).toBe("None");
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSellState: "settled",
-    })).toBe("PmSettled");
+      Money: 12,
+    })).toBe("Win");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "settled",
+      Money: -8,
+    })).toBe("Lose");
+    expect(resolvePmOrderListStatusClass({
+      ...pmBuy,
+      PmSellState: "settled",
+      PmMatchResult: "Lose",
+      Money: 0,
+    })).toBe("Lose");
     expect(resolvePmOrderListStatusClass({
       ...pmBuy,
       PmSellState: "settled",
@@ -73,21 +98,21 @@ describe("pmOrderDisplay", () => {
     expect(resolvePmOrderListStatusClass(pmBuy)).toBe("None");
   });
 
-  it("lifecycle tag distinguishes sold vs market settled", () => {
-    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "closed" })).toBe("已卖出");
+  it("lifecycle tag distinguishes partial vs market settled; full sell has no 已卖出 tag", () => {
+    expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "closed" })).toBeNull();
     expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "partial", PmShares: 10, PmAttributedSellShares: 4 })).toBe("部分卖出");
     expect(pmBuyLifecycleTagText({
       ...pmBuy,
       PmSellState: "partial",
       PmShares: 48.2353,
       PmAttributedSellShares: 48.23,
-    })).toBe("已卖出");
+    })).toBeNull();
     expect(pmBuyLifecycleTagText({ ...pmBuy, PmSellState: "settled" })).toBe("已结算");
     expect(pmBuyLifecycleTagText({
       ...pmBuy,
       PmSellState: "settled",
       PmAttributedSellShares: 10,
-    })).toBe("已卖出");
+    })).toBeNull();
     expect(pmBuyLifecycleTagText(pmBuy)).toBeNull();
   });
 

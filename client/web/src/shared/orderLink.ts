@@ -65,6 +65,85 @@ export function orderListDisplayRows(rows: OrderRow[]): OrderRow[] {
   return rows.filter(r => !isMakeupCancelledOrderRow(r));
 }
 
+function predictionSellParentBuyId(row: OrderRow): string {
+  if (isPolymarketOrderRow(row) && row.PmSide === "sell")
+    return String(row.PmBuyOrderId ?? "").trim().toLowerCase();
+  if (isPredictFunOrderRow(row) && row.PfSide === "sell")
+    return String(row.PfBuyOrderId ?? "").trim().toLowerCase();
+  return "";
+}
+
+function isPredictionSellRow(row: OrderRow): boolean {
+  if (isPolymarketOrderRow(row) && row.PmSide === "sell")
+    return true;
+  if (isPredictFunOrderRow(row) && row.PfSide === "sell")
+    return true;
+  return false;
+}
+
+function isPredictionBuyRow(row: OrderRow): boolean {
+  if (isPolymarketOrderRow(row) && row.PmSide !== "sell")
+    return true;
+  if (isPredictFunOrderRow(row) && row.PfSide !== "sell")
+    return true;
+  return false;
+}
+
+/**
+ * [changmen 扩展] 订单栏方案 A：PM/PF 卖单在 UI 上挂到对应买单下（软附属）。
+ * 不改落库/盈亏；无父买单的孤儿卖单仍顶层展示。
+ */
+export type OrderListDisplayBlock = {
+  key: string;
+  row: OrderRow;
+  /** true = 嵌在买单下的卖出记录 */
+  attach: boolean;
+};
+
+export function orderListDisplayBlocks(rows: OrderRow[]): OrderListDisplayBlock[] {
+  const display = orderListDisplayRows(rows);
+  const buyIds = new Set(
+    display
+      .filter(isPredictionBuyRow)
+      .map(r => String(r.OrderID ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  /** buyId → sells（按 CreateAt 升序） */
+  const sellsByBuy = new Map<string, OrderRow[]>();
+  const nestedSellIds = new Set<string>();
+  for (const r of display) {
+    if (!isPredictionSellRow(r))
+      continue;
+    const buyId = predictionSellParentBuyId(r);
+    if (!buyId || !buyIds.has(buyId))
+      continue;
+    const list = sellsByBuy.get(buyId) ?? [];
+    list.push(r);
+    sellsByBuy.set(buyId, list);
+    nestedSellIds.add(String(r.OrderID ?? ""));
+  }
+  for (const list of sellsByBuy.values()) {
+    list.sort((a, b) => (Number(a.CreateAt) || 0) - (Number(b.CreateAt) || 0));
+  }
+
+  const out: OrderListDisplayBlock[] = [];
+  for (const r of display) {
+    const oid = String(r.OrderID ?? "");
+    if (nestedSellIds.has(oid))
+      continue;
+    out.push({ key: oid || `row-${out.length}`, row: r, attach: false });
+    if (!isPredictionBuyRow(r))
+      continue;
+    const sells = sellsByBuy.get(oid.trim().toLowerCase()) ?? [];
+    for (const s of sells) {
+      const sid = String(s.OrderID ?? "");
+      out.push({ key: sid || `sell-${out.length}`, row: s, attach: true });
+    }
+  }
+  return out;
+}
+
 /** 本地日历日 YYYY-MM-DD（与侧栏 orderDate 一致） */
 export function toOrderDateKeyLocal(ts: number): string {
   const d = new Date(Number(ts) || Date.now());
@@ -479,14 +558,6 @@ function isPfExitedBuy(row: OrderRow): boolean {
 
 function isExitedPredictionBuy(row: OrderRow): boolean {
   return isPmExitedBuy(row) || isPfExitedBuy(row);
-}
-
-function isPredictionSellRow(row: OrderRow): boolean {
-  if (isPolymarketOrderRow(row) && row.PmSide === "sell")
-    return true;
-  if (isPredictFunOrderRow(row) && row.PfSide === "sell")
-    return true;
-  return false;
 }
 
 function orderLegendExposureBet(row: OrderRow): number {

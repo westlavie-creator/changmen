@@ -16,6 +16,7 @@ import {
   makeupPendingProfitLabel,
   mergePendingMakeupIntoOrderGroups,
   orderLinkLegend,
+  orderListDisplayBlocks,
   orderListDisplayRows,
   orderProfitDateTs,
   sortOrdersByLinkDesc,
@@ -299,6 +300,80 @@ describe("orderLink A8 parity", () => {
     ]);
     // Money 为 USDT，图例 × 汇率 6.8
     expect(profit).toBe(3.75 * 6.8);
+  });
+
+  it("orderListDisplayBlocks nests PM/PF sells under matching buys", () => {
+    const blocks = orderListDisplayBlocks([
+      { OrderID: "ob1", Type: "OB", Link: 1, Status: "None", BetMoney: 100, Money: 0 },
+      {
+        OrderID: "buy",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "buy",
+        Status: "None",
+        PmSellState: "closed",
+        BetMoney: 100,
+        Money: 20,
+        CreateAt: 100,
+      },
+      {
+        OrderID: "sell",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "sell",
+        PmBuyOrderId: "buy",
+        Status: "None",
+        BetMoney: 120,
+        Money: 0,
+        CreateAt: 200,
+      },
+      {
+        OrderID: "orphan-sell",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "sell",
+        PmBuyOrderId: "missing",
+        Status: "None",
+        BetMoney: 50,
+        Money: 0,
+        CreateAt: 300,
+      },
+      {
+        OrderID: "pf-buy",
+        Type: "PredictFun",
+        Link: 1,
+        PfSide: "buy",
+        PfSellState: "closed",
+        Status: "None",
+        BetMoney: 10,
+        Money: 1,
+        CreateAt: 400,
+      },
+      {
+        OrderID: "pf-sell",
+        Type: "PredictFun",
+        Link: 1,
+        PfSide: "sell",
+        PfBuyOrderId: "pf-buy",
+        Status: "None",
+        BetMoney: 11,
+        Money: 0,
+        CreateAt: 500,
+      },
+    ]);
+    expect(blocks.map(b => ({ id: b.row.OrderID, attach: b.attach }))).toEqual([
+      { id: "ob1", attach: false },
+      { id: "buy", attach: false },
+      { id: "sell", attach: true },
+      { id: "orphan-sell", attach: false },
+      { id: "pf-buy", attach: false },
+      { id: "pf-sell", attach: true },
+    ]);
+    // 组盈亏仍按全量 rows 计算，与 blocks 展示无关
+    expect(computeOrderGroupProfit([
+      { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 20, Status: "None" },
+      { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 0, BetMoney: 120, PmBuyOrderId: "buy" },
+    ])).toBe(20);
   });
 
   it("orderLinkLegend uses sell P&L when buy Money still 0 (legacy)", () => {

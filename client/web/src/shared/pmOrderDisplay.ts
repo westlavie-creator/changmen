@@ -46,23 +46,33 @@ export function isPmMarketSettledBuy(row: OrderRow): boolean {
   return String(row.PmSellState ?? "").toLowerCase() === "settled";
 }
 
-/** 侧栏买单生命周期小标签文案 */
+/** 侧栏买单生命周期小标签文案（角标输赢另见 resolvePmOrderListStatusClass） */
 export function pmBuyLifecycleTagText(row: OrderRow): string | null {
   if (isPmManuallySoldBuy(row)) {
     const state = String(row.PmSellState ?? "").toLowerCase();
-    // partial 但剩余尘量已视为 0 → 已卖出
+    // 仍有剩余仓：部分卖出；已卖光不再打「已卖出」（角标改输赢，卖出看附属块）
     if (state === "partial" && resolvePmRemainingShares(row) > 0)
       return "部分卖出";
-    return "已卖出";
+    return null;
   }
   if (isPmMarketSettledBuy(row))
     return "已结算";
   return null;
 }
 
+/** 已实现盈亏 → 角标 Win/Lose（打平按 Win） */
+export function statusClassFromRealizedMoney(money: unknown): "Win" | "Lose" {
+  const n = Number(money);
+  if (Number.isFinite(n) && n < 0)
+    return "Lose";
+  return "Win";
+}
+
 /**
- * 侧栏角标 class：手动平仓后 RDS 仍为 Status=None（挡 Gamma）。
- * 卖单只表回款动作结果（Return）；盈亏在买单；手动卖光买单映成 PmSold。
+ * 侧栏角标 class：手动平仓后 RDS 常仍为 Status=None（挡 Gamma）。
+ * - 卖单：PmSell（已平仓动作）
+ * - 买单全卖 / 赛果结算：按 Money（或 PmMatchResult）映 Win/Lose
+ * - 部分卖 / 未结：待结算（None/Pending）
  */
 export function resolvePmOrderListStatusClass(row: OrderRow): string {
   if (!isPmOrderListRow(row))
@@ -84,10 +94,16 @@ export function resolvePmOrderListStatusClass(row: OrderRow): string {
     const state = String(row.PmSellState ?? "").toLowerCase();
     if (state === "partial" && resolvePmRemainingShares(row) > 0)
       return raw; // 部分卖出仍待结算剩余仓
-    return "PmSold";
+    return statusClassFromRealizedMoney(row.Money);
   }
-  if (isPmMarketSettledBuy(row))
-    return "PmSettled";
+  if (isPmMarketSettledBuy(row)) {
+    const match = String(row.PmMatchResult ?? "").trim().toLowerCase();
+    if (match === "win")
+      return "Win";
+    if (match === "lose")
+      return "Lose";
+    return statusClassFromRealizedMoney(row.Money);
+  }
 
   return raw;
 }

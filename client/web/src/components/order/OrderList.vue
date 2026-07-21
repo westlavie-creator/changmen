@@ -13,6 +13,7 @@ import {
   isPmBuyOrderListRow,
   isPmOrderListRow,
   isPmSellOrderListRow,
+  isPmManuallySoldBuy,
   pmBuyLifecycleTagText,
   pmOddsTextFromClobPrice,
   pmOrderFillPriceText,
@@ -57,8 +58,10 @@ import {
   isRebindableOrderRow,
   makeupBetIdFromPendingRow,
   makeupPendingProfitLabel,
+  orderListDisplayBlocks,
   orderListDisplayRows,
 } from "@/shared/orderLink";
+import { resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import {
   canManualSellPmBuy,
   confirmAndSellPmBuyOrder,
@@ -146,6 +149,16 @@ function isPendingRow(row: OrderRow): boolean {
     if (row.PfSide === "sell" || row.PfSellState === "closed")
       return false;
   }
+  // PM：卖单 / 已全卖买单不算「待结算」（角标已映 Win/Lose）
+  if (String(row.Type ?? "") === "Polymarket") {
+    if (row.PmSide === "sell")
+      return false;
+    if (isPmManuallySoldBuy(row)) {
+      const state = String(row.PmSellState ?? "").toLowerCase();
+      if (!(state === "partial" && resolvePmRemainingShares(row) > 0))
+        return false;
+    }
+  }
   return String(row.Status ?? "") === "None";
 }
 
@@ -193,8 +206,16 @@ function pmLiveClobPrice(row: OrderRow): number | null {
  * 无 live 时文案为 —，fo/`quoteTick` 到达后填数。
  */
 function pmShowLivePrice(row: OrderRow): boolean {
-  if (!isPmBuyOrderListRow(row) || pmBuyLifecycleTagText(row))
+  if (!isPmBuyOrderListRow(row))
     return false;
+  // 仅「部分卖出」仍显示当前价；全卖 / 已结算不显示
+  if (pmBuyLifecycleTagText(row) === "已结算")
+    return false;
+  if (isPmManuallySoldBuy(row)) {
+    const state = String(row.PmSellState ?? "").toLowerCase();
+    if (!(state === "partial" && resolvePmRemainingShares(row) > 0))
+      return false;
+  }
   const status = String(row.Status ?? "").trim().toLowerCase();
   if (status === "reject" || status === "return" || status === "pending")
     return false;
@@ -236,7 +257,7 @@ function pfLiveClobPrice(row: OrderRow): number | null {
 }
 
 function pfShowLivePrice(row: OrderRow): boolean {
-  if (!isPfBuyOrderListRow(row) || pfBuyLifecycleTagText(row))
+  if (!isPfBuyOrderListRow(row))
     return false;
   const status = String(row.Status ?? "").trim().toLowerCase();
   if (status === "reject" || status === "return" || status === "pending")
@@ -550,166 +571,173 @@ function badgeTitle(row: OrderRow): string {
           {{ orderLegendText(rows) }}
         </legend>
         <div
-          v-for="row in orderListDisplayRows(rows)"
-          :key="String(row.OrderID)"
+          v-for="block in orderListDisplayBlocks(rows)"
+          :key="block.key"
           class="order"
+          :class="{ 'order--sell-attach': block.attach }"
         >
           <div
-            v-if="isMakeupPendingOrderRow(row)"
+            v-if="block.attach"
+            class="order__attach-label"
+          >
+            卖出记录
+          </div>
+          <div
+            v-if="isMakeupPendingOrderRow(block.row)"
             class="order__status-anchor"
           >
             <i
               class="order__makeup-close"
               title="取消补单"
               role="button"
-              @click="onCancelMakeup(row)"
+              @click="onCancelMakeup(block.row)"
             />
-            <label class="status" :class="row.Status" />
+            <label class="status" :class="block.row.Status" />
           </div>
-          <label v-else class="status" :class="statusClass(row)" />
-          <div class="platform flex" :class="platformClass(row)">
+          <label v-else class="status" :class="statusClass(block.row)" />
+          <div class="platform flex" :class="platformClass(block.row)">
             <span
-              :class="badgeClass(row)"
-              :data-rebind-order-id="isRebindableOrderRow(row) ? String(row.OrderID) : undefined"
-              :title="badgeTitle(row)"
-              @pointerdown="onBadgePointerDown($event, row)"
+              :class="badgeClass(block.row)"
+              :data-rebind-order-id="isRebindableOrderRow(block.row) ? String(block.row.OrderID) : undefined"
+              :title="badgeTitle(block.row)"
+              @pointerdown="onBadgePointerDown($event, block.row)"
               @pointermove="onBadgePointerMove"
               @pointerup="onBadgePointerUp"
               @pointercancel="onBadgePointerCancel"
             >
-              <PlatformIcon :platform="row.Type ?? ''" />
+              <PlatformIcon :platform="block.row.Type ?? ''" />
             </span>
             <div class="player">
-              {{ playerLabel(row) }}
+              {{ playerLabel(block.row) }}
             </div>
             <span
-              v-if="pmOrderSideTagText(row) || pfOrderSideTagText(row)"
+              v-if="pmOrderSideTagText(block.row) || pfOrderSideTagText(block.row)"
               class="order__pm-tag order__pm-tag--side"
-              :class="(isPmSellOrderListRow(row) || isPfSellOrderListRow(row)) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
-            >{{ pmOrderSideTagText(row) || pfOrderSideTagText(row) }}</span>
+              :class="(isPmSellOrderListRow(block.row) || isPfSellOrderListRow(block.row)) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
+            >{{ pmOrderSideTagText(block.row) || pfOrderSideTagText(block.row) }}</span>
           </div>
-          <div v-if="isPfOrderListRow(row)" class="match">{{ pfMatchText(row) }}</div>
-          <div v-else class="match" v-html="row.Match" />
+          <div v-if="isPfOrderListRow(block.row)" class="match">{{ pfMatchText(block.row) }}</div>
+          <div v-else class="match" v-html="block.row.Match" />
           <div class="bet">
             <div class="betname">
-              <span v-if="isPfOrderListRow(row)">{{ pfBetText(row) }}</span>
-              <span v-else v-html="row.Bet" />
+              <span v-if="isPfOrderListRow(block.row)">{{ pfBetText(block.row) }}</span>
+              <span v-else v-html="block.row.Bet" />
             </div>
             <div class="item">
-              <label v-if="isPfOrderListRow(row)">{{ pfItemText(row) }}</label>
-              <label v-else v-html="row.Item" />
+              <label v-if="isPfOrderListRow(block.row)">{{ pfItemText(block.row) }}</label>
+              <label v-else v-html="block.row.Item" />
             </div>
           </div>
           <div class="profit">
-            <template v-if="isPmOrderListRow(row)">
-              <template v-if="isPmSellOrderListRow(row)">
+            <template v-if="isPmOrderListRow(block.row)">
+              <template v-if="isPmSellOrderListRow(block.row)">
                 <div class="order__profit-line">
-                  <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
-                  <span>{{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}</span>
+                  <span v-if="pmOrderSharesText(block.row)">份额：{{ pmOrderSharesText(block.row) }} </span>
+                  <span>{{ pmStakeLabel(block.row) }}：{{ toFixed(pmOrderStakeDisplayCny(block.row), 0) }}</span>
                 </div>
                 <div class="order__profit-line">
-                  <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
-                  <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span></span>
+                  <span v-if="pmOrderFillPriceText(block.row)">{{ pmOrderPriceLabel(block.row) }}：{{ pmOrderFillPriceText(block.row) }} </span>
+                  <span v-if="pmOrderFillPriceText(block.row)">赔率：<span class="order__odds">{{ pmOrderOddsText(block.row) }}</span></span>
                 </div>
               </template>
               <template v-else>
                 <div class="order__profit-line">
-                  <span v-if="pmOrderSharesText(row)">份额：{{ pmOrderSharesText(row) }} </span>
-                  <span v-if="pmOrderFillPriceText(row)">{{ pmOrderPriceLabel(row) }}：{{ pmOrderFillPriceText(row) }} </span>
-                  <span v-if="pmOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pmOrderOddsText(row) }}</span></span>
+                  <span v-if="pmOrderSharesText(block.row)">份额：{{ pmOrderSharesText(block.row) }} </span>
+                  <span v-if="pmOrderFillPriceText(block.row)">{{ pmOrderPriceLabel(block.row) }}：{{ pmOrderFillPriceText(block.row) }} </span>
+                  <span v-if="pmOrderFillPriceText(block.row)">赔率：<span class="order__odds">{{ pmOrderOddsText(block.row) }}</span></span>
                 </div>
                 <div class="order__profit-line">
-                  {{ pmStakeLabel(row) }}：{{ toFixed(pmOrderStakeDisplayCny(row), 0) }}
-                  <template v-if="isPendingRow(row) && !pmBuyLifecycleTagText(row)">
+                  {{ pmStakeLabel(block.row) }}：{{ toFixed(pmOrderStakeDisplayCny(block.row), 0) }}
+                  <template v-if="isPendingRow(block.row) && !pmBuyLifecycleTagText(block.row)">
                     盈亏：待结算
                   </template>
                   <template v-else>
-                    盈亏：{{ toFixed(pmOrderProfitDisplayCny(row, rows) ?? 0, 0) }}
+                    盈亏：{{ toFixed(pmOrderProfitDisplayCny(block.row, rows) ?? 0, 0) }}
                   </template>
                 </div>
                 <div class="order__profit-line order__profit-line--sell-row">
                   <span class="order__sell-row-meta">
-                    <span v-if="pmShowLivePrice(row)">当前价：{{ pmLivePriceText(row) }} </span>
-                    <span v-if="pmShowLiveOdds(row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(row) }}</span> </span>
+                    <span v-if="pmShowLivePrice(block.row)">当前价：{{ pmLivePriceText(block.row) }} </span>
+                    <span v-if="pmShowLiveOdds(block.row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(block.row) }}</span> </span>
                   </span>
                   <button
-                    v-if="showPmSellButton(row)"
+                    v-if="showPmSellButton(block.row)"
                     type="button"
                     class="order__sell-btn"
-                    :disabled="isPmManualSellInFlight(row.OrderID)"
-                    @click="onPmSell(row)"
+                    :disabled="isPmManualSellInFlight(block.row.OrderID)"
+                    @click="onPmSell(block.row)"
                   >
-                    {{ isPmManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                    {{ isPmManualSellInFlight(block.row.OrderID) ? "卖出中…" : "卖出" }}
                   </button>
                 </div>
               </template>
             </template>
-            <template v-else-if="isPfOrderListRow(row)">
-              <template v-if="isPfSellOrderListRow(row)">
+            <template v-else-if="isPfOrderListRow(block.row)">
+              <template v-if="isPfSellOrderListRow(block.row)">
                 <div class="order__profit-line">
-                  <span v-if="pfOrderSharesText(row)">份额：{{ pfOrderSharesText(row) }} </span>
-                  <span>{{ pfStakeLabel(row) }}：{{ toFixed(pfOrderStakeDisplayCny(row), 1) }}</span>
+                  <span v-if="pfOrderSharesText(block.row)">份额：{{ pfOrderSharesText(block.row) }} </span>
+                  <span>{{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 1) }}</span>
                 </div>
                 <div class="order__profit-line">
-                  <span v-if="pfOrderFillPriceText(row)">{{ pfOrderPriceLabel(row) }}：{{ pfOrderFillPriceText(row) }} </span>
-                  <span v-if="pfOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pfOrderOddsText(row) }}</span></span>
+                  <span v-if="pfOrderFillPriceText(block.row)">{{ pfOrderPriceLabel(block.row) }}：{{ pfOrderFillPriceText(block.row) }} </span>
+                  <span v-if="pfOrderFillPriceText(block.row)">赔率：<span class="order__odds">{{ pfOrderOddsText(block.row) }}</span></span>
                 </div>
               </template>
               <template v-else>
                 <div class="order__profit-line">
-                  <span v-if="pfOrderSharesText(row)">份额：{{ pfOrderSharesText(row) }} </span>
-                  <span v-if="pfOrderFillPriceText(row)">{{ pfOrderPriceLabel(row) }}：{{ pfOrderFillPriceText(row) }} </span>
-                  <span v-if="pfOrderFillPriceText(row)">赔率：<span class="order__odds">{{ pfOrderOddsText(row) }}</span></span>
+                  <span v-if="pfOrderSharesText(block.row)">份额：{{ pfOrderSharesText(block.row) }} </span>
+                  <span v-if="pfOrderFillPriceText(block.row)">{{ pfOrderPriceLabel(block.row) }}：{{ pfOrderFillPriceText(block.row) }} </span>
+                  <span v-if="pfOrderFillPriceText(block.row)">赔率：<span class="order__odds">{{ pfOrderOddsText(block.row) }}</span></span>
                 </div>
                 <div class="order__profit-line">
-                  {{ pfStakeLabel(row) }}：{{ toFixed(pfOrderStakeDisplayCny(row), 1) }}
-                  <template v-if="isPendingRow(row) && !pfBuyLifecycleTagText(row)">
+                  {{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 1) }}
+                  <template v-if="isPendingRow(block.row) && !pfBuyLifecycleTagText(block.row)">
                     盈亏：待结算
                   </template>
                   <template v-else>
-                    盈亏：{{ toFixed(pfOrderProfitDisplayCny(row), 1) }}
+                    盈亏：{{ toFixed(pfOrderProfitDisplayCny(block.row), 1) }}
                   </template>
                 </div>
                 <div class="order__profit-line order__profit-line--sell-row">
                   <span class="order__sell-row-meta">
-                    <span v-if="pfShowLivePrice(row)">当前价：{{ pfLivePriceText(row) }} </span>
-                    <span v-if="pfShowLiveOdds(row)">当前赔率：<span class="order__odds">{{ pfLastLineOddsText(row) }}</span> </span>
+                    <span v-if="pfShowLivePrice(block.row)">当前价：{{ pfLivePriceText(block.row) }} </span>
+                    <span v-if="pfShowLiveOdds(block.row)">当前赔率：<span class="order__odds">{{ pfLastLineOddsText(block.row) }}</span> </span>
                   </span>
                   <button
-                    v-if="showPfSellButton(row)"
+                    v-if="showPfSellButton(block.row)"
                     type="button"
                     class="order__sell-btn"
-                    :disabled="isPfManualSellInFlight(row.OrderID)"
-                    @click="onPfSell(row)"
+                    :disabled="isPfManualSellInFlight(block.row.OrderID)"
+                    @click="onPfSell(block.row)"
                   >
-                    {{ isPfManualSellInFlight(row.OrderID) ? "卖出中…" : "卖出" }}
+                    {{ isPfManualSellInFlight(block.row.OrderID) ? "卖出中…" : "卖出" }}
                   </button>
                 </div>
               </template>
             </template>
             <template v-else>
-              投注金额：{{ toFixed(Number(row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
-                formatDisplayOdds(Number(row.Odds) || 0)
+              投注金额：{{ toFixed(Number(block.row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+                formatDisplayOdds(Number(block.row.Odds) || 0)
               }}</span>
-              <template v-if="isMakeupPendingOrderRow(row)">
-                盈亏：{{ makeupPendingProfitLabel(row) }}
+              <template v-if="isMakeupPendingOrderRow(block.row)">
+                盈亏：{{ makeupPendingProfitLabel(block.row) }}
               </template>
-              <template v-else-if="isMakeupCancelledOrderRow(row)">
+              <template v-else-if="isMakeupCancelledOrderRow(block.row)">
                 盈亏：补单已手动取消
               </template>
-              <template v-else-if="isPendingRow(row)">
+              <template v-else-if="isPendingRow(block.row)">
                 盈亏：待结算
               </template>
               <template v-else>
-                盈亏：{{ toFixed(Number(row.Money) || 0, 0) }}
+                盈亏：{{ toFixed(Number(block.row.Money) || 0, 0) }}
               </template>
             </template>
           </div>
           <div class="time">
-            投注时间：{{ formatOrderTime(row.CreateAt || 0) }}
+            投注时间：{{ formatOrderTime(block.row.CreateAt || 0) }}
           </div>
           <div v-if="$slots['row-actions']" class="order-list__row-actions">
-            <slot name="row-actions" :row="row" :link="link" :rows="rows" />
+            <slot name="row-actions" :row="block.row" :link="link" :rows="rows" />
           </div>
         </div>
         <div v-if="$slots['group-actions']" class="order-list__group-actions">
