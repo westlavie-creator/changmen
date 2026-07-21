@@ -102,6 +102,8 @@ export const {
   fetchOrdersByPlayerOrderIds,
   fetchOrdersByLink,
   fetchOrdersByLinks,
+  fetchOrdersByUserOrderIds,
+  fetchPredictionSellsByBuyOrderIds,
   fetchOrderByOrderId,
   fetchUserByName,
   fetchUserById,

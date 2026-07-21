@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { listByDatePage, saveOrder } from "./order_store.js";
+import { alignRawPredictionSellLinksToBuys, listByDatePage, saveOrder } from "./order_store.js";
 
 const fetchOrdersByPlayerOrderIds = vi.hoisted(() => vi.fn(async () => []));
 const upsertOrders = vi.hoisted(() => vi.fn(async () => true));
 const fetchOrdersByDatePage = vi.hoisted(() => vi.fn(async () => ({ rows: [], total: 0 })));
 const fetchOrdersByLinks = vi.hoisted(() => vi.fn(async () => []));
+const fetchOrdersByUserOrderIds = vi.hoisted(() => vi.fn(async () => []));
+const fetchPredictionSellsByBuyOrderIds = vi.hoisted(() => vi.fn(async () => []));
 
 vi.mock("@changmen/db", async (importOriginal) => {
   const actual = await importOriginal();
@@ -15,6 +17,8 @@ vi.mock("@changmen/db", async (importOriginal) => {
     upsertOrders,
     fetchOrdersByDatePage,
     fetchOrdersByLinks,
+    fetchOrdersByUserOrderIds,
+    fetchPredictionSellsByBuyOrderIds,
   };
 });
 
@@ -24,10 +28,14 @@ describe("saveOrder backend bind link", () => {
     upsertOrders.mockReset();
     fetchOrdersByDatePage.mockReset();
     fetchOrdersByLinks.mockReset();
+    fetchOrdersByUserOrderIds.mockReset();
+    fetchPredictionSellsByBuyOrderIds.mockReset();
     fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
     upsertOrders.mockResolvedValue(true);
     fetchOrdersByDatePage.mockResolvedValue({ rows: [], total: 0 });
     fetchOrdersByLinks.mockResolvedValue([]);
+    fetchOrdersByUserOrderIds.mockResolvedValue([]);
+    fetchPredictionSellsByBuyOrderIds.mockResolvedValue([]);
   });
 
   it("sets link just before create_at for new unbound order", async () => {
@@ -443,6 +451,10 @@ describe("listByDatePage link siblings", () => {
   beforeEach(() => {
     fetchOrdersByDatePage.mockReset();
     fetchOrdersByLinks.mockReset();
+    fetchOrdersByUserOrderIds.mockReset();
+    fetchPredictionSellsByBuyOrderIds.mockReset();
+    fetchOrdersByUserOrderIds.mockResolvedValue([]);
+    fetchPredictionSellsByBuyOrderIds.mockResolvedValue([]);
   });
 
   const buyAt = Date.parse("2026-07-18T15:36:00+08:00");
@@ -481,7 +493,8 @@ describe("listByDatePage link siblings", () => {
     fetchOrdersByLinks.mockResolvedValue([buyYday, sellToday]);
 
     const { list, total } = await listByDatePage(buyDay, "user-1", 1, 1024);
-    expect(total).toBe(1);
+    // total 以 enrich 后实际条数为准（并入跨日卖单）
+    expect(total).toBe(2);
     expect(list.map(r => r.OrderID).sort()).toEqual(["0xbuyYday", "0xsellToday"]);
     expect(list.every(r => r.Link === link)).toBe(true);
     expect(fetchOrdersByLinks).toHaveBeenCalledWith("user-1", [link]);
@@ -496,6 +509,98 @@ describe("listByDatePage link siblings", () => {
 
     const { list } = await listByDatePage(sellDay, "user-1", 1, 1024);
     expect(list).toEqual([]);
+  });
+
+  it("on buy day merges cross-day sell even when sell.link diverges (by pmBuyOrderId)", async () => {
+    const buyLink = 1_781_300_000_200;
+    const sellWrongLink = 1_781_300_000_100;
+    const buy = {
+      ...buyYday,
+      link: buyLink,
+      user_id: "user-1",
+    };
+    const sell = {
+      ...sellToday,
+      link: sellWrongLink,
+      user_id: "user-1",
+      raw: { pmSide: "sell", pmBuyOrderId: "0xbuyYday", pmOrigin: "changmen" },
+    };
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [buy], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([buy]);
+    fetchPredictionSellsByBuyOrderIds.mockResolvedValue([sell]);
+
+    const { list } = await listByDatePage(buyDay, "user-1", 1, 1024);
+    expect(list.map(r => r.OrderID).sort()).toEqual(["0xbuyYday", "0xsellToday"]);
+    expect(list.find(r => r.OrderID === "0xsellToday")?.Link).toBe(buyLink);
+    expect(fetchPredictionSellsByBuyOrderIds).toHaveBeenCalledWith("user-1", ["0xbuyYday"]);
+  });
+
+  it("on sell day pulls parent buy by pmBuyOrderId then hides (belongs to buy day)", async () => {
+    const buyLink = 1_781_300_000_200;
+    const sellWrongLink = 1_781_300_000_100;
+    const buy = {
+      ...buyYday,
+      link: buyLink,
+      user_id: "user-1",
+    };
+    const sell = {
+      ...sellToday,
+      link: sellWrongLink,
+      user_id: "user-1",
+      raw: { pmSide: "sell", pmBuyOrderId: "0xbuyYday", pmOrigin: "changmen" },
+    };
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [sell], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([sell]);
+    fetchOrdersByUserOrderIds.mockResolvedValue([buy]);
+    fetchPredictionSellsByBuyOrderIds.mockResolvedValue([sell]);
+
+    const { list } = await listByDatePage(sellDay, "user-1", 1, 1024);
+    expect(list).toEqual([]);
+    expect(fetchOrdersByUserOrderIds).toHaveBeenCalledWith("user-1", ["0xbuyYday"]);
+  });
+
+  it("alignRawPredictionSellLinksToBuys splits link=0 buys by create_at placeholder", () => {
+    const buyAt1 = Date.parse("2026-07-18T12:00:00+08:00");
+    const buyAt2 = Date.parse("2026-07-19T12:00:00+08:00");
+    const rows = alignRawPredictionSellLinksToBuys([
+      {
+        order_id: "buy1",
+        link: 0,
+        create_at: buyAt1,
+        provider: "Polymarket",
+        raw: { pmSide: "buy" },
+      },
+      {
+        order_id: "buy2",
+        link: 0,
+        create_at: buyAt2,
+        provider: "Polymarket",
+        raw: { pmSide: "buy" },
+      },
+      {
+        order_id: "sell1",
+        link: 99,
+        create_at: buyAt1 + 1000,
+        provider: "Polymarket",
+        raw: { pmSide: "sell", pmBuyOrderId: "buy1" },
+      },
+      {
+        order_id: "sell2",
+        link: 88,
+        create_at: buyAt2 + 1000,
+        provider: "Polymarket",
+        raw: { pmSide: "sell", pmBuyOrderId: "buy2" },
+      },
+    ]);
+    const b1 = rows.find(r => r.order_id === "buy1");
+    const b2 = rows.find(r => r.order_id === "buy2");
+    const s1 = rows.find(r => r.order_id === "sell1");
+    const s2 = rows.find(r => r.order_id === "sell2");
+    expect(Number(b1.link)).toBe(buyAt1);
+    expect(Number(b2.link)).toBe(buyAt2);
+    expect(b1.link).not.toBe(b2.link);
+    expect(s1.link).toBe(b1.link);
+    expect(s2.link).toBe(b2.link);
   });
 
   it("keeps cross-day arb siblings when there is no PM sell", async () => {

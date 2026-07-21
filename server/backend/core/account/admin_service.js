@@ -7,7 +7,7 @@ import { lookupOrderLogs, toAdminOrderLogPayload } from "../admin_tools/user_log
 import { isAdminUser } from "../auth/admin_auth.js";
 import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";
 import { listProfileRows, loadAccountsForUser, loadProfileById } from "../db/store.js";
-import { listUserProfitRank, resolveStoredLink, rowToOrder, toDateKey } from "./order_store.js";
+import { enrichOrdersBelongingToDate, listUserProfitRank, resolveStoredLink, rowToOrder, toDateKey } from "./order_store.js";
 import * as orderStore from "./order_store.js";
 import { summarizePfOrders } from "../integrations/predictfun/pf_ledger.js";
 import {
@@ -463,9 +463,14 @@ export async function listAdminOrders(body = {}, caller = null) {
     playerId,
     userIds,
   };
-  const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
-  const list = (rows || []).map(r => mapAdminOrderRow(r));
-  return { date: dateKey, list, total, pageIndex, pageSize };
+  const { rows } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
+  const enriched = await enrichOrdersBelongingToDate(rows || [], dateKey, {
+    userId: userId || undefined,
+    userIds,
+  });
+  const list = enriched.map(r => mapAdminOrderRow(r));
+  // enrich 会并入跨日 sibling / 按买单日过滤，条数与分页 total 可能不一致；以本页实际返回为准
+  return { date: dateKey, list, total: list.length, pageIndex, pageSize };
 }
 
 /** Client_AdminDeleteOrders：form body 里 orderIds 常为 JSON.stringify 后的数组字符串 */
@@ -527,8 +532,9 @@ export async function listAdminOrdersMatrix(body = {}, caller = null) {
     sb.fetchOrdersAdminAll(filter),
     sb.fetchClientMatches(),
   ]);
+  const enriched = await enrichOrdersBelongingToDate(rows || [], dateKey, { userIds });
   const startIndex = buildClientMatchStartIndex(clientMatches);
-  const list = (rows || []).map(r => mapAdminOrderRow(r, startIndex));
+  const list = enriched.map(r => mapAdminOrderRow(r, startIndex));
   return { date: dateKey, list, total: list.length };
 }
 

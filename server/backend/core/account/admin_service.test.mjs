@@ -72,6 +72,9 @@ vi.mock("@changmen/db", () => ({
   })),
   updateUserName: vi.fn(async () => true),
   deleteOrdersByIds: vi.fn(async ids => ids.length),
+  fetchOrdersByLinks: vi.fn(async () => []),
+  fetchOrdersByUserOrderIds: vi.fn(async () => []),
+  fetchPredictionSellsByBuyOrderIds: vi.fn(async () => []),
   // rowToOrder → resolveStoredLink 需要（link=0 时）
   placeholderLinkFromCreateAt: (ca) => Number(ca) || 0,
   backendBindLinkFromCreateAt: (ca) => Number(ca) || 0,
@@ -116,8 +119,7 @@ describe("listAdminOrders", () => {
   it("maps multiple rows without treating array index as startIndex", async () => {
     const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 50 });
     expect(page.list).toHaveLength(3);
-    expect(page.list[0].id).toBe(1);
-    expect(page.list[1].id).toBe(2);
+    expect(page.list.map(r => r.id).sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
 
   it("passes through Polymarket raw fields for workbench-parity display", async () => {

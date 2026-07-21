@@ -339,6 +339,83 @@ export async function fetchOrdersByLinks(userId, links) {
   }
 }
 
+/**
+ * [changmen 扩展] 按 order_id 批量拉单（跨日父买单；大小写不敏感）。
+ * @param {string} userId
+ * @param {string[]} orderIds
+ * @param {string[]|null} [userIds] 管理端多用户时可选缩小范围
+ */
+export async function fetchOrdersByUserOrderIds(userId, orderIds, userIds = null) {
+  const pool = getPgPool();
+  const ids = [...new Set(
+    (orderIds || []).map(id => String(id ?? "").trim().toLowerCase()).filter(Boolean),
+  )];
+  if (!pool || !ids.length)
+    return [];
+  try {
+    const params = [ids];
+    let where = `lower(order_id) = ANY($1::text[])`;
+    const uid = String(userId || "").trim();
+    if (uid) {
+      params.push(uid);
+      where += ` AND user_id = $${params.length}`;
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds.map(String));
+      where += ` AND user_id = ANY($${params.length}::uuid[])`;
+    }
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at DESC`,
+      params,
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchOrdersByUserOrderIds:", err.message);
+    return [];
+  }
+}
+
+/**
+ * [changmen 扩展] 按父买单 order_id 拉 PM/PF 卖单（不依赖 sell.link）。
+ * @param {string} userId
+ * @param {string[]} buyOrderIds
+ * @param {string[]|null} [userIds]
+ */
+export async function fetchPredictionSellsByBuyOrderIds(userId, buyOrderIds, userIds = null) {
+  const pool = getPgPool();
+  const ids = [...new Set(
+    (buyOrderIds || []).map(id => String(id ?? "").trim().toLowerCase()).filter(Boolean),
+  )];
+  if (!pool || !ids.length)
+    return [];
+  try {
+    const params = [ids];
+    let where = `(
+      lower(COALESCE(raw->>'pmBuyOrderId', '')) = ANY($1::text[])
+      OR lower(COALESCE(raw->>'pfBuyOrderId', '')) = ANY($1::text[])
+    )`;
+    const uid = String(userId || "").trim();
+    if (uid) {
+      params.push(uid);
+      where += ` AND user_id = $${params.length}`;
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds.map(String));
+      where += ` AND user_id = ANY($${params.length}::uuid[])`;
+    }
+    const { rows } = await pool.query(
+      `SELECT * FROM orders WHERE ${where} ORDER BY create_at DESC`,
+      params,
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchPredictionSellsByBuyOrderIds:", err.message);
+    return [];
+  }
+}
+
 /** 按 order_id 查单行 */
 export async function fetchOrderByOrderId(userId, orderId) {
   const pool = getPgPool();

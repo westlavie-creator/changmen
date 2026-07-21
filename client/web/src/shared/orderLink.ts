@@ -279,8 +279,8 @@ export function orderBelongsToDateKey(
 
 /**
  * 按日展示过滤：
- * - 含 PM 卖单的 Link 组：整组跟买单日（卖出日不再出现）
- * - 无 PM 卖单：保留跨日 sibling 整组（套利腿不拆）
+ * - 含 PM/PF 卖单的 Link 组：整组跟买单日（卖出日不再出现）
+ * - 无预测卖单：保留跨日 sibling 整组（套利腿不拆）
  */
 export function filterOrdersBelongingToDate(
   list: OrderRow[],
@@ -290,9 +290,9 @@ export function filterOrdersBelongingToDate(
   const groups = groupOrdersByEffectiveLink(list);
   const out: OrderRow[] = [];
   for (const rows of groups.values()) {
-    const pmSells = rows.filter(r => isPolymarketOrderRow(r) && r.PmSide === "sell");
-    if (pmSells.length) {
-      const anchors = pmSells
+    const predSells = rows.filter(isPredictionSellRow);
+    if (predSells.length) {
+      const anchors = predSells
         .map(s => orderProfitDateTs(s, rows))
         .filter(n => n > 0);
       if (anchors.length) {
