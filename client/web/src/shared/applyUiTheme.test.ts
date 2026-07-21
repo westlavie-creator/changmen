@@ -43,13 +43,48 @@ describe("applyUiTheme", () => {
     expect(el.classList.contains("dark")).toBe(false);
   });
 
-  it("clears brutal and restores dark on admin-route", () => {
+  it("sets paper as light theme", () => {
+    const el = mockDocumentElement();
+    el.classList.add("dark");
+    expect(applyUiTheme("paper")).toBe("paper");
+    expect(el.getAttribute("data-ui-theme")).toBe("paper");
+    expect(el.classList.contains("ui-theme-paper")).toBe(true);
+    expect(el.classList.contains("ui-theme-brutal")).toBe(false);
+    expect(el.classList.contains("dark")).toBe(false);
+  });
+
+  it("sets terminal as dark theme", () => {
+    const el = mockDocumentElement();
+    expect(applyUiTheme("terminal")).toBe("terminal");
+    expect(el.getAttribute("data-ui-theme")).toBe("terminal");
+    expect(el.classList.contains("ui-theme-terminal")).toBe(true);
+    expect(el.classList.contains("dark")).toBe(true);
+  });
+
+  it("clears theme and restores dark on admin-route", () => {
     const el = mockDocumentElement();
     el.classList.add("admin-route");
-    applyUiTheme("brutal");
+    applyUiTheme("paper");
     applyUiTheme("default");
     expect(el.hasAttribute("data-ui-theme")).toBe(false);
-    expect(el.classList.contains("ui-theme-brutal")).toBe(false);
+    expect(el.classList.contains("ui-theme-paper")).toBe(false);
     expect(el.classList.contains("dark")).toBe(true);
+  });
+
+  it("drops dark when leaving terminal for default on home", () => {
+    const el = mockDocumentElement();
+    applyUiTheme("terminal");
+    expect(el.classList.contains("dark")).toBe(true);
+    applyUiTheme("default");
+    expect(el.classList.contains("dark")).toBe(false);
+  });
+
+  it("switches between themes without leftover classes", () => {
+    const el = mockDocumentElement();
+    applyUiTheme("brutal");
+    applyUiTheme("terminal");
+    expect(el.classList.contains("ui-theme-brutal")).toBe(false);
+    expect(el.classList.contains("ui-theme-terminal")).toBe(true);
+    expect(el.getAttribute("data-ui-theme")).toBe("terminal");
   });
 });

@@ -77,8 +77,9 @@ async function logout() {
 onMounted(() => {
   const root = document.documentElement;
   root.classList.add("admin-route");
-  // brutal 浅色皮由 applyUiTheme 去掉 dark；默认管理后台仍用 EP dark
-  if (!root.classList.contains("ui-theme-brutal"))
+  // 浅色皮由 applyUiTheme 去掉 dark；默认 / 终端风管理后台仍用 EP dark
+  const theme = root.getAttribute("data-ui-theme");
+  if (theme !== "brutal" && theme !== "paper")
     root.classList.add("dark");
   document.addEventListener("wheel", onAdminWheel, { passive: false, capture: true });
 });

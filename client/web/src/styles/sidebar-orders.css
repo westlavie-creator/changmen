@@ -671,3 +671,80 @@ body.order-link-rebind-dragging {
   max-height: min(60vh, 420px);
   overflow: auto;
 }
+
+/*
+ * 非默认皮肤：fieldset>legend（盈亏 chip）默认贴左上，会压住 .platform 角标。
+ * 必须带 #app .el-aside / .common-layout，否则会被 sidebar 里 ID 选择器盖掉。
+ */
+html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink,
+html[data-ui-theme="paper"] #app .el-aside .orders .orderlink,
+html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink,
+html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink,
+html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink,
+html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink,
+html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink {
+  position: relative;
+  overflow: visible !important;
+}
+
+html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink > legend,
+html[data-ui-theme="paper"] #app .el-aside .orders .orderlink > legend,
+html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink > legend,
+html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink > legend,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink > legend,
+html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink > legend,
+html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink > legend,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink > legend,
+html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink > legend {
+  float: right !important;
+  position: relative !important;
+  inset: auto !important;
+  left: auto !important;
+  top: auto !important;
+  right: auto !important;
+  transform: none !important;
+  z-index: 4;
+  width: auto !important;
+  max-width: calc(100% - 130px);
+  margin: -12px 6px 2px 8px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-ui-theme="brutal"] #app .el-aside .orders .orderlink > .order,
+html[data-ui-theme="paper"] #app .el-aside .orders .orderlink > .order,
+html[data-ui-theme="terminal"] #app .el-aside .orders .orderlink > .order,
+html[data-ui-theme="brutal"] .common-layout .el-aside .orders .orderlink > .order,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink > .order,
+html[data-ui-theme="terminal"] .common-layout .el-aside .orders .orderlink > .order,
+html[data-ui-theme="brutal"] .admin-orders-user-col .orders .orderlink > .order,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink > .order,
+html[data-ui-theme="terminal"] .admin-orders-user-col .orders .orderlink > .order {
+  clear: both;
+}
+
+/* 盈亏 legend 改右上后，输赢 status 下移进卡片，避免再和 legend 叠 */
+html[data-ui-theme="brutal"] #app .el-aside .orders .order > .status,
+html[data-ui-theme="paper"] #app .el-aside .orders .order > .status,
+html[data-ui-theme="terminal"] #app .el-aside .orders .order > .status,
+html[data-ui-theme="brutal"] .common-layout .el-aside .orders .order > .status,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order > .status,
+html[data-ui-theme="terminal"] .common-layout .el-aside .orders .order > .status,
+html[data-ui-theme="brutal"] .admin-orders-user-col .orders .order > .status,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order > .status,
+html[data-ui-theme="terminal"] .admin-orders-user-col .orders .order > .status,
+html[data-ui-theme="brutal"] #app .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="paper"] #app .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="terminal"] #app .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="brutal"] .common-layout .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="terminal"] .common-layout .el-aside .orders .order > .order__status-anchor,
+html[data-ui-theme="brutal"] .admin-orders-user-col .orders .order > .order__status-anchor,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order > .order__status-anchor,
+html[data-ui-theme="terminal"] .admin-orders-user-col .orders .order > .order__status-anchor {
+  top: 4px !important;
+  right: 6px !important;
+}

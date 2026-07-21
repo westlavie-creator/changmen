@@ -12,6 +12,8 @@ const saving = ref(false);
 const uiThemeOptions: { value: UiTheme; label: string }[] = [
   { value: "default", label: "默认深色" },
   { value: "brutal", label: "Brutal（粗边框）" },
+  { value: "paper", label: "浅纸感" },
+  { value: "terminal", label: "终端风" },
 ];
 
 
@@ -33,15 +35,17 @@ async function save() {
 <template>
   <el-form label-width="150px" class="extensions-tab">
     <div class="extensions-tab__row">
-      <el-form-item label="界面皮肤:" class="extensions-tab__control">
-        <el-select v-model="extensionPrefs.uiTheme" size="large" style="width: 200px">
-          <el-option
+      <el-form-item label="界面皮肤:" class="extensions-tab__control extensions-tab__control--theme">
+        <el-radio-group v-model="extensionPrefs.uiTheme" size="large" class="theme-radios">
+          <el-radio
             v-for="opt in uiThemeOptions"
             :key="opt.value"
-            :label="opt.label"
             :value="opt.value"
-          />
-        </el-select>
+            border
+          >
+            {{ opt.label }}
+          </el-radio>
+        </el-radio-group>
       </el-form-item>
       <p class="extensions-tab__desc">
         只换显示样式，不改控制台结构。切换后立即预览，点保存才会持久化。
@@ -178,6 +182,21 @@ async function save() {
 .extensions-tab__control {
   flex: 0 0 320px;
   margin-bottom: 12px;
+}
+
+.extensions-tab__control--theme {
+  flex: 1 1 520px;
+  max-width: 720px;
+}
+
+.theme-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.theme-radios :deep(.el-radio) {
+  margin-right: 0;
 }
 
 .extensions-tab__desc {

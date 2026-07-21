@@ -58,6 +58,15 @@ const filteredMatchs = computed(() => {
   });
 });
 
+const matchCountLabel = computed(() => {
+  const total = matchs.value.length;
+  const shown = filteredMatchs.value.length;
+  const q = searchQuery.value.trim();
+  if (q && shown !== total)
+    return `${shown} / ${total} 场`;
+  return `${shown} 场`;
+});
+
 /** [A8 可证实] xo：await getUserInfo(), loadAccounts(!0) — comma 不 await loadAccounts */
 onMounted(() => {
   void mountAppSession();
@@ -132,12 +141,17 @@ async function logout() {
         </div>
         <template v-if="sportTab === 'esport'">
           <div class="sport-board">
-            <el-input
-              v-model="searchQuery"
-              placeholder="搜索队名 / 比赛ID / 游戏..."
-              clearable
-              class="match-search"
-            />
+            <div class="match-search-row">
+              <el-input
+                v-model="searchQuery"
+                placeholder="搜索队名 / 比赛ID / 游戏..."
+                clearable
+                class="match-search"
+              />
+              <span class="match-count" :title="`当前列表 ${filteredMatchs.length} 场`">
+                {{ matchCountLabel }}
+              </span>
+            </div>
             <div v-if="filteredMatchs.length" class="matchs">
               <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
             </div>

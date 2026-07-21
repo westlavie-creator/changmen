@@ -1,0 +1,473 @@
+/**
+ * [changmen 扩展] 浅纸感皮肤
+ * 暖米白纸面 + 柔和阴影；只换显示，不改 DOM / 空间定位。
+ */
+
+html[data-ui-theme="paper"] {
+  color-scheme: light;
+
+  --cm-body-bg: #f3eee4;
+  --cm-body-bg-gradient: none;
+  --cm-sidebar-bg: #f3eee4;
+  --cm-color-success: #3f6f4e;
+  --cm-color-warning: #a16207;
+  --cm-color-danger: #b42318;
+  --cm-color-info: #64748b;
+  --cm-color-odds: #1d4ed8;
+
+  --paper-ink: #2a2a2a;
+  --paper-bg: #f3eee4;
+  --paper-panel: #ebe4d6;
+  --paper-panel-2: #e2d9c8;
+  --paper-muted: #6b655c;
+  --paper-accent: #5b6b4a;
+  --paper-accent-soft: #dce5d2;
+  --paper-home: #e8eef8;
+  --paper-away: #f8e8ea;
+  --paper-border: 1px solid #c9bfae;
+  --paper-shadow: 0 1px 2px rgba(42, 42, 42, 0.06), 0 4px 12px rgba(42, 42, 42, 0.04);
+  --paper-radius: 8px;
+
+  --el-color-primary: #5b6b4a;
+  --el-color-success: #3f6f4e;
+  --el-color-warning: #a16207;
+  --el-color-danger: #b42318;
+  --el-color-info: #64748b;
+  --el-bg-color: var(--paper-panel);
+  --el-bg-color-overlay: var(--paper-panel);
+  --el-bg-color-page: var(--paper-bg);
+  --el-text-color-primary: var(--paper-ink);
+  --el-text-color-regular: #3a3a3a;
+  --el-text-color-secondary: var(--paper-muted);
+  --el-text-color-placeholder: #8a8378;
+  --el-border-color: #c9bfae;
+  --el-border-color-light: #d6cebd;
+  --el-border-color-lighter: #e2d9c8;
+  --el-border-color-extra-light: #ebe4d6;
+  --el-fill-color-blank: var(--paper-panel);
+  --el-fill-color-light: var(--paper-panel-2);
+  --el-fill-color: #ddd4c4;
+  --el-fill-color-lighter: #f7f3eb;
+  --el-mask-color: rgba(42, 42, 42, 0.35);
+  --el-box-shadow: var(--paper-shadow);
+  --el-box-shadow-light: var(--paper-shadow);
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 999px;
+}
+
+html[data-ui-theme="paper"] body {
+  background-color: var(--cm-body-bg) !important;
+  background-image: none !important;
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] #app .el-aside,
+html[data-ui-theme="paper"] .common-layout .el-aside {
+  background: var(--paper-bg) !important;
+  border-right: var(--paper-border);
+  box-shadow: none;
+}
+
+html[data-ui-theme="paper"] #app .el-main,
+html[data-ui-theme="paper"] .common-layout .el-main,
+html[data-ui-theme="paper"] .home-main {
+  background: var(--paper-bg) !important;
+}
+
+html[data-ui-theme="paper"] .userinfo {
+  border-bottom: var(--paper-border) !important;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-ui-theme="paper"] .userinfo .info,
+html[data-ui-theme="paper"] .userinfo .report {
+  color: var(--paper-ink) !important;
+  border-color: #c9bfae !important;
+}
+
+html[data-ui-theme="paper"] .userinfo .info .ms {
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .userinfo .report-number .el-statistic__head,
+html[data-ui-theme="paper"] .userinfo .report-number .el-statistic__number {
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .date,
+html[data-ui-theme="paper"] .loseorder-container {
+  margin: 8px;
+  padding: 8px;
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  background: var(--paper-panel) !important;
+  box-shadow: var(--paper-shadow);
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .orders {
+  color: var(--paper-ink) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 8px;
+}
+
+html[data-ui-theme="paper"] .orders legend {
+  color: var(--paper-ink) !important;
+  text-shadow: none !important;
+  border: var(--paper-border);
+  border-radius: 6px;
+  font-weight: 600;
+  background: var(--paper-panel-2);
+}
+
+html[data-ui-theme="paper"] .orders legend.success {
+  background: var(--paper-accent-soft);
+  color: var(--paper-accent) !important;
+}
+
+html[data-ui-theme="paper"] .orders legend.fail {
+  background: #f8e8ea;
+  color: #b42318 !important;
+}
+
+html[data-ui-theme="paper"] .orders .orderlink {
+  overflow: visible !important;
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  background: var(--paper-panel);
+  box-shadow: var(--paper-shadow);
+}
+
+html[data-ui-theme="paper"] .order-makeup-status {
+  background: #f5efd8 !important;
+  color: var(--paper-ink) !important;
+  text-shadow: none !important;
+  border: var(--paper-border) !important;
+  border-radius: 6px !important;
+}
+
+html[data-ui-theme="paper"] .providers {
+  background: var(--paper-panel) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: var(--paper-border);
+}
+
+html[data-ui-theme="paper"] .providers .actions {
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .providers .account {
+  background-image: none !important;
+  background: var(--paper-panel-2) !important;
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  box-shadow: var(--paper-shadow);
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .providers .account .platform {
+  background: var(--paper-accent-soft) !important;
+  color: var(--paper-accent) !important;
+  border: var(--paper-border);
+  border-radius: 6px !important;
+}
+
+html[data-ui-theme="paper"] .providers .account.selected .platform {
+  background: var(--paper-accent) !important;
+  color: #f7f3eb !important;
+}
+
+html[data-ui-theme="paper"] .providers .account .balance .currency {
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .providers .account .cm-platform-icon,
+html[data-ui-theme="paper"] .providers .account .provider-icon {
+  border: var(--paper-border);
+  border-radius: 6px !important;
+  box-sizing: border-box;
+}
+
+html[data-ui-theme="paper"] .providers .account .totalProfit {
+  background: var(--paper-accent-soft) !important;
+  border: var(--paper-border);
+  border-radius: 6px !important;
+  color: var(--paper-accent);
+}
+
+html[data-ui-theme="paper"] .match-search,
+html[data-ui-theme="paper"] .sport-toolbar,
+html[data-ui-theme="paper"] .sport-tab-row {
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] .match-count {
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .home-main .sport-tab-row {
+  background: var(--paper-bg);
+  background-image: none;
+}
+
+html[data-ui-theme="paper"] .match-empty {
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .pos {
+  color: #3f6f4e !important;
+}
+html[data-ui-theme="paper"] .neg {
+  color: #b42318 !important;
+}
+
+html[data-ui-theme="paper"] .matchs .match {
+  background: var(--paper-panel) !important;
+  border: var(--paper-border);
+  border-radius: var(--paper-radius) !important;
+  box-shadow: var(--paper-shadow);
+  margin: 12px;
+  padding: 12px;
+}
+
+html[data-ui-theme="paper"] .matchs .match .match-title {
+  color: var(--paper-ink) !important;
+  font-weight: 600;
+  border-bottom: 1px solid #d6cebd;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+html[data-ui-theme="paper"] .matchs .match .match-title .pm-sport,
+html[data-ui-theme="paper"] .matchs .match .match-title .pm-sport-link,
+html[data-ui-theme="paper"] .matchs .match .match-title .startTime,
+html[data-ui-theme="paper"] .matchs .match .match-title .game-tag {
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet {
+  background-image: none !important;
+  background: var(--paper-panel-2) !important;
+  border: var(--paper-border);
+  border-radius: var(--paper-radius) !important;
+  box-shadow: none;
+  padding: 10px 8px 8px;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .bet-title {
+  color: var(--paper-ink) !important;
+  font-weight: 600;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds {
+  background-image: none !important;
+  background: var(--paper-bg) !important;
+  border: var(--paper-border) !important;
+  border-radius: 6px !important;
+  color: var(--paper-ink) !important;
+  font-weight: 600;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds.home {
+  background: var(--paper-home) !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds.away {
+  background: var(--paper-away) !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds {
+  color: #3f6f4e !important;
+  text-shadow: none !important;
+  background: var(--paper-accent-soft) !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
+  color: #9d174d !important;
+  background: #f8e8ea !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds.target {
+  border-color: var(--paper-accent) !important;
+  box-shadow: inset 0 0 0 1px var(--paper-accent);
+  background: var(--paper-accent-soft) !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds.lock:after {
+  background-color: rgba(42, 42, 42, 0.4) !important;
+  border-radius: 6px !important;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-type,
+html[data-ui-theme="paper"] .matchs .bet .item .provider-icon,
+html[data-ui-theme="paper"] .matchs .bet .item.defaultOdds .item-type {
+  border: var(--paper-border) !important;
+  border-radius: 6px !important;
+  background-color: var(--paper-panel) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+html[data-ui-theme="paper"] .odds-src {
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .active-bet-run,
+html[data-ui-theme="paper"] .active-bet-run__chrome,
+html[data-ui-theme="paper"] .active-bet-run__col {
+  background: var(--paper-panel) !important;
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  box-shadow: var(--paper-shadow) !important;
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .active-bet-run__chrome-title,
+html[data-ui-theme="paper"] .active-bet-run__match,
+html[data-ui-theme="paper"] .active-bet-run__leg {
+  color: var(--paper-ink) !important;
+}
+
+/* 管理后台 */
+html[data-ui-theme="paper"] .admin-shell,
+html[data-ui-theme="paper"] .admin-drawer,
+html[data-ui-theme="paper"] .admin-dialog {
+  --adm-bg-deep: #f3eee4;
+  --adm-bg: #ebe4d6;
+  --adm-surface: #ebe4d6;
+  --adm-surface-2: #e2d9c8;
+  --adm-surface-hover: #dce5d2;
+  --adm-border: #c9bfae;
+  --adm-border-strong: #b5ab99;
+  --adm-text: #2a2a2a;
+  --adm-text-secondary: #3a3a3a;
+  --adm-text-muted: #6b655c;
+  --adm-accent: #5b6b4a;
+  --adm-accent-soft: #dce5d2;
+  --adm-accent-glow: #5b6b4a;
+  --adm-gold: #a16207;
+  --adm-gold-soft: rgba(161, 98, 7, 0.12);
+  --adm-purple: #6d28d9;
+  --adm-purple-soft: rgba(109, 40, 217, 0.08);
+  --adm-success: #3f6f4e;
+  --adm-success-soft: rgba(63, 111, 78, 0.12);
+  --adm-danger: #b42318;
+  --adm-danger-soft: rgba(180, 35, 24, 0.1);
+  --adm-warning: #a16207;
+  --adm-warning-soft: rgba(161, 98, 7, 0.12);
+  --adm-radius: 8px;
+  --adm-radius-lg: 12px;
+  --adm-shadow: 0 1px 2px rgba(42, 42, 42, 0.06), 0 4px 12px rgba(42, 42, 42, 0.04);
+}
+
+html[data-ui-theme="paper"] .admin-shell,
+html[data-ui-theme="paper"] .admin-shell__main,
+html[data-ui-theme="paper"] .admin-shell__content {
+  background: var(--paper-bg);
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] .admin-shell__sidebar {
+  background: var(--paper-panel);
+  border-right: var(--paper-border);
+}
+
+html[data-ui-theme="paper"] .admin-shell__nav-item {
+  border: var(--paper-border);
+  border-radius: 8px;
+  background: var(--paper-panel-2);
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] .admin-shell__nav-item--active {
+  background: var(--paper-accent-soft);
+  color: var(--paper-accent);
+}
+
+html[data-ui-theme="paper"] .admin-shell__topbar,
+html[data-ui-theme="paper"] .admin-card,
+html[data-ui-theme="paper"] .admin-panel,
+html[data-ui-theme="paper"] .admin-stat,
+html[data-ui-theme="paper"] .admin-toolbar {
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  box-shadow: var(--paper-shadow);
+  background: var(--paper-panel);
+}
+
+/* Element Plus */
+html[data-ui-theme="paper"] .el-button {
+  border-radius: 8px !important;
+  font-weight: 600;
+}
+
+html[data-ui-theme="paper"] .el-button--primary {
+  background: var(--paper-accent) !important;
+  border-color: var(--paper-accent) !important;
+  color: #f7f3eb !important;
+}
+
+html[data-ui-theme="paper"] .el-input__wrapper,
+html[data-ui-theme="paper"] .el-textarea__inner,
+html[data-ui-theme="paper"] .el-select__wrapper {
+  border-radius: 8px !important;
+  background: var(--paper-panel) !important;
+  box-shadow: 0 0 0 1px #c9bfae inset !important;
+}
+
+html[data-ui-theme="paper"] .el-card,
+html[data-ui-theme="paper"] .el-dialog,
+html[data-ui-theme="paper"] .el-drawer,
+html[data-ui-theme="paper"] .el-message-box,
+html[data-ui-theme="paper"] .el-popover.el-popper,
+html[data-ui-theme="paper"] .el-dropdown-menu,
+html[data-ui-theme="paper"] .el-select-dropdown {
+  border: var(--paper-border) !important;
+  border-radius: var(--paper-radius) !important;
+  box-shadow: var(--paper-shadow) !important;
+  background: var(--paper-panel) !important;
+}
+
+html[data-ui-theme="paper"] .el-table {
+  --el-table-bg-color: var(--paper-panel);
+  --el-table-tr-bg-color: var(--paper-panel);
+  --el-table-header-bg-color: var(--paper-panel-2);
+  --el-table-row-hover-bg-color: #f7f3eb;
+  --el-table-border-color: #d6cebd;
+  --el-table-text-color: var(--paper-ink);
+  --el-table-header-text-color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] .el-tabs__item {
+  border-radius: 8px !important;
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] .el-tabs__item.is-active {
+  background: var(--paper-accent-soft);
+  color: var(--paper-accent);
+}
+
+html[data-ui-theme="paper"] .el-tag {
+  border-radius: 6px !important;
+}
+
+html[data-ui-theme="paper"] .el-menu {
+  background: transparent !important;
+}
+
+html[data-ui-theme="paper"] .el-menu-item {
+  border-radius: 8px;
+  color: var(--paper-ink) !important;
+}
+
+html[data-ui-theme="paper"] .el-menu-item.is-active {
+  background: var(--paper-accent-soft) !important;
+  color: var(--paper-accent) !important;
+}

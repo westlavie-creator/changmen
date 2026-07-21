@@ -155,6 +155,7 @@ html[data-ui-theme="brutal"] .orders legend.fail {
 }
 
 html[data-ui-theme="brutal"] .orders .orderlink {
+  overflow: visible !important;
   border: var(--brutal-border) !important;
   border-radius: 0 !important;
   background: var(--brutal-panel);
@@ -238,6 +239,10 @@ html[data-ui-theme="brutal"] .match-search,
 html[data-ui-theme="brutal"] .sport-toolbar,
 html[data-ui-theme="brutal"] .sport-tab-row {
   color: var(--brutal-ink);
+}
+
+html[data-ui-theme="brutal"] .match-count {
+  color: var(--brutal-muted) !important;
 }
 
 html[data-ui-theme="brutal"] .home-main .sport-tab-row {

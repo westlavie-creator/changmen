@@ -88,8 +88,10 @@ describe("extensionPrefs", () => {
     });
   });
 
-  it("accepts uiTheme brutal and falls back unknown", () => {
+  it("accepts uiTheme variants and falls back unknown", () => {
     expect(normalizeExtensionPrefs({ uiTheme: "brutal" }).uiTheme).toBe("brutal");
+    expect(normalizeExtensionPrefs({ uiTheme: "paper" }).uiTheme).toBe("paper");
+    expect(normalizeExtensionPrefs({ uiTheme: "terminal" }).uiTheme).toBe("terminal");
     expect(normalizeExtensionPrefs({ uiTheme: "neon" }).uiTheme).toBe("default");
     expect(normalizeExtensionPrefs({}).uiTheme).toBe("default");
   });

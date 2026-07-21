@@ -17,9 +17,16 @@ export interface StakeScaleByProfitPrefs {
 }
 
 /** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
-export type UiTheme = "default" | "brutal";
+export type UiTheme = "default" | "brutal" | "paper" | "terminal";
 
-export const UI_THEMES: readonly UiTheme[] = ["default", "brutal"];
+export const UI_THEMES: readonly UiTheme[] = ["default", "brutal", "paper", "terminal"];
+
+/** 浅色皮：需去掉 html.dark，避免 EP 深色变量压过 */
+export const LIGHT_UI_THEMES: ReadonlySet<UiTheme> = new Set(["brutal", "paper"]);
+
+export function isLightUiTheme(theme: UiTheme): boolean {
+  return LIGHT_UI_THEMES.has(theme);
+}
 
 /** [changmen 扩展] 用户中心「扩展」选项卡配置（Client_SaveData key=Extensions） */
 export interface ExtensionPrefs extends Record<string, unknown> {
@@ -36,13 +43,15 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /**
    * 控制台 UI 皮肤。
-   * default = 现有深色；brutal = neo-brutalism（粗边框/硬阴影/浅底）。
+   * default = 现有深色；brutal = 粗边框；paper = 浅纸感；terminal = 终端风。
    */
   uiTheme: UiTheme;
 }
 
 export function normalizeUiTheme(raw: unknown): UiTheme {
-  return raw === "brutal" ? "brutal" : "default";
+  if (raw === "brutal" || raw === "paper" || raw === "terminal")
+    return raw;
+  return "default";
 }
 
 export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {

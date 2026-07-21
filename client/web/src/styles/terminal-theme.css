@@ -1,0 +1,505 @@
+/**
+ * [changmen 扩展] 终端风皮肤
+ * 近黑底 + 磷光绿；只换显示，不改 DOM / 空间定位。
+ */
+
+html[data-ui-theme="terminal"] {
+  color-scheme: dark;
+
+  --cm-body-bg: #0b120e;
+  --cm-body-bg-gradient: none;
+  --cm-sidebar-bg: #0b120e;
+  --cm-color-success: #7cff9a;
+  --cm-color-warning: #fbbf24;
+  --cm-color-danger: #fb7185;
+  --cm-color-info: #3d8f55;
+  --cm-color-odds: #7cff9a;
+
+  --term-ink: #7cff9a;
+  --term-ink-dim: #3d8f55;
+  --term-bg: #0b120e;
+  --term-panel: #0f1a14;
+  --term-panel-2: #14241b;
+  --term-amber: #fbbf24;
+  --term-danger: #fb7185;
+  --term-border: 1px solid #1f3d2a;
+  --term-glow: 0 0 0 1px rgba(124, 255, 154, 0.12);
+  --term-radius: 2px;
+  --term-font: "Cascadia Mono", "SF Mono", "Consolas", "Menlo", monospace;
+
+  --el-color-primary: #7cff9a;
+  --el-color-success: #7cff9a;
+  --el-color-warning: #fbbf24;
+  --el-color-danger: #fb7185;
+  --el-color-info: #3d8f55;
+  --el-bg-color: var(--term-panel);
+  --el-bg-color-overlay: var(--term-panel-2);
+  --el-bg-color-page: var(--term-bg);
+  --el-text-color-primary: var(--term-ink);
+  --el-text-color-regular: #9ae6b4;
+  --el-text-color-secondary: var(--term-ink-dim);
+  --el-text-color-placeholder: #2f6b44;
+  --el-border-color: #1f3d2a;
+  --el-border-color-light: #1a3324;
+  --el-border-color-lighter: #15281c;
+  --el-border-color-extra-light: #101c15;
+  --el-fill-color-blank: var(--term-panel);
+  --el-fill-color-light: var(--term-panel-2);
+  --el-fill-color: #183024;
+  --el-fill-color-lighter: #1c3a2a;
+  --el-mask-color: rgba(0, 0, 0, 0.65);
+  --el-box-shadow: var(--term-glow);
+  --el-box-shadow-light: var(--term-glow);
+  --el-border-radius-base: 2px;
+  --el-border-radius-small: 2px;
+  --el-border-radius-round: 2px;
+}
+
+html[data-ui-theme="terminal"] body {
+  background-color: var(--cm-body-bg) !important;
+  background-image:
+    linear-gradient(rgba(124, 255, 154, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 255, 154, 0.03) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  color: var(--term-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-ui-theme="terminal"] #app .el-aside,
+html[data-ui-theme="terminal"] .common-layout .el-aside {
+  background: var(--term-bg) !important;
+  border-right: var(--term-border);
+  box-shadow: none;
+}
+
+html[data-ui-theme="terminal"] #app .el-main,
+html[data-ui-theme="terminal"] .common-layout .el-main,
+html[data-ui-theme="terminal"] .home-main {
+  background: var(--term-bg) !important;
+}
+
+html[data-ui-theme="terminal"] .userinfo {
+  border-bottom: var(--term-border) !important;
+  background: transparent;
+  box-shadow: none;
+}
+
+html[data-ui-theme="terminal"] .userinfo .info,
+html[data-ui-theme="terminal"] .userinfo .report {
+  color: var(--term-ink) !important;
+  border-color: #1f3d2a !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .userinfo .info .ms {
+  color: var(--term-ink-dim) !important;
+}
+
+html[data-ui-theme="terminal"] .userinfo .report-number .el-statistic__head,
+html[data-ui-theme="terminal"] .userinfo .report-number .el-statistic__number {
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .date,
+html[data-ui-theme="terminal"] .loseorder-container {
+  margin: 8px;
+  padding: 8px;
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  background: var(--term-panel) !important;
+  box-shadow: var(--term-glow);
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .orders {
+  color: var(--term-ink) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  margin: 8px;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .orders legend {
+  color: var(--term-ink) !important;
+  text-shadow: 0 0 8px rgba(124, 255, 154, 0.25) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  font-weight: 600;
+  background: var(--term-panel-2);
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .orders legend.success {
+  background: rgba(124, 255, 154, 0.12);
+  color: var(--term-ink) !important;
+}
+
+html[data-ui-theme="terminal"] .orders legend.fail {
+  background: rgba(251, 113, 133, 0.15);
+  color: var(--term-danger) !important;
+}
+
+html[data-ui-theme="terminal"] .orders .orderlink {
+  overflow: visible !important;
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  background: var(--term-panel);
+  box-shadow: var(--term-glow);
+}
+
+html[data-ui-theme="terminal"] .order-makeup-status {
+  background: rgba(251, 191, 36, 0.12) !important;
+  color: var(--term-amber) !important;
+  text-shadow: none !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  border-radius: var(--term-radius) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .providers {
+  background: var(--term-panel) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: var(--term-border);
+}
+
+html[data-ui-theme="terminal"] .providers .actions {
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .providers .account {
+  background-image: none !important;
+  background: var(--term-panel-2) !important;
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  box-shadow: var(--term-glow);
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .providers .account .platform {
+  background: rgba(124, 255, 154, 0.1) !important;
+  color: var(--term-ink) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius) !important;
+}
+
+html[data-ui-theme="terminal"] .providers .account.selected .platform {
+  background: rgba(124, 255, 154, 0.22) !important;
+  color: #d8ffe4 !important;
+  box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.35);
+}
+
+html[data-ui-theme="terminal"] .providers .account .balance .currency {
+  color: var(--term-ink-dim) !important;
+}
+
+html[data-ui-theme="terminal"] .providers .account .cm-platform-icon,
+html[data-ui-theme="terminal"] .providers .account .provider-icon {
+  border: var(--term-border);
+  border-radius: var(--term-radius) !important;
+  box-sizing: border-box;
+}
+
+html[data-ui-theme="terminal"] .providers .account .totalProfit {
+  background: rgba(124, 255, 154, 0.1) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius) !important;
+  color: var(--term-ink);
+}
+
+html[data-ui-theme="terminal"] .match-search,
+html[data-ui-theme="terminal"] .sport-toolbar,
+html[data-ui-theme="terminal"] .sport-tab-row {
+  color: var(--term-ink);
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .match-count {
+  color: var(--term-ink-dim) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .home-main .sport-tab-row {
+  background: var(--term-bg);
+  background-image: none;
+}
+
+html[data-ui-theme="terminal"] .match-empty {
+  color: var(--term-ink-dim) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .pos {
+  color: #7cff9a !important;
+}
+html[data-ui-theme="terminal"] .neg {
+  color: #fb7185 !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .match {
+  background: var(--term-panel) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius) !important;
+  box-shadow: var(--term-glow);
+  margin: 12px;
+  padding: 12px;
+}
+
+html[data-ui-theme="terminal"] .matchs .match .match-title {
+  color: var(--term-ink) !important;
+  font-weight: 600;
+  font-family: var(--term-font);
+  border-bottom: 1px solid #1f3d2a;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+html[data-ui-theme="terminal"] .matchs .match .match-title .pm-sport,
+html[data-ui-theme="terminal"] .matchs .match .match-title .pm-sport-link,
+html[data-ui-theme="terminal"] .matchs .match .match-title .startTime,
+html[data-ui-theme="terminal"] .matchs .match .match-title .game-tag {
+  color: var(--term-ink) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet {
+  background-image: none !important;
+  background: var(--term-panel-2) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius) !important;
+  box-shadow: none;
+  padding: 10px 8px 8px;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .bet-title {
+  color: var(--term-ink) !important;
+  font-weight: 600;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-odds {
+  background-image: none !important;
+  background: #0c1610 !important;
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  color: var(--term-ink) !important;
+  font-weight: 700;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.home {
+  background: rgba(96, 165, 250, 0.08) !important;
+  border-color: rgba(96, 165, 250, 0.28) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.away {
+  background: rgba(251, 113, 133, 0.08) !important;
+  border-color: rgba(251, 113, 133, 0.28) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .bet-items .item.defaultOdds .item-odds {
+  color: var(--term-ink) !important;
+  text-shadow: 0 0 6px rgba(124, 255, 154, 0.35) !important;
+  background: rgba(124, 255, 154, 0.08) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
+  color: var(--term-amber) !important;
+  background: rgba(251, 191, 36, 0.1) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.target {
+  border-color: var(--term-ink) !important;
+  box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.45), 0 0 10px rgba(124, 255, 154, 0.15);
+  background: rgba(124, 255, 154, 0.12) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.lock:after {
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  border-radius: var(--term-radius) !important;
+}
+
+html[data-ui-theme="terminal"] .matchs .bet .item .item-type,
+html[data-ui-theme="terminal"] .matchs .bet .item .provider-icon,
+html[data-ui-theme="terminal"] .matchs .bet .item.defaultOdds .item-type {
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  background-color: var(--term-panel) !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+html[data-ui-theme="terminal"] .odds-src {
+  color: var(--term-ink-dim) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .active-bet-run,
+html[data-ui-theme="terminal"] .active-bet-run__chrome,
+html[data-ui-theme="terminal"] .active-bet-run__col {
+  background: var(--term-panel) !important;
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  box-shadow: var(--term-glow) !important;
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .active-bet-run__chrome-title,
+html[data-ui-theme="terminal"] .active-bet-run__match,
+html[data-ui-theme="terminal"] .active-bet-run__leg {
+  color: var(--term-ink) !important;
+}
+
+/* 管理后台 */
+html[data-ui-theme="terminal"] .admin-shell,
+html[data-ui-theme="terminal"] .admin-drawer,
+html[data-ui-theme="terminal"] .admin-dialog {
+  --adm-bg-deep: #0b120e;
+  --adm-bg: #0f1a14;
+  --adm-surface: #0f1a14;
+  --adm-surface-2: #14241b;
+  --adm-surface-hover: #1a3324;
+  --adm-border: #1f3d2a;
+  --adm-border-strong: #2f6b44;
+  --adm-text: #7cff9a;
+  --adm-text-secondary: #9ae6b4;
+  --adm-text-muted: #3d8f55;
+  --adm-accent: #7cff9a;
+  --adm-accent-soft: rgba(124, 255, 154, 0.12);
+  --adm-accent-glow: #7cff9a;
+  --adm-gold: #fbbf24;
+  --adm-gold-soft: rgba(251, 191, 36, 0.12);
+  --adm-purple: #a78bfa;
+  --adm-purple-soft: rgba(167, 139, 250, 0.12);
+  --adm-success: #7cff9a;
+  --adm-success-soft: rgba(124, 255, 154, 0.12);
+  --adm-danger: #fb7185;
+  --adm-danger-soft: rgba(251, 113, 133, 0.12);
+  --adm-warning: #fbbf24;
+  --adm-warning-soft: rgba(251, 191, 36, 0.12);
+  --adm-radius: 2px;
+  --adm-radius-lg: 4px;
+  --adm-shadow: 0 0 0 1px rgba(124, 255, 154, 0.12);
+}
+
+html[data-ui-theme="terminal"] .admin-shell,
+html[data-ui-theme="terminal"] .admin-shell__main,
+html[data-ui-theme="terminal"] .admin-shell__content {
+  background: var(--term-bg);
+  color: var(--term-ink);
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .admin-shell__sidebar {
+  background: var(--term-panel);
+  border-right: var(--term-border);
+}
+
+html[data-ui-theme="terminal"] .admin-shell__nav-item {
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  background: var(--term-panel-2);
+  color: var(--term-ink);
+}
+
+html[data-ui-theme="terminal"] .admin-shell__nav-item--active {
+  background: rgba(124, 255, 154, 0.14);
+  color: #d8ffe4;
+  box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.35);
+}
+
+html[data-ui-theme="terminal"] .admin-shell__topbar,
+html[data-ui-theme="terminal"] .admin-card,
+html[data-ui-theme="terminal"] .admin-panel,
+html[data-ui-theme="terminal"] .admin-stat,
+html[data-ui-theme="terminal"] .admin-toolbar {
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  box-shadow: var(--term-glow);
+  background: var(--term-panel);
+}
+
+/* Element Plus */
+html[data-ui-theme="terminal"] .el-button {
+  border-radius: 2px !important;
+  font-family: var(--term-font);
+  font-weight: 600;
+}
+
+html[data-ui-theme="terminal"] .el-button--primary {
+  background: rgba(124, 255, 154, 0.16) !important;
+  border-color: #2f6b44 !important;
+  color: var(--term-ink) !important;
+}
+
+html[data-ui-theme="terminal"] .el-input__wrapper,
+html[data-ui-theme="terminal"] .el-textarea__inner,
+html[data-ui-theme="terminal"] .el-select__wrapper {
+  border-radius: 2px !important;
+  background: var(--term-panel) !important;
+  box-shadow: 0 0 0 1px #1f3d2a inset !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .el-card,
+html[data-ui-theme="terminal"] .el-dialog,
+html[data-ui-theme="terminal"] .el-drawer,
+html[data-ui-theme="terminal"] .el-message-box,
+html[data-ui-theme="terminal"] .el-popover.el-popper,
+html[data-ui-theme="terminal"] .el-dropdown-menu,
+html[data-ui-theme="terminal"] .el-select-dropdown {
+  border: var(--term-border) !important;
+  border-radius: var(--term-radius) !important;
+  box-shadow: var(--term-glow) !important;
+  background: var(--term-panel) !important;
+  color: var(--term-ink) !important;
+}
+
+html[data-ui-theme="terminal"] .el-table {
+  --el-table-bg-color: var(--term-panel);
+  --el-table-tr-bg-color: var(--term-panel);
+  --el-table-header-bg-color: var(--term-panel-2);
+  --el-table-row-hover-bg-color: #183024;
+  --el-table-border-color: #1f3d2a;
+  --el-table-text-color: var(--term-ink);
+  --el-table-header-text-color: var(--term-ink);
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .el-tabs__item {
+  border-radius: 2px !important;
+  color: var(--term-ink-dim);
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .el-tabs__item.is-active {
+  background: rgba(124, 255, 154, 0.12);
+  color: var(--term-ink);
+}
+
+html[data-ui-theme="terminal"] .el-tag {
+  border-radius: 2px !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .el-menu {
+  background: transparent !important;
+}
+
+html[data-ui-theme="terminal"] .el-menu-item {
+  border-radius: 2px;
+  color: var(--term-ink) !important;
+  font-family: var(--term-font);
+}
+
+html[data-ui-theme="terminal"] .el-menu-item.is-active {
+  background: rgba(124, 255, 154, 0.12) !important;
+  color: #d8ffe4 !important;
+}

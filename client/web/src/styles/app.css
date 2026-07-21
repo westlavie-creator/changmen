@@ -34,9 +34,27 @@
   overflow: hidden !important;
 }
 
-.home-main .match-search {
+.home-main .match-search-row {
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
   margin: 0 10px 8px;
+  min-width: 0;
+}
+
+.home-main .match-search-row .match-search {
+  flex: 0 1 280px;
+  margin: 0;
+  max-width: 280px;
+}
+
+.home-main .match-count {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .home-main .sport-tab-row {
@@ -76,6 +94,7 @@
   overflow: hidden;
 }
 
+.home-main .sport-board .match-search-row,
 .home-main .sport-board .match-search,
 .home-main .sport-board .sport-toolbar__error {
   flex: 0 0 auto;
