@@ -49,9 +49,13 @@ export async function collectRayGet<T>(
 }
 
 /** Ingest：v2/odds 快照写入 fo */
-function ingestRayOddsPayloadToFo(result: RayOddsPayload, betRe: RegExp): void {
+function ingestRayOddsPayloadToFo(
+  result: RayOddsPayload,
+  betRe: RegExp,
+  gameCode?: string | null,
+): void {
   const now = Date.now();
-  for (const entry of listRayFoOddEntries(result, betRe)) {
+  for (const entry of listRayFoOddEntries(result, betRe, gameCode)) {
     saveVenueOdds(PLATFORM, { ...entry, time: now });
   }
 }
@@ -60,8 +64,9 @@ function ingestRayOddsPayloadToFo(result: RayOddsPayload, betRe: RegExp): void {
 function reportRayOddsPayloadToSaveBetRows(
   result: RayOddsPayload,
   betRe: RegExp,
+  gameCode?: string | null,
 ): CollectBetDto[] {
-  return groupRayOddsToSaveBets(result, betRe, PLATFORM) as CollectBetDto[];
+  return groupRayOddsToSaveBets(result, betRe, PLATFORM, gameCode) as CollectBetDto[];
 }
 
 /** 单场 odds：Ingest fo + 返回 Report 载荷 */
@@ -69,6 +74,7 @@ export async function loadRayBets(
   platform: CollectPlatformInfo,
   matchId: string,
   betRe: RegExp,
+  gameCode?: string | null,
 ): Promise<CollectBetDto[]> {
   const res = await collectRayGet<{ code: number; result?: Record<string, unknown> }>(
     platform,
@@ -78,6 +84,6 @@ export async function loadRayBets(
   if (res.code !== 200 || !res.result) return [];
 
   const payload = res.result as unknown as RayOddsPayload;
-  ingestRayOddsPayloadToFo(payload, betRe);
-  return reportRayOddsPayloadToSaveBetRows(payload, betRe);
+  ingestRayOddsPayloadToFo(payload, betRe, gameCode);
+  return reportRayOddsPayloadToSaveBetRows(payload, betRe, gameCode);
 }

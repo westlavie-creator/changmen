@@ -8,6 +8,7 @@ import {
   type RayRealtimeMessage,
   type RayWsSourceMode,
 } from "./realtime";
+import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog.browser";
 import { RAY_A8_COLLECT } from "./a8Collect";
 import type { CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { CollectPlatformInfo } from "@changmen/api-contract";
@@ -181,7 +182,8 @@ export function startRayCollector(): () => void {
         matchCount = list.length;
         for (const row of list) {
           const matchId = row.id as string | number;
-          const bets = await loadRayBets(platform, String(matchId), betRe);
+          const gameCode = getGameCodeForPlatformId("RAY", String(row.game_id ?? "")) || null;
+          const bets = await loadRayBets(platform, String(matchId), betRe, gameCode);
           if (bets.length) {
             console.debug(
               `[RAY] saveBets ${matchId} maps=${bets.map((b) => b.Map).join(",")}`,

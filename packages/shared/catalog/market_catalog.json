@@ -1,8 +1,8 @@
 {
   "version": 2,
   "updatedAt": "2026-05-24",
-  "description": "聚合玩法：统一 market.code + 各平台 betName 正则。在源站原始 API 上判定（非 A8 已整理数据）。",
-  "judgmentModel": "feed 拉取 OB/RAY 源站原始盘口 → 按 market.code 选盘：OB 优先 odd_type_id（按游戏配置），否则 betName 正则；RAY 用 group_name 正则。",
+  "description": "聚合玩法：统一 market.code + 各平台选盘规则。在源站原始 API 上判定（非 A8 已整理数据）。",
+  "judgmentModel": "feed 拉取 OB/RAY 源站原始盘口 → 按 market.code 选盘：OB 优先 odd_type_id（按游戏配置），否则 betName 正则；RAY 优先 odds_group_id（按游戏 full/map 白名单），否则 group_name 正则。",
   "markets": [
     {
       "code": "match_winner",
@@ -63,11 +63,40 @@
           "reference": "OB game/view.odd_type_id；全量见 platforms/ob/ob_odd_type_ids.json，刷新: collect_odd_type_ids.js"
         },
         "RAY": {
+          "primaryMatch": "odds_group_id",
+          "oddGroupIdField": "odds_group_id",
+          "gameOddGroups": {
+            "cs2": {
+              "full": "16847",
+              "map": { "1": "16854", "2": "16877", "3": "16886" },
+              "verifiedAt": "2026-07-21"
+            },
+            "kog": {
+              "full": "20573",
+              "map": { "1": "20582", "2": "20583", "3": "20584", "4": "23160", "5": "23161" },
+              "verifiedAt": "2026-07-21"
+            },
+            "valorant": {
+              "full": "16857",
+              "map": { "1": "2587786", "2": "2587856", "3": "1510938" },
+              "verifiedAt": "2026-07-21"
+            },
+            "lol": {
+              "full": "18280",
+              "map": { "1": "18303", "2": "18304", "3": "18305" },
+              "verifiedAt": "2026-07-21"
+            },
+            "dota2": {
+              "full": "16778",
+              "map": { "1": "16787", "2": "16788", "3": "16789" },
+              "verifiedAt": "2026-07-21"
+            }
+          },
           "betName": "^获胜者$",
           "testOn": "group_name",
           "excludeIf": [{ "field": "status", "eq": 4 }],
           "lockedWhen": { "not": { "status": 1 } },
-          "reference": "RAY 源站 v2/odds 字段 group_name；A8 前端展示层数据已整理，勿以其为规则来源"
+          "reference": "RAY 源站 v2/odds：优先 odds_group_id 白名单（gameOddGroups）；无游戏配置时回退 group_name 正则。A8 展示层勿作规则来源"
         },
         "TF": {
           "betName": "(独赢|获胜者)",

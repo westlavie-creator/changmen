@@ -54,6 +54,7 @@ function getCatalogSummary(): Record<string, unknown> {
           {
             primaryMatch: rules.primaryMatch,
             gameOddTypes: rules.gameOddTypes,
+            gameOddGroups: rules.gameOddGroups,
             betName: rules.betName,
             testOn: rules.testOn,
           },
@@ -128,6 +129,45 @@ function obMatchesMarket(raw: Record<string, unknown>, rules: Record<string, unk
   const round = (ctx.round ?? raw?.round ?? (ctx.market as Record<string, unknown> | undefined)?.round ?? 0) as number;
   return obMatchesOddTypeId(raw, rules, ctx.gameCode as string, round) === true;
 }
+
+/** RAY 某游戏「获胜者」允许的 odds_group_id（full + 各地图）；无配置返回 null */
+function rayAllowedOddGroupIds(rules: Record<string, unknown> | null, gameCode: string): Set<string> | null {
+  const gameOddGroups = rules?.gameOddGroups as Record<string, Record<string, unknown>> | undefined;
+  const gameMap = gameOddGroups?.[gameCode];
+  if (!gameMap)
+    return null;
+  const ids = new Set<string>();
+  if (gameMap.full != null && String(gameMap.full) !== "")
+    ids.add(String(gameMap.full));
+  const maps = gameMap.map as Record<string, unknown> | undefined;
+  if (maps && typeof maps === "object") {
+    for (const v of Object.values(maps)) {
+      if (v != null && String(v) !== "")
+        ids.add(String(v));
+    }
+  }
+  return ids.size > 0 ? ids : null;
+}
+
+/**
+ * RAY 优先 odds_group_id 白名单。
+ * - null：该游戏无 gameOddGroups → 调用方回退 group_name 正则
+ * - true/false：白名单命中/未命中
+ */
+function rayMatchesOddGroupId(
+  raw: Record<string, unknown>,
+  rules: Record<string, unknown> | null,
+  gameCode: string,
+): boolean | null {
+  const allowed = rayAllowedOddGroupIds(rules, gameCode);
+  if (!allowed)
+    return null;
+  const field = (rules?.oddGroupIdField as string) || "odds_group_id";
+  const actual = String(raw?.[field] ?? "");
+  if (!actual)
+    return false;
+  return allowed.has(actual);
+}
 function buildTestSubject(_platform: string, rules: Record<string, unknown>, ctx: Record<string, unknown>): string {
   const row = ctx.row as Record<string, unknown> | undefined;
   const market = ctx.market as Record<string, unknown> | undefined;
@@ -184,6 +224,18 @@ function matchesMarketCode(platform: string, marketCode: string, ctx: Record<str
     return passesRequirements(platform, rules, ctx);
   }
 
+  if (platform === "RAY") {
+    const gameCode = ctx.gameCode as string | undefined;
+    if (gameCode) {
+      const byId = rayMatchesOddGroupId(raw, rules, gameCode);
+      if (byId === true)
+        return passesRequirements(platform, rules, ctx);
+      if (byId === false)
+        return false;
+    }
+    // 无 gameOddGroups 配置：回退 group_name 正则
+  }
+
   if (!rules.betName)
     return false;
   const subject = buildTestSubject(platform, rules, ctx);
@@ -226,8 +278,16 @@ function obFormatNormalizedMarketName(round: number, cnName: string): string {
   return obBuildBetKey({ round, cn_name: cnName }, rules || { roundLabel: { 0: "全场", n: "地图{n}" }, cnNameField: "cn_name" });
 }
 
-function rayIsAggregatedOddsRow(row: Record<string, unknown>, marketCode?: string): boolean {
-  return matchesMarketCode("RAY", marketCode || getDefaultMarketCode(), { row });
+function rayIsAggregatedOddsRow(
+  row: Record<string, unknown>,
+  marketCode?: string,
+  gameCode?: string | null,
+): boolean {
+  return matchesMarketCode("RAY", marketCode || getDefaultMarketCode(), {
+    row,
+    raw: row,
+    gameCode: gameCode || undefined,
+  });
 }
 
 function obSavedBetIsMatchWinner(bet: Record<string, unknown>, gameCode: string | null): boolean {
@@ -280,9 +340,17 @@ function rayLegacyWinBetName(betName: string): boolean {
   );
 }
 
-/** RAY match_winner：认 SaveBet BetName（A8 无独立 GroupName 字段） */
-function raySavedBetIsMatchWinner(bet: Record<string, unknown>): boolean {
+/** RAY match_winner：优先 SourceBetID∈gameOddGroups；无配置/无 ID 时回退 BetName 形态 */
+function raySavedBetIsMatchWinner(bet: Record<string, unknown>, gameCode?: string | null): boolean {
   const rules = getPlatformRules("RAY", getDefaultMarketCode());
+  const groupId = cleanText(bet?.SourceBetID ?? bet?.odds_group_id);
+  if (gameCode && groupId) {
+    const byId = rayMatchesOddGroupId({ odds_group_id: groupId }, rules, gameCode);
+    if (byId === true)
+      return true;
+    if (byId === false)
+      return false;
+  }
   const betName = cleanText(bet?.BetName ?? bet?.Name);
   if (!betName || !rayLegacyWinBetName(betName))
     return false;
@@ -319,7 +387,7 @@ function iaSavedBetIsMatchWinner(bet: Record<string, unknown>): boolean {
 
 /**
  * Filter stored API_SaveBet rows for Client_GetMatchs (A8 仅展示 match_winner 主盘).
- * OB：odd_type_id + gameCode；RAY：BetName 形态（与 A8 saveBets 一致）。
+ * OB：odd_type_id + gameCode；RAY：odds_group_id 白名单（无配置回退 BetName）。
  */
 function matchesSavedBet(platform: string, bet: Record<string, unknown> | null | undefined, ctx: Record<string, unknown> = {}): boolean {
   if (!bet)
@@ -333,7 +401,7 @@ function matchesSavedBet(platform: string, bet: Record<string, unknown> | null |
     return obSavedBetIsMatchWinner(bet, (ctx.gameCode as string) ?? null);
   }
   if (platform === "RAY") {
-    return raySavedBetIsMatchWinner(bet);
+    return raySavedBetIsMatchWinner(bet, (ctx.gameCode as string) ?? null);
   }
   if (platform === "IA") {
     return iaSavedBetIsMatchWinner(bet);
@@ -375,8 +443,10 @@ export {
   obMatchesOddTypeId,
   obPickWinMarket,
   obSavedBetIsMatchWinner,
+  rayAllowedOddGroupIds,
   rayIsAggregatedOddsRow,
   rayLegacyWinBetName,
+  rayMatchesOddGroupId,
   raySavedBetIsMatchWinner,
   resolveMarketCode,
 };
