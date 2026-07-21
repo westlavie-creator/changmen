@@ -2,7 +2,7 @@
 
 VPS 守护进程：Predict.fun **REST discovery** → `platform_matches` / `platform_bets` + 本机 `predictfun_market_index.json`。
 
-浏览器 Predict.fun 采集器仅经 `ws-forward` 订阅 orderbook 写 `fo`；**不经** http-relay 打 discovery。
+浏览器 Predict.fun 采集器经 Market WS 收 orderbook，hub 展开为 token 买价写 `fo`（对齐 Polymarket）；**不经** http-relay 打 discovery。Index 仅映射/种子。
 
 ## 运行
 

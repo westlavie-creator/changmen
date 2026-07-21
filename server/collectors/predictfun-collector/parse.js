@@ -213,10 +213,78 @@ export function bestAskFromPredictBook(book) {
   return Number.isFinite(best) && best < 1 ? best : 0;
 }
 
+/** [Predict 官方] Yes + No = 1（按 decimalPrecision）；禁止裸 1-price */
+export function getPredictComplement(price, decimalPrecision = 2) {
+  const precision = Number.isFinite(decimalPrecision) && decimalPrecision >= 0
+    ? Math.floor(Number(decimalPrecision))
+    : 2;
+  const factor = 10 ** precision;
+  const raw = Number(price);
+  if (!Number.isFinite(raw))
+    return NaN;
+  return (factor - Math.round(raw * factor)) / factor;
+}
+
+function normalizeBookLevels(levels) {
+  const out = [];
+  for (const level of levels ?? []) {
+    if (!Array.isArray(level))
+      continue;
+    const price = Number(level[0]);
+    const size = Number(level[1]);
+    if (!Number.isFinite(price) || price <= 0 || price >= 1)
+      continue;
+    if (!Number.isFinite(size) || size <= 0)
+      continue;
+    out.push([price, size]);
+  }
+  return out;
+}
+
+export function orderbookForOutcomeBuy(yesBook, opts) {
+  const yesAsks = normalizeBookLevels(yesBook?.asks);
+  const yesBids = normalizeBookLevels(yesBook?.bids);
+  if (opts?.isYesOutcome) {
+    return {
+      marketId: yesBook?.marketId,
+      updateTimestampMs: yesBook?.updateTimestampMs,
+      asks: [...yesAsks].sort((a, b) => a[0] - b[0]),
+      bids: [...yesBids].sort((a, b) => b[0] - a[0]),
+    };
+  }
+  const precision = Number.isFinite(opts?.decimalPrecision)
+    ? Number(opts.decimalPrecision)
+    : 2;
+  const noAsks = yesBids.map(([p, q]) => [getPredictComplement(p, precision), q]);
+  const noBids = yesAsks.map(([p, q]) => [getPredictComplement(p, precision), q]);
+  return {
+    marketId: yesBook?.marketId,
+    updateTimestampMs: yesBook?.updateTimestampMs,
+    asks: normalizeBookLevels(noAsks).sort((a, b) => a[0] - b[0]),
+    bids: normalizeBookLevels(noBids).sort((a, b) => b[0] - a[0]),
+  };
+}
+
+export function predictBuyAskFromYesBook(yesBook, isYesOutcome, decimalPrecision = 2) {
+  return bestAskFromPredictBook(orderbookForOutcomeBuy(yesBook, {
+    isYesOutcome,
+    decimalPrecision,
+  }));
+}
+
+export function yesOutcomeOnChainId(market) {
+  const outcomes = market?.outcomes ?? [];
+  const yes = outcomes.find((o) => {
+    const name = String(o?.name ?? "").trim().toLowerCase();
+    if (name === "yes")
+      return true;
+    return Number(o?.indexSet) === 1;
+  }) ?? outcomes[0];
+  return String(yes?.onChainId ?? "").trim();
+}
+
 function yesOutcomeTokenId(market) {
-  const outcomes = market.outcomes ?? [];
-  const yes = outcomes.find(o => String(o.name ?? "").toLowerCase() === "yes") ?? outcomes[0];
-  return String(yes?.onChainId ?? "");
+  return yesOutcomeOnChainId(market);
 }
 
 function teamNameOf(market) {
@@ -363,6 +431,19 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
   let awayOdds = 0;
   /** @type {ReturnType<typeof buildBetFromDualOutcomes>[]} */
   const bets = [];
+  /** @type {Record<string, { yesTokenId: string, decimalPrecision: number }>} */
+  const bookMetaByMarketId = {};
+
+  function rememberBookMeta(market, marketId, yesTok) {
+    const mid = String(marketId || "").trim();
+    if (!mid)
+      return;
+    const precision = Number(market?.decimalPrecision);
+    bookMetaByMarketId[mid] = {
+      yesTokenId: String(yesTok || "").trim(),
+      decimalPrecision: Number.isFinite(precision) && precision >= 0 ? Math.floor(precision) : 2,
+    };
+  }
 
   if (dual) {
     homeMarketId = String(dual.home.id ?? "");
@@ -373,6 +454,8 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
     awayName = teamNameOf(dual.away);
     homeOdds = decimalOddsFromProbability(buyPrices[homeMarketId] ?? 0);
     awayOdds = decimalOddsFromProbability(buyPrices[awayMarketId] ?? 0);
+    rememberBookMeta(dual.home, homeMarketId, homeTokenId);
+    rememberBookMeta(dual.away, awayMarketId, awayTokenId);
     bets.push(buildBetFromDualOutcomes({
       sourceMatchId,
       sourceBetId: categoryId,
@@ -396,6 +479,7 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
       awayName = outcomeTeamName(single.awayOutcome);
       homeOdds = decimalOddsFromProbability(outcomeProb(single.homeOutcome, buyPrices[homeMarketId] ?? 0));
       awayOdds = decimalOddsFromProbability(outcomeProb(single.awayOutcome, buyPrices[awayMarketId] ?? 0));
+      rememberBookMeta(single.market, homeMarketId, yesOutcomeOnChainId(single.market) || homeTokenId);
       bets.push(buildBetFromDualOutcomes({
         sourceMatchId,
         sourceBetId: `${categoryId}#m0`,
@@ -445,6 +529,7 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
         homeMarketId = mid;
         awayMarketId = mid;
       }
+      rememberBookMeta(child.market, mid, yesOutcomeOnChainId(child.market) || hTok);
       bets.push(buildBetFromDualOutcomes({
         sourceMatchId,
         sourceBetId: `${categoryId}#m${child.mapNum}`,
@@ -498,6 +583,7 @@ export function buildPredictMappedMarket(category, buyPrices = {}) {
     homeTokenId,
     awayTokenId,
     marketIds,
+    bookMetaByMarketId,
     match: {
       Type: PLATFORM,
       SourceMatchID: sourceMatchId,

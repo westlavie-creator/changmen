@@ -104,7 +104,7 @@ export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): Pre
   const mapNum = Number(entry.map) || 0;
   const homeMarketId = String(entry.homeMarketId);
   const awayMarketId = String(entry.awayMarketId);
-  const bet: CollectBetDto = {
+  const bet: CollectBetDto & { MarketID?: string } = {
     Type: "PredictFun",
     SourceMatchID: sourceMatchId,
     SourceBetID: String(entry.sourceBetId || categoryId),
@@ -118,6 +118,9 @@ export function indexEntryToMappedMarket(entry: PredictFunMarketIndexEntry): Pre
     AwayOdds: awayOdds,
     Status: status,
   };
+  // 单盘双 outcome / 局盘：bet 绑定该盘 marketId（供 token→fo 与订阅）
+  if (homeMarketId && homeMarketId === awayMarketId)
+    bet.MarketID = homeMarketId;
 
   return {
     categoryId,
@@ -177,6 +180,7 @@ export function applyPredictFunMarketIndex(
         existing.homeTokenId = mappedOne.homeTokenId;
         existing.awayTokenId = mappedOne.awayTokenId;
       }
+      // 局盘：保留各自 MarketID（indexEntry 已写在 bet 上）
     }
     if (mappedOne.homeMarketId)
       maps.marketIdToCategory.set(mappedOne.homeMarketId, categoryId);

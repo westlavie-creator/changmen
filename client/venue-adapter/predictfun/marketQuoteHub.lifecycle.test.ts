@@ -11,6 +11,8 @@ import {
   __testResetPredictFunMarketQuoteHub,
   getPredictFunQuoteConsumerMarketIds,
   onPredictFunMarketQuote,
+  onPredictFunTokenQuote,
+  registerPredictFunBookMetas,
   registerPredictFunQuoteMarkets,
   unregisterPredictFunQuoteConsumer,
 } from "./marketQuoteHub";
@@ -88,6 +90,42 @@ describe("PF marketQuoteHub lifecycle contracts", () => {
     clearPredictFunSportHub();
   });
 
+  test("token quote path does not change market quote sport API", async () => {
+    const { startSpy } = await mockPfWs();
+    const marketSeen: string[] = [];
+    const tokenSeen: string[] = [];
+    const unM = onPredictFunMarketQuote(q => marketSeen.push(`${q.marketId}:${q.bestAsk}`));
+    const unT = onPredictFunTokenQuote(q => tokenSeen.push(`${q.tokenId}:${q.bestAsk}`));
+
+    registerPredictFunQuoteMarkets("esport", ["m1"]);
+    registerPredictFunBookMetas(new Map([
+      ["m1", {
+        decimalPrecision: 2,
+        tokens: [
+          { tokenId: "tok-yes", isYes: true },
+          { tokenId: "tok-no", isYes: false },
+        ],
+      }],
+    ]));
+
+    const onOrderbook = startSpy.mock.calls[0]?.[0]?.onOrderbook as (u: {
+      marketId: string;
+      orderbook: { asks: [number, number][]; bids: [number, number][] };
+    }) => void;
+    onOrderbook({
+      marketId: "m1",
+      orderbook: {
+        asks: [[0.18, 200]],
+        bids: [[0.16, 200]],
+      },
+    });
+
+    expect(marketSeen).toEqual(["m1:0.18"]);
+    expect(tokenSeen.sort()).toEqual(["tok-no:0.84", "tok-yes:0.18"]);
+    unM();
+    unT();
+  });
+
   test("simulated esport fo filter: prune mapping stops saveVenueOdds", async () => {
     const oddsAccess = await import("@changmen/client-core/bridge/oddsAccess");
     const spy = vi.spyOn(oddsAccess, "saveVenueOdds").mockImplementation(() => {});
@@ -162,14 +200,14 @@ describe("PF collect / hub source contracts", () => {
     expect(src).toMatch(/unregisterPredictFunQuoteConsumer\(QUOTE_CONSUMER\)/);
     expect(src).not.toMatch(/clearPredictFunSportHub/);
     expect(src).toMatch(/syncEsportMarkets\(true\)/);
-    expect(src).toMatch(/onPredictFunMarketQuote/);
+    expect(src).toMatch(/onPredictFunTokenQuote/);
     expect(src).not.toMatch(/startPredictMarketWs/);
     expect(src).not.toMatch(/export \{[\s\S]*setPredictFunSportMarketIds/);
   });
 
-  test("WS quote path writes fo only; Index sync may refreshOddsOnBets", () => {
+  test("WS token quote path writes fo only; Index sync may refreshOddsOnBets", () => {
     const src = readFileSync(join(root, "collect.ts"), "utf8");
-    const quoteStart = src.indexOf("function updateBetFromMarketId");
+    const quoteStart = src.indexOf("function updateBetFromToken");
     const quoteEnd = src.indexOf("const unQuote", quoteStart);
     expect(quoteStart).toBeGreaterThanOrEqual(0);
     expect(quoteEnd).toBeGreaterThan(quoteStart);
@@ -180,6 +218,7 @@ describe("PF collect / hub source contracts", () => {
     const indexStart = src.indexOf("async function syncMarketIndex");
     expect(indexStart).toBeGreaterThanOrEqual(0);
     expect(src.slice(indexStart)).toMatch(/refreshOddsOnBets\(/);
+    expect(src).toMatch(/registerPredictFunBookMetas/);
   });
 
   test("hub layer never imports oddsAccess", () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
   bestAskFromPredictBook,
+  buildPredictFunBookMeta,
   buildPredictMappedMarket,
   decimalOddsFromProbability,
   getPredictComplement,
@@ -9,6 +10,7 @@ import {
   isPredictYesOutcomeToken,
   mapPredictEsportTag,
   orderbookForOutcomeBuy,
+  predictBuyAskFromYesBook,
 } from "./parse";
 
 const SAMPLE_CATEGORY = {
@@ -185,6 +187,41 @@ describe("predictfun parse", () => {
     assert.deepEqual(no.asks, [[0.84, 200], [0.85, 50]]);
     assert.deepEqual(no.bids, [[0.82, 200], [0.81, 100]]);
     assert.equal(bestAskFromPredictBook(no), 0.84);
+  });
+
+  it("predictBuyAskFromYesBook matches executable buy asks", () => {
+    const yes = {
+      asks: [[0.18, 200]] as [number, number][],
+      bids: [[0.16, 200]] as [number, number][],
+    };
+    assert.equal(predictBuyAskFromYesBook(yes, true, 2), 0.18);
+    assert.equal(predictBuyAskFromYesBook(yes, false, 2), 0.84);
+  });
+
+  it("buildPredictFunBookMeta dual-outcome vs dual-market", () => {
+    const dual = buildPredictFunBookMeta({
+      homeTokenId: "h",
+      awayTokenId: "a",
+      yesTokenId: "h",
+      dualOutcomeSameMarket: true,
+    });
+    assert.deepEqual(dual.tokens, [
+      { tokenId: "h", isYes: true },
+      { tokenId: "a", isYes: false },
+    ]);
+    const missingYes = buildPredictFunBookMeta({
+      homeTokenId: "h",
+      awayTokenId: "a",
+      dualOutcomeSameMarket: true,
+    });
+    assert.deepEqual(missingYes.tokens, []);
+    const oneSide = buildPredictFunBookMeta({
+      homeTokenId: "h",
+      awayTokenId: "a",
+      dualOutcomeSameMarket: false,
+      sideTokenId: "a",
+    });
+    assert.deepEqual(oneSide.tokens, [{ tokenId: "a", isYes: true }]);
   });
 
   it("detects Yes vs No token by indexSet / onChainId", () => {

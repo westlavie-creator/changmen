@@ -59,6 +59,16 @@ export interface PredictFunMarketIndexEntry {
   homeOdds: number;
   awayOdds: number;
   status: string;
+  /**
+   * 官方 orderbook Yes 侧对应的 onChainId（单盘双 outcome 时用于拆主客买价）。
+   * 双盘（每队一 market）可省略：各盘 Yes = 该队 token。
+   */
+  yesTokenId?: string;
+  /** 官方 getComplement 精度；缺省按 2 */
+  decimalPrecision?: number;
+  /** CLOB 买价种子（0~1），对齐 PM homeClobPrice；浏览器 Index 变更时种子 fo */
+  homeClobPrice?: number;
+  awayClobPrice?: number;
 }
 
 /** [changmen 扩展] predictfun_market_index.json */

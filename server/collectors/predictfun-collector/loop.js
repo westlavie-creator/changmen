@@ -82,7 +82,7 @@ export async function runPredictFunDiscoveryCycle() {
     replacePlatformBetsForMatch(PLATFORM, mapped.match.SourceMatchID, bets);
   }
 
-  persistPredictFunMarketIndex(candidates);
+  persistPredictFunMarketIndex(candidates, books);
 
   return {
     matches: matches.length,

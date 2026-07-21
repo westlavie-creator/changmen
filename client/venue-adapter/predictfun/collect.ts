@@ -1,6 +1,11 @@
+/**
+ * PredictFun 电竞：VPS 写 platform_* + MarketIndex；浏览器 Index → Market WS → fo。
+ * 对齐 Polymarket collect：实时价只走 WS token quote；Index 变更时种子 clob。
+ */
 import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
 import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
+import type { PredictFunMarketIndexEntry } from "@changmen/api-contract";
 import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "../shared/collectNotify";
@@ -11,22 +16,33 @@ import {
   isPredictFunMarketIndex,
 } from "./marketIndex";
 import {
+  buildPredictFunBookMeta,
   decimalOddsFromProbability,
+  type PredictFunBookMeta,
   type PredictMappedMarket,
 } from "./parse";
-import { detectionMaxPriceFromOdds, isValidPredictClobPrice } from "./pfDetection";
+import { isValidPredictClobPrice } from "./pfDetection";
 import {
+  clearPredictFunBookMetas,
   onPredictFunMarketHubReady,
-  onPredictFunMarketQuote,
+  onPredictFunTokenQuote,
+  registerPredictFunBookMetas,
   registerPredictFunQuoteMarkets,
   unregisterPredictFunQuoteConsumer,
 } from "./marketQuoteHub";
 
 const PLATFORM = PLATFORMS.PredictFun;
-/** MarketIndex → fo；加快以缩小 Sources/列表与预检实时盘口的偏差（勿用 CheckBet 现价回写 fo） */
-const INDEX_SYNC_MS = 8_000;
+/** 对齐 PM：Index 只做发现/映射/种子，非刷价 */
+const INDEX_SYNC_MS = 30_000;
 const QUOTE_CONSUMER = "esport" as const;
 
+type TokenBetRef = {
+  betId: string;
+  side: "home" | "away";
+  marketId: string;
+};
+
+/** PF 写 fo 的唯一入口：decimal odds 供展示，clobPrice 供预检 */
 export function saveTokenQuote(
   params: {
     tokenId: string;
@@ -61,60 +77,111 @@ function saveBetOddsToFo(
   const homeId = String(bet.SourceHomeID);
   const awayId = String(bet.SourceAwayID);
   const homePrice = clobPrices?.home;
-  if (Number.isFinite(homePrice) && homePrice! > 0) {
-    saveTokenQuote({
-      tokenId: homeId,
-      marketId: marketIds.home,
-      clobPrice: homePrice!,
-      betId,
-      side: "home",
-      locked: locked || !bet.HomeOdds,
-    }, source);
-  }
-  else {
-    const prev = getVenueOddsEntry(PLATFORM, homeId);
-    const derived = Number(bet.HomeOdds) > 1 ? detectionMaxPriceFromOdds(Number(bet.HomeOdds)) : 0;
-    const clob = isValidPredictClobPrice(Number(prev?.clobPrice))
-      ? Number(prev!.clobPrice)
-      : (isValidPredictClobPrice(derived) ? derived : undefined);
-    saveVenueOdds(PLATFORM, {
-      id: homeId,
-      odds: bet.HomeOdds,
-      marketId: marketIds.home,
-      ...(clob != null ? { clobPrice: clob } : {}),
-      isLock: locked || !bet.HomeOdds,
-      betId,
-      side: "home",
-      time: Date.now(),
-    }, source);
+  // Index 种子：若该 token 已有 WS(mqtt) 价，勿用慢 Index 盖掉
+  if (Number.isFinite(homePrice) && isValidPredictClobPrice(homePrice!)) {
+    const prev = source === "http" ? getVenueOddsEntry(PLATFORM, homeId) : null;
+    if (!(prev?.source === "mqtt" && isValidPredictClobPrice(Number(prev.clobPrice)))) {
+      saveTokenQuote({
+        tokenId: homeId,
+        marketId: marketIds.home,
+        clobPrice: homePrice!,
+        betId,
+        side: "home",
+        locked: locked || !bet.HomeOdds,
+      }, source);
+    }
   }
   const awayPrice = clobPrices?.away;
-  if (Number.isFinite(awayPrice) && awayPrice! > 0) {
-    saveTokenQuote({
-      tokenId: awayId,
-      marketId: marketIds.away,
-      clobPrice: awayPrice!,
-      betId,
-      side: "away",
-      locked: locked || !bet.AwayOdds,
-    }, source);
+  if (Number.isFinite(awayPrice) && isValidPredictClobPrice(awayPrice!)) {
+    const prev = source === "http" ? getVenueOddsEntry(PLATFORM, awayId) : null;
+    if (!(prev?.source === "mqtt" && isValidPredictClobPrice(Number(prev.clobPrice)))) {
+      saveTokenQuote({
+        tokenId: awayId,
+        marketId: marketIds.away,
+        clobPrice: awayPrice!,
+        betId,
+        side: "away",
+        locked: locked || !bet.AwayOdds,
+      }, source);
+    }
   }
-  else {
-    const prev = getVenueOddsEntry(PLATFORM, awayId);
-    const derived = Number(bet.AwayOdds) > 1 ? detectionMaxPriceFromOdds(Number(bet.AwayOdds)) : 0;
-    const clob = isValidPredictClobPrice(Number(prev?.clobPrice))
-      ? Number(prev!.clobPrice)
-      : (isValidPredictClobPrice(derived) ? derived : undefined);
-    saveVenueOdds(PLATFORM, {
-      id: awayId,
-      odds: bet.AwayOdds,
-      marketId: marketIds.away,
-      ...(clob != null ? { clobPrice: clob } : {}),
-      isLock: locked || !bet.AwayOdds,
-      betId,
-      side: "away",
-      time: Date.now(),
-    }, source);
+}
+
+function bookMetasFromIndexEntries(
+  entries: PredictFunMarketIndexEntry[],
+): Map<string, PredictFunBookMeta> {
+  const out = new Map<string, PredictFunBookMeta>();
+  for (const entry of entries) {
+    const homeMid = String(entry.homeMarketId || "").trim();
+    const awayMid = String(entry.awayMarketId || homeMid).trim();
+    const homeTok = String(entry.homeTokenId || "").trim();
+    const awayTok = String(entry.awayTokenId || "").trim();
+    const precision = entry.decimalPrecision;
+    if (homeMid && awayMid && homeMid === awayMid) {
+      out.set(homeMid, buildPredictFunBookMeta({
+        homeTokenId: homeTok,
+        awayTokenId: awayTok,
+        yesTokenId: entry.yesTokenId,
+        decimalPrecision: precision,
+        dualOutcomeSameMarket: true,
+      }));
+      continue;
+    }
+    if (homeMid && homeTok) {
+      out.set(homeMid, buildPredictFunBookMeta({
+        homeTokenId: homeTok,
+        awayTokenId: awayTok,
+        decimalPrecision: precision,
+        dualOutcomeSameMarket: false,
+        sideTokenId: homeTok,
+      }));
+    }
+    if (awayMid && awayTok && awayMid !== homeMid) {
+      out.set(awayMid, buildPredictFunBookMeta({
+        homeTokenId: homeTok,
+        awayTokenId: awayTok,
+        decimalPrecision: precision,
+        dualOutcomeSameMarket: false,
+        sideTokenId: awayTok,
+      }));
+    }
+  }
+  return out;
+}
+
+function rebuildTokenBetIndex(
+  marketsByCategory: Map<string, PredictMappedMarket>,
+  tokenToBet: Map<string, TokenBetRef>,
+): void {
+  tokenToBet.clear();
+  for (const mapped of marketsByCategory.values()) {
+    const bets = Array.isArray(mapped.bets) && mapped.bets.length
+      ? mapped.bets
+      : [mapped.bet];
+    const sameMarket = String(mapped.homeMarketId || "") === String(mapped.awayMarketId || "");
+    for (const bet of bets) {
+      const betId = String(bet.SourceBetID || "");
+      const homeId = String(bet.SourceHomeID || "");
+      const awayId = String(bet.SourceAwayID || "");
+      const betMarketId = String((bet as { MarketID?: string }).MarketID || "").trim();
+      const homeMarketId = betMarketId || String(mapped.homeMarketId || "");
+      const awayMarketId = betMarketId
+        || (sameMarket ? homeMarketId : String(mapped.awayMarketId || mapped.homeMarketId || ""));
+      if (homeId && betId) {
+        tokenToBet.set(homeId, {
+          betId,
+          side: "home",
+          marketId: homeMarketId,
+        });
+      }
+      if (awayId && betId) {
+        tokenToBet.set(awayId, {
+          betId,
+          side: "away",
+          marketId: awayMarketId,
+        });
+      }
+    }
   }
 }
 
@@ -123,6 +190,7 @@ export function startPredictFunCollector(): () => void {
   const matchStore = useMatchStore();
   const marketsByCategory = new Map<string, PredictMappedMarket>();
   const marketIdToCategory = new Map<string, string>();
+  const tokenToBet = new Map<string, TokenBetRef>();
   let lastIndexUpdatedAt = 0;
   let stopped = false;
 
@@ -147,45 +215,32 @@ export function startPredictFunCollector(): () => void {
     registerPredictFunQuoteMarkets(QUOTE_CONSUMER, esportMarketIds(), force);
   }
 
-  function updateBetFromMarketId(marketId: string, bestAsk: number) {
-    const categoryId = marketIdToCategory.get(marketId);
-    if (!categoryId)
-      return;
-    const mapped = marketsByCategory.get(categoryId);
-    if (!mapped)
+  function updateBetFromToken(tokenId: string, bestAsk: number) {
+    const ref = tokenToBet.get(tokenId);
+    if (!ref)
       return;
     if (!Number.isFinite(bestAsk) || bestAsk <= 0 || bestAsk >= 1)
       return;
-
-    const bets = Array.isArray(mapped.bets) && mapped.bets.length
-      ? mapped.bets
-      : [mapped.bet];
-    const hit = bets.find((b) => {
-      const mid = String((b as { MarketID?: string }).MarketID || "");
-      return mid === marketId;
-    });
-    // 全场双 outcome 共用一个 marketId：WS 单侧 bestAsk 无法可靠更新两侧，交给 index HTTP 灌盘
-    if (!hit) {
-      if (marketId === mapped.homeMarketId || marketId === mapped.awayMarketId)
-        return;
-      return;
-    }
-
-    // 局盘同样是双 outcome 同 market：不要用单一 book ask 覆盖两侧赔率
-    return;
+    saveTokenQuote({
+      tokenId,
+      marketId: ref.marketId,
+      clobPrice: bestAsk,
+      betId: ref.betId,
+      side: ref.side,
+      locked: false,
+    }, "mqtt");
   }
 
-  const unQuote = onPredictFunMarketQuote((q) => {
+  const unQuote = onPredictFunTokenQuote((q) => {
     if (stopped)
       return;
-    updateBetFromMarketId(q.marketId, q.bestAsk);
+    updateBetFromToken(q.tokenId, q.bestAsk);
   });
 
   const unReady = onPredictFunMarketHubReady(() => {
     syncEsportMarkets(true);
   });
 
-  // 有 index 后再 ensure WS；空列表不会建连
   syncEsportMarkets();
 
   async function syncMarketIndex() {
@@ -195,6 +250,8 @@ export function startPredictFunCollector(): () => void {
       if (lastIndexUpdatedAt !== 0) {
         marketsByCategory.clear();
         marketIdToCategory.clear();
+        tokenToBet.clear();
+        clearPredictFunBookMetas();
         lastIndexUpdatedAt = 0;
       }
       syncEsportMarkets();
@@ -211,17 +268,35 @@ export function startPredictFunCollector(): () => void {
       marketsByCategory,
       marketIdToCategory,
     });
-    for (const mapped of marketsByCategory.values()) {
-      const list = Array.isArray(mapped.bets) && mapped.bets.length
+    rebuildTokenBetIndex(marketsByCategory, tokenToBet);
+    registerPredictFunBookMetas(bookMetasFromIndexEntries(index.entries));
+
+    // 仅 Index 变更时用 clob 种子；无 clob 不灌价，避免 HTTP 盖掉 WS 实时 fo
+    for (const entry of index.entries) {
+      const mapped = marketsByCategory.get(String(entry.categoryId));
+      if (!mapped)
+        continue;
+      const bets = Array.isArray(mapped.bets) && mapped.bets.length
         ? mapped.bets
         : [mapped.bet];
-      for (const bet of list) {
-        const mid = String((bet as { MarketID?: string }).MarketID || mapped.homeMarketId);
-        saveBetOddsToFo(bet, "http", {
-          home: mid,
-          away: mid,
-        });
-      }
+      const bet = bets.find(b => String(b.SourceBetID) === String(entry.sourceBetId))
+        || bets.find(b => Number(b.Map) === (Number(entry.map) || 0))
+        || mapped.bet;
+      const homeMid = String(entry.homeMarketId || (bet as { MarketID?: string }).MarketID || mapped.homeMarketId);
+      const awayMid = String(entry.awayMarketId || homeMid);
+      const homeClob = Number(entry.homeClobPrice);
+      const awayClob = Number(entry.awayClobPrice);
+      const hasHomeClob = isValidPredictClobPrice(homeClob);
+      const hasAwayClob = isValidPredictClobPrice(awayClob);
+      if (!hasHomeClob && !hasAwayClob)
+        continue;
+      saveBetOddsToFo(bet, "http", {
+        home: homeMid,
+        away: awayMid,
+      }, {
+        ...(hasHomeClob ? { home: homeClob } : {}),
+        ...(hasAwayClob ? { away: awayClob } : {}),
+      });
     }
     matchStore.refreshOddsOnBets();
     syncEsportMarkets(true);

@@ -18,7 +18,7 @@
 
 | changmen 用户 | `PlatformAccount.token` 仅占位 `{ "mode": "house" }`，用于玩家/订单归属 |
 
-| 采集 | **VPS 单进程 HTTP** → RDS；浏览器 **仅 WS** → `fo` |
+| 采集 | **VPS 单进程 HTTP** → RDS；浏览器 **Market WS → token quote → fo**（对齐 Polymarket） |
 
 
 
@@ -74,9 +74,9 @@ PF_HOUSE_MAX_STAKE_USDT=500
 
 |----|------|
 
-| `server/collectors/predictfun-collector`（PM2） | 直连 `api.predict.fun`：categories → orderbook → `writePlatformMatches` / `replacePlatformBetsForMatch`；写 `predictfun_market_index.json` |
+| `server/collectors/predictfun-collector`（PM2） | 直连 `api.predict.fun`：categories → orderbook → `writePlatformMatches` / `replacePlatformBetsForMatch`；写 `predictfun_market_index.json`（含 `yesTokenId` / clob 种子） |
 
-| 浏览器 `collect.ts` | 经 `Client_GetCollectPlatform` 拉 `MarketIndex`；Market WS → `fo`（官方直连或 `ws-forward`） |
+| 浏览器 `collect.ts` | 拉 `MarketIndex`（映射+种子）；订 Market WS；hub 将 Yes book 展开为 `{ tokenId, bestAsk }` → `fo`（对齐 PM） |
 
 | `server/ws_forward` hub | 全站单条上游 WS，合并订阅后 fan-out |
 
@@ -195,7 +195,9 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
 
 |------|------|
 
-| `collect.ts` | 浏览器 WS + MarketIndex 同步 |
+| `collect.ts` | Index 映射/种子 + token WS → fo（对齐 PM） |
+
+| `marketQuoteHub.ts` | orderbook；market quote（体育）+ token quote（电竞） |
 
 | `marketIndex.ts` | VPS 索引 → 本地映射 |
 
