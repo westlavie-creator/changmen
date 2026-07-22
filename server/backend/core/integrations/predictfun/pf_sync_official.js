@@ -1,7 +1,6 @@
 /**
- * ???? ? RDS ??????? / ???? / ?? fee?
- * ????pf_client_handlers????pf_player_account?????pf_order_row
- * ??? upsertPfServerOrder???????? Client_SaveOrder?
+ * Official PF order status -> RDS (reject refund / fill / late fee).
+ * Persist via upsertPfServerOrder (server-only; not Client_SaveOrder).
  */
 
 import * as accountStore from "../../account/account_store.js";
@@ -46,7 +45,7 @@ import { withHouseOrderLock } from "./pf_order_service.js";
 import { upsertPfServerOrder } from "./pf_server_order.js";
 
 /**
- * ??????? RDS???????? ? ?? stake???? + ???
+ * Sync official status into RDS; refund stake when rejected while open.
  * @returns {{ venueOrder: object, refunded: boolean, settlement: string }}
  */
 export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
