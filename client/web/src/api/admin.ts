@@ -26,25 +26,38 @@ export async function getAdminOrders(body: Record<string, unknown> = {}) {
   return unwrap(await post<AdminOrderPage>("Client_AdminOrders", body));
 }
 
-/** 拉取筛选条件下当日全部订单（自动合并分页） */
+/** 拉取筛选条件下当日全部订单（自动合并分页；pageSize 与后端上限 5000 对齐） */
 export async function getAdminOrdersAll(body: Record<string, unknown> = {}) {
   const all: AdminOrderRow[] = [];
+  const seen = new Set<string>();
   let pageIndex = 1;
-  const pageSize = 200;
+  const pageSize = 5000;
   let dateKey = "";
-  let total = 0;
   for (;;) {
     const page = await getAdminOrders({ ...body, pageIndex, pageSize });
     dateKey = page.date;
-    total = page.total;
-    all.push(...(page.list ?? []));
-    if (all.length >= total || !page.list?.length)
+    for (const row of page.list ?? []) {
+      const key = row.id != null
+        ? `id:${row.id}`
+        : `oid:${row.userId}:${row.orderId}`;
+      if (seen.has(key))
+        continue;
+      seen.add(key);
+      all.push(row);
+    }
+    // hasMore/total 按 SQL create_at 分页；enrich 可能整页滤空，不能靠 list.length===0 停
+    const size = Number(page.pageSize) || pageSize;
+    const sqlTotal = Number(page.total) || 0;
+    const hasMore = typeof page.hasMore === "boolean"
+      ? page.hasMore
+      : pageIndex * size < sqlTotal;
+    if (!hasMore)
       break;
     pageIndex += 1;
     if (pageIndex > 50)
       break;
   }
-  return { date: dateKey, list: all, total };
+  return { date: dateKey, list: all, total: all.length };
 }
 
 /** 拉取当日全部订单（优先矩阵 API；旧后端无此 action 时分页兜底） */

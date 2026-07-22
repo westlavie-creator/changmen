@@ -440,7 +440,8 @@ function mapAdminOrderRow(r, startIndex = null) {
 export async function listAdminOrders(body = {}, caller = null) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const pageIndex = Math.max(1, Number(body.pageIndex) || 1);
-  const pageSize = Math.min(200, Math.max(1, Number(body.pageSize) || 50));
+  // 与矩阵视图 fetchOrdersAdminAll 同量级；前端 getAdminOrdersAll 一次拉全日
+  const pageSize = Math.min(5000, Math.max(1, Number(body.pageSize) || 50));
   const userId = body.userId ? String(body.userId) : "";
   const provider = body.provider ? String(body.provider) : "";
   const playerIdRaw = Number(body.playerId ?? body.player_id ?? 0);
@@ -452,7 +453,7 @@ export async function listAdminOrders(body = {}, caller = null) {
     const visibleIds = resolveVisibleUserIds(caller, allProfiles);
     if (visibleIds) {
       if (userId && !visibleIds.has(userId)) {
-        return { date: dateKey, list: [], total: 0, pageIndex, pageSize };
+        return { date: dateKey, list: [], total: 0, pageIndex, pageSize, hasMore: false };
       }
       userIds = [...visibleIds];
     }
@@ -465,14 +466,22 @@ export async function listAdminOrders(body = {}, caller = null) {
     playerId,
     userIds,
   };
-  const { rows } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
+  const { rows, total } = await sb.fetchOrdersAdminPage({ ...filter, pageIndex, pageSize });
   const enriched = await enrichOrdersBelongingToDate(rows || [], dateKey, {
     userId: userId || undefined,
     userIds,
   });
   const list = enriched.map(r => mapAdminOrderRow(r));
-  // enrich 会并入跨日 sibling / 按买单日过滤，条数与分页 total 可能不一致；以本页实际返回为准
-  return { date: dateKey, list, total: list.length, pageIndex, pageSize };
+  const sqlTotal = Number(total) || 0;
+  // total/hasMore 按 SQL create_at 当日分页；list 经 enrich 后可含跨日 sibling / 整页被滤空
+  return {
+    date: dateKey,
+    list,
+    total: sqlTotal,
+    pageIndex,
+    pageSize,
+    hasMore: pageIndex * pageSize < sqlTotal,
+  };
 }
 
 /** Client_AdminDeleteOrders：form body 里 orderIds 常为 JSON.stringify 后的数组字符串 */

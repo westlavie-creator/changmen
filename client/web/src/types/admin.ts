@@ -175,9 +175,12 @@ export interface AdminOrderRow {
 export interface AdminOrderPage {
   date: string;
   list: AdminOrderRow[];
+  /** SQL create_at 当日条数（翻页用；与 enrich 后 list.length 可能不同） */
   total: number;
   pageIndex: number;
   pageSize: number;
+  /** 是否还有下一页 SQL 行；enrich 整页滤空时仍可能为 true */
+  hasMore?: boolean;
 }
 
 export interface AdminOrderMatrix {

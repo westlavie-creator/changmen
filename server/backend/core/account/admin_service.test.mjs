@@ -120,6 +120,13 @@ describe("listAdminOrders", () => {
     const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 50 });
     expect(page.list).toHaveLength(3);
     expect(page.list.map(r => r.id).sort((a, b) => a - b)).toEqual([1, 2, 3]);
+    expect(page.total).toBe(3);
+  });
+
+  it("allows pageSize up to 5000 (no 200 cap)", async () => {
+    const page = await listAdminOrders({ date: "2026-06-13", pageIndex: 1, pageSize: 5000 });
+    expect(page.pageSize).toBe(5000);
+    expect(page.hasMore).toBe(false);
   });
 
   it("passes through Polymarket raw fields for workbench-parity display", async () => {
