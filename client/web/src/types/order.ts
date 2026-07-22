@@ -53,8 +53,22 @@ export interface OrderRow {
   /** [changmen 扩展] PredictFun 1:1 买卖 */
   PfSide?: "buy" | "sell";
   PfBuyOrderId?: string;
-  PfSellState?: "open" | "closed";
+  PfSellState?: "open" | "closed" | "settled";
   PfShares?: number;
+  /**
+   * [changmen 扩展] 官网持仓口径份额（成交 − SHARES 手续费）。
+   * 订单栏「份额」优先展示此值。
+   */
+  PfHoldShares?: number;
+  /**
+   * [changmen 扩展] 名义买入 USDT（限价×份额，如 14.12）。
+   * 侧栏投注金额 / 图例未结预览优先读此；无则回退 BetMoney。
+   */
+  PfNotionalUsdt?: number;
+  /** [changmen 扩展] 链上实付成交额（可低于名义） */
+  PfFillCostUsdt?: number;
+  /** [changmen 扩展] 买入限价/盘口价 (0,1) */
+  PfBookPrice?: number;
   PfTokenId?: string;
   PfMarketId?: string;
   PfSellOrderId?: string;

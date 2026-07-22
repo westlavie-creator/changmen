@@ -156,8 +156,16 @@ export interface AdminOrderRow {
   /** [changmen 扩展] PredictFun — 与工作台 OrderRow.Pf* 对齐 */
   pfSide?: "buy" | "sell";
   pfBuyOrderId?: string;
-  pfSellState?: "open" | "closed";
+  pfSellState?: "open" | "closed" | "settled";
   pfShares?: number;
+  /** 官网持仓口径（扣 SHARES 手续费） */
+  pfHoldShares?: number;
+  /** 名义买入 USDT（限价×份额）；与 betMoney 实付区分 */
+  pfNotionalUsdt?: number;
+  /** 链上实付成交额 */
+  pfFillCostUsdt?: number;
+  /** 买入限价/盘口价 (0,1) */
+  pfBookPrice?: number;
   pfTokenId?: string;
   pfMarketId?: string;
   /** 买单关联卖单 orderId */

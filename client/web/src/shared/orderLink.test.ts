@@ -239,6 +239,44 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("100");
   });
 
+  it("PF unsettled legend uses shares×$1 − notional (price path)", () => {
+    // 名义 14.12、价 0.32 → 44.125 份；若赢回款 44.125U，盈利 30.005×6.8≈204
+    const text = orderLinkLegend([
+      {
+        Status: "None",
+        Type: "PredictFun",
+        PfSide: "buy",
+        BetMoney: 13.68,
+        PfNotionalUsdt: 14.12,
+        PfBookPrice: 0.32,
+        PfShares: 44.125,
+        Odds: 3.125,
+        Money: 0,
+        OrderID: "pf1",
+      },
+    ]);
+    expect(text).toBe("204");
+  });
+
+  it("PF unsettled legend prefers hold shares for win payout", () => {
+    // 持仓 43.33075 − 名义 14.12 = 29.21075U → ×6.8 ≈ 199
+    const text = orderLinkLegend([
+      {
+        Status: "None",
+        Type: "PredictFun",
+        PfSide: "buy",
+        PfNotionalUsdt: 14.12,
+        PfBookPrice: 0.32,
+        PfShares: 44.125,
+        PfHoldShares: 43.33075,
+        Odds: 3.125,
+        Money: 0,
+        OrderID: "pf1",
+      },
+    ]);
+    expect(text).toBe("199");
+  });
+
   it("9999 单边 link 在 legend 前缀展示 🏆", () => {
     const link = -1_700_000_000_123;
     const text = orderLinkLegend([

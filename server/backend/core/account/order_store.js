@@ -387,11 +387,45 @@ function resolveStoredLink(link, _orderId, createAt) {
 
 export { resolveStoredLink };
 
+/**
+ * PF 买单真实持仓份额（对齐官网 positions）：成交份额 − SHARES 手续费。
+ * 卖单不计算。读路径即时推算，不依赖是否已落库 pfHoldShares。
+ */
+export function resolvePfHoldSharesFromRaw(raw) {
+  if (!raw || typeof raw !== "object")
+    return undefined;
+  if (String(raw.pfSide ?? raw.PfSide ?? "").toLowerCase() === "sell")
+    return undefined;
+  const shares = parseNum(raw.pfShares ?? raw.PfShares, 0);
+  if (!(shares > 0))
+    return undefined;
+  const stored = parseNum(raw.pfHoldShares ?? raw.PfHoldShares, 0);
+  if (stored > 0)
+    return stored;
+  const type = String(raw.pfFeeType ?? raw.PfFeeType ?? "").toUpperCase();
+  const wei = String(raw.pfFeeAmountWei ?? raw.PfFeeAmountWei ?? "").trim();
+  if (type === "SHARES" && /^\d+$/.test(wei)) {
+    try {
+      const fee = Number(BigInt(wei)) / 1e18;
+      if (Number.isFinite(fee) && fee > 0) {
+        const net = shares - fee;
+        if (Number.isFinite(net) && net > 0)
+          return net;
+      }
+    }
+    catch {
+      /* ignore */
+    }
+  }
+  return shares;
+}
+
 /** 工作台 Client_GetOrder / 管理端 mapAdminOrderRow 共用，勿分叉 */
 export function rowToOrder(r) {
   const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
   let betMoney = r.bet_money || 0;
   let money = r.money || 0;
+  const pfHoldShares = resolvePfHoldSharesFromRaw(raw);
   // 卖单盈亏：新写入已为 0（记在买单）；旧数据 money 仍可能非 0，读出时勿清零
   return {
     OrderID: r.order_id,
@@ -446,9 +480,30 @@ export function rowToOrder(r) {
     PfBuyOrderId: raw.pfBuyOrderId ? String(raw.pfBuyOrderId) : undefined,
     PfSellState: raw.pfSellState === "open"
       || raw.pfSellState === "closed"
+      || raw.pfSellState === "settled"
       ? raw.pfSellState
       : undefined,
     PfShares: parseNum(raw.pfShares, 0) || undefined,
+    /** 官网持仓口径（扣 SHARES 手续费）；侧栏份额优先读此字段 */
+    PfHoldShares: pfHoldShares,
+    /**
+     * 名义买入 USDT（限价×成交份额 / makerAmount，如 14.12）
+     * 与 BetMoney 实付成交额（如 13.68）区分；侧栏「投注金额」读此字段
+     */
+    PfNotionalUsdt: (() => {
+      const n = parseNum(raw.pfNotionalUsdt, 0);
+      return n > 0 ? n : undefined;
+    })(),
+    /** 链上/官方实付成交额（可低于名义；差额归 house） */
+    PfFillCostUsdt: (() => {
+      const n = parseNum(raw.pfFillCostUsdt, 0);
+      return n > 0 ? n : undefined;
+    })(),
+    /** 买入限价/盘口价 (0,1) */
+    PfBookPrice: (() => {
+      const n = parseNum(raw.pfBookPrice, 0);
+      return n > 0 && n < 1 ? n : undefined;
+    })(),
     PfTokenId: raw.pfTokenId ? String(raw.pfTokenId) : undefined,
     PfMarketId: raw.pfMarketId ? String(raw.pfMarketId) : undefined,
     PfSellOrderId: raw.pfSellOrderId ? String(raw.pfSellOrderId) : undefined,
@@ -500,6 +555,44 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     ) {
       merged.pfSellProceeds = Number(prevRaw.pfSellProceeds);
     }
+    if (
+      !(Number.isFinite(Number(merged.pfNotionalUsdt)) && Number(merged.pfNotionalUsdt) > 0)
+      && Number.isFinite(Number(prevRaw.pfNotionalUsdt))
+      && Number(prevRaw.pfNotionalUsdt) > 0
+    ) {
+      merged.pfNotionalUsdt = Number(prevRaw.pfNotionalUsdt);
+    }
+    else if (!(Number.isFinite(Number(merged.pfNotionalUsdt)) && Number(merged.pfNotionalUsdt) > 0)) {
+      const book = Number(merged.pfBookPrice ?? prevRaw.pfBookPrice);
+      const shares = Number(merged.pfShares ?? prevRaw.pfShares);
+      if (Number.isFinite(book) && book > 0 && book < 1
+        && Number.isFinite(shares) && shares > 0) {
+        merged.pfNotionalUsdt = Math.round(shares * book * 1e6) / 1e6;
+      }
+    }
+    if (
+      !(Number.isFinite(Number(merged.pfFillCostUsdt)) && Number(merged.pfFillCostUsdt) > 0)
+      && Number.isFinite(Number(prevRaw.pfFillCostUsdt))
+      && Number(prevRaw.pfFillCostUsdt) > 0
+    ) {
+      merged.pfFillCostUsdt = Number(prevRaw.pfFillCostUsdt);
+    }
+    if (
+      !(Number.isFinite(Number(merged.pfBookPrice)) && Number(merged.pfBookPrice) > 0
+        && Number(merged.pfBookPrice) < 1)
+      && Number.isFinite(Number(prevRaw.pfBookPrice))
+      && Number(prevRaw.pfBookPrice) > 0
+      && Number(prevRaw.pfBookPrice) < 1
+    ) {
+      merged.pfBookPrice = Number(prevRaw.pfBookPrice);
+    }
+    if (!(Number(merged.pfShares) > 0) && Number(prevRaw.pfShares) > 0)
+      merged.pfShares = Number(prevRaw.pfShares);
+    const hold = resolvePfHoldSharesFromRaw(merged);
+    if (hold != null && hold > 0)
+      merged.pfHoldShares = hold;
+    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
+      merged.pfHoldShares = Number(prevRaw.pfHoldShares);
     return { raw: merged, money, bet_money };
   }
 
@@ -727,10 +820,32 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   return { raw: merged, money, bet_money };
 }
 
+/**
+ * 工作台下发订单：去掉 house 成交额 / 手续费明细（价差可由此反推）。
+ * 管理端 mapAdminOrderRow / listByPlayer 仍用完整 rowToOrder。
+ */
+export function scrubClientOrder(order) {
+  if (!order || typeof order !== "object")
+    return order;
+  const {
+    PfFillCostUsdt: _fill,
+    PfFeeAmountWei: _wei,
+    PfFeeType: _feeType,
+    PfFeeUsdt: _feeUsdt,
+    PfFeeRateBps: _bps,
+    ...rest
+  } = order;
+  return rest;
+}
+
+export function toClientOrder(r) {
+  return scrubClientOrder(rowToOrder(r));
+}
+
 export async function listByDate(date, userId) {
   const target = date || toDateKey(Date.now());
   const rows = await sb.fetchOrdersByDate(target, userId);
-  return rows.map(rowToOrder);
+  return rows.map(toClientOrder);
 }
 
 export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 1024) {
@@ -740,7 +855,7 @@ export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 102
   const { rows } = await sb.fetchOrdersByDatePage(target, userId, page, size);
   // [changmen 扩展] 同 Link + buyId 跨日并入；卖单归买单日
   const merged = await enrichOrdersBelongingToDate(rows || [], target, { userId });
-  const list = merged.map(rowToOrder);
+  const list = merged.map(toClientOrder);
   return { list, total: list.length };
 }
 

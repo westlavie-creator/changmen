@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   extractBuyFillCostUsdt,
   extractBuyFillShares,
+  extractBuyNotionalUsdt,
+  computePfNotionalUsdt,
   extractSellFill,
+  hasBuyFillCostSignal,
   parsePredictQuantityToWei,
 } from "./pf_fill.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
@@ -12,6 +15,44 @@ describe("pf_fill", () => {
     expect(parsePredictQuantityToWei("25000000000000000000")).toBe(25000000000000000000n);
     expect(parsePredictQuantityToWei("25.5")).toBe(25500000000000000000n);
     expect(parsePredictQuantityToWei("")).toBe(0n);
+  });
+
+  it("computes notional from shares × book price", () => {
+    expect(computePfNotionalUsdt({ shares: 44.125, bookPrice: 0.32 })).toBe(14.12);
+  });
+
+  it("extracts buy notional from makerAmount (distinct from fill cost)", () => {
+    const official = {
+      amount: "13.68",
+      amountFilled: "44125000000000000000",
+      order: {
+        side: 0,
+        makerAmount: "14120000000000000000",
+        takerAmount: "43683750000000000000",
+      },
+    };
+    expect(extractBuyFillCostUsdt(official, 0)).toBe(13.68);
+    expect(extractBuyFillCostUsdt(official, 0, { excludeMakerAmount: true })).toBe(13.68);
+    expect(extractBuyNotionalUsdt(official, { shares: 44.125, bookPrice: 0.32 })).toBe(14.12);
+  });
+
+  it("excludeMakerAmount skips maker fallback for fill cost", () => {
+    const official = {
+      amountFilled: "44125000000000000000",
+      order: {
+        side: 0,
+        makerAmount: "14120000000000000000",
+        takerAmount: "43683750000000000000",
+      },
+    };
+    expect(extractBuyFillCostUsdt(official, 0)).toBe(14.12);
+    expect(extractBuyFillCostUsdt(official, 0, { excludeMakerAmount: true })).toBe(0);
+    expect(hasBuyFillCostSignal(official)).toBe(false);
+    expect(hasBuyFillCostSignal({ ...official, amount: "13.68" })).toBe(true);
+    expect(hasBuyFillCostSignal({
+      ...official,
+      pfExecutedValueWei: "13680000000000000000",
+    })).toBe(true);
   });
 
   it("extracts buy fill shares from amountFilled", () => {

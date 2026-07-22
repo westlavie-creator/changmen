@@ -7,7 +7,7 @@
 
 import * as accountStore from "../../account/account_store.js";
 import * as orderStore from "../../account/order_store.js";
-import { rowToOrder } from "../../account/order_store.js";
+import { resolvePfHoldSharesFromRaw, rowToOrder } from "../../account/order_store.js";
 import { assertPlayerOwnedByUser } from "../../account/player_ownership.js";
 import * as sb from "@changmen/db";
 import store from "../../esport-api/store.js";
@@ -21,6 +21,8 @@ import {
 import {
   createAndSubmitHouseMarketBuy,
   createAndSubmitHouseMarketSell,
+  decimal18ToWei,
+  estimateHouseMarketBuyMakerUsdt,
   estimatePfSharesWei,
   isPredictFunOrderAccepted,
   isValidPredictClobPrice,
@@ -32,7 +34,7 @@ import {
 } from "./pf_order_service.js";
 import { fetchPredictMarket } from "./pf_api.js";
 import { computePfSettlement, resolvePfMarketOutcome } from "./pf_settle.js";
-import { extractBuyFillCostUsdt, extractBuyFillShares, extractSellFill } from "./pf_fill.js";
+import { extractBuyFillCostUsdt, extractBuyFillShares, extractBuyNotionalUsdt, extractSellFill } from "./pf_fill.js";
 import { resolvePfFeeSavePatch } from "./pf_fee.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
 import { tryRedeemHouseMarketAfterSettle, redeemHouseResolvedPositions } from "./pf_house_redeem.js";
@@ -165,6 +167,9 @@ async function loadPfOrders(playerId, userId) {
       pfTokenId: raw.pfTokenId ? String(raw.pfTokenId) : undefined,
       pfSharesWei: raw.pfSharesWei ? String(raw.pfSharesWei) : undefined,
       pfShares: raw.pfShares != null ? Number(raw.pfShares) : undefined,
+      pfHoldShares: raw.pfHoldShares != null ? Number(raw.pfHoldShares) : undefined,
+      pfNotionalUsdt: raw.pfNotionalUsdt != null ? Number(raw.pfNotionalUsdt) : undefined,
+      pfFillCostUsdt: raw.pfFillCostUsdt != null ? Number(raw.pfFillCostUsdt) : undefined,
       pfBookPrice: raw.pfBookPrice != null ? Number(raw.pfBookPrice) : undefined,
       pfSellState: raw.pfSellState ? String(raw.pfSellState) : undefined,
       pfSide: raw.pfSide ? String(raw.pfSide) : undefined,
@@ -255,10 +260,6 @@ export async function handlePfCheckBet(body, userId) {
 
   try {
     const balance = await resolvePfBalance(gate.player, userId, gate.playerId);
-    const avail = assertPfAvailableBalance(balance, intent.apiBetMoney);
-    if (!avail.ok)
-      return avail;
-
     const resolved = await resolveExecutableBuy({
       tokenId: intent.tokenId,
       marketId: intent.marketId,
@@ -266,12 +267,31 @@ export async function handlePfCheckBet(body, userId) {
       maxPrice: intent.detectionMaxPrice,
       apiBetMoney: intent.apiBetMoney,
     });
+    // 名义 maker 可高于 apiBetMoney；预检按名义验余额，与提交扣款一致
+    const est = await estimateHouseMarketBuyMakerUsdt({
+      tokenId: intent.tokenId,
+      marketId: intent.marketId,
+      apiBetMoney: intent.apiBetMoney,
+      maxPrice: intent.detectionMaxPrice,
+      maxSlippageBps: intent.slippageBps,
+      yesBook: resolved.yesBook,
+      market: resolved.market,
+    });
+    const chargeUsdt = Math.max(intent.apiBetMoney, Number(est.makerUsdt) || 0);
+    const maxStake = resolvePfHouseMaxStakeUsdt();
+    if (chargeUsdt > maxStake + 1e-9)
+      return { ok: false, msg: `单笔名义超过上限 ${maxStake} USDT（名义 ${roundUsdt(chargeUsdt)}）` };
+    const avail = assertPfAvailableBalance(balance, chargeUsdt, { label: "名义" });
+    if (!avail.ok)
+      return avail;
+
     return {
       ok: true,
       info: {
         tokenId: intent.tokenId,
         marketId: intent.marketId,
         apiBetMoney: intent.apiBetMoney,
+        makerUsdt: est.makerUsdt,
         detectionOdds: intent.detectionOdds,
         detectionMaxPrice: intent.detectionMaxPrice,
         bookPrice: resolved.bookPrice,
@@ -303,9 +323,9 @@ export async function handlePfSubmitOrder(body, userId) {
 
   try {
     const balanceBefore = await resolvePfBalance(gate.player, userId, gate.playerId);
-    const avail = assertPfAvailableBalance(balanceBefore, intent.apiBetMoney);
-    if (!avail.ok)
-      return avail;
+    const softAvail = assertPfAvailableBalance(balanceBefore, intent.apiBetMoney);
+    if (!softAvail.ok)
+      return softAvail;
 
     console.info(
       `[Pf_SubmitOrder] start player=${gate.playerId} market=${intent.marketId} stake=${intent.apiBetMoney}`,
@@ -323,13 +343,31 @@ export async function handlePfSubmitOrder(body, userId) {
       prepareHouseSigner(),
     ]);
 
+    // 锁外按名义估算再验一次（锁内 createAndSubmit 仍会按真实 makerAmount 硬拦）
+    const est0 = await estimateHouseMarketBuyMakerUsdt({
+      tokenId: intent.tokenId,
+      marketId: intent.marketId,
+      apiBetMoney: intent.apiBetMoney,
+      maxPrice: intent.detectionMaxPrice,
+      maxSlippageBps: intent.slippageBps,
+      yesBook: fresh0.yesBook,
+      market: fresh0.market,
+    });
+    const chargeUsdt = Math.max(intent.apiBetMoney, Number(est0.makerUsdt) || 0);
+    const maxStake = resolvePfHouseMaxStakeUsdt();
+    if (chargeUsdt > maxStake + 1e-9)
+      return { ok: false, msg: `单笔名义超过上限 ${maxStake} USDT（名义 ${roundUsdt(chargeUsdt)}）` };
+    const notionalAvail = assertPfAvailableBalance(balanceBefore, chargeUsdt, { label: "名义" });
+    if (!notionalAvail.ok)
+      return notionalAvail;
+
     const submitted = await withHouseOrderLock(async () => {
       // 锁内再读一次，避免并发超扣
       const owned = await assertPlayerOwnedByUser(gate.playerId, userId);
       if (!owned.ok)
         throw new Error(owned.msg || "账号校验失败");
       const liveBal = await resolvePfBalance(owned.player, userId, gate.playerId);
-      const liveAvail = assertPfAvailableBalance(liveBal, intent.apiBetMoney);
+      const liveAvail = assertPfAvailableBalance(liveBal, chargeUsdt, { label: "名义" });
       if (!liveAvail.ok)
         throw new Error(liveAvail.msg || "可用余额不足");
 
@@ -355,6 +393,7 @@ export async function handlePfSubmitOrder(body, userId) {
         isYieldBearing: fresh.isYieldBearing,
         yesBook: fresh.yesBook,
         market: fresh.market,
+        availableBalance: liveBal,
       });
 
       return { fresh, out, liveBal };
@@ -390,6 +429,17 @@ export async function handlePfSubmitOrder(body, userId) {
       fromClient: intent.display,
     });
 
+    const bookPrice = Number(out.bookPrice || fresh.bookPrice) || 0;
+    // 对用户扣款/展示：名义 makerAmount（官网口径）；链上实付另记 pfFillCostUsdt
+    const notional = Number(out.makerUsdt) > 0
+      ? roundUsdt(out.makerUsdt)
+      : extractBuyNotionalUsdt(null, {
+          shares: shares > 0 ? shares : undefined,
+          bookPrice: bookPrice > 0 ? bookPrice : undefined,
+          fallbackUsdt: intent.apiBetMoney,
+        });
+    const userStake = Number(notional) > 0 ? roundUsdt(notional) : intent.apiBetMoney;
+
     await orderStore.saveOrder(gate.playerId, [{
       orderId,
       provider: "PredictFun",
@@ -397,13 +447,14 @@ export async function handlePfSubmitOrder(body, userId) {
       bet: labels.bet,
       item: labels.item,
       odds: bookOdds,
-      betMoney: intent.apiBetMoney,
+      betMoney: userStake,
       money: 0,
       status: "Pending",
       createAt,
       pfMarketId: intent.marketId,
       pfTokenId: intent.tokenId,
-      pfBookPrice: out.bookPrice || fresh.bookPrice,
+      pfBookPrice: bookPrice > 0 ? bookPrice : (out.bookPrice || fresh.bookPrice),
+      pfNotionalUsdt: userStake,
       pfOrderHash,
       pfApiOrderId,
       pfSharesWei: sharesWei || undefined,
@@ -415,7 +466,7 @@ export async function handlePfSubmitOrder(body, userId) {
         : undefined,
     }], userId, "PredictFun");
 
-    const nextBalance = balanceAfterStake(liveBal, intent.apiBetMoney);
+    const nextBalance = balanceAfterStake(liveBal, userStake);
     const published = await publishPfBalance(gate.playerId, userId, nextBalance);
 
     return {
@@ -486,6 +537,10 @@ function rdsToMapInput(rdsRow) {
     pfSide: rdsRow?.pfSide ?? rdsRow?.PfSide,
     pfBuyOrderId: rdsRow?.pfBuyOrderId ?? rdsRow?.PfBuyOrderId,
     pfShares: rdsRow?.pfShares ?? rdsRow?.PfShares,
+    pfHoldShares: rdsRow?.pfHoldShares ?? rdsRow?.PfHoldShares,
+    pfNotionalUsdt: rdsRow?.pfNotionalUsdt ?? rdsRow?.PfNotionalUsdt,
+    pfFillCostUsdt: rdsRow?.pfFillCostUsdt ?? rdsRow?.PfFillCostUsdt,
+    pfBookPrice: rdsRow?.pfBookPrice ?? rdsRow?.PfBookPrice,
     pfFeeAmountWei: rdsRow?.pfFeeAmountWei ?? rdsRow?.PfFeeAmountWei,
     pfFeeType: rdsRow?.pfFeeType ?? rdsRow?.PfFeeType,
     pfFeeUsdt: rdsRow?.pfFeeUsdt ?? rdsRow?.PfFeeUsdt,
@@ -540,17 +595,32 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
 
   if (venueOrder.status === "none" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
     const fill = extractBuyFillShares(official, rdsRow?.pfSharesWei);
-    const feePatch = resolvePfFeeSavePatch(official, rdsRow);
     const isSellRow = String(rdsRow?.pfSide ?? rdsRow?.PfSide ?? "").toLowerCase() === "sell";
+    const feePatch = resolvePfFeeSavePatch(official, rdsRow, {
+      pfShares: fill.shares > 0 ? fill.shares : (rdsRow?.pfShares ?? rdsRow?.PfShares),
+    });
     const planned = rdsBetMoney(rdsRow);
-    // 买单：betMoney 回写官方成交 USDT（executedValue / makerAmount）；余额仍以下单扣款为准，不退差
-    const betMoney = !isSellRow
-      ? (extractBuyFillCostUsdt(official, planned) || planned)
-      : planned;
+    const bookPrice = Number(rdsRow?.pfBookPrice ?? rdsRow?.PfBookPrice) || 0;
+    // 实付成交额只写入 pfFillCostUsdt；bet_money 保持对用户扣的名义金额（价差归 house）
+    const fillCost = !isSellRow
+      ? (extractBuyFillCostUsdt(official, 0, { excludeMakerAmount: true }) || undefined)
+      : undefined;
+    const notional = !isSellRow
+      ? (
+          Number(rdsRow?.pfNotionalUsdt ?? rdsRow?.PfNotionalUsdt) > 0
+            ? roundUsdt(Number(rdsRow?.pfNotionalUsdt ?? rdsRow?.PfNotionalUsdt))
+            : extractBuyNotionalUsdt(official, {
+                shares: fill.shares > 0 ? fill.shares : Number(rdsRow?.pfShares),
+                bookPrice: bookPrice > 0 ? bookPrice : undefined,
+                fallbackUsdt: planned,
+              })
+        )
+      : undefined;
     await orderStore.saveOrder(playerId, [{
       ...venueOrder,
       status: "none",
-      betMoney,
+      // 保持名义扣款；勿用实付覆盖
+      betMoney: planned,
       pfOfficialStatus: official?.status,
       pfOrderHash: rdsPfHash(rdsRow),
       pfApiOrderId: rdsPfApiOrderId(rdsRow),
@@ -561,20 +631,31 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
             pfShares: fill.shares,
           }
         : {}),
+      ...(fillCost != null && fillCost > 0 ? { pfFillCostUsdt: fillCost } : {}),
+      ...(notional != null ? { pfNotionalUsdt: notional } : {}),
       ...feePatch,
     }], userId, "PredictFun");
   }
   else if (
     venueOrder.status === "none"
     && String(rdsOrderStatus(rdsRow)).toLowerCase() === "none"
-    && !String(rdsRow?.pfFeeAmountWei ?? "").trim()
+    && (
+      !String(rdsRow?.pfFeeAmountWei ?? "").trim()
+      || !(Number(rdsRow?.pfHoldShares) > 0)
+      || !(Number(rdsRow?.pfFillCostUsdt) > 0)
+    )
   ) {
-    // 已成交：补写迟到的 wallet fee（不改状态）
-    const feePatch = resolvePfFeeSavePatch(official, rdsRow);
-    if (feePatch.pfFeeAmountWei) {
+    // 已成交：补写迟到的 wallet fee / 持仓份额 / 实付（不改状态、不改名义 bet_money）
+    const feePatch = resolvePfFeeSavePatch(official, rdsRow, {
+      pfShares: rdsRow?.pfShares ?? rdsRow?.PfShares,
+    });
+    const fillCost = extractBuyFillCostUsdt(official, 0, { excludeMakerAmount: true });
+    const needFillCost = !(Number(rdsRow?.pfFillCostUsdt) > 0) && fillCost > 0;
+    if (feePatch.pfFeeAmountWei || feePatch.pfHoldShares != null || needFillCost) {
       await orderStore.saveOrder(playerId, [{
         ...venueOrder,
         status: "none",
+        betMoney: rdsBetMoney(rdsRow),
         pfOfficialStatus: official?.status,
         pfOrderHash: rdsPfHash(rdsRow),
         pfApiOrderId: rdsPfApiOrderId(rdsRow),
@@ -584,6 +665,8 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
         pfSellState: rdsRow?.pfSellState,
         pfBuyOrderId: rdsRow?.pfBuyOrderId,
         pfBookPrice: rdsRow?.pfBookPrice,
+        pfNotionalUsdt: rdsRow?.pfNotionalUsdt,
+        ...(needFillCost ? { pfFillCostUsdt: fillCost } : {}),
         ...feePatch,
       }], userId, "PredictFun");
     }
@@ -633,6 +716,8 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
       continue;
     if (String(rdsRow?.pfSellState ?? "").toLowerCase() === "closed")
       continue;
+    if (String(rdsRow?.pfSellState ?? "").toLowerCase() === "settled")
+      continue;
 
     const marketId = String(
       rdsRow?.pfMarketId
@@ -668,8 +753,11 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
       continue;
 
     const betMoney = rdsBetMoney(rdsRow);
-    const odds = Number(rdsRow?.odds ?? rdsRow?.Odds) || 0;
-    const computed = computePfSettlement(betMoney, odds, outcome);
+    const hold = Number(rdsRow?.pfHoldShares ?? rdsRow?.PfHoldShares);
+    const fillShares = Number(rdsRow?.pfShares ?? rdsRow?.PfShares);
+    const shares = hold > 0 ? hold : (fillShares > 0 ? fillShares : 0);
+    const bookPrice = Number(rdsRow?.pfBookPrice ?? rdsRow?.PfBookPrice) || 0;
+    const computed = computePfSettlement(betMoney, { shares, bookPrice }, outcome);
 
     let applied = null;
     await withHouseOrderLock(async () => {
@@ -684,6 +772,7 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
         ...venue,
         status: computed.status,
         money: computed.money,
+        pfSellState: "settled",
         pfSettledAt: Date.now(),
         pfMarketStatus: market.status,
         pfOutcomeStatus: outcome,
@@ -928,7 +1017,39 @@ export async function handlePfSubmitSell(body, userId) {
       if (!marketId || !tokenId)
         throw new Error("买单缺少 marketId/tokenId");
 
-      let sharesWei = buy.pfSharesWei ? BigInt(String(buy.pfSharesWei)) : 0n;
+      // 卖出数量 = 真实持仓（成交份额 − SHARES 手续费），勿用毛份额超卖
+      let sharesWei = 0n;
+      const holdShares = Number(buy.pfHoldShares) > 0
+        ? Number(buy.pfHoldShares)
+        : resolvePfHoldSharesFromRaw({
+          pfSide: buy.pfSide,
+          pfShares: buy.pfShares,
+          pfHoldShares: buy.pfHoldShares,
+          pfFeeType: buy.pfFeeType,
+          pfFeeAmountWei: buy.pfFeeAmountWei,
+        });
+      if (Number(holdShares) > 0) {
+        try {
+          sharesWei = decimal18ToWei(holdShares);
+        }
+        catch {
+          sharesWei = 0n;
+        }
+      }
+      const feeType = String(buy.pfFeeType ?? "").toUpperCase();
+      const hasSharesFee = feeType === "SHARES"
+        && Boolean(String(buy.pfFeeAmountWei ?? "").trim());
+      // 有 SHARES 手续费却算不出净持仓：拒绝卖出，绝不回退毛份额
+      if (sharesWei <= 0n && hasSharesFee)
+        throw new Error("无法解析净持仓份额，请稍后重试 GetOrder 后再卖");
+      if (sharesWei <= 0n && buy.pfSharesWei) {
+        try {
+          sharesWei = BigInt(String(buy.pfSharesWei));
+        }
+        catch {
+          sharesWei = 0n;
+        }
+      }
       if (sharesWei <= 0n) {
         const bookPrice = Number(buy.pfBookPrice) || (Number(buy.Odds || buy.odds) > 1
           ? 1 / Number(buy.Odds || buy.odds)

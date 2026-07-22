@@ -11,13 +11,19 @@ import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
 export interface PfOrderCycle {
   buy: AdminOrderRow;
   sell?: AdminOrderRow;
-  /** 买入花费 U */
+  /** 买入实付 U（bet_money） */
   buyStakeUsdt: number;
-  /** 买入份额 */
+  /** 名义买入 U（限价×份额，如 14.12） */
+  buyNotionalUsdt: number | null;
+  /** 链上实付 U（可低于名义） */
+  buyFillCostUsdt: number | null;
+  /** house 价差 = 名义 − 实付（有两者时） */
+  houseEdgeUsdt: number | null;
+  /** 买入成交份额 */
   buyShares: number | null;
   /** 买手续费份额 */
   buyFeeShares: number | null;
-  /** 净持仓 = 买入份额 − 买手续费份额 */
+  /** 净持仓 = 库内 pfHoldShares 或 买入份额 − 买手续费份额 */
   netShares: number | null;
   /** 官方费率 bps */
   feeRateBps: number | null;
@@ -29,7 +35,7 @@ export interface PfOrderCycle {
   sellFeeUsdt: number | null;
   /** 最终到手 U（已卖=官方回款）；未完结为 null */
   finalUsdt: number | null;
-  /** 盈亏 = 最终到手 − 买入；未完结为 null */
+  /** 盈亏 = 最终到手 − 买入实付；未完结为 null */
   profitUsdt: number | null;
 }
 
@@ -145,9 +151,25 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
     const sell = sellFromLink || sellFromId;
 
     const buyStakeUsdt = Number(buy.betMoney) || 0;
-    const buyShares = Number(buy.pfShares) > 0 ? Number(buy.pfShares) : null;
+    const storedNotional = Number(buy.pfNotionalUsdt);
+    const buyNotionalUsdt = Number.isFinite(storedNotional) && storedNotional > 0
+      ? storedNotional
+      : null;
+    const storedFill = Number(buy.pfFillCostUsdt);
+    const buyFillCostUsdt = Number.isFinite(storedFill) && storedFill > 0
+      ? storedFill
+      : null;
+    const houseEdgeUsdt = buyNotionalUsdt != null && buyFillCostUsdt != null
+      ? buyNotionalUsdt - buyFillCostUsdt
+      : null;
+    const fillShares = Number(buy.pfShares) > 0 ? Number(buy.pfShares) : null;
     const buyFeeShares = feeSharesFromRow(buy);
-    const netShares = pfNetShares(buyShares, buyFeeShares);
+    // 优先库内 pfHoldShares（VPS 成交时写入）；否则 fill − 手续费
+    const storedHold = Number(buy.pfHoldShares);
+    const netShares = Number.isFinite(storedHold) && storedHold > 0
+      ? storedHold
+      : pfNetShares(fillShares, buyFeeShares);
+    const buyShares = fillShares;
     const feeRateBps = Number.isFinite(Number(buy.pfFeeRateBps)) && Number(buy.pfFeeRateBps) >= 0
       ? Number(buy.pfFeeRateBps)
       : null;
@@ -182,6 +204,9 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       buy,
       sell,
       buyStakeUsdt,
+      buyNotionalUsdt,
+      buyFillCostUsdt,
+      houseEdgeUsdt,
       buyShares,
       buyFeeShares,
       netShares,

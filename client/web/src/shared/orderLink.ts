@@ -632,15 +632,42 @@ function isPmExitedBuy(row: OrderRow): boolean {
   return false;
 }
 
-/** PF 买单已 1:1 卖出 */
+/** PF 买单已退出持仓（手动全卖或赛果结算） */
 function isPfExitedBuy(row: OrderRow): boolean {
   if (!isPredictFunOrderRow(row) || row.PfSide === "sell")
     return false;
-  return String(row.PfSellState ?? "").toLowerCase() === "closed";
+  const state = String(row.PfSellState ?? "").toLowerCase();
+  return state === "closed" || state === "settled";
 }
 
 function isExitedPredictionBuy(row: OrderRow): boolean {
   return isPmExitedBuy(row) || isPfExitedBuy(row);
+}
+
+function orderLegendPfStakeUsdt(row: OrderRow): number {
+  const notional = Number(row.PfNotionalUsdt);
+  if (Number.isFinite(notional) && notional > 0)
+    return notional;
+  return Number(row.BetMoney) || 0;
+}
+
+/** PF 赢单回款 USDT：持仓份额×$1；否则 名义/买入价 */
+function orderLegendPfWinPayoutUsdt(row: OrderRow): number {
+  const hold = Number(row.PfHoldShares);
+  if (Number.isFinite(hold) && hold > 0)
+    return hold;
+  const fill = Number(row.PfShares);
+  if (Number.isFinite(fill) && fill > 0)
+    return fill;
+  const stake = orderLegendPfStakeUsdt(row);
+  const book = Number(row.PfBookPrice);
+  if (stake > 0 && Number.isFinite(book) && book > 0 && book < 1)
+    return stake / book;
+  // 无价格字段时才用 1/odds 还原价格（非赔率主路径）
+  const odds = Number(row.Odds);
+  if (stake > 0 && Number.isFinite(odds) && odds > 1)
+    return stake * odds;
+  return stake;
 }
 
 function orderLegendExposureBet(row: OrderRow): number {
@@ -649,11 +676,16 @@ function orderLegendExposureBet(row: OrderRow): number {
     if (usdc > 0)
       return usdc * getExchange(Currency.USDT);
   }
-  if (isPredictFunOrderRow(row)) {
-    // 库内 BetMoney 为 USDT，图例与侧栏同 CNY 口径
-    return (Number(row.BetMoney) || 0) * getExchange(Currency.USDT);
-  }
+  if (isPredictFunOrderRow(row))
+    return orderLegendPfStakeUsdt(row) * getExchange(Currency.USDT);
   return Number(row.BetMoney) || 0;
+}
+
+/** 若该腿赢：回款 CNY（PF 用份额×$1；其它场馆仍 bet×odds） */
+function orderLegendWinPayoutCny(row: OrderRow): number {
+  if (isPredictFunOrderRow(row))
+    return orderLegendPfWinPayoutUsdt(row) * getExchange(Currency.USDT);
+  return orderLegendExposureBet(row) * (Number(row.Odds) || 0);
 }
 
 function pmTokenKey(row: OrderRow): string {
@@ -686,8 +718,9 @@ export function groupRowsByOutcomeSide(rows: OrderRow[]): OrderRow[][] {
 }
 
 /**
- * [A8 可证实] OrderView legend：未结预览 bet×odds−stake；已结为组盈亏。
+ * [A8 可证实] OrderView legend：未结预览「若赢回款 − 组本金」；已结为组盈亏。
  * [changmen 扩展]
+ * - PF：回款 = 份额×$1（或 名义/买入价），不用赔率相乘
  * - 分隔符用 ` / `（A8 为 ` - `），避免负数拼成 `-281 - -114`
  * - PM 同 token 合并为一腿；其它场馆按订单各算一条
  */
@@ -712,7 +745,7 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   const sideGroups = groupRowsByOutcomeSide(unsettled);
   const unsettledPreview = sideGroups.map((sideRows) => {
     const payout = sideRows.reduce(
-      (sum, r) => sum + orderLegendExposureBet(r) * (Number(r.Odds) || 0),
+      (sum, r) => sum + orderLegendWinPayoutCny(r),
       0,
     );
     return toFixed(payout - stake, 0);

@@ -2,12 +2,15 @@ import { describe, expect, it, beforeEach } from "vitest";
 import {
   isPfOrderListRow,
   isPfSellOrderListRow,
+  pfBuyLifecycleTagText,
   pfOrderBetText,
   pfOrderItemText,
   pfOrderMatchText,
   pfOrderProfitDisplayCny,
+  pfOrderSharesText,
   pfOrderSideTagText,
   pfOrderStakeDisplayCny,
+  resolvePfDisplayShares,
   resolvePfOrderListStatusClass,
 } from "./pfOrderDisplay";
 import type { OrderRow } from "@/types/order";
@@ -74,6 +77,59 @@ describe("pfOrderDisplay", () => {
     expect(pfOrderItemText(pfBuy)).toBe("Team A");
   });
 
+  it("shows buy fill shares (PM parity), not hold-after-fee", () => {
+    const row: OrderRow = {
+      ...pfBuy,
+      PfShares: 44.125,
+      PfFeeType: "SHARES",
+      PfFeeAmountWei: "794250000000000000",
+      PfHoldShares: 43.33075,
+    };
+    expect(resolvePfDisplayShares(row)).toBe(44.125);
+    expect(pfOrderSharesText(row)).toBe("44.125");
+  });
+
+  it("keeps fill shares when hold differs", () => {
+    expect(pfOrderSharesText({
+      ...pfBuy,
+      PfShares: 44.125,
+      PfHoldShares: 43.33075,
+    })).toBe("44.125");
+  });
+
+  it("keeps gross shares for sell row", () => {
+    expect(resolvePfDisplayShares({ ...pfBuy, PfShares: 44.125 })).toBe(44.125);
+    expect(pfOrderSharesText({
+      ...pfBuy,
+      PfSide: "sell",
+      PfShares: 44.125,
+      PfFeeType: "SHARES",
+      PfFeeAmountWei: "794250000000000000",
+    })).toBe("44.125");
+  });
+
+  it("lifecycle tag is 已结算 for market settle; full sell has no tag", () => {
+    expect(pfBuyLifecycleTagText({ ...pfBuy, PfSellState: "closed" })).toBeNull();
+    expect(pfBuyLifecycleTagText({ ...pfBuy, PfSellState: "settled" })).toBe("已结算");
+    expect(pfBuyLifecycleTagText({ ...pfBuy, Status: "Win" })).toBe("已结算");
+    expect(pfBuyLifecycleTagText(pfBuy)).toBeNull();
+    expect(resolvePfOrderListStatusClass({
+      ...pfBuy,
+      PfSellState: "settled",
+      Money: 20,
+    })).toBe("Win");
+  });
+
+  it("scales notional USDT for sidebar stake when PfNotionalUsdt present", () => {
+    // 14.12 USDT × 6.8 = 95.999… → scale
+    expect(pfOrderStakeDisplayCny({
+      Type: "PredictFun",
+      PfSide: "buy",
+      BetMoney: 13.68,
+      PfNotionalUsdt: 14.12,
+    })).toBeCloseTo(14.12 * 6.8, 5);
+  });
+
   it("scales USDT BetMoney to CNY for sidebar (same as PM)", () => {
     // 1 USDT × 6.8 = 6.8 CNY
     expect(pfOrderStakeDisplayCny({
@@ -87,7 +143,7 @@ describe("pfOrderDisplay", () => {
     })).toBe(3.4);
   });
 
-  it("sell row stake display uses BetMoney mirror; sell profit display is 0", () => {
+  it("sell row stake display uses BetMoney mirror; sell profit display is null", () => {
     const sell: OrderRow = {
       Type: "PredictFun",
       PfSide: "sell",
@@ -96,7 +152,7 @@ describe("pfOrderDisplay", () => {
       Status: "None",
     };
     expect(pfOrderStakeDisplayCny(sell)).toBe(13.75 * 6.8);
-    expect(pfOrderProfitDisplayCny(sell)).toBe(0);
+    expect(pfOrderProfitDisplayCny(sell)).toBeNull();
     expect(resolvePfOrderListStatusClass(sell)).toBe("PfSell");
   });
 

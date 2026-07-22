@@ -34,7 +34,7 @@ export function canManualSellPfBuy(row: OrderRow): boolean {
     return false;
   if (row.PfSide === "sell")
     return false;
-  if (row.PfSellState === "closed")
+  if (row.PfSellState === "closed" || row.PfSellState === "settled")
     return false;
   const st = String(row.Status ?? "None");
   if (st !== "None")

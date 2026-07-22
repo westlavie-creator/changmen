@@ -110,7 +110,7 @@ function fmtTime(ts: number) {
   return new Date(ts).toLocaleString();
 }
 
-/** 库内 USDT / 份额：固定两位小数 */
+/** 库内 USDT：固定两位小数 */
 function fmtUsdt(n: number) {
   const v = Math.round((Number(n) || 0) * 100) / 100;
   return v.toLocaleString(undefined, {
@@ -119,10 +119,16 @@ function fmtUsdt(n: number) {
   });
 }
 
+/** 份额：最多 8 位，去掉尾零（对齐官网持仓） */
+function fmtShares(n: number) {
+  const fixed = Number(n).toFixed(8).replace(/\.?0+$/, "");
+  return fixed || "0";
+}
+
 function fmtNumOrDash(n: number | null | undefined) {
   if (n == null || !Number.isFinite(n))
     return "—";
-  return fmtUsdt(n);
+  return fmtShares(n);
 }
 
 function fmtUsdtOrDash(n: number | null | undefined) {
@@ -523,12 +529,27 @@ onMounted(async () => {
                         <span class="admin-order-num">{{ orderBuyPriceText(cycle.buy) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="买入" width="80" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="名义买入" width="88" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.buyNotionalUsdt) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="实付" width="80" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.buyFillCostUsdt) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="用户扣款" width="80" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">{{ fmtUsdt(cycle.buyStakeUsdt) }} U</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="买入份额" width="80" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="价差" width="72" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.houseEdgeUsdt) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="成交份额" width="80" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">{{ fmtNumOrDash(cycle.buyShares) }}</span>
                       </template>
@@ -543,7 +564,7 @@ onMounted(async () => {
                         <span class="admin-order-num">{{ cycleFeeRateLabel(cycle) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="净持仓" width="80" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="持仓份额" width="88" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">{{ fmtNumOrDash(cycle.netShares) }}</span>
                       </template>

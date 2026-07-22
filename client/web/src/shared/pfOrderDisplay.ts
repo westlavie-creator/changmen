@@ -24,14 +24,33 @@ export function isPfManuallySoldBuy(row: OrderRow): boolean {
   return isPfBuyOrderListRow(row) && String(row.PfSellState ?? "").toLowerCase() === "closed";
 }
 
-export function pfBuyLifecycleTagText(_row: OrderRow): string | null {
-  // 已卖光：角标改输赢；卖出看附属「卖出记录」，不再打「已卖出」
+/** 赛果结算（持有到期）：对齐 PM `PmSellState=settled` */
+export function isPfMarketSettledBuy(row: OrderRow): boolean {
+  if (!isPfBuyOrderListRow(row))
+    return false;
+  if (isPfManuallySoldBuy(row))
+    return false;
+  if (String(row.PfSellState ?? "").toLowerCase() === "settled")
+    return true;
+  const st = String(normalizeOrderStatus(String(row.Status ?? "None")));
+  return st === "Win" || st === "Lose";
+}
+
+/**
+ * 侧栏买单生命周期小标签（角标输赢另见 resolvePfOrderListStatusClass）。
+ * 对齐 PM：手动全卖不打「已卖出」；赛果结算打「已结算」。
+ */
+export function pfBuyLifecycleTagText(row: OrderRow): string | null {
+  if (isPfManuallySoldBuy(row))
+    return null;
+  if (isPfMarketSettledBuy(row))
+    return "已结算";
   return null;
 }
 
 /**
  * 侧栏角标：手动卖出后 RDS 仍可能为 None。
- * 卖单 → PfSell；买单全卖 → 按 Money 映 Win/Lose。
+ * 卖单 → PfSell；买单全卖 / 赛果结算 → 按 Money 映 Win/Lose（对齐 PM）。
  */
 export function resolvePfOrderListStatusClass(row: OrderRow): string {
   if (!isPfOrderListRow(row))
@@ -48,7 +67,7 @@ export function resolvePfOrderListStatusClass(row: OrderRow): string {
     return "PfSell";
   }
 
-  if (isPfManuallySoldBuy(row))
+  if (isPfManuallySoldBuy(row) || isPfMarketSettledBuy(row))
     return statusClassFromRealizedMoney(row.Money);
 
   return raw;
@@ -175,27 +194,75 @@ export function pfOrderItemText(row: OrderRow): string {
   return enrichLabels(row).item;
 }
 
-export function pfOrderSharesText(row: OrderRow): string | null {
-  const shares = Number(row.PfShares);
-  if (!Number.isFinite(shares) || shares <= 0.0001)
+/** SHARES 手续费（份）；COLLATERAL / 无数据 → null */
+export function pfFeeSharesFromOrderRow(row: OrderRow): number | null {
+  const type = String(
+    row.PfFeeType
+      ?? (row as { pfFeeType?: string }).pfFeeType
+      ?? "",
+  ).toUpperCase();
+  if (type === "COLLATERAL")
     return null;
-  return formatPolymarketApiDecimal(shares);
+  const wei = String(
+    row.PfFeeAmountWei
+      ?? (row as { pfFeeAmountWei?: string }).pfFeeAmountWei
+      ?? "",
+  ).trim();
+  if (!wei || !/^\d+$/.test(wei))
+    return null;
+  try {
+    const shares = Number(BigInt(wei)) / 1e18;
+    if (Number.isFinite(shares) && shares > 0)
+      return shares;
+  }
+  catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * 订单栏展示份额：对齐 PM——买单展示原始成交份额；卖单展示卖出份额。
+ * （扣费后净持仓仅用于卖出下单，不在订单栏改写成净持仓。）
+ */
+export function resolvePfDisplayShares(row: OrderRow): number | null {
+  const fillShares = Number(
+    row.PfShares ?? (row as { pfShares?: number }).pfShares,
+  );
+  if (!Number.isFinite(fillShares) || fillShares <= 0.0001)
+    return null;
+  return fillShares;
+}
+
+/** 份额展示：最多 8 位小数，去掉尾零（保留如 43.33075） */
+export function pfOrderSharesText(row: OrderRow): string | null {
+  const shares = resolvePfDisplayShares(row);
+  if (shares == null)
+    return null;
+  return formatPolymarketApiDecimal(shares, 8);
 }
 
 /**
  * 侧栏投注金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
- * - 买单 BetMoney = 买入实付 USDT
+ * - 买单：优先名义 PfNotionalUsdt（限价×份额，如 14.12）；无则 BetMoney（用户扣款）
  * - 卖单 BetMoney = 回款镜像（与买单 pfSellProceeds 同值；订单栏仍读此字段）
  * 库内为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
  */
 export function pfOrderStakeDisplayCny(row: OrderRow): number {
+  if (isPfSellOrderListRow(row))
+    return scaleUsdtToCnyDisplay(Number(row.BetMoney) || 0);
+  const notional = Number(
+    row.PfNotionalUsdt ?? (row as { pfNotionalUsdt?: number }).pfNotionalUsdt,
+  );
+  if (Number.isFinite(notional) && notional > 0)
+    return scaleUsdtToCnyDisplay(notional);
   return scaleUsdtToCnyDisplay(Number(row.BetMoney) || 0);
 }
 
-/** 侧栏盈亏：USDT Money → CNY（对齐 PM orders scale）；卖单恒 0（盈亏在买单） */
-export function pfOrderProfitDisplayCny(row: OrderRow): number {
+/** 侧栏盈亏：USDT Money → CNY（对齐 PM）；卖单不展示（null） */
+export function pfOrderProfitDisplayCny(row: OrderRow): number | null {
   if (isPfSellOrderListRow(row))
-    return 0;
+    return null;
   return scaleUsdtToCnyDisplay(Number(row.Money) || 0);
 }
 
@@ -213,8 +280,13 @@ export function pfOrderSideTagText(row: OrderRow): string | null {
   return isPfSellOrderListRow(row) ? "卖单" : "买单";
 }
 
-/** 成交概率价：用 Odds 反推 */
+/** 成交/限价概率价：优先库内 PfBookPrice，勿用赔率反推为主路径 */
 export function resolvePfFillPrice(row: OrderRow): number | null {
+  const book = Number(
+    row.PfBookPrice ?? (row as { pfBookPrice?: number }).pfBookPrice,
+  );
+  if (Number.isFinite(book) && book > 0 && book < 1)
+    return book;
   const odds = Number(row.Odds);
   if (Number.isFinite(odds) && odds > 1) {
     const price = 1 / odds;

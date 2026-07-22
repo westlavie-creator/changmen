@@ -27,6 +27,7 @@ import {
 } from "@/shared/pmOrderDisplay";
 import {
   isPfBuyOrderListRow,
+  isPfManuallySoldBuy,
   isPfOrderListRow,
   isPfSellOrderListRow,
   pfBuyLifecycleTagText,
@@ -144,9 +145,9 @@ function pfItemText(row: OrderRow): string {
 function isPendingRow(row: OrderRow): boolean {
   if (isMakeupPendingOrderRow(row) || isMakeupCancelledOrderRow(row))
     return false;
-  // PF：已 1:1 卖出的买单 / 卖单行不算「待结算」
+  // PF：已 1:1 卖出 / 赛果结算 / 卖单行不算「待结算」（对齐 PM）
   if (String(row.Type ?? "") === "PredictFun") {
-    if (row.PfSide === "sell" || row.PfSellState === "closed")
+    if (row.PfSide === "sell" || row.PfSellState === "closed" || row.PfSellState === "settled")
       return false;
   }
   // PM：卖单 / 已全卖买单不算「待结算」（角标已映 Win/Lose）
@@ -259,10 +260,15 @@ function pfLiveClobPrice(row: OrderRow): number | null {
 function pfShowLivePrice(row: OrderRow): boolean {
   if (!isPfBuyOrderListRow(row))
     return false;
+  // 对齐 PM：全卖 / 已结算不显示当前价
+  if (pfBuyLifecycleTagText(row) === "已结算")
+    return false;
+  if (isPfManuallySoldBuy(row))
+    return false;
   const status = String(row.Status ?? "").trim().toLowerCase();
   if (status === "reject" || status === "return" || status === "pending")
     return false;
-  if (row.PfSellState === "closed")
+  if (row.PfSellState === "closed" || row.PfSellState === "settled")
     return false;
   return true;
 }
@@ -676,7 +682,7 @@ function badgeTitle(row: OrderRow): string {
               <template v-if="isPfSellOrderListRow(block.row)">
                 <div class="order__profit-line">
                   <span v-if="pfOrderSharesText(block.row)">份额：{{ pfOrderSharesText(block.row) }} </span>
-                  <span>{{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 1) }}</span>
+                  <span>{{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 0) }}</span>
                 </div>
                 <div class="order__profit-line">
                   <span v-if="pfOrderFillPriceText(block.row)">{{ pfOrderPriceLabel(block.row) }}：{{ pfOrderFillPriceText(block.row) }} </span>
@@ -690,12 +696,12 @@ function badgeTitle(row: OrderRow): string {
                   <span v-if="pfOrderFillPriceText(block.row)">赔率：<span class="order__odds">{{ pfOrderOddsText(block.row) }}</span></span>
                 </div>
                 <div class="order__profit-line">
-                  {{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 1) }}
+                  {{ pfStakeLabel(block.row) }}：{{ toFixed(pfOrderStakeDisplayCny(block.row), 0) }}
                   <template v-if="isPendingRow(block.row) && !pfBuyLifecycleTagText(block.row)">
                     盈亏：待结算
                   </template>
                   <template v-else>
-                    盈亏：{{ toFixed(pfOrderProfitDisplayCny(block.row), 1) }}
+                    盈亏：{{ toFixed(pfOrderProfitDisplayCny(block.row) ?? 0, 0) }}
                   </template>
                 </div>
                 <div class="order__profit-line order__profit-line--sell-row">

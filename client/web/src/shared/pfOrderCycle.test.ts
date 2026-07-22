@@ -83,6 +83,7 @@ describe("pfOrderCycle", () => {
         orderId: "0xbuy1",
         betMoney: 15,
         pfShares: 46.875,
+        pfHoldShares: 46.03125,
         pfFeeType: "SHARES",
         pfFeeAmountWei: "843750000000000000",
         pfSellState: "closed",
@@ -114,7 +115,8 @@ describe("pfOrderCycle", () => {
     expect(cycles).toHaveLength(2);
     expect(cycles[0].sell?.orderId).toBe("0xsell1");
     expect(cycles[0].buyFeeShares).toBeCloseTo(0.84375, 5);
-    expect(cycles[0].netShares).toBeCloseTo(46.875 - 0.84375, 5);
+    expect(cycles[0].buyShares).toBeCloseTo(46.875, 5);
+    expect(cycles[0].netShares).toBeCloseTo(46.03125, 5);
     expect(cycles[0].sellProceedsUsdt).toBe(10);
     expect(cycles[0].finalUsdt).toBe(10);
     expect(cycles[0].profitUsdt).toBe(-5);
@@ -122,31 +124,18 @@ describe("pfOrderCycle", () => {
     expect(cycles[1].profitUsdt).toBe(-13);
   });
 
-  it("sellProceeds prefers buy.pfSellProceeds over sell.betMoney mirror", () => {
+  it("buildPfCycles exposes house edge = notional - fill", () => {
     const cycles = buildPfCycles([
       buy({
-        orderId: "0xbuy1",
-        betMoney: 10,
-        pfSellState: "closed",
-        pfSellOrderId: "0xsell1",
-        pfSellProceeds: 12.5,
-        status: "None",
+        betMoney: 14.12,
+        pfNotionalUsdt: 14.12,
+        pfFillCostUsdt: 13.68,
+        pfShares: 44.125,
       }),
-      {
-        ...buy({
-          id: 2,
-          orderId: "0xsell1",
-          pfSide: "sell",
-          pfBuyOrderId: "0xbuy1",
-          betMoney: 99,
-          money: 0,
-          status: "None",
-        }),
-      },
     ]);
     expect(cycles).toHaveLength(1);
-    expect(cycles[0].sellProceedsUsdt).toBe(12.5);
-    expect(cycles[0].finalUsdt).toBe(12.5);
-    expect(cycles[0].profitUsdt).toBe(2.5);
+    expect(cycles[0].buyNotionalUsdt).toBe(14.12);
+    expect(cycles[0].buyFillCostUsdt).toBe(13.68);
+    expect(cycles[0].houseEdgeUsdt).toBeCloseTo(0.44, 6);
   });
 });

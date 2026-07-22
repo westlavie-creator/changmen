@@ -5,8 +5,8 @@
  * @see https://dev.predict.fun/ （OutcomeStatus / MarketStatus）
  *
  * house 多用户共用链上仓位：按每用户 RDS 订单 + 市场赛果独立结算，不拆链上持仓。
- * 下单已扣 betMoney：
- * - Win → balance += betMoney * odds（本金+盈利）；money = 盈利
+ * 下单已扣 betMoney（名义）：
+ * - Win → 回款 = 持仓份额 × 1 USDT（每份兑付 $1）；money = 回款 − 本金
  * - Lose → balance 不变；money = -betMoney
  */
 
@@ -45,12 +45,27 @@ export function resolvePfMarketOutcome(market, tokenId) {
 }
 
 /**
- * @param {number} betMoney
- * @param {number} odds
+ * 赢单回款（USDT）：份额 × $1；无份额时用 名义/买入价。
+ * @param {{ stakeUsdt: number, shares?: number, bookPrice?: number }} input
+ */
+export function resolvePfWinPayoutUsdt(input) {
+  const stake = roundUsdt(input?.stakeUsdt);
+  const shares = Number(input?.shares);
+  if (Number.isFinite(shares) && shares > 0)
+    return roundUsdt(shares);
+  const price = Number(input?.bookPrice);
+  if (stake > 0 && Number.isFinite(price) && price > 0 && price < 1)
+    return roundUsdt(stake / price);
+  return stake;
+}
+
+/**
+ * @param {number} betMoney 用户本金 USDT（名义）
+ * @param {number|{ shares?: number, bookPrice?: number, odds?: number }} optsOrOdds
  * @param {"win"|"lose"} result
  * @returns {{ status: "win"|"lose", money: number, balanceDelta: number, payout: number }}
  */
-export function computePfSettlement(betMoney, odds, result) {
+export function computePfSettlement(betMoney, optsOrOdds, result) {
   const stake = roundUsdt(betMoney);
   if (result === "lose") {
     return {
@@ -60,10 +75,25 @@ export function computePfSettlement(betMoney, odds, result) {
       payout: 0,
     };
   }
-  const o = Number(odds);
-  const payout = Number.isFinite(o) && o > 1
-    ? roundUsdt(stake * o)
-    : stake;
+
+  const opts = optsOrOdds && typeof optsOrOdds === "object"
+    ? optsOrOdds
+    : { odds: optsOrOdds };
+
+  const shares = Number(opts.shares);
+  const bookPrice = Number(opts.bookPrice);
+  const hasShares = Number.isFinite(shares) && shares > 0;
+  const hasBookPrice = Number.isFinite(bookPrice) && bookPrice > 0 && bookPrice < 1;
+
+  let payout = resolvePfWinPayoutUsdt({
+    stakeUsdt: stake,
+    shares: hasShares ? shares : undefined,
+    bookPrice: hasBookPrice ? bookPrice : undefined,
+  });
+  // 仅当既无份额也无买入价时，才用赔率兜底（旧调用兼容）；有份额时即使 payout≤stake 也不改写
+  if (!hasShares && !hasBookPrice && Number(opts.odds) > 1)
+    payout = roundUsdt(stake * Number(opts.odds));
+
   return {
     status: "win",
     money: roundUsdt(payout - stake),

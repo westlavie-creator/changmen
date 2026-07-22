@@ -38,6 +38,28 @@ vi.mock("../../account/order_store.js", () => ({
     Item: r.item || "",
     Link: r.link || 0,
   }),
+  resolvePfHoldSharesFromRaw: (raw) => {
+    const stored = Number(raw?.pfHoldShares);
+    if (stored > 0)
+      return stored;
+    const shares = Number(raw?.pfShares);
+    if (!(shares > 0))
+      return undefined;
+    const type = String(raw?.pfFeeType || "").toUpperCase();
+    const wei = String(raw?.pfFeeAmountWei || "").trim();
+    if (type === "SHARES" && /^\d+$/.test(wei)) {
+      try {
+        const fee = Number(BigInt(wei)) / 1e18;
+        const net = shares - fee;
+        if (Number.isFinite(net) && net > 0)
+          return net;
+      }
+      catch {
+        /* ignore */
+      }
+    }
+    return shares;
+  },
 }));
 
 vi.mock("@changmen/db", () => ({
@@ -98,6 +120,7 @@ vi.mock("./pf_order_service.js", () => ({
     signerAddress: "0xabc",
     sharesWei: "25000000000000000000",
     shares: 25,
+    makerUsdt: 10,
   })),
   createAndSubmitHouseMarketSell: vi.fn(async () => ({
     requestBody: { data: { order: { hash: "0xsell1" } } },
@@ -108,8 +131,16 @@ vi.mock("./pf_order_service.js", () => ({
     shares: 25,
     proceedsUsdt: 13.75,
   })),
+  estimateHouseMarketBuyMakerUsdt: vi.fn(async () => ({
+    makerUsdt: 10,
+    shares: 25,
+    sharesWei: "25000000000000000000",
+    bookPrice: 0.4,
+    bookOdds: 2.5,
+  })),
   estimatePfSharesWei: () => 25000000000000000000n,
   weiToDecimal18: (w) => Number(BigInt(String(w))) / 1e18,
+  decimal18ToWei: (n) => BigInt(Math.round(Number(n) * 1e18)),
   isPredictFunOrderAccepted: (r) => Boolean(r?.success && r?.data?.orderId),
   withHouseOrderLock: async (fn) => fn(),
 }));
@@ -274,7 +305,7 @@ describe("pf_client_handlers", () => {
     expect(accountStore.updatePlayerBalance).toHaveBeenCalled();
   });
 
-  it("getOrder FILLED rewrites betMoney to official cost without balance adjust", async () => {
+  it("getOrder FILLED keeps user stake betMoney; records pfFillCostUsdt when known", async () => {
     sb.fetchOrdersByPlayer.mockResolvedValue([{
       order_id: "0xhash1",
       status: "Pending",
@@ -285,18 +316,24 @@ describe("pf_client_handlers", () => {
       match: "830202",
       item: "t",
       link: 0,
-      raw: { pfOrderHash: "0xhash1", pfApiOrderId: "ord-1", pfSide: "buy" },
+      raw: {
+        pfOrderHash: "0xhash1",
+        pfApiOrderId: "ord-1",
+        pfSide: "buy",
+        pfNotionalUsdt: 10,
+      },
     }]);
     fetchHousePredictOrderByHash.mockResolvedValue({
       id: "ord-1",
       status: "FILLED",
       marketId: 830202,
+      amount: "9.8",
       amountFilled: "25000000000000000000",
       order: {
         hash: "0xhash1",
         tokenId: "t",
         side: 0,
-        makerAmount: "9800000000000000000",
+        makerAmount: "10000000000000000000",
         takerAmount: "25000000000000000000",
       },
     });
@@ -306,7 +343,9 @@ describe("pf_client_handlers", () => {
     expect(r.info.settlement).toBe("filled");
     expect(orderStore.saveOrder).toHaveBeenCalled();
     const saved = orderStore.saveOrder.mock.calls[0][1][0];
-    expect(saved.betMoney).toBe(9.8);
+    expect(saved.betMoney).toBe(10);
+    expect(saved.pfNotionalUsdt).toBe(10);
+    expect(saved.pfFillCostUsdt).toBe(9.8);
     expect(saved.pfShares).toBe(25);
     expect(accountStore.updatePlayerBalance).not.toHaveBeenCalled();
   });
@@ -316,6 +355,37 @@ describe("pf_client_handlers", () => {
     expect(r.ok).toBe(true);
     expect(r.info.balance).toBe(1000);
     expect(r.info.credit).toBe(0);
+  });
+
+  it("checkBet rejects when notional maker exceeds balance", async () => {
+    const { estimateHouseMarketBuyMakerUsdt } = await import("./pf_order_service.js");
+    estimateHouseMarketBuyMakerUsdt.mockResolvedValueOnce({
+      makerUsdt: 14.12,
+      shares: 44,
+      sharesWei: "1",
+      bookPrice: 0.32,
+      bookOdds: 3.125,
+    });
+    const { assertPlayerOwnedByUser } = await import("../../account/player_ownership.js");
+    assertPlayerOwnedByUser.mockResolvedValueOnce({
+      ok: true,
+      player: {
+        id: 42,
+        ownerUserId: "u1",
+        platformName: "PredictFun",
+        credit: 0,
+        totalBalance: 12,
+      },
+    });
+    const r = await handlePfCheckBet({
+      playerId: 42,
+      tokenId: "t",
+      marketId: "1",
+      apiBetMoney: 10,
+      detectionMaxPrice: 0.5,
+    }, "u1");
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/名义/);
   });
 
   it("rejects over max stake", async () => {
@@ -370,6 +440,68 @@ describe("pf_client_handlers", () => {
     // 卖单 betMoney = 回款镜像（订单栏展示）；money 恒 0
     expect(saved[1].betMoney).toBe(13.75);
     expect(saved[1].money).toBe(0);
+  });
+
+  it("submitSell uses hold shares not gross when SHARES fee present", async () => {
+    const { createAndSubmitHouseMarketSell } = await import("./pf_order_service.js");
+    createAndSubmitHouseMarketSell.mockClear();
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 14.12,
+      money: 0,
+      odds: 3.125,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      link: 7,
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "44125000000000000000",
+        pfShares: 44.125,
+        pfHoldShares: 43.33075,
+        pfFeeType: "SHARES",
+        pfFeeAmountWei: "794250000000000000",
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBookPrice: 0.32,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    expect(createAndSubmitHouseMarketSell).toHaveBeenCalled();
+    const soldWei = BigInt(String(createAndSubmitHouseMarketSell.mock.calls[0][0].sharesWei));
+    expect(soldWei).toBe(BigInt(Math.round(43.33075 * 1e18)));
+    expect(soldWei < 44125000000000000000n).toBe(true);
+  });
+
+  it("submitSell refuses when SHARES fee present but hold cannot be resolved", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 14.12,
+      money: 0,
+      odds: 3.125,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        // 仅毛份额 wei，无 pfShares / hold → 有手续费时不得回退毛份额
+        pfSharesWei: "44125000000000000000",
+        pfFeeType: "SHARES",
+        pfFeeAmountWei: "794250000000000000",
+        pfSide: "buy",
+        pfSellState: "open",
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/净持仓/);
   });
 
   it("submitSell does not credit when official status is not FILLED", async () => {

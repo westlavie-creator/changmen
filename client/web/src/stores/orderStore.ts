@@ -138,6 +138,12 @@ export const useOrderStore = defineStore("order", {
               return false;
             if (String(r.Type ?? "") === "Polymarket")
               return isPolymarketOpenPosition(r);
+            if (String(r.Type ?? "") === "PredictFun") {
+              const state = String(r.PfSellState ?? "").toLowerCase();
+              if (state === "closed" || state === "settled")
+                return false;
+              return true;
+            }
             return true;
           });
           acc.unsettle = unsettled.length;
@@ -149,6 +155,18 @@ export const useOrderStore = defineStore("order", {
                   const stakeUsdc = Number(r.PmStakeUsdc) || 0;
                   if (stakeUsdc > 0)
                     return sum + stakeUsdc * getExchange(Currency.USDT) * odds;
+                  return sum;
+                }
+                if (String(r.Type ?? "") === "PredictFun" && r.PfSide !== "sell") {
+                  // 未结敞口：潜在回款 CNY ≈ 持仓份额×汇率（对齐侧栏结算口径）
+                  const hold = Number(r.PfHoldShares) || 0;
+                  const fill = Number(r.PfShares) || 0;
+                  const shares = hold > 0 ? hold : fill;
+                  if (shares > 0)
+                    return sum + shares * getExchange(Currency.USDT);
+                  const notional = Number(r.PfNotionalUsdt) || Number(r.BetMoney) || 0;
+                  if (notional > 0 && odds > 1)
+                    return sum + notional * getExchange(Currency.USDT) * odds;
                   return sum;
                 }
                 return sum + (Number(r.BetMoney) || 0) * odds;

@@ -25,7 +25,7 @@ import {
   resolvePredictFunHouseCredentials,
   resolvePfHouseMaxStakeUsdt,
 } from "./house_credentials.js";
-
+import { roundUsdt } from "./pf_ledger.js";
 const DEFAULT_SLIPPAGE_BPS = 100n;
 
 /** house 签单串行，避免并发 nonce/余额竞态 */
@@ -46,6 +46,64 @@ function parseUsdtToWei(amount) {
   if (!Number.isFinite(value) || value <= 0)
     throw new Error(`无效投注金额 ${amount}`);
   return BigInt(Math.round(value * 1e6)) * 1_000_000_000_000n;
+}
+
+/**
+ * 与正式下单同口径：MARKET FOK BUY 的名义 makerAmount（对用户扣款）。
+ * 供 CheckBet / 提交前余额预检，避免只按 apiBetMoney 过检、锁内才因名义更高失败。
+ * @param {{
+ *   tokenId: string,
+ *   marketId: string,
+ *   apiBetMoney: number,
+ *   maxPrice: number,
+ *   maxSlippageBps?: bigint,
+ *   yesBook?: object|null,
+ *   market?: object|null,
+ * }} params
+ * @returns {Promise<{ makerUsdt: number, shares: number, sharesWei: string, bookPrice: number, bookOdds: number }>}
+ */
+export async function estimateHouseMarketBuyMakerUsdt(params) {
+  const { Side, orderBuilder } = await prepareHouseSigner();
+  let bookRaw = params.yesBook || null;
+  let market = params.market || null;
+  if (!bookRaw || !market) {
+    [bookRaw, market] = await Promise.all([
+      fetchPredictOrderbook(params.marketId),
+      fetchPredictMarket(params.marketId),
+    ]);
+  }
+  if (!bookRaw)
+    throw new Error("盘口为空，无法估算名义金额");
+
+  const sideBook = executableBuyBook(bookRaw, market, params.tokenId);
+  const cappedAsks = filterAsksByMaxPrice(sideBook.asks ?? [], params.maxPrice);
+  if (!cappedAsks.length)
+    throw new Error("盘口价高于检测价或无 asks，无法估算名义金额");
+
+  const book = {
+    marketId: Number(params.marketId),
+    updateTimestampMs: Number(sideBook.updateTimestampMs ?? bookRaw.updateTimestampMs ?? Date.now()),
+    asks: cappedAsks,
+    bids: sideBook.bids ?? [],
+  };
+  const slippageBps = params.maxSlippageBps ?? DEFAULT_SLIPPAGE_BPS;
+  const amounts = orderBuilder.getMarketOrderAmounts(
+    {
+      side: Side.BUY,
+      valueWei: parseUsdtToWei(params.apiBetMoney),
+      slippageBps,
+      isMinAmountOut: true,
+    },
+    book,
+  );
+  const bookPrice = bestAskFromPredictBook({ asks: cappedAsks });
+  return {
+    makerUsdt: roundUsdt(weiToDecimal18(amounts.makerAmount)),
+    shares: weiToDecimal18(amounts.takerAmount),
+    sharesWei: String(amounts.takerAmount),
+    bookPrice,
+    bookOdds: truncateOddsTo3(1 / bookPrice),
+  };
 }
 
 /** 协议金额 wei(1e18) → 小数 */
@@ -299,6 +357,17 @@ export async function createAndSubmitHouseMarketBuy(params) {
     book,
   );
 
+  const makerUsdt = weiToDecimal18(amounts.makerAmount);
+  if (makerUsdt > maxStake + 1e-9)
+    throw new Error(`单笔名义超过上限 ${maxStake} USDT（名义 ${roundUsdt(makerUsdt)}）`);
+  // 对用户扣名义 makerAmount；余额须盖过名义（可高于 apiBetMoney）
+  if (params.availableBalance != null) {
+    const bal = Number(params.availableBalance);
+    if (Number.isFinite(bal) && makerUsdt > bal + 1e-9) {
+      throw new Error(`可用余额不足（${roundUsdt(bal)} < 名义 ${roundUsdt(makerUsdt)} USDT）`);
+    }
+  }
+
   const feeRateBps = Number(params.feeRateBps ?? market?.feeRateBps ?? 0) || 0;
   const order = orderBuilder.buildOrder("MARKET", {
     maker,
@@ -343,6 +412,8 @@ export async function createAndSubmitHouseMarketBuy(params) {
     /** BUY：taker=份额 wei */
     sharesWei: String(amounts.takerAmount),
     shares: weiToDecimal18(amounts.takerAmount),
+    /** BUY：maker=名义 USDT（对用户扣款/展示） */
+    makerUsdt: roundUsdt(makerUsdt),
   };
 }
 

@@ -10,6 +10,7 @@
 import { predictFunGetAuth } from "./pf_api.js";
 import { fetchPredictFunHouseOrderJwt } from "./pf_house_session.js";
 import { resolvePfOrderLabels, isBarePfItemLabel, extractPfMarketIdHint } from "./pf_order_labels.js";
+import { hasBuyFillCostSignal } from "./pf_fill.js";
 import {
   ensureHouseWalletEventsStarted,
   getHouseWalletSettlementHint,
@@ -181,6 +182,40 @@ async function resolveFromWalletHint(key, hint, fetchOrder) {
 }
 
 /**
+ * REST 终态订单尽量挂上 wallet 实付/手续费；FILLED 且尚无实付信号时短等 wallet。
+ * @param {string} key
+ * @param {object} official
+ * @param {number} deadlineMs
+ */
+async function finalizeTerminalOfficial(key, official, deadlineMs) {
+  if (!official)
+    return official;
+  const resolveHint = () => (
+    getHouseWalletSettlementHint(key)
+    || (official?.id ? getHouseWalletSettlementHint(String(official.id)) : null)
+    || null
+  );
+  let hint = resolveHint();
+  let out = attachWalletFeeToOfficial(official, hint) || official;
+
+  const st = String(official.status ?? "").toUpperCase();
+  if (st === "FILLED" && !hasBuyFillCostSignal(out)) {
+    const left = Math.max(0, deadlineMs - Date.now());
+    // REST 先到、wallet value 迟到：最多再等 1.2s（或剩余时限）
+    const waitMs = Math.min(1200, left);
+    if (waitMs > 0) {
+      const late = await Promise.race([
+        waitForHouseWalletSettlementHint(key, waitMs),
+        sleep(waitMs).then(() => null),
+      ]);
+      hint = late || resolveHint();
+      out = attachWalletFeeToOfficial(official, hint) || official;
+    }
+  }
+  return out;
+}
+
+/**
  * 轮询官方 GetOrder 直至终态（FILLED / CANCELLED / …）或超时。
  * 并行消费 house `predictWalletEvents`：间隔内 race hint，有终态立即收束（少打 REST）。
  * @param {string} hash typed-data hash
@@ -212,7 +247,7 @@ export async function waitForHouseOrderTerminal(hash, opts = {}) {
 
     last = await fetchOrder(key);
     if (last && isPredictOfficialTerminal(last.status))
-      return last;
+      return finalizeTerminalOfficial(key, last, deadline);
 
     if (i + 1 >= attempts)
       break;
@@ -319,6 +354,13 @@ export function mapPredictOrderToVenueOrder(official, rds = {}) {
     pfSide: rds.pfSide ? String(rds.pfSide) : undefined,
     pfBuyOrderId: rds.pfBuyOrderId ? String(rds.pfBuyOrderId) : undefined,
     pfShares: Number(rds.pfShares) > 0 ? Number(rds.pfShares) : undefined,
+    pfHoldShares: Number(rds.pfHoldShares) > 0 ? Number(rds.pfHoldShares) : undefined,
+    pfNotionalUsdt: Number(rds.pfNotionalUsdt) > 0 ? Number(rds.pfNotionalUsdt) : undefined,
+    pfFillCostUsdt: Number(rds.pfFillCostUsdt) > 0 ? Number(rds.pfFillCostUsdt) : undefined,
+    pfBookPrice: (() => {
+      const n = Number(rds.pfBookPrice);
+      return Number.isFinite(n) && n > 0 && n < 1 ? n : undefined;
+    })(),
     pfFeeAmountWei: rds.pfFeeAmountWei ? String(rds.pfFeeAmountWei) : undefined,
     pfFeeType: rds.pfFeeType === "SHARES" || rds.pfFeeType === "COLLATERAL"
       ? rds.pfFeeType

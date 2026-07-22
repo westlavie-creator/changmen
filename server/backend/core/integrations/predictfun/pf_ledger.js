@@ -48,8 +48,8 @@ function isOpenStatus(status, row) {
   // 卖单行本身不算未结敞口
   if (orderPfSide(row) === "sell")
     return false;
-  // 已 1:1 卖出的买单不再计入未结
-  if (orderPfSellState(row) === "closed")
+  // 已 1:1 卖出 / 赛果结算的买单不再计入未结
+  if (orderPfSellState(row) === "closed" || orderPfSellState(row) === "settled")
     return false;
   return true;
 }
@@ -107,15 +107,21 @@ export function balanceAfterStake(balance, stake) {
  * 下单预检：当前余额是否盖过本金
  * @param {number} balance players.total_balance
  */
-export function assertPfAvailableBalance(balance, apiBetMoney) {
-  const stake = Number(apiBetMoney);
+/**
+ * @param {number} balance
+ * @param {number} stakeUsdt 须盖过的金额（apiBetMoney 或名义 makerUsdt）
+ * @param {{ label?: string }} [opts]
+ */
+export function assertPfAvailableBalance(balance, stakeUsdt, opts = {}) {
+  const stake = Number(stakeUsdt);
   if (!Number.isFinite(stake) || stake <= 0)
     return { ok: false, msg: "apiBetMoney 无效" };
   const bal = roundUsdt(balance);
   if (stake > bal + 1e-9) {
+    const label = String(opts.label || "").trim() || "所需";
     return {
       ok: false,
-      msg: `可用余额不足（${bal} < ${stake} USDT）`,
+      msg: `可用余额不足（${bal} < ${label} ${stake} USDT）`,
       balance: bal,
     };
   }

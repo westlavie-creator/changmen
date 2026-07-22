@@ -58,15 +58,27 @@ export interface PolymarketVenueOrderExtras {
 
 /** [changmen 扩展] PredictFun house 1:1 买卖（会员账号仅归属，仓位共用主号） */
 export type PredictFunOrderSide = "buy" | "sell";
-export type PredictFunSellState = "open" | "closed";
+export type PredictFunSellState = "open" | "closed" | "settled";
 
 export interface PredictFunVenueOrderExtras {
   pfSide?: PredictFunOrderSide;
   pfBuyOrderId?: string;
   pfSellState?: PredictFunSellState;
   pfShares?: number;
+  /** 官网持仓口径（VPS 写库；成交 − SHARES 手续费） */
+  pfHoldShares?: number;
+  /** 名义买入 USDT（限价×份额）；与用户扣款 betMoney 对齐 */
+  pfNotionalUsdt?: number;
+  /** 链上实付成交额（可低于名义；差额归 house） */
+  pfFillCostUsdt?: number;
   pfTokenId?: string;
   pfMarketId?: string;
+  pfFeeAmountWei?: string;
+  pfFeeType?: "COLLATERAL" | "SHARES";
+  pfFeeUsdt?: number;
+  pfFeeRateBps?: number;
+  pfSellProceeds?: number;
+  pfSellOrderId?: string;
 }
 
 export interface VenueOrder extends PolymarketVenueOrderExtras, PredictFunVenueOrderExtras {

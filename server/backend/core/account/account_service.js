@@ -154,7 +154,7 @@ async function handleGetPlayerOrder(body, userId) {
     IsAuto: /\d+sec|\d+s$/i.test(row.description || "") ? 1 : 0,
     CreateAt: row.createAt || 0,
   }));
-  const orders = await orderStore.listByPlayer(playerId, userId);
+  const orders = (await orderStore.listByPlayer(playerId, userId)).map(orderStore.scrubClientOrder);
   return { ok: true, info: { logs, orders } };
 }
 

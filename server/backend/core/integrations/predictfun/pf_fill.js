@@ -77,15 +77,35 @@ export function extractBuyFillShares(official, fallbackWei) {
 }
 
 /**
+ * 是否已有可解析的 BUY 实付信号（人类 amount 或 wallet executedValue）
+ * @param {object|null|undefined} official
+ */
+export function hasBuyFillCostSignal(official) {
+  const amountStr = String(official?.amount ?? "").trim();
+  if (amountStr.includes(".")) {
+    const n = Number(amountStr);
+    if (Number.isFinite(n) && n > 0)
+      return true;
+  }
+  const execRaw = official?.pfExecutedValueWei
+    ?? official?.executedValueWei
+    ?? (official?.fill && typeof official.fill === "object"
+      ? /** @type {Record<string, unknown>} */ (official.fill).executedValueWei
+      : undefined);
+  return parsePredictQuantityToWei(execRaw) > 0n;
+}
+
+/**
  * BUY FILLED：实际付出 USDT（交易本金，不含 SHARES 手续费）
  * 优先 amount（人类）→ wallet executedValueWei → BUY makerAmount；
  * wallet stub 为 SELL 形（maker=份额、taker=USDT）时只用 taker；
  * stub 缺 value 时勿把份额 maker 当 U，退回 fallbackUsdt。
  * @param {object|null|undefined} official
  * @param {number} [fallbackUsdt]
+ * @param {{ excludeMakerAmount?: boolean }} [opts] excludeMakerAmount：实付与名义分离时勿用 makerAmount
  * @returns {number}
  */
-export function extractBuyFillCostUsdt(official, fallbackUsdt = 0) {
+export function extractBuyFillCostUsdt(official, fallbackUsdt = 0, opts = {}) {
   let cost = 0;
   const amountStr = String(official?.amount ?? "").trim();
   if (amountStr.includes(".")) {
@@ -103,7 +123,7 @@ export function extractBuyFillCostUsdt(official, fallbackUsdt = 0) {
     if (execWei > 0n)
       cost = weiToDecimal18(execWei);
   }
-  if (cost <= 0) {
+  if (cost <= 0 && !opts.excludeMakerAmount) {
     const makerWei = parsePredictQuantityToWei(official?.order?.makerAmount);
     const takerWei = parsePredictQuantityToWei(official?.order?.takerAmount);
     const filledWei = parsePredictQuantityToWei(official?.amountFilled);
@@ -121,6 +141,45 @@ export function extractBuyFillCostUsdt(official, fallbackUsdt = 0) {
   if (cost <= 0)
     cost = Number(fallbackUsdt) || 0;
   return roundUsdt(cost);
+}
+
+/**
+ * BUY 订单名义 USDT（限价×份额 / makerAmount；官网订单栏常见 14.12）
+ * 与实付 bet_money（成交额）区分。
+ * @param {object|null|undefined} official
+ * @param {{ shares?: number, bookPrice?: number, fallbackUsdt?: number }} [opts]
+ */
+export function extractBuyNotionalUsdt(official, opts = {}) {
+  const makerWei = parsePredictQuantityToWei(official?.order?.makerAmount);
+  const filledWei = parsePredictQuantityToWei(official?.amountFilled);
+  const side = orderSide(official);
+  // stub 形 maker=份额时，maker 不是 USDT
+  const stubShaped = filledWei > 0n && makerWei > 0n && filledWei === makerWei;
+  if (!stubShaped && side !== "sell" && makerWei > 0n) {
+    const n = weiToDecimal18(makerWei);
+    if (n > 0)
+      return roundUsdt(n);
+  }
+  return computePfNotionalUsdt({
+    shares: opts.shares,
+    bookPrice: opts.bookPrice,
+    fallbackUsdt: opts.fallbackUsdt,
+  });
+}
+
+/**
+ * @param {{ shares?: number|string|null, bookPrice?: number|string|null, fallbackUsdt?: number|string|null }} input
+ * @returns {number|undefined}
+ */
+export function computePfNotionalUsdt(input) {
+  const s = Number(input?.shares);
+  const p = Number(input?.bookPrice);
+  if (Number.isFinite(s) && s > 0 && Number.isFinite(p) && p > 0 && p < 1)
+    return roundUsdt(s * p);
+  const fb = Number(input?.fallbackUsdt);
+  if (Number.isFinite(fb) && fb > 0)
+    return roundUsdt(fb);
+  return undefined;
 }
 
 /**

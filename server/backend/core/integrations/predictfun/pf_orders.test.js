@@ -6,15 +6,21 @@ vi.mock("./pf_wallet_events.js", () => ({
   waitForHouseWalletSettlementHint: vi.fn(async () => null),
   officialStubFromWalletHint: vi.fn(() => null),
   attachWalletFeeToOfficial: vi.fn((official, hint) => {
-    if (!official || !hint?.feeAmountWei)
+    if (!official)
       return official ?? null;
-    return {
-      ...official,
-      pfWalletFee: {
+    if (!hint)
+      return official;
+    /** @type {Record<string, unknown>} */
+    const out = { ...official };
+    if (hint.feeAmountWei) {
+      out.pfWalletFee = {
         amountWei: String(hint.feeAmountWei),
         type: hint.feeType === "SHARES" ? "SHARES" : "COLLATERAL",
-      },
-    };
+      };
+    }
+    if (hint.executedValueWei != null && String(hint.executedValueWei).trim())
+      out.pfExecutedValueWei = String(hint.executedValueWei);
+    return out;
   }),
 }));
 
@@ -31,6 +37,7 @@ import {
   getHouseWalletSettlementHint,
   officialStubFromWalletHint,
   waitForHouseWalletSettlementHint,
+  attachWalletFeeToOfficial,
 } from "./pf_wallet_events.js";
 
 beforeEach(() => {
@@ -107,6 +114,37 @@ describe("pf_orders official status mapping", () => {
     });
     expect(official?.status).toBe("FILLED");
     expect(n).toBe(2);
+  });
+
+  it("waitForHouseOrderTerminal attaches wallet executedValue on REST FILLED", async () => {
+    getHouseWalletSettlementHint.mockReturnValue(null);
+    waitForHouseWalletSettlementHint.mockImplementation(async () => {
+      const hint = {
+        orderHash: "0xfillcost",
+        settlement: "filled",
+        type: "orderTransactionSuccess",
+        executedValueWei: "13680000000000000000",
+        executedSizeWei: "44125000000000000000",
+      };
+      getHouseWalletSettlementHint.mockReturnValue(hint);
+      return hint;
+    });
+    const official = await waitForHouseOrderTerminal("0xfillcost", {
+      attempts: 3,
+      intervalMs: 50,
+      fetchOrder: async () => ({
+        status: "FILLED",
+        amountFilled: "44125000000000000000",
+        order: {
+          side: 0,
+          makerAmount: "14120000000000000000",
+          takerAmount: "44125000000000000000",
+        },
+      }),
+    });
+    expect(official?.status).toBe("FILLED");
+    expect(attachWalletFeeToOfficial).toHaveBeenCalled();
+    expect(String(official?.pfExecutedValueWei || "")).toBe("13680000000000000000");
   });
 
   it("waitForHouseOrderTerminal uses wallet hint when REST lags", async () => {
