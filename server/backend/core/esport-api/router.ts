@@ -459,6 +459,14 @@ async function handle(
         console.error("[GetFootballMatchs]", err?.message || err);
         return fail(err?.message || "GetFootballMatchs failed");
       }
+    case "Client_GetTennisMatchs":
+      try {
+        return ok(await store.buildTennisMatchList());
+      }
+      catch (err) {
+        console.error("[GetTennisMatchs]", err?.message || err);
+        return fail(err?.message || "GetTennisMatchs failed");
+      }
     case "Client_SaveData": {
       if (!body.key)
         return fail("key required");

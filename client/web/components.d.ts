@@ -96,6 +96,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SessionRestoreLoader: typeof import('./src/components/layout/SessionRestoreLoader.vue')['default']
     SportMatchBoard: typeof import('./src/components/match/SportMatchBoard.vue')['default']
+    TennisBoard: typeof import('./src/components/match/TennisBoard.vue')['default']
     UserConfigDialog: typeof import('./src/components/user/UserConfigDialog.vue')['default']
     UserConfigPanel: typeof import('./src/components/user/UserConfigPanel.vue')['default']
     UserDiagChatTab: typeof import('./src/components/user/tabs/UserDiagChatTab.vue')['default']

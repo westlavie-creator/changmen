@@ -1,0 +1,26 @@
+{
+  "code": "tennis",
+  "kind": "sport",
+  "status": "active",
+  "linePath": "lines/tennis",
+  "sportRef": "tennis",
+  "components": {
+    "web": "client/web",
+    "api": "server/backend"
+  },
+  "actions": [
+    "Client_GetTennisMatchs"
+  ],
+  "ui": {
+    "homeTab": "tennis",
+    "board": "client/web/src/components/match/TennisBoard.vue",
+    "store": "client/web/src/stores/tennisStore.ts"
+  },
+  "capabilities": [],
+  "sharedPackages": [
+    "@changmen/client-core",
+    "@changmen/arb-core",
+    "@changmen/api-contract",
+    "@changmen/venue-adapter"
+  ]
+}

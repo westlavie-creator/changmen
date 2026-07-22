@@ -27,7 +27,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | 路径 | 用途 | 是否上云 |
 |------|------|----------|
 | `storage/platforms.json` | 场馆采集凭证（gateway/token） | 否；`platform_sync` 启动时读写 |
-| `storage/sport/{mlb,soccer,mlb_pf,soccer_pf}/match_list.json` | 棒球/足球只读列表缓存（Gamma / Predict.fun）；**不进 RDS、不写 `client_matches`** | 否 |
+| `storage/sport/{mlb,soccer,tennis,mlb_pf,soccer_pf,tennis_pf}/match_list.json` | 棒球/足球/网球只读列表缓存（Gamma / Predict.fun）；**不进 RDS、不写 `client_matches`** | 否 |
 | `storage/tag_platforms.json`、`players.json` | 已废弃（仅 `migrate-players-to-rds` 导入 RDS） | — |
 | `storage/default_odds.json` | 初赔快照 | 否 |
 | 用户活跃时间 | RDS `profiles.preferences.lastActiveAt`（`user_presence`，60s 防抖写库） |
@@ -77,7 +77,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveScore` | — | — | 空实现 | — |
 | `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | 多实例前勿假设共享 |
 | `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at/pm_sport_rev 未变跳过全量 SELECT | — | 只读 matchMerge 结果，不做 Round/promote overlay |
-| `Client_GetBaseballMatchs` / `Client_GetFootballMatchs` | M+J | 进程内存 + `storage/sport/{mlb,soccer,mlb_pf,soccer_pf}/`；未命中再打 Gamma / Predict.fun REST（并列 concat） | 写 sport JSON only | **不读写** `client_matches` / RDS 赛表 |
+| `Client_GetBaseballMatchs` / `Client_GetFootballMatchs` / `Client_GetTennisMatchs` | M+J | 进程内存 + `storage/sport/{mlb,soccer,tennis,mlb_pf,soccer_pf,tennis_pf}/`；未命中再打 Gamma / Predict.fun REST（并列 concat） | 写 sport JSON only | **不读写** `client_matches` / RDS 赛表 |
 | `Client_GetDefaultOdds` / `GetMatchDefaultOdds` | M+J | 内存列表 + `default_odds.json` | debounce 写 JSON | — |
 
 ### 采集凭证 / 游戏

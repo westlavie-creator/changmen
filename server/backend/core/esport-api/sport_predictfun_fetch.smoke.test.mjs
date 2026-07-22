@@ -19,6 +19,9 @@ assert.equal(mapPredictSportTag("World Cup"), "soccer");
 assert.equal(mapPredictSportTag("Football"), null);
 assert.equal(mapPredictSportTag("cs2"), null);
 assert.equal(mapPredictSportTag("NFL"), null);
+assert.equal(mapPredictSportTag("ATP"), "tennis");
+assert.equal(mapPredictSportTag("WTA"), "tennis");
+assert.equal(mapPredictSportTag("Tennis"), "tennis");
 
 assert.equal(resolveSportGameCodeFromCategory({
   tags: [{ name: "Sports" }, { name: "Soccer" }, { name: "Football" }],
@@ -27,6 +30,10 @@ assert.equal(resolveSportGameCodeFromCategory({
 assert.equal(resolveSportGameCodeFromCategory({
   tags: [{ name: "Sports" }, { name: "MLB" }, { name: "Baseball" }],
 }), "mlb");
+
+assert.equal(resolveSportGameCodeFromCategory({
+  tags: [{ name: "Sports" }, { name: "ATP" }, { name: "Tennis" }],
+}), "tennis");
 
 assert.equal(readPredictTopPrice({ price: 0.42, size: 10 }), 0.42);
 assert.equal(readPredictTopPrice(0.55), 0.55);
@@ -63,5 +70,23 @@ const soccerCat = {
   ],
 };
 assert.equal(isPredictSportMoneylineCategory(soccerCat, "soccer"), true);
+
+const tennisCat = {
+  marketVariant: "SPORTS_TEAM_MATCH",
+  status: "OPEN",
+  tags: [{ name: "ATP" }, { name: "Tennis" }],
+  markets: [{
+    id: 9,
+    status: "REGISTERED",
+    tradingStatus: "OPEN",
+    marketType: "SPORTS_MONEYLINE",
+    outcomes: [
+      { name: "A", onChainId: "h", team: { name: "Player A" }, bestAsk: { price: 0.4, size: 1 } },
+      { name: "B", onChainId: "a", team: { name: "Player B" }, bestAsk: { price: 0.6, size: 1 } },
+    ],
+  }],
+};
+assert.equal(isPredictSportMoneylineCategory(tennisCat, "tennis"), true);
+assert.equal(isPredictSportMoneylineCategory(tennisCat, "mlb"), false);
 
 console.log("sport_predictfun_fetch.smoke: ok");

@@ -551,6 +551,26 @@ export async function buildFootballMatchList() {
   return list;
 }
 
+/** 网球：同上（ATP+WTA 单打）；不碰电竞 client_matches / mainBetLoop。 */
+export async function buildTennisMatchList() {
+  const { fetchTennisAsClientMatchDtos } = await import("./tennis_gamma_fetch.js");
+  const { fetchPredictFunTennisAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
+  const list = await concatSportReadOnlyLists(
+    [fetchTennisAsClientMatchDtos(), fetchPredictFunTennisAsClientMatchDtos()],
+    "GetTennisMatchs",
+  );
+  try {
+    const { ingestAndMergeSportLists } = await import("./sport_merge.js");
+    const merged = await ingestAndMergeSportLists("tennis", list);
+    if (merged?.length)
+      return merged;
+  }
+  catch (err) {
+    console.warn("[GetTennisMatchs] sport merge fallback to concat", err?.message || err);
+  }
+  return list;
+}
+
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
 
 export function getMatchDefaultOdds(matchIds) {
@@ -604,6 +624,7 @@ const store = {
   buildMatchList,
   buildBaseballMatchList,
   buildFootballMatchList,
+  buildTennisMatchList,
   getCollectorHotSnapshot,
   getCollectorFullSnapshot,
   getCollectorMemoryStats,

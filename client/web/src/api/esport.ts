@@ -38,6 +38,7 @@ export {
 export {
   getBaseballMatchs,
   getFootballMatchs,
+  getTennisMatchs,
   getMatchs,
   saveBetSource,
   saveLiveTimer,

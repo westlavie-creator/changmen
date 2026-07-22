@@ -27,6 +27,10 @@ paths:
     post:
       summary: 足球列表（MVP：Polymarket Gamma soccer 全量，不做跨站匹配；不读写电竞 client_matches）
       operationId: Client_GetFootballMatchs
+  /esport/Client_GetTennisMatchs:
+    post:
+      summary: 网球列表（MVP：Polymarket Gamma ATP+WTA 单打 ∥ Predict.fun；不读写电竞 client_matches）
+      operationId: Client_GetTennisMatchs
   /esport/API_SaveMatch:
     post:
       summary: 上报平台原始比赛

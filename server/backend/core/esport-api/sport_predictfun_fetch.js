@@ -1,13 +1,14 @@
 /**
- * Predict.fun REST → ClientMatchDto[]（棒球/足球只读；与 PM 列表并列，不合并）。
+ * Predict.fun REST → ClientMatchDto[]（棒球/足球/网球只读；与 PM 列表并列，不合并）。
  * 不写电竞 client_matches / platform_*；不做跨站匹配；不开下注。
  *
  * 官方形态（dev.predict.fun MarketVariant / Get categories）：
  * - 棒球常为 SPORTS_TEAM_MATCH：单盘 SPORTS_MONEYLINE + 双 outcome（各含 team）
  * - 足球常为 SPORTS_MATCH：主/客/(平) 多盘；status 多为 REGISTERED + tradingStatus OPEN
+ * - 网球（球员对阵）按 TEAM_MATCH 拉取，靠 tag/联赛名过滤 tennis
  * 本机 Windows 往往直连 api.predict.fun TLS 失败 → 经 HK http-relay 出海。
  *
- * 缓存：storage/sport/{mlb_pf,soccer_pf}/（见 sport_list_cache.js）。
+ * 缓存：storage/sport/{mlb_pf,soccer_pf,tennis_pf}/（见 sport_list_cache.js）。
  */
 
 import {
@@ -44,7 +45,7 @@ const NFL_RE = /\b(nfl|american football|ncaa football|cfb|ncaaf)\b/i;
 
 /**
  * @param {string|undefined} name
- * @returns {"mlb"|"soccer"|null}
+ * @returns {"mlb"|"soccer"|"tennis"|null}
  */
 export function mapPredictSportTag(name) {
   const raw = String(name ?? "").trim().toLowerCase();
@@ -52,6 +53,8 @@ export function mapPredictSportTag(name) {
     return null;
   if (/\b(mlb|major league baseball|baseball)\b/.test(raw) || raw === "mlb")
     return "mlb";
+  if (/\b(tennis|atp|wta|roland[- ]?garros|wimbledon|us open|australian open)\b/.test(raw) || raw === "tennis")
+    return "tennis";
   // 「Football」单独不做映射（美式/欧式均用）；需 Soccer / 联赛码
   if (
     /\b(soccer|epl|premier league|la liga|laliga|bundesliga|serie a|ligue 1|mls|ucl|uel|champions league|europa league|fifa|uefa|copa|eredivisie|liga mx|brasileir[aã]o|primera|world cup)\b/.test(raw)
@@ -64,13 +67,15 @@ export function mapPredictSportTag(name) {
 
 /**
  * @param {object} category
- * @returns {"mlb"|"soccer"|null}
+ * @returns {"mlb"|"soccer"|"tennis"|null}
  */
 export function resolveSportGameCodeFromCategory(category) {
   const tagNames = (category.tags ?? []).map(t => String(t.name ?? "").trim()).filter(Boolean);
   const lower = new Set(tagNames.map(n => n.toLowerCase()));
   if (lower.has("mlb") || lower.has("baseball"))
     return "mlb";
+  if (lower.has("tennis") || lower.has("atp") || lower.has("wta"))
+    return "tennis";
   if (lower.has("soccer") || lower.has("world cup"))
     return "soccer";
   if (lower.has("football") && !lower.has("nfl") && !NFL_RE.test([...lower].join(" "))) {
@@ -236,7 +241,7 @@ async function predictHttpGet(url) {
 }
 
 function variantsForGame(gameCode) {
-  if (gameCode === "mlb")
+  if (gameCode === "mlb" || gameCode === "tennis")
     return ["SPORTS_TEAM_MATCH"];
   // soccer：官方以 SPORTS_MATCH 为主，另含 FIFA / 少数 TEAM_MATCH
   return ["SPORTS_MATCH", "SPORTS_TEAM_MATCH", "SPORTS_FIFA_WORLD_CUP", "SPORTS_FIFA_FRIENDLIES"];
@@ -247,6 +252,7 @@ function tagIdsForGame(gameCode) {
     return `${TAG_MLB},${TAG_BASEBALL}`;
   if (gameCode === "soccer")
     return TAG_SOCCER;
+  // tennis：官方 tag id 未固化；无 tagIds 时靠 name/tag 过滤
   return "";
 }
 
@@ -595,7 +601,8 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
     throw new Error(`unsupported PredictFun sport gameCode: ${options.gameCode}`);
 
   const cacheKey = String(options.cacheKey || `${gameCode}_pf`);
-  const idBase = Number(options.idBase) || (gameCode === "mlb" ? 910_000_000 : 810_000_000);
+  const idBase = Number(options.idBase)
+    || (gameCode === "mlb" ? 910_000_000 : gameCode === "tennis" ? 930_000_000 : 810_000_000);
   const logTag = String(options.logTag || `sportPf:${cacheKey}`);
 
   const mem = _caches.get(cacheKey);
@@ -688,6 +695,15 @@ export async function fetchPredictFunFootballAsClientMatchDtos() {
     cacheKey: "soccer_pf",
     idBase: 810_000_000,
     logTag: "footballPredictFun",
+  });
+}
+
+export async function fetchPredictFunTennisAsClientMatchDtos() {
+  return fetchPredictFunSportAsClientMatchDtos({
+    gameCode: "tennis",
+    cacheKey: "tennis_pf",
+    idBase: 930_000_000,
+    logTag: "tennisPredictFun",
   });
 }
 

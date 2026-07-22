@@ -18,12 +18,19 @@ import {
 const VENUE_PRIORITY = ["Polymarket", "PredictFun"];
 
 /** @type {ReturnType<typeof createSportTeamPlugin>} */
-const sportTeams = createSportTeamPlugin({ games: ["mlb", "soccer"] });
+const sportTeams = createSportTeamPlugin({ games: ["mlb", "soccer", "tennis"] });
 
 function gameCodeForSport(sport, legGame) {
   if (legGame)
     return String(legGame);
-  return String(sport) === "football" ? "soccer" : "mlb";
+  const s = String(sport);
+  if (s === "football")
+    return "soccer";
+  if (s === "tennis")
+    return "tennis";
+  if (s === "baseball")
+    return "mlb";
+  return "mlb";
 }
 
 /**

@@ -70,6 +70,7 @@ changmen（平台 monorepo）
 | `esport` | 电竞 | `lines/esport/` | 仓库根（见 `line.json`） | `changmen-esport` `changmen-pm-sports` `changmen-predictfun-collector` | **全栈** |
 | `baseball` | 棒球 | `lines/baseball/` | 主控台 `client/web` + backend GetBaseballMatchs | （只读共用 esport PM2） | **B1 只读** → 采集 → 套利 |
 | `football` | 足球 | `lines/football/` | 主控台 Tab + GetFootballMatchs | （只读共用） | **只读 MVP** |
+| `tennis` | 网球 | `lines/tennis/` | 主控台 Tab + GetTennisMatchs | （只读共用） | **只读 MVP** |
 
 ### 电竞组件路径（`esport`，代码在仓库根）
 

@@ -60,6 +60,23 @@
         "platforms": ["Polymarket"]
       },
       "markets": ["moneyline"]
+    },
+    {
+      "code": "tennis",
+      "name": "网球",
+      "nameEn": "Tennis",
+      "status": "active",
+      "defaultGameCodes": ["tennis"],
+      "matcherProfile": "tennis",
+      "linePath": "lines/tennis",
+      "apiSportFilter": "tennis",
+      "pm2Apps": [],
+      "collect": {
+        "mode": "api",
+        "daemons": [],
+        "platforms": ["Polymarket"]
+      },
+      "markets": ["moneyline"]
     }
   ]
 }

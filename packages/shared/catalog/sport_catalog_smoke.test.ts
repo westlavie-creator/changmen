@@ -4,7 +4,7 @@ const sport = await import("./sport_catalog.ts");
 const gameCatalog = await import("./game_catalog.json", { with: { type: "json" } });
 
 assert.equal(sport.DEFAULT_SPORT, "esport");
-assert.equal(sport.listSports().length, 3);
+assert.equal(sport.listSports().length, 4);
 
 const esport = sport.getSport("esport");
 assert.ok(esport);
@@ -21,9 +21,14 @@ assert.ok(football);
 assert.equal(football!.status, "active");
 assert.deepEqual(football!.defaultGameCodes, ["soccer"]);
 
+const tennis = sport.getSport("tennis");
+assert.ok(tennis);
+assert.equal(tennis!.status, "active");
+assert.deepEqual(tennis!.defaultGameCodes, ["tennis"]);
+
 assert.deepEqual(
   sport.listActiveSports().map(s => s.code).sort(),
-  ["baseball", "esport", "football"],
+  ["baseball", "esport", "football", "tennis"],
 );
 
 for (const game of gameCatalog.default.games) {
