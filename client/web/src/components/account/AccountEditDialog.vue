@@ -38,7 +38,6 @@ import {
   resolvePolymarketDepositWalletFromPrivateKey,
   resolvePolymarketSignerAddress,
 } from "@changmen/venue-adapter/polymarket";
-import { getAccounts } from "@/api/account";
 import { getAdapter } from "@/runtime/venueAdapters";
 import type { AccountBalanceResult } from "@changmen/venue-adapter/contract";
 import { parsePbVenueIdentity } from "@changmen/venue-adapter/pb";
@@ -608,8 +607,8 @@ function resolvePlayerNameForSave(
 
 /**
  * [changmen 扩展] 仅对已接线场馆：保存前拉余额并绑定 venueMemberId。
- * - 新建：回写 venueMemberId；同场馆占用 → 拒绝
- * - 编辑：RDS 已有且不一致 → 拒绝；RDS 为空 → 允许首次写入
+ * - 新账号（无 accountId）：写入 venueMemberId；同场馆已占用 → 拒绝（不能新增重复）
+ * - 老账号（有 accountId）：只更新；已绑定 venueMemberId 且与当前凭证不一致 → 拒绝
  * A8 AccountInfoView 无此门控；未接线场馆走 save() 内 A8 路径。
  */
 async function probeVenueIdentityForSave(
@@ -642,21 +641,19 @@ async function probeVenueIdentityForSave(
   const isEdit = Boolean(selfId);
 
   if (isEdit) {
-    const rows = await getAccounts();
-    const rdsRow = rows.find(a => Number(a.accountId) === selfId);
-    if (!rdsRow)
-      throw new Error("RDS 中未找到该账号，拒绝保存");
-    const rdsVenueMemberId = readStoredVenueMemberId(
-      rdsRow as { venueMemberId?: string; venueId?: string },
-    );
-    if (rdsVenueMemberId && rdsVenueMemberId !== venueMemberId) {
+    // 老账号：以当前卡片已加载的绑定为准（loadAccounts ← GetData ACCOUNT ← players）
+    const stored = props.account
+      ?? accountStore.accounts.find(a => Number(a.accountId) === selfId);
+    const boundVenueMemberId = readStoredVenueMemberId(stored);
+    if (boundVenueMemberId && boundVenueMemberId !== venueMemberId) {
       throw new Error(
-        `场馆账号 ID 不一致：RDS 为 ${rdsVenueMemberId}，当前凭证为 ${venueMemberId}，拒绝保存`,
+        `场馆账号 ID 不一致：已绑定 ${boundVenueMemberId}，当前凭证为 ${venueMemberId}，拒绝保存`,
       );
     }
-    form.venueMemberId = rdsVenueMemberId || venueMemberId;
+    form.venueMemberId = boundVenueMemberId || venueMemberId;
   }
   else {
+    // 新账号：同 provider + venueMemberId 已存在 → 只能去编辑老卡，不能再新增
     const dup = accountStore.accounts.find((a) => {
       if (!a.accountId)
         return false;

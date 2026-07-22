@@ -6,11 +6,22 @@
  *
  * house 多用户共用链上仓位：按每用户 RDS 订单 + 市场赛果独立结算，不拆链上持仓。
  * 下单已扣 betMoney（名义）：
- * - Win → 回款 = 持仓份额 × 1 USDT（每份兑付 $1）；money = 回款 − 本金
+ * - Win → 回款 = 截断两位后的持仓 × 1 USDT（与用户端持仓展示一致，截断不四舍五入）
  * - Lose → balance 不变；money = -betMoney
  */
 
 import { roundUsdt } from "./pf_ledger.js";
+
+/**
+ * 用户端回款份额精度：两位小数向 0 截断（不用四舍五入）。
+ * 赢单回款 = 截断后持仓 × $1。
+ */
+export function truncateShareUsdt(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x) || x <= 0)
+    return 0;
+  return Math.trunc(x * 100 + 1e-9) / 100;
+}
 
 /**
  * @param {object|null|undefined} market
@@ -45,27 +56,27 @@ export function resolvePfMarketOutcome(market, tokenId) {
 }
 
 /**
- * 赢单回款（USDT）：份额 × $1；无份额时用 名义/买入价。
+ * 赢单回款（USDT）：截断后持仓 × $1；无份额时用 名义/买入价（同样截断）。
  * @param {{ stakeUsdt: number, shares?: number, bookPrice?: number }} input
  */
 export function resolvePfWinPayoutUsdt(input) {
   const stake = roundUsdt(input?.stakeUsdt);
   const shares = Number(input?.shares);
   if (Number.isFinite(shares) && shares > 0)
-    return roundUsdt(shares);
+    return truncateShareUsdt(shares);
   const price = Number(input?.bookPrice);
   if (stake > 0 && Number.isFinite(price) && price > 0 && price < 1)
-    return roundUsdt(stake / price);
+    return truncateShareUsdt(stake / price);
   return stake;
 }
 
 /**
  * @param {number} betMoney 用户本金 USDT（名义）
- * @param {number|{ shares?: number, bookPrice?: number, odds?: number }} optsOrOdds
+ * @param {{ shares?: number, bookPrice?: number }|number|null|undefined} opts
  * @param {"win"|"lose"} result
  * @returns {{ status: "win"|"lose", money: number, balanceDelta: number, payout: number }}
  */
-export function computePfSettlement(betMoney, optsOrOdds, result) {
+export function computePfSettlement(betMoney, opts, result) {
   const stake = roundUsdt(betMoney);
   if (result === "lose") {
     return {
@@ -76,23 +87,18 @@ export function computePfSettlement(betMoney, optsOrOdds, result) {
     };
   }
 
-  const opts = optsOrOdds && typeof optsOrOdds === "object"
-    ? optsOrOdds
-    : { odds: optsOrOdds };
-
-  const shares = Number(opts.shares);
-  const bookPrice = Number(opts.bookPrice);
+  // 仅接受 { shares, bookPrice }；历史 number 入参（旧赔率）忽略，避免赔率参与结算
+  const o = opts && typeof opts === "object" ? opts : {};
+  const shares = Number(o.shares);
+  const bookPrice = Number(o.bookPrice);
   const hasShares = Number.isFinite(shares) && shares > 0;
   const hasBookPrice = Number.isFinite(bookPrice) && bookPrice > 0 && bookPrice < 1;
 
-  let payout = resolvePfWinPayoutUsdt({
+  const payout = resolvePfWinPayoutUsdt({
     stakeUsdt: stake,
     shares: hasShares ? shares : undefined,
     bookPrice: hasBookPrice ? bookPrice : undefined,
   });
-  // 仅当既无份额也无买入价时，才用赔率兜底（旧调用兼容）；有份额时即使 payout≤stake 也不改写
-  if (!hasShares && !hasBookPrice && Number(opts.odds) > 1)
-    payout = roundUsdt(stake * Number(opts.odds));
 
   return {
     status: "win",

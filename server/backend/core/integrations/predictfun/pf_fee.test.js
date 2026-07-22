@@ -20,12 +20,17 @@ describe("pf_fee", () => {
     expect(fee.usdt).toBe(1.5);
   });
 
-  it("computes hold shares = fill − SHARES fee", () => {
+  it("computes hold shares = fill − SHARES fee (exact wei)", () => {
     expect(computePfHoldShares({
       pfShares: 44.125,
       pfFeeType: "SHARES",
       pfFeeAmountWei: "794250000000000000",
-    })).toBeCloseTo(43.33075, 8);
+    })).toBe(43.33075);
+    expect(computePfHoldShares({
+      pfSharesWei: "44125000000000000000",
+      pfFeeType: "SHARES",
+      pfFeeAmountWei: "794250000000000000",
+    })).toBe(43.33075);
     expect(computePfHoldShares({
       pfShares: 44.125,
       pfFeeType: "COLLATERAL",
@@ -40,6 +45,7 @@ describe("pf_fee", () => {
       pfFeeAmountWei: "1000000000000000000",
       pfFeeType: "COLLATERAL",
       pfFeeUsdt: 1,
+      pfHoldSharesWei: "10000000000000000000",
       pfHoldShares: 10,
     });
     expect(resolvePfFeeSavePatch({}, {
@@ -51,12 +57,14 @@ describe("pf_fee", () => {
       pfFeeAmountWei: "3000000000000000000",
       pfFeeType: "COLLATERAL",
       pfFeeUsdt: 3,
+      pfHoldSharesWei: "20000000000000000000",
       pfHoldShares: 20,
     });
     const withSharesFee = resolvePfFeeSavePatch({
       pfWalletFee: { amountWei: "794250000000000000", type: "SHARES" },
-    }, null, { pfShares: 44.125 });
+    }, null, { pfSharesWei: "44125000000000000000", pfShares: 44.125 });
     expect(withSharesFee.pfFeeType).toBe("SHARES");
-    expect(withSharesFee.pfHoldShares).toBeCloseTo(43.33075, 8);
+    expect(withSharesFee.pfHoldShares).toBe(43.33075);
+    expect(withSharesFee.pfHoldSharesWei).toBe("43330750000000000000");
   });
 });

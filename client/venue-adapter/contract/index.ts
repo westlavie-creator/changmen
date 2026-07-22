@@ -71,6 +71,8 @@ export interface PredictFunVenueOrderExtras {
   pfNotionalUsdt?: number;
   /** 链上实付成交额（可低于名义；差额归 house） */
   pfFillCostUsdt?: number;
+  /** 买入限价/盘口价 (0,1) */
+  pfBookPrice?: number;
   pfTokenId?: string;
   pfMarketId?: string;
   pfFeeAmountWei?: string;

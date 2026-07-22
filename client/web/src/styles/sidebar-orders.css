@@ -303,6 +303,25 @@
   flex: 1;
 }
 
+#app .el-aside .orders .order .profit .order__live-pnl,
+.common-layout .el-aside .orders .order .profit .order__live-pnl,
+.admin-orders-user-col .orders .order .profit .order__live-pnl {
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+#app .el-aside .orders .order .profit .order__live-pnl.pos,
+.common-layout .el-aside .orders .order .profit .order__live-pnl.pos,
+.admin-orders-user-col .orders .order .profit .order__live-pnl.pos {
+  color: #67c23a;
+}
+
+#app .el-aside .orders .order .profit .order__live-pnl.neg,
+.common-layout .el-aside .orders .order .profit .order__live-pnl.neg,
+.admin-orders-user-col .orders .order .profit .order__live-pnl.neg {
+  color: #f56c6c;
+}
+
 #app .el-aside .orders .order .order__sell-btn,
 .common-layout .el-aside .orders .order .order__sell-btn,
 .admin-orders-user-col .orders .order .order__sell-btn {

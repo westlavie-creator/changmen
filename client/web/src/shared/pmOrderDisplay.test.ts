@@ -14,6 +14,8 @@ import {
   pmOrderSideTagText,
   pmOrderStakeDisplayCny,
   pmBuyLifecycleTagText,
+  formatLiveUnrealizedPnlText,
+  pmUnrealizedPnlAtLiveCny,
   resolvePmFillPrice,
   resolvePmListDisplayPrice,
   resolvePmOrderListStatusClass,
@@ -164,7 +166,7 @@ describe("pmOrderDisplay", () => {
     expect(pmOrderSideTagText(pmBuy)).toBe("买单");
   });
 
-  it("does not derive fill price from remaining stake after partial sell", () => {
+  it("does not derive fill price from odds after partial sell without PmFillPrice", () => {
     expect(resolvePmFillPrice({
       ...pmBuy,
       PmFillPrice: undefined,
@@ -172,7 +174,7 @@ describe("pmOrderDisplay", () => {
       PmShares: 6.756753,
       PmStakeUsdc: 3,
       Odds: 1.351,
-    })).toBeCloseTo(1 / 1.351, 5);
+    })).toBeNull();
   });
 
   it("prefers fo live price for unsettled buys", () => {
@@ -189,6 +191,15 @@ describe("pmOrderDisplay", () => {
 
   it("odds text stays on fill price", () => {
     expect(pmOrderOddsText(pmBuy)).toBe("1.351");
+  });
+
+  it("marks unrealized pnl from live price without using odds", () => {
+    // 成本 5 USDC、6.756753 份；现价 0.9 → 市值≈6.08，盈≈1.08U → ×6.8≈7
+    expect(pmUnrealizedPnlAtLiveCny(pmBuy, 0.9)).toBe(7);
+    expect(pmUnrealizedPnlAtLiveCny(pmBuy, 0.5)).toBe(-11);
+    expect(pmUnrealizedPnlAtLiveCny(pmBuy, null)).toBeNull();
+    expect(formatLiveUnrealizedPnlText(7)).toBe("浮盈：+7");
+    expect(formatLiveUnrealizedPnlText(-12)).toBe("浮亏：-12");
   });
 
   it("live odds matches live clob price", () => {

@@ -35,7 +35,7 @@ import {
 import { fetchPredictMarket } from "./pf_api.js";
 import { computePfSettlement, resolvePfMarketOutcome } from "./pf_settle.js";
 import { extractBuyFillCostUsdt, extractBuyFillShares, extractBuyNotionalUsdt, extractSellFill } from "./pf_fill.js";
-import { resolvePfFeeSavePatch } from "./pf_fee.js";
+import { computePfHoldSharesWei, resolvePfFeeSavePatch, weiToSharesDecimal } from "./pf_fee.js";
 import { assertPredictMarketTradable } from "./pf_market_guard.js";
 import { tryRedeemHouseMarketAfterSettle, redeemHouseResolvedPositions } from "./pf_house_redeem.js";
 import {
@@ -598,6 +598,9 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
     const isSellRow = String(rdsRow?.pfSide ?? rdsRow?.PfSide ?? "").toLowerCase() === "sell";
     const feePatch = resolvePfFeeSavePatch(official, rdsRow, {
       pfShares: fill.shares > 0 ? fill.shares : (rdsRow?.pfShares ?? rdsRow?.PfShares),
+      pfSharesWei: fill.sharesWei > 0n
+        ? String(fill.sharesWei)
+        : (rdsRow?.pfSharesWei ?? rdsRow?.PfSharesWei),
     });
     const planned = rdsBetMoney(rdsRow);
     const bookPrice = Number(rdsRow?.pfBookPrice ?? rdsRow?.PfBookPrice) || 0;
@@ -648,6 +651,7 @@ async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
     // 已成交：补写迟到的 wallet fee / 持仓份额 / 实付（不改状态、不改名义 bet_money）
     const feePatch = resolvePfFeeSavePatch(official, rdsRow, {
       pfShares: rdsRow?.pfShares ?? rdsRow?.PfShares,
+      pfSharesWei: rdsRow?.pfSharesWei ?? rdsRow?.PfSharesWei,
     });
     const fillCost = extractBuyFillCostUsdt(official, 0, { excludeMakerAmount: true });
     const needFillCost = !(Number(rdsRow?.pfFillCostUsdt) > 0) && fillCost > 0;
@@ -753,9 +757,23 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
       continue;
 
     const betMoney = rdsBetMoney(rdsRow);
-    const hold = Number(rdsRow?.pfHoldShares ?? rdsRow?.PfHoldShares);
+    // 扣费后持仓：优先官网成交 wei − SHARES fee wei（与链上仓位一致）
+    const holdWei = computePfHoldSharesWei({
+      pfSide: "buy",
+      pfSharesWei: rdsRow?.pfSharesWei ?? rdsRow?.PfSharesWei,
+      pfShares: rdsRow?.pfShares ?? rdsRow?.PfShares,
+      pfFeeType: rdsRow?.pfFeeType ?? rdsRow?.PfFeeType,
+      pfFeeAmountWei: rdsRow?.pfFeeAmountWei ?? rdsRow?.PfFeeAmountWei,
+    });
+    const holdStored = Number(rdsRow?.pfHoldShares ?? rdsRow?.PfHoldShares);
     const fillShares = Number(rdsRow?.pfShares ?? rdsRow?.PfShares);
-    const shares = hold > 0 ? hold : (fillShares > 0 ? fillShares : 0);
+    let shares = 0;
+    if (holdWei != null && holdWei > 0n)
+      shares = weiToSharesDecimal(holdWei);
+    else if (holdStored > 0)
+      shares = holdStored;
+    else if (fillShares > 0)
+      shares = fillShares;
     const bookPrice = Number(rdsRow?.pfBookPrice ?? rdsRow?.PfBookPrice) || 0;
     const computed = computePfSettlement(betMoney, { shares, bookPrice }, outcome);
 
@@ -1017,23 +1035,36 @@ export async function handlePfSubmitSell(body, userId) {
       if (!marketId || !tokenId)
         throw new Error("买单缺少 marketId/tokenId");
 
-      // 卖出数量 = 真实持仓（成交份额 − SHARES 手续费），勿用毛份额超卖
+      // 卖出数量 = 官网净持仓 wei（成交 wei − SHARES fee wei），勿用毛份额超卖
       let sharesWei = 0n;
-      const holdShares = Number(buy.pfHoldShares) > 0
-        ? Number(buy.pfHoldShares)
-        : resolvePfHoldSharesFromRaw({
-          pfSide: buy.pfSide,
-          pfShares: buy.pfShares,
-          pfHoldShares: buy.pfHoldShares,
-          pfFeeType: buy.pfFeeType,
-          pfFeeAmountWei: buy.pfFeeAmountWei,
-        });
-      if (Number(holdShares) > 0) {
-        try {
-          sharesWei = decimal18ToWei(holdShares);
-        }
-        catch {
-          sharesWei = 0n;
+      const holdWei = computePfHoldSharesWei({
+        pfSide: "buy",
+        pfSharesWei: buy.pfSharesWei,
+        pfShares: buy.pfShares,
+        pfFeeType: buy.pfFeeType,
+        pfFeeAmountWei: buy.pfFeeAmountWei,
+      });
+      if (holdWei != null && holdWei > 0n) {
+        sharesWei = holdWei;
+      }
+      else {
+        const holdShares = Number(buy.pfHoldShares) > 0
+          ? Number(buy.pfHoldShares)
+          : resolvePfHoldSharesFromRaw({
+            pfSide: buy.pfSide,
+            pfShares: buy.pfShares,
+            pfSharesWei: buy.pfSharesWei,
+            pfHoldShares: buy.pfHoldShares,
+            pfFeeType: buy.pfFeeType,
+            pfFeeAmountWei: buy.pfFeeAmountWei,
+          });
+        if (Number(holdShares) > 0) {
+          try {
+            sharesWei = decimal18ToWei(holdShares);
+          }
+          catch {
+            sharesWei = 0n;
+          }
         }
       }
       const feeType = String(buy.pfFeeType ?? "").toUpperCase();
@@ -1051,9 +1082,9 @@ export async function handlePfSubmitSell(body, userId) {
         }
       }
       if (sharesWei <= 0n) {
-        const bookPrice = Number(buy.pfBookPrice) || (Number(buy.Odds || buy.odds) > 1
-          ? 1 / Number(buy.Odds || buy.odds)
-          : 0);
+        const bookPrice = Number(buy.pfBookPrice);
+        if (!(bookPrice > 0 && bookPrice < 1))
+          throw new Error("无法解析买单份额（缺少持仓与买入价）");
         sharesWei = estimatePfSharesWei(rdsBetMoney(buy), bookPrice);
       }
       if (sharesWei <= 0n)

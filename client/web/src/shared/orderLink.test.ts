@@ -79,6 +79,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend joins unsettled OB + PM preview without double-dash", () => {
+    const fx = 6.8;
     const text = orderLinkLegend([
       { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB", Item: "Alpha", OrderID: "a" },
       {
@@ -91,13 +92,17 @@ describe("orderLink A8 parity", () => {
         Item: "Beta",
         OrderID: "b",
         PmTokenId: "tok-b",
+        // 份额×$1 对齐旧「本金×赔率」回款：100*1.8 CNY
+        PmShares: (100 * 1.8) / fx,
+        PmFillPrice: 1 / 1.8,
       },
     ]);
-    // stake=200; OB 按订单: 100*3-200=100; PM token: 100*1.8-200=-20
+    // stake=200; OB: 100*3-200=100; PM: 180-200=-20
     expect(text).toBe("-20 / 100");
   });
 
   it("legend does not merge venue order into PM by team/Item name", () => {
+    const fx = 6.8;
     const text = orderLinkLegend([
       {
         OrderID: "pm-geng",
@@ -108,6 +113,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Gen.G Esports",
         PmTokenId: "tok-geng",
+        PmShares: (50 * 1.408) / fx,
+        PmFillPrice: 1 / 1.408,
       },
       {
         OrderID: "od-geng",
@@ -126,6 +133,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Nongshim RedForce",
         PmTokenId: "tok-ns",
+        PmShares: (119 * 2.857) / fx,
+        PmFillPrice: 1 / 2.857,
       },
     ]);
     // stake=351; PM geng / PM ns / OD 各算：约 -281 / -11 / -114
@@ -133,6 +142,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend keeps venue orders per-order; only PM same-token merges", () => {
+    const fx = 6.8;
     const text = orderLinkLegend([
       {
         OrderID: "pm-trace",
@@ -143,6 +153,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Trace Esports",
         PmTokenId: "token-trace",
+        PmShares: (50 * 1.587) / fx,
+        PmFillPrice: 1 / 1.587,
       },
       {
         OrderID: "pm-nova-a",
@@ -153,6 +165,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Nova Esports",
         PmTokenId: "token-nova",
+        PmShares: (50 * 1.388) / fx,
+        PmFillPrice: 1 / 1.388,
       },
       {
         OrderID: "pm-nova-b",
@@ -163,6 +177,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Nova Esports",
         PmTokenId: "token-nova",
+        PmShares: (50 * 1.298) / fx,
+        PmFillPrice: 1 / 1.298,
       },
       {
         OrderID: "pm-nova-c",
@@ -173,6 +189,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Nova Esports",
         PmTokenId: "token-nova",
+        PmShares: (260 * 1.428) / fx,
+        PmFillPrice: 1 / 1.428,
       },
       {
         OrderID: "ray-te",
@@ -196,6 +214,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend merges PM same-token buys even when Item text differs slightly", () => {
+    const fx = 6.8;
     const text = orderLinkLegend([
       {
         OrderID: "a",
@@ -206,6 +225,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Team A",
         PmTokenId: "tok-a",
+        PmShares: (100 * 2) / fx,
+        PmFillPrice: 0.5,
       },
       {
         OrderID: "b",
@@ -216,6 +237,8 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Team A (extra)",
         PmTokenId: "tok-a",
+        PmShares: (50 * 2) / fx,
+        PmFillPrice: 0.5,
       },
       {
         OrderID: "c",
@@ -226,17 +249,30 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Item: "Team B",
         PmTokenId: "tok-b",
+        PmShares: (100 * 2.2) / fx,
+        PmFillPrice: 1 / 2.2,
       },
     ]);
     // stake=250; A: 100*2+50*2-250=50; B: 100*2.2-250=-30
     expect(text).toBe("50 / -30");
   });
 
-  it("PM unsettled uses bet×odds−stake preview like A8", () => {
+  it("PM unsettled uses shares×$1 − stake (price path, no odds)", () => {
+    // 50 份 × $1 − 25U 成本 → 25U × 6.8 = 170
     const text = orderLinkLegend([
-      { Status: "None", BetMoney: 100, Odds: 2.0, Money: 0, Type: "Polymarket" },
+      {
+        Status: "None",
+        BetMoney: 170,
+        Odds: 2.0,
+        Money: 0,
+        Type: "Polymarket",
+        PmSide: "buy",
+        PmShares: 50,
+        PmStakeUsdc: 25,
+        PmFillPrice: 0.5,
+      },
     ]);
-    expect(text).toBe("100");
+    expect(text).toBe("170");
   });
 
   it("PF unsettled legend uses shares×$1 − notional (price path)", () => {
@@ -258,8 +294,8 @@ describe("orderLink A8 parity", () => {
     expect(text).toBe("204");
   });
 
-  it("PF unsettled legend prefers hold shares for win payout", () => {
-    // 持仓 43.33075 − 名义 14.12 = 29.21075U → ×6.8 ≈ 199
+  it("PF unsettled legend uses truncated hold × $1 for win payout", () => {
+    // 持仓展示/回款截断 43.33 − 名义 14.12 = 29.21U → ×6.8 ≈ 199
     const text = orderLinkLegend([
       {
         Status: "None",

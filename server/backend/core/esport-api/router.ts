@@ -483,8 +483,9 @@ async function handle(
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetData": {
+      // ACCOUNT 唯一真相是 players：每次 GetData 从 RDS 回源，避免内存缓存缺行误伤保存
       if (body.key === "ACCOUNT" && ctx.user?.id) {
-        await dbStore.refreshAccountsFromRdsIfEmpty(ctx.user.id);
+        await dbStore.loadAccountsForUser(ctx.user.id);
       }
       const data = accountService.handleGetData(body.key, ctx.user.id);
       // ACCOUNT/PROXY ? key ????? JSON??? ok() ??

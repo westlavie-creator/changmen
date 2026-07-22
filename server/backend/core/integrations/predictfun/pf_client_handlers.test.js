@@ -491,8 +491,7 @@ describe("pf_client_handlers", () => {
         pfOrderHash: "0xbuy1",
         pfMarketId: "830202",
         pfTokenId: "tok",
-        // 仅毛份额 wei，无 pfShares / hold → 有手续费时不得回退毛份额
-        pfSharesWei: "44125000000000000000",
+        // 有 SHARES 手续费但无成交份额 → 无法算净持仓，不得瞎卖
         pfFeeType: "SHARES",
         pfFeeAmountWei: "794250000000000000",
         pfSide: "buy",
@@ -501,7 +500,35 @@ describe("pf_client_handlers", () => {
     }]);
     const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
     expect(r.ok).toBe(false);
-    expect(String(r.msg)).toMatch(/净持仓/);
+    expect(String(r.msg)).toMatch(/净持仓|份额/);
+  });
+
+  it("submitSell sells exact hold wei = fillWei − feeWei", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 14.12,
+      money: 0,
+      odds: 3.125,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "44125000000000000000",
+        pfFeeType: "SHARES",
+        pfFeeAmountWei: "794250000000000000",
+        pfSide: "buy",
+        pfSellState: "open",
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    const { createAndSubmitHouseMarketSell } = await import("./pf_order_service.js");
+    const soldWei = BigInt(String(createAndSubmitHouseMarketSell.mock.calls.at(-1)[0].sharesWei));
+    expect(soldWei).toBe(43330750000000000000n);
   });
 
   it("submitSell does not credit when official status is not FILLED", async () => {

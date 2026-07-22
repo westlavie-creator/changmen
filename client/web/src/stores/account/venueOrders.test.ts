@@ -81,9 +81,13 @@ describe("applyUnsettledStats", () => {
         provider: "PredictFun",
         pfSide: "buy",
         pfSellState: "open",
+        // 回款敞口 = 截断持仓×汇率；约等于旧 odds×betMoney=100
+        pfHoldShares: 100 / 6.8,
+        pfBookPrice: 0.5,
       },
     ]);
     expect(acc.unsettle).toBe(1);
-    expect(acc.winBalance).toBe(500 + 2 * 50);
+    // 截断后持仓×汇率：trunc(100/6.8,2)*6.8
+    expect(acc.winBalance).toBeCloseTo(500 + Math.trunc((100 / 6.8) * 100 + 1e-9) / 100 * 6.8, 8);
   });
 });

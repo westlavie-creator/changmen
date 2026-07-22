@@ -10,9 +10,12 @@ import {
   pfOrderSharesText,
   pfOrderSideTagText,
   pfOrderStakeDisplayCny,
+  pfUnrealizedPnlAtLiveCny,
   resolvePfDisplayShares,
   resolvePfOrderListStatusClass,
+  truncateSharesDisplay,
 } from "./pfOrderDisplay";
+import { formatLiveUnrealizedPnlText } from "./pmOrderDisplay";
 import type { OrderRow } from "@/types/order";
 import {
   __resetPredictFunTokenMarketIdsForTests,
@@ -77,7 +80,7 @@ describe("pfOrderDisplay", () => {
     expect(pfOrderItemText(pfBuy)).toBe("Team A");
   });
 
-  it("shows buy fill shares (PM parity), not hold-after-fee", () => {
+  it("shows buy hold shares truncated to 2dp (no round)", () => {
     const row: OrderRow = {
       ...pfBuy,
       PfShares: 44.125,
@@ -85,19 +88,24 @@ describe("pfOrderDisplay", () => {
       PfFeeAmountWei: "794250000000000000",
       PfHoldShares: 43.33075,
     };
-    expect(resolvePfDisplayShares(row)).toBe(44.125);
-    expect(pfOrderSharesText(row)).toBe("44.125");
+    expect(resolvePfDisplayShares(row)).toBeCloseTo(43.33075, 8);
+    expect(pfOrderSharesText(row)).toBe("43.33");
+    // 截断非四舍五入：43.339 → 43.33
+    expect(pfOrderSharesText({
+      ...pfBuy,
+      PfHoldShares: 43.339,
+    })).toBe("43.33");
   });
 
-  it("keeps fill shares when hold differs", () => {
+  it("prefers PfHoldShares over fill for buy display", () => {
     expect(pfOrderSharesText({
       ...pfBuy,
       PfShares: 44.125,
       PfHoldShares: 43.33075,
-    })).toBe("44.125");
+    })).toBe("43.33");
   });
 
-  it("keeps gross shares for sell row", () => {
+  it("sell row shares also truncate to 2dp", () => {
     expect(resolvePfDisplayShares({ ...pfBuy, PfShares: 44.125 })).toBe(44.125);
     expect(pfOrderSharesText({
       ...pfBuy,
@@ -105,7 +113,27 @@ describe("pfOrderDisplay", () => {
       PfShares: 44.125,
       PfFeeType: "SHARES",
       PfFeeAmountWei: "794250000000000000",
-    })).toBe("44.125");
+    })).toBe("44.12");
+  });
+
+  it("truncateSharesDisplay never rounds up", () => {
+    expect(truncateSharesDisplay(43.33075)).toBe("43.33");
+    expect(truncateSharesDisplay(43.339)).toBe("43.33");
+    expect(truncateSharesDisplay(1.999)).toBe("1.99");
+    expect(truncateSharesDisplay(2)).toBe("2.00");
+  });
+
+  it("marks unrealized pnl from live price × hold − notional", () => {
+    const row: OrderRow = {
+      ...pfBuy,
+      PfHoldShares: 43.33075,
+      PfNotionalUsdt: 14.12,
+      PfBookPrice: 0.32,
+    };
+    // 43.33075*0.4 - 14.12 ≈ 3.21U → ×6.8 ≈ 22
+    expect(pfUnrealizedPnlAtLiveCny(row, 0.4)).toBe(22);
+    expect(pfUnrealizedPnlAtLiveCny(row, 0.2)).toBe(-37);
+    expect(formatLiveUnrealizedPnlText(22)).toBe("浮盈：+22");
   });
 
   it("lifecycle tag is 已结算 for market settle; full sell has no tag", () => {

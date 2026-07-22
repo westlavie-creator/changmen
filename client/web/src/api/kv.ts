@@ -47,9 +47,14 @@ export async function getClientDataArray<T>(key: string): Promise<T[]> {
     body: JSON.stringify({ key }),
   });
   if (!res.ok)
-    return [];
+    throw new Error(`Client_GetData(${key}) HTTP ${res.status}`);
   const data = await res.json();
-  return Array.isArray(data) ? (data as T[]) : [];
+  if (Array.isArray(data))
+    return data as T[];
+  // 兼容偶发 { success, info: [] } 包裹（直连/代理不一致时）
+  if (data && typeof data === "object" && Array.isArray((data as { info?: unknown }).info))
+    return (data as { info: T[] }).info;
+  return [];
 }
 
 export function isEsportSuccess(data: ApiEnvelope<unknown> | null | undefined): boolean {

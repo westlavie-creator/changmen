@@ -47,6 +47,8 @@ async function handleCreateTagPlatform(body, userId) {
       userId,
       { venueMemberId, provider },
     );
+    // CreateTagPlatform 只写 players，主动回源，避免随后 GetData 命中缺行的内存缓存
+    await dbStore.loadAccountsForUser(userId);
     return { ok: true, info: created };
   }
   catch (err) {

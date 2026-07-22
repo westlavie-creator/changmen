@@ -10,7 +10,12 @@ const saving = ref(false);
 const refreshing = ref(false);
 
 async function load() {
-  rows.value = await getClientDataArray<WalletRow>("Wallet");
+  try {
+    rows.value = await getClientDataArray<WalletRow>("Wallet");
+  }
+  catch {
+    rows.value = [];
+  }
 }
 
 async function persist() {

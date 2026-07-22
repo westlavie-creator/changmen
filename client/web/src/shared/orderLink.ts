@@ -3,6 +3,7 @@ import type { LoseOrder } from "@/models/loseOrder";
 import { hasOpenPolymarketPosition, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@changmen/client-core/shared/format";
 import { Currency, getExchange } from "@changmen/shared/currency";
+import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
 
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {
@@ -651,23 +652,34 @@ function orderLegendPfStakeUsdt(row: OrderRow): number {
   return Number(row.BetMoney) || 0;
 }
 
-/** PF 赢单回款 USDT：持仓份额×$1；否则 名义/买入价 */
+/** PF 赢单回款 USDT：截断两位后的持仓 × $1；无持仓时用 名义/买入价（不用赔率） */
 function orderLegendPfWinPayoutUsdt(row: OrderRow): number {
   const hold = Number(row.PfHoldShares);
   if (Number.isFinite(hold) && hold > 0)
-    return hold;
+    return truncateShareUsdtAmount(hold);
   const fill = Number(row.PfShares);
   if (Number.isFinite(fill) && fill > 0)
-    return fill;
+    return truncateShareUsdtAmount(fill);
   const stake = orderLegendPfStakeUsdt(row);
   const book = Number(row.PfBookPrice);
   if (stake > 0 && Number.isFinite(book) && book > 0 && book < 1)
-    return stake / book;
-  // 无价格字段时才用 1/odds 还原价格（非赔率主路径）
-  const odds = Number(row.Odds);
-  if (stake > 0 && Number.isFinite(odds) && odds > 1)
-    return stake * odds;
-  return stake;
+    return truncateShareUsdtAmount(stake / book);
+  return 0;
+}
+
+/** PM 赢单回款 CNY：剩余持仓份额 × $1 × 汇率（不用赔率） */
+function orderLegendPmWinPayoutCny(row: OrderRow): number {
+  const rem = resolvePmRemainingShares(row);
+  if (rem > 0.0001)
+    return rem * getExchange(Currency.USDT);
+  const fill = Number(row.PmShares) || 0;
+  if (fill > 0.0001)
+    return fill * getExchange(Currency.USDT);
+  const usdc = Number(row.PmStakeUsdc) || 0;
+  const price = Number(row.PmFillPrice);
+  if (usdc > 0 && Number.isFinite(price) && price > 0 && price < 1)
+    return (usdc / price) * getExchange(Currency.USDT);
+  return 0;
 }
 
 function orderLegendExposureBet(row: OrderRow): number {
@@ -675,16 +687,24 @@ function orderLegendExposureBet(row: OrderRow): number {
     const usdc = Number(row.PmStakeUsdc) || 0;
     if (usdc > 0)
       return usdc * getExchange(Currency.USDT);
+    // 旧单无 pmStakeUsdc：BetMoney 已是 CNY 本金
+    return Number(row.BetMoney) || 0;
   }
   if (isPredictFunOrderRow(row))
     return orderLegendPfStakeUsdt(row) * getExchange(Currency.USDT);
   return Number(row.BetMoney) || 0;
 }
 
-/** 若该腿赢：回款 CNY（PF 用份额×$1；其它场馆仍 bet×odds） */
+/**
+ * 若该腿赢：回款 CNY。
+ * - PM/PF：份额 × $1（价格市场）；不用赔率
+ * - 其它场馆：bet × odds（套利腿仍可走赔率）
+ */
 function orderLegendWinPayoutCny(row: OrderRow): number {
   if (isPredictFunOrderRow(row))
     return orderLegendPfWinPayoutUsdt(row) * getExchange(Currency.USDT);
+  if (isPolymarketOrderRow(row))
+    return orderLegendPmWinPayoutCny(row);
   return orderLegendExposureBet(row) * (Number(row.Odds) || 0);
 }
 

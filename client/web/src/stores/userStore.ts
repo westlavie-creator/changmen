@@ -177,8 +177,13 @@ export const useUserStore = defineStore("user", {
     async loadExtras(force = false) {
       if (this.extrasLoaded && !force)
         return;
-      const proxies = await getClientDataArray<ProxyRow>("PROXY");
-      this.proxyList = proxies.filter(p => p?.proxyId != null);
+      try {
+        const proxies = await getClientDataArray<ProxyRow>("PROXY");
+        this.proxyList = proxies.filter(p => p?.proxyId != null);
+      }
+      catch {
+        /* PROXY GetData 失败时保留已有列表 */
+      }
       const msg = await getClientData<MessageConfig>("Message");
       this.message = msg ?? {};
       const ext = await getClientData<ExtensionPrefs>("Extensions");

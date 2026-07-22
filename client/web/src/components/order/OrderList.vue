@@ -23,6 +23,8 @@ import {
   pmOrderSharesText,
   pmOrderSideTagText,
   pmOrderStakeDisplayCny,
+  pmUnrealizedPnlAtLiveCny,
+  formatLiveUnrealizedPnlText,
   resolvePmOrderListStatusClass,
 } from "@/shared/pmOrderDisplay";
 import {
@@ -43,6 +45,7 @@ import {
   pfOrderSideTagText,
   pfOrderStakeDisplayCny,
   pfStakeLabel,
+  pfUnrealizedPnlAtLiveCny,
   resolvePfOrderListStatusClass,
 } from "@/shared/pfOrderDisplay";
 import { ensurePfOrderLabelIndex } from "@/shared/pfOrderLabelIndex";
@@ -230,6 +233,14 @@ function pmLivePriceText(row: OrderRow): string {
   return live != null ? formatPolymarketApiDecimal(live) : "—";
 }
 
+function pmLiveUnrealizedPnlCny(row: OrderRow): number | null {
+  return pmUnrealizedPnlAtLiveCny(row, pmLiveClobPrice(row));
+}
+
+function pmLiveUnrealizedPnlText(row: OrderRow): string | null {
+  return formatLiveUnrealizedPnlText(pmLiveUnrealizedPnlCny(row));
+}
+
 /** 有 live 才显示「当前赔率」；无 live 时不跟买入赔率冒充 */
 function pmShowLiveOdds(row: OrderRow): boolean {
   return pmShowLivePrice(row) && pmLiveClobPrice(row) != null;
@@ -276,6 +287,14 @@ function pfShowLivePrice(row: OrderRow): boolean {
 function pfLivePriceText(row: OrderRow): string {
   const live = pfLiveClobPrice(row);
   return live != null ? formatPolymarketApiDecimal(live) : "—";
+}
+
+function pfLiveUnrealizedPnlCny(row: OrderRow): number | null {
+  return pfUnrealizedPnlAtLiveCny(row, pfLiveClobPrice(row));
+}
+
+function pfLiveUnrealizedPnlText(row: OrderRow): string | null {
+  return formatLiveUnrealizedPnlText(pfLiveUnrealizedPnlCny(row));
 }
 
 function pfShowLiveOdds(row: OrderRow): boolean {
@@ -665,6 +684,14 @@ function badgeTitle(row: OrderRow): string {
                   <span class="order__sell-row-meta">
                     <span v-if="pmShowLivePrice(block.row)">当前价：{{ pmLivePriceText(block.row) }} </span>
                     <span v-if="pmShowLiveOdds(block.row)">当前赔率：<span class="order__odds">{{ pmLastLineOddsText(block.row) }}</span> </span>
+                    <span
+                      v-if="pmLiveUnrealizedPnlText(block.row)"
+                      class="order__live-pnl"
+                      :class="{
+                        pos: (pmLiveUnrealizedPnlCny(block.row) ?? 0) > 0,
+                        neg: (pmLiveUnrealizedPnlCny(block.row) ?? 0) < 0,
+                      }"
+                    >{{ pmLiveUnrealizedPnlText(block.row) }}</span>
                   </span>
                   <button
                     v-if="showPmSellButton(block.row)"
@@ -708,6 +735,14 @@ function badgeTitle(row: OrderRow): string {
                   <span class="order__sell-row-meta">
                     <span v-if="pfShowLivePrice(block.row)">当前价：{{ pfLivePriceText(block.row) }} </span>
                     <span v-if="pfShowLiveOdds(block.row)">当前赔率：<span class="order__odds">{{ pfLastLineOddsText(block.row) }}</span> </span>
+                    <span
+                      v-if="pfLiveUnrealizedPnlText(block.row)"
+                      class="order__live-pnl"
+                      :class="{
+                        pos: (pfLiveUnrealizedPnlCny(block.row) ?? 0) > 0,
+                        neg: (pfLiveUnrealizedPnlCny(block.row) ?? 0) < 0,
+                      }"
+                    >{{ pfLiveUnrealizedPnlText(block.row) }}</span>
                   </span>
                   <button
                     v-if="showPfSellButton(block.row)"

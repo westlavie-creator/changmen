@@ -16,6 +16,8 @@ import {
   computeOrderGroupProfit,
   polymarketMoneyForAggregate,
 } from "@/shared/orderLink";
+import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
+import { resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
@@ -150,25 +152,33 @@ export const useOrderStore = defineStore("order", {
           acc.winBalance
             = (acc.balance ?? 0)
               + unsettled.reduce((sum, r) => {
-                const odds = Number(r.Odds) || 0;
+                const fx = getExchange(Currency.USDT);
                 if (String(r.Type ?? "") === "Polymarket" && r.PmSide !== "sell") {
+                  const rem = resolvePmRemainingShares(r);
+                  if (rem > 0.0001)
+                    return sum + rem * fx;
+                  const fill = Number(r.PmShares) || 0;
+                  if (fill > 0.0001)
+                    return sum + fill * fx;
                   const stakeUsdc = Number(r.PmStakeUsdc) || 0;
-                  if (stakeUsdc > 0)
-                    return sum + stakeUsdc * getExchange(Currency.USDT) * odds;
+                  const price = Number(r.PmFillPrice);
+                  if (stakeUsdc > 0 && price > 0 && price < 1)
+                    return sum + (stakeUsdc / price) * fx;
                   return sum;
                 }
                 if (String(r.Type ?? "") === "PredictFun" && r.PfSide !== "sell") {
-                  // 未结敞口：潜在回款 CNY ≈ 持仓份额×汇率（对齐侧栏结算口径）
                   const hold = Number(r.PfHoldShares) || 0;
                   const fill = Number(r.PfShares) || 0;
                   const shares = hold > 0 ? hold : fill;
                   if (shares > 0)
-                    return sum + shares * getExchange(Currency.USDT);
+                    return sum + truncateShareUsdtAmount(shares) * fx;
                   const notional = Number(r.PfNotionalUsdt) || Number(r.BetMoney) || 0;
-                  if (notional > 0 && odds > 1)
-                    return sum + notional * getExchange(Currency.USDT) * odds;
+                  const book = Number(r.PfBookPrice);
+                  if (notional > 0 && book > 0 && book < 1)
+                    return sum + truncateShareUsdtAmount(notional / book) * fx;
                   return sum;
                 }
+                const odds = Number(r.Odds) || 0;
                 return sum + (Number(r.BetMoney) || 0) * odds;
               }, 0);
         }

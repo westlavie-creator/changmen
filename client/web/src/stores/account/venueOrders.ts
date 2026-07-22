@@ -1,10 +1,12 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
-import { hasOpenPolymarketPosition } from "@changmen/venue-adapter/polymarket";
+import { hasOpenPolymarketPosition, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import { Currency, getExchange } from "@changmen/shared/currency";
+import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
+
 function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
   if (o.status !== "none")
     return false;
@@ -17,15 +19,35 @@ function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
   return true;
 }
 
-/** PM 未结敞口：剩余成本 pmStakeUsdc×汇率×赔率；勿用原始 betMoney（满仓） */
+/** 未结敞口 CNY：PM/PF 用份额×$1×汇率；其它场馆仍 bet×odds */
 function unsettledExposureCny(o: VenueOrder): number {
-  const odds = Number(o.odds) || 0;
+  const fx = getExchange(Currency.USDT);
   if (o.provider === "Polymarket" && o.pmSide !== "sell") {
+    const rem = resolvePmRemainingShares(o);
+    if (rem > 0.0001)
+      return rem * fx;
+    const fill = Number(o.pmShares) || 0;
+    if (fill > 0.0001)
+      return fill * fx;
     const stakeUsdc = Number(o.pmStakeUsdc) || 0;
-    if (stakeUsdc > 0)
-      return stakeUsdc * getExchange(Currency.USDT) * odds;
+    const price = Number(o.pmFillPrice);
+    if (stakeUsdc > 0 && price > 0 && price < 1)
+      return (stakeUsdc / price) * fx;
     return 0;
   }
+  if (o.provider === "PredictFun" && o.pfSide !== "sell") {
+    const hold = Number(o.pfHoldShares) || 0;
+    const fill = Number(o.pfShares) || 0;
+    const shares = hold > 0 ? hold : fill;
+    if (shares > 0)
+      return truncateShareUsdtAmount(shares) * fx;
+    const notional = Number(o.pfNotionalUsdt) || Number(o.betMoney) || 0;
+    const book = Number(o.pfBookPrice);
+    if (notional > 0 && book > 0 && book < 1)
+      return truncateShareUsdtAmount(notional / book) * fx;
+    return 0;
+  }
+  const odds = Number(o.odds) || 0;
   return odds * (Number(o.betMoney) || 0);
 }
 

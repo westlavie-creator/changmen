@@ -6,6 +6,7 @@ import {
 } from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { isAdminUser } from "../auth/admin_auth.js";
+import { computePfHoldShares } from "../integrations/predictfun/pf_fee.js";
 
 export function toDateKey(ts) {
   const d = new Date(Number(ts) || Date.now());
@@ -388,36 +389,28 @@ function resolveStoredLink(link, _orderId, createAt) {
 export { resolveStoredLink };
 
 /**
- * PF 买单真实持仓份额（对齐官网 positions）：成交份额 − SHARES 手续费。
- * 卖单不计算。读路径即时推算，不依赖是否已落库 pfHoldShares。
+ * PF 买单真实持仓份额（对齐官网）：成交 wei − SHARES 手续费 wei。
+ * 卖单不计算。读路径即时推算；优先已落库 pfHoldShares。
  */
 export function resolvePfHoldSharesFromRaw(raw) {
   if (!raw || typeof raw !== "object")
     return undefined;
   if (String(raw.pfSide ?? raw.PfSide ?? "").toLowerCase() === "sell")
     return undefined;
-  const shares = parseNum(raw.pfShares ?? raw.PfShares, 0);
-  if (!(shares > 0))
-    return undefined;
   const stored = parseNum(raw.pfHoldShares ?? raw.PfHoldShares, 0);
   if (stored > 0)
     return stored;
-  const type = String(raw.pfFeeType ?? raw.PfFeeType ?? "").toUpperCase();
-  const wei = String(raw.pfFeeAmountWei ?? raw.PfFeeAmountWei ?? "").trim();
-  if (type === "SHARES" && /^\d+$/.test(wei)) {
-    try {
-      const fee = Number(BigInt(wei)) / 1e18;
-      if (Number.isFinite(fee) && fee > 0) {
-        const net = shares - fee;
-        if (Number.isFinite(net) && net > 0)
-          return net;
-      }
-    }
-    catch {
-      /* ignore */
-    }
-  }
-  return shares;
+  const hold = computePfHoldShares({
+    pfSide: "buy",
+    pfShares: raw.pfShares ?? raw.PfShares,
+    pfSharesWei: raw.pfSharesWei ?? raw.PfSharesWei,
+    pfFeeType: raw.pfFeeType ?? raw.PfFeeType,
+    pfFeeAmountWei: raw.pfFeeAmountWei ?? raw.PfFeeAmountWei,
+  });
+  if (hold != null && hold > 0)
+    return hold;
+  const shares = parseNum(raw.pfShares ?? raw.PfShares, 0);
+  return shares > 0 ? shares : undefined;
 }
 
 /** 工作台 Client_GetOrder / 管理端 mapAdminOrderRow 共用，勿分叉 */
@@ -488,7 +481,7 @@ export function rowToOrder(r) {
     PfHoldShares: pfHoldShares,
     /**
      * 名义买入 USDT（限价×成交份额 / makerAmount，如 14.12）
-     * 与 BetMoney 实付成交额（如 13.68）区分；侧栏「投注金额」读此字段
+     * 用户扣款与侧栏「投注金额」优先读此字段；实付成交额在 PfFillCostUsdt（如 13.68）
      */
     PfNotionalUsdt: (() => {
       const n = parseNum(raw.pfNotionalUsdt, 0);

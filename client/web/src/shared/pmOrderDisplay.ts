@@ -226,7 +226,7 @@ export function pmOrderSideTagText(row: OrderRow): string | null {
   return isPmSellOrderListRow(row) ? "卖单" : "买单";
 }
 
-/** CLOB trade.price；旧单无字段时回退 odds；有卖出进度时勿用剩余 stake÷fill */
+/** CLOB trade.price；可用 stake/shares 推算；不再用赔率反推价格 */
 export function resolvePmFillPrice(row: OrderRow): number | null {
   const stored = Number(row.PmFillPrice);
   if (Number.isFinite(stored) && stored > 0 && stored < 1)
@@ -244,12 +244,6 @@ export function resolvePmFillPrice(row: OrderRow): number | null {
     && stakeUsdc > 0
   ) {
     const price = stakeUsdc / shares;
-    if (price > 0 && price < 1)
-      return price;
-  }
-  const odds = Number(row.Odds);
-  if (Number.isFinite(odds) && odds > 1) {
-    const price = 1 / odds;
     if (price > 0 && price < 1)
       return price;
   }
@@ -327,6 +321,46 @@ export function pmOrderOddsText(row: OrderRow): string {
     ? truncateOddsTo3(1 / price)
     : truncateOddsTo3(Number(row.Odds) || 0);
   return toFixed(odds, 3);
+}
+
+/**
+ * 未结买单按实时价标记浮盈亏（CNY，取整）。
+ * 市值 = 剩余份额 × 当前价；成本 = 剩余 pmStakeUsdc（无则 fill×买入价）。
+ */
+export function pmUnrealizedPnlAtLiveCny(
+  row: OrderRow,
+  livePrice: number | null | undefined,
+): number | null {
+  if (!isPmBuyOrderListRow(row))
+    return null;
+  const live = Number(livePrice);
+  if (!(live > 0 && live < 1))
+    return null;
+  const shares = resolvePmRemainingShares(row);
+  if (!(shares > 0.0001))
+    return null;
+  let costUsdc = Number(row.PmStakeUsdc);
+  if (!(Number.isFinite(costUsdc) && costUsdc > 0)) {
+    const fill = resolvePmFillShares(row);
+    const fillPrice = resolvePmFillPrice(row);
+    if (!(fill > 0.0001) || fillPrice == null)
+      return null;
+    costUsdc = fill * fillPrice;
+  }
+  const pnlUsdc = shares * live - costUsdc;
+  return Math.round(pnlUsdc * getExchange(Currency.USDT));
+}
+
+/** 侧栏实时浮盈亏文案 */
+export function formatLiveUnrealizedPnlText(pnlCny: number | null | undefined): string | null {
+  if (pnlCny == null || !Number.isFinite(pnlCny))
+    return null;
+  const n = Math.round(pnlCny);
+  if (n > 0)
+    return `浮盈：+${n}`;
+  if (n < 0)
+    return `浮亏：${n}`;
+  return `浮盈：0`;
 }
 
 /** 概率价 → 展示欧赔（与「当前价」同行时必须同源） */

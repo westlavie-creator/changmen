@@ -222,24 +222,68 @@ export function pfFeeSharesFromOrderRow(row: OrderRow): number | null {
 }
 
 /**
- * 订单栏展示份额：对齐 PM——买单展示原始成交份额；卖单展示卖出份额。
- * （扣费后净持仓仅用于卖出下单，不在订单栏改写成净持仓。）
+ * 用户端份额/回款：两位小数向 0 截断（不用四舍五入）。
+ * 例：43.33075 → 43.33；43.339 → 43.33
+ */
+export function truncateShareUsdtAmount(value: number): number {
+  if (!Number.isFinite(value) || value <= 0)
+    return 0;
+  return Math.trunc(value * 100 + 1e-9) / 100;
+}
+
+/**
+ * 用户端份额展示：固定两位小数，向 0 截断（不用四舍五入）。
+ */
+export function truncateSharesDisplay(value: number, decimals = 2): string {
+  if (decimals !== 2)
+    return truncateShareUsdtAmount(value).toFixed(2);
+  const t = truncateShareUsdtAmount(value);
+  if (t <= 0)
+    return "";
+  return t.toFixed(2);
+}
+
+/**
+ * 订单栏展示份额：买单显示扣费后持仓；卖单显示卖出份额。
  */
 export function resolvePfDisplayShares(row: OrderRow): number | null {
+  if (isPfSellOrderListRow(row)) {
+    const sold = Number(
+      row.PfShares ?? (row as { pfShares?: number }).pfShares,
+    );
+    if (!Number.isFinite(sold) || sold <= 0.0001)
+      return null;
+    return sold;
+  }
+
+  const hold = Number(
+    row.PfHoldShares ?? (row as { pfHoldShares?: number }).pfHoldShares,
+  );
+  if (Number.isFinite(hold) && hold > 0.0001)
+    return hold;
+
+  // 无落库 hold 时用成交 − SHARES 手续费推算
   const fillShares = Number(
     row.PfShares ?? (row as { pfShares?: number }).pfShares,
   );
   if (!Number.isFinite(fillShares) || fillShares <= 0.0001)
     return null;
-  return fillShares;
+  const fee = pfFeeSharesFromOrderRow(row);
+  if (fee == null)
+    return fillShares;
+  const net = fillShares - fee;
+  if (!Number.isFinite(net) || net <= 0)
+    return null;
+  return net;
 }
 
-/** 份额展示：最多 8 位小数，去掉尾零（保留如 43.33075） */
+/** 份额展示：持仓两位截断 */
 export function pfOrderSharesText(row: OrderRow): string | null {
   const shares = resolvePfDisplayShares(row);
   if (shares == null)
     return null;
-  return formatPolymarketApiDecimal(shares, 8);
+  const text = truncateSharesDisplay(shares, 2);
+  return text || null;
 }
 
 /**
@@ -280,19 +324,13 @@ export function pfOrderSideTagText(row: OrderRow): string | null {
   return isPfSellOrderListRow(row) ? "卖单" : "买单";
 }
 
-/** 成交/限价概率价：优先库内 PfBookPrice，勿用赔率反推为主路径 */
+/** 成交/限价概率价：库内 PfBookPrice；不再用赔率反推 */
 export function resolvePfFillPrice(row: OrderRow): number | null {
   const book = Number(
     row.PfBookPrice ?? (row as { pfBookPrice?: number }).pfBookPrice,
   );
   if (Number.isFinite(book) && book > 0 && book < 1)
     return book;
-  const odds = Number(row.Odds);
-  if (Number.isFinite(odds) && odds > 1) {
-    const price = 1 / odds;
-    if (price > 0 && price < 1)
-      return price;
-  }
   return null;
 }
 
@@ -304,6 +342,9 @@ export function pfOrderFillPriceText(row: OrderRow): string | null {
 }
 
 export function pfOrderOddsText(row: OrderRow): string {
+  const price = resolvePfFillPrice(row);
+  if (price != null)
+    return toFixed(truncateOddsTo3(1 / price), 3);
   const odds = Number(row.Odds) || 0;
   if (odds <= 0)
     return "—";
@@ -314,6 +355,39 @@ export function pfOddsTextFromClobPrice(clob: number): string {
   if (!Number.isFinite(clob) || clob <= 0 || clob >= 1)
     return "—";
   return toFixed(truncateOddsTo3(1 / clob), 3);
+}
+
+/**
+ * 未结买单按实时价标记浮盈亏（CNY，取整）。
+ * 市值 = 持仓份额 × 当前价；成本 = 名义本金（USDT）。
+ */
+export function pfUnrealizedPnlAtLiveCny(
+  row: OrderRow,
+  livePrice: number | null | undefined,
+): number | null {
+  if (!isPfBuyOrderListRow(row))
+    return null;
+  const live = Number(livePrice);
+  if (!(live > 0 && live < 1))
+    return null;
+  const hold = Number(
+    row.PfHoldShares ?? (row as { pfHoldShares?: number }).pfHoldShares,
+  );
+  const fill = Number(
+    row.PfShares ?? (row as { pfShares?: number }).pfShares,
+  );
+  const shares = hold > 0 ? hold : fill;
+  if (!(Number.isFinite(shares) && shares > 0))
+    return null;
+  const notional = Number(
+    row.PfNotionalUsdt ?? (row as { pfNotionalUsdt?: number }).pfNotionalUsdt,
+  );
+  const cost = Number.isFinite(notional) && notional > 0
+    ? notional
+    : (Number(row.BetMoney) || 0);
+  if (!(cost > 0))
+    return null;
+  return Math.round(scaleUsdtToCnyDisplay(shares * live - cost));
 }
 
 export function pfMoneyText(n: number): string {
