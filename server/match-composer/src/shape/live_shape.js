@@ -121,7 +121,7 @@ export function promoteMap0ToDecider(rows, matches = {}) {
 
 /**
  * live Round>0：Map0 仅保留全场盘馆。
- * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（全场仍挂 Map0；局盘在各自 Map N）。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun / Limitless（全场仍挂 Map0；局盘在各自 Map N）。
  * trim 前保全 Initial*。
  */
 export function trimMapZeroLive(rows) {
@@ -140,6 +140,8 @@ export function trimMapZeroLive(rows) {
       kept.Polymarket = fullBet.Sources.Polymarket;
     if (fullBet.Sources?.PredictFun)
       kept.PredictFun = fullBet.Sources.PredictFun;
+    if (fullBet.Sources?.Limitless)
+      kept.Limitless = fullBet.Sources.Limitless;
     fullBet.Sources = kept;
   }
 }

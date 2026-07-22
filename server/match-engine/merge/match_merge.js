@@ -1258,7 +1258,7 @@ function promoteFullMatchSourcesToLiveRoundInPlace(rows, matches = {}) {
 
 /**
  * 进行中（Round > 0）：Map=0 全场行 Sources 仅保留全场盘馆。
- * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun（预测市仅有全场）。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun / Limitless（仅有全场）。
  * 均无 Map=0 时保留该行但清空 Sources，Initial* 供 Web 初赔行展示（不展示平台实时盘）。
  * 须在 promoteFullMatchSourcesToLiveRound 之后调用（先复制到 Map=R，再裁剪 Map=0）。
  */
@@ -1278,6 +1278,8 @@ function trimMapZeroToObOnDeciderRound(rows) {
       kept.Polymarket = fullBet.Sources.Polymarket;
     if (fullBet.Sources?.PredictFun)
       kept.PredictFun = fullBet.Sources.PredictFun;
+    if (fullBet.Sources?.Limitless)
+      kept.Limitless = fullBet.Sources.Limitless;
     fullBet.Sources = kept;
   }
   sortClientMatchBets(rows);
