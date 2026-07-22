@@ -34,7 +34,7 @@ export function resolvePmHttpMode(): PmHttpMode {
   return "vps";
 }
 
-/** 余额/语义 API 是否经 changmen VPS（否则浏览器 + 插件/direct） */
+/** HTTP 是否经 changmen VPS（余额已固定走 Pm_RefreshBalance，不依赖此开关） */
 export function isPmVpsHttpMode(): boolean {
   return resolvePmHttpMode() === "vps";
 }

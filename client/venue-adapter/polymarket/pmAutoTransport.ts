@@ -1,6 +1,9 @@
 import { probeGamebetExtension } from "@changmen/client-core/chrome-plugin/bridge";
 import { getPmMarketWsSourceMode, setPmMarketWsSourceMode, type PmMarketWsSourceMode } from "./pmMarketWsMode";
-import { probePolymarketOfficialReachable } from "./pmOfficialReachability";
+import {
+  probePolymarketClobViaExtension,
+  probePolymarketOfficialReachable,
+} from "./pmOfficialReachability";
 import { resolvePmHttpMode, setPmHttpMode, type PmHttpMode } from "./pmTransportMode";
 import { getPmUserWsSourceMode, setPmUserWsSourceMode, type PmUserWsSourceMode } from "./pmUserWsMode";
 
@@ -65,11 +68,56 @@ function notifyRoutingApplied(result: PmAutoTransportApplyResult) {
     listener(result);
 }
 
-async function resolveHttpModeForAutoRoute(marketWsOk: boolean): Promise<PmHttpMode> {
+/**
+ * HTTP 选 extension 的条件（自动路由）：
+ * Market WS 可达 + 插件在线 + 插件实测 CLOB /time 成功。
+ * 仅 WS onopen 不够——没翻墙时 WS 偶通也会误选 extension，余额/下单全挂。
+ */
+export async function resolveHttpModeForAutoRoute(marketWsOk: boolean): Promise<PmHttpMode> {
   if (!marketWsOk)
     return "vps";
   const extension = await probeGamebetExtension();
-  return extension ? "extension" : "vps";
+  if (!extension)
+    return "vps";
+  const clobOk = await probePolymarketClobViaExtension();
+  return clobOk ? "extension" : "vps";
+}
+
+/**
+ * 角标切换 Market WS 时同步 HTTP：
+ * - changmen → 强制 vps（本机官方 REST 不可用）
+ * - official → 再测插件 CLOB，通才 extension
+ */
+export async function syncPmHttpModeWithMarketWs(
+  marketWsMode: PmMarketWsSourceMode,
+): Promise<PmHttpMode> {
+  const httpMode = marketWsMode === "changmen"
+    ? "vps"
+    : await resolveHttpModeForAutoRoute(true);
+  setPmHttpMode(httpMode);
+  return httpMode;
+}
+
+/** 手动覆盖下纠偏 HTTP，避免卡在不可用的 extension */
+async function reconcileHttpUnderManualOverride(): Promise<PmHttpMode> {
+  let httpMode = resolvePmHttpMode();
+
+  // WS 已是 changmen 时，本机官方 REST 不可用 → 强制 vps
+  if (getPmMarketWsSourceMode() === "changmen" && httpMode !== "vps") {
+    setPmHttpMode("vps");
+    return "vps";
+  }
+
+  // WS 仍是 official 但 HTTP=extension：再测插件 CLOB；不通则降级（关墙后常见）
+  if (httpMode === "extension") {
+    const clobOk = await probePolymarketClobViaExtension();
+    if (!clobOk) {
+      setPmHttpMode("vps");
+      return "vps";
+    }
+  }
+
+  return httpMode;
 }
 
 async function applyModes(
@@ -101,17 +149,18 @@ async function applyModes(
 
 /**
  * 登录后：探测 Polymarket 官方 Market WS。
- * - 可达：WS 直连官方；HTTP 走浏览器插件代发（无插件则回退 VPS）
+ * - 可达：WS 直连官方；HTTP 仅当插件实测 CLOB 通才 extension，否则 VPS
  * - 不可达：WS + HTTP 均走 changmen VPS
- * 用户曾手动点角标切换时跳过自动路由（直到 logout 清除）。
+ * 用户曾手动点角标切换时跳过 WS 自动路由（直到 logout 清除）；仍会纠偏不可用的 extension HTTP。
  */
 export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportApplyResult> {
   if (readManualOverride()) {
+    const httpMode = await reconcileHttpUnderManualOverride();
     return {
       applied: false,
       skippedManualOverride: true,
       reachable: getPmMarketWsSourceMode() === "official",
-      httpMode: resolvePmHttpMode(),
+      httpMode,
       marketWsMode: getPmMarketWsSourceMode(),
       userWsMode: getPmUserWsSourceMode(),
     };

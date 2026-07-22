@@ -24,7 +24,11 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
     .catch(() => {});
 }
 
-/** PM 已存账号：vps 走 Pm_RefreshBalance；extension/direct 走 Provider.getBalance（插件代发） */
+/**
+ * PM 已存账号：一律 Pm_RefreshBalance（VPS 直连 CLOB）。
+ * 不跟 PM_HTTP_MODE 走——extension 模式仍从用户本机出网，没翻墙会刷不出余额；
+ * 保存前探测（无 accountId）仍走 Provider.getBalance。
+ */
 async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
   const providerId = String(account.provider ?? "").toLowerCase();
   // PredictFun house：服务端按授信 + 订单台账重算可用余额
@@ -51,17 +55,14 @@ async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalan
     }
   }
   if (providerId === "polymarket" && account.accountId) {
-    const { isPmVpsHttpMode } = await import("@changmen/venue-adapter/polymarket");
-    if (isPmVpsHttpMode()) {
-      const { refreshPmBalance } = await import("@/api/account");
-      const info = await refreshPmBalance(account.accountId);
-      if (!info || info.balance == null)
-        return undefined;
-      return {
-        balance: Number(info.balance),
-        currency: info.currency ?? Currency.USDT,
-      };
-    }
+    const { refreshPmBalance } = await import("@/api/account");
+    const info = await refreshPmBalance(account.accountId);
+    if (!info || info.balance == null)
+      return undefined;
+    return {
+      balance: Number(info.balance),
+      currency: info.currency ?? Currency.USDT,
+    };
   }
   const provider = getAdapter(account.provider)?.provider;
   return provider?.getBalance?.(account);

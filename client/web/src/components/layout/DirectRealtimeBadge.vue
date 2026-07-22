@@ -28,6 +28,7 @@ import {
   onPmAutoTransportApplied,
   pmMarketWsSourceModeLabel,
   pmUserWsSourceModeLabel,
+  syncPmHttpModeWithMarketWs,
   type PmMarketWsSourceMode,
   type PmUserWsSourceMode,
 } from "@changmen/venue-adapter/polymarket";
@@ -228,6 +229,7 @@ function handleVenueWsClick(entry: VenueWsStatusEntry): void {
   if (entry.id === "pm-market") {
     markPmTransportManualOverride();
     pmMarketWsSourceMode.value = cyclePmMarketWsSourceModeAndReconnect();
+    void syncPmHttpModeWithMarketWs(pmMarketWsSourceMode.value);
     ElMessage({
       message: `PM-M WS 已切换到${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}，正在重连`,
       type: "success",
