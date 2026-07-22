@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  toUserPfBalanceInfo,
   toUserPfGetOrderInfo,
   toUserPfSubmitOrderInfo,
   toUserPfSubmitSellInfo,
@@ -8,6 +9,34 @@ import {
 } from "./pf_user_dto.js";
 
 describe("pf_user_dto", () => {
+  it("balance info is ledger whitelist only", () => {
+    expect(toUserPfBalanceInfo({
+      accountId: 169,
+      balance: 0,
+      credit: 0,
+      currency: "USDT",
+      totalProfit: -35.3,
+      unsettle: 0,
+      orderCount: 6,
+      settledPnl: -35.3,
+      openStake: 0,
+      token: "{\"mode\":\"house\"}",
+      pause: true,
+      game: { "CS:GO": {} },
+      platformName: "PredictFun",
+    })).toEqual({
+      accountId: 169,
+      balance: 0,
+      credit: 0,
+      currency: "USDT",
+      totalProfit: -35.3,
+      unsettle: 0,
+      orderCount: 6,
+      settledPnl: -35.3,
+      openStake: 0,
+    });
+  });
+
   it("strips official fee / fill cost / execution ids from venue order", () => {
     const scrubbed = toUserPfVenueOrder({
       provider: "PredictFun",

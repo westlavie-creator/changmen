@@ -43,11 +43,24 @@ export async function refreshPmBalance(
   return res.success === 1 && res.info ? res.info : undefined;
 }
 
+/** [changmen 扩展] PF 余额刷新回包（账本字段；非整行 ACCOUNT） */
+export type PfBalanceInfo = {
+  accountId: number;
+  balance: number;
+  credit: number;
+  currency: string;
+  totalProfit?: number;
+  unsettle?: number;
+  orderCount?: number;
+  settledPnl?: number;
+  openStake?: number;
+};
+
 /** [changmen 扩展] PF：只读 RDS total_balance（可顺带结算）；禁止 Client_UpdateBalance */
 export async function refreshPfBalance(
   playerId: number,
-): Promise<AccountRecord | undefined> {
-  const res = await post<AccountRecord>(
+): Promise<PfBalanceInfo | undefined> {
+  const res = await post<PfBalanceInfo>(
     "Pf_RefreshBalance",
     { playerId },
     "",

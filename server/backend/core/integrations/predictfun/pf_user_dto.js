@@ -68,6 +68,33 @@ export function toUserPfVenueOrders(orders) {
 }
 
 /**
+ * Pf_RefreshBalance / 余额发布回包：只含账本字段，不含 ACCOUNT 整行配置。
+ * @param {Record<string, unknown>} info
+ */
+export function toUserPfBalanceInfo(info) {
+  if (!info || typeof info !== "object")
+    return info;
+  /** @type {Record<string, unknown>} */
+  const out = {
+    accountId: Number(info.accountId),
+    balance: Number(info.balance) || 0,
+    credit: 0,
+    currency: String(info.currency || "USDT"),
+  };
+  if (info.totalProfit != null)
+    out.totalProfit = Number(info.totalProfit) || 0;
+  if (info.unsettle != null)
+    out.unsettle = Number(info.unsettle) || 0;
+  if (info.orderCount != null)
+    out.orderCount = Number(info.orderCount) || 0;
+  if (info.settledPnl != null)
+    out.settledPnl = Number(info.settledPnl) || 0;
+  if (info.openStake != null)
+    out.openStake = Number(info.openStake) || 0;
+  return out;
+}
+
+/**
  * Pf_SubmitOrder 成功回包：仅受理结果 + changmen 报价，不含官网 result。
  * @param {Record<string, unknown>} info
  */

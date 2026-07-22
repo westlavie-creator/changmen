@@ -15,6 +15,7 @@ import { roundUsdt, summarizePfOrders } from "./pf_ledger.js";
 import { readPfLedgerState, readPfPendingCreditUsdt } from "./pf_lifecycle.js";
 import { rdsOrderKey } from "./pf_order_row.js";
 import { withHouseOrderLock } from "./pf_order_service.js";
+import { toUserPfBalanceInfo } from "./pf_user_dto.js";
 
 /** 避免与 account_service 循环依赖：就地写 ACCOUNT 缓存行 */
 export async function syncAccountRowInKv(accountId, updates, userId) {
@@ -107,7 +108,8 @@ export async function publishPfBalanceKnown(playerId, userId, balance) {
   const orders = await loadPfOrders(playerId, userId);
   const stats = summarizePfOrders(orders);
   const bal = roundUsdt(balance);
-  const synced = await syncAccountRowInKv(playerId, {
+  // KV 仍更新侧栏需要的统计；HTTP 回包不整行 ACCOUNT（中转只回账本字段）
+  await syncAccountRowInKv(playerId, {
     balance: bal,
     credit: 0,
     currency: "USDT",
@@ -118,8 +120,7 @@ export async function publishPfBalanceKnown(playerId, userId, balance) {
 
   return {
     ok: true,
-    info: {
-      ...(synced || {}),
+    info: toUserPfBalanceInfo({
       accountId: Number(playerId),
       balance: bal,
       credit: 0,
@@ -129,7 +130,7 @@ export async function publishPfBalanceKnown(playerId, userId, balance) {
       orderCount: stats.orderCount,
       settledPnl: stats.settledPnl,
       openStake: stats.openStake,
-    },
+    }),
   };
 }
 

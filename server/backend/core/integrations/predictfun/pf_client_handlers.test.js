@@ -444,6 +444,13 @@ describe("pf_client_handlers", () => {
     expect(r.ok).toBe(true);
     expect(r.info.balance).toBe(1000);
     expect(r.info.credit).toBe(0);
+    expect(r.info.accountId).toBe(42);
+    expect(r.info.currency).toBe("USDT");
+    expect(r.info.token).toBeUndefined();
+    expect(r.info.game).toBeUndefined();
+    expect(r.info.pause).toBeUndefined();
+    expect(r.info.platformName).toBeUndefined();
+    expect(r.info.rateConfig).toBeUndefined();
   });
 
   it("checkBet rejects when notional maker exceeds balance", async () => {
