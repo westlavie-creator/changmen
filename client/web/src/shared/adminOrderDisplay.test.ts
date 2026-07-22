@@ -3,6 +3,7 @@ import type { AdminAccountDetail, AdminOrderRow } from "@/types/admin";
 import {
   adminOrderToOrderRow,
   adminPlayerLabel,
+  countAdminPrimaryOrders,
   groupAdminOrderEntries,
 } from "./adminOrderDisplay";
 import {
@@ -176,5 +177,33 @@ describe("adminOrderDisplay", () => {
     expect(grouped[0]!.link).toBe(buyLink);
     expect(grouped[0]!.orderRows.map(r => r.OrderID).sort()).toEqual(["0xbuy", "0xsell"]);
     expect(grouped[0]!.orderRows.find(r => r.OrderID === "0xsell")?.Link).toBe(buyLink);
+  });
+
+  it("countAdminPrimaryOrders excludes PM/PF sells", () => {
+    expect(countAdminPrimaryOrders([
+      order({ id: 1, orderId: "ob1", provider: "OB" }),
+      order({
+        id: 2,
+        orderId: "0xbuy",
+        provider: "Polymarket",
+        pmSide: "buy",
+        linkId: 99,
+      }),
+      order({
+        id: 3,
+        orderId: "0xsell",
+        provider: "Polymarket",
+        pmSide: "sell",
+        pmBuyOrderId: "0xbuy",
+        linkId: 99,
+      }),
+      order({
+        id: 4,
+        orderId: "pf-sell",
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "pf-buy",
+      }),
+    ])).toBe(2);
   });
 });

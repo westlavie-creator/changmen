@@ -46,6 +46,17 @@ function isPredictionSellRawRow(row) {
   return Boolean(predictionSellBuyIdFromRaw(row));
 }
 
+/** 笔数统计用：PM/PF 卖单不计（不论是否挂上买单 id） */
+export function isPredictionSellForCount(row) {
+  const raw = orderRaw(row);
+  const provider = String(row?.provider || "").trim();
+  if (provider === "Polymarket")
+    return String(raw.pmSide || "").toLowerCase() === "sell";
+  if (provider === "PredictFun")
+    return String(raw.pfSide || "").toLowerCase() === "sell";
+  return false;
+}
+
 function mergeRawOrderRowsById(...lists) {
   const byId = new Map();
   for (const list of lists) {
@@ -844,20 +855,22 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
     (profiles || []).map(p => [String(p.id), String(p.user_name || "").trim()]),
   );
   const agg = new Map();
-  for (const o of orders || []) {
-    const uid = String(o.user_id || "");
-    if (!uid || adminIds.has(uid))
-      continue;
-    if (!agg.has(uid))
-      agg.set(uid, { money: 0, count: 0, betMoney: 0 });
-    const row = agg.get(uid);
-    const status = String(o.status || "");
-    if (status === "Reject")
-      continue;
-    row.money += Number(o.money) || 0;
-    row.betMoney += Number(o.bet_money) || 0;
-    row.count += 1;
-  }
+    for (const o of orders || []) {
+      const uid = String(o.user_id || "");
+      if (!uid || adminIds.has(uid))
+        continue;
+      if (!agg.has(uid))
+        agg.set(uid, { money: 0, count: 0, betMoney: 0 });
+      const row = agg.get(uid);
+      const status = String(o.status || "");
+      if (status === "Reject")
+        continue;
+      row.money += Number(o.money) || 0;
+      row.betMoney += Number(o.bet_money) || 0;
+      // 笔数不计 PM/PF 卖单（依附买单）；盈亏仍汇总该行
+      if (!isPredictionSellForCount(o))
+        row.count += 1;
+    }
   const result = [];
   for (const [uid, stats] of agg) {
     if (adminIds.has(uid))

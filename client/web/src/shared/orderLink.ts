@@ -73,12 +73,23 @@ function predictionSellParentBuyId(row: OrderRow): string {
   return "";
 }
 
-function isPredictionSellRow(row: OrderRow): boolean {
+/** PM/PF 卖单（依附买单展示，笔数统计不计） */
+export function isPredictionSellRow(row: OrderRow): boolean {
   if (isPolymarketOrderRow(row) && row.PmSide === "sell")
     return true;
   if (isPredictFunOrderRow(row) && row.PfSide === "sell")
     return true;
   return false;
+}
+
+/** 订单笔数：排除 PM/PF 卖单行（买卖成对只计买单/场馆腿） */
+export function countPrimaryOrderRows(rows: Iterable<OrderRow>): number {
+  let n = 0;
+  for (const row of rows) {
+    if (!isPredictionSellRow(row))
+      n += 1;
+  }
+  return n;
 }
 
 function isPredictionBuyRow(row: OrderRow): boolean {

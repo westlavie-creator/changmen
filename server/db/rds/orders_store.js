@@ -475,7 +475,7 @@ export async function fetchUserById(userId) {
   }
 }
 
-/** 管理端：当日订单汇总 */
+/** 管理端：当日订单汇总（笔数不计 PM/PF 卖单） */
 export async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
@@ -483,7 +483,7 @@ export async function fetchOrdersAdminStats(dateKey) {
     return { count: 0, money: 0, betMoney: 0 };
   try {
     const { rows } = await pool.query(
-      `SELECT money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     let count = 0;
@@ -492,9 +492,14 @@ export async function fetchOrdersAdminStats(dateKey) {
     for (const o of rows || []) {
       if (String(o.status || "") === "Reject")
         continue;
-      count += 1;
       money += Number(o.money) || 0;
       betMoney += Number(o.bet_money) || 0;
+      const raw = o.raw && typeof o.raw === "object" ? o.raw : {};
+      const provider = String(o.provider || "").trim();
+      const isSell = (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")
+        || (provider === "PredictFun" && String(raw.pfSide || "").toLowerCase() === "sell");
+      if (!isSell)
+        count += 1;
     }
     return { count, money, betMoney };
   }
@@ -649,7 +654,7 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
     return [];
   try {
     const params = [monthStart, monthEnd];
-    let sql = `SELECT create_at, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`;
+    let sql = `SELECT create_at, money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
@@ -675,7 +680,7 @@ export async function fetchOrdersForProfitAggregate(dateKey) {
     return [];
   try {
     const { rows } = await pool.query(
-      `SELECT user_id, money, bet_money, status FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT user_id, money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     return rows || [];

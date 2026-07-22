@@ -6,6 +6,7 @@ import {
   isSameOrderMatchMap,
   compareOrderLinkDesc,
   computeOrderGroupProfit,
+  countPrimaryOrderRows,
   dropOrphanPolymarketSellGroups,
   filterOrdersBelongingToDate,
   alignPredictionSellLinksToBuys,
@@ -730,5 +731,15 @@ describe("orderLink A8 parity", () => {
       Link: 1_700_000_000_100,
       Status: "Makeup",
     } as any)).toBe(false);
+  });
+
+  it("countPrimaryOrderRows excludes PM/PF sells", () => {
+    expect(countPrimaryOrderRows([
+      { OrderID: "ob", Type: "OB", Link: 1 },
+      { OrderID: "buy", Type: "Polymarket", Link: 1, PmSide: "buy" },
+      { OrderID: "sell", Type: "Polymarket", Link: 1, PmSide: "sell", PmBuyOrderId: "buy" },
+      { OrderID: "pf-sell", Type: "PredictFun", Link: 2, PfSide: "sell" },
+      { OrderID: "pf-buy", Type: "PredictFun", Link: 2, PfSide: "buy" },
+    ] as any)).toBe(3);
   });
 });

@@ -6,6 +6,7 @@ import { useRouter } from "vue-router";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { delay as esportDelay } from "@/api/apiDelay";
+import { countPrimaryOrderRows } from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
@@ -31,7 +32,8 @@ const { dayProfit } = storeToRefs(orderStore);
 
 const totalOrders = computed(() => {
   let n = 0;
-  for (const rows of orderStore.orders.values()) n += rows.length;
+  for (const rows of orderStore.orders.values())
+    n += countPrimaryOrderRows(rows);
   return n;
 });
 

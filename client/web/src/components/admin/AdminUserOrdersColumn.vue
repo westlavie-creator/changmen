@@ -4,7 +4,7 @@ import type { OrderRow } from "@/types/order";
 import { computed, ref, watch } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
-import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { adminPlayerLabel, countAdminPrimaryOrders, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 const props = defineProps<{
@@ -47,6 +47,10 @@ const orderEntries = computed(() =>
 
 const dayProfit = computed(() =>
   visibleOrders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
+);
+
+const primaryOrderCount = computed(() =>
+  countAdminPrimaryOrders(visibleOrders.value, props.accounts),
 );
 
 watch(
@@ -132,7 +136,7 @@ function onDeleteGroup(link: number) {
       >
         {{ fmtMoney(dayProfit) }}
       </span>
-      <span class="admin-orders-user-col__meta">{{ visibleOrders.length }} 笔</span>
+      <span class="admin-orders-user-col__meta">{{ primaryOrderCount }} 笔</span>
     </header>
 
     <div v-if="!orderEntries.length" class="admin-orders-user-col__empty">

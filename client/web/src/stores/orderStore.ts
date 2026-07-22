@@ -8,6 +8,7 @@ import {
   groupOrdersByEffectiveLink,
   isLinkedArbOrderGroup,
   isPolymarketOpenPosition,
+  isPredictionSellRow,
   orderBelongsToDateKey,
   orderLinkLegend,
   orderLinkMapEntries,
@@ -125,10 +126,14 @@ export const useOrderStore = defineStore("order", {
           continue;
         const profit = rows.reduce((sum, r) => sum + moneyOf(r), 0);
         acc.today = Math.round(profit);
-        acc.orderCount = rows.length;
+        // 笔数不计 PM/PF 卖单（依附买单）
+        const primaryCount = rows.filter(r => !isPredictionSellRow(r)).length;
+        acc.orderCount = primaryCount;
         if (today === todayKey()) {
-          acc.todayOrder = rows.length;
+          acc.todayOrder = primaryCount;
           const unsettled = rows.filter((r) => {
+            if (isPredictionSellRow(r))
+              return false;
             if (String(r.Status ?? "") !== "None")
               return false;
             if (String(r.Type ?? "") === "Polymarket")

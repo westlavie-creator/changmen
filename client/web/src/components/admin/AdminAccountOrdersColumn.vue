@@ -6,7 +6,7 @@ import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
-import { adminPlayerLabel, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { adminPlayerLabel, countAdminPrimaryOrders, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
 
 const props = withDefaults(defineProps<{
   provider: string;
@@ -41,6 +41,10 @@ const orderEntries = computed(() =>
 
 const dayProfit = computed(() =>
   props.orders.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
+);
+
+const primaryOrderCount = computed(() =>
+  countAdminPrimaryOrders(props.orders, props.accounts),
 );
 
 function fmtMoney(n: number) {
@@ -100,7 +104,7 @@ function onDeleteGroup(link: number) {
         >
           {{ fmtMoney(dayProfit) }}
         </span>
-        <span class="admin-orders-account-col__meta">{{ orders.length }} 笔</span>
+        <span class="admin-orders-account-col__meta">{{ primaryOrderCount }} 笔</span>
       </div>
     </header>
 

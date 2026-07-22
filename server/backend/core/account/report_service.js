@@ -59,7 +59,13 @@ export async function getMonthReport(month, userId, userIds) {
       continue;
     row.Profit += Number(o.money) || 0;
     row.BetMoney += Number(o.bet_money) || 0;
-    row.OrderCount += 1;
+    // 笔数不计 PM/PF 卖单（依附买单）
+    const raw = o.raw && typeof o.raw === "object" ? o.raw : {};
+    const provider = String(o.provider || "").trim();
+    const isSell = (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")
+      || (provider === "PredictFun" && String(raw.pfSide || "").toLowerCase() === "sell");
+    if (!isSell)
+      row.OrderCount += 1;
   }
 
   const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined, userIds);

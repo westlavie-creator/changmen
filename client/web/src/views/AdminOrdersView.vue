@@ -9,7 +9,7 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import { adminOrderDisplayProvider } from "@/shared/adminOrderDisplay";
+import { adminOrderDisplayProvider, countAdminPrimaryOrders } from "@/shared/adminOrderDisplay";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
@@ -173,6 +173,10 @@ const hasContent = computed(() =>
   groupMode.value === "account"
     ? accountColumns.value.length > 0
     : userColumns.value.length > 0,
+);
+
+const primaryOrderCount = computed(() =>
+  countAdminPrimaryOrders(filteredOrders.value, allAccounts.value),
 );
 
 const linkLinesKey = computed(() =>
@@ -415,10 +419,10 @@ onMounted(async () => {
         </span>
         <span class="admin-orders-profit-summary__meta">
           <template v-if="groupMode === 'account'">
-            {{ accountColumns.length }} 个账号 · {{ filteredOrders.length }} 笔订单
+            {{ accountColumns.length }} 个账号 · {{ primaryOrderCount }} 笔订单
           </template>
           <template v-else>
-            {{ userColumns.length }} 位用户 · {{ filteredOrders.length }} 笔订单
+            {{ userColumns.length }} 位用户 · {{ primaryOrderCount }} 笔订单
           </template>
         </span>
       </div>

@@ -9,12 +9,29 @@ import {
 } from "@/shared/orderDisplay";
 import {
   alignPredictionSellLinksToBuys,
+  countPrimaryOrderRows,
   groupOrdersByLink,
+  isPredictionSellRow,
   orderLinkMapEntries,
 } from "@/shared/orderLink";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 export { isArbGroup, orderLegendText, orderStatusClass };
+
+/** 管理端订单笔数：排除 PM/PF 卖单（与侧栏 countPrimaryOrderRows 同口径） */
+export function countAdminPrimaryOrders(
+  orders: AdminOrderRow[],
+  accounts: AdminAccountDetail[] = [],
+): number {
+  return countPrimaryOrderRows(orders.map(row => adminOrderToOrderRow(row, accounts)));
+}
+
+export function isAdminPredictionSellOrder(
+  row: AdminOrderRow,
+  accounts: AdminAccountDetail[] = [],
+): boolean {
+  return isPredictionSellRow(adminOrderToOrderRow(row, accounts));
+}
 
 interface AdminOrderDisplayAccount {
   accountId: number;
