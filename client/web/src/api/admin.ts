@@ -181,6 +181,27 @@ export async function getAdminPredictFunMembers() {
   return unwrap(await post<AdminPredictFunMemberRow[]>("Client_AdminPredictFunMembers", {}));
 }
 
+export interface AdminPredictFunFeeConfig {
+  buyFeeRateBps: number;
+  sellFeeRateBps: number;
+  buyFeeRatePercent: number;
+  sellFeeRatePercent: number;
+  updatedAt?: number | null;
+}
+
+export async function getAdminPredictFunFeeConfig() {
+  return unwrap(await post<AdminPredictFunFeeConfig>("Client_AdminGetPredictFunFeeConfig", {}));
+}
+
+export async function saveAdminPredictFunFeeConfig(body: {
+  buyFeeRatePercent?: number;
+  sellFeeRatePercent?: number;
+  buyFeeRateBps?: number;
+  sellFeeRateBps?: number;
+}) {
+  return unwrap(await post<AdminPredictFunFeeConfig>("Client_AdminSavePredictFunFeeConfig", body));
+}
+
 export async function ensureAdminPredictFunHouseAccount(userId: string) {
   return unwrap(
     await post<{ created: boolean; account: AdminAccountDetail }>(

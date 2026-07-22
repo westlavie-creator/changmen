@@ -256,9 +256,10 @@ html.admin-route #app > * {
 .admin-shell__content::-webkit-scrollbar {
   display: block;
   width: 8px;
+  height: 10px;
 }
 .admin-shell__content::-webkit-scrollbar-thumb {
-  background: rgba(120, 140, 175, 0.35);
+  background: rgba(120, 140, 175, 0.45);
   border-radius: 4px;
 }
 
@@ -337,11 +338,15 @@ html.admin-route #app > * {
   min-height: 280px;
 }
 .admin-card--orders {
-  overflow: visible;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 .admin-card--orders .admin-card__body {
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
 }
 .admin-card__scroll {
   flex: 1 1 auto;
@@ -840,8 +845,54 @@ html.admin-route #app > * {
   max-width: 340px;
 }
 .admin-orders-page__body {
-  overflow-x: auto;
+  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
+}
+/* 订单分列：唯一横向滚动口（宽度锁死视口，子行 max-content 溢出） */
+.admin-orders-hscroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: scroll;
   overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  cursor: grab;
+  padding-bottom: 6px;
+}
+.admin-orders-hscroll.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.admin-orders-hscroll::-webkit-scrollbar {
+  display: block !important;
+  height: 12px !important;
+}
+.admin-orders-hscroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 175, 0.55);
+  border-radius: 4px;
+}
+.admin-orders-hscroll::-webkit-scrollbar-track {
+  background: rgba(7, 11, 20, 0.35);
+  border-radius: 4px;
+}
+.admin-orders-by-account {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 12px;
+  position: relative;
+  overflow: visible;
+}
+.admin-orders-hscroll-btns {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 4px;
 }
 .admin-orders-user-col {
   flex: 0 0 340px;
@@ -970,19 +1021,6 @@ html.admin-route #app > * {
   white-space: nowrap;
 }
 /* 订单页：按投注账号分列（class 名与 AdminOrdersView 模板一致） */
-.admin-orders-by-account {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 12px;
-  width: max-content;
-  min-width: 100%;
-  padding-bottom: 12px;
-  position: relative;
-  overflow-x: auto;
-  overflow-y: visible;
-}
 .admin-orders-account-col {
   flex: 0 0 320px;
   width: 320px;
@@ -1336,14 +1374,6 @@ html.admin-route #app > * {
   border-radius: var(--adm-radius);
   overflow: visible;
   --el-table-border-color: var(--adm-border);
-}
-.admin-orders-el-table .el-table__inner-wrapper,
-.admin-orders-el-table .el-table__body-wrapper,
-.admin-orders-el-table .el-scrollbar__wrap {
-  overflow: visible !important;
-}
-.admin-shell .admin-orders-el-table .el-scrollbar__bar {
-  display: none !important;
 }
 .admin-orders-el-table .el-table__inner-wrapper::before {
   display: none;
@@ -2530,14 +2560,60 @@ html.admin-route #app > * {
   background: var(--adm-warning-soft);
 }
 
-/* Element Plus：后台内表格 — 无固定高度时不截获页面滚动 */
-.admin-shell .el-table .el-table__inner-wrapper,
-.admin-shell .el-table .el-table__body-wrapper,
-.admin-shell .el-table .el-scrollbar__wrap {
+/* Element Plus：后台表格允许横向滚动；纵向仍交给页面（见 AdminLayout wheel） */
+.admin-shell .el-table .el-table__inner-wrapper {
   overflow: visible !important;
 }
-.admin-shell .el-table .el-scrollbar__bar {
+.admin-shell .el-table .el-table__body-wrapper,
+.admin-shell .el-table .el-scrollbar__wrap {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+.admin-shell .el-table .el-scrollbar__bar.is-horizontal {
+  display: block !important;
+  height: 10px !important;
+  opacity: 1 !important;
+}
+.admin-shell .el-table .el-scrollbar__bar.is-vertical {
   display: none !important;
+}
+
+/* 宽表（PF 会员订单等）：强制出现横向滚动 */
+.admin-shell .admin-orders-el-table {
+  width: 100%;
+  max-width: 100%;
+}
+.admin-shell .admin-orders-el-table .el-table__inner-wrapper,
+.admin-shell .admin-orders-el-table .el-table__body-wrapper,
+.admin-shell .admin-orders-el-table .el-scrollbar__wrap {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+.admin-shell .admin-orders-el-table .el-scrollbar__bar.is-horizontal {
+  display: block !important;
+  height: 12px !important;
+  opacity: 1 !important;
+}
+.admin-shell .admin-orders-el-table .el-scrollbar__bar {
+  display: block !important;
+}
+.admin-shell .admin-orders-el-table .el-scrollbar__bar.is-vertical {
+  display: none !important;
+}
+.admin-pf-orders-body {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-pf-orders-body::-webkit-scrollbar {
+  display: block !important;
+  height: 12px !important;
+}
+.admin-pf-orders-body::-webkit-scrollbar-thumb {
+  background: rgba(120, 140, 175, 0.55);
+  border-radius: 4px;
 }
 
 /* ── Element Plus：后台内表格 / 表单 / 分页 ── */

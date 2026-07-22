@@ -141,15 +141,18 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
 ## 下注（VPS house 代下）
 
 - 浏览器：`checkBet` → `Pf_CheckBet`；`betting` → `Pf_SubmitOrder`（changmen JWT + `playerId`）
-- 确认：`getOrders` → `Pf_GetOrders`；`resolveLegOutcome`（仅 PF provider）轮询 `Pf_GetOrder`
+- 确认：`getOrders` → `Pf_GetOrders`（只读对齐；**不**再 `Client_SaveOrder`）；`resolveLegOutcome`（仅 PF provider）轮询 `Pf_GetOrder`
+  - 用户 RDS 写边界：仅下单意图（金额/价格/标的）经 `Pf_SubmitOrder`；仓位/fee/回款/状态仅服务端经 `upsertPfServerOrder` 写（**禁止**用户 `Client_SaveOrder`）
+  - 用户 API 读边界：只返回 changmen 处理结果（hold/名义/状态等）；不下发官网原文、`pfFillCost*`、官网 fee 明细（管理端仍完整）
   - 官方状态：`FILLED`→成交持仓；`CANCELLED`/`EXPIRED`/`INVALIDATED`→拒单并退还 `total_balance`；`OPEN`→继续等
   - **买单拒单/成交**：`Pf_GetOrder` 走 `fetchHousePredictOrderResolved`（REST + `predictWalletEvents` hint），与卖出确认同源加速
   - 手动下注：`betGateway` 在 `pending` 后后台 `settleArbLeg`（与 PM 同路径，仅多开 PredictFun）
   - **不改**共享 `resolveVenueLegOutcome` / `confirmPmPost`（PM 与其它场馆路径不变）
 - 市场结算：`Market.status=RESOLVED` + outcome `WON`/`LOST`（对 token=`onChainId`）
-  - Win：`total_balance += betMoney * odds`，订单 `money=盈利`
+  - Win：`total_balance +=` 用户持仓份额（`pfHoldShares`，两位向 0 截断）× **$1**；订单 `money = 回款 − 名义本金`
   - Lose：余额不变（下单已扣本金），订单 `money=-betMoney`
   - 触发：`Pf_RefreshBalance` / `Pf_GetOrders` / `Pf_SettleOpenOrders`
+  - 卡住恢复：`closing`（卖出官网已成交、fee 未齐）与 `pending_credit` 可在 `Pf_RefreshBalance` / `Pf_RecoverStuckOrders` 自动或手动补齐；运维脚本 `server/backend/scripts/pf-recover-stuck.mjs`
 - **卖出（1:1）**：订单栏对未结买单 → `Pf_SubmitSell({ buyOrderId })`
   - house 主号 MARKET FOK **SELL**；changmen 账号仅归属，不影响链上仓位归属逻辑
   - POST 受理后 **轮询官方 GetOrder 至 FILLED** 才入账；CANCELLED/超时 **不** 改买单、不加余额
@@ -158,7 +161,7 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
   - **卖单行**：官方卖出凭证 + 订单栏展示；`betMoney`=回款镜像（勿当本金），`money` 恒 0（不进组盈亏）
   - 一张卖单只绑一张买单（`pfBuyOrderId`）
   - 余额：`total_balance += proceeds`
-- 买单 FILLED：校正 `pfSharesWei`，并把 `betMoney` 回写为官方成交 USDT（`executedValue` / BUY `makerAmount`）；会员余额仍以下单扣款为准
+- 买单 FILLED：校正 `pfSharesWei` / `pfHoldShares`（扣官网 SHARES fee + Changmencodefee）；`betMoney` 保持名义扣款，实付写入 `pfFillCostUsdt`（用户 API 不下发）
 - 下单前校验 `tradingStatus=OPEN` 且市场非 RESOLVED/PAUSED/REMOVED
 - 到期 Win 后 best-effort `redeemPositions`（主号回笼 USDT）；管理端 `Pf_HouseRedeemResolved`
 - 余额：`players.total_balance`（`Pf_RefreshBalance`）；下单成功扣减；**不用** A8 `credit`

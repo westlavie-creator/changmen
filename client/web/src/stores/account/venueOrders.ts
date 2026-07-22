@@ -80,7 +80,10 @@ function stampPendingBindLink(orders: VenueOrder[], opts?: SyncVenueOrdersOpts):
     orders[0].link = linkId;
 }
 
-/** 对齐 A8 `uv.updateOrders` + `Vt.saveOrders`（全场馆统一 provider.getOrders） */
+/**
+ * 对齐 A8 `uv.updateOrders` + `Vt.saveOrders`（全场馆统一 provider.getOrders）。
+ * [changmen 扩展] PredictFun：只拉单更新本地统计，不 Client_SaveOrder（RDS 仅 Pf_* 写）。
+ */
 export async function syncVenueOrders(
   account: PlatformAccount,
   opts?: SyncVenueOrdersOpts,
@@ -94,7 +97,8 @@ export async function syncVenueOrders(
   const orders = sortVenueOrdersNewestFirst(raw);
   stampPendingBindLink(orders, opts);
   applyUnsettledStats(account, orders);
-  await saveOrders(account, orders);
+  if (String(account.provider ?? "").trim() !== "PredictFun")
+    await saveOrders(account, orders);
   return orders;
 }
 

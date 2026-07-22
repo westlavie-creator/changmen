@@ -33,6 +33,7 @@ export async function assertPlayersOwnedByUser(playerIds, userId) {
       ownerUserId: player.ownerUserId,
       platformId: player.platformId,
       platformName: player.platformName,
+      provider: String(player.provider || ""),
       playerName: player.playerName,
       credit: player.credit,
       totalBalance: player.totalBalance,
@@ -41,4 +42,13 @@ export async function assertPlayersOwnedByUser(playerIds, userId) {
     });
   }
   return { ok: true, players };
+}
+
+/** players 行是否为 PredictFun（不看用户可改的 ACCOUNT.provider） */
+export function isPredictFunPlayerRow(player) {
+  const provider = String(player?.provider ?? "").trim().toLowerCase();
+  if (provider === "predictfun")
+    return true;
+  const name = String(player?.platformName ?? "").trim().toLowerCase();
+  return name === "predictfun" || name.includes("predict.fun") || name.includes("predictfun");
 }

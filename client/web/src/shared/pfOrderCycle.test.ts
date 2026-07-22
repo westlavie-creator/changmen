@@ -36,12 +36,39 @@ describe("pfOrderCycle", () => {
     expect(pfNetShares(null, 0.84)).toBeNull();
   });
 
-  it("final: sold = official proceeds (fee is display-only)", () => {
+  it("final: sold = RDS sell proceeds as-is", () => {
     expect(resolvePfCycleFinalUsdt({
       buy: buy({ pfSellState: "closed" }),
       sold: true,
       sellProceedsUsdt: 12,
     })).toBe(12);
+  });
+
+  it("buildPfCycles reads RDS proceeds without client-side fee deduction", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xbuy1",
+        betMoney: 10,
+        pfSellState: "closed",
+        pfSellOrderId: "0xsell1",
+        pfSellProceeds: 13.5,
+      }),
+      {
+        ...buy({
+          orderId: "0xsell1",
+          pfSide: "sell",
+          pfBuyOrderId: "0xbuy1",
+          betMoney: 13.5,
+          money: 0,
+          pfFeeType: "COLLATERAL",
+          pfFeeUsdt: 0.25,
+        }),
+      },
+    ]);
+    expect(cycles[0].sellProceedsUsdt).toBe(13.5);
+    expect(cycles[0].sellFeeUsdt).toBe(0.25);
+    expect(cycles[0].finalUsdt).toBe(13.5);
+    expect(cycles[0].profitUsdt).toBe(3.5);
   });
 
   it("final: win = stake + money", () => {
@@ -74,6 +101,48 @@ describe("pfOrderCycle", () => {
     expect(resolvePfCycleProfitUsdt(15, 0)).toBe(-15);
     expect(resolvePfCycleProfitUsdt(10, 12)).toBe(2);
     expect(resolvePfCycleProfitUsdt(10, null)).toBeNull();
+  });
+
+  it("buildPfCycles ignores non-PredictFun arb siblings (e.g. PB)", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xpf",
+        provider: "PredictFun",
+        betMoney: 27.21,
+        status: "Lose",
+        money: -27.21,
+      }),
+      {
+        ...buy({
+          orderId: "753889052",
+          provider: "PB",
+          betMoney: 200,
+          money: 194,
+          status: "Win",
+          match: "Nuclear TigeRES -vs- ECHO",
+          bet: "地图1",
+          item: "ECHO",
+        }),
+        pfSide: undefined,
+      },
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].buy.orderId).toBe("0xpf");
+  });
+
+  it("buildPfCycles without hold falls back to fill shares (no client fee math)", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xlegacy",
+        pfShares: 46.428,
+        pfFeeType: "SHARES",
+        pfFeeAmountWei: "840000000000000000",
+      }),
+    ]);
+    expect(cycles[0].buyShares).toBeCloseTo(46.428, 5);
+    expect(cycles[0].buyFeeShares).toBeCloseTo(0.84, 5);
+    // 无 pfHoldShares：不在前端做 fill − fee
+    expect(cycles[0].netShares).toBeCloseTo(46.428, 5);
   });
 
   it("buildPfCycles joins sell onto buy and hides sell rows", () => {

@@ -42,14 +42,13 @@ export interface PfCheckBetResult {
 
 export interface PfSubmitOrderResult {
   orderId: string;
-  pfOrderHash?: string | null;
-  pfApiOrderId?: string | null;
   code?: string | null;
   bookPrice: number;
   bookOdds: number;
-  result?: unknown;
   playerId: number;
   pending?: boolean;
+  balance?: number;
+  totalProfit?: number;
 }
 
 export type PfOrderSettlement = "filled" | "unfilled" | "timeout";
@@ -59,8 +58,6 @@ export interface PfGetOrderResult {
   found: boolean;
   settlement: PfOrderSettlement;
   order: VenueOrder | null;
-  officialStatus?: string;
-  official?: unknown;
   refunded?: boolean;
 }
 

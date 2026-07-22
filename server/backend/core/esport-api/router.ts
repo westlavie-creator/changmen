@@ -30,6 +30,7 @@ import {
   handlePfGetOrder,
   handlePfGetOrders,
   handlePfHouseRedeemResolved,
+  handlePfRecoverStuckOrders,
   handlePfRefreshBalance,
   handlePfSettleOpenOrders,
   handlePfSubmitOrder,
@@ -611,6 +612,10 @@ async function handle(
       const pfRedeem = await handlePfHouseRedeemResolved(body, ctx.user.id);
       return pfRedeem.ok ? ok(pfRedeem.info) : fail(pfRedeem.msg);
     }
+    case "Pf_RecoverStuckOrders": {
+      const pfRecover = await handlePfRecoverStuckOrders(body, ctx.user.id);
+      return pfRecover.ok ? ok(pfRecover.info) : fail(pfRecover.msg);
+    }
     case "Client_GetMoneyLogs": {
       const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
       return page.ok ? ok(page.info) : fail(page.msg);
@@ -813,6 +818,22 @@ async function handle(
     case "Client_AdminPredictFunMembers": {
       try {
         return ok(await adminService.listAdminPredictFunMembers(ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminGetPredictFunFeeConfig": {
+      try {
+        return ok(await adminService.getAdminPredictFunFeeConfig(ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminSavePredictFunFeeConfig": {
+      try {
+        return ok(await adminService.saveAdminPredictFunFeeConfig(body, ctx.user));
       }
       catch (err) {
         return fail((err as Error).message || "操作失败");

@@ -31,28 +31,25 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
  */
 async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
   const providerId = String(account.provider ?? "").toLowerCase();
-  // PredictFun house：服务端按授信 + 订单台账重算可用余额
+  // PredictFun：余额以 RDS total_balance 为准，经 Pf_RefreshBalance 读取；禁止 Client_UpdateBalance
   if (providerId === "predictfun") {
-    const { isPredictFunHousePlaceholderAccount } = await import(
-      "@changmen/venue-adapter/predictfun"
-    );
-    if (isPredictFunHousePlaceholderAccount(account) && account.accountId) {
-      const { refreshPfBalance } = await import("@/api/account");
-      const info = await refreshPfBalance(account.accountId);
-      if (!info || info.balance == null)
-        return undefined;
-      if (info.totalProfit != null)
-        account.totalProfit = Number(info.totalProfit) || 0;
-      if (info.unsettle != null)
-        account.unsettle = Number(info.unsettle) || 0;
-      if (info.orderCount != null)
-        account.orderCount = Number(info.orderCount) || 0;
-      account.credit = 0;
-      return {
-        balance: Number(info.balance),
-        currency: resolveAccountCurrency(account.provider, info.currency ?? account.currency),
-      };
-    }
+    if (!account.accountId)
+      return undefined;
+    const { refreshPfBalance } = await import("@/api/account");
+    const info = await refreshPfBalance(account.accountId);
+    if (!info || info.balance == null)
+      return undefined;
+    if (info.totalProfit != null)
+      account.totalProfit = Number(info.totalProfit) || 0;
+    if (info.unsettle != null)
+      account.unsettle = Number(info.unsettle) || 0;
+    if (info.orderCount != null)
+      account.orderCount = Number(info.orderCount) || 0;
+    account.credit = 0;
+    return {
+      balance: Number(info.balance),
+      currency: resolveAccountCurrency(account.provider, info.currency ?? account.currency),
+    };
   }
   if (providerId === "polymarket" && account.accountId) {
     const { refreshPmBalance } = await import("@/api/account");
@@ -83,28 +80,18 @@ export async function refreshAccountBalance(
       // [changmen 扩展] venueMemberId / venueAccountName 仅账号保存时写入，Io.f 余额刷新不改写（对齐 A8 uv.updateBalance）
 
       const providerId = String(account.provider ?? "").toLowerCase();
-      // house 台账余额已由 Pf_RefreshBalance 写入 total_balance；勿再用前端 balance 覆盖
+      // PredictFun：RDS 已是真相；勿 Client_UpdateBalance 回写
       if (providerId === "predictfun") {
         try {
-          const { isPredictFunHousePlaceholderAccount } = await import(
-            "@changmen/venue-adapter/predictfun"
-          );
-          if (isPredictFunHousePlaceholderAccount(account)) {
-            try {
-              const { useMessageStore } = await import("@/stores/messageStore");
-              const msg = useMessageStore();
-              msg.balanceMessage(account);
-              msg.profitMessage(account);
-            }
-            catch {
-              /* 消息队列未启动时不阻断余额刷新 */
-            }
-            return;
-          }
+          const { useMessageStore } = await import("@/stores/messageStore");
+          const msg = useMessageStore();
+          msg.balanceMessage(account);
+          msg.profitMessage(account);
         }
         catch {
-          /* adapter 未加载时仍走通用路径 */
+          /* 消息队列未启动时不阻断余额刷新 */
         }
+        return;
       }
 
       const info = await updateBalance(account.accountId, account.balance);

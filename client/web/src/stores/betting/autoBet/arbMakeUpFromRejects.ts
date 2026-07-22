@@ -21,7 +21,7 @@ export interface ArbMakeUpPendingConfirm {
   pendingConfirmB?: boolean;
 }
 
-/** 编排层判定需补单后入队；赔率/初赔阈值在 jb 消费时按盘口检查 */
+/** 编排层判定需补单后入队；赔率/初赔阈值在 enqueue 内按败腿价走 A8 `B()` */
 export async function applyArbMakeUpFromRejects(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,

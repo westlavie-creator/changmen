@@ -222,6 +222,27 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(item.updateOdds).not.toHaveBeenCalled();
   });
 
+  it("jb still bets when list odds are high (A8: no makeUp_odds gate in consume)", async () => {
+    // 入队阈值已前移；消费期即使盘口价很高也应尝试下注（对照 index0706 jb 无 B()）
+    const item = makeItem("OB", 3.2);
+    const bet = makeBet([item]);
+    matchs.push(makeMatch(bet));
+    queueOrder({ betOdds: 1.85 });
+
+    const acc = new PlatformAccount({ accountId: 1, playerName: "ob1", provider: "OB" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue({ success: false, provider: "OB" });
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(getAccount).toHaveBeenCalled();
+    expect(betting).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps list-odds stake after checkBetting (A8 jb: no liveOdds recalc)", async () => {
     const item = makeItem("IA", 9.55);
     const bet = makeBet([item]);

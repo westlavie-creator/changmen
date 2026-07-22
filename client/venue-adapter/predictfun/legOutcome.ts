@@ -72,7 +72,7 @@ function findOrderInList(orders: VenueOrder[], orderId: string): VenueOrder | un
 
 /**
  * 轮询 Pf_GetOrder 直至 FILLED / 拒单终态 / 超时。
- * 成功 filled 时用 fetchVenueOrders 拉全量并 saveOrders（编排层）。
+ * 成功 filled 时用 fetchVenueOrders 拉全量更新本地统计（编排层；PF 不再 Client_SaveOrder）。
  */
 export async function resolvePredictFunLegOutcome(
   account: PlatformAccount,
@@ -203,7 +203,7 @@ export async function resolvePredictFunProviderLegOutcome(
     return sortVenueOrdersNewestFirst(await getOrders(account));
   };
 
-  // 与 PM 一致：仅 confirmPmPost 时进 GetOrder 轮询；拉单用编排 fetchVenueOrders（含 saveOrders）
+  // 与 PM 一致：仅 confirmPmPost 时进 GetOrder 轮询；拉单用编排 fetchVenueOrders（PF 不 saveOrders）
   if (result && opts?.confirmPmPost) {
     return resolvePredictFunLegOutcome(account, result, {
       ...opts,

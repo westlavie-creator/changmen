@@ -173,6 +173,309 @@ export async function upsertOrders(rows) {
   }
 }
 
+/**
+ * PredictFun pending_credit → 入账 + 标 credited（同事务，防双付）。
+ * 仅当 raw.pfLedgerState === pending_credit 时生效；amount 以库内 pfPendingCreditUsdt 为准。
+ * 拒单会顺带写 pfRefundedAt。
+ *
+ * @returns {{ ok: true, skipped?: boolean, amount: number, total?: number } | { ok: false }}
+ */
+export async function claimCreditPfPendingOrderRow(playerId, orderId, ownerUserId) {
+  const pid = Number(playerId);
+  const oid = String(orderId ?? "").trim();
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
+  if (!Number.isFinite(pid) || pid <= 0 || !oid || !uid)
+    return { ok: false };
+
+  const pool = getPgPool();
+  if (!pool)
+    return { ok: false };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const sel = await client.query(
+      `SELECT status, raw
+       FROM orders
+       WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3
+       FOR UPDATE`,
+      [uid, pid, oid],
+    );
+    const orderRow = sel.rows?.[0];
+    if (!orderRow) {
+      await client.query("ROLLBACK");
+      return { ok: false };
+    }
+
+    const raw = orderRow.raw && typeof orderRow.raw === "object" && !Array.isArray(orderRow.raw)
+      ? { ...orderRow.raw }
+      : {};
+    const ledger = String(raw.pfLedgerState ?? "").trim().toLowerCase();
+    if (ledger !== "pending_credit") {
+      await client.query("COMMIT");
+      return { ok: true, skipped: true, amount: 0 };
+    }
+
+    const amount = Math.round((Number(raw.pfPendingCreditUsdt) || 0) * 100) / 100;
+    let total;
+
+    if (amount > 0) {
+      const cred = await client.query(
+        `UPDATE players
+         SET total_balance = total_balance + $2, updated_at = $3
+         WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $4::uuid
+         RETURNING total_balance`,
+        [pid, amount, Date.now(), uid],
+      );
+      if (!cred.rows?.[0]) {
+        await client.query("ROLLBACK");
+        return { ok: false };
+      }
+      total = Math.round((Number(cred.rows[0].total_balance) || 0) * 100) / 100;
+    }
+    else {
+      const bal = await client.query(
+        `SELECT total_balance FROM players
+         WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $2::uuid`,
+        [pid, uid],
+      );
+      total = Math.round((Number(bal.rows?.[0]?.total_balance) || 0) * 100) / 100;
+    }
+
+    const patch = {
+      pfLedgerState: "credited",
+      pfPendingCreditUsdt: 0,
+    };
+    if (String(orderRow.status ?? "").toLowerCase() === "reject")
+      patch.pfRefundedAt = Date.now();
+
+    await client.query(
+      `UPDATE orders
+       SET raw = COALESCE(raw, '{}'::jsonb) || $4::jsonb
+       WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3
+         AND lower(COALESCE(raw->>'pfLedgerState', '')) = 'pending_credit'`,
+      [uid, pid, oid, JSON.stringify(patch)],
+    );
+    // FOR UPDATE 下应必然命中；若未命中则回滚，避免已入账却仍 pending
+    const check = await client.query(
+      `SELECT lower(COALESCE(raw->>'pfLedgerState', '')) AS ledger
+       FROM orders
+       WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3`,
+      [uid, pid, oid],
+    );
+    if (String(check.rows?.[0]?.ledger ?? "") !== "credited") {
+      await client.query("ROLLBACK");
+      return { ok: false };
+    }
+
+    await client.query("COMMIT");
+    return { ok: true, amount: amount > 0 ? amount : 0, total };
+  }
+  catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    }
+    catch {
+      /* ignore */
+    }
+    console.warn("[rds] claimCreditPfPendingOrderRow:", err.message);
+    return { ok: false };
+  }
+  finally {
+    client.release();
+  }
+}
+
+/**
+ * 卖出迟到 fee：同事务校正买单 proceeds / 卖单 bet_money，并按账本状态调整余额。
+ * - 买单仍 pending_credit：只改 pending 金额与 proceeds，不立刻动余额（后续 claim）
+ * - 已 credited：按 delta 入账或扣回（不足则回滚）
+ * 幂等：买单 pfSellProceeds 已等于 targetProceeds 则 skip。
+ *
+ * @returns {{ ok: true, skipped?: boolean, mode?: string, amount?: number, total?: number, delta?: number }
+ *   | { ok: false }}
+ */
+export async function adjustPfSellProceedsAfterFeeRow(playerId, ownerUserId, params = {}) {
+  const pid = Number(playerId);
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
+  const buyOrderId = String(params.buyOrderId ?? "").trim();
+  const sellOrderId = String(params.sellOrderId ?? "").trim();
+  const targetProceeds = Math.round((Number(params.targetProceeds) || 0) * 100) / 100;
+  const targetProfit = Math.round((Number(params.targetProfit) || 0) * 100) / 100;
+  if (!Number.isFinite(pid) || pid <= 0 || !uid || !buyOrderId || !(targetProceeds >= 0))
+    return { ok: false };
+
+  const buyRawExtra = params.buyRawExtra && typeof params.buyRawExtra === "object"
+    ? params.buyRawExtra
+    : {};
+  const sellRawExtra = params.sellRawExtra && typeof params.sellRawExtra === "object"
+    ? params.sellRawExtra
+    : {};
+
+  const pool = getPgPool();
+  if (!pool)
+    return { ok: false };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const buySel = await client.query(
+      `SELECT order_id, bet_money, money, status, raw
+       FROM orders
+       WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3
+       FOR UPDATE`,
+      [uid, pid, buyOrderId],
+    );
+    const buyRow = buySel.rows?.[0];
+    if (!buyRow) {
+      await client.query("ROLLBACK");
+      return { ok: false };
+    }
+
+    const buyRaw = buyRow.raw && typeof buyRow.raw === "object" && !Array.isArray(buyRow.raw)
+      ? { ...buyRow.raw }
+      : {};
+    const currentProceeds = Math.round((Number(buyRaw.pfSellProceeds) || 0) * 100) / 100;
+    if (Math.abs(currentProceeds - targetProceeds) < 0.005) {
+      await client.query("COMMIT");
+      return { ok: true, skipped: true, amount: 0, delta: 0 };
+    }
+
+    let sellRow = null;
+    if (sellOrderId) {
+      const sellSel = await client.query(
+        `SELECT order_id, bet_money, money, status, raw
+         FROM orders
+         WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3
+         FOR UPDATE`,
+        [uid, pid, sellOrderId],
+      );
+      sellRow = sellSel.rows?.[0] ?? null;
+    }
+
+    const ledger = String(buyRaw.pfLedgerState ?? "").trim().toLowerCase();
+    const delta = Math.round((targetProceeds - currentProceeds) * 100) / 100;
+    let total;
+    let mode = "metadata";
+
+    if (ledger === "pending_credit") {
+      mode = "pending_rewrite";
+      const bal = await client.query(
+        `SELECT total_balance FROM players
+         WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $2::uuid
+         FOR UPDATE`,
+        [pid, uid],
+      );
+      if (!bal.rows?.[0]) {
+        await client.query("ROLLBACK");
+        return { ok: false };
+      }
+      total = Math.round((Number(bal.rows[0].total_balance) || 0) * 100) / 100;
+    }
+    else if (delta !== 0) {
+      mode = delta > 0 ? "credit_delta" : "debit_delta";
+      const adj = Math.abs(delta);
+      if (delta > 0) {
+        const cred = await client.query(
+          `UPDATE players
+           SET total_balance = total_balance + $2, updated_at = $3
+           WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $4::uuid
+           RETURNING total_balance`,
+          [pid, adj, Date.now(), uid],
+        );
+        if (!cred.rows?.[0]) {
+          await client.query("ROLLBACK");
+          return { ok: false };
+        }
+        total = Math.round((Number(cred.rows[0].total_balance) || 0) * 100) / 100;
+      }
+      else {
+        const deb = await client.query(
+          `UPDATE players
+           SET total_balance = total_balance - $2, updated_at = $3
+           WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $4::uuid
+             AND total_balance >= $2
+           RETURNING total_balance`,
+          [pid, adj, Date.now(), uid],
+        );
+        if (!deb.rows?.[0]) {
+          await client.query("ROLLBACK");
+          return { ok: false };
+        }
+        total = Math.round((Number(deb.rows[0].total_balance) || 0) * 100) / 100;
+      }
+    }
+    else {
+      const bal = await client.query(
+        `SELECT total_balance FROM players
+         WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $2::uuid`,
+        [pid, uid],
+      );
+      total = Math.round((Number(bal.rows?.[0]?.total_balance) || 0) * 100) / 100;
+    }
+
+    const nextBuyRaw = {
+      ...buyRaw,
+      ...buyRawExtra,
+      pfSellProceeds: targetProceeds,
+      pfSellFeeAdjustedAt: Date.now(),
+    };
+    if (ledger === "pending_credit") {
+      nextBuyRaw.pfLedgerState = "pending_credit";
+      nextBuyRaw.pfPendingCreditUsdt = targetProceeds > 0 ? targetProceeds : 0;
+    }
+
+    await client.query(
+      `UPDATE orders
+       SET money = $4,
+           raw = COALESCE(raw, '{}'::jsonb) || $5::jsonb
+       WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3`,
+      [uid, pid, buyOrderId, targetProfit, JSON.stringify(nextBuyRaw)],
+    );
+
+    if (sellRow) {
+      const sellRaw = sellRow.raw && typeof sellRow.raw === "object" && !Array.isArray(sellRow.raw)
+        ? { ...sellRow.raw }
+        : {};
+      const nextSellRaw = {
+        ...sellRaw,
+        ...sellRawExtra,
+        pfSellFeeAdjustedAt: Date.now(),
+      };
+      await client.query(
+        `UPDATE orders
+         SET bet_money = $4,
+             money = 0,
+             raw = COALESCE(raw, '{}'::jsonb) || $5::jsonb
+         WHERE user_id = $1::uuid AND player_id = $2 AND order_id = $3`,
+        [uid, pid, sellOrderId, targetProceeds, JSON.stringify(nextSellRaw)],
+      );
+    }
+
+    await client.query("COMMIT");
+    return {
+      ok: true,
+      mode,
+      amount: Math.abs(delta),
+      delta,
+      total,
+    };
+  }
+  catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    }
+    catch {
+      /* ignore */
+    }
+    console.warn("[rds] adjustPfSellProceedsAfterFeeRow:", err.message);
+    return { ok: false };
+  }
+  finally {
+    client.release();
+  }
+}
+
 /** 按日期读取订单（全量，不做 changmen_bet / link 筛选） */
 export async function fetchOrdersByDate(date, userId) {
   const { dayStart, dayEnd } = localDayBounds(date);

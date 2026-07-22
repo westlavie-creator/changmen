@@ -40,6 +40,51 @@ const orders = ref<AdminOrderRow[]>([]);
 const users = ref<AdminUserRow[]>([]);
 const loadError = ref("");
 const columnsContainerRef = ref<HTMLElement | null>(null);
+const hScrollRef = ref<HTMLElement | null>(null);
+const hScrollDragging = ref(false);
+let dragStartX = 0;
+let dragStartScroll = 0;
+
+function scrollOrdersBy(dx: number) {
+  const el = hScrollRef.value;
+  if (!el)
+    return;
+  el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + dx));
+}
+
+function onHScrollPointerDown(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el || e.button !== 0)
+    return;
+  // 点在按钮/链接/输入上不拖拽平移
+  const t = e.target;
+  if (t instanceof Element && t.closest("button, a, input, textarea, select, .el-button, .order__sell-btn"))
+    return;
+  hScrollDragging.value = true;
+  dragStartX = e.clientX;
+  dragStartScroll = el.scrollLeft;
+  el.setPointerCapture(e.pointerId);
+}
+
+function onHScrollPointerMove(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el || !hScrollDragging.value)
+    return;
+  el.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+}
+
+function onHScrollPointerUp(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el)
+    return;
+  hScrollDragging.value = false;
+  try {
+    el.releasePointerCapture(e.pointerId);
+  }
+  catch {
+    /* ignore */
+  }
+}
 
 interface AccountColumn {
   key: string;
@@ -359,6 +404,14 @@ onMounted(async () => {
         <el-button size="small" @click="refresh">
           刷新
         </el-button>
+        <span v-if="hasContent" class="admin-orders-hscroll-btns">
+          <el-button size="small" @click="scrollOrdersBy(-360)">
+            ←
+          </el-button>
+          <el-button size="small" @click="scrollOrdersBy(360)">
+            →
+          </el-button>
+        </span>
       </div>
 
       <div class="admin-card__body admin-orders-page__body">
@@ -367,37 +420,48 @@ onMounted(async () => {
         </p>
 
         <div
-          v-if="groupMode === 'user' && hasContent"
-          class="admin-orders-by-user"
+          v-if="hasContent"
+          ref="hScrollRef"
+          class="admin-orders-hscroll"
+          :class="{ 'is-dragging': hScrollDragging }"
+          @pointerdown="onHScrollPointerDown"
+          @pointermove="onHScrollPointerMove"
+          @pointerup="onHScrollPointerUp"
+          @pointercancel="onHScrollPointerUp"
         >
-          <AdminUserOrdersColumn
-            v-for="col in userColumns"
-            :key="col.userId"
-            class="admin-orders-by-user__col"
-            :user-name="col.userName"
-            :accounts="col.accounts"
-            :orders="col.orders"
-            @delete="onDeleteOrders"
-          />
-        </div>
+          <div
+            v-if="groupMode === 'user'"
+            class="admin-orders-by-user"
+          >
+            <AdminUserOrdersColumn
+              v-for="col in userColumns"
+              :key="col.userId"
+              class="admin-orders-by-user__col"
+              :user-name="col.userName"
+              :accounts="col.accounts"
+              :orders="col.orders"
+              @delete="onDeleteOrders"
+            />
+          </div>
 
-        <div
-          v-else-if="groupMode === 'account' && hasContent"
-          ref="columnsContainerRef"
-          class="admin-orders-by-account"
-        >
-          <AdminAccountOrdersColumn
-            v-for="col in accountColumns"
-            :key="col.key"
-            :provider="col.provider"
-            :player-id="col.playerId"
-            :player-name="col.playerName"
-            :user-name="col.userName"
-            :orders="col.orders"
-            :accounts="col.accounts.length ? col.accounts : allAccounts"
-            @delete="onDeleteOrders"
-          />
-          <AdminOrderLinkLines :container-ref="columnsContainerRef" :key="linkLinesKey" />
+          <div
+            v-else
+            ref="columnsContainerRef"
+            class="admin-orders-by-account"
+          >
+            <AdminAccountOrdersColumn
+              v-for="col in accountColumns"
+              :key="col.key"
+              :provider="col.provider"
+              :player-id="col.playerId"
+              :player-name="col.playerName"
+              :user-name="col.userName"
+              :orders="col.orders"
+              :accounts="col.accounts.length ? col.accounts : allAccounts"
+              @delete="onDeleteOrders"
+            />
+            <AdminOrderLinkLines :container-ref="columnsContainerRef" :key="linkLinesKey" />
+          </div>
         </div>
 
         <p

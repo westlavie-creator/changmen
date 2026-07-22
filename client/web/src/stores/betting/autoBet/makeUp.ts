@@ -6,12 +6,16 @@ import { LoseOrder } from "@/models/loseOrder";
 import { a8Tip } from "@/shared/a8Notify";
 import { wait } from "@changmen/client-core/shared/wait";
 
-/** 对齐 bundle `S()`：补单前初赔 / 当前赔阈值（jb 消费时检查；入队不挡） */
+/**
+ * [A8 可证实] 对齐 bundle `B()`：入队前初赔 / 败腿赔率天花板。
+ * jb 消费段不调用（index0706 全文件仅 2 处 `await B(`，均在 createOrder 前）。
+ */
 export async function allowMakeUpForLeg(
   match: ViewMatch,
   bet: ViewBet,
   target: BetSide,
-  currentOdds: number,
+  /** 败腿当时赔率（A8 `B(D)` 的 `D.odds`），不是消费期盘口价 */
+  failedLegOdds: number,
   config: UserConfig,
   setMessage: (msg: string) => void,
   opts: { notify?: boolean } = {},
@@ -28,8 +32,8 @@ export async function allowMakeUpForLeg(
       denyReason = `初赔赔率:${def}，大于当前设定值：${config.makeUp_defaultOdds}`;
     }
   }
-  if (!denyReason && config.makeUp_odds !== 0 && config.makeUp_odds <= currentOdds) {
-    denyReason = `当前赔率:${currentOdds}，大于当前设定值：${config.makeUp_odds}`;
+  if (!denyReason && config.makeUp_odds !== 0 && config.makeUp_odds <= failedLegOdds) {
+    denyReason = `当前赔率:${failedLegOdds}，大于当前设定值：${config.makeUp_odds}`;
   }
   if (denyReason) {
     if (notify) {
@@ -41,6 +45,7 @@ export async function allowMakeUpForLeg(
   return true;
 }
 
+/** [A8 可证实] 入队：先 `B(败腿)`，通过才 createOrder + tip「补单提醒」 */
 export async function enqueueMakeUpOrder(params: {
   loseStore: ReturnType<typeof useLoseOrderStore>;
   match: ViewMatch;
@@ -59,17 +64,30 @@ export async function enqueueMakeUpOrder(params: {
     loseStore,
     match,
     bet,
+    config,
     linkId,
     accountId,
     target,
     betMoney,
     betOdds,
+    failedLegOdds,
     failedPlatformLabel,
     setMessage,
   } = params;
 
   if (loseStore.orders.has(bet.id))
     return true;
+
+  const ok = await allowMakeUpForLeg(
+    match,
+    bet,
+    target,
+    failedLegOdds,
+    config,
+    setMessage,
+  );
+  if (!ok)
+    return false;
 
   loseStore.createOrder(
     new LoseOrder({

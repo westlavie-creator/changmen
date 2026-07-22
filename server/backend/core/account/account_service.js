@@ -19,7 +19,7 @@ import {
   getAccountBalance,
 } from "./balance_provider.js";
 import * as orderStore from "./order_store.js";
-import { assertPlayerOwnedByUser, assertPlayersOwnedByUser } from "./player_ownership.js";
+import { assertPlayerOwnedByUser, assertPlayersOwnedByUser, isPredictFunPlayerRow } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
 
 async function handleCreateTagPlatform(body, userId) {
@@ -60,6 +60,19 @@ async function handleGetTagPlatforms() {
   return { ok: true, info: await accountStore.listTagPlatforms() };
 }
 
+/** PredictFun house：余额/订单仅服务端 Pf_* 写入；身份看 players，不看可改的 ACCOUNT.provider */
+function isPredictFunClientSaveOrderRequest(body, orders, player) {
+  const type = String(body?.type ?? body?.Type ?? "").trim().toLowerCase();
+  if (type === "predictfun")
+    return true;
+  if (Array.isArray(orders) && orders.some((o) => {
+    const p = String(o?.provider ?? o?.Type ?? "").trim().toLowerCase();
+    return p === "predictfun";
+  }))
+    return true;
+  return isPredictFunPlayerRow(player);
+}
+
 async function handleUpdateBalance(body, userId) {
   const playerId = body.playerId;
   const balance = Number(body.balance);
@@ -70,6 +83,12 @@ async function handleUpdateBalance(body, userId) {
     const owned = await assertPlayerOwnedByUser(playerId, userId);
     if (!owned.ok)
       return owned;
+    if (isPredictFunPlayerRow(owned.player)) {
+      return {
+        ok: false,
+        msg: "PredictFun 余额仅由服务端买卖/结算更新，禁止 Client_UpdateBalance",
+      };
+    }
     const info = await accountStore.updatePlayerBalance(playerId, balance, userId);
     if (!info) {
       return { ok: false, msg: "更新余额失败" };
@@ -174,6 +193,13 @@ async function handleSaveOrder(body, userId) {
   catch {
     return { ok: false, msg: "orders JSON 无效" };
   }
+  // PF：用户只提交下单意图（金额/价格），订单真相只经 Pf_* 服务端写入
+  if (isPredictFunClientSaveOrderRequest(body, orders, owned.player)) {
+    return {
+      ok: false,
+      msg: "PredictFun 订单禁止 Client_SaveOrder，请仅通过 Pf_SubmitOrder / Pf_GetOrders 等服务端路径更新",
+    };
+  }
   const saved = await orderStore.saveOrder(
     playerId,
     orders,
@@ -235,10 +261,28 @@ async function handleSaveAccounts(accounts, userId) {
   const existingById = new Map(
     store.getAccountsForUser(userId).map(a => [Number(a.accountId ?? a.AccountId), a]),
   );
+  // players 平台身份（含 provider）不可由客户端 ACCOUNT 覆盖
+  const ownedBatch = await assertPlayersOwnedByUser(
+    accounts.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean),
+    userId,
+  );
+  const playerById = new Map(
+    (ownedBatch.ok ? ownedBatch.players : []).map(p => [Number(p.id), p]),
+  );
   const normalized = accounts.map((row) => {
     const id = Number(row?.accountId ?? row?.AccountId);
     const enriched = enrichAccountRowFromPlayer(row);
-    return preserveStoredAccountMultiply(enriched, existingById.get(id));
+    const prev = existingById.get(id);
+    const player = playerById.get(id);
+    const locked = preserveStoredAccountMultiply(enriched, prev);
+    // 禁止客户端改掉服务端绑定的场馆身份（尤其 PredictFun）
+    if (player?.provider)
+      locked.provider = player.provider;
+    else if (prev?.provider)
+      locked.provider = prev.provider;
+    if (isPredictFunPlayerRow(player || prev || locked))
+      locked.provider = "PredictFun";
+    return locked;
   });
   try {
     await store.setAccountsForUser(userId, normalized);
@@ -314,6 +358,9 @@ function handleGetData(key, userId) {
 
 async function refreshAccountBalance(accountRow, userId) {
   const enriched = enrichAccountFromPlatformDefaults(accountRow);
+  // PredictFun：余额只认 RDS（Pf_* / 管理端授信），禁止批量刷新用场馆探测回写
+  if (String(enriched.provider ?? "").trim() === "PredictFun")
+    return { account: enriched, balance: null };
   if (!enriched.gateway || !enriched.token) {
     return { account: enriched, balance: null };
   }
@@ -586,6 +633,8 @@ export {
   handleRebindOrderLink,
   handleSaveUserLog,
   handleUpdateBalance,
+  isPredictFunClientSaveOrderRequest,
+  isPredictFunPlayerRow,
   refreshAccountBalance,
   refreshAllAccountBalances,
   syncAccountRowInKv,

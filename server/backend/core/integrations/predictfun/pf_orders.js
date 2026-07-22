@@ -19,6 +19,16 @@ import {
   attachWalletFeeToOfficial,
 } from "./pf_wallet_events.js";
 
+/** 官方 OrderData 是否已挂上 wallet 手续费（卖出净额入账依赖） */
+export function hasWalletFeeSignal(official) {
+  const fee = official?.pfWalletFee
+    ?? official?.fee
+    ?? null;
+  if (!fee || typeof fee !== "object")
+    return false;
+  const wei = String(fee.amountWei ?? fee.amount ?? "").trim();
+  return /^\d+$/.test(wei) && BigInt(wei) > 0n;
+}
 /** 官方状态 → VenueOrder.status */
 export function mapPredictOfficialStatusToVenue(status) {
   const s = String(status ?? "").trim().toUpperCase();
@@ -161,6 +171,47 @@ function sleep(ms) {
 }
 
 /**
+ * 卖出入账前：市场有费率时必须挂上 wallet 手续费，否则抛错（禁止毛额落库）。
+ * feeRateBps===0 时官网通常不推 fee，直接返回。
+ * @param {object|null|undefined} official
+ * @param {string} hash
+ * @param {{ feeRateBps?: number, timeoutMs?: number }} [opts]
+ */
+export async function awaitHouseOrderFee(official, hash, opts = {}) {
+  const feeRateBps = Number(opts.feeRateBps) || 0;
+  if (feeRateBps <= 0)
+    return official ?? null;
+  let out = official ?? null;
+  if (hasWalletFeeSignal(out))
+    return out;
+
+  const key = String(hash ?? "").trim();
+  if (!key)
+    throw new Error("卖出确认失败，请稍后重试");
+
+  ensureHouseWalletEventsStarted();
+  const timeoutMs = Math.max(1_000, Number(opts.timeoutMs) || 15_000);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const hint = getHouseWalletSettlementHint(key)
+      || (out?.id ? getHouseWalletSettlementHint(String(out.id)) : null);
+    if (hint) {
+      out = attachWalletFeeToOfficial(out, hint) || out;
+      if (hasWalletFeeSignal(out))
+        return out;
+    }
+    const left = deadline - Date.now();
+    if (left <= 0)
+      break;
+    await sleep(Math.min(300, left));
+  }
+
+  // 用户只认 changmen/RDS：内部等 fee 失败时勿暴露官网手续费细节
+  throw new Error("卖出确认超时，请稍后重试");
+}
+
+/**
  * 用 wallet hint 收束（拒单可 stub；成交优先 REST 校正金额）。
  * @param {string} key
  * @param {object} hint
@@ -182,7 +233,8 @@ async function resolveFromWalletHint(key, hint, fetchOrder) {
 }
 
 /**
- * REST 终态订单尽量挂上 wallet 实付/手续费；FILLED 且尚无实付信号时短等 wallet。
+ * REST 终态订单尽量挂上 wallet 实付/手续费；
+ * FILLED 且尚无实付信号或尚无手续费时短等 wallet（卖出净额依赖 fee）。
  * @param {string} key
  * @param {object} official
  * @param {number} deadlineMs
@@ -199,9 +251,11 @@ async function finalizeTerminalOfficial(key, official, deadlineMs) {
   let out = attachWalletFeeToOfficial(official, hint) || official;
 
   const st = String(official.status ?? "").toUpperCase();
-  if (st === "FILLED" && !hasBuyFillCostSignal(out)) {
+  const needWallet = st === "FILLED"
+    && (!hasBuyFillCostSignal(out) || !hasWalletFeeSignal(out));
+  if (needWallet) {
     const left = Math.max(0, deadlineMs - Date.now());
-    // REST 先到、wallet value 迟到：最多再等 1.2s（或剩余时限）
+    // REST 先到、wallet value/fee 迟到：最多再等 1.2s（或剩余时限）
     const waitMs = Math.min(1200, left);
     if (waitMs > 0) {
       const late = await Promise.race([

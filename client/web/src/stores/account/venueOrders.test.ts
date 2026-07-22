@@ -1,7 +1,18 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
-import { applyUnsettledStats } from "@/stores/account/venueOrders";
+import { applyUnsettledStats, syncVenueOrders } from "@/stores/account/venueOrders";
+
+const saveOrders = vi.hoisted(() => vi.fn(async () => undefined));
+const getOrders = vi.hoisted(() => vi.fn(async () => [] as VenueOrder[]));
+
+vi.mock("@/api/order", () => ({
+  saveOrders,
+}));
+
+vi.mock("@/runtime/providers", () => ({
+  getProvider: () => ({ getOrders }),
+}));
 
 function makeVenueOrder(
   partial: Pick<VenueOrder, "orderId" | "status" | "odds" | "betMoney">,
@@ -89,5 +100,35 @@ describe("applyUnsettledStats", () => {
     expect(acc.unsettle).toBe(1);
     // 截断后持仓×汇率：trunc(100/6.8,2)*6.8
     expect(acc.winBalance).toBeCloseTo(500 + Math.trunc((100 / 6.8) * 100 + 1e-9) / 100 * 6.8, 8);
+  });
+});
+
+describe("syncVenueOrders PredictFun", () => {
+  beforeEach(() => {
+    saveOrders.mockClear();
+    getOrders.mockReset();
+    getOrders.mockResolvedValue([
+      {
+        ...makeVenueOrder({ orderId: "pf1", status: "none", odds: 2, betMoney: 10 }),
+        provider: "PredictFun",
+        pfSide: "buy",
+        pfSellState: "open",
+        pfHoldShares: 20,
+      },
+    ]);
+  });
+
+  it("updates local stats but does not Client_SaveOrder", async () => {
+    const acc = new PlatformAccount({
+      accountId: 42,
+      playerName: "pf-user",
+      provider: "PredictFun",
+    });
+    acc.balance = 100;
+
+    const orders = await syncVenueOrders(acc);
+    expect(orders?.length).toBe(1);
+    expect(acc.unsettle).toBe(1);
+    expect(saveOrders).not.toHaveBeenCalled();
   });
 });

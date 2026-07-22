@@ -9,7 +9,7 @@ export type { ResolveLegOutcomeOpts };
 
 /**
  * 编排层入口：委托场馆 provider.resolveLegOutcome。
- * fetchVenueOrders 通常为 accountStore.updateVenueOrders（含 saveOrders / 统计）。
+ * fetchVenueOrders 通常为 accountStore.updateVenueOrders（非 PF 含 saveOrders；PF 只拉单统计）。
  *
  * [changmen 扩展] `confirmPmPost`：不在入口预拉；由 PM `resolvePolymarketLegOutcome`
  * 按需拉单（fill confirmed 快路径仅一次；delayed 在 settlement 后再拉）。

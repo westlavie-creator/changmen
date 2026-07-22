@@ -122,6 +122,101 @@ export function computePfHoldShares(input) {
 }
 
 /**
+ * 卖出回款净额：官方成交毛额 − COLLATERAL 手续费 USDT。
+ * SHARES 手续费不从 USDT 回款扣（份额侧另计）。
+ * @param {number} grossUsdt
+ * @param {{ pfFeeType?: string, pfFeeUsdt?: number, pfFeeAmountWei?: string, type?: string, usdt?: number, amountWei?: string }|null|undefined} feePart
+ * @returns {number}
+ */
+export function netSellProceedsAfterCollateralFee(grossUsdt, feePart) {
+  const gross = Number(grossUsdt);
+  if (!Number.isFinite(gross) || gross < 0)
+    return 0;
+  const type = String(feePart?.pfFeeType ?? feePart?.type ?? "").toUpperCase();
+  if (type !== "COLLATERAL")
+    return gross;
+  let fee = Number(feePart?.pfFeeUsdt ?? feePart?.usdt);
+  if (!(Number.isFinite(fee) && fee > 0)) {
+    const wei = String(feePart?.pfFeeAmountWei ?? feePart?.amountWei ?? "").trim();
+    const fromWei = pfFeeAmountWeiToUsdt(wei, "COLLATERAL");
+    if (fromWei != null)
+      fee = fromWei;
+  }
+  if (!(Number.isFinite(fee) && fee > 0))
+    return gross;
+  return Math.max(0, gross - fee);
+}
+
+/**
+ * Changmencodefee 通用 bps 比例（结果保留 6 位小数）。
+ * 买入对份额、卖出对 USDT 共用。
+ * @param {number} amount
+ * @param {number} feeRateBps
+ * @returns {number}
+ */
+export function computeChangmenPfFeeAmount(amount, feeRateBps) {
+  const base = Number(amount);
+  const bps = Number(feeRateBps);
+  if (!(Number.isFinite(base) && base > 0))
+    return 0;
+  if (!(Number.isFinite(bps) && bps > 0))
+    return 0;
+  const fee = base * (Math.min(10_000, Math.floor(bps)) / 10_000);
+  if (!(Number.isFinite(fee) && fee > 0))
+    return 0;
+  return Math.round(fee * 1e6) / 1e6;
+}
+
+/** @deprecated 用 computeChangmenPfFeeAmount */
+export function computeChangmenPfFeeUsdt(amountUsdt, feeRateBps) {
+  return computeChangmenPfFeeAmount(amountUsdt, feeRateBps);
+}
+
+/**
+ * 买入：官网净持仓上再扣 Changmencodefee（份额）→ 用户 RDS 持仓。
+ * @param {number} officialHoldShares 官网净持仓（fill − 官网 SHARES fee；无则用成交份额）
+ * @param {number} feeRateBps
+ * @returns {{ holdShares: number, changmenCodeFeeShares: number, changmenCodeFeeRateBps: number }}
+ */
+export function applyChangmenBuyFeeToHoldShares(officialHoldShares, feeRateBps) {
+  const hold = Number(officialHoldShares);
+  const bps = Number.isFinite(Number(feeRateBps)) && Number(feeRateBps) > 0
+    ? Math.min(10_000, Math.floor(Number(feeRateBps)))
+    : 0;
+  if (!(Number.isFinite(hold) && hold > 0)) {
+    return { holdShares: 0, changmenCodeFeeShares: 0, changmenCodeFeeRateBps: bps };
+  }
+  const changmenCodeFeeShares = computeChangmenPfFeeAmount(hold, bps);
+  return {
+    holdShares: Math.max(0, Math.round((hold - changmenCodeFeeShares) * 1e6) / 1e6),
+    changmenCodeFeeShares,
+    changmenCodeFeeRateBps: bps,
+  };
+}
+
+/**
+ * 官网净回款后再扣 Changmencodefee（USDT）→ 用户 RDS 回款。
+ * @param {number} afterOfficialUsdt
+ * @param {number} feeRateBps
+ * @returns {{ proceedsUsdt: number, changmenCodeFeeUsdt: number, changmenCodeFeeRateBps: number }}
+ */
+export function netSellProceedsAfterChangmenFee(afterOfficialUsdt, feeRateBps) {
+  const base = Number(afterOfficialUsdt);
+  const bps = Number.isFinite(Number(feeRateBps)) && Number(feeRateBps) > 0
+    ? Math.min(10_000, Math.floor(Number(feeRateBps)))
+    : 0;
+  if (!(Number.isFinite(base) && base > 0)) {
+    return { proceedsUsdt: 0, changmenCodeFeeUsdt: 0, changmenCodeFeeRateBps: bps };
+  }
+  const changmenCodeFeeUsdt = computeChangmenPfFeeAmount(base, bps);
+  return {
+    proceedsUsdt: Math.max(0, Math.round((base - changmenCodeFeeUsdt) * 1e6) / 1e6),
+    changmenCodeFeeUsdt,
+    changmenCodeFeeRateBps: bps,
+  };
+}
+
+/**
  * 写库补丁：优先官方/wallet；否则保留 RDS 已有手续费；并落 pfHoldShares / pfHoldSharesWei
  * @param {object|null|undefined} official
  * @param {object|null|undefined} rdsRow

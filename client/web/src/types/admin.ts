@@ -158,7 +158,7 @@ export interface AdminOrderRow {
   pfBuyOrderId?: string;
   pfSellState?: "open" | "closed" | "settled";
   pfShares?: number;
-  /** 官网持仓口径（扣 SHARES 手续费） */
+  /** 用户持仓（官网成交 − 官网份额费 − Changmencodefee） */
   pfHoldShares?: number;
   /** 名义买入 USDT（限价×份额）；与 betMoney 实付区分 */
   pfNotionalUsdt?: number;
@@ -170,9 +170,9 @@ export interface AdminOrderRow {
   pfMarketId?: string;
   /** 买单关联卖单 orderId */
   pfSellOrderId?: string;
-  /** 卖出回款 USDT（记在买单 raw；经济真相。卖单 betMoney 为订单栏镜像） */
+  /** 卖出回款 USDT（官网回款 − 官网费 − Changmencodefee；卖单 betMoney 为镜像） */
   pfSellProceeds?: number;
-  /** [changmen 扩展] PredictFun wallet 实扣手续费 */
+  /** [changmen 扩展] PredictFun wallet 实扣手续费（明细；用户端展示不依赖） */
   pfFeeAmountWei?: string;
   pfFeeType?: "COLLATERAL" | "SHARES";
   pfFeeUsdt?: number;

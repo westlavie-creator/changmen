@@ -11,16 +11,70 @@ vi.mock("../../account/player_ownership.js", () => ({
       player: {
         id: 42,
         ownerUserId: String(userId),
+        provider: "PredictFun",
         platformName: "PredictFun",
         credit: 0,
         totalBalance: 1000,
       },
     };
   }),
+  isPredictFunPlayerRow: (player) => {
+    const provider = String(player?.provider ?? "").trim().toLowerCase();
+    if (provider === "predictfun")
+      return true;
+    const name = String(player?.platformName ?? "").trim().toLowerCase();
+    return name === "predictfun" || name.includes("predict.fun") || name.includes("predictfun");
+  },
 }));
 
 vi.mock("../../account/account_store.js", () => ({
   updatePlayerBalance: vi.fn(async (_id, bal) => ({ total: bal })),
+  debitPlayerBalance: vi.fn(async (_id, amount) => ({ total: 1000 - Number(amount) })),
+  creditPlayerBalance: vi.fn(async (_id, amount) => ({ total: 1000 + Number(amount) })),
+  claimCreditPfPendingOrder: vi.fn(async (playerId, orderId, userId) => {
+    const orderStore = await import("../../account/order_store.js");
+    const sb = await import("@changmen/db");
+    let amount = 0;
+    const saves = orderStore.saveOrder.mock.calls;
+    for (let i = saves.length - 1; i >= 0; i -= 1) {
+      const batch = saves[i][1];
+      if (!Array.isArray(batch))
+        continue;
+      for (const o of batch) {
+        if (String(o.orderId) === String(orderId) && o.pfLedgerState === "pending_credit") {
+          amount = Number(o.pfPendingCreditUsdt) || 0;
+          break;
+        }
+      }
+      if (amount > 0)
+        break;
+    }
+    if (!(amount > 0)) {
+      const rows = await sb.fetchOrdersByPlayer(playerId, userId);
+      const hit = (rows || []).find(r => String(r.order_id) === String(orderId));
+      amount = Number(hit?.raw?.pfPendingCreditUsdt) || 0;
+    }
+    const total = 1000 + amount;
+    await orderStore.saveOrder(playerId, [{
+      orderId,
+      provider: "PredictFun",
+      odds: 0,
+      betMoney: 0,
+      money: 0,
+      status: "none",
+      createAt: Date.now(),
+      pfLedgerState: "credited",
+      pfPendingCreditUsdt: 0,
+    }], userId, "PredictFun");
+    return { ok: true, amount, total };
+  }),
+  adjustPfSellProceedsAfterFee: vi.fn(async () => ({
+    ok: true,
+    mode: "credit_delta",
+    amount: 0,
+    delta: 0,
+    total: 1000,
+  })),
   getAccountsFromKv: vi.fn(() => []),
 }));
 
@@ -76,6 +130,9 @@ vi.mock("../../esport-api/store.js", () => ({
 vi.mock("./house_credentials.js", () => ({
   isPredictFunHouseConfigured: () => true,
   resolvePfHouseMaxStakeUsdt: () => 500,
+  resolvePfChangmenFeeRateBps: vi.fn(() => 0),
+  resolvePfChangmenBuyFeeRateBps: vi.fn(() => 0),
+  resolvePfChangmenSellFeeRateBps: vi.fn(() => 0),
 }));
 
 vi.mock("./pf_api.js", () => ({
@@ -148,6 +205,11 @@ vi.mock("./pf_order_service.js", () => ({
 vi.mock("./pf_orders.js", () => ({
   fetchHousePredictOrderByHash: vi.fn(),
   fetchHousePredictOrderResolved: vi.fn(),
+  hasWalletFeeSignal: (official) => {
+    const fee = official?.pfWalletFee ?? official?.fee;
+    const wei = String(fee?.amountWei ?? fee?.amount ?? "").trim();
+    return /^\d+$/.test(wei) && BigInt(wei) > 0n;
+  },
   waitForHouseOrderTerminal: vi.fn(async () => ({
     status: "FILLED",
     amount: "13.75",
@@ -159,6 +221,7 @@ vi.mock("./pf_orders.js", () => ({
       side: 1,
     },
   })),
+  awaitHouseOrderFee: vi.fn(async (official) => official),
   isOpenChangmenOrderStatus: (s) => {
     const v = String(s ?? "").toLowerCase();
     return v === "none" || v === "pending" || v === "";
@@ -176,6 +239,13 @@ vi.mock("./pf_orders.js", () => ({
     match: "",
     bet: "PredictFun",
     item: "",
+    pfHoldShares: rds.pfHoldShares,
+    pfNotionalUsdt: rds.pfNotionalUsdt,
+    pfFillCostUsdt: rds.pfFillCostUsdt ?? 9.8,
+    pfFeeAmountWei: rds.pfFeeAmountWei ?? "1",
+    pfFeeType: rds.pfFeeType ?? "SHARES",
+    pfSide: rds.pfSide,
+    pfSellState: rds.pfSellState,
   }),
   settlementFromPredictOfficialStatus: (s) => {
     const v = String(s ?? "").toUpperCase();
@@ -273,9 +343,23 @@ describe("pf_client_handlers", () => {
     expect(r.ok).toBe(true);
     expect(r.info.orderId).toBe("0xhash1");
     expect(r.info.pending).toBe(true);
+    expect(r.info.result).toBeUndefined();
+    expect(r.info.pfOrderHash).toBeUndefined();
+    expect(r.info.pfApiOrderId).toBeUndefined();
     expect(orderStore.saveOrder).toHaveBeenCalled();
     expect(r.info.balance).toBe(990);
-    expect(accountStore.updatePlayerBalance).toHaveBeenCalled();
+    expect(accountStore.debitPlayerBalance).toHaveBeenCalled();
+    const saved = orderStore.saveOrder.mock.calls[0][1][0];
+    expect(saved.pfHoldShares).toBeUndefined();
+  });
+
+  it("getOrder rejects unknown orderId without house lookup", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([]);
+    fetchHousePredictOrderResolved.mockClear();
+    const r = await handlePfGetOrder({ playerId: 42, orderId: "0xforeign" }, "u1");
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/不存在|不属于/);
+    expect(fetchHousePredictOrderResolved).not.toHaveBeenCalled();
   });
 
   it("getOrder refunds on CANCELLED", async () => {
@@ -302,7 +386,9 @@ describe("pf_client_handlers", () => {
     expect(r.ok).toBe(true);
     expect(r.info.settlement).toBe("unfilled");
     expect(r.info.refunded).toBe(true);
-    expect(accountStore.updatePlayerBalance).toHaveBeenCalled();
+    expect(r.info.official).toBeUndefined();
+    expect(r.info.officialStatus).toBeUndefined();
+    expect(accountStore.claimCreditPfPendingOrder).toHaveBeenCalled();
   });
 
   it("getOrder FILLED keeps user stake betMoney; records pfFillCostUsdt when known", async () => {
@@ -341,6 +427,9 @@ describe("pf_client_handlers", () => {
     const r = await handlePfGetOrder({ playerId: 42, orderId: "0xhash1" }, "u1");
     expect(r.ok).toBe(true);
     expect(r.info.settlement).toBe("filled");
+    expect(r.info.official).toBeUndefined();
+    expect(r.info.order?.pfFillCostUsdt).toBeUndefined();
+    expect(r.info.order?.pfFeeAmountWei).toBeUndefined();
     expect(orderStore.saveOrder).toHaveBeenCalled();
     const saved = orderStore.saveOrder.mock.calls[0][1][0];
     expect(saved.betMoney).toBe(10);
@@ -417,6 +506,7 @@ describe("pf_client_handlers", () => {
         pfTokenId: "tok",
         pfSharesWei: "25000000000000000000",
         pfShares: 25,
+        pfHoldShares: 25,
         pfSide: "buy",
         pfSellState: "open",
         pfBookPrice: 0.4,
@@ -430,16 +520,236 @@ describe("pf_client_handlers", () => {
     expect(r.info.profit).toBe(3.75);
     expect(r.info.balance).toBe(1013.75);
     expect(orderStore.saveOrder).toHaveBeenCalled();
-    const saved = orderStore.saveOrder.mock.calls[0][1];
+    const saved = orderStore.saveOrder.mock.calls.find((c) =>
+      Array.isArray(c[1]) && c[1].length === 2 && c[1][0]?.pfSellState === "closed",
+    )?.[1];
+    expect(saved).toBeTruthy();
     expect(saved).toHaveLength(2);
     expect(saved[0].pfSellState).toBe("closed");
     expect(saved[0].money).toBe(3.75);
     expect(saved[0].pfSellProceeds).toBe(13.75);
+    expect(saved[0].pfLedgerState).toBe("pending_credit");
+    expect(saved[0].pfPendingCreditUsdt).toBe(13.75);
     expect(saved[1].pfSide).toBe("sell");
     expect(saved[1].pfBuyOrderId).toBe("0xbuy1");
     // 卖单 betMoney = 回款镜像（订单栏展示）；money 恒 0
     expect(saved[1].betMoney).toBe(13.75);
     expect(saved[1].money).toBe(0);
+    expect(accountStore.claimCreditPfPendingOrder).toHaveBeenCalled();
+    const creditedSave = orderStore.saveOrder.mock.calls.find((c) =>
+      c[1]?.[0]?.pfLedgerState === "credited" && c[1]?.[0]?.orderId === "0xbuy1",
+    );
+    expect(creditedSave).toBeTruthy();
+  });
+
+  it("submitSell nets COLLATERAL fee from official proceeds", async () => {
+    const { waitForHouseOrderTerminal, awaitHouseOrderFee } = await import("./pf_orders.js");
+    const { fetchPredictMarket } = await import("./pf_api.js");
+    fetchPredictMarket.mockResolvedValueOnce({
+      feeRateBps: 200,
+      isNegRisk: false,
+      isYieldBearing: false,
+      status: "REGISTERED",
+      tradingStatus: "OPEN",
+    });
+    const withFee = {
+      status: "FILLED",
+      amount: "13.75",
+      amountFilled: "25000000000000000000",
+      pfWalletFee: { amountWei: "250000000000000000", type: "COLLATERAL" },
+      order: {
+        hash: "0xsell1",
+        makerAmount: "25000000000000000000",
+        takerAmount: "13750000000000000000",
+        side: 1,
+      },
+    };
+    waitForHouseOrderTerminal.mockResolvedValueOnce(withFee);
+    awaitHouseOrderFee.mockResolvedValueOnce(withFee);
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      link: 7,
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "25000000000000000000",
+        pfShares: 25,
+        pfHoldShares: 25,
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBookPrice: 0.4,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    // 13.75 − 0.25 fee
+    expect(r.info.proceedsUsdt).toBe(13.5);
+    expect(r.info.profit).toBe(3.5);
+    expect(r.info.balance).toBe(1013.5);
+    const saved = orderStore.saveOrder.mock.calls.find((c) =>
+      Array.isArray(c[1]) && c[1].length === 2 && c[1][0]?.pfSellState === "closed",
+    )?.[1];
+    expect(saved[0].pfSellProceeds).toBe(13.5);
+    expect(saved[0].money).toBe(3.5);
+    expect(saved[1].betMoney).toBe(13.5);
+    expect(saved[1].pfFeeType).toBe("COLLATERAL");
+    expect(saved[1].pfFeeUsdt).toBe(0.25);
+  });
+
+  it("submitSell also deducts changmen fee rate from user proceeds", async () => {
+    const { waitForHouseOrderTerminal, awaitHouseOrderFee } = await import("./pf_orders.js");
+    const { resolvePfChangmenSellFeeRateBps } = await import("./house_credentials.js");
+    const { fetchPredictMarket } = await import("./pf_api.js");
+    resolvePfChangmenSellFeeRateBps.mockReturnValueOnce(200);
+    fetchPredictMarket.mockResolvedValueOnce({
+      feeRateBps: 200,
+      isNegRisk: false,
+      isYieldBearing: false,
+      status: "REGISTERED",
+      tradingStatus: "OPEN",
+    });
+    const withFee = {
+      status: "FILLED",
+      amount: "13.75",
+      amountFilled: "25000000000000000000",
+      pfWalletFee: { amountWei: "250000000000000000", type: "COLLATERAL" },
+      order: {
+        hash: "0xsell1",
+        makerAmount: "25000000000000000000",
+        takerAmount: "13750000000000000000",
+        side: 1,
+      },
+    };
+    waitForHouseOrderTerminal.mockResolvedValueOnce(withFee);
+    awaitHouseOrderFee.mockResolvedValueOnce(withFee);
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      link: 7,
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "25000000000000000000",
+        pfShares: 25,
+        pfHoldShares: 25,
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBookPrice: 0.4,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    // 官网净 13.5 − changmen 2% = 13.23
+    expect(r.info.proceedsUsdt).toBe(13.23);
+    expect(r.info.profit).toBe(3.23);
+    const saved = orderStore.saveOrder.mock.calls.find((c) =>
+      Array.isArray(c[1]) && c[1].length === 2 && c[1][0]?.pfSellState === "closed",
+    )?.[1];
+    expect(saved[0].pfSellProceeds).toBe(13.23);
+    // 卖出 Changmencodefee（USDT）写在卖单；买单只保留回款真相
+    expect(saved[0].pfChangmenCodeFeeUsdt).toBeUndefined();
+    expect(saved[0].pfChangmenFeeUsdt).toBeUndefined();
+    expect(saved[1].betMoney).toBe(13.23);
+    expect(saved[1].pfChangmenCodeFeeRateBps).toBe(200);
+    expect(saved[1].pfChangmenCodeFeeUsdt).toBe(0.27);
+  });
+
+  it("submitSell refuses to book gross when feeRateBps>0 but fee missing", async () => {
+    const { awaitHouseOrderFee } = await import("./pf_orders.js");
+    const { fetchPredictMarket } = await import("./pf_api.js");
+    fetchPredictMarket.mockResolvedValueOnce({
+      feeRateBps: 200,
+      isNegRisk: false,
+      isYieldBearing: false,
+      status: "REGISTERED",
+      tradingStatus: "OPEN",
+    });
+    awaitHouseOrderFee.mockRejectedValueOnce(new Error("卖出确认超时，请稍后重试"));
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      link: 7,
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "25000000000000000000",
+        pfShares: 25,
+        pfHoldShares: 25,
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBookPrice: 0.4,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/卖出确认超时|closing/);
+    // FILLED 后会先标 closing，再等 fee；fee 失败时不应入账
+    expect(accountStore.creditPlayerBalance).not.toHaveBeenCalled();
+    const closingSave = orderStore.saveOrder.mock.calls.find((c) => c[1]?.[0]?.pfSellState === "closing");
+    expect(closingSave).toBeTruthy();
+  });
+
+  it("submitSell preserves buy fill/hold shares (no double SHARES fee)", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 14.12,
+      money: 0,
+      odds: 3.125,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      link: 7,
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfSharesWei: "44125000000000000000",
+        pfShares: 44.125,
+        pfHoldShares: 43.33075,
+        pfFeeType: "SHARES",
+        pfFeeAmountWei: "794250000000000000",
+        pfChangmenCodeFeeRateBps: 100,
+        pfChangmenCodeFeeShares: 0.4333075,
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBookPrice: 0.32,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    const saved = orderStore.saveOrder.mock.calls.find((c) =>
+      Array.isArray(c[1]) && c[1].length === 2 && c[1][0]?.pfSellState === "closed",
+    )?.[1];
+    expect(saved[0].pfShares).toBe(44.125);
+    expect(saved[0].pfSharesWei).toBe("44125000000000000000");
+    expect(saved[0].pfHoldShares).toBe(43.33075);
+    expect(saved[0].pfChangmenCodeFeeRateBps).toBe(100);
+    expect(saved[0].pfChangmenCodeFeeShares).toBe(0.4333075);
+    expect(saved[0].pfChangmenCodeFeeUsdt).toBeUndefined();
+    expect(saved[1].pfSharesWei).toBe("25000000000000000000");
   });
 
   it("submitSell uses hold shares not gross when SHARES fee present", async () => {
@@ -477,7 +787,7 @@ describe("pf_client_handlers", () => {
     expect(soldWei < 44125000000000000000n).toBe(true);
   });
 
-  it("submitSell refuses when SHARES fee present but hold cannot be resolved", async () => {
+  it("submitSell refuses when pfHoldShares missing", async () => {
     sb.fetchOrdersByPlayer.mockResolvedValue([{
       order_id: "0xbuy1",
       status: "None",
@@ -491,7 +801,9 @@ describe("pf_client_handlers", () => {
         pfOrderHash: "0xbuy1",
         pfMarketId: "830202",
         pfTokenId: "tok",
-        // 有 SHARES 手续费但无成交份额 → 无法算净持仓，不得瞎卖
+        // 有成交毛份额也不得回退；必须等 pfHoldShares
+        pfSharesWei: "44125000000000000000",
+        pfShares: 44.125,
         pfFeeType: "SHARES",
         pfFeeAmountWei: "794250000000000000",
         pfSide: "buy",
@@ -500,10 +812,10 @@ describe("pf_client_handlers", () => {
     }]);
     const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
     expect(r.ok).toBe(false);
-    expect(String(r.msg)).toMatch(/净持仓|份额/);
+    expect(String(r.msg)).toMatch(/持仓未就绪|持仓份额/);
   });
 
-  it("submitSell sells exact hold wei = fillWei − feeWei", async () => {
+  it("submitSell sells exact hold wei from pfHoldShares", async () => {
     sb.fetchOrdersByPlayer.mockResolvedValue([{
       order_id: "0xbuy1",
       status: "None",
@@ -518,6 +830,8 @@ describe("pf_client_handlers", () => {
         pfMarketId: "830202",
         pfTokenId: "tok",
         pfSharesWei: "44125000000000000000",
+        pfShares: 44.125,
+        pfHoldShares: 43.33075,
         pfFeeType: "SHARES",
         pfFeeAmountWei: "794250000000000000",
         pfSide: "buy",
@@ -548,6 +862,8 @@ describe("pf_client_handlers", () => {
         pfMarketId: "830202",
         pfTokenId: "tok",
         pfSharesWei: "25000000000000000000",
+        pfShares: 25,
+        pfHoldShares: 25,
         pfSide: "buy",
         pfSellState: "open",
       },
@@ -557,5 +873,95 @@ describe("pf_client_handlers", () => {
     expect(String(r.msg)).toMatch(/未成交/);
     expect(orderStore.saveOrder).not.toHaveBeenCalled();
     expect(accountStore.updatePlayerBalance).not.toHaveBeenCalled();
+  });
+
+  it("rejects player that is not PredictFun by provider", async () => {
+    const { assertPlayerOwnedByUser } = await import("../../account/player_ownership.js");
+    assertPlayerOwnedByUser.mockResolvedValueOnce({
+      ok: true,
+      player: {
+        id: 42,
+        ownerUserId: "u1",
+        provider: "OB",
+        platformName: "OB",
+        credit: 0,
+        totalBalance: 1000,
+      },
+    });
+    const r = await handlePfCheckBet({
+      playerId: 42,
+      tokenId: "t",
+      marketId: "1",
+      apiBetMoney: 10,
+      detectionMaxPrice: 0.5,
+    }, "u1");
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/不是 PredictFun/);
+  });
+
+  it("submitOrder refunds reserved debit when FOK rejected", async () => {
+    const { createAndSubmitHouseMarketBuy } = await import("./pf_order_service.js");
+    createAndSubmitHouseMarketBuy.mockResolvedValueOnce({
+      requestBody: { data: { order: { hash: "0xrej" } } },
+      result: { success: false, data: { code: "FOK_FAILED" } },
+      bookPrice: 0.4,
+      bookOdds: 2.5,
+      sharesWei: "0",
+      shares: 0,
+      makerUsdt: 10,
+    });
+    accountStore.debitPlayerBalance.mockClear();
+    accountStore.creditPlayerBalance.mockClear();
+    const r = await handlePfSubmitOrder({
+      playerId: 42,
+      tokenId: "t",
+      marketId: "830202",
+      apiBetMoney: 10,
+      detectionMaxPrice: 0.5,
+      detectionOdds: 2,
+    }, "u1");
+    expect(r.ok).toBe(false);
+    expect(accountStore.debitPlayerBalance).toHaveBeenCalledWith(42, 10, "u1");
+    expect(accountStore.creditPlayerBalance).toHaveBeenCalledWith(42, 10, "u1");
+    expect(orderStore.saveOrder).not.toHaveBeenCalled();
+  });
+
+  it("submitSell resumes pending_credit without resubmitting sell", async () => {
+    const { createAndSubmitHouseMarketSell } = await import("./pf_order_service.js");
+    createAndSubmitHouseMarketSell.mockClear();
+    accountStore.creditPlayerBalance.mockClear();
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy1",
+      status: "None",
+      bet_money: 10,
+      money: 3.75,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "tok",
+      raw: {
+        pfOrderHash: "0xbuy1",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfHoldShares: 25,
+        pfSide: "buy",
+        pfSellState: "closed",
+        pfSellOrderId: "0xsell1",
+        pfSellProceeds: 13.75,
+        pfLedgerState: "pending_credit",
+        pfPendingCreditUsdt: 13.75,
+        pfBookPrice: 0.4,
+      },
+    }]);
+    const r = await handlePfSubmitSell({ playerId: 42, buyOrderId: "0xbuy1" }, "u1");
+    expect(r.ok).toBe(true);
+    expect(r.info.proceedsUsdt).toBe(13.75);
+    expect(r.info.balance).toBe(1013.75);
+    expect(createAndSubmitHouseMarketSell).not.toHaveBeenCalled();
+    expect(accountStore.claimCreditPfPendingOrder).toHaveBeenCalledWith(42, "0xbuy1", "u1");
+    const creditedSave = orderStore.saveOrder.mock.calls.find((c) =>
+      c[1]?.[0]?.pfLedgerState === "credited",
+    );
+    expect(creditedSave).toBeTruthy();
   });
 });

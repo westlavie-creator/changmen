@@ -1,5 +1,6 @@
 /**
  * [changmen 扩展] 订单栏 PF 卖出：1:1 全卖指定买单（house 代卖）
+ * 用户只认 changmen RDS：回款/盈亏以落库为准（已扣 Changmencodefee），前端不推算官网手续费。
  */
 import { ElMessage } from "element-plus";
 import { shallowRef } from "vue";

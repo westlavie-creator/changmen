@@ -17,6 +17,8 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminPolymarketBuilder",
   "Client_AdminAccounts",
   "Client_AdminPredictFunMembers",
+  "Client_AdminGetPredictFunFeeConfig",
+  "Client_AdminSavePredictFunFeeConfig",
   "Client_AdminEnsurePredictFunHouseAccount",
   "Client_AdminUpdateAccountFields",
 ]);

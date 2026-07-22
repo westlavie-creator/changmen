@@ -55,10 +55,7 @@ export interface OrderRow {
   PfBuyOrderId?: string;
   PfSellState?: "open" | "closed" | "settled";
   PfShares?: number;
-  /**
-   * [changmen 扩展] 官网持仓口径份额（成交 − SHARES 手续费）。
-   * 订单栏「份额」优先展示此值。
-   */
+  /** [changmen 扩展] 官网持仓口径份额经 Changmencodefee 处理后的用户持仓（成交 − 官网份额费 − Changmencodefee）。 */
   PfHoldShares?: number;
   /**
    * [changmen 扩展] 名义买入 USDT（限价×份额，如 14.12）。
@@ -72,7 +69,7 @@ export interface OrderRow {
   PfTokenId?: string;
   PfMarketId?: string;
   PfSellOrderId?: string;
-  /** [changmen 扩展] 买单上官方卖出回款 USDT（经济真相；卖单 BetMoney 为其展示镜像） */
+  /** [changmen 扩展] 买单上卖出回款 USDT（RDS 落库值；卖单 BetMoney 为其展示镜像） */
   PfSellProceeds?: number;
   PfFeeAmountWei?: string;
   PfFeeType?: "COLLATERAL" | "SHARES";

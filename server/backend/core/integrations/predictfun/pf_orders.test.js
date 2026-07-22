@@ -32,6 +32,8 @@ import {
   settlementFromPredictOfficialStatus,
   waitForHouseOrderTerminal,
   fetchHousePredictOrderResolved,
+  awaitHouseOrderFee,
+  hasWalletFeeSignal,
 } from "./pf_orders.js";
 import {
   getHouseWalletSettlementHint,
@@ -145,6 +147,81 @@ describe("pf_orders official status mapping", () => {
     expect(official?.status).toBe("FILLED");
     expect(attachWalletFeeToOfficial).toHaveBeenCalled();
     expect(String(official?.pfExecutedValueWei || "")).toBe("13680000000000000000");
+  });
+
+  it("waitForHouseOrderTerminal still waits for fee when REST already has amount", async () => {
+    getHouseWalletSettlementHint.mockReturnValue(null);
+    waitForHouseWalletSettlementHint.mockImplementation(async () => {
+      const hint = {
+        orderHash: "0xsellfee",
+        settlement: "filled",
+        type: "orderTransactionSuccess",
+        executedValueWei: "13750000000000000000",
+        feeAmountWei: "250000000000000000",
+        feeType: "COLLATERAL",
+      };
+      getHouseWalletSettlementHint.mockReturnValue(hint);
+      return hint;
+    });
+    const official = await waitForHouseOrderTerminal("0xsellfee", {
+      attempts: 3,
+      intervalMs: 50,
+      fetchOrder: async () => ({
+        status: "FILLED",
+        // 人类 amount 已在 → 旧逻辑会跳过等 wallet，导致卖出漏扣 fee
+        amount: "13.75",
+        amountFilled: "25000000000000000000",
+        order: {
+          side: 1,
+          makerAmount: "25000000000000000000",
+          takerAmount: "13750000000000000000",
+        },
+      }),
+    });
+    expect(official?.status).toBe("FILLED");
+    expect(official?.pfWalletFee?.amountWei).toBe("250000000000000000");
+    expect(official?.pfWalletFee?.type).toBe("COLLATERAL");
+  });
+
+  it("awaitHouseOrderFee skips wait when feeRateBps is 0", async () => {
+    const raw = { status: "FILLED", amount: "10" };
+    const out = await awaitHouseOrderFee(raw, "0x1", { feeRateBps: 0, timeoutMs: 50 });
+    expect(out).toBe(raw);
+    expect(hasWalletFeeSignal(out)).toBe(false);
+  });
+
+  it("awaitHouseOrderFee waits until wallet fee arrives when feeRateBps > 0", async () => {
+    getHouseWalletSettlementHint.mockReturnValue(null);
+    let n = 0;
+    getHouseWalletSettlementHint.mockImplementation(() => {
+      n += 1;
+      if (n < 3)
+        return { settlement: "filled", orderHash: "0xfee2" };
+      return {
+        settlement: "filled",
+        orderHash: "0xfee2",
+        feeAmountWei: "100000000000000000",
+        feeType: "COLLATERAL",
+      };
+    });
+    const out = await awaitHouseOrderFee(
+      { status: "FILLED", amount: "10" },
+      "0xfee2",
+      { feeRateBps: 200, timeoutMs: 2000 },
+    );
+    expect(out?.pfWalletFee?.amountWei).toBe("100000000000000000");
+  });
+
+  it("awaitHouseOrderFee throws when fee never arrives", async () => {
+    getHouseWalletSettlementHint.mockReturnValue({
+      settlement: "filled",
+      orderHash: "0xnofee",
+    });
+    await expect(awaitHouseOrderFee(
+      { status: "FILLED", amount: "10" },
+      "0xnofee",
+      { feeRateBps: 200, timeoutMs: 400 },
+    )).rejects.toThrow(/卖出确认超时/);
   });
 
   it("waitForHouseOrderTerminal uses wallet hint when REST lags", async () => {

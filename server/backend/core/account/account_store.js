@@ -110,6 +110,26 @@ async function updatePlayerBalance(playerId, balance, ownerUserId) {
   return sb.updatePlayerBalanceRow(playerId, balance, ownerUserId);
 }
 
+/** PF 下单：条件扣减，余额不足返回 null */
+async function debitPlayerBalance(playerId, amount, ownerUserId) {
+  return sb.debitPlayerBalanceRow(playerId, amount, ownerUserId);
+}
+
+/** PF 卖出/结算：条件入账 */
+async function creditPlayerBalance(playerId, amount, ownerUserId) {
+  return sb.creditPlayerBalanceRow(playerId, amount, ownerUserId);
+}
+
+/** PF pending_credit：余额入账 + 订单标 credited（RDS 同事务） */
+async function claimCreditPfPendingOrder(playerId, orderId, ownerUserId) {
+  return sb.claimCreditPfPendingOrderRow(playerId, orderId, ownerUserId);
+}
+
+/** PF 卖出迟到 fee：同事务校正 proceeds + 余额 delta（或改写 pending_credit） */
+async function adjustPfSellProceedsAfterFee(playerId, ownerUserId, params) {
+  return sb.adjustPfSellProceedsAfterFeeRow(playerId, ownerUserId, params);
+}
+
 /** ACCOUNT 保存时同步显示用 platform_name（余额刷新会从 players 读回） */
 async function syncPlayerDisplayName(playerId, platformName, ownerUserId) {
   return sb.updatePlayerDisplayName(playerId, platformName, ownerUserId);
@@ -321,4 +341,8 @@ export {
   saveUserLog,
   syncPlayerDisplayName,
   updatePlayerBalance,
+  debitPlayerBalance,
+  creditPlayerBalance,
+  claimCreditPfPendingOrder,
+  adjustPfSellProceedsAfterFee,
 };

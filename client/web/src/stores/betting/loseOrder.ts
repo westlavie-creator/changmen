@@ -12,7 +12,6 @@ import {
   tryResumePmPendingMakeUp,
 } from "@/stores/betting/loseOrderPm";
 import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
-import { allowMakeUpForLeg } from "@/stores/betting/autoBet/makeUp";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
 import { syncActiveBetMakeupAttempt } from "@/stores/betting/activeBetRunSync";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
@@ -81,18 +80,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const sideOdds = item.getOdds(order.target);
       const stake = order.getBetMoney(sideOdds);
 
-      const okMakeUp = await allowMakeUpForLeg(
-        match,
-        bet,
-        order.target,
-        sideOdds,
-        config,
-        setMessage,
-        { notify: false },
-      );
-      if (!okMakeUp)
-        continue;
-
+      // [A8 可证实] jb 不调用 B()；makeUp_odds / 初赔天花板仅在入队
       const account = accountStore.getAccount(
         item.type,
         stake,

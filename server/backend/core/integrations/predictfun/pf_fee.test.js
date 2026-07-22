@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   computePfHoldShares,
+  computeChangmenPfFeeUsdt,
   extractPfFeeFromOfficial,
+  netSellProceedsAfterChangmenFee,
+  netSellProceedsAfterCollateralFee,
   resolvePfFeeSavePatch,
 } from "./pf_fee.js";
 import { pfFeeAmountWeiToUsdt } from "./pf_wallet_events_parse.js";
@@ -10,6 +13,55 @@ describe("pf_fee", () => {
   it("converts COLLATERAL wei to USDT", () => {
     expect(pfFeeAmountWeiToUsdt("2000000000000000000", "COLLATERAL")).toBe(2);
     expect(pfFeeAmountWeiToUsdt("2000000000000000000", "SHARES")).toBeUndefined();
+  });
+
+  it("nets sell proceeds by COLLATERAL fee only", () => {
+    expect(netSellProceedsAfterCollateralFee(13.75, {
+      pfFeeType: "COLLATERAL",
+      pfFeeUsdt: 0.25,
+    })).toBe(13.5);
+    expect(netSellProceedsAfterCollateralFee(13.75, {
+      pfFeeType: "SHARES",
+      pfFeeAmountWei: "1000000000000000000",
+    })).toBe(13.75);
+    expect(netSellProceedsAfterCollateralFee(10, {
+      pfFeeType: "COLLATERAL",
+      pfFeeAmountWei: "1500000000000000000",
+    })).toBe(8.5);
+    expect(netSellProceedsAfterCollateralFee(1, {
+      pfFeeType: "COLLATERAL",
+      pfFeeUsdt: 2,
+    })).toBe(0);
+  });
+
+  it("computes Changmencodefee by bps", () => {
+    expect(computeChangmenPfFeeUsdt(100, 100)).toBe(1);
+    expect(computeChangmenPfFeeUsdt(13.5, 200)).toBe(0.27);
+    expect(computeChangmenPfFeeUsdt(10, 0)).toBe(0);
+    expect(netSellProceedsAfterChangmenFee(13.5, 200)).toEqual({
+      proceedsUsdt: 13.23,
+      changmenCodeFeeUsdt: 0.27,
+      changmenCodeFeeRateBps: 200,
+    });
+    expect(netSellProceedsAfterChangmenFee(10, 0)).toEqual({
+      proceedsUsdt: 10,
+      changmenCodeFeeUsdt: 0,
+      changmenCodeFeeRateBps: 0,
+    });
+  });
+
+  it("applies Changmencodefee buy cut as shares on hold", async () => {
+    const { applyChangmenBuyFeeToHoldShares } = await import("./pf_fee.js");
+    expect(applyChangmenBuyFeeToHoldShares(100, 100)).toEqual({
+      holdShares: 99,
+      changmenCodeFeeShares: 1,
+      changmenCodeFeeRateBps: 100,
+    });
+    expect(applyChangmenBuyFeeToHoldShares(50, 200)).toEqual({
+      holdShares: 49,
+      changmenCodeFeeShares: 1,
+      changmenCodeFeeRateBps: 200,
+    });
   });
 
   it("extracts fee from pfWalletFee stub", () => {

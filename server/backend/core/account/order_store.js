@@ -472,6 +472,7 @@ export function rowToOrder(r) {
     PfSide: raw.pfSide === "buy" || raw.pfSide === "sell" ? raw.pfSide : undefined,
     PfBuyOrderId: raw.pfBuyOrderId ? String(raw.pfBuyOrderId) : undefined,
     PfSellState: raw.pfSellState === "open"
+      || raw.pfSellState === "closing"
       || raw.pfSellState === "closed"
       || raw.pfSellState === "settled"
       ? raw.pfSellState
@@ -539,6 +540,45 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     ) {
       merged.pfFeeRateBps = Number(prevRaw.pfFeeRateBps);
     }
+    if (
+      !(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
+      && !(Number.isFinite(Number(merged.pfChangmenFeeRateBps)) && Number(merged.pfChangmenFeeRateBps) >= 0)
+    ) {
+      const prevRate = Number(prevRaw.pfChangmenCodeFeeRateBps ?? prevRaw.pfChangmenFeeRateBps);
+      if (Number.isFinite(prevRate) && prevRate >= 0)
+        merged.pfChangmenCodeFeeRateBps = prevRate;
+    }
+    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
+      && Number.isFinite(Number(merged.pfChangmenFeeRateBps))
+      && Number(merged.pfChangmenFeeRateBps) >= 0) {
+      merged.pfChangmenCodeFeeRateBps = Number(merged.pfChangmenFeeRateBps);
+    }
+    if (
+      !(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
+      && !(Number.isFinite(Number(merged.pfChangmenFeeUsdt)) && Number(merged.pfChangmenFeeUsdt) > 0)
+    ) {
+      const prevUsdt = Number(prevRaw.pfChangmenCodeFeeUsdt ?? prevRaw.pfChangmenFeeUsdt);
+      if (Number.isFinite(prevUsdt) && prevUsdt > 0)
+        merged.pfChangmenCodeFeeUsdt = prevUsdt;
+    }
+    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
+      && Number.isFinite(Number(merged.pfChangmenFeeUsdt))
+      && Number(merged.pfChangmenFeeUsdt) > 0) {
+      merged.pfChangmenCodeFeeUsdt = Number(merged.pfChangmenFeeUsdt);
+    }
+    if (
+      !(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
+      && !(Number.isFinite(Number(merged.pfChangmenFeeShares)) && Number(merged.pfChangmenFeeShares) > 0)
+    ) {
+      const prevShares = Number(prevRaw.pfChangmenCodeFeeShares ?? prevRaw.pfChangmenFeeShares);
+      if (Number.isFinite(prevShares) && prevShares > 0)
+        merged.pfChangmenCodeFeeShares = prevShares;
+    }
+    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
+      && Number.isFinite(Number(merged.pfChangmenFeeShares))
+      && Number(merged.pfChangmenFeeShares) > 0) {
+      merged.pfChangmenCodeFeeShares = Number(merged.pfChangmenFeeShares);
+    }
     if (!String(merged.pfSellOrderId ?? "").trim() && String(prevRaw.pfSellOrderId ?? "").trim())
       merged.pfSellOrderId = prevRaw.pfSellOrderId;
     if (
@@ -582,10 +622,31 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
     if (!(Number(merged.pfShares) > 0) && Number(prevRaw.pfShares) > 0)
       merged.pfShares = Number(prevRaw.pfShares);
     const hold = resolvePfHoldSharesFromRaw(merged);
-    if (hold != null && hold > 0)
-      merged.pfHoldShares = hold;
-    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
+    const incomingStatus = String(merged.status ?? merged.Status ?? "").toLowerCase();
+    // Pending 未 fee-ready：禁止用毛仓「发明」可卖 hold
+    if (incomingStatus !== "pending") {
+      if (hold != null && hold > 0)
+        merged.pfHoldShares = hold;
+      else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
+        merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+    }
+    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0) {
       merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+    }
+    if (!String(merged.pfLedgerState ?? "").trim() && String(prevRaw.pfLedgerState ?? "").trim())
+      merged.pfLedgerState = prevRaw.pfLedgerState;
+    // credited / 显式 0：允许清零 pending；否则保留库内正数
+    if (String(merged.pfLedgerState ?? "").toLowerCase() === "credited" || merged.pfPendingCreditUsdt === 0) {
+      if (merged.pfPendingCreditUsdt == null)
+        merged.pfPendingCreditUsdt = 0;
+    }
+    else if (
+      !(Number.isFinite(Number(merged.pfPendingCreditUsdt)) && Number(merged.pfPendingCreditUsdt) > 0)
+      && Number.isFinite(Number(prevRaw.pfPendingCreditUsdt))
+      && Number(prevRaw.pfPendingCreditUsdt) > 0
+    ) {
+      merged.pfPendingCreditUsdt = Number(prevRaw.pfPendingCreditUsdt);
+    }
     return { raw: merged, money, bet_money };
   }
 
@@ -815,6 +876,7 @@ export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
 
 /**
  * 工作台下发订单：去掉 house 成交额 / 手续费明细（价差可由此反推）。
+ * PredictFun：closing 对外折叠为 open（见 pf_lifecycle.js）。
  * 管理端 mapAdminOrderRow / listByPlayer 仍用完整 rowToOrder。
  */
 export function scrubClientOrder(order) {
@@ -828,6 +890,11 @@ export function scrubClientOrder(order) {
     PfFeeRateBps: _bps,
     ...rest
   } = order;
+  if (String(rest.Type ?? "").trim() === "PredictFun") {
+    const rawState = String(rest.PfSellState ?? "").toLowerCase();
+    if (rawState === "closing")
+      rest.PfSellState = "open";
+  }
   return rest;
 }
 

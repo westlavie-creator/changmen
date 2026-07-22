@@ -58,7 +58,7 @@ export interface PolymarketVenueOrderExtras {
 
 /** [changmen 扩展] PredictFun house 1:1 买卖（会员账号仅归属，仓位共用主号） */
 export type PredictFunOrderSide = "buy" | "sell";
-export type PredictFunSellState = "open" | "closed" | "settled";
+export type PredictFunSellState = "open" | "closing" | "closed" | "settled";
 
 export interface PredictFunVenueOrderExtras {
   pfSide?: PredictFunOrderSide;
@@ -67,17 +67,24 @@ export interface PredictFunVenueOrderExtras {
   pfShares?: number;
   /** 官网持仓口径（VPS 写库；成交 − SHARES 手续费） */
   pfHoldShares?: number;
-  /** 名义买入 USDT（限价×份额）；与用户扣款 betMoney 对齐 */
+  /**
+   * 名义买入 USDT（限价×份额）；与用户扣款 betMoney 对齐。
+   * 链上实付 / 官网 fee 仅服务端与管理端可见，不下发用户 API。
+   */
   pfNotionalUsdt?: number;
-  /** 链上实付成交额（可低于名义；差额归 house） */
+  /** @deprecated 用户 API 不再下发；管理端仍可读 */
   pfFillCostUsdt?: number;
   /** 买入限价/盘口价 (0,1) */
   pfBookPrice?: number;
   pfTokenId?: string;
   pfMarketId?: string;
+  /** @deprecated 用户 API 不再下发；管理端仍可读 */
   pfFeeAmountWei?: string;
+  /** @deprecated 用户 API 不再下发；管理端仍可读 */
   pfFeeType?: "COLLATERAL" | "SHARES";
+  /** @deprecated 用户 API 不再下发；管理端仍可读 */
   pfFeeUsdt?: number;
+  /** @deprecated 用户 API 不再下发；管理端仍可读 */
   pfFeeRateBps?: number;
   pfSellProceeds?: number;
   pfSellOrderId?: string;

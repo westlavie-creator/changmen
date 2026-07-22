@@ -8,9 +8,12 @@ import {
   deleteAdminOrders,
   ensureAdminPredictFunHouseAccount,
   getAdminOrdersAll,
+  getAdminPredictFunFeeConfig,
   getAdminPredictFunMembers,
+  saveAdminPredictFunFeeConfig,
   updateAdminAccountFields,
 } from "@/api/admin";
+import type { AdminPredictFunFeeConfig } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
@@ -33,6 +36,14 @@ const saving = ref(false);
 const ensuringId = ref("");
 const rows = ref<AdminPredictFunMemberRow[]>([]);
 const loadError = ref("");
+
+const feeLoading = ref(false);
+const feeSaving = ref(false);
+const feeForm = reactive({
+  buyFeeRatePercent: 0,
+  sellFeeRatePercent: 0,
+});
+const feeMeta = ref<Pick<AdminPredictFunFeeConfig, "updatedAt"> | null>(null);
 
 const keyword = ref(String(route.query.q || ""));
 const filterStatus = ref<"all" | "open" | "closed" | "paused">("all");
@@ -233,6 +244,44 @@ async function load() {
   }
 }
 
+async function loadFeeConfig() {
+  feeLoading.value = true;
+  try {
+    const cfg = await getAdminPredictFunFeeConfig();
+    feeForm.buyFeeRatePercent = Number(cfg.buyFeeRatePercent) || 0;
+    feeForm.sellFeeRatePercent = Number(cfg.sellFeeRatePercent) || 0;
+    feeMeta.value = { updatedAt: cfg.updatedAt ?? null };
+  }
+  catch (e) {
+    ElMessage.error((e as Error).message || "加载费率失败");
+  }
+  finally {
+    feeLoading.value = false;
+  }
+}
+
+async function saveFeeConfig() {
+  if (feeSaving.value)
+    return;
+  feeSaving.value = true;
+  try {
+    const cfg = await saveAdminPredictFunFeeConfig({
+      buyFeeRatePercent: feeForm.buyFeeRatePercent,
+      sellFeeRatePercent: feeForm.sellFeeRatePercent,
+    });
+    feeForm.buyFeeRatePercent = Number(cfg.buyFeeRatePercent) || 0;
+    feeForm.sellFeeRatePercent = Number(cfg.sellFeeRatePercent) || 0;
+    feeMeta.value = { updatedAt: cfg.updatedAt ?? null };
+    ElMessage.success("费率已保存");
+  }
+  catch (e) {
+    ElMessage.error((e as Error).message || "保存费率失败");
+  }
+  finally {
+    feeSaving.value = false;
+  }
+}
+
 async function onEnsure(row: AdminPredictFunMemberRow) {
   if (ensuringId.value)
     return;
@@ -309,7 +358,9 @@ async function loadMemberOrders(userId: string) {
       provider: "PredictFun",
       playerId: panel.accountId,
     });
-    panel.orders = page.list ?? [];
+    panel.orders = (page.list ?? []).filter(
+      (o) => String(o.provider || "").trim() === "PredictFun",
+    );
   }
   catch (e) {
     panel.orders = [];
@@ -409,7 +460,7 @@ onMounted(async () => {
   const status = String(route.query.status || "");
   if (status === "open" || status === "closed" || status === "paused")
     filterStatus.value = status;
-  await load();
+  await Promise.all([load(), loadFeeConfig()]);
 });
 </script>
 
@@ -418,6 +469,52 @@ onMounted(async () => {
     title="PF 会员"
     subtitle="Predict.fun changmen 会员：登录名即会员名，运营主号代下；战绩按会员账号统计"
   >
+    <section v-loading="feeLoading" class="admin-card admin-pf-fee-card">
+      <div class="admin-pf-fee-card__title">
+        Changmencodefee
+      </div>
+      <p class="admin-pf-hint">
+        设计：用户只认 changmen / 只读 RDS。份额 = 官网成交 − 官网份额费 − Changmencodefee（买入份额）；回款 = 官网回款 − 官网费 − Changmencodefee（卖出 USDT）。单位为百分比（1 = 1%）。
+      </p>
+      <div class="admin-pf-fee-form">
+        <label class="admin-pf-fee-field">
+          <span>买入费率 %</span>
+          <el-input-number
+            v-model="feeForm.buyFeeRatePercent"
+            :min="0"
+            :max="100"
+            :step="0.01"
+            :precision="2"
+            size="small"
+            controls-position="right"
+          />
+        </label>
+        <label class="admin-pf-fee-field">
+          <span>卖出费率 %</span>
+          <el-input-number
+            v-model="feeForm.sellFeeRatePercent"
+            :min="0"
+            :max="100"
+            :step="0.01"
+            :precision="2"
+            size="small"
+            controls-position="right"
+          />
+        </label>
+        <el-button
+          type="primary"
+          size="small"
+          :loading="feeSaving"
+          @click="saveFeeConfig"
+        >
+          保存费率
+        </el-button>
+        <span v-if="feeMeta?.updatedAt" class="admin-pf-fee-updated">
+          已保存 {{ new Date(feeMeta.updatedAt).toLocaleString() }}
+        </span>
+      </div>
+    </section>
+
     <section v-loading="loading" class="admin-card">
       <div class="admin-card__toolbar admin-pf-toolbar">
         <el-input
@@ -759,6 +856,29 @@ onMounted(async () => {
 .admin-pf-toolbar {
   flex-wrap: wrap;
   gap: 8px;
+}
+.admin-pf-fee-card__title {
+  font-weight: 600;
+  margin: 0 12px 4px;
+  font-size: 14px;
+}
+.admin-pf-fee-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: flex-end;
+  margin: 0 12px 12px;
+}
+.admin-pf-fee-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-pf-fee-updated {
+  font-size: 12px;
+  color: var(--adm-text-muted);
 }
 .admin-pf-count {
   margin-left: auto;

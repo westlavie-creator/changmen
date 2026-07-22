@@ -15,13 +15,21 @@ export async function saveOrder(body: Record<string, unknown>) {
   return unwrap(await post<unknown>("Client_SaveOrder", body));
 }
 
-/** 对齐 bundle `Vt.saveOrders`：按 provider 分组调用 `Client_SaveOrder` */
+/**
+ * 对齐 bundle `Vt.saveOrders`：按 provider 分组调用 `Client_SaveOrder`。
+ * [changmen 扩展] PredictFun 禁止客户端回写：订单只经 Pf_* 服务端落库。
+ */
 export async function saveOrders(account: PlatformAccount, orders: VenueOrder[]): Promise<void> {
+  if (String(account.provider ?? "").trim() === "PredictFun")
+    return;
   const byProvider = new Map<string, VenueOrder[]>();
   for (const order of orders) {
-    const list = byProvider.get(order.provider) ?? [];
+    const provider = String(order.provider ?? "").trim();
+    if (provider === "PredictFun")
+      continue;
+    const list = byProvider.get(provider) ?? [];
     list.push(order);
-    byProvider.set(order.provider, list);
+    byProvider.set(provider, list);
   }
   for (const [type, list] of byProvider) {
     await saveOrder({

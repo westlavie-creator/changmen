@@ -76,6 +76,8 @@ export {
   updateOrderBind,
   rebindOrderLink,
   upsertOrders,
+  claimCreditPfPendingOrderRow,
+  adjustPfSellProceedsAfterFeeRow,
 } from "./rds/orders_store.js";
 
 export {
@@ -116,6 +118,8 @@ export {
   softDeletePlayerRow,
   softDeletePlayersNotInList,
   updatePlayerBalanceRow,
+  debitPlayerBalanceRow,
+  creditPlayerBalanceRow,
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
   findVenueAccountKeyConflict,

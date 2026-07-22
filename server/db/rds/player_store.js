@@ -419,6 +419,85 @@ export async function updatePlayerBalanceRow(playerId, balance, ownerUserId) {
   }
 }
 
+/**
+ * 条件扣减：仅当 total_balance >= amount 时扣减，防止并发超扣。
+ * @returns {{ total, platformId, platformName } | null} 不足或失败返回 null
+ */
+export async function debitPlayerBalanceRow(playerId, amount, ownerUserId) {
+  const id = Number(playerId);
+  const debit = Math.round((Number(amount) || 0) * 100) / 100;
+  if (!Number.isFinite(id) || id <= 0 || !(debit > 0))
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  const now = Date.now();
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
+  try {
+    const params = uid ? [id, debit, now, uid] : [id, debit, now];
+    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
+    const { rows } = await pool.query(
+      `UPDATE players
+       SET total_balance = total_balance - $2, updated_at = $3
+       WHERE id = $1 AND deleted_at IS NULL${ownerClause}
+         AND total_balance >= $2
+       RETURNING ${PLAYER_SELECT}`,
+      params,
+    );
+    const row = _mapPlayerRow(rows?.[0]);
+    if (!row)
+      return null;
+    return {
+      total: row.totalBalance,
+      platformId: row.platformId,
+      platformName: row.platformName,
+    };
+  }
+  catch (err) {
+    console.warn("[rds] debitPlayerBalanceRow:", err.message);
+    return null;
+  }
+}
+
+/**
+ * 条件入账：total_balance += amount（amount>0）。
+ * @returns {{ total, platformId, platformName } | null}
+ */
+export async function creditPlayerBalanceRow(playerId, amount, ownerUserId) {
+  const id = Number(playerId);
+  const credit = Math.round((Number(amount) || 0) * 100) / 100;
+  if (!Number.isFinite(id) || id <= 0 || !(credit > 0))
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  const now = Date.now();
+  const uid = ownerUserId != null ? String(ownerUserId).trim() : "";
+  try {
+    const params = uid ? [id, credit, now, uid] : [id, credit, now];
+    const ownerClause = uid ? " AND owner_user_id = $4::uuid" : "";
+    const { rows } = await pool.query(
+      `UPDATE players
+       SET total_balance = total_balance + $2, updated_at = $3
+       WHERE id = $1 AND deleted_at IS NULL${ownerClause}
+       RETURNING ${PLAYER_SELECT}`,
+      params,
+    );
+    const row = _mapPlayerRow(rows?.[0]);
+    if (!row)
+      return null;
+    return {
+      total: row.totalBalance,
+      platformId: row.platformId,
+      platformName: row.platformName,
+    };
+  }
+  catch (err) {
+    console.warn("[rds] creditPlayerBalanceRow:", err.message);
+    return null;
+  }
+}
+
 export async function softDeletePlayerRow(playerId, description, ownerUserId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)

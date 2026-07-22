@@ -475,7 +475,11 @@ export async function listAdminOrders(body = {}, caller = null) {
     userId: userId || undefined,
     userIds,
   });
-  const list = enriched.map(r => mapAdminOrderRow(r));
+  // enrich 会按 Link 并入套利对腿（如 PB）；请求了 provider 时仍只返回该场馆
+  const scoped = provider
+    ? enriched.filter(r => String(r?.provider || "").trim() === provider)
+    : enriched;
+  const list = scoped.map(r => mapAdminOrderRow(r));
   const sqlTotal = Number(total) || 0;
   // total/hasMore 按 SQL create_at 当日分页；list 经 enrich 后可含跨日 sibling / 整页被滤空
   return {
@@ -899,6 +903,38 @@ export async function listAdminPredictFunMembers(caller = null) {
     return String(a.userName).localeCompare(String(b.userName), "zh");
   });
   return out;
+}
+
+/** Changmencodefee 买卖费率（管理端全局配置） */
+export async function getAdminPredictFunFeeConfig(caller = null) {
+  if (caller && !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const { getPfChangmenFeeConfig } = await import("../integrations/predictfun/pf_changmen_fee_config.js");
+  const cfg = getPfChangmenFeeConfig();
+  return {
+    buyFeeRateBps: cfg.buyFeeRateBps,
+    sellFeeRateBps: cfg.sellFeeRateBps,
+    buyFeeRatePercent: cfg.buyFeeRateBps / 100,
+    sellFeeRatePercent: cfg.sellFeeRateBps / 100,
+    updatedAt: cfg.updatedAt ?? null,
+  };
+}
+
+/**
+ * @param {{ buyFeeRateBps?: number, sellFeeRateBps?: number, buyFeeRatePercent?: number, sellFeeRatePercent?: number }} body
+ */
+export async function saveAdminPredictFunFeeConfig(body = {}, caller = null) {
+  if (!caller || !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const { savePfChangmenFeeConfig } = await import("../integrations/predictfun/pf_changmen_fee_config.js");
+  const cfg = savePfChangmenFeeConfig(body);
+  return {
+    buyFeeRateBps: cfg.buyFeeRateBps,
+    sellFeeRateBps: cfg.sellFeeRateBps,
+    buyFeeRatePercent: cfg.buyFeeRateBps / 100,
+    sellFeeRatePercent: cfg.sellFeeRateBps / 100,
+    updatedAt: cfg.updatedAt ?? null,
+  };
 }
 
 /**

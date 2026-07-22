@@ -244,7 +244,9 @@ export function truncateSharesDisplay(value: number, decimals = 2): string {
 }
 
 /**
- * 订单栏展示份额：买单显示扣费后持仓；卖单显示卖出份额。
+ * 订单栏展示份额：只读 RDS（changmen 已处理结果）。
+ * 买单 = pfHoldShares = 官网成交 − 官网份额费 − Changmencodefee（买入份额）；
+ * 卖单 = 本次卖出份额。
  */
 export function resolvePfDisplayShares(row: OrderRow): number | null {
   if (isPfSellOrderListRow(row)) {
@@ -262,19 +264,13 @@ export function resolvePfDisplayShares(row: OrderRow): number | null {
   if (Number.isFinite(hold) && hold > 0.0001)
     return hold;
 
-  // 无落库 hold 时用成交 − SHARES 手续费推算
+  // 旧单无 hold：仅回退成交份额（不再前端推算手续费）
   const fillShares = Number(
     row.PfShares ?? (row as { pfShares?: number }).pfShares,
   );
   if (!Number.isFinite(fillShares) || fillShares <= 0.0001)
     return null;
-  const fee = pfFeeSharesFromOrderRow(row);
-  if (fee == null)
-    return fillShares;
-  const net = fillShares - fee;
-  if (!Number.isFinite(net) || net <= 0)
-    return null;
-  return net;
+  return fillShares;
 }
 
 /** 份额展示：持仓两位截断 */
@@ -289,7 +285,7 @@ export function pfOrderSharesText(row: OrderRow): string | null {
 /**
  * 侧栏投注金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
  * - 买单：优先名义 PfNotionalUsdt（限价×份额，如 14.12）；无则 BetMoney（用户扣款）
- * - 卖单 BetMoney = 回款镜像（与买单 pfSellProceeds 同值；订单栏仍读此字段）
+ * - 卖单 BetMoney = 回款镜像（RDS 落库值；与买单 pfSellProceeds 同值）
  * 库内为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
  */
 export function pfOrderStakeDisplayCny(row: OrderRow): number {

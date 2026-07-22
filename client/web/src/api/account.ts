@@ -43,7 +43,7 @@ export async function refreshPmBalance(
   return res.success === 1 && res.info ? res.info : undefined;
 }
 
-/** [changmen 扩展] PF house：按 RDS 订单重算授信台账余额 */
+/** [changmen 扩展] PF：只读 RDS total_balance（可顺带结算）；禁止 Client_UpdateBalance */
 export async function refreshPfBalance(
   playerId: number,
 ): Promise<AccountRecord | undefined> {

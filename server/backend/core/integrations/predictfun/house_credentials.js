@@ -33,6 +33,16 @@ export function resolvePfHouseMaxStakeUsdt() {
   return 500;
 }
 
+/**
+ * Changmencodefee 费率（bps）。
+ * 持久化配置见 pf_changmen_fee_config.js；此处 re-export 供旧 import 兼容。
+ */
+export {
+  resolvePfChangmenFeeRateBps,
+  resolvePfChangmenBuyFeeRateBps,
+  resolvePfChangmenSellFeeRateBps,
+} from "./pf_changmen_fee_config.js";
+
 export function isPredictFunHouseConfigured() {
   return Boolean(resolvePredictFunApiKey() && resolvePredictFunHouseCredentials()?.privateKey);
 }

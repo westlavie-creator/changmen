@@ -121,6 +121,30 @@ function onAdminWheel(e: WheelEvent) {
   if (!target.closest(".admin-shell"))
     return;
 
+  // 订单分列专用横滚容器
+  const hScroll = target.closest(".admin-orders-hscroll, .admin-pf-orders-body");
+  if (hScroll instanceof HTMLElement) {
+    const dx = e.shiftKey ? e.deltaY : e.deltaX;
+    const maxX = hScroll.scrollWidth - hScroll.clientWidth;
+    if (maxX > 0 && (e.shiftKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY))) {
+      hScroll.scrollLeft = Math.max(0, Math.min(maxX, hScroll.scrollLeft + dx));
+      e.preventDefault();
+      return;
+    }
+  }
+
+  // el-table 横向条
+  const tableWrap = target.closest(".el-table .el-scrollbar__wrap, .el-table__body-wrapper");
+  if (tableWrap instanceof HTMLElement) {
+    const dx = e.shiftKey ? e.deltaY : e.deltaX;
+    const maxX = tableWrap.scrollWidth - tableWrap.clientWidth;
+    if (maxX > 0 && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY))) {
+      tableWrap.scrollLeft = Math.max(0, Math.min(maxX, tableWrap.scrollLeft + dx));
+      e.preventDefault();
+      return;
+    }
+  }
+
   if (!target.closest(".el-table"))
     return;
 

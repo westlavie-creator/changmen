@@ -117,6 +117,12 @@ function setupObservers() {
   mutationObs = new MutationObserver(() => scheduleRecalc());
   mutationObs.observe(container, { childList: true, subtree: true });
   container.addEventListener("scroll", scheduleRecalc, { passive: true });
+  const hScroll = container.closest(".admin-orders-hscroll");
+  if (hScroll)
+    hScroll.addEventListener("scroll", scheduleRecalc, { passive: true });
+  const shellContent = container.closest(".admin-shell__content");
+  if (shellContent)
+    shellContent.addEventListener("scroll", scheduleRecalc, { passive: true });
   // drawer 的滚动容器也要监听
   const drawer = container.closest(".el-drawer__body, .el-drawer");
   if (drawer)
@@ -126,6 +132,10 @@ function setupObservers() {
 function teardownObservers() {
   const container = props.containerRef;
   container?.removeEventListener("scroll", scheduleRecalc);
+  const hScroll = container?.closest(".admin-orders-hscroll");
+  hScroll?.removeEventListener("scroll", scheduleRecalc);
+  const shellContent = container?.closest(".admin-shell__content");
+  shellContent?.removeEventListener("scroll", scheduleRecalc);
   const drawer = container?.closest(".el-drawer__body, .el-drawer");
   if (drawer)
     drawer.removeEventListener("scroll", scheduleRecalc);

@@ -1,12 +1,12 @@
 /**
  * PF 会员订单：买卖闭环（买单为主行 / 经济真相；卖单挂接为凭证+展示）
  *
- * - 回款真相：买单 `pfSellProceeds`（官方）；卖单 `betMoney` 仅镜像兜底，勿当本金
- * - 盈亏：买单 `money`；卖单 `money` 恒 0，不进套利组合计
+ * 设计原则：用户只认 changmen；changmen 只认 PF 官网；用户端只读 RDS。
+ * RDS 份额/回款已是 changmen 处理结果：
+ * - 持仓 = 官网成交 − 官网份额费 − Changmencodefee 买入份额（pfHoldShares）
+ * - 回款 = 官网回款 − 官网 USDT 费 − Changmencodefee 卖出 USDT（pfSellProceeds）
  */
 import type { AdminOrderRow } from "@/types/admin";
-import { resolvePfFillPrice } from "@/shared/pfOrderDisplay";
-import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
 
 export interface PfOrderCycle {
   buy: AdminOrderRow;
@@ -23,17 +23,17 @@ export interface PfOrderCycle {
   buyShares: number | null;
   /** 买手续费份额 */
   buyFeeShares: number | null;
-  /** 净持仓 = 库内 pfHoldShares 或 买入份额 − 买手续费份额 */
+  /** 净持仓 = 库内 pfHoldShares（已含官网 + Changmencodefee 扣份额） */
   netShares: number | null;
   /** 官方费率 bps */
   feeRateBps: number | null;
-  /** 卖出回款 U（优先买单 pfSellProceeds） */
+  /** 卖出回款 U（RDS：买单 pfSellProceeds，已含官网 + Changmencodefee 扣 USDT） */
   sellProceedsUsdt: number | null;
-  /** 卖手续费份额 */
+  /** 卖手续费份额（RDS 明细，不参与回款重算） */
   sellFeeShares: number | null;
-  /** 卖手续费 U（仅展示；最终到手不扣） */
+  /** 卖手续费 U（RDS 明细，不参与回款重算） */
   sellFeeUsdt: number | null;
-  /** 最终到手 U（已卖=官方回款）；未完结为 null */
+  /** 最终到手 U（已卖=RDS 回款）；未完结为 null */
   finalUsdt: number | null;
   /** 盈亏 = 最终到手 − 买入实付；未完结为 null */
   profitUsdt: number | null;
@@ -56,20 +56,16 @@ function feeSharesFromRow(row: AdminOrderRow | undefined): number | null {
   return null;
 }
 
-function feeUsdtFromRow(row: AdminOrderRow | undefined, priceHint: number | null): number | null {
+function feeUsdtFromRow(row: AdminOrderRow | undefined, _priceHint: number | null): number | null {
   if (!row)
+    return null;
+  // 仅 COLLATERAL 的库内 USDT；SHARES 不估成 U（管理端走「份」列）
+  if (String(row.pfFeeType || "").toUpperCase() === "SHARES")
     return null;
   const usdt = Number(row.pfFeeUsdt);
   if (Number.isFinite(usdt) && usdt > 0)
     return usdt;
-  const shares = feeSharesFromRow(row);
-  if (shares == null)
-    return null;
-  const price = priceHint
-    ?? resolvePfFillPrice(adminOrderToOrderRow(row));
-  if (price == null || !(price > 0))
-    return null;
-  return shares * price;
+  return null;
 }
 
 export function pfFeeSharesFromAdminOrder(row: AdminOrderRow): number | null {
@@ -85,8 +81,8 @@ export function pfNetShares(buyShares: number | null, buyFeeShares: number | nul
 }
 
 /**
- * 最终到手 U（以官方成交口径为准；手续费仅展示，不从回款再扣）：
- * 1. 已卖出 → 官方卖出回款（买单 pfSellProceeds 优先；无则卖单 betMoney 旧单兜底）
+ * 最终到手 U（只读 RDS 口径，不在此扣手续费）：
+ * 1. 已卖出 → RDS 卖出回款（买单 pfSellProceeds 优先；无则卖单 betMoney 旧单兜底）
  * 2. Win → betMoney + money
  * 3. Lose → 0
  * 4. Reject → null（—）
@@ -127,7 +123,8 @@ export function resolvePfCycleProfitUsdt(
 }
 
 export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
-  const list = Array.isArray(orders) ? orders : [];
+  const list = (Array.isArray(orders) ? orders : [])
+    .filter(o => String(o.provider || "").trim() === "PredictFun");
   const sells = list.filter(o => String(o.pfSide || "").toLowerCase() === "sell");
   const buys = list.filter(o => String(o.pfSide || "").toLowerCase() !== "sell");
 
@@ -164,11 +161,11 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       : null;
     const fillShares = Number(buy.pfShares) > 0 ? Number(buy.pfShares) : null;
     const buyFeeShares = feeSharesFromRow(buy);
-    // 优先库内 pfHoldShares（VPS 成交时写入）；否则 fill − 手续费
+    // 只读 RDS 持仓；无 hold 时不在前端推算手续费
     const storedHold = Number(buy.pfHoldShares);
     const netShares = Number.isFinite(storedHold) && storedHold > 0
       ? storedHold
-      : pfNetShares(fillShares, buyFeeShares);
+      : (fillShares != null && fillShares > 0 ? fillShares : null);
     const buyShares = fillShares;
     const feeRateBps = Number.isFinite(Number(buy.pfFeeRateBps)) && Number(buy.pfFeeRateBps) >= 0
       ? Number(buy.pfFeeRateBps)
@@ -185,11 +182,8 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
         sellProceedsUsdt = fromSell;
     }
 
-    const sellPrice = sell
-      ? resolvePfFillPrice(adminOrderToOrderRow(sell))
-      : null;
     const sellFeeShares = feeSharesFromRow(sell);
-    const sellFeeUsdt = feeUsdtFromRow(sell, sellPrice);
+    const sellFeeUsdt = feeUsdtFromRow(sell, null);
 
     const sold = String(buy.pfSellState || "").toLowerCase() === "closed" || !!sell;
 
