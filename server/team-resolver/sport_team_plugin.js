@@ -58,8 +58,9 @@ export function resolveSportTeamKey(name, gameCode = "mlb") {
  * @returns {string|null}
  */
 export function sportPairKeyResolved(home, away, startTimeMs, gameCode = "mlb") {
-  const h = resolveSportTeamKey(home, gameCode);
-  const a = resolveSportTeamKey(away, gameCode);
+  const game = String(gameCode || "mlb").toLowerCase().trim() || "mlb";
+  const h = resolveSportTeamKey(home, game);
+  const a = resolveSportTeamKey(away, game);
   if (!h || !a)
     return null;
   const t = Number(startTimeMs) || 0;
@@ -67,7 +68,8 @@ export function sportPairKeyResolved(home, away, startTimeMs, gameCode = "mlb") 
     return null;
   const bucket = Math.floor(t / (60 * 60 * 1000));
   const [x, y] = h < a ? [h, a] : [a, h];
-  return `${x}|${y}|${bucket}`;
+  // 与电竞「同 Game 才匹配」对齐：mlb/kbo/npb（或 soccer/tennis）写入键前缀
+  return `${game}|${x}|${y}|${bucket}`;
 }
 
 /**

@@ -5,7 +5,7 @@
  * 官方形态（dev.predict.fun MarketVariant / Get categories）：
  * - 棒球常为 SPORTS_TEAM_MATCH：单盘 SPORTS_MONEYLINE + 双 outcome（各含 team）
  * - 足球常为 SPORTS_MATCH：主/客/(平) 多盘；status 多为 REGISTERED + tradingStatus OPEN
- * - 网球（球员对阵）按 TEAM_MATCH 拉取，靠 tag/联赛名过滤 tennis
+ * - 网球（球员对阵）为 SPORTS_TEAM_MATCH + tag Tennis(`85`)；当前 OPEN 多为 futures（DEFAULT），moneyline 常为空
  * 本机 Windows 往往直连 api.predict.fun TLS 失败 → 经 HK http-relay 出海。
  *
  * 缓存：storage/sport/{mlb_pf,soccer_pf,tennis_pf}/（见 sport_list_cache.js）。
@@ -33,6 +33,7 @@ const ORDERBOOK_CONCURRENCY = 8;
 const TAG_MLB = "142";
 const TAG_BASEBALL = "143";
 const TAG_SOCCER = "14";
+const TAG_TENNIS = "85";
 
 /** @type {Map<string, { at: number, rows: object[] }>} */
 const _caches = new Map();
@@ -51,7 +52,10 @@ export function mapPredictSportTag(name) {
   const raw = String(name ?? "").trim().toLowerCase();
   if (!raw || ESPORT_RE.test(raw) || NFL_RE.test(raw))
     return null;
-  if (/\b(mlb|major league baseball|baseball)\b/.test(raw) || raw === "mlb")
+  if (/\b(mlb|major league baseball|baseball|kbo|korea baseball|npb|nippon professional baseball)\b/.test(raw)
+    || raw === "mlb"
+    || raw === "kbo"
+    || raw === "npb")
     return "mlb";
   if (/\b(tennis|atp|wta|roland[- ]?garros|wimbledon|us open|australian open)\b/.test(raw) || raw === "tennis")
     return "tennis";
@@ -72,7 +76,7 @@ export function mapPredictSportTag(name) {
 export function resolveSportGameCodeFromCategory(category) {
   const tagNames = (category.tags ?? []).map(t => String(t.name ?? "").trim()).filter(Boolean);
   const lower = new Set(tagNames.map(n => n.toLowerCase()));
-  if (lower.has("mlb") || lower.has("baseball"))
+  if (lower.has("mlb") || lower.has("baseball") || lower.has("kbo") || lower.has("npb"))
     return "mlb";
   if (lower.has("tennis") || lower.has("atp") || lower.has("wta"))
     return "tennis";
@@ -252,7 +256,8 @@ function tagIdsForGame(gameCode) {
     return `${TAG_MLB},${TAG_BASEBALL}`;
   if (gameCode === "soccer")
     return TAG_SOCCER;
-  // tennis：官方 tag id 未固化；无 tagIds 时靠 name/tag 过滤
+  if (gameCode === "tennis")
+    return TAG_TENNIS;
   return "";
 }
 
@@ -485,6 +490,48 @@ function stableMatchId(key, idBase) {
 }
 
 /**
+ * 棒球产品线下细分联赛（展示用 Game；合并时同联赛才配对）。
+ * 优先官方 Team.league（required）；无则回退 title/tag。
+ * @param {object} category
+ * @returns {"mlb"|"kbo"|"npb"}
+ */
+export function resolveBaseballLeagueGame(category) {
+  const allow = new Set(["mlb", "kbo", "npb"]);
+  /** @type {string[]} */
+  const leagues = [];
+  for (const team of category?.teams ?? []) {
+    const league = String(team?.league ?? "").toLowerCase().trim();
+    if (league)
+      leagues.push(league);
+  }
+  for (const market of category?.markets ?? []) {
+    const league = String(market?.team?.league ?? "").toLowerCase().trim();
+    if (league)
+      leagues.push(league);
+    for (const outcome of market?.outcomes ?? []) {
+      const ol = String(outcome?.team?.league ?? "").toLowerCase().trim();
+      if (ol)
+        leagues.push(ol);
+    }
+  }
+  for (const league of leagues) {
+    if (allow.has(league))
+      return /** @type {"mlb"|"kbo"|"npb"} */ (league);
+  }
+
+  const title = String(category?.title ?? "").trim();
+  const tagNames = (category?.tags ?? []).map(t => String(t.name ?? "").trim().toLowerCase()).filter(Boolean);
+  const lower = new Set(tagNames);
+  if (lower.has("kbo") || /^kbo\b/i.test(title))
+    return "kbo";
+  if (lower.has("npb") || /^npb\b/i.test(title))
+    return "npb";
+  if (lower.has("mlb"))
+    return "mlb";
+  return "mlb";
+}
+
+/**
  * @param {object} category
  * @param {Record<string, number>} buyPrices marketId → best ask
  * @param {string} gameCode
@@ -541,16 +588,21 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
   if (!homeName || !awayName)
     return null;
 
+  // 去掉 "KBO: " 等前缀，避免与 PM 队名对不齐
+  homeName = homeName.replace(/^(kbo|npb|mlb)\s*:\s*/i, "").trim() || homeName;
+  awayName = awayName.replace(/^(kbo|npb|mlb)\s*:\s*/i, "").trim() || awayName;
+
   const locked = !homeOdds || !awayOdds;
   const startTime = startTimeMsOf(category);
   const matchId = stableMatchId(`pf:${sourceMatchId}`, idBase);
   const betId = matchId * 10 + 1;
   const title = String(category.title ?? `${homeName} vs ${awayName}`).trim();
+  const dtoGame = gameCode === "mlb" ? resolveBaseballLeagueGame(category) : gameCode;
 
   return {
     ID: matchId,
     Title: title,
-    Game: gameCode,
+    Game: dtoGame,
     GameID: 0,
     StartTime: startTime,
     Matchs: {
@@ -585,7 +637,7 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
 
 /**
  * @typedef {object} SportPredictFunOptions
- * @property {string} gameCode mlb | soccer
+ * @property {string} gameCode mlb | soccer | tennis
  * @property {string} cacheKey
  * @property {number} idBase
  * @property {string} [logTag]
@@ -597,7 +649,7 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
  */
 export async function fetchPredictFunSportAsClientMatchDtos(options) {
   const gameCode = String(options.gameCode || "").toLowerCase();
-  if (gameCode !== "mlb" && gameCode !== "soccer")
+  if (gameCode !== "mlb" && gameCode !== "soccer" && gameCode !== "tennis")
     throw new Error(`unsupported PredictFun sport gameCode: ${options.gameCode}`);
 
   const cacheKey = String(options.cacheKey || `${gameCode}_pf`);

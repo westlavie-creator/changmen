@@ -18,7 +18,7 @@ import {
 const VENUE_PRIORITY = ["Polymarket", "PredictFun"];
 
 /** @type {ReturnType<typeof createSportTeamPlugin>} */
-const sportTeams = createSportTeamPlugin({ games: ["mlb", "soccer", "tennis"] });
+const sportTeams = createSportTeamPlugin({ games: ["mlb", "kbo", "npb", "soccer", "tennis"] });
 
 function gameCodeForSport(sport, legGame) {
   if (legGame)

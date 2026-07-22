@@ -32,7 +32,7 @@
       "name": "棒球",
       "nameEn": "Baseball",
       "status": "active",
-      "defaultGameCodes": ["mlb"],
+      "defaultGameCodes": ["mlb", "kbo", "npb"],
       "matcherProfile": "baseball",
       "linePath": "lines/baseball",
       "apiSportFilter": "baseball",

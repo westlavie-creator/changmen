@@ -167,4 +167,101 @@ assert.equal(aliasMerged.dtos.length, 1);
 const solo = mergeSportClientMatchDtoList("baseball", [list[0]]);
 assert.equal(solo.multiVenueCount, 0);
 
+// 同队名不同联赛（Game）不得合并 — 与电竞 cs2/lol 隔离同构
+const crossLeague = [{
+  ID: 5,
+  Game: "mlb",
+  StartTime: t,
+  Matchs: { Polymarket: "pm-mlb" },
+  Bets: [{
+    Map: 0,
+    HomeName: "Lions",
+    AwayName: "Twins",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket",
+        BetID: "b5",
+        HomeID: "h5",
+        AwayID: "a5",
+        HomeOdds: 1.9,
+        AwayOdds: 2.0,
+        Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 6,
+  Game: "kbo",
+  StartTime: t,
+  Matchs: { PredictFun: "pf-kbo" },
+  Bets: [{
+    Map: 0,
+    HomeName: "Lions",
+    AwayName: "Twins",
+    Sources: {
+      PredictFun: {
+        Type: "PredictFun",
+        BetID: "b6",
+        HomeID: "h6",
+        AwayID: "a6",
+        HomeOdds: 1.85,
+        AwayOdds: 2.05,
+        Status: "Normal",
+      },
+    },
+  }],
+}];
+const cross = mergeSportClientMatchDtoList("baseball", crossLeague);
+assert.equal(cross.multiVenueCount, 0);
+assert.equal(cross.dtos.length, 2);
+assert.deepEqual(cross.dtos.map(d => d.Game).sort(), ["kbo", "mlb"]);
+
+const sameKbo = [{
+  ID: 7,
+  Game: "kbo",
+  StartTime: t,
+  Matchs: { Polymarket: "pm-kbo" },
+  Bets: [{
+    Map: 0,
+    HomeName: "NC Dinos",
+    AwayName: "LG Twins",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket",
+        BetID: "b7",
+        HomeID: "h7",
+        AwayID: "a7",
+        HomeOdds: 1.9,
+        AwayOdds: 2.0,
+        Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 8,
+  Game: "kbo",
+  StartTime: t,
+  Matchs: { PredictFun: "pf-kbo2" },
+  Bets: [{
+    Map: 0,
+    HomeName: "LG Twins",
+    AwayName: "NC Dinos",
+    Sources: {
+      PredictFun: {
+        Type: "PredictFun",
+        BetID: "b8",
+        HomeID: "h8",
+        AwayID: "a8",
+        HomeOdds: 2.0,
+        AwayOdds: 1.9,
+        Status: "Normal",
+      },
+    },
+  }],
+}];
+const kboMerged = mergeSportClientMatchDtoList("baseball", sameKbo);
+assert.equal(kboMerged.multiVenueCount, 1);
+assert.equal(kboMerged.dtos.length, 1);
+assert.equal(kboMerged.dtos[0].Game, "kbo");
+
 console.log("sport_merge.smoke: ok");

@@ -30,6 +30,7 @@ const _caches = new Map();
  * @property {number} [idBase] stableMatchId 基数，与电竞/其他运动错开
  * @property {string} [cacheKey] 进程内缓存键，默认 sportKey
  * @property {string} [logTag]
+ * @property {string[]} [leagueGameCodes] 若设，用 event.sport.sport 等覆盖 Game（棒球 mlb|kbo|npb）
  */
 
 function parseJsonArray(value) {
@@ -164,7 +165,9 @@ function stableMatchId(key, idBase) {
 }
 
 function splitTitleTeams(title) {
-  const text = String(title || "").trim();
+  let text = String(title || "").trim();
+  // 去掉联赛前缀，避免 HomeName 变成 "KBO: NC Dinos"
+  text = text.replace(/^(kbo|npb|mlb)(?:\s+playoffs?)?\s*:\s*/i, "");
   const parts = text.split(/\s+vs\.?\s+/i);
   if (parts.length >= 2)
     return { home: parts[0].trim(), away: parts.slice(1).join(" vs ").trim() };
@@ -172,6 +175,31 @@ function splitTitleTeams(title) {
   if (at.length === 2)
     return { home: at[1].trim(), away: at[0].trim() };
   return { home: text || "Home", away: "Away" };
+}
+
+/**
+ * 棒球等多联赛：用 Gamma event.sport.sport / seriesSlug 作为 Game（mlb|kbo|npb）。
+ * @param {object} raw
+ * @param {string} fallbackGame
+ * @param {string[]} [leagueGameCodes]
+ */
+function resolveEventGameCode(raw, fallbackGame, leagueGameCodes) {
+  const allow = new Set((leagueGameCodes || []).map(k => String(k).toLowerCase()).filter(Boolean));
+  if (!allow.size)
+    return fallbackGame;
+  const fromSport = String(raw?.sport?.sport ?? "").toLowerCase().trim();
+  if (fromSport && allow.has(fromSport))
+    return fromSport;
+  const fromSlug = String(raw?.seriesSlug ?? "").toLowerCase().trim();
+  if (fromSlug && allow.has(fromSlug))
+    return fromSlug;
+  const series = Array.isArray(raw?.series) ? raw.series : [];
+  for (const row of series) {
+    const tick = String(row?.ticker ?? row?.slug ?? "").toLowerCase().trim();
+    if (tick && allow.has(tick))
+      return tick;
+  }
+  return fallbackGame;
 }
 
 /**
@@ -188,6 +216,9 @@ export async function fetchSportAsClientMatchDtos(options) {
   const idBase = Number(options.idBase) || 900_000_000;
   const cacheKey = String(options.cacheKey || sportKeys.join("+") || "sport");
   const logTag = String(options.logTag || `sportGamma:${cacheKey}`);
+  const leagueGameCodes = Array.isArray(options.leagueGameCodes)
+    ? options.leagueGameCodes.map(k => String(k || "").toLowerCase()).filter(Boolean)
+    : [];
 
   const mem = _caches.get(cacheKey);
   if (mem && Date.now() - mem.at < CACHE_TTL_MS)
@@ -206,6 +237,7 @@ export async function fetchSportAsClientMatchDtos(options) {
       defaultSeriesIds,
       idBase,
       logTag,
+      leagueGameCodes,
     });
     const at = Date.now();
     _caches.set(cacheKey, { at, rows });
@@ -229,10 +261,10 @@ export async function fetchSportAsClientMatchDtos(options) {
 }
 
 /**
- * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string }} opts
+ * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[] }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag } = opts;
+  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes } = opts;
 
   const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag);
   if (!seriesIds.length) {
@@ -288,6 +320,7 @@ async function fetchSportRowsFromGamma(opts) {
         slug: String(raw.slug ?? ""),
         startTimeMs: startTimeMsOf(raw),
         moneyline,
+        game: resolveEventGameCode(raw, gameCode, leagueGameCodes),
       });
     }
     cursor = nextCursor(data);
@@ -343,7 +376,7 @@ async function fetchSportRowsFromGamma(opts) {
     return {
       ID: matchId,
       Title: ev.title,
-      Game: gameCode,
+      Game: ev.game || gameCode,
       GameID: 0,
       StartTime: ev.startTimeMs,
       Matchs: {

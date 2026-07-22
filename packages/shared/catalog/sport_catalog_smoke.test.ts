@@ -14,7 +14,7 @@ assert.deepEqual(esport!.defaultGameCodes, ["cs2", "lol", "dota2", "valorant", "
 const baseball = sport.getSport("baseball");
 assert.ok(baseball);
 assert.equal(baseball!.status, "active");
-assert.deepEqual(baseball!.defaultGameCodes, ["mlb"]);
+assert.deepEqual(baseball!.defaultGameCodes, ["mlb", "kbo", "npb"]);
 
 const football = sport.getSport("football");
 assert.ok(football);

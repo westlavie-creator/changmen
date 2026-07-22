@@ -8,11 +8,28 @@ import {
   mapPredictSportTag,
   outcomeProb,
   readPredictTopPrice,
+  resolveBaseballLeagueGame,
   resolveSportGameCodeFromCategory,
 } from "./sport_predictfun_fetch.js";
 
 assert.equal(mapPredictSportTag("MLB"), "mlb");
 assert.equal(mapPredictSportTag("Baseball"), "mlb");
+assert.equal(mapPredictSportTag("KBO"), "mlb");
+assert.equal(mapPredictSportTag("NPB"), "mlb");
+assert.equal(resolveBaseballLeagueGame({
+  title: "NC Dinos vs. LG Twins",
+  tags: [{ name: "Baseball" }],
+  teams: [{ name: "NC Dinos", league: "kbo" }, { name: "LG Twins", league: "kbo" }],
+}), "kbo");
+assert.equal(resolveBaseballLeagueGame({
+  title: "Yankees vs. Red Sox",
+  tags: [{ name: "MLB" }, { name: "Baseball" }],
+  teams: [{ name: "Yankees", league: "mlb" }, { name: "Red Sox", league: "mlb" }],
+}), "mlb");
+assert.equal(resolveBaseballLeagueGame({
+  title: "KBO: fallback only",
+  tags: [{ name: "Baseball" }],
+}), "kbo");
 assert.equal(mapPredictSportTag("Soccer"), "soccer");
 assert.equal(mapPredictSportTag("EPL"), "soccer");
 assert.equal(mapPredictSportTag("World Cup"), "soccer");

@@ -17,6 +17,11 @@ assert.equal(
   sportPairKeyResolved("A's", "Yankees", t, "mlb"),
   sportPairKeyResolved("Oakland Athletics", "New York Yankees", t, "mlb"),
 );
+assert.notEqual(
+  sportPairKeyResolved("Lions", "Twins", t, "mlb"),
+  sportPairKeyResolved("Lions", "Twins", t, "kbo"),
+);
+assert.ok(String(sportPairKeyResolved("Lions", "Twins", t, "kbo") || "").startsWith("kbo|"));
 
 const plugin = createSportTeamPlugin({ games: ["mlb"] });
 assert.equal(plugin.resolveKey("Red Sox", "mlb"), "red sox");

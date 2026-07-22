@@ -11,7 +11,7 @@
 | UI | 主控台 `client/web` → HomeView「棒球」Tab |
 | API | `Client_GetBaseballMatchs`（`server/backend`） |
 | Store | `client/web/src/stores/baseballStore.ts` |
-| 数据 | 服务端拉 Polymarket Gamma MLB → `ClientMatchDto[]` |
+| 数据 | 服务端拉 Polymarket Gamma **MLB+KBO+NPB** ∥ Predict.fun → `ClientMatchDto[]` |
 
 **不写**电竞 `client_matches` / matcher；**不进** `matchStore` 套利主循环。
 
