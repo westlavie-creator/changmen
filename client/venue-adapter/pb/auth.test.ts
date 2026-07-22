@@ -122,4 +122,42 @@ describe("parsePbVenueIdentity", () => {
     expect(parsePbVenueIdentity(undefined)).toBeUndefined();
     expect(parsePbVenueIdentity("{")).toBeUndefined();
   });
+
+  it("ps3838 无后缀 custid + 顶层 token X-Custid", () => {
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify({
+        BrowserSessionId: "sess-plain",
+        custid: "id%3DGA33470888%26login%3D1",
+      }),
+      token: JSON.stringify({
+        "X-Browser-Session-Id": "sess-plain",
+        "X-Custid": "id=GA33470888&login=1",
+      }),
+      "v-hucode": "hu",
+    });
+    expect(parsePbVenueIdentity(token)).toEqual({
+      venueMemberId: "GA33470888",
+      venueAccountName: "GA33470888",
+    });
+  });
+});
+
+describe("buildPbAuthHeaders ps3838 plain keys", () => {
+  it("无后缀 BrowserSessionId/custid → x-browser-session-id / x-custid", () => {
+    const appData = { BrowserSessionId: "sess-plain", custid: "id%3Dabc", foo: "bar" };
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify(appData),
+      "v-hucode": "hu",
+      token: JSON.stringify({
+        "X-Browser-Session-Id": "sess-plain",
+        "X-Custid": "id=abc",
+        "X-U": "u-token",
+      }),
+    });
+    const headers = buildPbAuthHeaders(makeAccount(token));
+    expect(headers?.["x-browser-session-id"]).toBe("sess-plain");
+    expect(headers?.["x-custid"]).toBe("id=abc");
+    expect(headers?.["x-u"]).toBe("u-token");
+    expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
+  });
 });

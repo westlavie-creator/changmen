@@ -6,6 +6,37 @@ const IM_PATH =
   /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
 const IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
 
+/** PB / ps3838：x-app-data 有 BrowserSessionId(_N)? + custid(_N)?，或顶层 token 含会话头 */
+function hasPbLoginSession() {
+  const appRaw = localStorage.getItem("x-app-data");
+  if (appRaw) {
+    try {
+      const app = JSON.parse(appRaw);
+      const keys = Object.keys(app || {});
+      const hasSession = keys.some(
+        (k) => k === "BrowserSessionId" || /^BrowserSessionId_\d+$/.test(k),
+      );
+      const hasCustid = keys.some((k) => k === "custid" || /^custid_\d+$/.test(k));
+      if (hasSession && hasCustid) return true;
+    } catch {
+      /* fall through */
+    }
+  }
+  try {
+    const token = JSON.parse(localStorage.getItem("token") || "");
+    if (
+      token &&
+      typeof token === "object" &&
+      (token["X-Browser-Session-Id"] || token["X-Custid"])
+    ) {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 /** @type {Record<string, new () => { Check(): Promise<boolean>; GetConfig(): Promise<object|undefined> }>} */
 export const PROVIDER_REGISTRY = {
   [PLATFORMS.OB]: class ObProvider {
@@ -209,15 +240,20 @@ export const PROVIDER_REGISTRY = {
   },
 
   [PLATFORMS.PB]: class PbProvider {
+    /**
+     * 旧平博电竞：`/esports-hub/`、`/compact/sports/`
+     * ps3838 等复刻站：`/{lang}/sports/...`，登录后 x-app-data 为无后缀
+     * `BrowserSessionId` / `custid`，且顶层 `token` 含 `X-Browser-Session-Id` / `X-Custid`
+     */
     async Check() {
       const path = location.pathname;
-      return (
-        /\/esports\-hub\/|\/compact\/sports\//.test(path) &&
-        Boolean(localStorage.getItem("x-app-data"))
-      );
+      const pathOk = /\/esports\-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(path);
+      if (!pathOk) return false;
+      return hasPbLoginSession();
     }
 
     async GetConfig() {
+      if (!(await this.Check())) return undefined;
       const snapshot = {};
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -234,7 +270,7 @@ export const PROVIDER_REGISTRY = {
         gateway: payload.gateway,
         token: payload.token,
         referer: payload.referer,
-        data: window.btoa(JSON.stringify(payload)),
+        data: window.btoa(unescape(encodeURIComponent(JSON.stringify(payload)))),
       };
     }
   },

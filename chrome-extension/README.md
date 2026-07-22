@@ -81,11 +81,14 @@ Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\de
 
 ## PB 使用提示
 
-1. 浏览器登录 PB 站点（如 `*/compact/sports/*` 或 `*/esports-hub/*`）
+1. 浏览器登录 PB 站点：
+   - 旧平博电竞：`*/compact/sports/*` 或 `*/esports-hub/*`
+   - ps3838 等复刻站：`*/sports/*`（需已登录；游客不挂图标）
 2. 点击顶部浮动图标 →「确认」复制 Base64
 3. 在 changmen 账号编辑里粘贴凭证
 
 凭证格式见后端 `account/clipboard_credential.js`。
+ps3838 登录态为无后缀 `BrowserSessionId` / `custid`，以及顶层 `token` 中的 `X-Browser-Session-Id` / `X-Custid`。
 
 ## Polymarket 使用提示
 

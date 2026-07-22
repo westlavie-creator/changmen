@@ -17,20 +17,51 @@ const EURO_ODDS_QUERY_BASE =
 
 export const DEFAULT_ODDS_QUERY = `${EURO_ODDS_QUERY_BASE}&isLive=true`;
 
-function detectPbSessionSuffix(appData, outer) {
+function detectPbSessionMode(appData, outer) {
   for (const key of Object.keys(appData || {})) {
     const m = key.match(/^BrowserSessionId_(\d+)$/);
-    if (m) return m[1];
+    if (m) return { kind: "suffixed", suffix: m[1] };
   }
   for (const key of Object.keys(appData || {})) {
     const m = key.match(/^custid_(\d+)$/);
-    if (m) return m[1];
+    if (m) return { kind: "suffixed", suffix: m[1] };
   }
   for (const key of Object.keys(outer || {})) {
     const m = key.match(/^custid_(\d+)$/);
-    if (m) return m[1];
+    if (m) return { kind: "suffixed", suffix: m[1] };
   }
-  return "515";
+  if (
+    appData?.BrowserSessionId
+    || appData?.custid
+    || outer?.custid
+  ) {
+    return { kind: "plain" };
+  }
+  try {
+    const inner = typeof outer?.token === "string" ? JSON.parse(outer.token) : null;
+    if (inner?.["X-Browser-Session-Id"] || inner?.["X-Custid"]) {
+      return { kind: "plain" };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { kind: "suffixed", suffix: "515" };
+}
+
+function resolveCustidRaw(mode, appData, outer) {
+  if (mode.kind === "plain") return appData.custid || outer.custid || "";
+  const suffix = mode.suffix;
+  return (
+    appData[`custid_${suffix}`] ||
+    outer[`custid_${suffix}`] ||
+    outer.custid_515 ||
+    ""
+  );
+}
+
+function resolveBrowserSessionId(mode, appData) {
+  if (mode.kind === "plain") return appData.BrowserSessionId || "";
+  return appData[`BrowserSessionId_${mode.suffix}`] || "";
 }
 
 function mergeInnerTokenHeaders(headers, outer) {
@@ -49,36 +80,36 @@ function mergeInnerTokenHeaders(headers, outer) {
 
 /**
  * ?? A8 bundle P0() ?????account.token ? JSON ???????
- * ???????515 / 1228 ????? x-app-data ??????
+ * ???????515 / 1228 ????? x-app-data ??????ps3838 ??????
  */
 export function buildAuthHeaders(session, extra = {}) {
   if (!session?.token) return null;
   try {
     const outer = typeof session.token === "string" ? JSON.parse(session.token) : session.token;
     const appData = JSON.parse(outer["x-app-data"] || "{}");
-    const suffix = detectPbSessionSuffix(appData, outer);
-    const browserSessionKey = `BrowserSessionId_${suffix}`;
-    const custidAppKey = `custid_${suffix}`;
-    const custidOuterKey = `custid_${suffix}`;
-    const custidRaw =
-      appData[custidAppKey] ||
-      outer[custidOuterKey] ||
-      outer.custid_515 ||
-      "";
+    const mode = detectPbSessionMode(appData, outer);
+    const sessionId = resolveBrowserSessionId(mode, appData);
+    const custidRaw = resolveCustidRaw(mode, appData, outer);
     const headers = {
       "x-app-data": `${Object.keys(appData)
         .map((k) => `${k}=${appData[k]}`)
         .join(";")};`,
-      [`x-browser-session-id-${suffix}`]: appData[browserSessionKey] || "",
-      [`x-custid-${suffix}`]: decodeURIComponent(String(custidRaw).replace(/\+/g, "%20")),
-      "v-hucode": outer["v-hucode"] || "",
-      "x-requested-with": "XMLHttpRequest",
-      Accept: "application/json, text/plain, */*",
-      "User-Agent":
-        session.userAgent ||
-        process.env.PB_USER_AGENT ||
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     };
+    if (mode.kind === "plain") {
+      headers["x-browser-session-id"] = sessionId;
+      headers["x-custid"] = decodeURIComponent(String(custidRaw).replace(/\+/g, "%20"));
+    } else {
+      const suffix = mode.suffix;
+      headers[`x-browser-session-id-${suffix}`] = sessionId;
+      headers[`x-custid-${suffix}`] = decodeURIComponent(String(custidRaw).replace(/\+/g, "%20"));
+    }
+    headers["v-hucode"] = outer["v-hucode"] || "";
+    headers["x-requested-with"] = "XMLHttpRequest";
+    headers.Accept = "application/json, text/plain, */*";
+    headers["User-Agent"] =
+      session.userAgent ||
+      process.env.PB_USER_AGENT ||
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     mergeInnerTokenHeaders(headers, outer);
     if (session.cookie || process.env.PB_COOKIE) {
       headers.Cookie = session.cookie || process.env.PB_COOKIE;

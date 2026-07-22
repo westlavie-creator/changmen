@@ -1,22 +1,62 @@
 /** PB auth headers — 从 client/venue-adapter/pb/auth.ts 复制，供 Node 脚本直连 PB API */
 
-function detectPbSessionSuffix(appData, outer) {
-  for (const key of Object.keys(appData)) {
+/** @typedef {{ kind: 'suffixed', suffix: string } | { kind: 'plain' }} PbSessionMode */
+
+function detectPbSessionMode(appData, outer) {
+  for (const key of Object.keys(appData || {})) {
     const m = key.match(/^BrowserSessionId_(\d+)$/);
     if (m)
-      return m[1];
+      return { kind: "suffixed", suffix: m[1] };
   }
-  for (const key of Object.keys(appData)) {
+  for (const key of Object.keys(appData || {})) {
     const m = key.match(/^custid_(\d+)$/);
     if (m)
-      return m[1];
+      return { kind: "suffixed", suffix: m[1] };
   }
-  for (const key of Object.keys(outer)) {
+  for (const key of Object.keys(outer || {})) {
     const m = key.match(/^custid_(\d+)$/);
     if (m)
-      return m[1];
+      return { kind: "suffixed", suffix: m[1] };
   }
-  return "515";
+  if (
+    appData?.BrowserSessionId
+    || appData?.custid
+    || outer?.custid
+    || hasPlainTokenHeaders(outer?.token)
+  ) {
+    return { kind: "plain" };
+  }
+  return { kind: "suffixed", suffix: "515" };
+}
+
+function hasPlainTokenHeaders(tokenRaw) {
+  if (!tokenRaw)
+    return false;
+  try {
+    const inner = JSON.parse(tokenRaw);
+    return Boolean(inner?.["X-Browser-Session-Id"] || inner?.["X-Custid"]);
+  }
+  catch {
+    return false;
+  }
+}
+
+function resolveCustidRaw(mode, appData, outer) {
+  if (mode.kind === "plain")
+    return appData.custid || outer.custid || "";
+  const suffix = mode.suffix;
+  return (
+    appData[`custid_${suffix}`]
+    || outer[`custid_${suffix}`]
+    || outer.custid_515
+    || ""
+  );
+}
+
+function resolveBrowserSessionId(mode, appData) {
+  if (mode.kind === "plain")
+    return appData.BrowserSessionId || "";
+  return appData[`BrowserSessionId_${mode.suffix}`] || "";
 }
 
 function decodePbCustidRaw(raw) {
@@ -89,21 +129,23 @@ export function buildPbAuthHeaders(account, extra = {}) {
     if (!outer)
       return undefined;
     const appData = tryParseJsonObject(outer["x-app-data"] || "{}") || {};
-    const suffix = detectPbSessionSuffix(appData, outer);
-    const browserSessionKey = `BrowserSessionId_${suffix}`;
-    const custidAppKey = `custid_${suffix}`;
-    const custidRaw =
-      appData[custidAppKey]
-      || outer[`custid_${suffix}`]
-      || outer.custid_515
-      || "";
+    const mode = detectPbSessionMode(appData, outer);
+    const sessionId = resolveBrowserSessionId(mode, appData);
+    const custidRaw = resolveCustidRaw(mode, appData, outer);
     const headers = {
       "x-app-data": `${Object.keys(appData).map(k => `${k}=${appData[k]}`).join(";")};`,
-      [`x-browser-session-id-${suffix}`]: appData[browserSessionKey] || "",
-      [`x-custid-${suffix}`]: decodePbCustidRaw(String(custidRaw)) || "",
-      "v-hucode": outer["v-hucode"] || "",
-      "x-requested-with": "XMLHttpRequest",
     };
+    if (mode.kind === "plain") {
+      headers["x-browser-session-id"] = sessionId;
+      headers["x-custid"] = decodePbCustidRaw(String(custidRaw)) || "";
+    }
+    else {
+      const suffix = mode.suffix;
+      headers[`x-browser-session-id-${suffix}`] = sessionId;
+      headers[`x-custid-${suffix}`] = decodePbCustidRaw(String(custidRaw)) || "";
+    }
+    headers["v-hucode"] = outer["v-hucode"] || "";
+    headers["x-requested-with"] = "XMLHttpRequest";
     mergeInnerTokenHeaders(headers, outer);
     for (const key of Object.keys(extra))
       headers[key] = extra[key];
