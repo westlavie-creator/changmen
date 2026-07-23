@@ -525,6 +525,17 @@ export interface PolymarketOrderAnalyticsPayload {
 export interface PolymarketBuilderDashboardPayload {
   startMs: number;
   endMs: number;
+  range?: {
+    kind: string;
+    timezone: string | null;
+    label: string;
+    dateKey: string | null;
+    monthKey: string | null;
+    weekStartKey: string | null;
+    weekEndKey: string | null;
+    startIso: string;
+    endIso: string;
+  };
   builderCode: string;
   relayerConfigured: boolean;
   relayerAuthMode: string | null;

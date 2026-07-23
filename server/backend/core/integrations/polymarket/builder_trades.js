@@ -100,10 +100,10 @@ export function summarizeBuilderTrades(trades) {
 export async function fetchBuilderTradesPage(opts = {}) {
   const builderCode = opts.builderCode || resolvePolymarketBuilderCode();
   const params = new URLSearchParams({ builder_code: builderCode });
-  if (opts.afterSec)
-    params.set("after", String(Math.floor(opts.afterSec)));
-  if (opts.beforeSec)
-    params.set("before", String(Math.floor(opts.beforeSec)));
+  if (opts.afterSec != null && Number.isFinite(Number(opts.afterSec)))
+    params.set("after", String(Math.floor(Number(opts.afterSec))));
+  if (opts.beforeSec != null && Number.isFinite(Number(opts.beforeSec)))
+    params.set("before", String(Math.floor(Number(opts.beforeSec))));
   if (opts.market)
     params.set("market", opts.market);
   if (opts.nextCursor)

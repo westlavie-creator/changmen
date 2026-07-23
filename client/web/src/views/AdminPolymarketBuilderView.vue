@@ -10,7 +10,7 @@ import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminPmOrderAnalyticsSection from "@/components/admin/AdminPmOrderAnalyticsSection.vue";
-import { todayKey } from "@/shared/dateKey";
+import { todayKey, todayUtcKey, utcWeekBounds } from "@/shared/dateKey";
 import { pmOrderStakeDisplayCny } from "@/shared/pmOrderDisplay";
 import { toFixed } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
@@ -21,8 +21,10 @@ const UNKNOWN_USER = "__unknown__";
 const router = useRouter();
 const user = useUserStore();
 
-const rangeMode = ref<"day" | "month" | "all">("day");
+/** day/month/all = 本地；utcDay/utcWeek = 对齐 Polymarket 官网 */
+const rangeMode = ref<"day" | "utcDay" | "utcWeek" | "month" | "all">("utcDay");
 const dateKey = ref(todayKey());
+const utcDateKey = ref(todayUtcKey());
 const monthKey = ref((() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -36,6 +38,20 @@ const polyPage = ref(1);
 const cmPage = ref(1);
 /** "" = 全部用户 */
 const polyUserFilter = ref("");
+
+const utcWeekLabel = computed(() => {
+  const { startKey, endKey } = utcWeekBounds(utcDateKey.value);
+  return `${startKey} → ${endKey}（UTC 周日–周六）`;
+});
+
+const rangeWindowHint = computed(() => {
+  const r = data.value?.range;
+  if (!r?.startIso || !r?.endIso)
+    return "";
+  const startLocal = new Date(data.value!.startMs).toLocaleString();
+  const endLocal = new Date(data.value!.endMs).toLocaleString();
+  return `${r.startIso} → ${r.endIso}（本地约 ${startLocal} → ${endLocal}）`;
+});
 
 const polySummary = computed(() => data.value?.polymarket.summary);
 const cmSummary = computed(() => data.value?.changmen.summary);
@@ -175,6 +191,9 @@ function cmDisplayProfit(row: PolymarketChangmenOrderRow): number | null {
 function fmtTime(ms: number | null | undefined): string {
   if (!ms)
     return "-";
+  // UTC 口径下用 ISO，方便直接对照官网 / CLOB matchTime
+  if (rangeMode.value === "utcDay" || rangeMode.value === "utcWeek")
+    return new Date(ms).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "Z");
   return new Date(ms).toLocaleString();
 }
 
@@ -203,11 +222,32 @@ async function fetchData() {
   error.value = "";
   try {
     // all 用字符串：post 走 x-www-form-urlencoded，boolean true 会变成 "true"
-    const body: Record<string, unknown> = rangeMode.value === "all"
-      ? { period: "all", all: "1", maxPages: 20, orderLimit: 500 }
-      : rangeMode.value === "month"
-        ? { month: monthKey.value, maxPages: 10, orderLimit: 500 }
-        : { date: dateKey.value, maxPages: 5, orderLimit: 500 };
+    let body: Record<string, unknown>;
+    if (rangeMode.value === "all") {
+      body = { period: "all", all: "1", maxPages: 20, orderLimit: 500 };
+    }
+    else if (rangeMode.value === "month") {
+      body = { month: monthKey.value, maxPages: 10, orderLimit: 500 };
+    }
+    else if (rangeMode.value === "utcDay") {
+      body = {
+        period: "utcDay",
+        date: utcDateKey.value || todayUtcKey(),
+        maxPages: 5,
+        orderLimit: 500,
+      };
+    }
+    else if (rangeMode.value === "utcWeek") {
+      body = {
+        period: "utcWeek",
+        date: utcDateKey.value || todayUtcKey(),
+        maxPages: 10,
+        orderLimit: 500,
+      };
+    }
+    else {
+      body = { date: dateKey.value || todayKey(), maxPages: 5, orderLimit: 500 };
+    }
     data.value = await getAdminPolymarketBuilder(body);
     polyPage.value = 1;
     cmPage.value = 1;
@@ -222,7 +262,7 @@ async function fetchData() {
   }
 }
 
-watch([rangeMode, dateKey, monthKey], () => {
+watch([rangeMode, dateKey, utcDateKey, monthKey], () => {
   void fetchData();
 });
 
@@ -251,20 +291,39 @@ onMounted(async () => {
 <template>
   <AdminLayout
     title="Polymarket Builder"
-    subtitle="Polymarket 归因成交与 changmen 用户 Polymarket 订单对照"
+    subtitle="Polymarket 归因成交与 changmen 订单对照；UTC日/周对齐官网日榜与周奖励 epoch"
   >
     <template #toolbar>
       <el-radio-group v-model="rangeMode" size="small">
+        <el-radio-button value="utcDay">
+          UTC日
+        </el-radio-button>
+        <el-radio-button value="utcWeek">
+          UTC周
+        </el-radio-button>
         <el-radio-button value="day">
-          日
+          本地日
         </el-radio-button>
         <el-radio-button value="month">
-          月
+          本地月
         </el-radio-button>
         <el-radio-button value="all">
           全部
         </el-radio-button>
       </el-radio-group>
+      <el-date-picker
+        v-if="rangeMode === 'utcDay' || rangeMode === 'utcWeek'"
+        v-model="utcDateKey"
+        type="date"
+        value-format="YYYY-MM-DD"
+        size="small"
+        style="width: 150px"
+        :clearable="false"
+        :placeholder="rangeMode === 'utcWeek' ? '锚定日（UTC）' : 'UTC 日'"
+      />
+      <span v-if="rangeMode === 'utcWeek'" class="range-all-hint">
+        {{ utcWeekLabel }}
+      </span>
       <el-date-picker
         v-if="rangeMode === 'day'"
         v-model="dateKey"
@@ -272,16 +331,18 @@ onMounted(async () => {
         value-format="YYYY-MM-DD"
         size="small"
         style="width: 150px"
+        :clearable="false"
       />
       <el-date-picker
-        v-else-if="rangeMode === 'month'"
+        v-if="rangeMode === 'month'"
         v-model="monthKey"
         type="month"
         value-format="YYYY-MM"
         size="small"
         style="width: 130px"
+        :clearable="false"
       />
-      <span v-else class="range-all-hint">
+      <span v-if="rangeMode === 'all'" class="range-all-hint">
         全时段（订单分析走 RDS 全量）
       </span>
       <el-button size="small" :loading="loading" @click="fetchData">
@@ -300,6 +361,17 @@ onMounted(async () => {
         <div class="meta-row">
           <span>Relayer</span>
           <span>{{ data.relayerConfigured ? `已配置 (${data.relayerAuthMode})` : "未配置" }}</span>
+        </div>
+        <div v-if="data.range" class="meta-row">
+          <span>统计口径</span>
+          <span>{{ data.range.label }}</span>
+        </div>
+        <div v-if="rangeWindowHint" class="meta-row meta-row-wrap">
+          <span>时间窗口</span>
+          <code>{{ rangeWindowHint }}</code>
+        </div>
+        <div v-if="data.range?.timezone === 'utc'" class="meta-hint meta-hint-info">
+          与 Polymarket 官网一致：日榜按 UTC 自然日；周奖励 epoch 为周日 00:00 UTC → 周六 23:59 UTC。
         </div>
         <div v-if="data.polymarket.hasMore" class="meta-hint">
           Polymarket 成交可能未拉全，可缩小日期范围或联系开发增大 maxPages。
@@ -368,7 +440,7 @@ onMounted(async () => {
           · builderFee {{ fmtUsdc(polyViewSummary.builderFeeUsdc) }}
         </p>
         <el-table :data="polyTradesPage" size="small" stripe empty-text="该时段无 Builder 归因成交">
-          <el-table-column label="时间" width="170">
+          <el-table-column label="时间" :width="rangeMode === 'utcDay' || rangeMode === 'utcWeek' ? 190 : 170">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               {{ fmtTime(row.matchTime) }}
             </template>
@@ -426,7 +498,7 @@ onMounted(async () => {
       <section class="admin-card table-section">
         <h3>changmen Polymarket 订单</h3>
         <el-table :data="cmOrdersPage" size="small" stripe empty-text="该时段无 changmen Polymarket 订单">
-          <el-table-column label="时间" width="170">
+          <el-table-column label="时间" :width="rangeMode === 'utcDay' || rangeMode === 'utcWeek' ? 190 : 170">
             <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
               {{ fmtTime(row.createAt) }}
             </template>
@@ -507,6 +579,19 @@ onMounted(async () => {
   margin-top: 8px;
   font-size: 12px;
   color: var(--el-color-warning);
+}
+
+.meta-hint-info {
+  color: var(--el-text-color-secondary);
+}
+
+.meta-row-wrap {
+  align-items: flex-start;
+}
+
+.meta-row-wrap code {
+  flex: 1;
+  line-height: 1.4;
 }
 
 .range-all-hint {

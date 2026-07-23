@@ -118,33 +118,138 @@ function wantsAllRange(body = {}) {
   return body.period === "all" || body.range === "all";
 }
 
+const DAY_MS = 86400000;
+
+/** YYYY-MM-DD → [y, m, d]，非法时回退到 UTC/本地今天 */
+function parseYmd(raw, fallbackUtc = true) {
+  const parts = String(raw ?? "").trim().split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  if (
+    parts.length >= 3
+    && Number.isFinite(y) && y >= 1970
+    && Number.isFinite(m) && m >= 1 && m <= 12
+    && Number.isFinite(d) && d >= 1 && d <= 31
+  ) {
+    return { y, m, d };
+  }
+  if (fallbackUtc) {
+    const now = new Date();
+    return { y: now.getUTCFullYear(), m: now.getUTCMonth() + 1, d: now.getUTCDate() };
+  }
+  const now = new Date();
+  return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+}
+
+function formatYmdUtc(ms) {
+  const d = new Date(ms);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Polymarket 官网日榜口径：UTC 自然日
+ * [date 00:00:00.000Z, next day 00:00:00.000Z)
+ */
+export function utcDayRange(dateKey) {
+  const { y, m, d } = parseYmd(dateKey, true);
+  const startMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+  return {
+    startMs,
+    endMs: startMs + DAY_MS,
+    kind: "utcDay",
+    timezone: "utc",
+    dateKey: formatYmdUtc(startMs),
+    label: `UTC日 ${formatYmdUtc(startMs)}（00:00Z–次日00:00Z）`,
+  };
+}
+
+/**
+ * Polymarket 官网周奖励 epoch：Sunday 00:00 UTC → Saturday 23:59 UTC
+ * 实现为半开区间 [周日00:00Z, 下周日00:00Z)
+ */
+export function utcWeekRange(anchorDateKey) {
+  const { y, m, d } = parseYmd(anchorDateKey, true);
+  const anchorMs = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+  const dow = new Date(anchorMs).getUTCDay(); // 0=Sunday
+  const startMs = anchorMs - dow * DAY_MS;
+  const endMs = startMs + 7 * DAY_MS;
+  const startKey = formatYmdUtc(startMs);
+  const endInclusiveKey = formatYmdUtc(endMs - 1);
+  return {
+    startMs,
+    endMs,
+    kind: "utcWeek",
+    timezone: "utc",
+    dateKey: formatYmdUtc(anchorMs),
+    weekStartKey: startKey,
+    weekEndKey: endInclusiveKey,
+    label: `UTC周 ${startKey}–${endInclusiveKey}（周日00:00Z–周六23:59Z）`,
+  };
+}
+
+function resolvePeriod(body = {}) {
+  return String(body.period || body.range || "").trim().toLowerCase();
+}
+
 function parseRange(body = {}) {
   if (wantsAllRange(body)) {
     return {
       startMs: 0,
-      endMs: Date.now() + 86400000,
+      endMs: Date.now() + DAY_MS,
+      kind: "all",
+      timezone: null,
+      label: "全部时段",
     };
   }
   if (body.startMs && body.endMs) {
     return {
       startMs: Number(body.startMs),
       endMs: Number(body.endMs),
+      kind: "custom",
+      timezone: null,
+      label: "自定义区间",
     };
   }
+
+  const period = resolvePeriod(body);
+  // 对齐 Polymarket 官网：UTC 日 / UTC 周（周日起点）
+  if (period === "utcday" || period === "utc_day" || period === "utc-day") {
+    return utcDayRange(body.date);
+  }
+  if (period === "utcweek" || period === "utc_week" || period === "utc-week") {
+    return utcWeekRange(body.date);
+  }
+
   if (body.month) {
     const parts = String(body.month).split("-").map(Number);
     const y = parts[0] || new Date().getFullYear();
     const m = parts[1] || new Date().getMonth() + 1;
+    const startMs = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime();
+    const endMs = new Date(y, m, 1, 0, 0, 0, 0).getTime();
     return {
-      startMs: new Date(y, m - 1, 1, 0, 0, 0, 0).getTime(),
-      endMs: new Date(y, m, 1, 0, 0, 0, 0).getTime(),
+      startMs,
+      endMs,
+      kind: "localMonth",
+      timezone: "local",
+      monthKey: `${y}-${String(m).padStart(2, "0")}`,
+      label: `本地月 ${y}-${String(m).padStart(2, "0")}`,
     };
   }
   const dk = body.date || new Date().toISOString().slice(0, 10);
-  const parts = String(dk).split("-").map(Number);
-  const d = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1, 0, 0, 0, 0);
-  const startMs = d.getTime();
-  return { startMs, endMs: startMs + 86400000 };
+  const { y, m, d } = parseYmd(dk, false);
+  const startMs = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  return {
+    startMs,
+    endMs: startMs + DAY_MS,
+    kind: "localDay",
+    timezone: "local",
+    dateKey: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+    label: `本地日 ${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+  };
 }
 
 /** orders.match / bet：PM 多为纯文本标题；其它场馆偶发 JSON `{Title}` */
@@ -223,7 +328,8 @@ function mapChangmenOrder(row) {
  * Builder 看板：Polymarket 归因成交 + changmen Polymarket 订单对照。
  */
 export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
-  const { startMs, endMs } = parseRange(body);
+  const range = parseRange(body);
+  const { startMs, endMs } = range;
   const afterSec = Math.floor(startMs / 1000);
   const beforeSec = Math.floor(endMs / 1000);
   const maxPages = Number(body.maxPages) || 5;
@@ -261,6 +367,17 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
   return {
     startMs,
     endMs,
+    range: {
+      kind: range.kind,
+      timezone: range.timezone,
+      label: range.label,
+      dateKey: range.dateKey || null,
+      monthKey: range.monthKey || null,
+      weekStartKey: range.weekStartKey || null,
+      weekEndKey: range.weekEndKey || null,
+      startIso: new Date(startMs).toISOString(),
+      endIso: new Date(endMs).toISOString(),
+    },
     builderCode,
     relayerConfigured: isPolymarketRelayerConfigured(),
     relayerAuthMode: getPolymarketRelayerAuthMode(),
