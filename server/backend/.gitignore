@@ -5,6 +5,7 @@ dist-electron/
 build/supabase.env
 core/esport-api/router.js
 core/esport-api/admin_routes.js
+core/esport-api/account_client_routes.js
 storage/
 data/
 supabase/.temp/

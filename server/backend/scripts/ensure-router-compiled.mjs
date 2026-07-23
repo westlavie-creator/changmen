@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * router.js / admin_routes.js 由 tsc 编译且不入库；生产 pm2 直启 start-db.mjs 时需保证与 .ts 同步。
+ * router.js / admin_routes.js / account_client_routes.js 由 tsc 编译且不入库；
+ * 生产 pm2 直启 start-db.mjs 时需保证与 .ts 同步。
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -14,6 +15,7 @@ const ESPORT_API = path.join(BACKEND_ROOT, "core/esport-api");
 const COMPILED_PAIRS = [
   ["router.ts", "router.js"],
   ["admin_routes.ts", "admin_routes.js"],
+  ["account_client_routes.ts", "account_client_routes.js"],
 ];
 
 function pairIsStale(tsName, jsName) {

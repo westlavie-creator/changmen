@@ -15,7 +15,6 @@ import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "j
 import venueGames from "@changmen/shared/catalog/venue_games.json" with { type: "json" };
 import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
-import * as accountService from "../account/account_service.js";
 import {
   handlePmCancelOrder,
   handlePmGetBook,
@@ -38,7 +37,6 @@ import {
 } from "../integrations/predictfun/pf_client_handlers.js";
 import * as accountStore from "../account/account_store.js";
 import { assertProfileActive } from "../account/admin_service.js";
-import { getMonthReport } from "../account/report_service.js";
 import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
 import { touchUserPresence } from "../account/user_presence.js";
 import { checkActionAuth } from "../auth/action_permissions.js";
@@ -46,6 +44,7 @@ import { isAdminUser } from "../auth/admin_auth.js";
 import * as dbStore from "../db/store.js";
 import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { requirePlatform } from "../shared/adapter_paths.js";
+import { handleAccountClientAction, isAccountClientAction } from "./account_client_routes.js";
 import { handleAdminAction, isAdminAction } from "./admin_routes.js";
 import { handleCommonApi } from "./hg_follow.js";
 import store from "./store.js";
@@ -279,6 +278,11 @@ async function handle(
     return adminResult ?? fail(`未知管理端 action: ${action}`);
   }
 
+  if (isAccountClientAction(String(action))) {
+    const accountResult = await handleAccountClientAction(String(action), body, { user: ctx.user });
+    return (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope;
+  }
+
   switch (action as EsportAction) {
     case "Client_Logout": {
       await sb.authSignOut(ctx.token);
@@ -475,88 +479,8 @@ async function handle(
         console.error("[GetTennisMatchs]", err?.message || err);
         return fail(err?.message || "GetTennisMatchs failed");
       }
-    case "Client_SaveData": {
-      if (!body.key)
-        return fail("key required");
-      const saved = await accountService.handleSaveData(body.key, body.content ?? "", ctx.user.id);
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
-    }
-    case "Client_GetAccounts":
-      return ok(await dbStore.refreshAccountsFromRdsIfEmpty(ctx.user.id));
-    case "Client_SaveAccounts": {
-      let accounts: unknown[] = [];
-      try { accounts = JSON.parse((body.accounts as string) || "[]"); }
-      catch { return fail("accounts JSON ??"); }
-      const saved = await accountService.handleSaveAccounts(accounts, ctx.user.id);
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
-    }
-    case "Client_GetData": {
-      // ACCOUNT 唯一真相是 players：每次 GetData 从 RDS 回源，避免内存缓存缺行误伤保存
-      if (body.key === "ACCOUNT" && ctx.user?.id) {
-        await dbStore.loadAccountsForUser(ctx.user.id);
-      }
-      const data = accountService.handleGetData(body.key, ctx.user.id);
-      // ACCOUNT/PROXY ? key ????? JSON??? ok() ??
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      if (Array.isArray(data.direct))
-        return data.direct as any;
-      if (data.direct && typeof data.direct === "object")
-        return data.direct as any;
-      return ok(data.info);
-    }
-    case "Client_GetUserDetail":
-      return ok({ Id: ctx.user.id });
-    case "Client_GetOrderList": {
-      const page = await accountService.handleGetOrderList(body, ctx.user.id);
-      return page.ok ? ok(page.info) : fail(page.msg);
-    }
-    case "Client_SaveOrder": {
-      const saved = await accountService.handleSaveOrder(body, ctx.user.id);
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
-    }
-    case "Client_SaveOrderBind": {
-      const saved = await accountService.handleSaveOrderBind(body, ctx.user.id);
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
-    }
-    case "Client_RebindOrderLink": {
-      const rebound = await accountService.handleRebindOrderLink(body, ctx.user.id);
-      return rebound.ok ? ok(rebound.info) : fail(rebound.msg);
-    }
     case "API_SaveScore":
       return ok(true);
-    case "Client_SaveMoneyLog": {
-      const saved = await accountService.handleSaveMoneyLog(body, ctx.user.id);
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
-    }
-    case "Client_DeleteMoneyLog": {
-      const deleted = await accountService.handleDeleteMoneyLog(body, ctx.user.id);
-      return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
-    }
-    case "Client_DeletePlayer": {
-      const deleted = await accountService.handleDeletePlayer(body, ctx.user.id);
-      return deleted.ok ? ok(deleted.info) : fail(deleted.msg);
-    }
-    case "Client_UpdateBalance": {
-      const updated = await accountService.handleUpdateBalance(body, ctx.user.id);
-      return updated.ok ? ok(updated.info) : fail(updated.msg);
-    }
-    case "Client_RefreshAccountBalance":
-      return fail("已废弃：PM 余额请用 Pm_RefreshBalance");
-    case "Pm_RefreshBalance": {
-      const refreshed = await accountService.handleRefreshPmBalance(body, ctx.user.id);
-      return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
-    }
-    case "Pm_HttpRequest": {
-      const proxied = await accountService.handlePmHttpRequest(body, ctx.user.id);
-      if (!proxied.ok)
-        return fail(proxied.msg);
-      const upstream = proxied.info;
-      if (upstream?.status >= 400) {
-        const snippet = String(upstream.text || "").slice(0, 160) || `HTTP ${upstream.status}`;
-        return fail(snippet);
-      }
-      return ok(upstream);
-    }
     case "Pm_SubmitOrder": {
       const submitted = await handlePmSubmitOrder(body, ctx.user.id);
       return submitted.ok ? ok(submitted.info) : fail(submitted.msg);
@@ -623,20 +547,6 @@ async function handle(
       const pfRecover = await handlePfRecoverStuckOrders(body, ctx.user.id);
       return pfRecover.ok ? ok(pfRecover.info) : fail(pfRecover.msg);
     }
-    case "Client_GetMoneyLogs": {
-      const page = await accountService.handleGetMoneyLogs(body, ctx.user.id);
-      return page.ok ? ok(page.info) : fail(page.msg);
-    }
-    case "Client_GetMoneyLog": {
-      const row = await accountService.handleGetMoneyLog(body, ctx.user.id);
-      return row.ok ? ok(row.info) : fail(row.msg);
-    }
-    case "Client_MonthReport":
-      return ok(await getMonthReport(body.month, ctx.user.id));
-    case "Client_GetUserProfit": {
-      const profit = await accountService.handleGetUserProfit();
-      return profit.ok ? ok(profit.info) : fail(profit.msg || "操作失败");
-    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");
@@ -650,30 +560,6 @@ async function handle(
       try { matchIds = JSON.parse((body.matchs as string) || "[]"); }
       catch { return fail("matchs JSON ??"); }
       return ok(await store.getMatchDefaultOdds(matchIds));
-    }
-    case "Client_CreateTagPlatform": {
-      await accountStore.ensureSeed();
-      const created = await accountService.handleCreateTagPlatform(body, ctx.user?.id ?? "");
-      return created.ok ? ok(created.info) : fail(created.msg);
-    }
-    case "Client_GetTagPlatforms": {
-      await accountStore.ensureSeed();
-      const tags = await accountService.handleGetTagPlatforms();
-      return ok(tags.info);
-    }
-    case "Client_GetPlayerOrder": {
-      const orders = await accountService.handleGetPlayerOrder(body, ctx.user.id);
-      return orders.ok ? ok(orders.info) : fail(orders.msg);
-    }
-    case "Client_GetUsers": {
-      const users = accountService.handleGetUsers();
-      return ok(users.info);
-    }
-    case "Client_GetChatHistory":
-      return ok([]);
-    case "Client_SaveUserLog": {
-      const saved = await accountService.handleSaveUserLog(body, ctx.user?.id ?? "");
-      return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "SendMessage": {
       const sent = await sendTelegramMessage(body);
