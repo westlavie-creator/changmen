@@ -510,7 +510,7 @@ function unlockRate() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          https://polymarket.com
+          {{ POLYMARKET_OFFICIAL_REFERRAL_URL }}
         </a>
       </el-form-item>
       <el-form-item v-if="form.provider !== 'PredictFun'" label="网关：">
@@ -544,7 +544,7 @@ function unlockRate() {
         target="_blank"
         rel="noopener noreferrer"
       >
-        https://polymarket.com
+        {{ POLYMARKET_OFFICIAL_REFERRAL_URL }}
       </a>
     </el-form-item>
     <el-form-item v-if="hideSensitive && form.gateway" label="网关：">
