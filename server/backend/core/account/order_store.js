@@ -1,267 +1,35 @@
 import * as sb from "@changmen/db";
-import {
-  backendBindLinkFromCreateAt,
-  isArbBindLink,
-  placeholderLinkFromCreateAt,
-} from "@changmen/db";
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
 import { isAdminUser } from "../auth/admin_auth.js";
-import { computePfHoldShares } from "../integrations/predictfun/pf_fee.js";
+import { toDateKey } from "./order/date_key.js";
+import {
+  parseNum,
+  rowToOrder,
+  toClientOrder,
+} from "./order/dto.js";
+import { isPredictionSellForCount } from "./order/kinds.js";
+import {
+  enrichOrdersBelongingToDate,
+  resolveSaveOrderLink,
+} from "./order/link.js";
+import { mergeOtherProviderLogicalSave } from "./order/save_non_pm.js";
+import { mergePredictFunLogicalSave } from "./order/save_pf.js";
+import { mergePolymarketProviderSave } from "./order/save_pm.js";
 
-export function toDateKey(ts) {
-  const d = new Date(Number(ts) || Date.now());
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** PM 卖单归账时间：对应买单 create_at（找不到则用卖单自身） */
-function orderRaw(row) {
-  return row?.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
-    ? row.raw
-    : {};
-}
-
-function predictionSellBuyIdFromRaw(row) {
-  const raw = orderRaw(row);
-  const provider = String(row?.provider || "").trim();
-  if (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")
-    return String(raw.pmBuyOrderId || "").trim();
-  if (provider === "PredictFun" && String(raw.pfSide || "").toLowerCase() === "sell")
-    return String(raw.pfBuyOrderId || "").trim();
-  return "";
-}
-
-function isPredictionBuyRawRow(row) {
-  const raw = orderRaw(row);
-  const provider = String(row?.provider || "").trim();
-  if (provider === "Polymarket")
-    return String(raw.pmSide || "").toLowerCase() !== "sell";
-  if (provider === "PredictFun")
-    return String(raw.pfSide || "").toLowerCase() !== "sell";
-  return false;
-}
-
-function isPredictionSellRawRow(row) {
-  return Boolean(predictionSellBuyIdFromRaw(row));
-}
-
-/** 笔数统计用：PM/PF 卖单不计（不论是否挂上买单 id） */
-export function isPredictionSellForCount(row) {
-  const raw = orderRaw(row);
-  const provider = String(row?.provider || "").trim();
-  if (provider === "Polymarket")
-    return String(raw.pmSide || "").toLowerCase() === "sell";
-  if (provider === "PredictFun")
-    return String(raw.pfSide || "").toLowerCase() === "sell";
-  return false;
-}
-
-function mergeRawOrderRowsById(...lists) {
-  const byId = new Map();
-  for (const list of lists) {
-    for (const r of list || []) {
-      const id = String(r?.order_id ?? "").trim().toLowerCase();
-      if (id)
-        byId.set(id, r);
-    }
-  }
-  return [...byId.values()];
-}
-
-/** 展示前把卖单 link 对齐到父买单（不写库；供分组 / 归账日） */
-export function alignRawPredictionSellLinksToBuys(rows) {
-  const list = rows || [];
-  /**
-   * link=0 的买单若原样进分组，会与其它 link=0 单挤在同一桶，
-   * 跨日归账会用 min(anchors) 误伤同桶其它买卖对。
-   * 分组前把买单 link=0 归一成 create_at 占位，再让卖单跟过去。
-   */
-  const buysNormalized = list.map((r) => {
-    if (!isPredictionBuyRawRow(r))
-      return r;
-    const link = Number(r.link) || 0;
-    if (link !== 0)
-      return r;
-    const ph = placeholderLinkFromCreateAt(r.create_at);
-    if (Number(r.link) === ph)
-      return r;
-    return { ...r, link: ph };
-  });
-
-  const buyById = new Map();
-  for (const r of buysNormalized) {
-    if (!isPredictionBuyRawRow(r))
-      continue;
-    const id = String(r?.order_id ?? "").trim().toLowerCase();
-    if (id)
-      buyById.set(id, r);
-  }
-  if (!buyById.size)
-    return buysNormalized;
-
-  return buysNormalized.map((r) => {
-    const buyId = predictionSellBuyIdFromRaw(r).toLowerCase();
-    if (!buyId)
-      return r;
-    const buy = buyById.get(buyId);
-    if (!buy)
-      return r;
-    const buyLink = Number(buy.link) || 0;
-    if (Number(r.link) === buyLink)
-      return r;
-    return { ...r, link: buyLink };
-  });
-}
-
-function orderProfitDateTsFromRaw(row, peers) {
-  const raw = orderRaw(row);
-  const provider = String(row?.provider || "").trim();
-  const buyId = predictionSellBuyIdFromRaw(row).toLowerCase();
-  if (buyId) {
-    const buy = peers.find(p => String(p?.order_id || "").trim().toLowerCase() === buyId);
-    const buyAt = Number(buy?.create_at) || 0;
-    if (buyAt > 0)
-      return buyAt;
-  }
-  if (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell") {
-    const link = Number(row.link) || 0;
-    const buyAts = peers
-      .filter((p) => {
-        const pr = orderRaw(p);
-        return String(p?.provider || "").trim() === "Polymarket"
-          && String(pr.pmSide || "").toLowerCase() !== "sell"
-          && (link === 0 || (Number(p.link) || 0) === link);
-      })
-      .map(p => Number(p.create_at) || 0)
-      .filter(n => n > 0);
-    if (buyAts.length)
-      return Math.min(...buyAts);
-  }
-  return Number(row?.create_at) || 0;
-}
-
-function filterRawOrdersBelongingToDate(rows, dateKey) {
-  const list = alignRawPredictionSellLinksToBuys(rows || []);
-  const byLink = new Map();
-  for (const r of list) {
-    const link = Number(r.link) || 0;
-    if (!byLink.has(link))
-      byLink.set(link, []);
-    byLink.get(link).push(r);
-  }
-  const out = [];
-  for (const group of byLink.values()) {
-    const predSells = group.filter(isPredictionSellRawRow);
-    if (predSells.length) {
-      const anchors = predSells
-        .map(s => orderProfitDateTsFromRaw(s, group))
-        .filter(n => n > 0);
-      if (anchors.length) {
-        const anchorDay = toDateKey(Math.min(...anchors));
-        if (anchorDay !== dateKey)
-          continue;
-      }
-      out.push(...group);
-      continue;
-    }
-    out.push(...group);
-  }
-  return out;
-}
-
-/**
- * [changmen 扩展] 并入同 Link + 按 buyId 并入跨日父买单/子卖单，再对齐 sell.link。
- * @param {object[]} dayRows
- * @param {{ userId?: string, userIds?: string[] }} opts
- */
-export async function mergePredictionBuySellSiblings(dayRows, opts = {}) {
-  const userId = String(opts.userId || "").trim();
-  const seed = [...(dayRows || [])];
-  if (!seed.length)
-    return [];
-
-  // 管理端多用户：按 user_id 分别并 sibling，避免跨用户串单
-  if (!userId) {
-    const byUser = new Map();
-    const missingUser = [];
-    for (const r of seed) {
-      const uid = String(r?.user_id ?? "").trim();
-      if (!uid) {
-        missingUser.push(r);
-        continue;
-      }
-      if (!byUser.has(uid))
-        byUser.set(uid, []);
-      byUser.get(uid).push(r);
-    }
-    const parts = await Promise.all(
-      [...byUser.entries()].map(([uid, list]) =>
-        mergePredictionBuySellSiblings(list, { userId: uid })),
-    );
-    return mergeRawOrderRowsById(...parts, missingUser)
-      .sort((a, b) => (Number(b.create_at) || 0) - (Number(a.create_at) || 0));
-  }
-
-  let merged = seed;
-  const links = [...new Set(
-    merged.map(r => Number(r.link) || 0).filter(n => n !== 0),
-  )];
-  if (links.length && typeof sb.fetchOrdersByLinks === "function") {
-    const siblings = await sb.fetchOrdersByLinks(userId, links);
-    merged = mergeRawOrderRowsById(merged, siblings);
-  }
-
-  const parentBuyIds = [];
-  const buyIdsForChildSells = [];
-  for (const r of merged) {
-    const sellBuyId = predictionSellBuyIdFromRaw(r);
-    if (sellBuyId)
-      parentBuyIds.push(sellBuyId);
-    if (isPredictionBuyRawRow(r)) {
-      const oid = String(r?.order_id ?? "").trim();
-      if (oid)
-        buyIdsForChildSells.push(oid);
-    }
-  }
-
-  const missingParentIds = parentBuyIds.filter((id) => {
-    const needle = id.toLowerCase();
-    return !merged.some(r => String(r?.order_id ?? "").trim().toLowerCase() === needle);
-  });
-
-  const fetchParents = missingParentIds.length && typeof sb.fetchOrdersByUserOrderIds === "function"
-    ? sb.fetchOrdersByUserOrderIds(userId, missingParentIds)
-    : Promise.resolve([]);
-  const fetchChildSells = buyIdsForChildSells.length
-    && typeof sb.fetchPredictionSellsByBuyOrderIds === "function"
-    ? sb.fetchPredictionSellsByBuyOrderIds(userId, buyIdsForChildSells)
-    : Promise.resolve([]);
-
-  const [parents, childSells] = await Promise.all([fetchParents, fetchChildSells]);
-  merged = mergeRawOrderRowsById(merged, parents, childSells);
-
-  if (typeof sb.fetchOrdersByLinks === "function") {
-    const links2 = [...new Set(
-      merged.map(r => Number(r.link) || 0).filter(n => n !== 0),
-    )];
-    const newLinks = links2.filter(l => !links.includes(l));
-    if (newLinks.length) {
-      const more = await sb.fetchOrdersByLinks(userId, newLinks);
-      merged = mergeRawOrderRowsById(merged, more);
-    }
-  }
-
-  return alignRawPredictionSellLinksToBuys(merged)
-    .sort((a, b) => (Number(b.create_at) || 0) - (Number(a.create_at) || 0));
-}
-
-/** 按日列表：buyId/Link sibling 并入后归买单日 */
-export async function enrichOrdersBelongingToDate(dayRows, dateKey, opts = {}) {
-  const merged = await mergePredictionBuySellSiblings(dayRows, opts);
-  return filterRawOrdersBelongingToDate(merged, dateKey);
-}
+export { toDateKey } from "./order/date_key.js";
+export {
+  resolveStoredLink,
+  resolvePfHoldSharesFromRaw,
+  rowToOrder,
+  scrubClientOrder,
+  toClientOrder,
+} from "./order/dto.js";
+export { isPredictionSellForCount } from "./order/kinds.js";
+export {
+  alignRawPredictionSellLinksToBuys,
+  enrichOrdersBelongingToDate,
+  mergePredictionBuySellSiblings,
+} from "./order/link.js";
 
 function mapStatus(raw) {
   const s = String(raw || "").toLowerCase();
@@ -278,628 +46,24 @@ function mapStatus(raw) {
   return "None";
 }
 
-function parseNum(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-/** raw / 入参 → win|lose；其它返回 undefined */
-function normalizePmMatchResult(raw) {
-  const s = String(raw ?? "").trim().toLowerCase();
-  if (s === "win" || s === "lose")
-    return s;
-  return undefined;
-}
-
-/** pmShares = 官方 fill，取 RDS/CLOB/入参 最大值，避免 0 覆盖有效值 */
-function preservePmBuyFillShares(prevRaw, o, merged) {
-  const prev = parseNum(prevRaw.pmShares, 0);
-  const fromOrder = parseNum(o.pmShares ?? o.PmShares, 0);
-  const fromMerged = parseNum(merged.pmShares, 0);
-  const fill = Math.max(prev, fromOrder, fromMerged);
-  return fill > 0 ? fill : undefined;
-}
-
-/** pmFillPrice = CLOB trade.price；同步时优先用 API 刷新值 */
-function preservePmFillPrice(prevRaw, o, merged) {
-  const incoming = parseNum(o.pmFillPrice ?? o.PmFillPrice, 0);
-  const fromMerged = parseNum(merged.pmFillPrice, 0);
-  const prev = parseNum(prevRaw.pmFillPrice, 0);
-  if (incoming > 0 && incoming < 1)
-    return incoming;
-  if (fromMerged > 0 && fromMerged < 1)
-    return fromMerged;
-  if (prev > 0 && prev < 1)
-    return prev;
-  return undefined;
-}
-
-/** order_id 大小写不敏感查找（PM 0x hex 偶发大小写不一致） */
-function findOrderRowById(byOrderId, orderId) {
-  const id = String(orderId ?? "").trim();
-  if (!id)
-    return undefined;
-  const direct = byOrderId.get(id);
-  if (direct)
-    return direct;
-  const needle = id.toLowerCase();
-  for (const [key, row] of byOrderId) {
-    if (String(key).toLowerCase() === needle)
-      return row;
-  }
-  return undefined;
-}
-
-function findAssignedLink(assignedInBatch, orderId) {
-  const id = String(orderId ?? "").trim();
-  if (!id)
-    return 0;
-  const direct = parseNum(assignedInBatch.get(id), 0);
-  if (direct !== 0)
-    return direct;
-  const needle = id.toLowerCase();
-  for (const [key, link] of assignedInBatch) {
-    if (String(key).toLowerCase() === needle) {
-      const n = parseNum(link, 0);
-      if (n !== 0)
-        return n;
-    }
-  }
-  return 0;
-}
-
-function resolveSaveOrderLink(o, prevRaw, orderId, createAt, linkByOrderId, existingByOrderId, assignedInBatch, provider) {
-  const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "").toLowerCase();
-  const buyOrderId = String(o.pmBuyOrderId ?? prevRaw.pmBuyOrderId ?? "").trim();
-  // PM 卖单：始终跟对应买单 Link（绑定修正时覆盖旧占位 link）
-  if (provider === "Polymarket" && incomingSide === "sell" && buyOrderId) {
-    const buyRow = findOrderRowById(existingByOrderId, buyOrderId);
-    const buyLink = parseNum(buyRow?.link, 0) || findAssignedLink(assignedInBatch, buyOrderId);
-    if (buyLink !== 0)
-      return buyLink;
-    // 买单尚未入库时：用客户端带上的买单 Link（跨日卖仍同组）
-    const incomingBuyLink = parseNum(o.link ?? o.Link ?? o.LinkID, 0);
-    if (incomingBuyLink !== 0)
-      return incomingBuyLink;
-  }
-
-  const boundLink = Number(linkByOrderId.get(orderId)) || 0;
-  // 已绑套利 Link：SaveOrder 同步不覆盖（Bind 确认后保持稳定）
-  if (isArbBindLink(boundLink))
-    return boundLink;
-
-  // [changmen 扩展] 客户端拉单时附带最终 linkId，缩短 create_at-1 占位窗口
-  const incomingLink = parseNum(o.link ?? o.Link ?? o.LinkID, 0);
-  if (incomingLink !== 0)
-    return incomingLink;
-
-  if (boundLink !== 0)
-    return boundLink;
-
-  return backendBindLinkFromCreateAt(createAt);
-}
-
-function resolveStoredLink(link, _orderId, createAt) {
-  const n = Number(link);
-  if (Number.isFinite(n) && n !== 0)
-    return n;
-  return placeholderLinkFromCreateAt(createAt);
-}
-
-export { resolveStoredLink };
-
 /**
- * PF 买单真实持仓份额（对齐官网）：成交 wei − SHARES 手续费 wei。
- * 卖单不计算。读路径即时推算；优先已落库 pfHoldShares。
+ * saveOrder 落库合并入口（历史名）。
+ * 三平行分支：Polymarket ‖ PredictFun ‖ 其它场馆；行为与拆分前等价。
+ * @internal 单测 / 手动卖出本金合并
  */
-export function resolvePfHoldSharesFromRaw(raw) {
-  if (!raw || typeof raw !== "object")
-    return undefined;
-  if (String(raw.pfSide ?? raw.PfSide ?? "").toLowerCase() === "sell")
-    return undefined;
-  const stored = parseNum(raw.pfHoldShares ?? raw.PfHoldShares, 0);
-  if (stored > 0)
-    return stored;
-  const hold = computePfHoldShares({
-    pfSide: "buy",
-    pfShares: raw.pfShares ?? raw.PfShares,
-    pfSharesWei: raw.pfSharesWei ?? raw.PfSharesWei,
-    pfFeeType: raw.pfFeeType ?? raw.PfFeeType,
-    pfFeeAmountWei: raw.pfFeeAmountWei ?? raw.PfFeeAmountWei,
-  });
-  if (hold != null && hold > 0)
-    return hold;
-  const shares = parseNum(raw.pfShares ?? raw.PfShares, 0);
-  return shares > 0 ? shares : undefined;
-}
-
-/** 工作台 Client_GetOrder / 管理端 mapAdminOrderRow 共用，勿分叉 */
-export function rowToOrder(r) {
-  const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
-  let betMoney = r.bet_money || 0;
-  let money = r.money || 0;
-  const pfHoldShares = resolvePfHoldSharesFromRaw(raw);
-  // 卖单盈亏：新写入已为 0（记在买单）；旧数据 money 仍可能非 0，读出时勿清零
-  return {
-    OrderID: r.order_id,
-    Link: resolveStoredLink(r.link, r.order_id, r.create_at),
-    Type: r.provider || "",
-    Match: r.match || "",
-    Bet: r.bet || "",
-    Item: r.item || "",
-    Odds: r.odds || 0,
-    BetMoney: betMoney,
-    Money: money,
-    Status: r.status || "None",
-    CreateAt: r.create_at || 0,
-    PlayerID: Number(r.player_id) || 0,
-    Player: {
-      Platform: r.provider || "",
-      UserName: "",
-      Status: r.status || "None",
-    },
-    PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
-    PmShares: parseNum(raw.pmShares, 0) || undefined,
-    PmFillPrice: (() => {
-      const price = parseNum(raw.pmFillPrice, 0);
-      return price > 0 && price < 1 ? price : undefined;
-    })(),
-    PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
-    PmConditionId: raw.pmConditionId ? String(raw.pmConditionId) : undefined,
-    PmOrigin: raw.pmOrigin === "changmen" || raw.pmOrigin === "external"
-      ? raw.pmOrigin
-      : undefined,
-    PmAttributedSellShares: parseNum(raw.pmAttributedSellShares, 0) || undefined,
-    PmRealizedPnlUsdc: parseNum(raw.pmRealizedPnlUsdc, 0) || undefined,
-    PmSellProceeds: (() => {
-      const n = parseNum(raw.pmSellProceeds, NaN);
-      return Number.isFinite(n) && n > 0 ? n : undefined;
-    })(),
-    PmLastSellOrderId: raw.pmLastSellOrderId ? String(raw.pmLastSellOrderId) : undefined,
-    PmSellState: raw.pmSellState === "open"
-      || raw.pmSellState === "partial"
-      || raw.pmSellState === "closed"
-      || raw.pmSellState === "settled"
-      ? raw.pmSellState
-      : undefined,
-    PmSide: raw.pmSide === "buy" || raw.pmSide === "sell" ? raw.pmSide : undefined,
-    PmBuyOrderId: raw.pmBuyOrderId ? String(raw.pmBuyOrderId) : undefined,
-    PmMatchResult: (() => {
-      const m = normalizePmMatchResult(raw.pmMatchResult);
-      return m === "win" ? "Win" : m === "lose" ? "Lose" : undefined;
-    })(),
-    /** [changmen 扩展] PredictFun 1:1 买卖 */
-    PfSide: raw.pfSide === "buy" || raw.pfSide === "sell" ? raw.pfSide : undefined,
-    PfBuyOrderId: raw.pfBuyOrderId ? String(raw.pfBuyOrderId) : undefined,
-    PfSellState: raw.pfSellState === "open"
-      || raw.pfSellState === "closing"
-      || raw.pfSellState === "closed"
-      || raw.pfSellState === "settled"
-      ? raw.pfSellState
-      : undefined,
-    PfShares: parseNum(raw.pfShares, 0) || undefined,
-    /** 官网持仓口径（扣 SHARES 手续费）；侧栏份额优先读此字段 */
-    PfHoldShares: pfHoldShares,
-    /**
-     * 名义买入 USDT（限价×成交份额 / makerAmount，如 14.12）
-     * 用户扣款与侧栏「投注金额」优先读此字段；实付成交额在 PfFillCostUsdt（如 13.68）
-     */
-    PfNotionalUsdt: (() => {
-      const n = parseNum(raw.pfNotionalUsdt, 0);
-      return n > 0 ? n : undefined;
-    })(),
-    /** 链上/官方实付成交额（可低于名义；差额归 house） */
-    PfFillCostUsdt: (() => {
-      const n = parseNum(raw.pfFillCostUsdt, 0);
-      return n > 0 ? n : undefined;
-    })(),
-    /** 买入限价/盘口价 (0,1) */
-    PfBookPrice: (() => {
-      const n = parseNum(raw.pfBookPrice, 0);
-      return n > 0 && n < 1 ? n : undefined;
-    })(),
-    PfTokenId: raw.pfTokenId ? String(raw.pfTokenId) : undefined,
-    PfMarketId: raw.pfMarketId ? String(raw.pfMarketId) : undefined,
-    PfSellOrderId: raw.pfSellOrderId ? String(raw.pfSellOrderId) : undefined,
-    PfSellProceeds: (() => {
-      const n = parseNum(raw.pfSellProceeds, NaN);
-      return Number.isFinite(n) && n >= 0 ? n : undefined;
-    })(),
-    PfFeeAmountWei: raw.pfFeeAmountWei ? String(raw.pfFeeAmountWei) : undefined,
-    PfFeeType: raw.pfFeeType === "SHARES" || raw.pfFeeType === "COLLATERAL"
-      ? raw.pfFeeType
-      : undefined,
-    PfFeeUsdt: parseNum(raw.pfFeeUsdt, 0) || undefined,
-    PfFeeRateBps: (() => {
-      const n = parseNum(raw.pfFeeRateBps, NaN);
-      return Number.isFinite(n) && n >= 0 ? n : undefined;
-    })(),
-  };
-}
-
-/** @internal 单测 / 手动卖出本金合并 */
 export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
-  const provider = String(o.provider || o.Type || "").trim();
-  let merged = pmOrigin ? { ...o, pmOrigin } : { ...o };
-  let money = parseNum(o.money ?? o.Money, 0);
-  let bet_money = parseNum(o.betMoney ?? o.BetMoney, 0);
+  const provider = String(o.provider || o.Type || prevRow?.provider || "").trim();
+  const merged = pmOrigin ? { ...o, pmOrigin } : { ...o };
+  const money = parseNum(o.money ?? o.Money, 0);
+  const bet_money = parseNum(o.betMoney ?? o.BetMoney, 0);
 
-  if (provider !== "Polymarket") {
-    // PredictFun 等：save 常只带部分字段；勿丢掉已落库的手续费 / 费率
-    if (!String(merged.pfFeeAmountWei ?? "").trim() && String(prevRaw.pfFeeAmountWei ?? "").trim()) {
-      merged.pfFeeAmountWei = prevRaw.pfFeeAmountWei;
-      if (prevRaw.pfFeeType === "SHARES" || prevRaw.pfFeeType === "COLLATERAL")
-        merged.pfFeeType = prevRaw.pfFeeType;
-      if (merged.pfFeeUsdt == null && prevRaw.pfFeeUsdt != null)
-        merged.pfFeeUsdt = prevRaw.pfFeeUsdt;
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfFeeRateBps)) && Number(merged.pfFeeRateBps) >= 0)
-      && Number.isFinite(Number(prevRaw.pfFeeRateBps))
-      && Number(prevRaw.pfFeeRateBps) >= 0
-    ) {
-      merged.pfFeeRateBps = Number(prevRaw.pfFeeRateBps);
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
-      && !(Number.isFinite(Number(merged.pfChangmenFeeRateBps)) && Number(merged.pfChangmenFeeRateBps) >= 0)
-    ) {
-      const prevRate = Number(prevRaw.pfChangmenCodeFeeRateBps ?? prevRaw.pfChangmenFeeRateBps);
-      if (Number.isFinite(prevRate) && prevRate >= 0)
-        merged.pfChangmenCodeFeeRateBps = prevRate;
-    }
-    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
-      && Number.isFinite(Number(merged.pfChangmenFeeRateBps))
-      && Number(merged.pfChangmenFeeRateBps) >= 0) {
-      merged.pfChangmenCodeFeeRateBps = Number(merged.pfChangmenFeeRateBps);
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
-      && !(Number.isFinite(Number(merged.pfChangmenFeeUsdt)) && Number(merged.pfChangmenFeeUsdt) > 0)
-    ) {
-      const prevUsdt = Number(prevRaw.pfChangmenCodeFeeUsdt ?? prevRaw.pfChangmenFeeUsdt);
-      if (Number.isFinite(prevUsdt) && prevUsdt > 0)
-        merged.pfChangmenCodeFeeUsdt = prevUsdt;
-    }
-    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
-      && Number.isFinite(Number(merged.pfChangmenFeeUsdt))
-      && Number(merged.pfChangmenFeeUsdt) > 0) {
-      merged.pfChangmenCodeFeeUsdt = Number(merged.pfChangmenFeeUsdt);
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
-      && !(Number.isFinite(Number(merged.pfChangmenFeeShares)) && Number(merged.pfChangmenFeeShares) > 0)
-    ) {
-      const prevShares = Number(prevRaw.pfChangmenCodeFeeShares ?? prevRaw.pfChangmenFeeShares);
-      if (Number.isFinite(prevShares) && prevShares > 0)
-        merged.pfChangmenCodeFeeShares = prevShares;
-    }
-    else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
-      && Number.isFinite(Number(merged.pfChangmenFeeShares))
-      && Number(merged.pfChangmenFeeShares) > 0) {
-      merged.pfChangmenCodeFeeShares = Number(merged.pfChangmenFeeShares);
-    }
-    if (!String(merged.pfSellOrderId ?? "").trim() && String(prevRaw.pfSellOrderId ?? "").trim())
-      merged.pfSellOrderId = prevRaw.pfSellOrderId;
-    if (
-      !(Number.isFinite(Number(merged.pfSellProceeds)) && Number(merged.pfSellProceeds) >= 0)
-      && Number.isFinite(Number(prevRaw.pfSellProceeds))
-      && Number(prevRaw.pfSellProceeds) >= 0
-    ) {
-      merged.pfSellProceeds = Number(prevRaw.pfSellProceeds);
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfNotionalUsdt)) && Number(merged.pfNotionalUsdt) > 0)
-      && Number.isFinite(Number(prevRaw.pfNotionalUsdt))
-      && Number(prevRaw.pfNotionalUsdt) > 0
-    ) {
-      merged.pfNotionalUsdt = Number(prevRaw.pfNotionalUsdt);
-    }
-    else if (!(Number.isFinite(Number(merged.pfNotionalUsdt)) && Number(merged.pfNotionalUsdt) > 0)) {
-      const book = Number(merged.pfBookPrice ?? prevRaw.pfBookPrice);
-      const shares = Number(merged.pfShares ?? prevRaw.pfShares);
-      if (Number.isFinite(book) && book > 0 && book < 1
-        && Number.isFinite(shares) && shares > 0) {
-        merged.pfNotionalUsdt = Math.round(shares * book * 1e6) / 1e6;
-      }
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfFillCostUsdt)) && Number(merged.pfFillCostUsdt) > 0)
-      && Number.isFinite(Number(prevRaw.pfFillCostUsdt))
-      && Number(prevRaw.pfFillCostUsdt) > 0
-    ) {
-      merged.pfFillCostUsdt = Number(prevRaw.pfFillCostUsdt);
-    }
-    if (
-      !(Number.isFinite(Number(merged.pfBookPrice)) && Number(merged.pfBookPrice) > 0
-        && Number(merged.pfBookPrice) < 1)
-      && Number.isFinite(Number(prevRaw.pfBookPrice))
-      && Number(prevRaw.pfBookPrice) > 0
-      && Number(prevRaw.pfBookPrice) < 1
-    ) {
-      merged.pfBookPrice = Number(prevRaw.pfBookPrice);
-    }
-    if (!(Number(merged.pfShares) > 0) && Number(prevRaw.pfShares) > 0)
-      merged.pfShares = Number(prevRaw.pfShares);
-    const hold = resolvePfHoldSharesFromRaw(merged);
-    const incomingStatus = String(merged.status ?? merged.Status ?? "").toLowerCase();
-    // Pending 未 fee-ready：禁止用毛仓「发明」可卖 hold
-    if (incomingStatus !== "pending") {
-      if (hold != null && hold > 0)
-        merged.pfHoldShares = hold;
-      else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
-        merged.pfHoldShares = Number(prevRaw.pfHoldShares);
-    }
-    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0) {
-      merged.pfHoldShares = Number(prevRaw.pfHoldShares);
-    }
-    if (!String(merged.pfLedgerState ?? "").trim() && String(prevRaw.pfLedgerState ?? "").trim())
-      merged.pfLedgerState = prevRaw.pfLedgerState;
-    // credited / 显式 0：允许清零 pending；否则保留库内正数
-    if (String(merged.pfLedgerState ?? "").toLowerCase() === "credited" || merged.pfPendingCreditUsdt === 0) {
-      if (merged.pfPendingCreditUsdt == null)
-        merged.pfPendingCreditUsdt = 0;
-    }
-    else if (
-      !(Number.isFinite(Number(merged.pfPendingCreditUsdt)) && Number(merged.pfPendingCreditUsdt) > 0)
-      && Number.isFinite(Number(prevRaw.pfPendingCreditUsdt))
-      && Number(prevRaw.pfPendingCreditUsdt) > 0
-    ) {
-      merged.pfPendingCreditUsdt = Number(prevRaw.pfPendingCreditUsdt);
-    }
-    return { raw: merged, money, bet_money };
+  if (provider === "Polymarket") {
+    return mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merged, money, bet_money);
   }
-
-  const incomingSide = String(o.pmSide ?? prevRaw.pmSide ?? "buy").toLowerCase();
-  const isSell = incomingSide === "sell";
-  const isChangmen = pmOrigin === "changmen" || prevRaw.pmOrigin === "changmen";
-  const prevBet = parseNum(prevRaw.betMoney, parseNum(prevRow?.bet_money, 0));
-  const incomingBet = parseNum(o.betMoney ?? o.BetMoney, 0);
-
-  merged.pmSide = isSell ? "sell" : "buy";
-
-  if (isSell) {
-    const proceedsBet = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : 0);
-    const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
-    const incomingMoney = parseNum(o.money ?? o.Money, 0);
-    /**
-     * 新模型：卖单 money 应为 0（盈亏在买单）。
-     * 但客户端 sync 会带 money=0 覆盖；未迁移旧卖单若库内仍有盈亏，必须保留，否则日盈亏被清掉。
-     */
-    let sellMoney = 0;
-    if (Math.abs(incomingMoney) > 1e-9)
-      sellMoney = incomingMoney;
-    else if (Math.abs(prevMoney) > 1e-9)
-      sellMoney = prevMoney;
-
-    if (isChangmen || prevRaw.pmOrigin === "changmen") {
-      merged = {
-        ...merged,
-        pmSide: "sell",
-        pmOrigin: "changmen",
-        betMoney: incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : proceedsBet),
-        pmBuyOrderId: prevRaw.pmBuyOrderId ?? merged.pmBuyOrderId ?? o.pmBuyOrderId,
-        pmRealizedPnlUsdc: merged.pmRealizedPnlUsdc ?? o.pmRealizedPnlUsdc ?? prevRaw.pmRealizedPnlUsdc,
-        money: sellMoney,
-      };
-      bet_money = parseNum(merged.betMoney, proceedsBet);
-      money = sellMoney;
-      merged.money = sellMoney;
-      return { raw: merged, money, bet_money };
-    }
-
-    // 官网/CLOB 卖单
-    merged = {
-      ...merged,
-      pmSide: "sell",
-      pmOrigin: "external",
-      pmBuyOrderId: merged.pmBuyOrderId ?? o.pmBuyOrderId ?? prevRaw.pmBuyOrderId,
-      betMoney: incomingBet > 0 ? incomingBet : prevBet,
-      pmStakeUsdc: parseNum(merged.pmStakeUsdc ?? o.pmStakeUsdc, parseNum(prevRaw.pmStakeUsdc, 0)),
-      pmRealizedPnlUsdc: merged.pmRealizedPnlUsdc ?? o.pmRealizedPnlUsdc ?? prevRaw.pmRealizedPnlUsdc,
-      money: sellMoney,
-    };
-    bet_money = parseNum(merged.betMoney, proceedsBet);
-    money = sellMoney;
-    return { raw: merged, money, bet_money };
+  if (provider === "PredictFun") {
+    return mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_money);
   }
-
-  const prevState = prevRaw.pmSellState;
-  const prevAttr = parseNum(prevRaw.pmAttributedSellShares, 0);
-  const incomingAttr = parseNum(o.pmAttributedSellShares ?? merged.pmAttributedSellShares, 0);
-  const incomingState = o.pmSellState ?? merged.pmSellState;
-  const incomingSellState = String(incomingState ?? "").toLowerCase();
-  const hasBetMoneyField = Object.prototype.hasOwnProperty.call(o, "betMoney")
-    || Object.prototype.hasOwnProperty.call(o, "BetMoney");
-  /**
-   * 原始投注本金（bet_money）卖出后不改写。
-   * 剩余敞口只靠 pmStakeUsdc / pmAttributedSellShares / pmSellState。
-   */
-  const originalBet = prevBet > 0 ? prevBet : incomingBet;
-  let betMoneyForMerge = originalBet;
-  if (!prevBet && hasBetMoneyField && incomingBet > 0)
-    betMoneyForMerge = incomingBet;
-
-  const sellStateRank = (s) => {
-    const v = String(s ?? "").toLowerCase();
-    if (v === "settled")
-      return 3;
-    if (v === "closed")
-      return 2;
-    if (v === "partial")
-      return 1;
-    return 0;
-  };
-
-  /**
-   * 已手动卖出归因：盈亏累加在买单 money；本金保持原始。
-   */
-  const hasManualSellProgress = prevState === "partial"
-    || prevState === "closed"
-    || (prevAttr > 0 && prevState === "settled");
-  if (isChangmen && hasManualSellProgress) {
-    const advanceAttr = incomingAttr > prevAttr + 1e-9;
-    const advanceState = sellStateRank(incomingState) > sellStateRank(prevState);
-    let nextState = advanceState || advanceAttr
-      ? (incomingState ?? prevRaw.pmSellState)
-      : (prevRaw.pmSellState ?? merged.pmSellState);
-    if (String(nextState).toLowerCase() === "settled" && (prevState === "closed" || prevState === "partial"))
-      nextState = prevState;
-    const incomingMoney = parseNum(o.money ?? o.Money, 0);
-    const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
-    /**
-     * 已手动卖光（closed）：盈亏只来自卖出累加，拒绝 Gamma 赛果 money/status 覆写。
-     * 部分卖出仍允许客户端带累计盈亏（含剩余仓结算）的 patch。
-     * 赛果 pmMatchResult 与盈亏脱钩：始终允许写入/刷新。
-     */
-    let nextMoney;
-    if (String(prevState).toLowerCase() === "closed") {
-      nextMoney = prevMoney;
-      nextState = "closed";
-    }
-    else {
-      // 客户端 patch 已含累计盈亏时用 incoming；否则保留 prev
-      nextMoney = incomingMoney !== 0 || Object.prototype.hasOwnProperty.call(o, "money")
-        || Object.prototype.hasOwnProperty.call(o, "Money")
-        ? incomingMoney
-        : prevMoney;
-      // partial：sync 带 money=0 时勿清掉已累计卖出盈亏（与卖单保留逻辑对称）
-      if (Math.abs(incomingMoney) <= 1e-9 && Math.abs(prevMoney) > 1e-9)
-        nextMoney = prevMoney;
-    }
-    const nextMatchResult = normalizePmMatchResult(o.pmMatchResult ?? o.PmMatchResult)
-      ?? normalizePmMatchResult(prevRaw.pmMatchResult)
-      ?? normalizePmMatchResult(merged.pmMatchResult);
-    const prevProceeds = parseNum(prevRaw.pmSellProceeds, NaN);
-    const incomingProceeds = parseNum(o.pmSellProceeds ?? merged.pmSellProceeds, NaN);
-    /**
-     * 只在有真实回款时写入；勿对旧 closed 单 sync 落 0，
-     * 否则读路径会优先 0、跳过卖单 BetMoney 兜底。
-     */
-    let nextProceeds;
-    if (String(prevState).toLowerCase() === "closed") {
-      if (Number.isFinite(prevProceeds) && prevProceeds > 0)
-        nextProceeds = prevProceeds;
-      else if (Number.isFinite(incomingProceeds) && incomingProceeds > 0)
-        nextProceeds = incomingProceeds;
-    }
-    else if (Number.isFinite(incomingProceeds) && incomingProceeds > 0) {
-      nextProceeds = incomingProceeds;
-    }
-    else if (Number.isFinite(prevProceeds) && prevProceeds > 0) {
-      nextProceeds = prevProceeds;
-    }
-    const nextLastSellId = String(o.pmLastSellOrderId ?? merged.pmLastSellOrderId ?? "").trim()
-      || String(prevRaw.pmLastSellOrderId ?? "").trim()
-      || undefined;
-    merged = {
-      ...merged,
-      pmSide: "buy",
-      pmOrigin: "changmen",
-      pmStakeUsdc: advanceAttr
-        ? (merged.pmStakeUsdc ?? o.pmStakeUsdc ?? prevRaw.pmStakeUsdc)
-        : (prevRaw.pmStakeUsdc ?? merged.pmStakeUsdc),
-      betMoney: betMoneyForMerge,
-      pmSellState: nextState,
-      pmAttributedSellShares: advanceAttr
-        ? incomingAttr
-        : (prevRaw.pmAttributedSellShares ?? merged.pmAttributedSellShares),
-      money: nextMoney,
-      status: "none",
-      ...(Number.isFinite(nextProceeds) && nextProceeds > 0
-        ? { pmSellProceeds: nextProceeds }
-        : {}),
-      ...(nextLastSellId ? { pmLastSellOrderId: nextLastSellId } : {}),
-      ...(nextMatchResult ? { pmMatchResult: nextMatchResult } : {}),
-    };
-    // 显式去掉误带的 0，避免污染 raw
-    if (!(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0))
-      delete merged.pmSellProceeds;
-    bet_money = betMoneyForMerge;
-    money = nextMoney;
-  }
-  else {
-    // 首次写入 partial/closed：允许更新 stake/attr/money；bet_money 仍保留原始
-    const allowStakeUpdate = incomingSellState === "partial"
-      || incomingSellState === "closed"
-      || prevState === "partial"
-      || prevState === "closed"
-      || (prevState === "settled" && prevAttr > 0)
-      || incomingAttr > prevAttr + 1e-9;
-    if (allowStakeUpdate) {
-      merged.betMoney = betMoneyForMerge;
-      bet_money = betMoneyForMerge;
-      if (Object.prototype.hasOwnProperty.call(o, "money") || Object.prototype.hasOwnProperty.call(o, "Money")) {
-        money = parseNum(o.money ?? o.Money, 0);
-        merged.money = money;
-      }
-    }
-    else if (betMoneyForMerge > 0) {
-      merged.betMoney = betMoneyForMerge;
-      bet_money = betMoneyForMerge;
-    }
-    if (isChangmen) {
-      merged.pmOrigin = merged.pmOrigin || "changmen";
-      merged.pmSide = "buy";
-    }
-  }
-
-  if (!isSell) {
-    const fillShares = preservePmBuyFillShares(prevRaw, o, merged);
-    if (fillShares != null)
-      merged.pmShares = fillShares;
-    const fillPrice = preservePmFillPrice(prevRaw, o, merged);
-    if (fillPrice != null)
-      merged.pmFillPrice = fillPrice;
-    // 赛果与盈亏脱钩：任意路径都保留 prev / 入参中的 pmMatchResult，避免 sync 抹掉
-    const nextMatchResult = normalizePmMatchResult(o.pmMatchResult ?? o.PmMatchResult)
-      ?? normalizePmMatchResult(merged.pmMatchResult)
-      ?? normalizePmMatchResult(prevRaw.pmMatchResult);
-    if (nextMatchResult)
-      merged.pmMatchResult = nextMatchResult;
-    // 回款字段保护（对标 pfSellProceeds）：空写入保留库内正数；勿把缺失补成 0
-    if (
-      !(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0)
-      && Number.isFinite(Number(prevRaw.pmSellProceeds))
-      && Number(prevRaw.pmSellProceeds) > 0
-    ) {
-      merged.pmSellProceeds = Number(prevRaw.pmSellProceeds);
-    }
-    if (!(Number.isFinite(Number(merged.pmSellProceeds)) && Number(merged.pmSellProceeds) > 0))
-      delete merged.pmSellProceeds;
-    if (!String(merged.pmLastSellOrderId ?? "").trim() && String(prevRaw.pmLastSellOrderId ?? "").trim())
-      merged.pmLastSellOrderId = prevRaw.pmLastSellOrderId;
-  }
-
-  return { raw: merged, money, bet_money };
-}
-
-/**
- * 工作台下发订单：去掉 house 成交额 / 手续费明细（价差可由此反推）。
- * PredictFun：closing 对外折叠为 open（见 pf_lifecycle.js）。
- * 管理端 mapAdminOrderRow / listByPlayer 仍用完整 rowToOrder。
- */
-export function scrubClientOrder(order) {
-  if (!order || typeof order !== "object")
-    return order;
-  const {
-    PfFillCostUsdt: _fill,
-    PfFeeAmountWei: _wei,
-    PfFeeType: _feeType,
-    PfFeeUsdt: _feeUsdt,
-    PfFeeRateBps: _bps,
-    ...rest
-  } = order;
-  if (String(rest.Type ?? "").trim() === "PredictFun") {
-    const rawState = String(rest.PfSellState ?? "").toLowerCase();
-    if (rawState === "closing")
-      rest.PfSellState = "open";
-  }
-  return rest;
-}
-
-export function toClientOrder(r) {
-  return scrubClientOrder(rowToOrder(r));
+  return mergeOtherProviderLogicalSave(merged, prevRaw, money, bet_money);
 }
 
 export async function listByDate(date, userId) {
@@ -930,7 +94,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   if (!orders.length)
     return true;
   const defaultProvider = String(typeFallback || "").trim();
-  // [changmen 扩展] 允许 changmen 手动卖单落库（同 Link + pmBuyOrderId）
+  // [changmen 扩展] 允许 changmen 手动卖单落库（同 Link + pmBuyOrderId / pfBuyOrderId）
   const incoming = orders;
   if (!incoming.length)
     return true;
@@ -944,7 +108,9 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   const prefetchOrderIds = [];
   for (const { o, orderId } of incomingResolved) {
     prefetchOrderIds.push(orderId);
-    const buyOrderId = String(o.pmBuyOrderId ?? o.PmBuyOrderId ?? "").trim();
+    const buyOrderId = String(
+      o.pmBuyOrderId ?? o.PmBuyOrderId ?? o.pfBuyOrderId ?? o.PfBuyOrderId ?? "",
+    ).trim();
     if (buyOrderId)
       prefetchOrderIds.push(buyOrderId);
   }
@@ -965,9 +131,13 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
       ? prevRow.raw
       : {};
-    const provider = o.provider || o.Type || defaultProvider || "";
+    // typeFallback（如 upsertPfServerOrder）必须进入 merge，否则 PF 保护/卖单 meta 会漏判
+    const provider = String(o.provider || o.Type || defaultProvider || prevRow?.provider || "").trim();
+    const orderForMerge = provider && !o.provider && !o.Type
+      ? { ...o, provider }
+      : o;
     const link = resolveSaveOrderLink(
-      o,
+      orderForMerge,
       prevRaw,
       orderId,
       createAt,
@@ -984,7 +154,12 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       pmOrigin = "changmen";
     else if (!pmOrigin)
       pmOrigin = prevOrigin || (provider === "Polymarket" ? "external" : undefined);
-    const { raw, money, bet_money } = mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin);
+    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+      prevRow,
+      prevRaw,
+      orderForMerge,
+      pmOrigin,
+    );
     rows.push({
       user_id: String(userId),
       player_id: Number(playerId),

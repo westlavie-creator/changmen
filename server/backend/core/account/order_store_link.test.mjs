@@ -218,6 +218,211 @@ describe("saveOrder backend bind link", () => {
     expect(row.link).toBe(buyLink);
   });
 
+  it("PF sell follows buy Link via pfBuyOrderId (no incoming link)", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xpfbuy98",
+        link: 1_781_308_466_999,
+        create_at: 1_781_308_466_000,
+        bet_money: 100,
+        raw: { pfSide: "buy", pfSellState: "open" },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xpfsell98",
+        createAt: 1_781_308_467_000,
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfbuy98",
+        betMoney: 50,
+        money: 0,
+        odds: 1.5,
+      }],
+      "user-1",
+    );
+
+    expect(fetchOrdersByPlayerOrderIds).toHaveBeenCalledWith(
+      47,
+      "user-1",
+      expect.arrayContaining(["0xpfsell98", "0xpfbuy98"]),
+    );
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(1_781_308_466_999);
+    expect(row.raw.pfSide).toBe("sell");
+    expect(row.raw.pfBuyOrderId).toBe("0xpfbuy98");
+  });
+
+  it("PF sell follows buy Link across days via pfBuyOrderId (case-insensitive)", async () => {
+    const buyLink = 1_781_300_000_001;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xPFBUYYesterday",
+        link: buyLink,
+        create_at: 1_781_300_000_000,
+        raw: { pfSide: "buy", pfSellState: "open" },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xpfsellToday",
+        createAt: 1_781_390_000_000,
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfbuyyesterday",
+        betMoney: 50,
+        money: 0,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(buyLink);
+  });
+
+  it("PF sell uses client link when buy row missing from prefetch", async () => {
+    const buyLink = 1_781_300_000_333;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xpfsellOrphan",
+        createAt: 1_781_390_000_000,
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfmissingBuy",
+        link: buyLink,
+        betMoney: 50,
+        money: 0,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.link).toBe(buyLink);
+  });
+
+  it("PF partial sync keeps pfSellState/pfSide and money when incoming omits them", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xpfbuy-keep",
+        link: 42,
+        create_at: 1_781_304_307_000,
+        bet_money: 100,
+        money: 12.5,
+        status: "None",
+        raw: {
+          pfSide: "buy",
+          pfSellState: "closing",
+          pfBuyOrderId: undefined,
+          pfTokenId: "tok-1",
+          pfMarketId: "mkt-1",
+          pfFeeRateBps: 100,
+          money: 12.5,
+          betMoney: 100,
+        },
+      },
+    ]);
+
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xpfbuy-keep",
+        createAt: 1_781_304_307_000,
+        provider: "PredictFun",
+        // 故意漏传 side/state/token；money/bet 空写
+        pfFeeRateBps: 100,
+        betMoney: 0,
+        money: 0,
+      }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.money).toBe(12.5);
+    expect(row.bet_money).toBe(100);
+    expect(row.raw.pfSide).toBe("buy");
+    expect(row.raw.pfSellState).toBe("closing");
+    expect(row.raw.pfTokenId).toBe("tok-1");
+    expect(row.raw.pfMarketId).toBe("mkt-1");
+  });
+
+  it("PF typeFallback alone still applies sell-link + money preserve", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xpfbuy-fb",
+        link: 99,
+        create_at: 1_781_300_000_000,
+        provider: "PredictFun",
+        bet_money: 80,
+        money: 7,
+        raw: { pfSide: "buy", pfSellState: "open", money: 7, betMoney: 80 },
+      },
+      {
+        order_id: "0xpfsell-fb",
+        link: 0,
+        create_at: 1_781_300_100_000,
+        provider: "PredictFun",
+        bet_money: 40,
+        money: 2,
+        raw: { pfSide: "sell", pfBuyOrderId: "0xpfbuy-fb", money: 2, betMoney: 40 },
+      },
+    ]);
+
+    // 不带 provider，仅靠 upsertPfServerOrder 的 typeFallback
+    await saveOrder(
+      47,
+      [{
+        orderId: "0xpfsell-fb",
+        createAt: 1_781_300_100_000,
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfbuy-fb",
+        money: 0,
+        betMoney: 0,
+      }],
+      "user-1",
+      "PredictFun",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.provider).toBe("PredictFun");
+    expect(row.link).toBe(99);
+    expect(row.money).toBe(2);
+    expect(row.bet_money).toBe(40);
+    expect(row.raw.pfSide).toBe("sell");
+    expect(row.raw.pfBuyOrderId).toBe("0xpfbuy-fb");
+  });
+
+  it("venue OB re-save does not inherit stray pf* from prev raw", async () => {
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "venue-ob-1",
+        link: 55,
+        create_at: 1_781_304_307_000,
+        bet_money: 10,
+        money: 0,
+        provider: "OB",
+        raw: { pfSide: "buy", pfSellState: "closing", pfTokenId: "should-not-stick" },
+      },
+    ]);
+
+    await saveOrder(
+      7,
+      [{ orderId: "venue-ob-1", createAt: 1_781_304_307_000, provider: "OB", status: "Pending" }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.raw.pfSide).toBeUndefined();
+    expect(row.raw.pfSellState).toBeUndefined();
+    expect(row.raw.pfTokenId).toBeUndefined();
+  });
+
   it("PM changmen buy restores pmShares from CLOB when RDS stored zero", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
@@ -557,6 +762,41 @@ describe("listByDatePage link siblings", () => {
     const { list } = await listByDatePage(sellDay, "user-1", 1, 1024);
     expect(list).toEqual([]);
     expect(fetchOrdersByUserOrderIds).toHaveBeenCalledWith("user-1", ["0xbuyYday"]);
+  });
+
+  it("PF: on buy day merges cross-day sell by pfBuyOrderId", async () => {
+    const buyLink = 1_781_300_000_200;
+    const pfBuy = {
+      order_id: "0xpfbuyYday",
+      link: buyLink,
+      create_at: buyAt,
+      player_id: 47,
+      provider: "PredictFun",
+      user_id: "user-1",
+      bet_money: 100,
+      money: 0,
+      status: "None",
+      raw: { pfSide: "buy", pfSellState: "closed" },
+    };
+    const pfSell = {
+      order_id: "0xpfsellToday",
+      link: 1_781_300_000_100,
+      create_at: sellAt,
+      player_id: 47,
+      provider: "PredictFun",
+      user_id: "user-1",
+      bet_money: 50,
+      money: 0,
+      status: "None",
+      raw: { pfSide: "sell", pfBuyOrderId: "0xpfbuyYday" },
+    };
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [pfBuy], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([pfBuy]);
+    fetchPredictionSellsByBuyOrderIds.mockResolvedValue([pfSell]);
+
+    const { list } = await listByDatePage(buyDay, "user-1", 1, 1024);
+    expect(list.map(r => r.OrderID).sort()).toEqual(["0xpfbuyYday", "0xpfsellToday"]);
+    expect(list.find(r => r.OrderID === "0xpfsellToday")?.Link).toBe(buyLink);
   });
 
   it("alignRawPredictionSellLinksToBuys splits link=0 buys by create_at placeholder", () => {

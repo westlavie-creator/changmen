@@ -273,3 +273,104 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
     expect(raw.money).toBe(3);
   });
 });
+
+describe("mergePolymarketLogicalSave PredictFun partial sync", () => {
+  it("keeps pfSellState/pfSide/pfBuyOrderId when incoming omits them", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+      { bet_money: 80, money: 9 },
+      {
+        pfSide: "buy",
+        pfSellState: "closing",
+        pfBuyOrderId: "parent-should-not-apply",
+        pfTokenId: "tok",
+        pfMarketId: "mkt",
+        money: 9,
+        betMoney: 80,
+      },
+      {
+        provider: "PredictFun",
+        pfFeeRateBps: 50,
+        money: 0,
+        betMoney: 0,
+      },
+      undefined,
+    );
+    expect(raw.pfSide).toBe("buy");
+    expect(raw.pfSellState).toBe("closing");
+    expect(raw.pfTokenId).toBe("tok");
+    expect(raw.pfMarketId).toBe("mkt");
+    expect(money).toBe(9);
+    expect(bet_money).toBe(80);
+  });
+
+  it("preserves PF sell money when sync sends money=0", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { money, bet_money, raw } = mergePolymarketLogicalSave(
+      { bet_money: 40, money: 2 },
+      {
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfbuy",
+        money: 2,
+        betMoney: 40,
+      },
+      {
+        provider: "PredictFun",
+        pfSide: "sell",
+        pfBuyOrderId: "0xpfbuy",
+        money: 0,
+        betMoney: 0,
+      },
+      undefined,
+    );
+    expect(money).toBe(2);
+    expect(raw.money).toBe(2);
+    expect(bet_money).toBe(40);
+  });
+});
+
+describe("mergePolymarketLogicalSave parallel branches (characterization)", () => {
+  it("OB venue still preserves stray pfFee* from prev (historical non-PM tail)", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+      { bet_money: 10, money: 0 },
+      {
+        pfFeeAmountWei: "1000",
+        pfFeeType: "SHARES",
+        pfFeeUsdt: 0.1,
+        pfFeeRateBps: 50,
+      },
+      {
+        provider: "OB",
+        status: "Pending",
+        betMoney: 10,
+        money: 0,
+      },
+      undefined,
+    );
+    expect(raw.pfFeeAmountWei).toBe("1000");
+    expect(raw.pfFeeType).toBe("SHARES");
+    expect(raw.pfFeeRateBps).toBe(50);
+    expect(money).toBe(0);
+    expect(bet_money).toBe(10);
+    // 场馆不走 PF 身份保护：不应发明 pfSide
+    expect(raw.pfSide).toBeUndefined();
+  });
+
+  it("OB does not apply PF money empty-write guard", async () => {
+    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { money, bet_money } = mergePolymarketLogicalSave(
+      { bet_money: 80, money: 12 },
+      { money: 12, betMoney: 80 },
+      {
+        provider: "OB",
+        money: 0,
+        betMoney: 0,
+      },
+      undefined,
+    );
+    // 与拆分前一致：非 PF 不保护 money/bet
+    expect(money).toBe(0);
+    expect(bet_money).toBe(0);
+  });
+});
