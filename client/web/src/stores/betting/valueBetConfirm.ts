@@ -200,7 +200,9 @@ export async function runValueBetConfirm(
         ? `正EV下单成功 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
         : `正EV下单成功 ${item.type}@${option.odds}（💎 标记稍后刷新）`,
     );
-    void accountStore.refreshBalance(account);
+    // delayed：由 notifyPendingVenueConfirm 在 settle 确认后刷，避免早刷盖回旧余额
+    if (!result.pending)
+      void accountStore.refreshBalance(account);
   }
   else {
     const message = result?.message || "下单失败";

@@ -58,7 +58,9 @@ function notifyPendingVenueConfirm(
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
     }
-    if (isPf) {
+    // PM/PF：仅在 settle 已有结论（非仍 pending）后补刷，避免与 place 早刷竞态写回旧余额。
+    // 失败不阻断 toast / 其它场馆路径不变。
+    if (isPendingConfirmVenueProvider(account.provider) && !pendingConfirm) {
       try {
         const { refreshAccountBalance } = await import("@/stores/account/balanceRefresh");
         await refreshAccountBalance(store, account);

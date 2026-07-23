@@ -15,6 +15,7 @@ import { bindArbLegOrder, resolveArbBindOrderId } from "@/stores/betting/arbOrde
 import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { syncActiveBetLegSettleResult, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
 import { useAccountStore } from "@/stores/accountStore";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 
 export interface ArbLegSettleSnapshot {
   ordersA: VenueOrder[];
@@ -74,11 +75,14 @@ export async function settleBothArbLegs(
   const successAccounts: PlatformAccount[] = [];
   if (resultA?.success && accountA) {
     successAccounts.push(accountA);
-    void accountStore.refreshBalance(accountA);
+    // delayed：CLOB 尚未扣款；早刷若慢于 settle 后补刷，会把旧余额盖回去
+    if (!resultA.pending)
+      void accountStore.refreshBalance(accountA);
   }
   if (resultB?.success && accountB) {
     successAccounts.push(accountB);
-    void accountStore.refreshBalance(accountB);
+    if (!resultB.pending)
+      void accountStore.refreshBalance(accountB);
   }
 
   if (!successAccounts.length) {
@@ -136,6 +140,14 @@ export async function settleBothArbLegs(
           side: "A",
         });
       }
+      // [changmen 扩展] PM/PF delayed：仅在 settle 已确认（非仍 pending）后补刷；void 不挡并行
+      if (
+        isPendingConfirmVenueProvider(accountA.provider)
+        && resultA.pending
+        && !synced.pendingConfirm
+      ) {
+        void accountStore.refreshBalance(accountA);
+      }
     })());
   }
 
@@ -163,6 +175,13 @@ export async function settleBothArbLegs(
           betId: bet.id,
           side: "B",
         });
+      }
+      if (
+        isPendingConfirmVenueProvider(accountB.provider)
+        && resultB.pending
+        && !synced.pendingConfirm
+      ) {
+        void accountStore.refreshBalance(accountB);
       }
     })());
   }

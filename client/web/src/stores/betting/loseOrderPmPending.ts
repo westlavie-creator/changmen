@@ -88,6 +88,13 @@ export async function applyPmJbSettlementOutcome(
     setMessage(`补单成功 ${platformLabel}@${checked.odds}`);
     syncActiveBetMakeupDone(betId, platformLabel, checked.odds);
     useMessageStore().loseOrderMessage(account, order, checked, false);
+    // 确认成交后再刷（不在复检前刷，对齐 A8 jb）；失败不挡出队
+    try {
+      void useAccountStore().refreshBalance(account);
+    }
+    catch {
+      /* 刷新失败不阻断补单出队 */
+    }
     return "dequeued";
   }
 
@@ -115,6 +122,13 @@ export async function applyPmJbSettlementOutcome(
   a8Tip("拒单提醒", `${order.target} 再次被拒单`, 3000);
   syncActiveBetMakeupRejected(betId, order.target);
   useMessageStore().loseOrderMessage(account, order, checked, true);
+  // 确认未成交后补刷（资金未扣/已退）；pending 续查不加
+  try {
+    void useAccountStore().refreshBalance(account);
+  }
+  catch {
+    /* 刷新失败不阻断拒单收尾 */
+  }
   return "rejected";
 }
 

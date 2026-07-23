@@ -25,6 +25,7 @@ const saveOrderBind = vi.hoisted(() => vi.fn());
 const a8Tip = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
 const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) => [] as VenueOrder[]));
+const refreshBalance = vi.hoisted(() => vi.fn(async () => undefined));
 const settlePolymarketDelayedOrder = vi.hoisted(() => vi.fn());
 const activeBetRuns = vi.hoisted(() => new Map<number, { legs: { side: "A" | "B"; target: string; status: string }[] }>());
 
@@ -74,6 +75,7 @@ vi.mock("@/stores/accountStore", () => ({
     checkBetting,
     betting,
     updateVenueOrders,
+    refreshBalance,
   }),
 }));
 

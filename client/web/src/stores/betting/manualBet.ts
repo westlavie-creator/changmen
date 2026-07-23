@@ -123,7 +123,9 @@ export async function runManualBet(
     catch {
       // updateVenueOrders 已吞错；此处仅兜底 wait/刷新异常，不影响成功提示
     }
-    void accountStore.refreshBalance(account);
+    // delayed：由 notifyPendingVenueConfirm 在 settle 确认后刷，避免早刷盖回旧余额
+    if (!result.pending)
+      void accountStore.refreshBalance(account);
   }
   else {
     const message = result?.message || "下单失败";

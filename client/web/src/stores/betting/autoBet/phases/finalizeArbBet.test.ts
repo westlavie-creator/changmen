@@ -465,6 +465,71 @@ describe("finalizeArbBet makeup enqueue", () => {
     expect(settleArbLeg).toHaveBeenCalledTimes(2);
   });
 
+  it("PM delayed 腿跳过早刷，仅在 settle 确认后补刷", async () => {
+    const accountA = makeAccount("OB");
+    const accountB = makeAccount("Polymarket");
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [{ ...venueOrder("pm-1", "none", 3), provider: "Polymarket" }], rejected: false },
+    );
+
+    await finalizeArbBet(
+      params,
+      makePlaced({
+        legB: makeLeg("Polymarket", "T2"),
+        accountA,
+        accountB,
+        resultB: Object.assign(new BetResult("Polymarket", true), {
+          orderId: "pm-1",
+          pending: true,
+        }),
+      }),
+    );
+
+    // OB 早刷 1 次；PM delayed 不早刷，settle 后补刷 1 次
+    expect(refreshBalance).toHaveBeenCalledTimes(2);
+    expect(refreshBalance).toHaveBeenNthCalledWith(1, accountA);
+    expect(refreshBalance).toHaveBeenNthCalledWith(2, accountB);
+  });
+
+  it("PM delayed 仍 pendingConfirm 时不补刷（避免旧余额）", async () => {
+    const accountA = makeAccount("OB");
+    const accountB = makeAccount("Polymarket");
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      {
+        orders: [{ ...venueOrder("pm-1", "none", 3), provider: "Polymarket" }],
+        rejected: false,
+        pendingConfirm: true,
+      },
+    );
+
+    await finalizeArbBet(
+      params,
+      makePlaced({
+        legB: makeLeg("Polymarket", "T2"),
+        accountA,
+        accountB,
+        resultB: Object.assign(new BetResult("Polymarket", true), {
+          orderId: "pm-1",
+          pending: true,
+        }),
+      }),
+    );
+
+    expect(refreshBalance).toHaveBeenCalledTimes(1);
+    expect(refreshBalance).toHaveBeenCalledWith(accountA);
+  });
+
+  it("非 PM/PF 双腿仍只在 place 成功时各刷一次", async () => {
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
+    await finalizeArbBet(params, makePlaced());
+    expect(refreshBalance).toHaveBeenCalledTimes(2);
+  });
+
   it("开启套利进度报告时不发旧版 bettingMessage", async () => {
     shouldSendArbProgress.mockReturnValue(true);
     mockDualLegVenueSync(
