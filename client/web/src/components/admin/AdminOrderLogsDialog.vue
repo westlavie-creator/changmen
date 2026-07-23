@@ -10,7 +10,7 @@ import { ElMessage } from "element-plus";
 import { computed, ref } from "vue";
 import { getAdminOrderLogs } from "@/api/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
-import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
+import { adminOrderMoneyCny, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { formatLinkId } from "@changmen/client-core/shared/format";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
@@ -331,11 +331,18 @@ function legOrderAttempts(leg: AdminOrderLogLegSection) {
 }
 
 function legProfit(leg: AdminOrderLogLegSection) {
-  return sumAdminOrdersMoneyCny(
-    leg.attempts
-      .map(a => a.order)
-      .filter((o): o is AdminOrderRow => Boolean(o)),
-  );
+  let sum = 0;
+  for (const a of leg.attempts) {
+    const o = a.order;
+    if (!o)
+      continue;
+    sum += adminOrderMoneyCny({
+      provider: o.provider,
+      money: o.money,
+      pfSide: o.pfSide,
+    });
+  }
+  return sum;
 }
 
 const hasOverviewOrders = computed(() => sortedOrders.value.length > 0);
