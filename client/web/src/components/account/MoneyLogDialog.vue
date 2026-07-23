@@ -32,6 +32,11 @@ const riskKey = ref(0);
 
 const account = computed(() => accountStore.findAccount(props.accountId));
 
+/** PredictFun：真余额在 total_balance；A8 授信/充提公式不适用 */
+const isPredictFun = computed(
+  () => String(account.value?.provider ?? "").trim() === "PredictFun",
+);
+
 const title = computed(() => {
   const acc = account.value;
   if (!acc)
@@ -62,6 +67,9 @@ const accountProfit = computed(() => {
   const acc = account.value;
   if (!acc)
     return 0;
+  // PF：订单战绩，不走 A8「充提记录 − 授信 + 余额」
+  if (isPredictFun.value)
+    return Number(acc.totalProfit) || 0;
   const balanceFx
     = (acc.balance ?? 0) * getExchange(acc.currency ?? Currency.CNY);
   return withdrawTotal.value - rechargeTotal.value + balanceFx - (acc.credit ?? 0);
@@ -140,7 +148,7 @@ async function removeLog(row: MoneyLogRow) {
 
 function editCredit() {
   const acc = account.value;
-  if (!acc)
+  if (!acc || isPredictFun.value)
     return;
   const raw = window.prompt("请输入当前的授信额度", String(acc.credit ?? 0));
   if (!raw || Number.isNaN(Number(raw)))
@@ -162,13 +170,23 @@ async function onInfoClosed() {
   <el-dialog v-model="visible" :title="title" width="800" append-to-body @closed="onClosed">
     <div v-if="account" class="report">
       <el-row>
-        <el-col :span="4">
-          <el-statistic title="充值" :value="rechargeTotal" :precision="0" prefix="￥" />
+        <el-col :span="isPredictFun ? 8 : 4">
+          <el-statistic
+            :title="isPredictFun ? '充值(记)' : '充值'"
+            :value="rechargeTotal"
+            :precision="0"
+            prefix="￥"
+          />
         </el-col>
-        <el-col :span="5">
-          <el-statistic title="提现" :value="withdrawTotal" :precision="0" prefix="￥" />
+        <el-col :span="isPredictFun ? 8 : 5">
+          <el-statistic
+            :title="isPredictFun ? '提现(记)' : '提现'"
+            :value="withdrawTotal"
+            :precision="0"
+            prefix="￥"
+          />
         </el-col>
-        <el-col :span="5">
+        <el-col v-if="!isPredictFun" :span="5">
           <el-statistic
             title="授信额度"
             :value="account.credit ?? 0"
@@ -177,19 +195,32 @@ async function onInfoClosed() {
             @dblclick="editCredit"
           />
         </el-col>
-        <el-col :span="5">
+        <el-col :span="isPredictFun ? 8 : 5">
           <el-statistic
             title="当前余额"
             :value="account.balance ?? 0"
-            :precision="0"
-            :prefix="account.currency || 'CNY'"
+            :precision="isPredictFun ? 2 : 0"
+            :prefix="account.currency || (isPredictFun ? 'USDT' : 'CNY')"
           />
         </el-col>
-        <el-col :span="5">
+        <el-col v-if="!isPredictFun" :span="5">
           <el-statistic title="账号盈亏" :value="accountProfit" :precision="0" prefix="￥" />
         </el-col>
       </el-row>
+      <el-row v-if="isPredictFun" class="pf-pnl">
+        <el-col :span="8">
+          <el-statistic title="账号盈亏" :value="accountProfit" :precision="2" prefix="USDT " />
+        </el-col>
+      </el-row>
 
+      <div v-if="isPredictFun" class="tip">
+        <el-alert
+          title="PredictFun：余额为中转账本真钱；上方充提仅可选备注，不加减余额、无授信。"
+          type="info"
+          show-icon
+          :closable="false"
+        />
+      </div>
       <div v-if="account.description" class="tip">
         <el-alert :title="account.description" type="info" show-icon />
       </div>

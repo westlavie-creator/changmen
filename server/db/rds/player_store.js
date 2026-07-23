@@ -498,6 +498,118 @@ export async function creditPlayerBalanceRow(playerId, amount, ownerUserId) {
   }
 }
 
+/**
+ * PF 管理端充值：同一事务内 total_balance += amount + 写入 money_logs。
+ * 任一步失败整笔回滚。
+ *
+ * @param {{
+ *   playerId: number,
+ *   ownerUserId: string,
+ *   amount: number,
+ *   description?: string,
+ *   currency?: string,
+ *   maxBalance?: number,
+ * }} opts
+ * @returns {Promise<{
+ *   ok: true,
+ *   balanceBefore: number,
+ *   total: number,
+ *   amount: number,
+ *   log: Record<string, unknown>,
+ * } | { ok: false, msg: string }>}
+ */
+export async function rechargePlayerBalanceWithMoneyLogRow(opts = {}) {
+  const playerId = Number(opts.playerId);
+  const ownerUserId = String(opts.ownerUserId || "").trim();
+  const amount = Math.round((Number(opts.amount) || 0) * 100) / 100;
+  const description = String(opts.description || "");
+  const currency = String(opts.currency || "USDT");
+  const maxBalance = Math.round((Number(opts.maxBalance) || 0) * 100) / 100;
+
+  if (!Number.isFinite(playerId) || playerId <= 0 || !ownerUserId)
+    return { ok: false, msg: "参数无效" };
+  if (!(amount > 0))
+    return { ok: false, msg: "充值金额必须大于 0" };
+
+  const pool = getPgPool();
+  if (!pool)
+    return { ok: false, msg: "数据库未就绪" };
+
+  const client = await pool.connect();
+  const now = Date.now();
+  try {
+    await client.query("BEGIN");
+    const sel = await client.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $2::uuid
+       FOR UPDATE`,
+      [playerId, ownerUserId],
+    );
+    const player = _mapPlayerRow(sel.rows?.[0]);
+    if (!player) {
+      await client.query("ROLLBACK");
+      return { ok: false, msg: "会员归属不匹配" };
+    }
+
+    const balanceBefore = Math.round((Number(player.totalBalance) || 0) * 100) / 100;
+    if (maxBalance > 0 && balanceBefore + amount > maxBalance) {
+      await client.query("ROLLBACK");
+      return {
+        ok: false,
+        msg: `充值后将超过上限 ${maxBalance} USDT（当前 ${balanceBefore}）`,
+      };
+    }
+
+    const upd = await client.query(
+      `UPDATE players
+       SET total_balance = total_balance + $2, updated_at = $3
+       WHERE id = $1 AND deleted_at IS NULL AND owner_user_id = $4::uuid
+       RETURNING ${PLAYER_SELECT}`,
+      [playerId, amount, now, ownerUserId],
+    );
+    const after = _mapPlayerRow(upd.rows?.[0]);
+    if (!after) {
+      await client.query("ROLLBACK");
+      return { ok: false, msg: "入账失败" };
+    }
+
+    const logRes = await client.query(
+      `INSERT INTO money_logs (user_id, player_id, type, money, currency, description, is_auto, create_at, updated_at)
+       VALUES ($1::uuid, $2, 'Recharge', $3, $4, $5, 0, $6, $6)
+       RETURNING *`,
+      [ownerUserId, playerId, amount, currency, description, now],
+    );
+    const log = logRes.rows?.[0];
+    if (!log) {
+      await client.query("ROLLBACK");
+      return { ok: false, msg: "充值流水写入失败" };
+    }
+
+    await client.query("COMMIT");
+    return {
+      ok: true,
+      balanceBefore,
+      total: after.totalBalance,
+      amount,
+      log,
+    };
+  }
+  catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    }
+    catch {
+      /* ignore */
+    }
+    console.warn("[rds] rechargePlayerBalanceWithMoneyLogRow:", err.message);
+    return { ok: false, msg: err.message || "充值事务失败" };
+  }
+  finally {
+    client.release();
+  }
+}
+
 export async function softDeletePlayerRow(playerId, description, ownerUserId) {
   const id = Number(playerId);
   if (!Number.isFinite(id) || id <= 0)

@@ -120,6 +120,7 @@ export {
   updatePlayerBalanceRow,
   debitPlayerBalanceRow,
   creditPlayerBalanceRow,
+  rechargePlayerBalanceWithMoneyLogRow,
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
   findVenueAccountKeyConflict,

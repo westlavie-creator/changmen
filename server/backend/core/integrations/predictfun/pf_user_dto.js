@@ -69,6 +69,7 @@ export function toUserPfVenueOrders(orders) {
 
 /**
  * Pf_RefreshBalance / 余额发布回包：只含账本字段，不含 ACCOUNT 整行配置。
+ * PredictFun 不用 A8 credit，余额只看 balance（RDS total_balance）。
  * @param {Record<string, unknown>} info
  */
 export function toUserPfBalanceInfo(info) {
@@ -78,7 +79,6 @@ export function toUserPfBalanceInfo(info) {
   const out = {
     accountId: Number(info.accountId),
     balance: Number(info.balance) || 0,
-    credit: 0,
     currency: String(info.currency || "USDT"),
   };
   if (info.totalProfit != null)

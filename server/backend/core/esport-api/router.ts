@@ -852,6 +852,36 @@ async function handle(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminPredictFunRecharge": {
+      try {
+        return ok(
+          await adminService.rechargeAdminPredictFunMember(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            body,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminPredictFunMoneyLogs": {
+      try {
+        return ok(
+          await adminService.listAdminPredictFunMoneyLogs(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            body,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_AdminUpdateAccountFields": {
       try {
         return ok(

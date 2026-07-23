@@ -43,11 +43,10 @@ export async function refreshPmBalance(
   return res.success === 1 && res.info ? res.info : undefined;
 }
 
-/** [changmen 扩展] PF 余额刷新回包（账本字段；非整行 ACCOUNT） */
+/** [changmen 扩展] PF 余额刷新回包（账本字段；非整行 ACCOUNT；无 A8 credit） */
 export type PfBalanceInfo = {
   accountId: number;
   balance: number;
-  credit: number;
   currency: string;
   totalProfit?: number;
   unsettle?: number;

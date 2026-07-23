@@ -20,6 +20,8 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminGetPredictFunFeeConfig",
   "Client_AdminSavePredictFunFeeConfig",
   "Client_AdminEnsurePredictFunHouseAccount",
+  "Client_AdminPredictFunRecharge",
+  "Client_AdminPredictFunMoneyLogs",
   "Client_AdminUpdateAccountFields",
 ]);
 

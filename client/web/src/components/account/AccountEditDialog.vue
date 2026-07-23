@@ -562,7 +562,8 @@ async function buildPatch(): Promise<Partial<AccountRecord> & {
     token: token || undefined,
     referer: form.referer.trim() || undefined,
     userAgent: form.userAgent.trim() || undefined,
-    credit: Number(form.credit) || 0,
+    // PredictFun 无 A8 授信；其它场馆仍按表单（充提记账用的本金基准）
+    credit: form.provider === "PredictFun" ? 0 : (Number(form.credit) || 0),
     maxBalance: Number(form.maxBalance) || 0,
     maxBalanceOdds: Number(form.maxBalanceOdds) || 2,
     maxProfit: Number(form.maxProfit) || 0,

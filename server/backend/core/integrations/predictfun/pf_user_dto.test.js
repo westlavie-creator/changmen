@@ -27,7 +27,6 @@ describe("pf_user_dto", () => {
     })).toEqual({
       accountId: 169,
       balance: 0,
-      credit: 0,
       currency: "USDT",
       totalProfit: -35.3,
       unsettle: 0,

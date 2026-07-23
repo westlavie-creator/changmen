@@ -10,6 +10,8 @@ import {
   getAdminOrdersAll,
   getAdminPredictFunFeeConfig,
   getAdminPredictFunMembers,
+  getAdminPredictFunMoneyLogs,
+  rechargeAdminPredictFunMember,
   saveAdminPredictFunFeeConfig,
   updateAdminAccountFields,
 } from "@/api/admin";
@@ -51,12 +53,22 @@ const filterStatus = ref<"all" | "open" | "closed" | "paused">("all");
 const editOpen = ref(false);
 const editTarget = ref<AdminPredictFunMemberRow | null>(null);
 const editForm = reactive({
-  balance: 0,
   maxBalance: 0,
   multiply: 1,
   pause: false,
   description: "",
 });
+
+const rechargeOpen = ref(false);
+const rechargeTarget = ref<AdminPredictFunMemberRow | null>(null);
+const rechargeSaving = ref(false);
+const rechargeLogsLoading = ref(false);
+const rechargeForm = reactive({
+  amount: 100,
+  description: "",
+});
+const rechargeLogs = ref<Array<Record<string, unknown>>>([]);
+const rechargeLogsTotal = ref(0);
 
 /** 可同时展开多个会员；每个会员独立日期 / 列表 */
 interface MemberOrdersPanel {
@@ -309,7 +321,6 @@ function openEdit(row: AdminPredictFunMemberRow) {
     return;
   }
   editTarget.value = row;
-  editForm.balance = Number(row.balance) || 0;
   editForm.maxBalance = Number(row.maxBalance) || 0;
   editForm.multiply = Number(row.multiply) || 1;
   editForm.pause = Boolean(row.pause);
@@ -326,7 +337,6 @@ async function saveEdit() {
     await updateAdminAccountFields({
       userId: target.userId,
       accountId: target.accountId,
-      balance: editForm.balance,
       maxBalance: editForm.maxBalance,
       multiply: editForm.multiply,
       pause: editForm.pause,
@@ -342,6 +352,111 @@ async function saveEdit() {
   finally {
     saving.value = false;
   }
+}
+
+async function loadRechargeLogs() {
+  const target = rechargeTarget.value;
+  if (!target?.accountId)
+    return;
+  rechargeLogsLoading.value = true;
+  try {
+    const page = await getAdminPredictFunMoneyLogs({
+      userId: target.userId,
+      accountId: target.accountId,
+      pageIndex: 1,
+      pageSize: 50,
+    });
+    const list = (page?.list ?? page?.data ?? []) as Array<Record<string, unknown>>;
+    rechargeLogs.value = list;
+    rechargeLogsTotal.value = Number(page?.total ?? page?.RecordCount ?? list.length) || 0;
+  }
+  catch (e) {
+    rechargeLogs.value = [];
+    rechargeLogsTotal.value = 0;
+    ElMessage.error((e as Error).message || "加载充值记录失败");
+  }
+  finally {
+    rechargeLogsLoading.value = false;
+  }
+}
+
+function openRecharge(row: AdminPredictFunMemberRow) {
+  if (!row.hasAccount || !row.accountId) {
+    ElMessage.warning("请先开通 PF 会员");
+    return;
+  }
+  rechargeTarget.value = row;
+  rechargeForm.amount = 100;
+  rechargeForm.description = "";
+  rechargeOpen.value = true;
+  void loadRechargeLogs();
+}
+
+async function saveRecharge() {
+  const target = rechargeTarget.value;
+  if (!target?.accountId || rechargeSaving.value)
+    return;
+  const amount = Math.round((Number(rechargeForm.amount) || 0) * 100) / 100;
+  if (!(amount > 0)) {
+    ElMessage.warning("充值金额必须大于 0");
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认为「${target.userName}」充值 ${amount} USDT？\n当前余额 ${fmtMoney(target.balance)}，将增量入账并写入流水。`,
+      "确认充值",
+      { type: "warning", confirmButtonText: "确认充值", cancelButtonText: "取消" },
+    );
+  }
+  catch {
+    return;
+  }
+  rechargeSaving.value = true;
+  try {
+    const result = await rechargeAdminPredictFunMember({
+      userId: target.userId,
+      accountId: target.accountId,
+      amount,
+      description: rechargeForm.description.trim() || undefined,
+    });
+    ElMessage.success(`已充值 ${result.amount} USDT，余额 ${result.balance}`);
+    rechargeForm.amount = 100;
+    rechargeForm.description = "";
+    await load();
+    const refreshed = rows.value.find(r => r.userId === target.userId);
+    if (refreshed)
+      rechargeTarget.value = refreshed;
+    await loadRechargeLogs();
+  }
+  catch (e) {
+    ElMessage.error((e as Error).message || "充值失败");
+  }
+  finally {
+    rechargeSaving.value = false;
+  }
+}
+
+function moneyLogTypeLabel(row: Record<string, unknown>) {
+  const t = String(row.Type ?? row.type ?? "");
+  if (t === "Recharge")
+    return "充值";
+  if (t === "Withdraw")
+    return "提现";
+  if (t === "Lose")
+    return "被黑";
+  return t || "—";
+}
+
+function moneyLogAmount(row: Record<string, unknown>) {
+  return Number(row.Money ?? row.money) || 0;
+}
+
+function moneyLogDesc(row: Record<string, unknown>) {
+  return String(row.Description ?? row.description ?? row.Remark ?? "") || "—";
+}
+
+function moneyLogTime(row: Record<string, unknown>) {
+  return fmtTime(Number(row.CreateAt ?? row.createAt) || 0);
 }
 
 async function loadMemberOrders(userId: string) {
@@ -774,7 +889,7 @@ onMounted(async () => {
               {{ row.description || "—" }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right" align="center">
+          <el-table-column label="操作" width="260" fixed="right" align="center">
             <template #default="{ row }">
               <el-button
                 v-if="!row.hasAccount"
@@ -787,6 +902,9 @@ onMounted(async () => {
                 开通
               </el-button>
               <template v-else>
+                <el-button size="small" link type="success" @click="openRecharge(row)">
+                  充值
+                </el-button>
                 <el-button size="small" link type="primary" @click="openEdit(row)">
                   编辑
                 </el-button>
@@ -817,8 +935,8 @@ onMounted(async () => {
           <span class="admin-pf-member__id">#{{ editTarget.accountId }}</span>
         </p>
         <el-form label-width="96px">
-          <el-form-item label="余额">
-            <el-input-number v-model="editForm.balance" :min="0" :step="100" controls-position="right" />
+          <el-form-item label="当前余额">
+            <span>{{ fmtMoney(editTarget.balance) }} USDT（请用「充值」入账）</span>
           </el-form-item>
           <el-form-item label="上限">
             <el-input-number v-model="editForm.maxBalance" :min="0" :step="100" controls-position="right" />
@@ -846,6 +964,83 @@ onMounted(async () => {
         </el-button>
         <el-button type="primary" :loading="saving" @click="saveEdit">
           保存
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="rechargeOpen"
+      title="PF 会员充值"
+      width="640px"
+      destroy-on-close
+      append-to-body
+    >
+      <template v-if="rechargeTarget">
+        <p class="admin-pf-edit-meta">
+          {{ rechargeTarget.userName }} · 会员 {{ rechargeTarget.memberName }}
+          <span class="admin-pf-member__id">#{{ rechargeTarget.accountId }}</span>
+          · 当前余额 <strong>{{ fmtMoney(rechargeTarget.balance) }} USDT</strong>
+        </p>
+        <el-form label-width="96px">
+          <el-form-item label="充值金额" required>
+            <el-input-number
+              v-model="rechargeForm.amount"
+              :min="0.01"
+              :step="100"
+              :precision="2"
+              controls-position="right"
+            />
+            <span class="admin-pf-recharge-unit">USDT</span>
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input
+              v-model="rechargeForm.description"
+              type="textarea"
+              :rows="2"
+              placeholder="可选：线下到账凭证号等"
+            />
+          </el-form-item>
+        </el-form>
+        <div class="admin-pf-recharge-logs">
+          <div class="admin-pf-recharge-logs__title">
+            充值记录（{{ rechargeLogsTotal }}）
+          </div>
+          <el-table
+            v-loading="rechargeLogsLoading"
+            :data="rechargeLogs"
+            size="small"
+            border
+            max-height="280"
+          >
+            <el-table-column label="类型" width="72" align="center">
+              <template #default="{ row }">
+                {{ moneyLogTypeLabel(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100" align="right">
+              <template #default="{ row }">
+                {{ moneyLogAmount(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="时间" width="160" align="center">
+              <template #default="{ row }">
+                {{ moneyLogTime(row) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="备注" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ moneyLogDesc(row) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </template>
+      <template #footer>
+        <el-button @click="rechargeOpen = false">
+          关闭
+        </el-button>
+        <el-button type="primary" :loading="rechargeSaving" @click="saveRecharge">
+          确认充值
         </el-button>
       </template>
     </el-dialog>
@@ -906,6 +1101,19 @@ onMounted(async () => {
   margin: 0 0 12px;
   font-size: 13px;
   color: var(--adm-text-muted);
+}
+.admin-pf-recharge-unit {
+  margin-left: 8px;
+  color: var(--adm-text-muted);
+  font-size: 13px;
+}
+.admin-pf-recharge-logs {
+  margin-top: 8px;
+}
+.admin-pf-recharge-logs__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
 }
 .admin-pf-orders-panel {
   margin: 0 8px 8px;

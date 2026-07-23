@@ -443,9 +443,9 @@ describe("pf_client_handlers", () => {
     const r = await handlePfRefreshBalance({ playerId: 42 }, "u1");
     expect(r.ok).toBe(true);
     expect(r.info.balance).toBe(1000);
-    expect(r.info.credit).toBe(0);
     expect(r.info.accountId).toBe(42);
     expect(r.info.currency).toBe("USDT");
+    expect(r.info.credit).toBeUndefined();
     expect(r.info.token).toBeUndefined();
     expect(r.info.game).toBeUndefined();
     expect(r.info.pause).toBeUndefined();

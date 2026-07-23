@@ -120,6 +120,11 @@ async function creditPlayerBalance(playerId, amount, ownerUserId) {
   return sb.creditPlayerBalanceRow(playerId, amount, ownerUserId);
 }
 
+/** PF 管理端充值：余额 + 流水同事务 */
+async function rechargePlayerBalanceWithMoneyLog(opts) {
+  return sb.rechargePlayerBalanceWithMoneyLogRow(opts);
+}
+
 /** PF pending_credit：余额入账 + 订单标 credited（RDS 同事务） */
 async function claimCreditPfPendingOrder(playerId, orderId, ownerUserId) {
   return sb.claimCreditPfPendingOrderRow(playerId, orderId, ownerUserId);
@@ -343,6 +348,7 @@ export {
   updatePlayerBalance,
   debitPlayerBalance,
   creditPlayerBalance,
+  rechargePlayerBalanceWithMoneyLog,
   claimCreditPfPendingOrder,
   adjustPfSellProceedsAfterFee,
 };

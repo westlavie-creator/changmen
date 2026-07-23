@@ -230,9 +230,10 @@ export async function saveMoneyLogForAccount(
     type,
     description,
   });
+  // A8：充值记录会抬升授信基准（仍只是记账，不是打款）。PredictFun 无授信，禁止改 credit。
   if (ok && type === "Recharge") {
     const acc = store.findAccount(accountId);
-    if (acc) {
+    if (acc && String(acc.provider ?? "").trim() !== "PredictFun") {
       acc.credit = (acc.credit ?? 0) + money;
       await persistAccounts(store);
     }

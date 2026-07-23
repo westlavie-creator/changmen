@@ -123,7 +123,6 @@ export async function publishPfBalanceKnown(playerId, userId, balance) {
     info: toUserPfBalanceInfo({
       accountId: Number(playerId),
       balance: bal,
-      credit: 0,
       currency: "USDT",
       totalProfit: stats.settledPnl,
       unsettle: stats.unsettle,

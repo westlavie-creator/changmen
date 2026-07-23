@@ -1027,6 +1027,126 @@ export async function ensurePredictFunHouseAccount(userId, caller = null) {
   };
 }
 
+/**
+ * PF 管理端充值：按增量加 total_balance，并写入 money_logs（Type=Recharge）。
+ * 禁止用绝对值改余额；纠错请另开运维路径。
+ * @param {string} userId 会员所属用户
+ * @param {number} accountId
+ * @param {{ amount?: number, money?: number, description?: string }} body
+ * @param {object | null} caller
+ */
+export async function rechargeAdminPredictFunMember(userId, accountId, body = {}, caller = null) {
+  const uid = String(userId || "").trim();
+  const aid = Number(accountId);
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (!aid)
+    throw new Error("accountId 无效");
+  if (!caller || !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const visibleIds = await getVisibleUserIds(caller);
+  if (visibleIds && !visibleIds.has(uid))
+    throw new Error("无权操作该用户");
+
+  const amount = Math.round((Number(body.amount ?? body.money) || 0) * 100) / 100;
+  if (!(amount > 0))
+    throw new Error("充值金额必须大于 0");
+
+  await loadProfileById(uid);
+  await loadAccountsForUser(uid);
+  const accounts = store.getAccountsForUser(uid);
+  const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
+  if (!row)
+    throw new Error("账号不存在");
+  const provider = String(row.provider || row.Provider || "");
+  if (provider !== "PredictFun")
+    throw new Error("仅支持 PredictFun 会员充值");
+
+  const player = await accountStore.getPlayer(aid);
+  if (!player || String(player.ownerUserId || "") !== uid)
+    throw new Error("会员归属不匹配");
+
+  const maxBalance = Number(row.maxBalance ?? row.MaxBalance) || 0;
+  const adminName = String(caller.userName || caller.user_name || caller.id || "admin").trim();
+  const note = String(body.description ?? body.Description ?? "").trim();
+  const description = note
+    ? `管理员充值 by ${adminName}：${note}`
+    : `管理员充值 by ${adminName}`;
+
+  const tx = await accountStore.rechargePlayerBalanceWithMoneyLog({
+    playerId: aid,
+    ownerUserId: uid,
+    amount,
+    description,
+    currency: "USDT",
+    maxBalance,
+  });
+  if (!tx?.ok)
+    throw new Error(tx?.msg || "充值失败");
+
+  const r = tx.log;
+  const logId = Number(r?.id ?? r?.logId) || 0;
+  const mappedLog = {
+    logId,
+    ID: logId,
+    playerId: Number(r?.player_id ?? r?.playerId) || aid,
+    PlayerID: Number(r?.player_id ?? r?.playerId) || aid,
+    type: String(r?.type || "Recharge"),
+    Type: String(r?.type || "Recharge"),
+    money: Number(r?.money) || amount,
+    Money: Number(r?.money) || amount,
+    currency: String(r?.currency || "USDT"),
+    Currency: String(r?.currency || "USDT"),
+    description: String(r?.description || description),
+    Description: String(r?.description || description),
+    createAt: Number(r?.create_at ?? r?.createAt) || Date.now(),
+    CreateAt: Number(r?.create_at ?? r?.createAt) || Date.now(),
+    isAuto: 0,
+    IsAuto: 0,
+  };
+
+  const { publishPfBalanceKnown } = await import("../integrations/predictfun/pf_player_account.js");
+  const published = await publishPfBalanceKnown(aid, uid, tx.total);
+
+  return {
+    ok: true,
+    amount: tx.amount,
+    balanceBefore: tx.balanceBefore,
+    balance: tx.total,
+    log: mappedLog,
+    info: published?.ok ? published.info : { accountId: aid, balance: tx.total, currency: "USDT" },
+  };
+}
+
+/**
+ * PF 管理端：查看该会员充提记录（含管理员充值流水）
+ */
+export async function listAdminPredictFunMoneyLogs(userId, accountId, body = {}, caller = null) {
+  const uid = String(userId || "").trim();
+  const aid = Number(accountId);
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (!aid)
+    throw new Error("accountId 无效");
+  if (!caller || !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const visibleIds = await getVisibleUserIds(caller);
+  if (visibleIds && !visibleIds.has(uid))
+    throw new Error("无权操作该用户");
+
+  await loadAccountsForUser(uid);
+  const accounts = store.getAccountsForUser(uid);
+  const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
+  if (!row)
+    throw new Error("账号不存在");
+  if (String(row.provider || row.Provider || "") !== "PredictFun")
+    throw new Error("仅支持 PredictFun 会员");
+
+  const pageIndex = Number(body.pageIndex) || 1;
+  const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
+  return accountStore.listMoneyLogs(aid, pageIndex, pageSize, uid);
+}
+
 /** 管理端修改指定用户账号乘网（普通用户自助保存会被服务端忽略 multiply） */
 export async function updateAdminAccountMultiply(userId, accountId, multiply, caller = null) {
   return updateAdminAccountFields(userId, accountId, { multiply }, caller);
@@ -1074,17 +1194,11 @@ export async function updateAdminAccountFields(userId, accountId, patch = {}, ca
   const isPf = String(row.provider || row.Provider || "") === "PredictFun"
     || String(row.platformName || "").toLowerCase().includes("predict");
 
-  // PF：直接写 total_balance（balance）；credit 固定 0。其它场馆仍改 credit 授信
-  if (isPf && ("balance" in fields || "credit" in fields)) {
-    const targetBalance = "balance" in fields
-      ? Number(fields.balance)
-      : Number(fields.credit);
-    updates.balance = Number.isFinite(targetBalance) ? targetBalance : 0;
-    updates.credit = 0;
-  }
-  else if ("credit" in fields) {
+  // PF：余额只能走 rechargeAdminPredictFunMember（增量+流水）；禁止绝对值改 balance/credit
+  if (isPf && ("balance" in fields || "credit" in fields))
+    throw new Error("PredictFun 请使用「充值」入账，不可直接改会员余额");
+  if ("credit" in fields)
     updates.credit = Number(fields.credit) || 0;
-  }
   if ("maxBalance" in fields)
     updates.maxBalance = Number(fields.maxBalance) || 0;
   if ("pause" in fields)
@@ -1109,18 +1223,6 @@ export async function updateAdminAccountFields(userId, accountId, patch = {}, ca
     && !String(updated.currency || "").trim()) {
     const withCcy = await store.updateAccountForUser(uid, aid, { currency: "USDT" });
     result = withCcy || updated;
-  }
-  // 改余额后刷新展示字段（读 total_balance）
-  if (isPf && ("balance" in updates || "credit" in updates)) {
-    try {
-      const { handlePfRefreshBalance } = await import("../integrations/predictfun/pf_client_handlers.js");
-      const refreshed = await handlePfRefreshBalance({ playerId: aid }, uid);
-      if (refreshed.ok && refreshed.info)
-        return sanitizeAccountForAdmin({ ...result, ...refreshed.info, credit: 0 });
-    }
-    catch (err) {
-      console.warn("[admin] Pf refresh after balance update:", err?.message || err);
-    }
   }
   return sanitizeAccountForAdmin(result);
 }

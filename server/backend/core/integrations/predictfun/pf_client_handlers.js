@@ -117,7 +117,13 @@ async function assertPfPlayer(body, userId, { requireHouse = true } = {}) {
   return { ok: true, playerId: pid.playerId, player: owned.player };
 }
 
-/** Pf_RefreshBalance — 读 total_balance；顺带结算 + 卡住订单补偿 */
+/**
+ * Pf_RefreshBalance — 用户刷新余额的主路径：
+ * 1) VPS 扫官网赛果 / 卡住卖单
+ * 2) 写 RDS
+ * 3) 回 balance（+ 战绩统计）
+ * 不依赖管理端拉单，也不做 VPS 后台定时扫。
+ */
 export async function handlePfRefreshBalance(body, userId) {
   const gate = await assertPfPlayer(body, userId, { requireHouse: false });
   if (!gate.ok)

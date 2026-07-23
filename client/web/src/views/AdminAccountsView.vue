@@ -155,7 +155,7 @@ async function saveEdit() {
       userId: target.userId,
       accountId: target.accountId,
       ...(isPredictFunRow(target)
-        ? { balance: editForm.balance }
+        ? {}
         : { credit: editForm.balance }),
       maxBalance: editForm.maxBalance,
       multiply: editForm.multiply,
@@ -367,7 +367,10 @@ onMounted(async () => {
           <span class="admin-accounts-member__id">#{{ editTarget.accountId }}</span>
         </p>
         <el-form label-width="96px">
-          <el-form-item :label="isPredictFunRow(editTarget) ? '余额' : '授信'">
+          <el-form-item v-if="isPredictFunRow(editTarget)" label="余额">
+            <span>{{ fmtMoney(editTarget.balance) }}（请到「PredictFun 会员」页充值入账）</span>
+          </el-form-item>
+          <el-form-item v-else label="授信">
             <el-input-number v-model="editForm.balance" :min="0" :step="100" controls-position="right" />
           </el-form-item>
           <el-form-item label="上限">

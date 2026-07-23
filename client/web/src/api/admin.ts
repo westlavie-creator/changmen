@@ -211,10 +211,44 @@ export async function ensureAdminPredictFunHouseAccount(userId: string) {
   );
 }
 
+export async function rechargeAdminPredictFunMember(body: {
+  userId: string;
+  accountId: number;
+  amount: number;
+  description?: string;
+}) {
+  return unwrap(
+    await post<{
+      ok: boolean;
+      amount: number;
+      balanceBefore: number;
+      balance: number;
+      log: { ID?: number; logId?: number; Money?: number; money?: number; Description?: string; description?: string; CreateAt?: number; createAt?: number };
+      info?: { accountId: number; balance: number; currency?: string };
+    }>("Client_AdminPredictFunRecharge", body),
+  );
+}
+
+export async function getAdminPredictFunMoneyLogs(body: {
+  userId: string;
+  accountId: number;
+  pageIndex?: number;
+  pageSize?: number;
+}) {
+  return unwrap(
+    await post<{
+      list?: Array<Record<string, unknown>>;
+      data?: Array<Record<string, unknown>>;
+      total?: number;
+      RecordCount?: number;
+    }>("Client_AdminPredictFunMoneyLogs", body),
+  );
+}
+
 export async function updateAdminAccountFields(body: {
   userId: string;
   accountId: number;
-  /** PF：当前可用余额；其它场馆可仍传 credit */
+  /** 非 PF：授信；PF 禁止经此改余额，请用 rechargeAdminPredictFunMember */
   balance?: number;
   credit?: number;
   maxBalance?: number;

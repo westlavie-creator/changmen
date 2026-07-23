@@ -156,6 +156,7 @@ export const {
   updatePlayerBalanceRow,
   debitPlayerBalanceRow,
   creditPlayerBalanceRow,
+  rechargePlayerBalanceWithMoneyLogRow,
   insertUserLogRow,
   fetchUserLogsInRange,
   softDeletePlayerRow,
