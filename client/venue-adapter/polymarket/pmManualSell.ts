@@ -112,6 +112,33 @@ function parseBidsFromBook(book: PolymarketOrderBookResponse | null | undefined)
     .sort((a, b) => b.price - a.price);
 }
 
+/**
+ * [changmen 扩展] 按当前 bids 估算全卖回款（USDC）；深度不足或失败返回 0。
+ * 供提前锁利等只读估价，不下单。
+ */
+export async function estimatePolymarketManualSellProceedsUsdc(params: {
+  account: PlatformAccount;
+  buyRow: OrderRowLike | VenueOrder;
+}): Promise<number> {
+  try {
+    const buy = "provider" in params.buyRow && "orderId" in params.buyRow
+      ? params.buyRow as VenueOrder
+      : venueOrderFromOrderRow(params.buyRow);
+    const tokenId = String(buy.pmTokenId ?? "").trim();
+    const sharesWanted = resolvePmRemainingShares(buy) > 0.0001
+      ? resolvePmRemainingShares(buy)
+      : resolvePmFillShares(buy);
+    if (!tokenId || !(sharesWanted > 0))
+      return 0;
+    const gateway = params.account.gateway || POLYMARKET_CLOB_API;
+    const book = await pmGetBook<PolymarketOrderBookResponse>(tokenId, gateway);
+    return estimatePolymarketSellProceedsUsdc(parseBidsFromBook(book), sharesWanted);
+  }
+  catch {
+    return 0;
+  }
+}
+
 /** FOK 卖：worst-price = 吃满份额所需最低 bid 档 */
 export function calculateSellMarketLimitPrice(
   bids: PolymarketBidLevel[],

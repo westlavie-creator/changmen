@@ -12,13 +12,9 @@ import type { OrderRow } from "@/types/order";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { Currency, getExchange } from "@changmen/shared/currency";
 import {
-  estimatePolymarketSellProceedsUsdc,
-  pmGetBook,
-  resolvePmRemainingShares,
+  estimatePolymarketManualSellProceedsUsdc,
   sellPolymarketBuyPosition,
-  POLYMARKET_CLOB_API,
   type OrderRowLike,
-  type PolymarketBidLevel,
 } from "@changmen/venue-adapter/polymarket";
 import { pfSubmitSell } from "@changmen/venue-adapter/predictfun";
 import { saveOrders } from "@/api/order";
@@ -118,49 +114,14 @@ function bookCostCny(row: OrderRow): number {
   return Number(row.BetMoney) || 0;
 }
 
-function parseBids(book: unknown): PolymarketBidLevel[] {
-  const raw = book as { bids?: unknown; buys?: unknown } | null;
-  const list = Array.isArray(raw?.bids)
-    ? raw!.bids
-    : Array.isArray(raw?.buys)
-      ? raw!.buys
-      : [];
-  const out: PolymarketBidLevel[] = [];
-  for (const level of list as unknown[]) {
-    if (Array.isArray(level) && level.length >= 2) {
-      const price = Number(level[0]);
-      const size = Number(level[1]);
-      if (price > 0 && price < 1 && size > 0)
-        out.push({ price, size });
-      continue;
-    }
-    if (level && typeof level === "object") {
-      const row = level as Record<string, unknown>;
-      const price = Number(row.price ?? row.Price);
-      const size = Number(row.size ?? row.Size ?? row.quantity);
-      if (price > 0 && price < 1 && size > 0)
-        out.push({ price, size });
-    }
-  }
-  return out.sort((a, b) => b.price - a.price);
-}
-
 async function estimatePmSellProceedsUsdc(
   account: PlatformAccount,
   row: OrderRow,
 ): Promise<number> {
-  const tokenId = String(row.PmTokenId ?? "").trim();
-  const shares = resolvePmRemainingShares(row);
-  if (!tokenId || !(shares > 0.0001))
-    return 0;
-  try {
-    const gateway = account.gateway || POLYMARKET_CLOB_API;
-    const book = await pmGetBook(tokenId, gateway);
-    return estimatePolymarketSellProceedsUsdc(parseBids(book), shares);
-  }
-  catch {
-    return 0;
-  }
+  return estimatePolymarketManualSellProceedsUsdc({
+    account,
+    buyRow: row as OrderRowLike,
+  });
 }
 
 /** PF：用 oddsStore 隐含价粗估（无深度）；失败返回 0 */
