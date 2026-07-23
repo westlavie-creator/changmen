@@ -157,4 +157,55 @@ describe("PredictFun client write guard", () => {
     expect(String(rejected.msg)).toMatch(/禁止 Client_UpdateBalance/);
     expect(accountStore.updatePlayerBalance).not.toHaveBeenCalled();
   });
+
+  it("handleSaveAccounts keeps PredictFun total_balance from players (ignores client 0/omit)", async () => {
+    const store = (await import("../esport-api/store.js")).default;
+    const { handleSaveAccounts } = await import("./account_service.js");
+
+    const saved = await handleSaveAccounts([
+      {
+        accountId: 42,
+        provider: "OB",
+        platformName: "PredictFun",
+        playerName: "GB12",
+        // 故意不传 balance / 或传 0：不得覆盖 RDS 账本
+        balance: 0,
+        credit: 999,
+      },
+    ], "u1");
+
+    expect(saved.ok).toBe(true);
+    expect(store.setAccountsForUser).toHaveBeenCalled();
+    const payload = store.setAccountsForUser.mock.calls[0][1];
+    expect(payload[0].provider).toBe("PredictFun");
+    expect(payload[0].balance).toBe(100);
+    expect(payload[0].totalBalance).toBe(100);
+    expect(payload[0].credit).toBe(0);
+  });
+
+  it("handleSaveAccounts migrates legacy PF credit when total_balance is 0", async () => {
+    const ownership = await import("./player_ownership.js");
+    // validateAccountRows + handleSaveAccounts 各调一次
+    ownership.assertPlayersOwnedByUser.mockResolvedValue({
+      ok: true,
+      players: [{
+        id: 42,
+        platformName: "PredictFun",
+        provider: "PredictFun",
+        totalBalance: 0,
+        credit: 88.5,
+      }],
+    });
+    const store = (await import("../esport-api/store.js")).default;
+    const { handleSaveAccounts } = await import("./account_service.js");
+
+    const saved = await handleSaveAccounts([
+      { accountId: 42, provider: "PredictFun", balance: 0, credit: 0 },
+    ], "u1");
+
+    expect(saved.ok).toBe(true);
+    const payload = store.setAccountsForUser.mock.calls.at(-1)[1];
+    expect(payload[0].balance).toBe(88.5);
+    expect(payload[0].credit).toBe(0);
+  });
 });

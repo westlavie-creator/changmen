@@ -72,6 +72,15 @@
   content:"TOKEN ERROR";text-shadow:1px 1px 0px #fff;
 }
 
+/* [changmen 扩展] 瞬时刷新失败：保留数字，弱提示而非 TOKEN ERROR */
+.providers .account .balance.stale {
+  color:#e6a23c;
+}
+
+.providers .account .balance.stale:after {
+  content:" · 待刷新";font-size:11px;opacity:.85;margin-left:2px;
+}
+
 .providers .account .toolbar {
   position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;visibility:hidden;
 }

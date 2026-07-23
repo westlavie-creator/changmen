@@ -78,8 +78,16 @@ export const pbProvider: PlatformProvider = {
       success?: boolean;
       betCredit?: number;
       currency?: string;
+      error?: string;
+      code?: string | number;
+      message?: string;
     }>(account, path, "");
-    if (!data?.success) return undefined;
+    if (!data?.success) {
+      const reason = String(
+        data?.error || data?.message || data?.code || "account-balance failed",
+      );
+      throw new Error(reason);
+    }
     const multiply = accountMultiplyScale(account.multiply);
     const identity = parsePbVenueIdentity(account.token);
     return {

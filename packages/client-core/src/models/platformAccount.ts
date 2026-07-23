@@ -39,6 +39,11 @@ export class PlatformAccount implements AccountRecord {
   currency: AccountCurrency | string;
   updateTime: number;
   loadingBalance = false;
+  /**
+   * [changmen 扩展] 本轮余额刷新瞬时失败，但仍保留上次余额供显示。
+   * 不落库；真鉴权失败仍清 balance → TOKEN ERROR。
+   */
+  balanceStale = false;
   active = false;
   today = 0;
   orderCount = 0;
@@ -89,6 +94,7 @@ export class PlatformAccount implements AccountRecord {
       this.venueMemberId = String(legacyVenueId).trim();
     this.rateConfig = normalizeAccountRateConfig(raw.rateConfig);
     this.balance = undefined;
+    this.balanceStale = false;
     this.active = false;
     this.credit = raw.credit ?? 0;
     this.currency = resolveAccountCurrency(this.provider, raw.currency);
@@ -201,6 +207,7 @@ export class PlatformAccount implements AccountRecord {
   /** 对齐 A8 uv.logout：清空会话，停止使用该账号下单 */
   logout() {
     this.balance = undefined;
+    this.balanceStale = false;
     this.token = undefined;
     this.errorCount = 0;
   }
@@ -226,7 +233,7 @@ export class PlatformAccount implements AccountRecord {
   }
 
   toJSON(): AccountRecord {
-    const { loadingBalance: _lb, ...rest } = this;
+    const { loadingBalance: _lb, balanceStale: _stale, ...rest } = this;
     return JSON.parse(JSON.stringify(rest)) as AccountRecord;
   }
 

@@ -58,6 +58,11 @@ describe("player_store batch SQL", () => {
     const [sql, params] = queryMock.mock.calls[1];
     expect(sql).toMatch(/\$9::jsonb\[\]/);
     expect(sql).toMatch(/venue_account_key/);
+    // PF 守卫只认库内 p.provider（禁止 OR u.provider，避免伪造清 OB credit）
+    expect(sql).toMatch(/lower\(p\.provider\) = 'predictfun'/);
+    expect(sql).toMatch(/ELSE p\.total_balance/);
+    expect(sql).not.toMatch(/OR lower\(u\.provider\) = 'predictfun'/);
+    expect(sql).not.toMatch(/coalesce\(u\.provider,\s*p\.provider\)/);
     expect(params[0]).toEqual([7]);
     expect(params[11]).toBe("user-1");
     expect(params[8][0]).toMatchObject({ token: "x" });

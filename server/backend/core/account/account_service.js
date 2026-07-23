@@ -257,12 +257,8 @@ async function handleSaveAccounts(accounts, userId) {
     store.getAccountsForUser(userId).map(a => [Number(a.accountId ?? a.AccountId), a]),
   );
   // players 平台身份（含 provider）不可由客户端 ACCOUNT 覆盖
-  const ownedBatch = await assertPlayersOwnedByUser(
-    accounts.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean),
-    userId,
-  );
   const playerById = new Map(
-    (ownedBatch.ok ? ownedBatch.players : []).map(p => [Number(p.id), p]),
+    (checked.players || []).map(p => [Number(p.id), p]),
   );
   const normalized = accounts.map((row) => {
     const id = Number(row?.accountId ?? row?.AccountId);
@@ -275,8 +271,21 @@ async function handleSaveAccounts(accounts, userId) {
       locked.provider = player.provider;
     else if (prev?.provider)
       locked.provider = prev.provider;
-    if (isPredictFunPlayerRow(player || prev || locked))
+    if (isPredictFunPlayerRow(player || prev || locked)) {
       locked.provider = "PredictFun";
+      // PF 余额真相在 players.total_balance（debit/credit/充值）；
+      // 客户端 SaveData 常省略 balance（PlatformAccount 构造后为 undefined），
+      // Number(undefined)||0 会把账本绝对 SET 成 0。
+      // 历史误写在 credit：与 resolvePfBalance / RDS CASE 对齐，迁入后再清 credit。
+      const tb = Number(player?.totalBalance);
+      const cr = Number(player?.credit);
+      const keep = Number.isFinite(tb) && tb === 0 && Number.isFinite(cr) && cr > 0
+        ? cr
+        : tb;
+      locked.balance = Number.isFinite(keep) ? keep : 0;
+      locked.totalBalance = locked.balance;
+      locked.credit = 0;
+    }
     return locked;
   });
   try {

@@ -62,7 +62,9 @@ type ObBalanceResponse = {
     currency_en?: string;
     uid?: string | number;
     account?: string;
-  };
+    msg?: string;
+    message?: string;
+  } | string;
 };
 
 async function obMemberHeartbeat(account: PlatformAccount) {
@@ -214,29 +216,47 @@ function buildBetLine(option: BetOption, amount: number, odds: number) {
 export const obProvider: PlatformProvider = {
   async getBalance(account) {
     const bal = await accountGet<ObBalanceResponse>(account, "/game/balance");
-    if (bal.status !== "true") return undefined;
-    try {
-      const venueMemberId = bal.data?.uid != null && bal.data.uid !== ""
-        ? String(bal.data.uid).trim()
-        : undefined;
-      const venueAccountName = bal.data?.account != null && String(bal.data.account).trim()
-        ? String(bal.data.account).trim()
-        : undefined;
-      if (account.accountId && venueMemberId) {
-        uidByAccount.set(account.accountId, venueMemberId);
-      }
-      if (!oddUpdateDone.has(account.accountId ?? 0)) {
+    if (bal.status !== "true") {
+      // 抛出场馆文案，供余额刷新区分鉴权失败 vs 瞬时不可用
+      const raw = bal.data;
+      let reason = "game/balance failed";
+      if (typeof raw === "string" && raw.trim())
+        reason = raw;
+      else if (raw && typeof raw === "object")
+        reason = String(raw.msg ?? raw.message ?? reason);
+      throw new Error(reason);
+    }
+    const data = typeof bal.data === "object" && bal.data ? bal.data : undefined;
+    const venueMemberId = data?.uid != null && data.uid !== ""
+      ? String(data.uid).trim()
+      : undefined;
+    const venueAccountName = data?.account != null && String(data.account).trim()
+      ? String(data.account).trim()
+      : undefined;
+    if (account.accountId && venueMemberId) {
+      uidByAccount.set(account.accountId, venueMemberId);
+    }
+    // odd/updateType、heartbeat 失败不应吞掉已成功的 balance（否则定时 Io.f 会误显 TOKEN ERROR）
+    if (!oddUpdateDone.has(account.accountId ?? 0)) {
+      try {
         await obEnsureOddUpdateType(account);
       }
-      return {
-        balance: Number(bal.data?.balance) || 0,
-        currency: obVenueCurrency(bal.data?.currency_en),
-        venueMemberId,
-        venueAccountName,
-      };
-    } finally {
+      catch {
+        /* ignore */
+      }
+    }
+    try {
       await obMemberHeartbeat(account);
     }
+    catch {
+      /* ignore */
+    }
+    return {
+      balance: Number(data?.balance) || 0,
+      currency: obVenueCurrency(data?.currency_en),
+      venueMemberId,
+      venueAccountName,
+    };
   },
 
   async getOrders(account) {

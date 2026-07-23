@@ -759,15 +759,30 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
       params.push(platformId);
       platformClause = `, platform_id = $${params.length}`;
     }
+    // PredictFun：仅当库内 provider 已是 PF 时保护账本（勿用入参 provider，否则伪造可清 OB credit）；
+    // 若历史误写在 credit 且 total_balance=0，顺带迁入（对齐 resolvePfBalance）。
     const { rowCount } = await pool.query(
       `UPDATE players SET
          platform_name = $3,
          player_name = $4,
-         provider = $5,
+         provider = CASE
+           WHEN lower(provider) = 'predictfun' THEN provider
+           ELSE $5
+         END,
          venue_member_id = $6,
          venue_account_key = $7,
-         credit = $8,
-         total_balance = $9,
+         total_balance = CASE
+           WHEN lower(provider) = 'predictfun' THEN
+             CASE
+               WHEN coalesce(total_balance, 0) = 0 AND coalesce(credit, 0) > 0 THEN credit
+               ELSE total_balance
+             END
+           ELSE $9
+         END,
+         credit = CASE
+           WHEN lower(provider) = 'predictfun' THEN 0
+           ELSE $8
+         END,
          account_data = $10::jsonb,
          updated_at = $11${platformClause}
        WHERE id = $1 AND owner_user_id = $2::uuid AND deleted_at IS NULL`,
@@ -842,15 +857,30 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
       throw new VenueAccountKeyConflictError(venueAccountKeyConflictMessage(conflict), conflict);
   }
   try {
+    // PredictFun：只认库内 p.provider（勿 OR u.provider，否则伪造 PredictFun 会把 OB credit 清 0）；
+    // ACCOUNT 不得绝对 SET total_balance；credit>0 且 total_balance=0 时迁入。
     const { rowCount } = await pool.query(
       `UPDATE players AS p SET
          platform_name = u.platform_name,
          player_name = u.player_name,
-         provider = u.provider,
+         provider = CASE
+           WHEN lower(p.provider) = 'predictfun' THEN p.provider
+           ELSE u.provider
+         END,
          venue_member_id = u.venue_member_id,
          venue_account_key = u.venue_account_key,
-         credit = u.credit,
-         total_balance = u.total_balance,
+         total_balance = CASE
+           WHEN lower(p.provider) = 'predictfun' THEN
+             CASE
+               WHEN coalesce(p.total_balance, 0) = 0 AND coalesce(p.credit, 0) > 0 THEN p.credit
+               ELSE p.total_balance
+             END
+           ELSE u.total_balance
+         END,
+         credit = CASE
+           WHEN lower(p.provider) = 'predictfun' THEN 0
+           ELSE u.credit
+         END,
          account_data = u.account_data,
          updated_at = u.updated_at,
          platform_id = COALESCE(u.platform_id, p.platform_id)

@@ -25,6 +25,39 @@ function saveAccountRefreshLog(title: string, lines: string[]) {
 }
 
 /**
+ * [changmen 扩展] 场馆明确鉴权/会话失效文案。
+ * 宁可漏判成「待刷新」，也不要把网络/HTTP 噪声误判成 TOKEN ERROR。
+ */
+export function isVenueAuthFailureMessage(msg: string): boolean {
+  const m = String(msg || "").trim();
+  if (!m)
+    return false;
+  if (/redis:\s*nil/i.test(m))
+    return true;
+  if (/token\s*error/i.test(m))
+    return true;
+  if (/MULTIPLE_LOGIN|UNAUTHOR/i.test(m))
+    return true;
+  if (/未登录|登录失效|token无效|token\s*invalid/i.test(m))
+    return true;
+  // PB 等短码：整段消息才算，避免命中 “Forbidden” 类 HTTP 正文
+  if (/^(SESSION|LOGIN|UNAUTHORIZED|FORBIDDEN)$/i.test(m))
+    return true;
+  return false;
+}
+
+function noteAuthFailure(account: PlatformAccount, msg: string) {
+  if (/redis:\s*nil/i.test(msg)) {
+    account.errorCount += 1;
+    if (account.errorCount >= 3)
+      account.logout();
+  }
+  else {
+    account.errorCount = 0;
+  }
+}
+
+/**
  * PM 已存账号：一律 Pm_RefreshBalance（VPS 直连 CLOB）。
  * 不跟 PM_HTTP_MODE 走——extension 模式仍从用户本机出网，没翻墙会刷不出余额；
  * 保存前探测（无 accountId）仍走 Provider.getBalance。
@@ -65,18 +98,39 @@ async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalan
   return provider?.getBalance?.(account);
 }
 
-/** 对齐 A8 uv.updateBalance：成功写 balance；失败 balance=undefined（TOKEN ERROR 由 CSS 展示） */
+function applyRefreshFailure(account: PlatformAccount, hadBalance: boolean, reason: string) {
+  if (isVenueAuthFailureMessage(reason)) {
+    account.balance = undefined;
+    account.balanceStale = false;
+    noteAuthFailure(account, reason);
+    return;
+  }
+  if (hadBalance) {
+    account.balanceStale = true;
+    return;
+  }
+  account.balance = undefined;
+  account.balanceStale = false;
+}
+
+/**
+ * 对齐 A8 uv.updateBalance：成功写 balance。
+ * [changmen 扩展] 瞬时失败保留上次余额并标 balanceStale；仅明确鉴权失败才硬 TOKEN ERROR。
+ */
 export async function refreshAccountBalance(
   _store: AccountStoreContext,
   account: PlatformAccount,
 ): Promise<void> {
   account.loadingBalance = true;
+  const hadBalance = account.balance !== undefined;
   try {
     const result = await fetchVenueBalance(account);
     if (result) {
       account.balance = result.balance;
       account.currency = result.currency ?? Currency.CNY;
       account.updateTime = Date.now();
+      account.balanceStale = false;
+      account.errorCount = 0;
       // [changmen 扩展] venueMemberId / venueAccountName 仅账号保存时写入，Io.f 余额刷新不改写（对齐 A8 uv.updateBalance）
 
       const providerId = String(account.provider ?? "").toLowerCase();
@@ -113,11 +167,12 @@ export async function refreshAccountBalance(
       }
     }
     else {
-      account.balance = undefined;
+      applyRefreshFailure(account, hadBalance, "balance unavailable");
     }
   }
-  catch {
-    account.balance = undefined;
+  catch (err) {
+    const reason = err instanceof Error ? err.message : String(err ?? "refresh failed");
+    applyRefreshFailure(account, hadBalance, reason);
   }
   finally {
     account.loadingBalance = false;

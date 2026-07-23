@@ -67,6 +67,28 @@ describe("obProvider.getBalance", () => {
     });
     expect(accountGet).toHaveBeenCalledWith(bare, "/game/balance");
   });
+
+  it("heartbeat 失败仍返回已拉到的余额（避免定时刷新误显 TOKEN ERROR）", async () => {
+    accountGet.mockImplementation(async (_acc, path) => {
+      if (path === "/game/balance") {
+        return { status: "true", data: { balance: 12, currency_en: "CNY", uid: "u1", account: "a" } };
+      }
+      if (String(path).includes("/game/odd/updateType")) {
+        return { status: "true", data: "2" };
+      }
+      if (path === "/game/member/heartbeat") {
+        throw new Error("network reset");
+      }
+      return {};
+    });
+    const bal = await obProvider.getBalance!(account);
+    expect(bal?.balance).toBe(12);
+  });
+
+  it("balance status!=true 时抛出场馆文案", async () => {
+    accountGet.mockResolvedValue({ status: "false", data: "redis: nil" });
+    await expect(obProvider.getBalance!(account)).rejects.toThrow(/redis:\s*nil/);
+  });
 });
 
 describe("obProvider.checkBet", () => {

@@ -81,7 +81,9 @@ async function confirmRemove() {
           && account.maxBalance !== 0
           && account.balance > account.maxBalance,
         error: account.balance === undefined,
+        stale: account.balance !== undefined && account.balanceStale,
       }"
+      :title="account.balanceStale ? '刷新失败，显示上次余额' : undefined"
     >
       <label class="currency">
         {{ account.currency || 'CNY' }}
