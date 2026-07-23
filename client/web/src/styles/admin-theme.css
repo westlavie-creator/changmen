@@ -489,14 +489,30 @@ html.admin-route #app > * {
   display: flex;
   flex-direction: column;
   max-height: min(70vh, 720px);
+  min-width: 0;
+  overflow: hidden;
 }
 .admin-rank-scroll {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 10px 14px;
 }
 .admin-rank-table {
-  padding: 0 10px 14px;
+  width: 100%;
+  padding: 0;
+}
+/* 5 列窄表：覆盖全局「强制横向滚动条」，禁止左右滑 */
+.admin-shell .admin-rank-table .el-table__inner-wrapper,
+.admin-shell .admin-rank-table .el-table__body-wrapper,
+.admin-shell .admin-rank-table .el-scrollbar__wrap {
+  overflow-x: hidden !important;
+}
+.admin-shell .admin-rank-table .el-scrollbar__bar.is-horizontal {
+  display: none !important;
 }
 .admin-rank {
   display: inline-flex;

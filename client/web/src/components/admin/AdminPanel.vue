@@ -211,19 +211,19 @@ onMounted(() => {
             stripe
             class="admin-rank-table"
           >
-            <el-table-column label="#" width="48" align="center">
+            <el-table-column label="#" width="44" align="center">
               <template #default="{ $index }">
                 <span class="admin-rank" :class="{ 'admin-rank--top': $index < 3 }">{{ $index + 1 }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="UserName" label="用户" min-width="120" />
-            <el-table-column label="盈利" width="110" align="right">
+            <el-table-column prop="UserName" label="用户" min-width="80" show-overflow-tooltip />
+            <el-table-column label="盈利" width="96" align="right">
               <template #default="{ row }">
                 <span :class="moneyClass(row.Money)">{{ fmtMoney(row.Money) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="Count" label="订单" width="72" align="center" />
-            <el-table-column label="流水" width="110" align="right">
+            <el-table-column prop="Count" label="订单" width="56" align="center" />
+            <el-table-column label="流水" width="96" align="right">
               <template #default="{ row }">
                 {{ fmtMoney(row.BetMoney ?? 0) }}
               </template>
