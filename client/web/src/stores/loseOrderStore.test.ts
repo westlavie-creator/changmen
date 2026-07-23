@@ -24,6 +24,10 @@ vi.mock("@/stores/matchStore", () => ({
   }),
 }));
 
+vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
+  maybeArbFailAutoSellByLink: vi.fn(async () => false),
+}));
+
 describe("useLoseOrderStore A8 publish parity", () => {
   beforeEach(() => {
     setActivePinia(createPinia());

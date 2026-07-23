@@ -13,6 +13,7 @@ const defaultPrefs = {
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
+  arbFailAutoSell: { enabled: false },
   uiTheme: "default" as const,
 };
 
@@ -52,6 +53,16 @@ describe("extensionPrefs", () => {
 
   it("ignores legacy pmAutoExitSell key (feature removed)", () => {
     expect(normalizeExtensionPrefs({ pmAutoExitSell: true })).toEqual(defaultPrefs);
+  });
+
+  it("can enable arbFailAutoSell", () => {
+    expect(normalizeExtensionPrefs({
+      arbFailAutoSell: { enabled: true },
+    }).arbFailAutoSell).toEqual({ enabled: true });
+  });
+
+  it("defaults arbFailAutoSell off", () => {
+    expect(normalizeExtensionPrefs({}).arbFailAutoSell).toEqual({ enabled: false });
   });
 
   it("ignores legacy venueHkEgress / pmHkEgress keys", () => {

@@ -51,6 +51,10 @@ vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
   applyArbMakeUpFromRejects,
 }));
 
+vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
+  maybeArbFailAutoSellAfterFinalize: vi.fn(async () => false),
+}));
+
 vi.mock("@/stores/betting/successMarkers", () => ({
   markSuccessfulBet,
   readUsedAccounts: vi.fn(() => []),

@@ -16,6 +16,15 @@ export interface StakeScaleByProfitPrefs {
   skipAccountRateOnScale: boolean;
 }
 
+/**
+ * [changmen 扩展] 套利失败敞口自动减仓。
+ * 一腿 PM/PF 已成交、对侧拒单且未能入补单队列（或补单随后放弃）时，市价卖掉已成交预测市场腿。
+ * 默认关闭；不做止盈，仅风控减仓。
+ */
+export interface ArbFailAutoSellPrefs {
+  enabled: boolean;
+}
+
 /** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
 export type UiTheme = "default" | "brutal" | "paper" | "terminal";
 
@@ -41,6 +50,8 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   singleLeg9999UseValueBetMoney: boolean;
   /** 利润达阈值时放大下注金额 */
   stakeScaleByProfit: StakeScaleByProfitPrefs;
+  /** 套利失败敞口：自动卖掉已成交的 PM/PF 腿 */
+  arbFailAutoSell: ArbFailAutoSellPrefs;
   /**
    * 控制台 UI 皮肤。
    * default = 现有深色；brutal = 粗边框；paper = 浅纸感；terminal = 终端风。
@@ -63,12 +74,17 @@ export function createDefaultStakeScaleByProfit(): StakeScaleByProfitPrefs {
   };
 }
 
+export function createDefaultArbFailAutoSell(): ArbFailAutoSellPrefs {
+  return { enabled: false };
+}
+
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
+    arbFailAutoSell: createDefaultArbFailAutoSell(),
     uiTheme: "default",
   };
 }
@@ -88,6 +104,13 @@ function normalizeStakeScaleByProfit(raw: unknown): StakeScaleByProfitPrefs {
   };
 }
 
+function normalizeArbFailAutoSell(raw: unknown): ArbFailAutoSellPrefs {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return createDefaultArbFailAutoSell();
+  const row = raw as Record<string, unknown>;
+  return { enabled: row.enabled === true };
+}
+
 export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     return createDefaultExtensionPrefs();
@@ -97,6 +120,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
+    arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
     uiTheme: normalizeUiTheme(row.uiTheme),
   };
 }

@@ -160,6 +160,25 @@ async function save() {
       </p>
     </div>
 
+    <el-divider content-position="left">
+      套利失败减仓
+    </el-divider>
+
+    <div class="extensions-tab__row">
+      <el-form-item label="自动卖 PM/PF:" class="extensions-tab__control">
+        <el-switch
+          v-model="extensionPrefs.arbFailAutoSell.enabled"
+          inline-prompt
+          active-text="开启"
+          inactive-text="关闭"
+          size="large"
+        />
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        开：双边套利中 PM/PF 腿已成交、对侧拒单且未能补单（或补单随后放弃）时，自动市价卖掉该预测市场腿。默认关闭；不做止盈，仅风控减仓。9999 单边不触发。
+      </p>
+    </div>
+
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存

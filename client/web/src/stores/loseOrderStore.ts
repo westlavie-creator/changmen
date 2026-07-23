@@ -196,10 +196,20 @@ export const useLoseOrderStore = defineStore("loseorder", {
       const existing = this.orders.get(betId);
       if (!existing)
         return;
+      const linkId = Number(existing.linkId) || 0;
       this.removeOrder(betId, true);
       void import("@/stores/activeBetRunStore")
         .then(({ useActiveBetRunStore }) => useActiveBetRunStore().removeRun(betId))
         .catch(() => {});
+      // 默认关：prefs 未开则 maybe* 立即 return，不改取消出队语义
+      if (linkId) {
+        void import("@/extensions/arbBet/arbFailAutoSell")
+          .then(({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
+            linkId,
+            reason: "用户取消补单",
+          }))
+          .catch(() => {});
+      }
     },
 
     /** [A8 可证实] 60s prune：不在赛事列表的 bet 一律出队 */
@@ -209,8 +219,19 @@ export const useLoseOrderStore = defineStore("loseorder", {
         const existing = this.orders.get(betId);
         if (!existing)
           continue;
-        if (!active.has(betId))
+        if (!active.has(betId)) {
+          const linkId = Number(existing.linkId) || 0;
           this.removeOrder(betId, true);
+          // 出队语义不变；减仓仅 prefs 开启时生效
+          if (linkId) {
+            void import("@/extensions/arbBet/arbFailAutoSell")
+              .then(({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
+                linkId,
+                reason: "补单目标已离盘",
+              }))
+              .catch(() => {});
+          }
+        }
       }
     },
 

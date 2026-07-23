@@ -1,6 +1,7 @@
 import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { maybeArbFailAutoSellByLink } from "@/extensions/arbBet/arbFailAutoSell";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {
@@ -36,6 +37,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   const config = user.config;
   const { setMessage } = ctx;
   const removeIds = new Set<number>();
+  /** [changmen 扩展] 未补成出队 → 尝试卖 PM/PF 敞口 */
+  const abandonSellByBetId = new Map<number, { linkId: number; reason: string }>();
   const betLookup = buildLoseOrderBetLookup(matchStore.matchs);
 
   for (const [betId, order] of loseStore.orders) {
@@ -43,6 +46,12 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     if (!ref) {
       // [A8 可证实] `!ce||!ge` → Z.push(z) 出队（含 link 绑定）
       removeIds.add(betId);
+      if (order.linkId) {
+        abandonSellByBetId.set(betId, {
+          linkId: order.linkId,
+          reason: "补单目标已离盘",
+        });
+      }
       continue;
     }
     const { match, bet } = ref;
@@ -102,8 +111,15 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
 
       if (!result?.success) {
         // [A8 可证实] `else le||Z.push(z)`：null/undefined 出队；`{success:false}` 保留
-        if (!result)
+        if (!result) {
           removeIds.add(betId);
+          if (order.linkId) {
+            abandonSellByBetId.set(betId, {
+              linkId: order.linkId,
+              reason: "补单请求失败",
+            });
+          }
+        }
         continue;
       }
 
@@ -143,5 +159,13 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   for (const betId of removeIds) {
     if (loseStore.orders.has(betId))
       loseStore.removeOrder(betId, true);
+    const abandon = abandonSellByBetId.get(betId);
+    if (abandon) {
+      void maybeArbFailAutoSellByLink({
+        linkId: abandon.linkId,
+        setMessage,
+        reason: abandon.reason,
+      });
+    }
   }
 }

@@ -100,6 +100,10 @@ vi.mock("@changmen/venue-adapter/polymarket/orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
 }));
 
+vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
+  maybeArbFailAutoSellByLink: vi.fn(async () => false),
+}));
+
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 
 function makeItem(type: PlatformId, homeOdds: number) {

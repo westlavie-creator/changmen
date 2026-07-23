@@ -1,5 +1,6 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
+import { maybeArbFailAutoSellAfterFinalize } from "@/extensions/arbBet/arbFailAutoSell";
 import {
   finishArbExecutionTrace,
   logArbFinalizeTraceEvents,
@@ -42,4 +43,17 @@ export async function finalizeArbBet(
   const outcome = syncArbFinalizeActiveBet(bet.id, placed, settle, makeup);
   finishArbExecutionTrace(params, placed, settle, outcome);
   sendArbBettingMessageIfNeeded(params, placed, settle);
+
+  // [changmen 扩展] 放在 A8 收尾之后：减仓失败/超时不得打断 mark / notify
+  try {
+    await maybeArbFailAutoSellAfterFinalize({
+      placed,
+      settle,
+      makeup,
+      setMessage: params.setMessage,
+    });
+  }
+  catch {
+    /* ignore */
+  }
 }

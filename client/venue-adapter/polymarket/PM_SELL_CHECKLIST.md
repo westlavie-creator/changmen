@@ -96,7 +96,7 @@ PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏
 | 官网手动卖 changmen 仓 | **不归因**（已锁定；勿接线半成品 FIFO 扣减） |
 | 卖出预检 UI | **不做**（手动卖仅简单确认） |
 | 通用 `bet.ts` SELL | 手动卖已够用；除非套利减仓要复用下注管线 |
-| 与套利关系 | 仅独立手动平仓；arb 失败自动减仓另开需求 |
+| 与套利关系 | **已落地（扩展可选）**：`extensionPrefs.arbFailAutoSell` — 对侧拒单且未补单 / 补单放弃时自动卖 PM/PF 成交腿；默认关；非止盈 |
 | PF 部分卖 | PF 仅 1:1；见 predictfun README |
 
 ### 3.3 Server / 运维边角（P2–P3）
