@@ -485,6 +485,16 @@ html.admin-route #app > * {
   color: var(--adm-accent);
 }
 
+.admin-card--rank {
+  display: flex;
+  flex-direction: column;
+  max-height: min(70vh, 720px);
+}
+.admin-rank-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
 .admin-rank-table {
   padding: 0 10px 14px;
 }

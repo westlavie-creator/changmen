@@ -191,12 +191,22 @@ export async function getAdminDashboard(dateKey = toDateKey(Date.now()), caller 
       orderCount += Number(stats.Count ?? 0) || 0;
     }
   }
-  const visibleNames = visibleIds
-    ? new Set(profiles.map(p => String(p.user_name || "").toLowerCase()))
-    : null;
-  const topProfit = (Array.isArray(rank) ? rank : [])
-    .filter(r => !visibleNames || visibleNames.has(String(r.UserName).toLowerCase()))
-    .slice(0, 5);
+  // 数据概览「当日盈利」：列出可见范围内全部非管理员用户（含 0 单），按盈利降序
+  const topProfit = profiles
+    .filter(p => !isAdminUser(p))
+    .map((p) => {
+      const name = String(p.user_name || "").trim();
+      const stats = profitByUser.get(name.toLowerCase());
+      return {
+        UserID: Number(stats?.UserID) || 0,
+        UserName: name,
+        Money: Number(stats?.Money ?? 0) || 0,
+        Count: Number(stats?.Count ?? 0) || 0,
+        BetMoney: Number(stats?.BetMoney ?? 0) || 0,
+        Date: dateKey,
+      };
+    })
+    .sort((a, b) => b.Money - a.Money);
   return {
     date: dateKey,
     userCount: profiles.length,

@@ -194,40 +194,44 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="admin-card admin-card--grow">
+      <section class="admin-card admin-card--grow admin-card--rank">
         <header class="admin-card__head">
           <h2 class="admin-card__title">
             当日盈利 TOP
           </h2>
-          <span class="admin-card__meta">{{ date }}</span>
+          <span class="admin-card__meta">
+            {{ date }}
+            <template v-if="dashboard?.topProfit?.length"> · {{ dashboard.topProfit.length }} 人</template>
+          </span>
         </header>
-        <el-table
-          v-if="dashboard?.topProfit?.length"
-          :data="dashboard.topProfit"
-          size="small"
-          stripe
-          class="admin-rank-table"
-        >
-          <el-table-column label="#" width="48" align="center">
-            <template #default="{ $index }">
-              <span class="admin-rank" :class="{ 'admin-rank--top': $index < 3 }">{{ $index + 1 }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="UserName" label="用户" min-width="120" />
-          <el-table-column label="盈利" width="110" align="right">
-            <template #default="{ row }">
-              <span :class="moneyClass(row.Money)">{{ fmtMoney(row.Money) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="Count" label="订单" width="72" align="center" />
-          <el-table-column label="流水" width="110" align="right">
-            <template #default="{ row }">
-              {{ fmtMoney(row.BetMoney ?? 0) }}
-            </template>
-          </el-table-column>
-        </el-table>
+        <div v-if="dashboard?.topProfit?.length" class="admin-card__scroll admin-rank-scroll">
+          <el-table
+            :data="dashboard.topProfit"
+            size="small"
+            stripe
+            class="admin-rank-table"
+          >
+            <el-table-column label="#" width="48" align="center">
+              <template #default="{ $index }">
+                <span class="admin-rank" :class="{ 'admin-rank--top': $index < 3 }">{{ $index + 1 }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="UserName" label="用户" min-width="120" />
+            <el-table-column label="盈利" width="110" align="right">
+              <template #default="{ row }">
+                <span :class="moneyClass(row.Money)">{{ fmtMoney(row.Money) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="Count" label="订单" width="72" align="center" />
+            <el-table-column label="流水" width="110" align="right">
+              <template #default="{ row }">
+                {{ fmtMoney(row.BetMoney ?? 0) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
         <p v-else class="admin-card__empty">
-          当日暂无盈利数据
+          暂无用户
         </p>
       </section>
     </div>
