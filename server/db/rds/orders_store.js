@@ -424,6 +424,31 @@ export async function adjustPfSellProceedsAfterFeeRow(playerId, ownerUserId, par
       nextBuyRaw.pfLedgerState = "pending_credit";
       nextBuyRaw.pfPendingCreditUsdt = targetProceeds > 0 ? targetProceeds : 0;
     }
+    // Phase 1：迟到 fee 校正时同步仓位事件里对应 sell 的 proceeds/pnl
+    const pePrev = buyRaw.positionEvents && typeof buyRaw.positionEvents === "object"
+      && !Array.isArray(buyRaw.positionEvents)
+      ? buyRaw.positionEvents
+      : null;
+    if (pePrev && Array.isArray(pePrev.sells) && pePrev.sells.length) {
+      const sellKey = sellOrderId.toLowerCase();
+      const nextSells = pePrev.sells.map((ev) => {
+        if (!ev || typeof ev !== "object")
+          return ev;
+        const id = String(ev.id ?? ev.orderId ?? "").trim().toLowerCase();
+        const match = sellKey
+          ? id === sellKey
+          : pePrev.sells.length === 1;
+        if (!match)
+          return ev;
+        return {
+          ...ev,
+          proceeds: targetProceeds,
+          pnl: targetProfit,
+          status: ev.status === "closing" ? "closed" : (ev.status || "closed"),
+        };
+      });
+      nextBuyRaw.positionEvents = { ...pePrev, sells: nextSells };
+    }
 
     await client.query(
       `UPDATE orders

@@ -54,6 +54,22 @@ export interface PolymarketVenueOrderExtras {
    * 与 status/money 脱钩——中途卖光仍可写入，供策略分析，不影响卖出盈亏统计。
    */
   pmMatchResult?: "win" | "lose";
+  /**
+   * [changmen 扩展] Phase 1 仓位卖出事件（写在买单上；服务端按 id 幂等合并）。
+   * 盈亏权威仍为 pmSellProceeds / money 等聚合字段。
+   */
+  positionEvents?: {
+    sells?: Array<{
+      id: string;
+      at?: number;
+      shares?: number;
+      price?: number;
+      proceeds?: number;
+      pnl?: number;
+      origin?: PolymarketOrderOrigin;
+      status?: string;
+    }>;
+  };
 }
 
 /** [changmen 扩展] PredictFun house 1:1 买卖（会员账号仅归属，仓位共用主号） */

@@ -16,6 +16,7 @@ import {
 import { mergeOtherProviderLogicalSave } from "./order/save_non_pm.js";
 import { mergePredictFunLogicalSave } from "./order/save_pf.js";
 import { mergePolymarketProviderSave } from "./order/save_pm.js";
+import { applyPositionEventsOnSave } from "./order/position_events.js";
 
 export { toDateKey } from "./order/date_key.js";
 export {
@@ -32,6 +33,13 @@ export {
   findOrderRowById,
   mergePredictionBuySellSiblings,
 } from "./order/link.js";
+export {
+  applyPositionEventsOnSave,
+  collectIncomingPositionSellEvents,
+  normalizePositionSellEvent,
+  readPositionSellEvents,
+  upsertPositionSellEvents,
+} from "./order/position_events.js";
 
 function mapStatus(raw) {
   const s = String(raw || "").toLowerCase();
@@ -60,13 +68,27 @@ export function mergeOrderLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   const money = parseNum(o.money ?? o.Money, 0);
   const bet_money = parseNum(o.betMoney ?? o.BetMoney, 0);
 
+  let result;
   if (provider === "Polymarket") {
-    return mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merged, money, bet_money);
+    result = mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merged, money, bet_money);
   }
-  if (provider === "PredictFun") {
-    return mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_money);
+  else if (provider === "PredictFun") {
+    result = mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_money);
   }
-  return mergeOtherProviderLogicalSave(merged, prevRaw, money, bet_money);
+  else {
+    result = mergeOtherProviderLogicalSave(merged, prevRaw, money, bet_money);
+  }
+
+  const sidePm = String(result.raw?.pmSide || o.pmSide || "").trim().toLowerCase();
+  const sidePf = String(result.raw?.pfSide || o.pfSide || "").trim().toLowerCase();
+  // 按 provider 判卖单行，避免 PF 买单误带 pmSide=sell 时剥掉 positionEvents
+  const isSellRow = provider === "Polymarket"
+    ? sidePm === "sell"
+    : provider === "PredictFun"
+      ? sidePf === "sell"
+      : false;
+  applyPositionEventsOnSave(result.raw, prevRaw || {}, o, { isSellRow });
+  return result;
 }
 
 export async function listByDate(date, userId) {

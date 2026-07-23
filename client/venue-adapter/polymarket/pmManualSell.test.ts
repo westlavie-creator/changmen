@@ -59,6 +59,12 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
     expect(buy.money).toBeGreaterThan(0);
     expect(buy.pmSellProceeds).toBe(16.8805);
     expect(buy.pmLastSellOrderId).toBe("0xsell");
+    expect(buy.positionEvents?.sells).toHaveLength(1);
+    expect(buy.positionEvents?.sells?.[0]).toMatchObject({
+      id: "0xsell",
+      origin: "changmen",
+      proceeds: 16.8805,
+    });
     expect(sell.money).toBe(0);
     expect(sell.betMoney).toBeGreaterThan(0);
     expect(sell.pmBuyOrderId).toBe("0xbuy");

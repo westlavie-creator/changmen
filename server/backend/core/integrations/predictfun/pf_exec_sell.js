@@ -187,6 +187,18 @@ export async function executePfSellInLock({ playerId, userId, buyOrderId }) {
         shares: readChangmenCodeFeeShares(buy),
         usdt: readChangmenCodeFeeUsdt(buy),
       }),
+      // Phase 1：closing 即写入事件（fee 完成后 closed 同 id 幂等更新 proceeds）
+      positionEvents: {
+        sells: [{
+          id: sellOrderId,
+          at: Date.now(),
+          shares: holdShares,
+          price: Number(out.bookPrice) > 0 ? Number(out.bookPrice) : undefined,
+          proceeds: Number(out.proceedsUsdt) > 0 ? roundUsdt(out.proceedsUsdt) : 0,
+          origin: "changmen",
+          status: "closing",
+        }],
+      },
     }], userId);
     if (!closingSaved)
       throw new Error("卖出状态落库失败（closing）");
@@ -282,6 +294,19 @@ export async function executePfSellInLock({ playerId, userId, buyOrderId }) {
       }),
       pfLedgerState: proceeds > 0 ? "pending_credit" : "credited",
       pfPendingCreditUsdt: proceeds > 0 ? proceeds : 0,
+      // Phase 1：仓位事件审计镜像（与独立卖单行双写）
+      positionEvents: {
+        sells: [{
+          id: sellOrderId,
+          at: createAt,
+          shares: weiToDecimal18(filledSharesWei),
+          price: Number(out.bookPrice) > 0 ? Number(out.bookPrice) : undefined,
+          proceeds,
+          pnl: profit,
+          origin: "changmen",
+          status: "closed",
+        }],
+      },
     },
     {
       orderId: sellOrderId,

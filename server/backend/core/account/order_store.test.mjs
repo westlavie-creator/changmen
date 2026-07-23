@@ -161,7 +161,7 @@ describe("mergeOrderLogicalSave buy stake after manual sell", () => {
     expect(first.raw.pmSellProceeds).toBe(11.5);
     expect(first.raw.pmLastSellOrderId).toBe("0xsell");
 
-    // sync 不带回款字段时保�?
+    // sync ????????�?
     const wiped = mergeOrderLogicalSave(
       { bet_money: 100, money: 10 },
       first.raw,
@@ -180,6 +180,109 @@ describe("mergeOrderLogicalSave buy stake after manual sell", () => {
     expect(wiped.raw.pmSellProceeds).toBe(11.5);
     expect(wiped.raw.pmLastSellOrderId).toBe("0xsell");
     expect(wiped.money).toBe(10);
+  });
+
+  it("preserves positionEvents.sells when sync omits them; upserts by id", async () => {
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const first = mergeOrderLogicalSave(
+      { bet_money: 100, money: 0 },
+      { pmSide: "buy", pmOrigin: "changmen" },
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "partial",
+        pmAttributedSellShares: 5,
+        pmSellProceeds: 3,
+        pmLastSellOrderId: "0xs1",
+        money: 1,
+        positionEvents: {
+          sells: [{ id: "0xs1", at: 10, shares: 5, proceeds: 3, origin: "changmen" }],
+        },
+      },
+      "changmen",
+    );
+    expect(first.raw.positionEvents.sells).toHaveLength(1);
+
+    const syncWipe = mergeOrderLogicalSave(
+      { bet_money: 100, money: 1 },
+      first.raw,
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "partial",
+        pmAttributedSellShares: 5,
+        money: 0,
+      },
+      "changmen",
+    );
+    expect(syncWipe.raw.positionEvents.sells).toHaveLength(1);
+    expect(syncWipe.raw.positionEvents.sells[0].id).toBe("0xs1");
+
+    const second = mergeOrderLogicalSave(
+      { bet_money: 100, money: 1 },
+      syncWipe.raw,
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 100,
+        pmSellState: "closed",
+        pmAttributedSellShares: 10,
+        pmSellProceeds: 7,
+        pmLastSellOrderId: "0xs2",
+        money: 2,
+        positionEvents: {
+          sells: [{ id: "0xs2", at: 20, shares: 5, proceeds: 4, origin: "changmen" }],
+        },
+      },
+      "changmen",
+    );
+    expect(second.raw.positionEvents.sells.map(s => s.id)).toEqual(["0xs1", "0xs2"]);
+
+    const retrySame = mergeOrderLogicalSave(
+      { bet_money: 100, money: 2 },
+      second.raw,
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        positionEvents: {
+          sells: [{ id: "0XS2", at: 20, shares: 5, proceeds: 4.1, origin: "changmen" }],
+        },
+      },
+      "changmen",
+    );
+    expect(retrySame.raw.positionEvents.sells).toHaveLength(2);
+    expect(retrySame.raw.positionEvents.sells.find(s => s.id.toLowerCase() === "0xs2").proceeds)
+      .toBe(4.1);
+  });
+
+  it("PF buy keeps positionEvents even if stray pmSide=sell is present", async () => {
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const prev = {
+      pfSide: "buy",
+      positionEvents: {
+        sells: [{ id: "0xpf1", at: 1, shares: 1, proceeds: 2, origin: "changmen" }],
+      },
+    };
+    const { raw } = mergeOrderLogicalSave(
+      { bet_money: 10, money: 1 },
+      prev,
+      {
+        provider: "PredictFun",
+        pfSide: "buy",
+        // ??????? pmSide ???????????
+        pmSide: "sell",
+        betMoney: 10,
+        money: 1,
+      },
+    );
+    expect(raw.positionEvents.sells).toHaveLength(1);
+    expect(raw.positionEvents.sells[0].id).toBe("0xpf1");
   });
 
   it("does not invent pmSellProceeds=0 on legacy closed sync", async () => {

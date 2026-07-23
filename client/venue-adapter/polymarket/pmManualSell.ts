@@ -318,6 +318,18 @@ function buildSellAndBuyPatchOrders(params: {
     pmSellProceeds: nextProceedsUsdc,
     pmLastSellOrderId: sellOrderId,
     status: "none",
+    // Phase 1：仓位事件审计镜像（服务端按 id 幂等合并；不覆盖 money 重算）
+    positionEvents: {
+      sells: [{
+        id: sellOrderId,
+        at: createAt,
+        shares: deduct,
+        price: fillPrice,
+        proceeds: proceedsUsdc,
+        pnl: profitUsdc,
+        origin: "changmen" as const,
+      }],
+    },
   };
 
   return [buyPatch, sell];
