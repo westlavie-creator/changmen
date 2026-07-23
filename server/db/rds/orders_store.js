@@ -7,6 +7,7 @@ import {
   shouldAllowOrderBind,
   shouldFireOrderBoundHook,
 } from "../order_link_filter.js";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { _jsonb, getPgPool } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
@@ -805,7 +806,7 @@ export async function fetchUserById(userId) {
   }
 }
 
-/** 管理端：当日订单汇总（笔数不计 PM/PF 卖单） */
+/** 管理端：当日订单汇总（笔数不计 PM/PF 卖单；PF 盈亏/流水 USDT→CNY） */
 export async function fetchOrdersAdminStats(dateKey) {
   const { dayStart, dayEnd } = localDayBounds(dateKey);
   const pool = getPgPool();
@@ -816,20 +817,28 @@ export async function fetchOrdersAdminStats(dateKey) {
       `SELECT money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
+    const fx = getExchange(Currency.USDT);
     let count = 0;
     let money = 0;
     let betMoney = 0;
     for (const o of rows || []) {
       if (String(o.status || "") === "Reject")
         continue;
-      money += Number(o.money) || 0;
-      betMoney += Number(o.bet_money) || 0;
       const raw = o.raw && typeof o.raw === "object" ? o.raw : {};
       const provider = String(o.provider || "").trim();
+      const isPf = provider === "PredictFun";
       const isSell = (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")
-        || (provider === "PredictFun" && String(raw.pfSide || "").toLowerCase() === "sell");
-      if (!isSell)
+        || (isPf && String(raw.pfSide || "").toLowerCase() === "sell");
+      // PF 买单 money/bet_money 为 USDT；卖单盈亏记买单，此处 money 计 0
+      const rawMoney = Number(o.money) || 0;
+      money += isPf
+        ? (isSell ? 0 : rawMoney * fx)
+        : rawMoney;
+      if (!isSell) {
         count += 1;
+        const rawBet = Number(o.bet_money) || 0;
+        betMoney += isPf ? rawBet * fx : rawBet;
+      }
     }
     return { count, money, betMoney };
   }

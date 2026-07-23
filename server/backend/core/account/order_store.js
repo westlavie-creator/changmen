@@ -9,6 +9,10 @@ import {
 } from "./order/dto.js";
 import { isPredictionSellForCount } from "./order/kinds.js";
 import {
+  betMoneyForProfitAggregate,
+  moneyForProfitAggregate,
+} from "./order/profit_cny.js";
+import {
   enrichOrdersBelongingToDate,
   findOrderRowById,
   resolveSaveOrderLink,
@@ -236,23 +240,24 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
     (profiles || []).map(p => [String(p.id), String(p.user_name || "").trim()]),
   );
   const agg = new Map();
-    for (const o of orders || []) {
-      const uid = String(o.user_id || "");
-      if (!uid || adminIds.has(uid))
-        continue;
-      if (!agg.has(uid))
-        agg.set(uid, { money: 0, count: 0, betMoney: 0 });
-      const row = agg.get(uid);
-      const status = String(o.status || "");
-      if (status === "Reject")
-        continue;
-      row.money += Number(o.money) || 0;
-      // 笔数 / 流水均不计 PM/PF 卖单；盈亏仍汇总该行（卖单 money 多为 0）
-      if (!isPredictionSellForCount(o)) {
-        row.count += 1;
-        row.betMoney += Number(o.bet_money) || 0;
-      }
+  for (const o of orders || []) {
+    const uid = String(o.user_id || "");
+    if (!uid || adminIds.has(uid))
+      continue;
+    if (!agg.has(uid))
+      agg.set(uid, { money: 0, count: 0, betMoney: 0 });
+    const row = agg.get(uid);
+    const status = String(o.status || "");
+    if (status === "Reject")
+      continue;
+    // PF USDT→CNY：moneyForProfitAggregate（对齐前端当日盈亏）
+    row.money += moneyForProfitAggregate(o);
+    // 笔数 / 流水均不计 PM/PF 卖单；盈亏仍汇总该行（卖单 money 多为 0）
+    if (!isPredictionSellForCount(o)) {
+      row.count += 1;
+      row.betMoney += betMoneyForProfitAggregate(o);
     }
+  }
   const result = [];
   for (const [uid, stats] of agg) {
     if (adminIds.has(uid))

@@ -1,6 +1,10 @@
 import * as sb from "@changmen/db";
 import { toDateKey } from "./order_store.js";
 import { isPredictionSellForCount } from "./order/kinds.js";
+import {
+  betMoneyForProfitAggregate,
+  moneyForProfitAggregate,
+} from "./order/profit_cny.js";
 
 function emptyReportRow(date) {
   return {
@@ -58,10 +62,10 @@ export async function getMonthReport(month, userId, userIds) {
     const row = byDate.get(key);
     if (!row)
       continue;
-    row.Profit += Number(o.money) || 0;
+    row.Profit += moneyForProfitAggregate(o);
     // 笔数 / 流水均不计 PM/PF 卖单（卖=仓位事件，bet_money 为回款镜像）
     if (!isPredictionSellForCount(o)) {
-      row.BetMoney += Number(o.bet_money) || 0;
+      row.BetMoney += betMoneyForProfitAggregate(o);
       row.OrderCount += 1;
     }
   }

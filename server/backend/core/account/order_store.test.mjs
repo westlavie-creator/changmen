@@ -91,6 +91,40 @@ describe("listUserProfitRank", () => {
     expect(rows[0].UserName).toBe("alice");
     expect(rows[0].Money).toBe(100);
   });
+
+  it("scales PredictFun USDT money/bet_money to CNY (matches frontend today P&L)", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchProfiles).mockResolvedValue([
+      { id: "u1", user_name: "GB12", is_admin: false, role: "user" },
+    ]);
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([
+      { user_id: "u1", provider: "OB", status: "Win", money: 43.3752, bet_money: 200 },
+      {
+        user_id: "u1",
+        provider: "PredictFun",
+        status: "None",
+        money: 29.71,
+        bet_money: 27.21,
+        raw: { pfSide: "buy" },
+      },
+      {
+        user_id: "u1",
+        provider: "PredictFun",
+        status: "None",
+        money: 0,
+        bet_money: 56.92,
+        raw: { pfSide: "sell" },
+      },
+    ]);
+
+    const rows = await listUserProfitRank("2026-07-24");
+
+    expect(rows).toHaveLength(1);
+    // 43.3752 + 29.71 * 6.8??? money ????????????
+    expect(rows[0].Money).toBeCloseTo(245.4032, 4);
+    expect(rows[0].Count).toBe(2);
+    expect(rows[0].BetMoney).toBeCloseTo(200 + 27.21 * 6.8, 4);
+  });
 });
 
 describe("mergeOrderLogicalSave buy stake after manual sell", () => {
