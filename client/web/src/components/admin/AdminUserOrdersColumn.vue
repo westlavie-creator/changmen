@@ -5,6 +5,7 @@ import { computed, ref, watch } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import { adminPlayerLabel, countAdminPrimaryOrders, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 const props = defineProps<{
@@ -46,7 +47,7 @@ const orderEntries = computed(() =>
 );
 
 const dayProfit = computed(() =>
-  visibleOrders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
+  sumAdminOrdersMoneyCny(visibleOrders.value),
 );
 
 const primaryOrderCount = computed(() =>

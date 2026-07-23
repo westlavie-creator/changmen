@@ -10,6 +10,7 @@ import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { adminOrderDisplayProvider, countAdminPrimaryOrders } from "@/shared/adminOrderDisplay";
+import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
 
@@ -229,7 +230,7 @@ const linkLinesKey = computed(() =>
 );
 
 const profitTotal = computed(() =>
-  filteredOrders.value.reduce((sum, r) => sum + (Number(r.money) || 0), 0),
+  sumAdminOrdersMoneyCny(filteredOrders.value),
 );
 
 const subtitle = computed(() =>

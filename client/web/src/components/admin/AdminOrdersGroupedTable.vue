@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import { formatLinkId, isSingleLegLink, isValueBetLink } from "@changmen/client-core/shared/format";
 import { formatLinkIdFull } from "@/shared/linkDisplay";
+import { adminOrderBetMoneyCny, adminOrderMoneyCny, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -94,7 +95,7 @@ function groupMetaLabel(rows: AdminOrderRow[]) {
 }
 
 function groupProfit(rows: AdminOrderRow[]) {
-  return rows.reduce((sum, r) => sum + (Number(r.money) || 0), 0);
+  return sumAdminOrdersMoneyCny(rows);
 }
 
 function groupProfitClass(rows: AdminOrderRow[]) {
@@ -206,16 +207,16 @@ function spanMethod({
     </el-table-column>
     <el-table-column label="买入" width="88" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
-        <span class="admin-order-num">{{ fmtMoney(row.order.betMoney) }}</span>
+        <span class="admin-order-num">{{ fmtMoney(adminOrderBetMoneyCny(row.order)) }}</span>
       </template>
     </el-table-column>
     <el-table-column label="单笔盈利" width="96" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
         <span
           class="admin-order-num"
-          :class="{ pos: row.order.money > 0, neg: row.order.money < 0 }"
+          :class="{ pos: adminOrderMoneyCny(row.order) > 0, neg: adminOrderMoneyCny(row.order) < 0 }"
         >
-          {{ fmtMoney(row.order.money) }}
+          {{ fmtMoney(adminOrderMoneyCny(row.order)) }}
         </span>
       </template>
     </el-table-column>
