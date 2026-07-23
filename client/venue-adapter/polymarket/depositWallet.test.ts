@@ -3,10 +3,14 @@ import { describe, expect, test } from "vitest";
 import { POLYGON_POLYMARKET, polymarketTradeSpenders } from "./contracts";
 import {
   buildDepositWalletApprovalCalls,
+  createPolymarketRelayClient,
   derivePolymarketDepositWalletAddress,
 } from "./depositWallet";
 import { buildStandardApprovalTransactions } from "./relayer";
-import { POLYGON_RPC_URLS, resolvePolygonRpcUrls } from "./polygonRpc";
+import {
+  POLYGON_RPC_URLS,
+  resolvePolygonRpcUrls,
+} from "./polygonRpc";
 
 const ERC20_APPROVE_ABI = [
   {
@@ -113,10 +117,22 @@ describe("polygonRpc", () => {
   });
 });
 
+describe("createPolymarketRelayClient", () => {
+  test("patches publicClient so deriveDepositWalletAddress works with multi-RPC", async () => {
+    const client = await createPolymarketRelayClient({
+      privateKey: "0x1111111111111111111111111111111111111111111111111111111111111111",
+    });
+    const transport = (client as { publicClient: { transport: { type?: string } } }).publicClient.transport;
+    expect(transport.type).toBe("fallback");
+    const funder = await client.deriveDepositWalletAddress();
+    expect(funder).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  }, 30_000);
+});
+
 describe("derivePolymarketDepositWalletAddress", () => {
   test("returns a deposit wallet address via official RelayClient", async () => {
     const funder = await derivePolymarketDepositWalletAddress({
-      privateKey: "0x1111111111111111111111111111111111111111111111111111111111111111",
+      privateKey: "0x2222222222222222222222222222222222222222222222222222222222222222",
     });
     expect(funder).toMatch(/^0x[0-9a-fA-F]{40}$/);
   }, 30_000);

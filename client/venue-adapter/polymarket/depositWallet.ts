@@ -8,6 +8,7 @@ import { encodeFunctionData, maxUint256, type Hex } from "viem";
 import { POLYGON_POLYMARKET, polymarketTradeSpenders } from "./contracts";
 import {
   createPolygonHttpTransport,
+  patchRelayClientPublicClient,
   polygonChainForRpc,
 } from "./polygonRpc";
 
@@ -99,7 +100,7 @@ export async function createPolymarketRelayClient(
         },
       })
     : undefined;
-  return new RelayClient(
+  const client = new RelayClient(
     relayerUrl,
     POLYGON_CHAIN_ID,
     wallet,
@@ -107,6 +108,9 @@ export async function createPolymarketRelayClient(
     input.relayTxType,
     { chain },
   );
+  // SDK 内 publicClient 无 fallback；替换后 deriveDepositWalletAddress eth_call 才走多节点
+  patchRelayClientPublicClient(client, chain);
+  return client;
 }
 
 /** [官方] Prefer `client.deriveDepositWalletAddress()`（含 beacon / UUPS 判断） */

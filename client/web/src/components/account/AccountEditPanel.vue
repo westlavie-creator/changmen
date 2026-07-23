@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
-import { ref, watch } from "vue";
+import type { PlatformId } from "@/types/esport";
+import { computed, ref, watch } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
+
+/** 场馆账号设置：场馆按钮分三行（电竞核心 / 其余 / 预测市场+DEX） */
+const PROVIDER_ROW1: PlatformId[] = ["OB", "RAY", "PB", "IA"];
+const PROVIDER_ROW3: PlatformId[] = ["Polymarket", "PredictFun", "Limitless", "SXBet", "Dex"];
 
 interface PlatformSuggestion { value: string; link: string }
 
@@ -34,6 +39,15 @@ const emit = defineEmits<{
 
 // eslint-disable-next-line prefer-const -- defineModel ref is not reassigned, but Vue compiler requires `let`
 let form = defineModel<AccountEditFormState>("form", { required: true });
+
+const providerRows = computed(() => {
+  const known = new Set(ALL_PLATFORMS);
+  const row1 = PROVIDER_ROW1.filter((p) => known.has(p));
+  const row3 = PROVIDER_ROW3.filter((p) => known.has(p));
+  const pinned = new Set<PlatformId>([...row1, ...row3]);
+  const row2 = ALL_PLATFORMS.filter((p) => !pinned.has(p));
+  return [row1, row2, row3];
+});
 
 const gameShow = ref(props.gameExpanded ?? false);
 
@@ -497,9 +511,15 @@ function unlockRate() {
         class="account-edit-panel__providers"
         :disabled="fieldDisabled()"
       >
-        <el-radio-button v-for="p in ALL_PLATFORMS" :key="p" :value="p" :title="p">
-          <PlatformIcon :platform="p" />
-        </el-radio-button>
+        <div
+          v-for="(row, rowIndex) in providerRows"
+          :key="rowIndex"
+          class="account-edit-panel__provider-row"
+        >
+          <el-radio-button v-for="p in row" :key="p" :value="p" :title="p">
+            <PlatformIcon :platform="p" />
+          </el-radio-button>
+        </div>
       </el-radio-group>
     </el-form-item>
     <template v-if="!hideSensitive">
@@ -585,9 +605,15 @@ function unlockRate() {
 
 .account-edit-panel__providers {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
   max-width: 100%;
+}
+
+.account-edit-panel__provider-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .account-edit-panel__providers :deep(.el-radio-button) {

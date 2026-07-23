@@ -110,7 +110,12 @@ export async function createOrDerivePolymarketApiCredsOnServer(input) {
 
   // 勿用 viem 默认 polygon.drpc.org：部分网络 eth_call 不可用
   const rpcUrls = [
-    String(process.env.POLYGON_RPC_URL || process.env.POLYMARKET_POLYGON_RPC || "").trim(),
+    String(
+      process.env.RPC_URL
+      || process.env.POLYGON_RPC_URL
+      || process.env.POLYMARKET_POLYGON_RPC
+      || "",
+    ).trim(),
     "https://polygon-bor.publicnode.com",
     "https://polygon.llamarpc.com",
     "https://polygon.drpc.org",

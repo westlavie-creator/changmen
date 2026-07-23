@@ -1,5 +1,5 @@
 import type { Chain, Transport } from "viem";
-import { fallback, http } from "viem";
+import { createPublicClient, fallback, http } from "viem";
 import { polygon } from "viem/chains";
 
 /**
@@ -13,16 +13,29 @@ export const POLYGON_RPC_URLS = [
   "https://polygon.drpc.org",
 ] as const;
 
-function readConfiguredPolygonRpcUrl(): string {
-  if (typeof process === "undefined" || !process.env)
+function readVitePolygonRpcUrl(): string {
+  try {
+    // Vite / Vitest 会在构建期内联；Node 侧通常无此项
+    const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+    return String(env?.VITE_POLYGON_RPC_URL ?? "").trim();
+  }
+  catch {
     return "";
-  return String(
-    process.env.RPC_URL
-    || process.env.POLYGON_RPC_URL
-    || process.env.POLYMARKET_POLYGON_RPC
-    || process.env.VITE_POLYGON_RPC_URL
-    || "",
-  ).trim();
+  }
+}
+
+function readConfiguredPolygonRpcUrl(): string {
+  let fromProcess = "";
+  if (typeof process !== "undefined" && process.env) {
+    fromProcess = String(
+      process.env.RPC_URL
+      || process.env.POLYGON_RPC_URL
+      || process.env.POLYMARKET_POLYGON_RPC
+      || process.env.VITE_POLYGON_RPC_URL
+      || "",
+    ).trim();
+  }
+  return fromProcess || readVitePolygonRpcUrl();
 }
 
 export function resolvePolygonRpcUrls(): string[] {
@@ -37,9 +50,6 @@ export function createPolygonHttpTransport(): Transport {
   return fallback(resolvePolygonRpcUrls().map(url => http(url)));
 }
 
-/**
- * 给 RelayClient：其内部 `http()` 无参时只取 `chain.rpcUrls.default.http[0]`。
- */
 export function polygonChainForRpc(): Chain {
   const urls = resolvePolygonRpcUrls();
   return {
@@ -49,4 +59,16 @@ export function polygonChainForRpc(): Chain {
       default: { http: urls },
     },
   };
+}
+
+/**
+ * `@polymarket/builder-relayer-client` RelayClient 构造时固定
+ * `transport: http()`（只吃 chain.rpcUrls.default.http[0]）。
+ * 构造后替换 publicClient，使 deriveDepositWalletAddress 的 eth_call 走 fallback。
+ */
+export function patchRelayClientPublicClient(client: { publicClient?: unknown }, chain: Chain = polygonChainForRpc()): void {
+  Reflect.set(client, "publicClient", createPublicClient({
+    chain,
+    transport: createPolygonHttpTransport(),
+  }));
 }
