@@ -108,10 +108,24 @@ export async function createOrDerivePolymarketApiCredsOnServer(input) {
     throw new Error(`私钥地址 ${signerAddress} 与填写的钱包地址不一致`);
   }
 
+  // 勿用 viem 默认 polygon.drpc.org：部分网络 eth_call 不可用
+  const rpcUrls = [
+    String(process.env.POLYGON_RPC_URL || process.env.POLYMARKET_POLYGON_RPC || "").trim(),
+    "https://polygon-bor.publicnode.com",
+    "https://polygon.llamarpc.com",
+    "https://polygon.drpc.org",
+  ].filter(Boolean);
+  const chain = {
+    ...chains.polygon,
+    rpcUrls: {
+      ...chains.polygon.rpcUrls,
+      default: { http: rpcUrls },
+    },
+  };
   const signer = viem.createWalletClient({
     account,
-    chain: chains.polygon,
-    transport: viem.http(),
+    chain,
+    transport: viem.fallback(rpcUrls.map((url) => viem.http(url))),
   });
   const timestamp = await fetchClobServerTime(gateway);
   const l1 = stringifyL1Headers(

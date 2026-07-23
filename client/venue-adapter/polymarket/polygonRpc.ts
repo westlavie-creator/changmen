@@ -1,0 +1,52 @@
+import type { Chain, Transport } from "viem";
+import { fallback, http } from "viem";
+import { polygon } from "viem/chains";
+
+/**
+ * Polygon RPC（对齐官方 Relayer 示例：`http(process.env.RPC_URL)`）。
+ * viem 默认 `polygon.drpc.org` 在部分网络会 eth_call unavailable；
+ * 未配置时用公共节点 fallback，仅服务「推导/部署 Deposit Wallet」等读链场景。
+ */
+export const POLYGON_RPC_URLS = [
+  "https://polygon-bor.publicnode.com",
+  "https://polygon.llamarpc.com",
+  "https://polygon.drpc.org",
+] as const;
+
+function readConfiguredPolygonRpcUrl(): string {
+  if (typeof process === "undefined" || !process.env)
+    return "";
+  return String(
+    process.env.RPC_URL
+    || process.env.POLYGON_RPC_URL
+    || process.env.POLYMARKET_POLYGON_RPC
+    || process.env.VITE_POLYGON_RPC_URL
+    || "",
+  ).trim();
+}
+
+export function resolvePolygonRpcUrls(): string[] {
+  const configured = readConfiguredPolygonRpcUrl();
+  if (!configured)
+    return [...POLYGON_RPC_URLS];
+  return [configured, ...POLYGON_RPC_URLS.filter(url => url !== configured)];
+}
+
+/** 钱包签名 / 读链：多 RPC fallback */
+export function createPolygonHttpTransport(): Transport {
+  return fallback(resolvePolygonRpcUrls().map(url => http(url)));
+}
+
+/**
+ * 给 RelayClient：其内部 `http()` 无参时只取 `chain.rpcUrls.default.http[0]`。
+ */
+export function polygonChainForRpc(): Chain {
+  const urls = resolvePolygonRpcUrls();
+  return {
+    ...polygon,
+    rpcUrls: {
+      ...polygon.rpcUrls,
+      default: { http: urls },
+    },
+  };
+}

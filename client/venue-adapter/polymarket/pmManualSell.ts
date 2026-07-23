@@ -182,18 +182,17 @@ async function createPolymarketFokSellOrderBody(
     clob,
     viem,
     accounts,
-    chains,
   ] = await Promise.all([
     import("@polymarket/clob-client-v2"),
     import("viem"),
     import("viem/accounts"),
-    import("viem/chains"),
   ]);
+  const { createPolygonHttpTransport, polygonChainForRpc } = await import("./polygonRpc");
   const account = accounts.privateKeyToAccount(privateKey);
   const signer = viem.createWalletClient({
     account,
-    chain: chains.polygon,
-    transport: viem.http(),
+    chain: polygonChainForRpc(),
+    transport: createPolygonHttpTransport(),
   });
   const builderCode = resolvePolymarketBuilderCode();
   const client = new clob.ClobClient({

@@ -1,8 +1,12 @@
 import { decodeFunctionData } from "viem";
 import { describe, expect, test } from "vitest";
 import { POLYGON_POLYMARKET, polymarketTradeSpenders } from "./contracts";
-import { buildDepositWalletApprovalCalls } from "./depositWallet";
+import {
+  buildDepositWalletApprovalCalls,
+  derivePolymarketDepositWalletAddress,
+} from "./depositWallet";
 import { buildStandardApprovalTransactions } from "./relayer";
+import { POLYGON_RPC_URLS, resolvePolygonRpcUrls } from "./polygonRpc";
 
 const ERC20_APPROVE_ABI = [
   {
@@ -84,4 +88,36 @@ describe("buildDepositWalletApprovalCalls", () => {
       expect(deposit[i]!.data).toBe(legacy[i]!.data);
     }
   });
+});
+
+describe("polygonRpc", () => {
+  test("prefers configured RPC_URL (official env name)", () => {
+    const prevRpc = process.env.RPC_URL;
+    const prevPoly = process.env.POLYGON_RPC_URL;
+    delete process.env.POLYGON_RPC_URL;
+    process.env.RPC_URL = "https://example-rpc.test";
+    try {
+      expect(resolvePolygonRpcUrls()[0]).toBe("https://example-rpc.test");
+      expect(resolvePolygonRpcUrls().slice(1)).toEqual([...POLYGON_RPC_URLS]);
+    }
+    finally {
+      if (prevRpc === undefined)
+        delete process.env.RPC_URL;
+      else
+        process.env.RPC_URL = prevRpc;
+      if (prevPoly === undefined)
+        delete process.env.POLYGON_RPC_URL;
+      else
+        process.env.POLYGON_RPC_URL = prevPoly;
+    }
+  });
+});
+
+describe("derivePolymarketDepositWalletAddress", () => {
+  test("returns a deposit wallet address via official RelayClient", async () => {
+    const funder = await derivePolymarketDepositWalletAddress({
+      privateKey: "0x1111111111111111111111111111111111111111111111111111111111111111",
+    });
+    expect(funder).toMatch(/^0x[0-9a-fA-F]{40}$/);
+  }, 30_000);
 });

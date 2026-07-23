@@ -6,6 +6,10 @@ import {
 } from "@polymarket/builder-relayer-client";
 import { encodeFunctionData, maxUint256, type Hex } from "viem";
 import { POLYGON_POLYMARKET, polymarketTradeSpenders } from "./contracts";
+import {
+  createPolygonHttpTransport,
+  polygonChainForRpc,
+} from "./polygonRpc";
 
 export const POLYMARKET_RELAYER_URL_DEFAULT = "https://relayer-v2.polymarket.com";
 export const POLYGON_CHAIN_ID = 137;
@@ -62,6 +66,10 @@ export interface PolymarketRelayClientInput {
   relayTxType?: RelayerTxType;
 }
 
+/**
+ * [官方] docs / README：`transport: http(process.env.RPC_URL)`，勿依赖 viem 默认 polygon.drpc.org。
+ * RelayClient 第 6 参 `options.chain` 供其内部 publicClient 读 rpcUrls。
+ */
 export async function createPolymarketRelayClient(
   input: PolymarketRelayClientInput,
 ): Promise<RelayClient> {
@@ -69,18 +77,17 @@ export async function createPolymarketRelayClient(
   const relayerUrl = (input.relayerUrl?.trim() || POLYMARKET_RELAYER_URL_DEFAULT).replace(/\/+$/, "");
   const [
     accounts,
-    chains,
     viem,
   ] = await Promise.all([
     import("viem/accounts"),
-    import("viem/chains"),
     import("viem"),
   ]);
   const account = accounts.privateKeyToAccount(privateKey);
+  const chain = polygonChainForRpc();
   const wallet = viem.createWalletClient({
     account,
-    chain: chains.polygon,
-    transport: viem.http(),
+    chain,
+    transport: createPolygonHttpTransport(),
   });
   const signUrl = input.signUrl?.trim();
   const authToken = input.authToken?.trim();
@@ -98,9 +105,11 @@ export async function createPolymarketRelayClient(
     wallet,
     builderConfig,
     input.relayTxType,
+    { chain },
   );
 }
 
+/** [官方] Prefer `client.deriveDepositWalletAddress()`（含 beacon / UUPS 判断） */
 export async function derivePolymarketDepositWalletAddress(input: {
   privateKey: string;
   relayerUrl?: string;

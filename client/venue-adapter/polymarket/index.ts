@@ -33,6 +33,7 @@ export * from "./pmMapOutcomeStore";
 export * from "./pmTransportMode";
 export * from "./credentials";
 export * from "./depositWallet";
+export * from "./polygonRpc";
 export * from "./relayer";
 export * from "./userWs";
 export * from "./marketQuoteHub";

@@ -102,12 +102,10 @@ export async function createOrDerivePolymarketApiCreds(
     clob,
     viem,
     accounts,
-    chains,
   ] = await Promise.all([
     import("@polymarket/clob-client-v2"),
     import("viem"),
     import("viem/accounts"),
-    import("viem/chains"),
   ]);
 
   const account = accounts.privateKeyToAccount(privateKey);
@@ -117,10 +115,11 @@ export async function createOrDerivePolymarketApiCreds(
     throw new Error(`私钥地址 ${signerAddress} 与填写的钱包地址不一致`);
   }
 
+  const { createPolygonHttpTransport, polygonChainForRpc } = await import("./polygonRpc");
   const signer = viem.createWalletClient({
     account,
-    chain: chains.polygon,
-    transport: viem.http(),
+    chain: polygonChainForRpc(),
+    transport: createPolygonHttpTransport(),
   });
   const headers = stringifyHeaders(await clob.createL1Headers(signer, clob.Chain.POLYGON));
 

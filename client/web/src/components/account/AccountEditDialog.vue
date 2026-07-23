@@ -189,6 +189,12 @@ function syncPolymarketWalletAddressFromPrivateKey() {
     void resolvePolymarketSignerAddress(privateKey).then((address) => {
       if (polyPrivateKey.value.trim() !== raw)
         return;
+      // 私钥变了：作废 funder / apiCreds，下次保存再推导；勿在每次按键时打链
+      if (polyWalletAddress.value && polyWalletAddress.value.toLowerCase() !== address.toLowerCase()) {
+        polyFunder.value = "";
+        polyApiCreds.value = undefined;
+        polyApiCredsFingerprint.value = "";
+      }
       polyWalletAddress.value = address;
     });
   }
@@ -205,7 +211,9 @@ async function syncPolymarketDerivedAddresses(forceFunder = false) {
   try {
     const privateKey = normalizePolymarketPrivateKey(raw);
     polyWalletAddress.value = await resolvePolymarketSignerAddress(privateKey);
-    if (forceFunder || !polyAdvancedMode.value || !polyFunder.value.trim()) {
+    // 仅「强制」或「尚无 funder」时打链推导。暂停/改限额等已有 funder 不走 RPC。
+    // [官方] deriveDepositWalletAddress 用于预测 Deposit Wallet 地址，不是账号 pause 语义。
+    if (forceFunder || !polyFunder.value.trim()) {
       const resolved = await resolvePolymarketDepositWalletFromPrivateKey({ privateKey });
       polyWalletAddress.value = resolved.walletAddress;
       polyFunder.value = resolved.funder;
@@ -423,6 +431,7 @@ function buildPolyToken(): string {
 async function ensurePolymarketToken(): Promise<string> {
   if (!polyPrivateKey.value.trim())
     throw new Error("Polymarket 私钥必填");
+  // 本地从私钥算 EOA（无 RPC）；有 funder 则跳过链上 derive
   await syncPolymarketDerivedAddresses(false);
   if (!polyApiCreds.value || polyApiCredsFingerprint.value !== polymarketCredentialFingerprint())
     await generatePolymarketApiCreds(true);
