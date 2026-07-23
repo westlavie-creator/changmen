@@ -202,14 +202,12 @@ export const useLoseOrderStore = defineStore("loseorder", {
         .catch(() => {});
     },
 
-    /** [A8 可证实] 60s prune：不在赛事列表的 bet 出队；[changmen 扩展] link 绑定补单保留 */
+    /** [A8 可证实] 60s prune：不在赛事列表的 bet 一律出队 */
     removeOrders(activeBetIds: number[]) {
       const active = new Set(activeBetIds);
       for (const betId of [...this.orders.keys()]) {
         const existing = this.orders.get(betId);
         if (!existing)
-          continue;
-        if (existing.isLinkBoundMakeup())
           continue;
         if (!active.has(betId))
           this.removeOrder(betId, true);

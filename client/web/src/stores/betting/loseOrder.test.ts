@@ -651,10 +651,10 @@ describe("processLoseOrders (A8 jb parity)", () => {
     );
   });
 
-  it("keeps arb-linked makeup in queue when bet not on match list yet", async () => {
+  it("dequeues arb-linked makeup when bet not on match list (A8)", async () => {
     queueOrder();
     await processLoseOrders({ setMessage: vi.fn() });
-    expect(removeOrder).not.toHaveBeenCalled();
+    expect(removeOrder).toHaveBeenCalledWith(100, true);
   });
 
   it("dequeues manual isCreateOrder when bet not on match list (A8)", async () => {

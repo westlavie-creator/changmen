@@ -114,7 +114,7 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("always enqueues when pairing requests makeup (threshold checked in jb)", async () => {
+  it("always enqueues when pairing requests makeup (B checked in enqueueMakeUpOrder)", async () => {
     const out = await applyArbMakeUpFromRejects(
       params(),
       basePlaced(),
@@ -130,7 +130,7 @@ describe("applyArbMakeUpFromRejects", () => {
     expect(enqueueMakeUpOrder).toHaveBeenCalled();
   });
 
-  it("skips enqueue when makeUp is disabled", async () => {
+  it("still enqueues when makeUp is disabled (A8: gate only at jb consume)", async () => {
     const p = params();
     p.config = { ...createDefaultUserConfig(), makeUp: false } as never;
 
@@ -145,8 +145,8 @@ describe("applyArbMakeUpFromRejects", () => {
       },
     );
 
-    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: false });
-    expect(enqueueMakeUpOrder).not.toHaveBeenCalled();
+    expect(out).toEqual({ enqueuedForLegA: true, enqueuedForLegB: false });
+    expect(enqueueMakeUpOrder).toHaveBeenCalled();
   });
 
   it("ignores polluted leg betMoney when venue order is available", async () => {

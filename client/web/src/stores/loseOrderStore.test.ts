@@ -157,7 +157,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.cancelledOrders.has(42)).toBe(false);
   });
 
-  it("removeOrders keeps arb-linked makeup when bet left match list", () => {
+  it("removeOrders prunes arb-linked makeup when bet left match list (A8)", () => {
     const store = useLoseOrderStore();
     store.createOrder(
       new LoseOrder({
@@ -176,7 +176,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
       }),
     );
     store.removeOrders([11, 12]);
-    expect(store.orders.has(42)).toBe(true);
+    expect(store.orders.has(42)).toBe(false);
   });
 
   it("removeOrders prunes unlinked manual create orders when bet left match list (A8)", () => {
@@ -201,7 +201,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
     expect(store.orders.has(7)).toBe(false);
   });
 
-  it("removeOrders keeps manual makeup when bound to link", () => {
+  it("removeOrders prunes link-bound manual makeup when bet left match list (A8)", () => {
     const store = useLoseOrderStore();
     store.createOrder(
       new LoseOrder({
@@ -220,7 +220,7 @@ describe("useLoseOrderStore A8 publish parity", () => {
       }),
     );
     store.removeOrders([11]);
-    expect(store.orders.has(8)).toBe(true);
+    expect(store.orders.has(8)).toBe(false);
   });
 
   it("manualOrders getter returns only linkId=0 items", () => {

@@ -21,7 +21,7 @@ export interface ArbMakeUpPendingConfirm {
   pendingConfirmB?: boolean;
 }
 
-/** 编排层判定需补单后入队；赔率/初赔阈值在 enqueue 内按败腿价走 A8 `B()` */
+/** 编排层判定需补单后入队（不看 makeUp 开关）；赔率/初赔阈值在 enqueue 内按败腿价走 A8 `B()` */
 export async function applyArbMakeUpFromRejects(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
@@ -31,9 +31,7 @@ export async function applyArbMakeUpFromRejects(
   pending: ArbMakeUpPendingConfirm = {},
 ): Promise<ArbMakeUpEnqueueResult> {
   const { match, bet, config, setMessage } = params;
-  const empty: ArbMakeUpEnqueueResult = { enqueuedForLegA: false, enqueuedForLegB: false };
-  if (!config.makeUp)
-    return empty;
+  // [A8 可证实] 入队不看 makeUp；消费段 `orders && config.makeUp` 才 jb
   const loseStore = useLoseOrderStore();
   const {
     legA,

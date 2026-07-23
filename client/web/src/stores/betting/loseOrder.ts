@@ -41,10 +41,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   for (const [betId, order] of loseStore.orders) {
     const ref = resolveLoseOrderBetRef(order, matchStore.matchs, betLookup);
     if (!ref) {
-      // [A8 可证实] `!ce||!ge` → Z.push(z) 出队
-      // [changmen 扩展] link 绑定补单：刷新后列表未就绪时暂保留展示
-      if (order.isLinkBoundMakeup())
-        continue;
+      // [A8 可证实] `!ce||!ge` → Z.push(z) 出队（含 link 绑定）
       removeIds.add(betId);
       continue;
     }

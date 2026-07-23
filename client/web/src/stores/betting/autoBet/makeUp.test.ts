@@ -137,4 +137,34 @@ describe("enqueueMakeUpOrder (A8 B before createOrder)", () => {
       3000,
     );
   });
+
+  it("overwrites same betId via createOrder (A8 Map.set)", async () => {
+    const { match, bet } = makeMatchBet();
+    has.mockReturnValue(true);
+    const config = { ...createDefaultUserConfig(), makeUp: true };
+    const ok = await enqueueMakeUpOrder({
+      loseStore: loseStore as never,
+      match,
+      bet,
+      config,
+      setMessage,
+      linkId: 2,
+      accountId: 10,
+      target: "Away",
+      betMoney: 120,
+      betOdds: 2.0,
+      failedLegOdds: 1.7,
+      failedPlatformLabel: "RAY",
+    });
+    expect(ok).toBe(true);
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(createOrder.mock.calls[0][0]).toMatchObject({
+      betId: 100,
+      accountId: 10,
+      betMoney: 120,
+      betOdds: 2.0,
+      target: "Away",
+      linkId: 2,
+    });
+  });
 });

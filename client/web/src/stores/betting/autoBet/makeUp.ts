@@ -75,9 +75,7 @@ export async function enqueueMakeUpOrder(params: {
     setMessage,
   } = params;
 
-  if (loseStore.orders.has(bet.id))
-    return true;
-
+  // [A8 可证实] createOrder = Map.set：同 betId 直接覆盖；入队前仍过 B()
   const ok = await allowMakeUpForLeg(
     match,
     bet,
