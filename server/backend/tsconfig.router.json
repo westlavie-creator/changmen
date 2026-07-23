@@ -16,6 +16,6 @@
     "sourceMap": false,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["core/esport-api/router.ts"],
+  "include": ["core/esport-api/router.ts", "core/esport-api/admin_routes.ts"],
   "exclude": ["**/*.js", "node_modules"]
 }
