@@ -7,6 +7,22 @@ vi.mock("@changmen/db", () => ({
     const siteOrders = [
       { create_at: new Date("2026-06-13T10:00:00").getTime(), money: 100, bet_money: 1000, status: "Win" },
       { create_at: new Date("2026-06-13T15:00:00").getTime(), money: 50, bet_money: 500, status: "Win" },
+      {
+        create_at: new Date("2026-06-13T16:00:00").getTime(),
+        money: 0,
+        bet_money: 888,
+        status: "None",
+        provider: "Polymarket",
+        raw: { pmSide: "sell", pmBuyOrderId: "buy1" },
+      },
+      {
+        create_at: new Date("2026-06-14T14:00:00").getTime(),
+        money: 0,
+        bet_money: 77,
+        status: "None",
+        provider: "PredictFun",
+        raw: { pfSide: "sell", pfBuyOrderId: "pfbuy" },
+      },
       { create_at: new Date("2026-06-14T12:00:00").getTime(), money: -20, bet_money: 200, status: "Lose" },
       { create_at: new Date("2026-06-13T18:00:00").getTime(), money: 999, bet_money: 999, status: "Reject" },
     ];

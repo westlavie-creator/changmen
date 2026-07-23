@@ -247,10 +247,11 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
       if (status === "Reject")
         continue;
       row.money += Number(o.money) || 0;
-      row.betMoney += Number(o.bet_money) || 0;
-      // 笔数不计 PM/PF 卖单（依附买单）；盈亏仍汇总该行
-      if (!isPredictionSellForCount(o))
+      // 笔数 / 流水均不计 PM/PF 卖单；盈亏仍汇总该行（卖单 money 多为 0）
+      if (!isPredictionSellForCount(o)) {
         row.count += 1;
+        row.betMoney += Number(o.bet_money) || 0;
+      }
     }
   const result = [];
   for (const [uid, stats] of agg) {
