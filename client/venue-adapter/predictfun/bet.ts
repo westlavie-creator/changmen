@@ -47,7 +47,7 @@ export interface PredictFunBuyCheckData {
 function resolveApiBetMoney(option: BetOption): number {
   const value = Number(option.betMoney);
   if (!Number.isFinite(value) || value <= 0)
-    throw new Error(`无效投注金额 ${option.betMoney}`);
+    throw new Error(`无效买入金额 ${option.betMoney}`);
   return Math.round(value * 100) / 100;
 }
 

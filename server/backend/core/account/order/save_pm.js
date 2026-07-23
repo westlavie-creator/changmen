@@ -98,7 +98,7 @@ export function mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merge
   const hasBetMoneyField = Object.prototype.hasOwnProperty.call(o, "betMoney")
     || Object.prototype.hasOwnProperty.call(o, "BetMoney");
   /**
-   * 原始投注本金（bet_money）卖出后不改写。
+   * 原始买入本金（bet_money）卖出后不改写。
    * 剩余敞口只靠 pmStakeUsdc / pmAttributedSellShares / pmSellState。
    */
   const originalBet = prevBet > 0 ? prevBet : incomingBet;

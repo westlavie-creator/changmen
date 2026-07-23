@@ -139,7 +139,7 @@ export async function refreshAllFromVenues(
     for (const acc of store.accounts) {
       lines.push(`开始加载账户：${acc.platformName} / ${acc.playerName} / ${acc.provider}`);
       if (acc.active) {
-        lines.push("账号正在投注中，停止加载");
+        lines.push("账号正在买入中，停止加载");
         continue;
       }
       try {

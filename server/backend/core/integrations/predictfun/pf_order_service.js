@@ -44,7 +44,7 @@ export function isValidPredictClobPrice(value) {
 function parseUsdtToWei(amount) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0)
-    throw new Error(`无效投注金额 ${amount}`);
+    throw new Error(`无效买入金额 ${amount}`);
   return BigInt(Math.round(value * 1e6)) * 1_000_000_000_000n;
 }
 

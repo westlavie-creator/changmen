@@ -53,7 +53,7 @@ export function applyArbHedgeStakes(
   }
 }
 
-/** 主腿投注额：低赔一侧原 stake（与 prepare 时 config.betMoney 一致） */
+/** 主腿买入额：低赔一侧原 stake（与 prepare 时 config.betMoney 一致） */
 export function arbBaseStake(legA: BetOption, legB: BetOption, config: UserConfig): number {
   if (legA.odds <= legB.odds)
     return legA.betMoney || config.betMoney;

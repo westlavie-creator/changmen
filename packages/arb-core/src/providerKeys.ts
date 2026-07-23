@@ -12,7 +12,7 @@ export function providerKeysFromBetItems(bet: {
 /**
  * 收口套利检测用的平台列表。
  * - display：兼容别名；Telegram 全盘口扫描见 `extensions/arbBet`
- * - auto：自动投注与 `GetOrderOptions`（仅有余额 ≥ betMoney 的在线账号平台）
+ * - auto：自动买入与 `GetOrderOptions`（仅有余额 ≥ betMoney 的在线账号平台）
  */
 export function resolveArbProviderKeys(
   scope: ArbProviderScope,

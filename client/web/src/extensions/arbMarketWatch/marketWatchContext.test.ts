@@ -58,7 +58,7 @@ describe("marketWatchContext", () => {
       minOdds: 1.3,
       bettingEnabled: false,
     });
-    expect(reason).toBe("未开启投注");
+    expect(reason).toBe("未开启买入");
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * tag_platforms、players、user_logs 表读写。
- * 投注账号唯一真相：players（含 account_data jsonb）。
+ * 操盘账号唯一真相：players（含 account_data jsonb）。
  */
 
 import {
@@ -132,7 +132,7 @@ export async function insertPlayerRow({
   }
   catch (err) {
     if (isVenueAccountKeyUniqueViolation(err))
-      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
+      throw new VenueAccountKeyConflictError("该场馆操盘账号已被其他用户使用");
     console.warn("[rds] insertPlayerRow:", err.message);
     return null;
   }
@@ -777,7 +777,7 @@ export async function savePlayerAccountRecord(ownerUserId, record) {
   }
   catch (err) {
     if (isVenueAccountKeyUniqueViolation(err))
-      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
+      throw new VenueAccountKeyConflictError("该场馆操盘账号已被其他用户使用");
     console.warn("[rds] savePlayerAccountRecord:", err.message);
     return false;
   }
@@ -892,7 +892,7 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
   }
   catch (err) {
     if (isVenueAccountKeyUniqueViolation(err))
-      throw new VenueAccountKeyConflictError("该场馆投注账号已被其他用户使用");
+      throw new VenueAccountKeyConflictError("该场馆操盘账号已被其他用户使用");
     console.warn("[rds] batchSavePlayerAccountRecords:", err.message);
     return 0;
   }

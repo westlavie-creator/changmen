@@ -1,5 +1,5 @@
 /**
- * changmen 投注账号归属：每个 players 行必须 owner_user_id === 当前登录用户。
+ * changmen 操盘账号归属：每个 players 行必须 owner_user_id === 当前登录用户。
  * A8 前端只传 playerId；隔离由后端保证（非 A8 黑盒后端复刻）。
  */
 import * as sb from "@changmen/db";

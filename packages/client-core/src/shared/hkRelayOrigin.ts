@@ -20,7 +20,7 @@ function hkRelayOriginFromEnv(): string {
 
 /**
  * 场馆 HK 出海 relay 根地址（https://host，无尾斜杠）：http-relay / ws-forward。
- * 生产浏览器 → window.location.origin（与 localStorage PROXY 无关；PROXY 仅给投注账号 proxyId）。
+ * 生产浏览器 → window.location.origin（与 localStorage PROXY 无关；PROXY 仅给操盘账号 proxyId）。
  * 本地 dev → window.location.origin（Vite 代理到 VITE_HK_RELAY_ORIGIN）。
  */
 export function resolveHkRelayHttpOrigin(): string {

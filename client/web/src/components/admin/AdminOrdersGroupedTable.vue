@@ -204,7 +204,7 @@ function spanMethod({
         <span class="admin-order-num">{{ row.order.odds }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="投注" width="88" align="right" class-name="admin-order-cell--num">
+    <el-table-column label="买入" width="88" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
         <span class="admin-order-num">{{ fmtMoney(row.order.betMoney) }}</span>
       </template>

@@ -121,7 +121,7 @@ export function rowToOrder(r) {
     PfHoldShares: pfHoldShares,
     /**
      * 名义买入 USDT（限价×成交份额 / makerAmount，如 14.12）
-     * 用户扣款与侧栏「投注金额」优先读此字段；实付成交额在 PfFillCostUsdt（如 13.68）
+     * 用户扣款与侧栏「买入金额」优先读此字段；实付成交额在 PfFillCostUsdt（如 13.68）
      */
     PfNotionalUsdt: (() => {
       const n = parseNum(raw.pfNotionalUsdt, 0);

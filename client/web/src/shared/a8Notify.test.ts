@@ -24,14 +24,14 @@ describe("a8Notify betting head", () => {
   });
 
   it("puts provider badge before account line on the first row", () => {
-    const html = bettingProviderHeadHtml("OB", "好博 / ob_live_01", "投注中...");
+    const html = bettingProviderHeadHtml("OB", "好博 / ob_live_01", "买入中...");
     expect(html.indexOf("provider-icon")).toBeLessThan(html.indexOf("notify-account-line"));
     expect(html).toContain('class="provider-icon OB"');
-    expect(html).toContain("好博 / ob_live_01 投注中...");
+    expect(html).toContain("好博 / ob_live_01 买入中...");
   });
 
   it("builds loading/result message with account line", () => {
-    expect(bettingLoadingMessageHtml("RAY", "雷竞技 / a1", "<p>detail</p>")).toContain("雷竞技 / a1 投注中...");
+    expect(bettingLoadingMessageHtml("RAY", "雷竞技 / a1", "<p>detail</p>")).toContain("雷竞技 / a1 买入中...");
     expect(bettingResultMessageHtml("RAY", "雷竞技 / a1", "<p>detail</p>", "", "待确认"))
       .toContain("雷竞技 / a1 待确认");
   });

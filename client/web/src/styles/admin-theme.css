@@ -1020,7 +1020,7 @@ html.admin-route #app > * {
   margin-top: 2px;
   white-space: nowrap;
 }
-/* 订单页：按投注账号分列（class 名与 AdminOrdersView 模板一致） */
+/* 订单页：按操盘账号分列（class 名与 AdminOrdersView 模板一致） */
 .admin-orders-account-col {
   flex: 0 0 320px;
   width: 320px;

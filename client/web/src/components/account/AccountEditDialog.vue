@@ -89,7 +89,7 @@ const visible = computed({
 });
 const pasteRaw = ref("");
 const gameShow = ref(false);
-/** A8：PB 默认锁定比例，legend「投」双击解锁 */
+/** A8：PB 默认锁定比例，legend「买」双击解锁 */
 const rateLocked = ref(false);
 /** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
 const polyWalletAddress = ref("");
@@ -702,7 +702,7 @@ async function save() {
   }
   const invalidRate = form.rateConfig.some(r => Number.isNaN(Number(r.rate)));
   if (invalidRate) {
-    ElMessage.error("投注比例不能为空，请填写有效数字");
+    ElMessage.error("买入比例不能为空，请填写有效数字");
     return;
   }
   saving.value = true;

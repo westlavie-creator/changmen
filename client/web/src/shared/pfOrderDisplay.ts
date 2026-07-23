@@ -283,7 +283,7 @@ export function pfOrderSharesText(row: OrderRow): string | null {
 }
 
 /**
- * 侧栏投注金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
+ * 侧栏买入金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
  * - 买单：优先名义 PfNotionalUsdt（限价×份额，如 14.12）；无则 BetMoney（用户扣款）
  * - 卖单 BetMoney = 回款镜像（RDS 落库值；与买单 pfSellProceeds 同值）
  * 库内为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
@@ -307,7 +307,7 @@ export function pfOrderProfitDisplayCny(row: OrderRow): number | null {
 }
 
 export function pfStakeLabel(row: OrderRow): string {
-  return isPfSellOrderListRow(row) ? "回款" : "投注金额";
+  return isPfSellOrderListRow(row) ? "回款" : "买入金额";
 }
 
 export function pfOrderPriceLabel(row: OrderRow): string {

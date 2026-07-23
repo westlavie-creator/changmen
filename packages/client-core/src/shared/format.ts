@@ -15,7 +15,7 @@ export function formatDate(ts: number | string | null | undefined): string {
   return `${mm}-${dd} ${hh}:${min}`;
 }
 
-/** 订单列表投注时间，对齐 A8 `pt.formatDate(CreateAt)` 默认 `yyyy-MM-dd HH:mm:ss` */
+/** 订单列表买入时间，对齐 A8 `pt.formatDate(CreateAt)` 默认 `yyyy-MM-dd HH:mm:ss` */
 export function formatOrderTime(ts: number | string | null | undefined): string {
   const ms = normalizeEpochMs(ts);
   if (!ms)

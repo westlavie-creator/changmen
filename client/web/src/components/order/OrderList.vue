@@ -318,7 +318,7 @@ async function onPfSell(row: OrderRow) {
 }
 
 function pmStakeLabel(row: OrderRow): string {
-  return isPmSellOrderListRow(row) ? "回款" : "投注金额";
+  return isPmSellOrderListRow(row) ? "回款" : "买入金额";
 }
 
 function onCancelMakeup(row: OrderRow) {
@@ -784,7 +784,7 @@ function badgeTitle(row: OrderRow): string {
               </template>
             </template>
             <template v-else>
-              投注金额：{{ toFixed(Number(block.row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
+              买入金额：{{ toFixed(Number(block.row.BetMoney) || 0, 0) }} 赔率：<span class="order__odds">{{
                 formatDisplayOdds(Number(block.row.Odds) || 0)
               }}</span>
               <template v-if="isMakeupPendingOrderRow(block.row)">
@@ -802,7 +802,7 @@ function badgeTitle(row: OrderRow): string {
             </template>
           </div>
           <div class="time">
-            投注时间：{{ formatOrderTime(block.row.CreateAt || 0) }}
+            买入时间：{{ formatOrderTime(block.row.CreateAt || 0) }}
           </div>
           <div v-if="$slots['row-actions']" class="order-list__row-actions">
             <slot name="row-actions" :row="block.row" :link="link" :rows="rows" />

@@ -82,7 +82,7 @@ export function explainHttpBlock(block: HttpBlockFields = {}) {
   }
 
   let code = "open";
-  let label = "可投注";
+  let label = "可买入";
   if (locked) {
     if (status === 9 || status === 12 || settleCount > 0) {
       code = "settled";

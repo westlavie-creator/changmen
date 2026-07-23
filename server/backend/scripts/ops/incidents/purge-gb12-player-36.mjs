@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 硬删除 GB12 已废弃 OB 投注账号 player 36（九游/2，已由 23 接管）。
+ * 硬删除 GB12 已废弃 OB 操盘账号 player 36（九游/2，已由 23 接管）。
  * 前置：orders/money_logs 无引用。
  *
  * Usage:

@@ -1,9 +1,9 @@
 /** 管理端展示用：用户 setting 字段中文标签 */
 export const ADMIN_SETTING_LABELS: Record<string, string> = {
-  betting: "自动投注",
-  bettingAutoOpen: "定时开启投注",
+  betting: "自动买入",
+  bettingAutoOpen: "定时开启买入",
   bettingAutoOpenTime: "定时开启时间",
-  betMoney: "投注金额",
+  betMoney: "买入金额",
   minMoney: "随机金额下限",
   maxMoney: "随机金额上限",
   tenNumber: "整十金额",
@@ -39,7 +39,7 @@ export const ADMIN_SETTING_LABELS: Record<string, string> = {
 export const BET_SORTING_LABELS: Record<string, string> = {
   Low: "低赔优先",
   High: "高赔优先",
-  Parallel: "并行投注",
+  Parallel: "并行买入",
   WinRate: "胜率优先",
   Custom: "自定义顺序",
 };

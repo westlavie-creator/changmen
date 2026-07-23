@@ -153,8 +153,8 @@ function bettingTitle(row: AdminUserRow) {
     return `定时开启：${fmtTime(row.bettingAutoOpenTime)}`;
   }
   if (Number(row.bettingEnabled) === 1)
-    return "自动投注已开启";
-  return "自动投注已关闭";
+    return "自动买入已开启";
+  return "自动买入已关闭";
 }
 
 function fmtBetMoney(row: AdminUserRow) {
@@ -508,7 +508,7 @@ onUnmounted(() => {
                 </span>
               </template>
             </el-table-column>
-            <el-table-column label="投注" width="88" align="center">
+            <el-table-column label="买入" width="88" align="center">
               <template #default="{ row }">
                 <span
                   class="admin-user-status"

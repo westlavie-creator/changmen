@@ -231,7 +231,7 @@ export const useMessageStore = defineStore("message", {
         htmlTitle("限红提醒"),
         accountLine(account),
         `<blockquote>${payload.match ?? ""} / ${payload.bet ?? ""}`,
-        `投注金额：${payload.betMoney}@${payload.odds}`,
+        `买入金额：${payload.betMoney}@${payload.odds}`,
         `限红金额：${payload.limit}</blockquote>`,
       ].join("\n");
       this.enqueueTelegram(body);
@@ -245,7 +245,7 @@ export const useMessageStore = defineStore("message", {
       const body = [
         htmlTitle("注单延迟收单提醒"),
         balanceAccountLine(account),
-        `<blockquote>投注延迟：${toFixed(elapsedMs / 1000, 1)}秒</blockquote>`,
+        `<blockquote>买入延迟：${toFixed(elapsedMs / 1000, 1)}秒</blockquote>`,
       ].join("\n");
       this.enqueueTelegram(body);
     },
@@ -308,18 +308,18 @@ export const useMessageStore = defineStore("message", {
           return [
             `${leg.platformLabel}（比例 9999 单边模式）`,
             "<blockquote>",
-            `投注队伍：${leg.options.target}`,
-            `投注金额：${leg.options.betMoney}@${leg.options.odds}`,
-            "投注结果：本侧不下单（对侧自动单边）",
+            `买入队伍：${leg.options.target}`,
+            `买入金额：${leg.options.betMoney}@${leg.options.odds}`,
+            "买入结果：本侧不下单（对侧自动单边）",
             "备注信息：比例 9999</blockquote>",
           ].join("\n");
         }
         const lines = [
           accountLine(leg.account),
           "<blockquote>",
-          `投注队伍：${leg.options.target}`,
-          `投注金额：${leg.options.betMoney}@${leg.options.odds}`,
-          `投注结果：${leg.result.pending ? "⏳ 待确认" : leg.result.success ? "✅ 成功" : "❌ 失败"}`,
+          `买入队伍：${leg.options.target}`,
+          `买入金额：${leg.options.betMoney}@${leg.options.odds}`,
+          `买入结果：${leg.result.pending ? "⏳ 待确认" : leg.result.success ? "✅ 成功" : "❌ 失败"}`,
         ];
         if (leg.result.success && !leg.result.pending) {
           lines.push(`是否拒单：${leg.reject ? "🔴是" : "否"}`);

@@ -30,7 +30,7 @@ function formatExecutableStatus(
 
   const bettingOff = context?.bettingEnabled === false;
   if (bettingOff)
-    return "可执行：未开启投注";
+    return "可执行：未开启买入";
 
   if (funded && sameOpportunityLegs(fullMarket, funded)) {
     return "可执行：是";

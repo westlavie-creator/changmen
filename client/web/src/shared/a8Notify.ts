@@ -80,7 +80,7 @@ export function bettingLoadingMessageHtml(
   accountLine: string,
   detailHtml: string,
 ): string {
-  return `${bettingProviderHeadHtml(provider, accountLine, "投注中...")}${detailHtml}`;
+  return `${bettingProviderHeadHtml(provider, accountLine, "买入中...")}${detailHtml}`;
 }
 
 export function bettingResultMessageHtml(
@@ -105,6 +105,6 @@ export function bettingDetailHtml(option: {
   const countSuffix = option.betCount != null ? ` / ${option.betCount}次` : "";
   return [
     `<p>赛事：${option.matchTitle ?? ""} / ${option.betName ?? ""} / ${option.target}@${option.itemOdds ?? option.odds}</p>`,
-    `<p>投注：${option.target}，金额：${option.betMoney}@${option.odds}${countSuffix}</p>`,
+    `<p>买入：${option.target}，金额：${option.betMoney}@${option.odds}${countSuffix}</p>`,
   ].join("");
 }

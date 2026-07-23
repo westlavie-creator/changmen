@@ -7,7 +7,7 @@ export function readPreferences(row) {
   return {};
 }
 
-/** 不进入管理端「投注参数」展示的系统 preferences 字段 */
+/** 不进入管理端「买入参数」展示的系统 preferences 字段 */
 export const PROFILE_META_PREFERENCE_KEYS = new Set([
   "lastLoginIp",
   "lastLoginAt",

@@ -90,7 +90,7 @@ interface ImBetStatementResponse {
  *  - isLimit(betMoney, odds) => floor(payout/odds) < betMoney （赔率/限红未过期时）
  *
  * changmen 本地限红：
- *  - LimitEntry.value 直接存 value（最大投注/限红金额）
+ *  - LimitEntry.value 直接存 value（最大买入/限红金额）
  *  - LimitEntry.payout 存 payoutOdds（A8 传入 h.Odds）
  *  - 因此 payoutStored = value * payoutOdds
  */

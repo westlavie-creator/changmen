@@ -81,7 +81,7 @@ function confirm() {
       <el-form-item label="盘口:">
         <div v-html="bet.getBetName()" />
       </el-form-item>
-      <el-form-item label="投注:">
+      <el-form-item label="买入:">
         <el-radio-group v-model="form.target" @change="onTargetChange">
           <el-radio v-for="side in sides" :key="side" :value="side">
             {{ side }}({{ maxOdds(side) }})

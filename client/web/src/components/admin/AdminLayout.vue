@@ -63,7 +63,7 @@ const navItems: AdminNavItem[] = [
   },
   {
     name: "admin-value-bet",
-    label: "价值投注",
+    label: "价值买入",
     icon: "am-icon-flash",
     to: { name: "admin-value-bet" },
   },

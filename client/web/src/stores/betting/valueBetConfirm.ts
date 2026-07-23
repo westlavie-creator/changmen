@@ -147,7 +147,7 @@ export async function runValueBetConfirm(
     return;
   }
   if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
-    await ElMessageBox.alert(`当前 ${item.type} 账号不满足投注条件`, "提示");
+    await ElMessageBox.alert(`当前 ${item.type} 账号不满足买入条件`, "提示");
     return;
   }
   const bal = account.getBalance();

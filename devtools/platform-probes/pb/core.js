@@ -90,7 +90,7 @@ export function parseEuroOddsPayload(data, options = {}) {
           winMarketId: betId,
           winLineId: ml.lineId,
           winLocked: locked,
-          winMarketStatus: locked ? { code: "locked", label: "锁盘" } : { code: "open", label: "可投注" },
+          winMarketStatus: locked ? { code: "locked", label: "锁盘" } : { code: "open", label: "可买入" },
           betName: betNameForMap(map),
         });
       }

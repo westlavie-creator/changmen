@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 硬删除 GB12 已废弃 PM 投注账号 player 76 / 102。
+ * 硬删除 GB12 已废弃 PM 操盘账号 player 76 / 102。
  * 前置：订单已迁到 105，且无 orders/money_logs 引用。
  *
  * Usage:

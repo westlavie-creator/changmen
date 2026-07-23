@@ -117,7 +117,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <AdminLayout title="价值投注" subtitle="正EV信号扫描 · PB基准线 · 实时诊断">
+  <AdminLayout title="价值买入" subtitle="正EV信号扫描 · PB基准线 · 实时诊断">
     <div v-if="error" class="vb-error">
       <el-alert type="error" :closable="false" :title="error" />
     </div>

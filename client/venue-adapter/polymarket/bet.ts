@@ -268,7 +268,7 @@ function calculateBuyMarketLimitPrice(
   maxPrice?: number,
 ): number {
   if (!Number.isFinite(amountUsdc) || amountUsdc <= 0)
-    throw new Error(`无效投注金额 ${amountUsdc}`);
+    throw new Error(`无效买入金额 ${amountUsdc}`);
   const bookAsks = maxPrice != null
     ? asks.filter(level => level.price <= maxPrice + 1e-9)
     : asks;

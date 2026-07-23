@@ -284,7 +284,7 @@ async function handleSaveAccounts(accounts, userId) {
   }
   catch (err) {
     if (err instanceof VenueAccountKeyConflictError || isVenueAccountKeyUniqueViolation(err))
-      return { ok: false, msg: err.message || "该场馆投注账号已被其他用户使用" };
+      return { ok: false, msg: err.message || "该场馆操盘账号已被其他用户使用" };
     throw err;
   }
   const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);

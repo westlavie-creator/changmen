@@ -168,7 +168,7 @@ onMounted(async () => {
       </div>
       <div class="summary-card">
         <div class="summary-label">
-          总投注额
+          总买入额
         </div>
         <div class="summary-value">
           {{ toFixed(totalBet, 0) }}
@@ -202,7 +202,7 @@ onMounted(async () => {
             <span :class="{ 'text-warn': row.rejects > 0 }">{{ rejectRate(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="投注额" width="120" align="right">
+        <el-table-column label="买入额" width="120" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>
@@ -293,7 +293,7 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="总投注额" width="100" align="right">
+        <el-table-column label="总买入额" width="100" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>
@@ -326,7 +326,7 @@ onMounted(async () => {
             {{ winRateGeneric(row.wins, row.losses) }}
           </template>
         </el-table-column>
-        <el-table-column label="投注额" width="120" align="right">
+        <el-table-column label="买入额" width="120" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>
@@ -389,7 +389,7 @@ onMounted(async () => {
             <span :class="{ 'text-warn': row.rejects > 0 }">{{ row.rejects }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="投注额" width="120" align="right">
+        <el-table-column label="买入额" width="120" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>

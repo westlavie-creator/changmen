@@ -252,7 +252,7 @@ onUnmounted(() => {
           <span class="health-val">{{ health.data.users }}</span>
         </div>
         <div class="health-row">
-          <span>投注账号</span>
+          <span>操盘账号</span>
           <span class="health-val">{{ health.data.accounts }}</span>
         </div>
         <div class="health-row">

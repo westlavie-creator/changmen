@@ -234,7 +234,7 @@ const profitTotal = computed(() =>
 
 const subtitle = computed(() =>
   groupMode.value === "account"
-    ? "按投注账号分列，同 Link 订单以连线标识"
+    ? "按操盘账号分列，同 Link 订单以连线标识"
     : "每位用户一列，订单按 Link 分组展示",
 );
 
@@ -368,7 +368,7 @@ onMounted(async () => {
             按用户
           </el-radio-button>
           <el-radio-button value="account">
-            按投注账号
+            按操盘账号
           </el-radio-button>
         </el-radio-group>
         <el-select

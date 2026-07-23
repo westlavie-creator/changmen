@@ -59,7 +59,7 @@ export interface OrderRow {
   PfHoldShares?: number;
   /**
    * [changmen 扩展] 名义买入 USDT（限价×份额，如 14.12）。
-   * 侧栏投注金额 / 图例未结预览优先读此；无则回退 BetMoney。
+   * 侧栏买入金额 / 图例未结预览优先读此；无则回退 BetMoney。
    */
   PfNotionalUsdt?: number;
   /** [changmen 扩展] 链上实付成交额（可低于名义） */

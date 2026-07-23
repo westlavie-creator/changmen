@@ -347,8 +347,8 @@ watch(selectedUserIds, () => {
               <el-switch
                 v-model="acc.lastOdds"
                 size="large"
-                active-text="上次投注"
-                inactive-text="上次投注"
+                active-text="上次买入"
+                inactive-text="上次买入"
                 inline-prompt
                 style="height: 24px"
                 @change="onFieldChange(acc, 'lastOdds')"

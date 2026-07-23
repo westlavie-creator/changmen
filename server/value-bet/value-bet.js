@@ -90,7 +90,7 @@ async function checkDb() {
 }
 
 async function main() {
-  console.log("[value-bet] 正EV价值投注引擎启动");
+  console.log("[value-bet] 正EV价值买入引擎启动");
   console.log(`  基准线: ${SHARP_PLATFORM} | 目标平台: ${SOFT_PLATFORMS.join(",")}`);
   console.log(`  最小 edge: ${(MIN_EDGE * 100).toFixed(1)}% | Kelly 系数: ${KELLY_MULTIPLIER}x`);
   console.log(`  扫描间隔: ${SCAN_INTERVAL_MS / 1000}s\n`);

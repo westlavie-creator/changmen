@@ -223,7 +223,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="子账号管理" subtitle="按用户查看投注子账号：暂停、乘网与今日战绩">
+  <AdminLayout title="子账号管理" subtitle="按用户查看操盘子账号：暂停、乘网与今日战绩">
     <section v-loading="loading" class="admin-card">
       <div class="admin-card__toolbar admin-accounts-toolbar">
         <el-input

@@ -8,7 +8,7 @@ import {
   explainMainBetAccountRejection,
 } from "@/domain/betting/betFilters";
 
-/** [changmen 扩展] 投注比例 9999 = 单边模式：本侧仅预检、不参与自动下单，对侧可单边真下注 */
+/** [changmen 扩展] 买入比例 9999 = 单边模式：本侧仅预检、不参与自动下单，对侧可单边真下注 */
 export const SINGLE_LEG_RATE = 9999;
 
 export function isSingleLegRateAtOdds(

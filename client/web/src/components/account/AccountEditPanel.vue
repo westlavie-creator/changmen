@@ -169,8 +169,8 @@ function unlockRate() {
 
     <fieldset class="account-edit-panel__fieldset">
       <legend>
-        <span @dblclick="unlockRate">投</span>
-        注比例
+        <span @dblclick="unlockRate">买</span>
+        入比例
         <el-button v-if="!readonly" size="small" type="info" link @click="emit('addRate')">
           <i class="am-icon-plus am-icon-fw" />
         </el-button>
@@ -316,7 +316,7 @@ function unlockRate() {
         </el-form-item>
       </el-col>
       <el-col :span="12">
-        <el-form-item label="投注赔率：">
+        <el-form-item label="买入赔率：">
           <el-row :gutter="10">
             <el-col :span="12">
               <el-input v-model.number="form.minOdds" placeholder="最低" :disabled="fieldDisabled()">

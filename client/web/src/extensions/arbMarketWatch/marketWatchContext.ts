@@ -25,7 +25,7 @@ export interface ArbMarketWatchContext {
   minProfit: number;
   maxProfit: number;
   minOdds: number;
-  /** 参数配置「开启投注」；关投注时盯盘仅提醒，不会自动下单 */
+  /** 参数配置「开启买入」；关闭时盯盘仅提醒，不会自动下单 */
   bettingEnabled: boolean;
 }
 
@@ -86,7 +86,7 @@ export function explainNotExecutable(
   ctx: ArbMarketWatchContext,
 ): string {
   if (!ctx.bettingEnabled) {
-    return "未开启投注";
+    return "未开启买入";
   }
 
   const byPlatform = new Map(ctx.platformOdds.map(row => [row.platform, row]));

@@ -441,7 +441,7 @@ export const stakeProvider: PlatformProvider = {
     return new BetResult(
       account.provider,
       true,
-      `投注成功，${currency}${amount}@${odds}`,
+      `买入成功，${currency}${amount}@${odds}`,
       option.data,
       root,
     );

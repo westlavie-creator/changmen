@@ -141,7 +141,7 @@ export function filterAsksByMaxPrice(asks, maxPrice) {
 export function assertPredictFokBuyDepth(asks, apiBetMoney) {
   const amount = Number(apiBetMoney);
   if (!Number.isFinite(amount) || amount <= 0)
-    throw new Error(`无效投注金额 ${apiBetMoney}`);
+    throw new Error(`无效买入金额 ${apiBetMoney}`);
 
   let remaining = amount;
   let available = 0;

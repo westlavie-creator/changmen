@@ -119,7 +119,7 @@ describe("formatMarketWatchGroup", () => {
         ],
       }),
     });
-    expect(body).toContain("可执行：未开启投注");
+    expect(body).toContain("可执行：未开启买入");
     expect(body).not.toContain("无可用账号");
   });
 

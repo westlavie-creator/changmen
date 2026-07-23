@@ -31,7 +31,7 @@ export function buildManualBetPromptMessage(
   return [
     ...buildManualBetContextLines(match, bet, item, side, odds),
     "",
-    "请输入要投注的金额",
+    "请输入要买入的金额",
   ].join("\n");
 }
 
@@ -88,7 +88,7 @@ export async function runManualBet(
     return;
   }
   if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
-    await ElMessageBox.alert(`当前 ${item.type} 账号不满足投注条件`, "提示");
+    await ElMessageBox.alert(`当前 ${item.type} 账号不满足买入条件`, "提示");
     return;
   }
   const bal = account.getBalance();

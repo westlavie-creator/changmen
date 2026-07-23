@@ -53,7 +53,7 @@ export interface SxBetCheckData {
 function resolveStakeUsdc(option: BetOption): number {
   const value = Number(option.betMoney);
   if (!Number.isFinite(value) || value <= 0)
-    throw new Error(`无效投注金额 ${option.betMoney}`);
+    throw new Error(`无效买入金额 ${option.betMoney}`);
   const stake = Math.round(value * 100) / 100;
   if (stake < MIN_STAKE_USDC)
     throw new Error(`SXBet 最低下注 ${MIN_STAKE_USDC} USDC`);

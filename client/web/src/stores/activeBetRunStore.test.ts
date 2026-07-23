@@ -315,7 +315,7 @@ describe("activeBetRunStore", () => {
     store.setPhase(100, "placing", "提交场馆订单");
     syncActiveBetPlaceResults(
       100,
-      { success: true, message: "投注成功" },
+      { success: true, message: "买入成功" },
       { success: false },
       true,
       true,
@@ -327,7 +327,7 @@ describe("activeBetRunStore", () => {
     const legA = run.legs.find(l => l.side === "A")!;
     const legB = run.legs.find(l => l.side === "B")!;
     expect(legA.events.some(e => e.stage === "预检" && e.detail === "预检通过")).toBe(true);
-    expect(legA.events.some(e => e.stage === "下单" && e.detail === "投注成功")).toBe(true);
+    expect(legA.events.some(e => e.stage === "下单" && e.detail === "买入成功")).toBe(true);
     expect(legA.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
     expect(legB.events.some(e => e.stage === "下单" && e.detail === "API 失败")).toBe(true);
     expect(legB.events.some(e => e.stage === "拒单")).toBe(false);

@@ -114,7 +114,7 @@ function onAdminMultiplySaved(multiply: number) {
     </section>
 
     <section class="wp__sec">
-      <h3 class="wp__h">投注账号</h3>
+      <h3 class="wp__h">操盘账号</h3>
       <AccountBar embedded />
     </section>
 

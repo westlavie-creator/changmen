@@ -101,7 +101,7 @@ export function formatAdminOrderTelegramBody({
     `<blockquote>`,
     escapeHtml(match || "—"),
     `${escapeHtml(bet || "—")} / ${escapeHtml(item || "—")}`,
-    `投注时间：${escapeHtml(formatCnTime(order.create_at ?? order.createAt))}`,
+    `买入时间：${escapeHtml(formatCnTime(order.create_at ?? order.createAt))}`,
     `金额：${Math.round(Number(order.bet_money) || 0)} @ ${Number(order.odds) || 0}`,
     `盈亏：${Math.round(Number(order.money) || 0)} · 状态：${escapeHtml(status)}`,
     `类型：${linkLabel} · LinkID：${escapeHtml(formatLinkId(order.link))} · 单号：${escapeHtml(String(order.order_id || ""))}`,

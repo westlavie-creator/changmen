@@ -101,7 +101,7 @@ export interface PlayOrderSuccessSoundOpts {
   userName?: string;
 }
 
-/** 下单成功时调用；失败静默，不干扰投注流程 */
+/** 下单成功时调用；失败静默，不干扰买入流程 */
 export async function playOrderSuccessSound(opts: PlayOrderSuccessSoundOpts = {}) {
   try {
     const userName = opts.userName ?? currentOrderSoundUserName();

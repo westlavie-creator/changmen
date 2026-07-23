@@ -21,7 +21,7 @@ export function normalizeAccountRateConfig(rows: AccountRateRow[] | undefined): 
     .filter(r => !Number.isNaN(r.rate) && r.rate !== 0);
 }
 
-/** 对齐 A8 bundle `uv`（单平台投注账号） */
+/** 对齐 A8 bundle `uv`（单平台操盘账号） */
 export class PlatformAccount implements AccountRecord {
   accountId: number;
   platformId?: number;

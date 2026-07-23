@@ -81,7 +81,7 @@ function setWaitTime(platform: string, v: string | number) {
   <el-form :model="form" class="user-config-panel" :class="{ 'user-config-panel--readonly': readonly }">
     <el-form-item>
       <div class="bet-money-row">
-        <el-form-item label="投注金额:" :label-width="LABEL_W" class="bet-money-row__input">
+        <el-form-item label="买入金额:" :label-width="LABEL_W" class="bet-money-row__input">
           <el-input v-model="form.betMoney" autocomplete="off" :disabled="fieldDisabled()" style="width: 120px" />
         </el-form-item>
         <div class="bet-money-row__switches">
@@ -96,8 +96,8 @@ function setWaitTime(platform: string, v: string | number) {
           <el-switch
             v-model="form.betting"
             inline-prompt
-            active-text="开启投注"
-            inactive-text="开启投注"
+            active-text="开启买入"
+            inactive-text="开启买入"
             size="large"
             :disabled="fieldDisabled()"
           />
@@ -125,7 +125,7 @@ function setWaitTime(platform: string, v: string | number) {
             label="正EV金额:"
             :label-width="LABEL_W"
             class="bet-money-row__input"
-            title="点击金色角标确认下单时的默认金额；不影响套利投注金额"
+            title="点击金色角标确认下单时的默认金额；不影响套利买入金额"
           >
             <el-input
               v-model="form.valueBetMoney"
@@ -156,22 +156,22 @@ function setWaitTime(platform: string, v: string | number) {
     <el-form-item>
       <el-row>
         <el-col :span="6">
-          <el-form-item label="最低投注:" :label-width="LABEL_W">
+          <el-form-item label="最低买入:" :label-width="LABEL_W">
             <el-input v-model="form.minMoney" autocomplete="off" :disabled="fieldDisabled()" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
-          <el-form-item label="最高投注:" :label-width="LABEL_W">
+          <el-form-item label="最高买入:" :label-width="LABEL_W">
             <el-input v-model="form.maxMoney" autocomplete="off" :disabled="fieldDisabled()" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
-          <el-form-item label="投注次数" :label-width="LABEL_W">
+          <el-form-item label="买入次数" :label-width="LABEL_W">
             <el-input v-model="form.betCount" autocomplete="off" :disabled="fieldDisabled()" />
           </el-form-item>
         </el-col>
         <el-col :span="6">
-          <el-form-item label="投注间隔" :label-width="LABEL_W">
+          <el-form-item label="买入间隔" :label-width="LABEL_W">
             <el-input v-model="form.betInterval" autocomplete="off" :disabled="fieldDisabled()">
               <template #append>
                 秒
@@ -292,7 +292,7 @@ function setWaitTime(platform: string, v: string | number) {
             <div class="any-odds-row">
               <el-tooltip
                 effect="dark"
-                content="1、下单失败用当前可投注的最高赔率继续投注。2、被拒单马上用最高赔率进行补单"
+                content="1、下单失败用当前可买入的最高赔率继续买入。2、被拒单马上用最高赔率进行补单"
                 placement="bottom"
               >
                 <el-switch
@@ -320,7 +320,7 @@ function setWaitTime(platform: string, v: string | number) {
 
       <el-col :span="8">
         <div class="config-section">
-          <div class="config-section__title">投注顺序</div>
+          <div class="config-section__title">操盘顺序</div>
           <el-form-item>
             <el-radio-group
               v-model="form.betSorting"

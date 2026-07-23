@@ -50,7 +50,7 @@ export function runMarketWatchLoopTick(input: MarketWatchLoopTickInput): MarketW
 
 let activeLoop: { stop: () => void } | null = null;
 
-/** [changmen 扩展] 全盘口盯盘旁路（关投注 + notifyArbOpportunity 时按需启动） */
+/** [changmen 扩展] 全盘口盯盘旁路（关买入 + notifyArbOpportunity 时按需启动） */
 export function startMarketWatchLoop(): void {
   stopMarketWatchLoop();
 

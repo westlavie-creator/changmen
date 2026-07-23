@@ -6,7 +6,7 @@ export const USER_CONFIG_LABEL_W = "80px";
 export const BET_SORTING_LABELS: Record<BetSorting, string> = {
   Low: "低赔优先",
   High: "高赔优先",
-  Parallel: "并行投注",
+  Parallel: "并行买入",
   WinRate: "胜率优先",
   Custom: "自定义顺序",
 };

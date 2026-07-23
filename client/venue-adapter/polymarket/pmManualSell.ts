@@ -309,7 +309,7 @@ function buildSellAndBuyPatchOrders(params: {
     pmAttributedSellShares: attributed,
     pmSellState: closed ? "closed" : "partial",
     pmStakeUsdc: stakeLeftUsdc,
-    // 原始投注本金不改；剩余敞口只看 pmStakeUsdc / 剩余份额
+    // 原始买入本金不改；剩余敞口只看 pmStakeUsdc / 剩余份额
     betMoney: originalBetMoney,
     money: prevRealizedCny + profitCny,
     pmRealizedPnlUsdc: round4(prevRealizedUsdc + profitUsdc),

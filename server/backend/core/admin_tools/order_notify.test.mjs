@@ -78,7 +78,7 @@ describe("admin_tools/order_notify", () => {
     expect(body).not.toContain("<b>Team");
     expect(body).toContain("套利");
     expect(body).toContain("LinkID：1000000000001");
-    expect(body).toContain("投注时间：");
+    expect(body).toContain("买入时间：");
     expect(body).toContain("2026/6/18");
   });
 

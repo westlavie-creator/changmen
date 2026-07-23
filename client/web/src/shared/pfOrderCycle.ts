@@ -172,7 +172,7 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       : null;
 
     let sellProceedsUsdt: number | null = null;
-    // 回款真相在买单；卖单 betMoney 仅旧单/镜像兜底（勿当投注本金）
+    // 回款真相在买单；卖单 betMoney 仅旧单/镜像兜底（勿当买入本金）
     const fromBuy = Number(buy.pfSellProceeds);
     if (Number.isFinite(fromBuy) && fromBuy >= 0)
       sellProceedsUsdt = fromBuy;

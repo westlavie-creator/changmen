@@ -200,7 +200,7 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 | 路径 | 用途 |
 |------|------|
 | `extensions/arbOpportunity/` | 套利机会检测（`detect`）；通知旁路 / 盯盘 |
-| `extensions/arbMarketWatch/` | 非投注时全盘口 Telegram 盯盘 |
+| `extensions/arbMarketWatch/` | 非买入时全盘口 Telegram 盯盘 |
 | `extensions/arbBet/` | BetRow UI 增强 |
 | `extensions/notify/` | Telegram 格式化与配置；trace 正文见 `formatArbProgress.ts` |
 

@@ -1,5 +1,5 @@
 /**
- * 全库场馆投注账号指纹：禁止跨用户共用同一 venue_member_id 或 gateway+token。
+ * 全库场馆操盘账号指纹：禁止跨用户共用同一 venue_member_id 或 gateway+token。
  * [changmen 扩展] A8 无此约束；changmen 按运营需求全局互斥。
  */
 
@@ -52,7 +52,7 @@ export function isVenueAccountKeyUniqueViolation(err) {
 
 export function venueAccountKeyConflictMessage(conflict) {
   if (!conflict)
-    return "该场馆投注账号已被其他用户使用";
+    return "该场馆操盘账号已被其他用户使用";
   const who = conflict.userName || conflict.ownerUserId || "其他用户";
-  return `该场馆投注账号已被用户 ${who} 占用（player ${conflict.id}）`;
+  return `该场馆操盘账号已被用户 ${who} 占用（player ${conflict.id}）`;
 }

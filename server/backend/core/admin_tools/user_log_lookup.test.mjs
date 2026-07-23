@@ -75,7 +75,7 @@ describe("user_log_lookup", () => {
         result: {
           provider: "OB",
           success: true,
-          message: "投注成功",
+          message: "买入成功",
           request: {
             "b[0]": "mch=m1&mkt=b1&oid=o1&odd=2.111&a=100&bt=1",
           },
@@ -140,7 +140,7 @@ describe("user_log_lookup", () => {
           result: {
             provider: "OB",
             success: true,
-            message: "投注成功",
+            message: "买入成功",
             request: {
               "b[0]": "mch=m1&mkt=b1&oid=o1&odd=2.111&a=100&bt=1",
             },
