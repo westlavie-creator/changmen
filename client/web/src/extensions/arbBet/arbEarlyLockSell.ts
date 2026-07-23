@@ -26,6 +26,7 @@ import {
 } from "@/shared/orderLink";
 import { canManualSellPfBuy } from "@/stores/account/pfManualSell";
 import { canManualSellPmBuy } from "@/stores/account/pmManualSell";
+import { beginArbAutoSell, endArbAutoSell } from "@/extensions/arbBet/arbAutoSellLock";
 import { useAccountStore } from "@/stores/accountStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOddsStore } from "@/stores/oddsStore";
@@ -48,7 +49,6 @@ export interface ArbEarlyLockDecisionInput {
   totalCostCny: number;
 }
 
-const sellingIds = new Set<string>();
 const cooldownUntil = new Map<string, number>();
 let lastScanAt = 0;
 let scanInFlight = false;
@@ -66,6 +66,9 @@ export function decideArbEarlyLockSell(
   if (!input.enabled)
     return false;
   if (!(Number.isFinite(input.lockedProfitCny)))
+    return false;
+  // 锁定利润为负时不提前卖：否则任意小浮盈都会触发
+  if (input.lockedProfitCny < 0)
     return false;
   if (!(input.sellProceedsCny > 0) || !(input.pmCostCny > 0))
     return false;
@@ -158,9 +161,8 @@ function notify(title: string, message: string): void {
 
 async function sellPm(account: PlatformAccount, row: OrderRow): Promise<boolean> {
   const orderId = String(row.OrderID ?? "").trim();
-  if (!orderId || sellingIds.has(orderId))
+  if (!orderId || !beginArbAutoSell(orderId))
     return false;
-  sellingIds.add(orderId);
   try {
     const result = await sellPolymarketBuyPosition({
       account,
@@ -176,15 +178,14 @@ async function sellPm(account: PlatformAccount, row: OrderRow): Promise<boolean>
     return false;
   }
   finally {
-    sellingIds.delete(orderId);
+    endArbAutoSell(orderId);
   }
 }
 
 async function sellPf(account: PlatformAccount, row: OrderRow): Promise<boolean> {
   const orderId = String(row.OrderID ?? "").trim();
-  if (!orderId || sellingIds.has(orderId))
+  if (!orderId || !beginArbAutoSell(orderId))
     return false;
-  sellingIds.add(orderId);
   try {
     await pfSubmitSell(account, orderId);
     return true;
@@ -193,7 +194,7 @@ async function sellPf(account: PlatformAccount, row: OrderRow): Promise<boolean>
     return false;
   }
   finally {
-    sellingIds.delete(orderId);
+    endArbAutoSell(orderId);
   }
 }
 
@@ -239,7 +240,7 @@ function collectTargets(orders: Map<number, OrderRow[]>): EarlyLockTarget[] {
     if (!bookOk)
       continue;
     const locked = estimateArbLockedProfitCny(rows);
-    if (locked == null || !Number.isFinite(locked))
+    if (locked == null || !Number.isFinite(locked) || locked < 0)
       continue;
     const pm = rows.find(r => canManualSellPmBuy(r));
     if (pm) {

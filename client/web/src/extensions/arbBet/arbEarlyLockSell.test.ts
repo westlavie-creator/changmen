@@ -32,6 +32,15 @@ describe("decideArbEarlyLockSell", () => {
     })).toBe(false); // 30 < 35
   });
 
+  it("pmEdge: skips when locked profit is negative", () => {
+    expect(decideArbEarlyLockSell({
+      ...base,
+      lockedProfitCny: -20,
+      sellProceedsCny: 55,
+      pmCostCny: 50,
+    })).toBe(false);
+  });
+
   it("floor: requires worst-case >= locked + minExtra", () => {
     // worst = 80-100 = -20 < 20 → false
     expect(decideArbEarlyLockSell({ ...base, mode: "floor" })).toBe(false);

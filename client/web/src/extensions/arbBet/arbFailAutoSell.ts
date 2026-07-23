@@ -33,6 +33,7 @@ import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import { canManualSellPfBuy } from "@/stores/account/pfManualSell";
 import { canManualSellPmBuy } from "@/stores/account/pmManualSell";
+import { beginArbAutoSell, endArbAutoSell } from "@/extensions/arbBet/arbAutoSellLock";
 
 export type ArbFailAutoSellSide = "A" | "B";
 
@@ -55,8 +56,6 @@ export interface ArbFailAutoSellDecision {
   sellSide: ArbFailAutoSellSide;
   provider: string;
 }
-
-const sellingOrderIds = new Set<string>();
 
 function readArbFailAutoSellPrefs(
   prefs?: ArbFailAutoSellPrefs | null,
@@ -152,9 +151,8 @@ async function sellPmBuy(
     : String((buy as OrderRow).OrderID ?? "").trim();
   if (!orderId)
     return { ok: false, error: "缺少 orderId" };
-  if (sellingOrderIds.has(orderId))
+  if (!beginArbAutoSell(orderId))
     return { ok: false, error: "卖出进行中" };
-  sellingOrderIds.add(orderId);
   try {
     const result = await sellPolymarketBuyPosition({
       account,
@@ -175,8 +173,11 @@ async function sellPmBuy(
     }
     return { ok: true };
   }
+  catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
   finally {
-    sellingOrderIds.delete(orderId);
+    endArbAutoSell(orderId);
   }
 }
 
@@ -187,9 +188,8 @@ async function sellPfBuy(
   const orderId = String(buyOrderId ?? "").trim();
   if (!orderId)
     return { ok: false, error: "缺少 orderId" };
-  if (sellingOrderIds.has(orderId))
+  if (!beginArbAutoSell(orderId))
     return { ok: false, error: "卖出进行中" };
-  sellingOrderIds.add(orderId);
   try {
     await pfSubmitSell(account, orderId);
     return { ok: true };
@@ -198,7 +198,7 @@ async function sellPfBuy(
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
   finally {
-    sellingOrderIds.delete(orderId);
+    endArbAutoSell(orderId);
   }
 }
 
