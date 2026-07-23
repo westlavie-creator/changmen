@@ -34,7 +34,13 @@ vi.mock("@/stores/betting/runArbBetRound", () => ({
 }));
 
 vi.mock("@/stores/userStore", () => ({
-  useUserStore: () => userState,
+  useUserStore: () => ({
+    userId: userState.userId,
+    extensionPrefs: {
+      arbEarlyLockSell: { enabled: false },
+      arbFailAutoSell: { enabled: false },
+    },
+  }),
 }));
 
 vi.mock("@/stores/matchStore", () => ({

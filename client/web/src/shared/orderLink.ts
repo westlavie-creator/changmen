@@ -777,6 +777,41 @@ export function orderLinkLegend(rows: OrderRow[]): string {
   return makeupPrefix + prefix + sign + toFixed(total, 0);
 }
 
+/**
+ * [changmen 扩展] 未结双边套利锁定利润预估（CNY）。
+ * 与图例同口径：min(各侧若赢回款 − 组本金)；不足两侧或无法估算时返回 null。
+ */
+export function estimateArbLockedProfitCny(rows: OrderRow[]): number | null {
+  const stake = rows
+    .filter(r =>
+      !LOSE_REJECT.has(String(r.Status))
+      && !isPredictionSellRow(r)
+      && !isMakeupSyntheticOrderRow(r)
+      && !isExitedPredictionBuy(r),
+    )
+    .reduce((sum, r) => sum + orderLegendExposureBet(r), 0);
+  if (!(stake > 0))
+    return null;
+  const unsettled = rows.filter(r =>
+    String(r.Status ?? "") === "None"
+    && !isPredictionSellRow(r)
+    && !isExitedPredictionBuy(r),
+  );
+  const sideGroups = groupRowsByOutcomeSide(unsettled);
+  if (sideGroups.length < 2)
+    return null;
+  const sideProfits = sideGroups.map((sideRows) => {
+    const payout = sideRows.reduce(
+      (sum, r) => sum + orderLegendWinPayoutCny(r),
+      0,
+    );
+    return payout - stake;
+  });
+  if (!sideProfits.every(n => Number.isFinite(n)))
+    return null;
+  return Math.min(...sideProfits);
+}
+
 /** [changmen 扩展] 套利双腿 fieldset 高亮：跨平台且同 Link；纯 PM 买卖同组不算套利 */
 export function isLinkedArbOrderGroup(rows: OrderRow[]): boolean {
   const link = linkIdGroupKey(rows[0]?.Link);

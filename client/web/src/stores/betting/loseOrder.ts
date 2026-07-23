@@ -1,7 +1,6 @@
 import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
 import { makeUpBetToastSeconds } from "@/shared/betTiming";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
-import { maybeArbFailAutoSellByLink } from "@/extensions/arbBet/arbFailAutoSell";
 import { useAccountStore } from "@/stores/accountStore";
 import { passesMakeUpAccount } from "@/stores/betting/betFilters";
 import {
@@ -24,6 +23,23 @@ export interface LoseOrderTickContext {
   setMessage: (msg: string) => void;
 }
 
+function scheduleArbFailAutoSellByLink(
+  linkId: number,
+  setMessage: (msg: string) => void,
+  reason: string,
+): void {
+  // 关闭时不 import、不调用，补单出队语义与改前一致
+  if (useUserStore().extensionPrefs?.arbFailAutoSell?.enabled !== true)
+    return;
+  void import("@/extensions/arbBet/arbFailAutoSell")
+    .then(({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
+      linkId,
+      setMessage,
+      reason,
+    }))
+    .catch(() => {});
+}
+
 /**
  * [A8 可证实] 补单队列消费（bundle `jb`）
  *
@@ -37,16 +53,17 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
   const config = user.config;
   const { setMessage } = ctx;
   const removeIds = new Set<number>();
-  /** [changmen 扩展] 未补成出队 → 尝试卖 PM/PF 敞口 */
+  /** [changmen 扩展] 未补成出队 → 尝试卖 PM/PF 敞口（仅 prefs 开启） */
   const abandonSellByBetId = new Map<number, { linkId: number; reason: string }>();
   const betLookup = buildLoseOrderBetLookup(matchStore.matchs);
+  const failSellOn = user.extensionPrefs?.arbFailAutoSell?.enabled === true;
 
   for (const [betId, order] of loseStore.orders) {
     const ref = resolveLoseOrderBetRef(order, matchStore.matchs, betLookup);
     if (!ref) {
       // [A8 可证实] `!ce||!ge` → Z.push(z) 出队（含 link 绑定）
       removeIds.add(betId);
-      if (order.linkId) {
+      if (failSellOn && order.linkId) {
         abandonSellByBetId.set(betId, {
           linkId: order.linkId,
           reason: "补单目标已离盘",
@@ -113,7 +130,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         // [A8 可证实] `else le||Z.push(z)`：null/undefined 出队；`{success:false}` 保留
         if (!result) {
           removeIds.add(betId);
-          if (order.linkId) {
+          if (failSellOn && order.linkId) {
             abandonSellByBetId.set(betId, {
               linkId: order.linkId,
               reason: "补单请求失败",
@@ -160,12 +177,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     if (loseStore.orders.has(betId))
       loseStore.removeOrder(betId, true);
     const abandon = abandonSellByBetId.get(betId);
-    if (abandon) {
-      void maybeArbFailAutoSellByLink({
-        linkId: abandon.linkId,
-        setMessage,
-        reason: abandon.reason,
-      });
-    }
+    if (abandon)
+      scheduleArbFailAutoSellByLink(abandon.linkId, setMessage, abandon.reason);
   }
 }

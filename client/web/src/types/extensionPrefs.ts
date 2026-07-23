@@ -25,6 +25,21 @@ export interface ArbFailAutoSellPrefs {
   enabled: boolean;
 }
 
+/**
+ * [changmen 扩展] 庄+PM/PF 提前锁利：可卖价使「判定净利」高于锁定套利利润时卖掉预测市场腿。
+ * 默认关闭。mode=pmEdge 看 PM 浮盈是否盖过锁定利润（卖后保留庄家单边）；floor 要求最差结果仍不低于锁定利润。
+ */
+export interface ArbEarlyLockSellPrefs {
+  enabled: boolean;
+  /** pmEdge | floor；默认 pmEdge */
+  mode: "pmEdge" | "floor";
+  /**
+   * 相对锁定利润至少多出的 CNY（默认 0）。
+   * pmEdge：PM浮盈 − 锁定利润 ≥ 该值；floor：最差结果 − 锁定利润 ≥ 该值。
+   */
+  minExtraProfit: number;
+}
+
 /** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
 export type UiTheme = "default" | "brutal" | "paper" | "terminal";
 
@@ -52,6 +67,8 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /** 套利失败敞口：自动卖掉已成交的 PM/PF 腿 */
   arbFailAutoSell: ArbFailAutoSellPrefs;
+  /** 庄+预测市场：可卖价优于锁定利润时提前卖 PM/PF */
+  arbEarlyLockSell: ArbEarlyLockSellPrefs;
   /**
    * 控制台 UI 皮肤。
    * default = 现有深色；brutal = 粗边框；paper = 浅纸感；terminal = 终端风。
@@ -78,6 +95,14 @@ export function createDefaultArbFailAutoSell(): ArbFailAutoSellPrefs {
   return { enabled: false };
 }
 
+export function createDefaultArbEarlyLockSell(): ArbEarlyLockSellPrefs {
+  return {
+    enabled: false,
+    mode: "pmEdge",
+    minExtraProfit: 0,
+  };
+}
+
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
@@ -85,6 +110,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     arbFailAutoSell: createDefaultArbFailAutoSell(),
+    arbEarlyLockSell: createDefaultArbEarlyLockSell(),
     uiTheme: "default",
   };
 }
@@ -111,6 +137,19 @@ function normalizeArbFailAutoSell(raw: unknown): ArbFailAutoSellPrefs {
   return { enabled: row.enabled === true };
 }
 
+function normalizeArbEarlyLockSell(raw: unknown): ArbEarlyLockSellPrefs {
+  const defaults = createDefaultArbEarlyLockSell();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return defaults;
+  const row = raw as Record<string, unknown>;
+  const minExtra = Number(row.minExtraProfit);
+  return {
+    enabled: row.enabled === true,
+    mode: row.mode === "floor" ? "floor" : "pmEdge",
+    minExtraProfit: Number.isFinite(minExtra) ? minExtra : defaults.minExtraProfit,
+  };
+}
+
 export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     return createDefaultExtensionPrefs();
@@ -121,6 +160,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
+    arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
     uiTheme: normalizeUiTheme(row.uiTheme),
   };
 }

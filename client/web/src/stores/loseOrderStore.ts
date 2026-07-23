@@ -201,13 +201,19 @@ export const useLoseOrderStore = defineStore("loseorder", {
       void import("@/stores/activeBetRunStore")
         .then(({ useActiveBetRunStore }) => useActiveBetRunStore().removeRun(betId))
         .catch(() => {});
-      // 默认关：prefs 未开则 maybe* 立即 return，不改取消出队语义
+      // 仅扩展开启时减仓；关闭时与改前「只出队」一致
       if (linkId) {
-        void import("@/extensions/arbBet/arbFailAutoSell")
-          .then(({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
-            linkId,
-            reason: "用户取消补单",
-          }))
+        void import("@/stores/userStore")
+          .then(({ useUserStore }) => {
+            if (useUserStore().extensionPrefs?.arbFailAutoSell?.enabled !== true)
+              return;
+            return import("@/extensions/arbBet/arbFailAutoSell").then(
+              ({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
+                linkId,
+                reason: "用户取消补单",
+              }),
+            );
+          })
           .catch(() => {});
       }
     },
@@ -222,13 +228,18 @@ export const useLoseOrderStore = defineStore("loseorder", {
         if (!active.has(betId)) {
           const linkId = Number(existing.linkId) || 0;
           this.removeOrder(betId, true);
-          // 出队语义不变；减仓仅 prefs 开启时生效
           if (linkId) {
-            void import("@/extensions/arbBet/arbFailAutoSell")
-              .then(({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
-                linkId,
-                reason: "补单目标已离盘",
-              }))
+            void import("@/stores/userStore")
+              .then(({ useUserStore }) => {
+                if (useUserStore().extensionPrefs?.arbFailAutoSell?.enabled !== true)
+                  return;
+                return import("@/extensions/arbBet/arbFailAutoSell").then(
+                  ({ maybeArbFailAutoSellByLink }) => maybeArbFailAutoSellByLink({
+                    linkId,
+                    reason: "补单目标已离盘",
+                  }),
+                );
+              })
               .catch(() => {});
           }
         }

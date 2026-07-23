@@ -51,6 +51,15 @@ vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
   applyArbMakeUpFromRejects,
 }));
 
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({
+    extensionPrefs: {
+      arbFailAutoSell: { enabled: false },
+      arbEarlyLockSell: { enabled: false },
+    },
+  }),
+}));
+
 vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
   maybeArbFailAutoSellAfterFinalize: vi.fn(async () => false),
 }));

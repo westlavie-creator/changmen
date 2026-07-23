@@ -14,6 +14,7 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
+  arbEarlyLockSell: { enabled: false, mode: "pmEdge" as const, minExtraProfit: 0 },
   uiTheme: "default" as const,
 };
 
@@ -63,6 +64,23 @@ describe("extensionPrefs", () => {
 
   it("defaults arbFailAutoSell off", () => {
     expect(normalizeExtensionPrefs({}).arbFailAutoSell).toEqual({ enabled: false });
+  });
+
+  it("can enable arbEarlyLockSell and normalize mode", () => {
+    expect(normalizeExtensionPrefs({
+      arbEarlyLockSell: { enabled: true, mode: "floor", minExtraProfit: 5 },
+    }).arbEarlyLockSell).toEqual({
+      enabled: true,
+      mode: "floor",
+      minExtraProfit: 5,
+    });
+    expect(normalizeExtensionPrefs({
+      arbEarlyLockSell: { enabled: true, mode: "nope", minExtraProfit: "x" },
+    }).arbEarlyLockSell).toEqual({
+      enabled: true,
+      mode: "pmEdge",
+      minExtraProfit: 0,
+    });
   });
 
   it("ignores legacy venueHkEgress / pmHkEgress keys", () => {

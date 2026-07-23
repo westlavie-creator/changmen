@@ -41,6 +41,10 @@ vi.mock("@/stores/userStore", () => ({
       noSameProvider: false,
       waitTime: { OB: 10, RAY: 10 },
     },
+    extensionPrefs: {
+      arbFailAutoSell: { enabled: false },
+      arbEarlyLockSell: { enabled: false },
+    },
   }),
 }));
 

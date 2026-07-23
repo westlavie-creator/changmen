@@ -1,6 +1,5 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
-import { maybeArbFailAutoSellAfterFinalize } from "@/extensions/arbBet/arbFailAutoSell";
 import {
   finishArbExecutionTrace,
   logArbFinalizeTraceEvents,
@@ -10,6 +9,7 @@ import { markArbSuccessLegs } from "@/stores/betting/autoBet/phases/finalizeArbM
 import { settleBothArbLegs } from "@/stores/betting/autoBet/phases/settleBothArbLegs";
 import { syncArbFinalizeActiveBet } from "@/stores/betting/autoBet/phases/syncArbFinalizeUi";
 import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
+import { useUserStore } from "@/stores/userStore";
 
 /** 套利收尾编排：settle → makeup → mark → notify（顺序对齐 A8 bundle） */
 export async function finalizeArbBet(
@@ -44,16 +44,21 @@ export async function finalizeArbBet(
   finishArbExecutionTrace(params, placed, settle, outcome);
   sendArbBettingMessageIfNeeded(params, placed, settle);
 
-  // [changmen 扩展] 放在 A8 收尾之后：减仓失败/超时不得打断 mark / notify
-  try {
-    await maybeArbFailAutoSellAfterFinalize({
-      placed,
-      settle,
-      makeup,
-      setMessage: params.setMessage,
-    });
-  }
-  catch {
-    /* ignore */
+  // [changmen 扩展] 仅开启时加载；关闭时与改前 finalize 路径一致（无额外 await）
+  if (useUserStore().extensionPrefs?.arbFailAutoSell?.enabled === true) {
+    try {
+      const { maybeArbFailAutoSellAfterFinalize } = await import(
+        "@/extensions/arbBet/arbFailAutoSell"
+      );
+      await maybeArbFailAutoSellAfterFinalize({
+        placed,
+        settle,
+        makeup,
+        setMessage: params.setMessage,
+      });
+    }
+    catch {
+      /* ignore */
+    }
   }
 }

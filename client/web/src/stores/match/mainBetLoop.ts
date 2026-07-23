@@ -55,6 +55,13 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
     processLoseOrders: () => matchStore.processLoseOrders(),
   });
 
+  // [changmen 扩展] 仅开启时加载扫描；关闭时主循环与改前一致
+  if (user.extensionPrefs?.arbEarlyLockSell?.enabled === true) {
+    void import("@/extensions/arbBet/arbEarlyLockSell")
+      .then(({ runArbEarlyLockSellTick }) => runArbEarlyLockSellTick())
+      .catch(() => {});
+  }
+
   if (now - matchStore.defaultOddsFetchedAt >= DEFAULT_ODDS_MS) {
     await matchStore.fetchMatchDefaultOdds();
   }

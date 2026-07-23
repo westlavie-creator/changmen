@@ -179,6 +179,57 @@ async function save() {
       </p>
     </div>
 
+    <el-divider content-position="left">
+      提前锁利
+    </el-divider>
+
+    <div class="extensions-tab__row">
+      <el-form-item label="启用提前锁利:" class="extensions-tab__control">
+        <el-switch
+          v-model="extensionPrefs.arbEarlyLockSell.enabled"
+          inline-prompt
+          active-text="开启"
+          inactive-text="关闭"
+          size="large"
+        />
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        开：未结庄+PM/PF 套利中，若卖掉预测市场腿后的判定净利高于锁定利润，则自动市价卖出（庄腿继续持有）。默认关闭。
+      </p>
+    </div>
+
+    <div class="extensions-tab__row">
+      <el-form-item label="判定模式:" class="extensions-tab__control">
+        <el-radio-group v-model="extensionPrefs.arbEarlyLockSell.mode" size="large">
+          <el-radio value="pmEdge" border>
+            PM浮盈
+          </el-radio>
+          <el-radio value="floor" border>
+            最差结果
+          </el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        PM浮盈：可卖回款−PM成本 ≥ 锁定利润（常用）。最差结果：卖出后庄家输光仍 ≥ 锁定利润（二元盘极少触发）。
+      </p>
+    </div>
+
+    <div class="extensions-tab__row">
+      <el-form-item label="额外利润(CNY):" class="extensions-tab__control">
+        <el-input-number
+          v-model="extensionPrefs.arbEarlyLockSell.minExtraProfit"
+          :min="-1000"
+          :max="10000"
+          :step="1"
+          :precision="0"
+          controls-position="right"
+        />
+      </el-form-item>
+      <p class="extensions-tab__desc">
+        相对锁定利润至少再多出的金额。0 = 刚好优于锁定即卖。
+      </p>
+    </div>
+
     <div class="flex flex-center">
       <el-button type="primary" class="am-icon-save" size="large" :loading="saving" @click="save">
         &nbsp;保存
