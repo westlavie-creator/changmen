@@ -1,5 +1,5 @@
 /**
- * 场次主客锁：仅 PM → OB → RAY 可建锁。
+ * 场次主客锁：PM → OB → RAY → PredictFun（后者仅兜底）可建锁。
  * 禁止 gb id min/max；禁止采信旧 finalize 写在 row 上的脏锁。
  *
  * 时序（各馆陆续到库）：
@@ -15,8 +15,8 @@ import {
 } from "@changmen/match-engine";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 
-/** 仅这些平台可确立 home_gb / away_gb（顺序 = 优先级） */
-export const LOCK_ANCHOR_PLATFORMS = ["Polymarket", "OB", "RAY"];
+/** 这些平台可确立 home_gb / away_gb（顺序 = 优先级；PredictFun 最后） */
+export const LOCK_ANCHOR_PLATFORMS = ["Polymarket", "OB", "RAY", "PredictFun"];
 
 function parseLockedGb(value) {
   if (value == null || value === "")

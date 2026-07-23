@@ -26,6 +26,7 @@ import {
   pmIa,
   pmOb,
   pmPm,
+  pmPf,
   pmRay,
   pmRayFlipped,
   rawIa,
@@ -35,7 +36,7 @@ import {
   rawRayFlipped,
 } from "./fixtures.mjs";
 
-describe("anchor priority PM > OB > RAY", () => {
+describe("anchor priority PM > OB > RAY > PredictFun", () => {
   it("Polymarket wins over OB even if OB present", () => {
     installPlugin();
     const matches = {
@@ -68,6 +69,22 @@ describe("anchor priority PM > OB > RAY", () => {
     const picked = pickLockFromAnchors({ RAY: "ray1" }, matches);
     assert.equal(picked.anchorPlatform, "RAY");
     assert.equal(picked.homeGb, GB_NIP);
+  });
+
+  it("PredictFun is last fallback after RAY", () => {
+    installPlugin();
+    const withRay = pickLockFromAnchors(
+      { RAY: "ray1", PredictFun: "pf1" },
+      { RAY: { ray1: pmRay }, PredictFun: { pf1: pmPf } },
+    );
+    assert.equal(withRay.anchorPlatform, "RAY");
+    const pfOnly = pickLockFromAnchors(
+      { PredictFun: "pf1" },
+      { PredictFun: { pf1: pmPf } },
+    );
+    assert.equal(pfOnly.anchorPlatform, "PredictFun");
+    assert.equal(pfOnly.homeGb, GB_NIP);
+    assert.equal(pfOnly.awayGb, GB_K27);
   });
 });
 

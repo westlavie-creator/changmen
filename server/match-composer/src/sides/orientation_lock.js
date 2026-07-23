@@ -1,5 +1,5 @@
 /**
- * 场次主客锁：仅 PM → OB → RAY。
+ * 场次主客锁：PM → OB → RAY → PredictFun（后者仅兜底，纯 PF/Limitless+PF 合场可建锁）。
  * 禁止 min/max；不采信 row 上脏 gb；后到高优先级 upgrade。
  */
 import {
@@ -11,7 +11,7 @@ import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 
-export const LOCK_ANCHOR_PLATFORMS = ["Polymarket", "OB", "RAY"];
+export const LOCK_ANCHOR_PLATFORMS = ["Polymarket", "OB", "RAY", "PredictFun"];
 
 function parseLockedGb(value) {
   if (value == null || value === "")

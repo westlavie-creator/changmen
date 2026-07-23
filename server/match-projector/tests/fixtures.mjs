@@ -14,6 +14,8 @@ const idMap = {
   "IA:ia-k27": GB_K27,
   "Polymarket:pm-nip": GB_NIP,
   "Polymarket:pm-k27": GB_K27,
+  "PredictFun:pf-nip": GB_NIP,
+  "PredictFun:pf-k27": GB_K27,
   "PB:pb-nip": GB_NIP,
   "PB:pb-k27": GB_K27,
   "OB:ob-foo": GB_FOO,
@@ -70,6 +72,15 @@ export const pmPm = {
   Away: "K27",
   HomeID: "pm-nip",
   AwayID: "pm-k27",
+  SourceGameID: "3",
+};
+
+export const pmPf = {
+  SourceMatchID: "pf1",
+  Home: "Ninjas in Pyjamas",
+  Away: "K27",
+  HomeID: "pf-nip",
+  AwayID: "pf-k27",
   SourceGameID: "3",
 };
 

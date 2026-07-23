@@ -587,7 +587,7 @@ function orientGbPair(homeGb, awayGb) {
 }
 
 /**
- * 锚点平台 native 槽位定 canonical 主客：Polymarket → OB → RAY。
+ * 锚点平台 native 槽位定 canonical 主客：Polymarket → OB → RAY → PredictFun。
  * @returns {{ homeGb: string, awayGb: string, anchorPlatform: string } | null}
  */
 function pickAnchorPlatformOrientation(entries, gameCode) {
