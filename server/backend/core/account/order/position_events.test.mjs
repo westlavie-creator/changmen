@@ -5,6 +5,7 @@ import {
   collectIncomingPositionSellEvents,
   normalizePositionSellEvent,
   readPositionSellEvents,
+  sellDbRowToPositionEvent,
   upsertPositionSellEvents,
 } from "./position_events.js";
 
@@ -95,5 +96,41 @@ describe("position_events", () => {
     }, {});
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe("0xa");
+  });
+
+  it("sellDbRowToPositionEvent maps PM/PF sell rows", () => {
+    expect(sellDbRowToPositionEvent({
+      order_id: "0xsell",
+      provider: "Polymarket",
+      create_at: 100,
+      raw: {
+        pmSide: "sell",
+        pmBuyOrderId: "0xbuy",
+        pmShares: 2,
+        pmFillPrice: 0.55,
+        pmStakeUsdc: 1.1,
+        pmRealizedPnlUsdc: 0.2,
+      },
+    })).toMatchObject({
+      buyId: "0xbuy",
+      event: { id: "0xsell", shares: 2, price: 0.55, proceeds: 1.1, pnl: 0.2 },
+    });
+
+    expect(sellDbRowToPositionEvent({
+      order_id: "pfs",
+      provider: "PredictFun",
+      create_at: 200,
+      bet_money: 12.3,
+      raw: { pfSide: "sell", pfBuyOrderId: "pfb", pfShares: 5, pfBookPrice: 0.4 },
+    })).toMatchObject({
+      buyId: "pfb",
+      event: { id: "pfs", shares: 5, proceeds: 12.3, status: "closed" },
+    });
+
+    expect(sellDbRowToPositionEvent({
+      order_id: "x",
+      provider: "Polymarket",
+      raw: { pmSide: "sell" },
+    })).toBeNull();
   });
 });

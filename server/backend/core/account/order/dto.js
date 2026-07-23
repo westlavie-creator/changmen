@@ -4,6 +4,7 @@
  */
 import { placeholderLinkFromCreateAt } from "@changmen/db";
 import { computePfHoldShares } from "../../integrations/predictfun/pf_fee.js";
+import { readPositionSellEvents } from "./position_events.js";
 
 /** @internal 与 save 路径共用；暂放 dto，后续可再抽 util */
 export function parseNum(v, fallback = 0) {
@@ -151,6 +152,11 @@ export function rowToOrder(r) {
     PfFeeRateBps: (() => {
       const n = parseNum(raw.pfFeeRateBps, NaN);
       return Number.isFinite(n) && n >= 0 ? n : undefined;
+    })(),
+    /** [changmen 扩展] Phase 1 仓位卖出事件（买单上；便于 UI 观察双写） */
+    PositionEvents: (() => {
+      const sells = readPositionSellEvents(raw);
+      return sells.length ? { sells } : undefined;
     })(),
   };
 }

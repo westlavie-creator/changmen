@@ -447,11 +447,95 @@ describe("orderLink A8 parity", () => {
       { id: "pf-buy", attach: false },
       { id: "pf-sell", attach: true },
     ]);
+    expect(blocks.find(b => b.row.OrderID === "sell")?.sellSource).toBe("row");
+    expect(blocks.find(b => b.row.OrderID === "pf-sell")?.sellSource).toBe("row");
     // 组盈亏仍按全量 rows 计算，与 blocks 展示无关
     expect(computeOrderGroupProfit([
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 20, Status: "None" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 0, BetMoney: 120, PmBuyOrderId: "buy" },
     ])).toBe(20);
+  });
+
+  it("orderListDisplayBlocks prefers positionEvents over sell rows", () => {
+    const blocks = orderListDisplayBlocks([
+      {
+        OrderID: "buy",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "buy",
+        Match: "A vs B",
+        Status: "None",
+        BetMoney: 100,
+        Money: 20,
+        CreateAt: 100,
+        PositionEvents: {
+          sells: [{ id: "sell", at: 200, shares: 10, price: 0.6, proceeds: 6 }],
+        },
+      },
+      {
+        OrderID: "sell",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "sell",
+        PmBuyOrderId: "buy",
+        Status: "None",
+        BetMoney: 41,
+        PmShares: 9,
+        CreateAt: 200,
+      },
+      {
+        OrderID: "sell-only-row",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "sell",
+        PmBuyOrderId: "buy",
+        Status: "None",
+        BetMoney: 5,
+        CreateAt: 300,
+      },
+    ]);
+    expect(blocks.map(b => ({
+      id: b.row.OrderID,
+      attach: b.attach,
+      source: b.sellSource,
+    }))).toEqual([
+      { id: "buy", attach: false, source: undefined },
+      { id: "sell", attach: true, source: "event" },
+      { id: "sell-only-row", attach: true, source: "row" },
+    ]);
+    const fromEvent = blocks.find(b => b.row.OrderID === "sell");
+    expect(fromEvent?.row.PmShares).toBe(10);
+    expect(fromEvent?.row.PmFillPrice).toBe(0.6);
+    expect(fromEvent?.row.BetMoney).toBe(41);
+  });
+
+  it("orderListDisplayBlocks synthesizes attach from events when sell row missing", () => {
+    const blocks = orderListDisplayBlocks([
+      {
+        OrderID: "buy",
+        Type: "Polymarket",
+        Link: 1,
+        PmSide: "buy",
+        Match: "Team A",
+        Status: "None",
+        CreateAt: 100,
+        PositionEvents: {
+          sells: [{ id: "ev-only", at: 150, shares: 3, price: 0.4, proceeds: 1.2 }],
+        },
+      },
+    ]);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[1]).toMatchObject({
+      attach: true,
+      sellSource: "event",
+      row: {
+        OrderID: "ev-only",
+        PmSide: "sell",
+        PmBuyOrderId: "buy",
+        PmShares: 3,
+        Match: "Team A",
+      },
+    });
   });
 
   it("orderLinkLegend uses sell P&L when buy Money still 0 (legacy)", () => {

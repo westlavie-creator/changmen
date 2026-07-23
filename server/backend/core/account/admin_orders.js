@@ -131,6 +131,7 @@ function mapAdminOrderRow(r, startIndex = null) {
     pfFeeType: o.PfFeeType,
     pfFeeUsdt: o.PfFeeUsdt,
     pfFeeRateBps: o.PfFeeRateBps,
+    positionEvents: o.PositionEvents,
   };
 }
 

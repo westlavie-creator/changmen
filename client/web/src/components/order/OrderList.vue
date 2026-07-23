@@ -2,7 +2,7 @@
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
 import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, computed, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { rebindOrderLink } from "@/api/order";
 import { formatDisplayOdds, formatLinkId, formatOrderTime, toFixed } from "@changmen/client-core/shared/format";
@@ -48,6 +48,7 @@ import {
   pfUnrealizedPnlAtLiveCny,
   resolvePfOrderListStatusClass,
 } from "@/shared/pfOrderDisplay";
+import { positionEventObserveTag } from "@/shared/positionEventsDisplay";
 import { ensurePfOrderLabelIndex } from "@/shared/pfOrderLabelIndex";
 import {
   isArbGroup,
@@ -361,6 +362,18 @@ function findOrderRowById(orderId: string): OrderRow | null {
   return null;
 }
 
+/** 双写观察：peers 缓存，避免每行 O(n) 重建 */
+const pePeerRows = computed(() => {
+  const peers: OrderRow[] = [];
+  for (const [, rows] of props.orderEntries)
+    peers.push(...rows);
+  return peers;
+});
+
+function peObserveTag(row: OrderRow) {
+  return positionEventObserveTag(row, pePeerRows.value);
+}
+
 function formatRebindOrderBlock(label: string, row: OrderRow): string {
   const platform = String(row.Type || "—");
   const player = props.playerLabel(row) || String(row.Player?.UserName || "").trim() || "—";
@@ -640,6 +653,20 @@ function badgeTitle(row: OrderRow): string {
               class="order__pm-tag order__pm-tag--side"
               :class="(isPmSellOrderListRow(block.row) || isPfSellOrderListRow(block.row)) ? 'order__pm-tag--sell' : 'order__pm-tag--buy'"
             >{{ pmOrderSideTagText(block.row) || pfOrderSideTagText(block.row) }}</span>
+            <span
+              v-if="block.attach && block.sellSource"
+              class="order__pm-tag order__pm-tag--pe"
+              :class="block.sellSource === 'event' ? 'order__pm-tag--pe-event' : 'order__pm-tag--pe-row'"
+              :title="block.sellSource === 'event' ? '展示来自买单 positionEvents' : '展示来自独立卖单行（事件缺失或未回填）'"
+            >{{ block.sellSource === "event" ? "事件" : "卖单" }}</span>
+            <template v-for="pe in [block.attach ? null : peObserveTag(block.row)]" :key="`pe-wrap-${block.key}`">
+              <span
+                v-if="pe"
+                class="order__pm-tag order__pm-tag--pe"
+                :class="pe.className"
+                :title="pe.title"
+              >{{ pe.text }}</span>
+            </template>
           </div>
           <div v-if="isPfOrderListRow(block.row)" class="match">{{ pfMatchText(block.row) }}</div>
           <div v-else class="match" v-html="block.row.Match" />

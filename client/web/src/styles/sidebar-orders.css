@@ -377,6 +377,47 @@
   color: #f56c6c;
 }
 
+/* 双写观察：仓位=买单绿；事件=橙；卖单回退=卖单红 */
+#app .el-aside .orders .order .order__pm-tag--pe,
+.common-layout .el-aside .orders .order .order__pm-tag--pe,
+.admin-orders-user-col .orders .order .order__pm-tag--pe {
+  flex: 0 0 auto;
+  align-self: center;
+  font-weight: 600;
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 2px;
+  line-height: 1.4;
+}
+
+#app .el-aside .orders .order .order__pm-tag--pe-ok,
+.common-layout .el-aside .orders .order .order__pm-tag--pe-ok,
+.admin-orders-user-col .orders .order .order__pm-tag--pe-ok {
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.14);
+}
+
+#app .el-aside .orders .order .order__pm-tag--pe-event,
+.common-layout .el-aside .orders .order .order__pm-tag--pe-event,
+.admin-orders-user-col .orders .order .order__pm-tag--pe-event {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.16);
+}
+
+#app .el-aside .orders .order .order__pm-tag--pe-miss,
+.common-layout .el-aside .orders .order .order__pm-tag--pe-miss,
+.admin-orders-user-col .orders .order .order__pm-tag--pe-miss {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.16);
+}
+
+#app .el-aside .orders .order .order__pm-tag--pe-row,
+.common-layout .el-aside .orders .order .order__pm-tag--pe-row,
+.admin-orders-user-col .orders .order .order__pm-tag--pe-row {
+  color: #f56c6c;
+  background: rgba(245, 108, 108, 0.14);
+}
+
 #app .el-aside .orders .order .betname,
 .common-layout .el-aside .orders .order .betname,
 .admin-orders-user-col .orders .order .betname {

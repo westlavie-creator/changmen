@@ -108,8 +108,37 @@ function venueOrdersToLocalRows(buyRow: OrderRow, orders: VenueOrder[]): OrderRo
       PmLastSellOrderId: vo.pmLastSellOrderId,
       PmSide: "buy",
       PmOrigin: vo.pmOrigin ?? buyRow.PmOrigin,
+      // 本地乐观更新：合并仓位事件（vo 往往只带本笔，勿整段覆盖）
+      PositionEvents: mergePositionEventsLocal(buyRow.PositionEvents, vo.positionEvents),
     } satisfies OrderRow;
   });
+}
+
+type PositionSellEvent = NonNullable<NonNullable<OrderRow["PositionEvents"]>["sells"]>[number];
+
+function mergePositionEventsLocal(
+  prev: OrderRow["PositionEvents"] | undefined,
+  incoming: VenueOrder["positionEvents"] | undefined,
+): OrderRow["PositionEvents"] | undefined {
+  const byId = new Map<string, PositionSellEvent>();
+  for (const e of prev?.sells ?? []) {
+    const id = String(e?.id ?? "").trim();
+    if (!id)
+      continue;
+    byId.set(id.toLowerCase(), { ...e, id });
+  }
+  for (const e of incoming?.sells ?? []) {
+    const id = String(e?.id ?? "").trim();
+    if (!id)
+      continue;
+    const key = id.toLowerCase();
+    byId.set(key, { ...byId.get(key), ...e, id });
+  }
+  if (!byId.size)
+    return prev;
+  return {
+    sells: [...byId.values()].sort((a, b) => (Number(a.at) || 0) - (Number(b.at) || 0)),
+  };
 }
 
 /** 落库失败时先改本地，避免按钮仍可卖 */

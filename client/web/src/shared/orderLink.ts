@@ -170,6 +170,7 @@ export function groupOrdersByEffectiveLink<T extends OrderRow>(list: T[]): Map<n
 
 /**
  * [changmen 扩展] 订单栏方案 A：PM/PF 卖单在 UI 上挂到对应买单下（软附属）。
+ * 展示优先买单 positionEvents.sells，缺事件 id 再回退卖单行；同 id 不双显。
  * 不改落库/盈亏；无父买单的孤儿卖单仍顶层展示。
  * 调用方须保证同组内买卖 Link 已对齐（见 alignPredictionSellLinksToBuys）。
  */
@@ -178,20 +179,138 @@ export type OrderListDisplayBlock = {
   row: OrderRow;
   /** true = 嵌在买单下的卖出记录 */
   attach: boolean;
+  /** attach 时：事件优先 / 卖单行回退 */
+  sellSource?: "event" | "row";
 };
+
+type PositionSellEvent = NonNullable<NonNullable<OrderRow["PositionEvents"]>["sells"]>[number];
+
+function orderIdKey(id: unknown): string {
+  return String(id ?? "").trim().toLowerCase();
+}
+
+/** 事件 → 展示用卖单行；有卖单行时 enrich 文案/BetMoney */
+export function synthesizeSellRowFromPositionEvent(
+  buy: OrderRow,
+  event: PositionSellEvent,
+  sellRow?: OrderRow,
+): OrderRow {
+  const id = String(event.id ?? "").trim();
+  const at = Number(event.at) || Number(sellRow?.CreateAt) || Number(buy.CreateAt) || 0;
+  const shares = Number(event.shares);
+  const price = Number(event.price);
+  const proceeds = Number(event.proceeds);
+  const pnl = Number(event.pnl);
+  const origin = event.origin === "external" || event.origin === "changmen"
+    ? event.origin
+    : undefined;
+
+  if (isPredictFunOrderRow(buy) || (sellRow != null && isPredictFunOrderRow(sellRow))) {
+    const proceedsUsdt = Number.isFinite(proceeds) && proceeds >= 0 ? proceeds : 0;
+    return {
+      ...(sellRow ?? {
+        Match: buy.Match,
+        Bet: buy.Bet,
+        Item: buy.Item,
+        Link: buy.Link,
+        PlayerID: buy.PlayerID,
+        Status: "None",
+      }),
+      OrderID: id || sellRow?.OrderID,
+      Type: "PredictFun",
+      CreateAt: at,
+      PfSide: "sell",
+      PfBuyOrderId: String(buy.OrderID ?? ""),
+      PfShares: Number.isFinite(shares) ? shares : sellRow?.PfShares,
+      PfBookPrice: Number.isFinite(price) && price > 0 ? price : sellRow?.PfBookPrice,
+      BetMoney: sellRow != null
+        ? (Number(sellRow.BetMoney) || 0)
+        : proceedsUsdt,
+      Money: 0,
+      PfSellState: "closed",
+    };
+  }
+
+  // Polymarket（默认）
+  const proceedsUsdc = Number.isFinite(proceeds) && proceeds >= 0 ? proceeds : 0;
+  const fx = getExchange(Currency.USDT);
+  const betFromEvent = proceedsUsdc > 0 && fx > 0
+    ? Math.round(proceedsUsdc * fx)
+    : 0;
+  return {
+    ...(sellRow ?? {
+      Match: buy.Match,
+      Bet: buy.Bet,
+      Item: buy.Item,
+      Link: buy.Link,
+      PlayerID: buy.PlayerID,
+      Status: "None",
+    }),
+    OrderID: id || sellRow?.OrderID,
+    Type: "Polymarket",
+    CreateAt: at,
+    PmSide: "sell",
+    PmBuyOrderId: String(buy.OrderID ?? ""),
+    PmShares: Number.isFinite(shares) ? shares : sellRow?.PmShares,
+    PmFillPrice: Number.isFinite(price) && price > 0 && price < 1 ? price : sellRow?.PmFillPrice,
+    PmStakeUsdc: proceedsUsdc > 0 ? proceedsUsdc : sellRow?.PmStakeUsdc,
+    PmRealizedPnlUsdc: Number.isFinite(pnl) ? pnl : sellRow?.PmRealizedPnlUsdc,
+    PmOrigin: origin ?? sellRow?.PmOrigin,
+    BetMoney: sellRow != null ? (Number(sellRow.BetMoney) || 0) : betFromEvent,
+    Money: 0,
+  };
+}
+
+function attachedSellsForBuy(
+  buy: OrderRow,
+  sellRows: OrderRow[],
+): Array<{ row: OrderRow; sellSource: "event" | "row" }> {
+  const events = Array.isArray(buy.PositionEvents?.sells) ? buy.PositionEvents!.sells! : [];
+  const eventById = new Map<string, PositionSellEvent>();
+  for (const ev of events) {
+    const id = orderIdKey(ev?.id);
+    if (id)
+      eventById.set(id, ev);
+  }
+  const sellById = new Map<string, OrderRow>();
+  for (const s of sellRows) {
+    const id = orderIdKey(s.OrderID);
+    if (id)
+      sellById.set(id, s);
+  }
+
+  const ids = new Set<string>([...eventById.keys(), ...sellById.keys()]);
+  const merged: Array<{ id: string; at: number; event?: PositionSellEvent; sellRow?: OrderRow }> = [];
+  for (const id of ids) {
+    const event = eventById.get(id);
+    const sellRow = sellById.get(id);
+    const at = Number(event?.at) || Number(sellRow?.CreateAt) || 0;
+    merged.push({ id, at, event, sellRow });
+  }
+  merged.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+
+  return merged.map(({ event, sellRow }) => {
+    if (event) {
+      return {
+        row: synthesizeSellRowFromPositionEvent(buy, event, sellRow),
+        sellSource: "event" as const,
+      };
+    }
+    return { row: sellRow!, sellSource: "row" as const };
+  });
+}
 
 export function orderListDisplayBlocks(rows: OrderRow[]): OrderListDisplayBlock[] {
   const display = orderListDisplayRows(rows);
   const buyIds = new Set(
     display
       .filter(isPredictionBuyRow)
-      .map(r => String(r.OrderID ?? "").trim().toLowerCase())
+      .map(r => orderIdKey(r.OrderID))
       .filter(Boolean),
   );
 
-  /** buyId → sells（按 CreateAt 升序） */
+  /** buyId → sells（原始卖单行） */
   const sellsByBuy = new Map<string, OrderRow[]>();
-  const nestedSellIds = new Set<string>();
   for (const r of display) {
     if (!isPredictionSellRow(r))
       continue;
@@ -201,24 +320,43 @@ export function orderListDisplayBlocks(rows: OrderRow[]): OrderListDisplayBlock[
     const list = sellsByBuy.get(buyId) ?? [];
     list.push(r);
     sellsByBuy.set(buyId, list);
-    nestedSellIds.add(String(r.OrderID ?? ""));
   }
-  for (const list of sellsByBuy.values()) {
-    list.sort((a, b) => (Number(a.CreateAt) || 0) - (Number(b.CreateAt) || 0));
+
+  const nestedSellIdKeys = new Set<string>();
+  const attachedByBuy = new Map<string, Array<{ row: OrderRow; sellSource: "event" | "row" }>>();
+  for (const r of display) {
+    if (!isPredictionBuyRow(r))
+      continue;
+    const buyKey = orderIdKey(r.OrderID);
+    if (!buyKey)
+      continue;
+    const attached = attachedSellsForBuy(r, sellsByBuy.get(buyKey) ?? []);
+    attachedByBuy.set(buyKey, attached);
+    for (const a of attached)
+      nestedSellIdKeys.add(orderIdKey(a.row.OrderID));
+    // 事件覆盖后仍隐藏同买下原始卖单行（含已被事件合成的 id）
+    for (const s of sellsByBuy.get(buyKey) ?? [])
+      nestedSellIdKeys.add(orderIdKey(s.OrderID));
   }
 
   const out: OrderListDisplayBlock[] = [];
   for (const r of display) {
     const oid = String(r.OrderID ?? "");
-    if (nestedSellIds.has(oid))
+    const oidKey = orderIdKey(oid);
+    if (isPredictionSellRow(r) && nestedSellIdKeys.has(oidKey))
       continue;
     out.push({ key: oid || `row-${out.length}`, row: r, attach: false });
     if (!isPredictionBuyRow(r))
       continue;
-    const sells = sellsByBuy.get(oid.trim().toLowerCase()) ?? [];
-    for (const s of sells) {
-      const sid = String(s.OrderID ?? "");
-      out.push({ key: sid || `sell-${out.length}`, row: s, attach: true });
+    const attached = attachedByBuy.get(oidKey) ?? [];
+    for (const a of attached) {
+      const sid = String(a.row.OrderID ?? "");
+      out.push({
+        key: sid || `sell-${out.length}`,
+        row: a.row,
+        attach: true,
+        sellSource: a.sellSource,
+      });
     }
   }
   return out;

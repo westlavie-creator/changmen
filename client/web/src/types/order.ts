@@ -75,6 +75,22 @@ export interface OrderRow {
   PfFeeType?: "COLLATERAL" | "SHARES";
   PfFeeUsdt?: number;
   PfFeeRateBps?: number;
+  /**
+   * [changmen 扩展] Phase 1 仓位卖出事件（写在买单 raw.positionEvents）。
+   * 仅双写生效后的买单会有；用于 UI 观察「仓位·N / 已记入 / 缺事件」。
+   */
+  PositionEvents?: {
+    sells?: Array<{
+      id: string;
+      at?: number;
+      shares?: number;
+      price?: number;
+      proceeds?: number;
+      pnl?: number;
+      origin?: "changmen" | "external";
+      status?: string;
+    }>;
+  };
 }
 
 export interface OrderPlayerInfo {

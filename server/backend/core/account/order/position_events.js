@@ -165,3 +165,54 @@ export function applyPositionEventsOnSave(merged, prevRaw, o, opts = {}) {
   delete merged.sells;
   return merged;
 }
+
+/**
+ * 历史卖单 RDS 行 → 仓位事件 + 父买单 id（回填用）。
+ * @param {{ order_id?: string, provider?: string, create_at?: number, bet_money?: number, raw?: object }} row
+ * @returns {{ buyId: string, event: object } | null}
+ */
+export function sellDbRowToPositionEvent(row) {
+  if (!row || typeof row !== "object")
+    return null;
+  const raw = asObj(row.raw);
+  const id = String(row.order_id ?? "").trim();
+  if (!id)
+    return null;
+  const provider = String(row.provider ?? "").trim();
+  const at = Number(row.create_at) || 0;
+
+  if (provider === "Polymarket" && String(raw.pmSide ?? "").toLowerCase() === "sell") {
+    const buyId = String(raw.pmBuyOrderId ?? "").trim();
+    if (!buyId)
+      return null;
+    const event = normalizePositionSellEvent({
+      id,
+      at,
+      shares: raw.pmShares,
+      price: raw.pmFillPrice,
+      proceeds: raw.pmStakeUsdc,
+      pnl: raw.pmRealizedPnlUsdc,
+      origin: raw.pmOrigin === "external" ? "external" : "changmen",
+    });
+    return event ? { buyId, event } : null;
+  }
+
+  if (provider === "PredictFun" && String(raw.pfSide ?? "").toLowerCase() === "sell") {
+    const buyId = String(raw.pfBuyOrderId ?? "").trim();
+    if (!buyId)
+      return null;
+    const proceeds = Number(row.bet_money);
+    const event = normalizePositionSellEvent({
+      id,
+      at,
+      shares: raw.pfShares,
+      price: raw.pfBookPrice,
+      proceeds: Number.isFinite(proceeds) && proceeds >= 0 ? proceeds : 0,
+      origin: "changmen",
+      status: "closed",
+    });
+    return event ? { buyId, event } : null;
+  }
+
+  return null;
+}

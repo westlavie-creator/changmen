@@ -178,6 +178,19 @@ export interface AdminOrderRow {
   pfFeeUsdt?: number;
   /** [changmen 扩展] PredictFun 官方市场 feeRateBps */
   pfFeeRateBps?: number;
+  /** [changmen 扩展] Phase 1 仓位卖出事件（买单；观察双写） */
+  positionEvents?: {
+    sells?: Array<{
+      id: string;
+      at?: number;
+      shares?: number;
+      price?: number;
+      proceeds?: number;
+      pnl?: number;
+      origin?: "changmen" | "external";
+      status?: string;
+    }>;
+  };
 }
 
 export interface AdminOrderPage {
