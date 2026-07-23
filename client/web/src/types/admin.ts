@@ -300,6 +300,7 @@ export interface AdminOrderLogOrder {
   money: number;
   status: string;
   createAt: number;
+  pfSide?: "buy" | "sell";
 }
 
 export interface AdminOrderLogLookup {

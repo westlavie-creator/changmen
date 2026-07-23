@@ -766,6 +766,8 @@ export function summarizeUserLog(row) {
 function normalizeOrderRow(row) {
   if (!row)
     return null;
+  const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw) ? row.raw : {};
+  const pfSide = String(raw.pfSide || raw.PfSide || "").toLowerCase();
   return {
     orderId: String(row.order_id),
     link: Number(row.link) || 0,
@@ -779,6 +781,7 @@ function normalizeOrderRow(row) {
     money: Number(row.money) || 0,
     status: row.status,
     createAt: Number(row.create_at) || 0,
+    pfSide: pfSide === "buy" || pfSide === "sell" ? pfSide : undefined,
   };
 }
 
