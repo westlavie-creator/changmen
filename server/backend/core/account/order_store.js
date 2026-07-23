@@ -10,6 +10,7 @@ import {
 import { isPredictionSellForCount } from "./order/kinds.js";
 import {
   enrichOrdersBelongingToDate,
+  findOrderRowById,
   resolveSaveOrderLink,
 } from "./order/link.js";
 import { mergeOtherProviderLogicalSave } from "./order/save_non_pm.js";
@@ -28,6 +29,7 @@ export { isPredictionSellForCount } from "./order/kinds.js";
 export {
   alignRawPredictionSellLinksToBuys,
   enrichOrdersBelongingToDate,
+  findOrderRowById,
   mergePredictionBuySellSiblings,
 } from "./order/link.js";
 
@@ -47,11 +49,12 @@ function mapStatus(raw) {
 }
 
 /**
- * saveOrder 落库合并入口（历史名）。
- * 三平行分支：Polymarket ‖ PredictFun ‖ 其它场馆；行为与拆分前等价。
+ * saveOrder 落库合并入口。
+ * 三平行分支：Polymarket ‖ PredictFun ‖ 其它场馆。
+ * （旧名 mergePolymarketLogicalSave：历史误导，已废弃不留别名。）
  * @internal 单测 / 手动卖出本金合并
  */
-export function mergePolymarketLogicalSave(prevRow, prevRaw, o, pmOrigin) {
+export function mergeOrderLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   const provider = String(o.provider || o.Type || prevRow?.provider || "").trim();
   const merged = pmOrigin ? { ...o, pmOrigin } : { ...o };
   const money = parseNum(o.money ?? o.Money, 0);
@@ -125,9 +128,13 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
   const assignedInBatch = new Map();
   const rows = [];
   for (const { o, orderId, parsed, fallbackAt } of incomingResolved) {
-    const prevAt = Number(existingByOrderId.get(orderId)?.create_at) || 0;
+    // 本单 prev：order_id 大小写不敏感；命中后 upsert 主键用库内形态，避免 ON CONFLICT 插出重复行
+    const prevRow = findOrderRowById(existingByOrderId, orderId);
+    const storedOrderId = prevRow?.order_id != null && String(prevRow.order_id).trim()
+      ? String(prevRow.order_id).trim()
+      : orderId;
+    const prevAt = Number(prevRow?.create_at) || 0;
     const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : fallbackAt;
-    const prevRow = existingByOrderId.get(orderId);
     const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
       ? prevRow.raw
       : {};
@@ -147,6 +154,8 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       provider,
     );
     assignedInBatch.set(orderId, link);
+    if (storedOrderId !== orderId)
+      assignedInBatch.set(storedOrderId, link);
     const incomingOrigin = o.pmOrigin;
     const prevOrigin = prevRaw.pmOrigin;
     let pmOrigin = incomingOrigin;
@@ -154,7 +163,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       pmOrigin = "changmen";
     else if (!pmOrigin)
       pmOrigin = prevOrigin || (provider === "Polymarket" ? "external" : undefined);
-    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+    const { raw, money, bet_money } = mergeOrderLogicalSave(
       prevRow,
       prevRaw,
       orderForMerge,
@@ -163,7 +172,7 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     rows.push({
       user_id: String(userId),
       player_id: Number(playerId),
-      order_id: orderId,
+      order_id: storedOrderId,
       link,
       provider,
       match: o.match || o.Match || "",

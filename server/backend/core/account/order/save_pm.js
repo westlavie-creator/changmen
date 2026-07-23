@@ -1,5 +1,5 @@
 /**
- * Polymarket save 合并（买/卖状态机）。由 mergePolymarketLogicalSave 分发。
+ * Polymarket save 合并（买/卖状态机）。由 mergeOrderLogicalSave 分发。
  */
 import { normalizePmMatchResult, parseNum } from "./dto.js";
 

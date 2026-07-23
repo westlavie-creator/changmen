@@ -41,7 +41,7 @@ PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏
 
 ### 1.2 Server
 
-- [x] `order_store.js`：卖单 Link 强制跟父买单；`mergePolymarketLogicalSave` sell 分支
+- [x] `order_store.js`：卖单 Link 强制跟父买单；`mergeOrderLogicalSave` → PM sell 分支
 - [x] `mergePredictionBuySellSiblings` + `fetchPredictionSellsByBuyOrderIds`：跨日 sibling
 - [x] `getOrders` / RDS merge 统一（`fetchPolymarketVenueOrdersMerged`）
 

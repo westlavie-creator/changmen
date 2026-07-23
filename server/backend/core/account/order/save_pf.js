@@ -1,6 +1,6 @@
 /**
  * PredictFun save 合并：身份/金额保护 + 非 PM 共用 raw 保留。
- * 与 Polymarket / 场馆平行，由 mergePolymarketLogicalSave 分发。
+ * 与 Polymarket / 场馆平行，由 mergeOrderLogicalSave 分发。
  */
 import { parseNum } from "./dto.js";
 import { finalizeNonPolymarketSave } from "./save_non_pm.js";

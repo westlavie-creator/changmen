@@ -93,9 +93,9 @@ describe("listUserProfitRank", () => {
   });
 });
 
-describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
+describe("mergeOrderLogicalSave buy stake after manual sell", () => {
   it("keeps original betMoney and accumulates money when closing a buy", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
     const prevRaw = {
       pmOrigin: "changmen",
       pmSide: "buy",
@@ -117,7 +117,7 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
       money: 3,
       status: "none",
     };
-    const { raw, bet_money, money } = mergePolymarketLogicalSave(
+    const { raw, bet_money, money } = mergeOrderLogicalSave(
       { bet_money: 111.52, money: 0 },
       prevRaw,
       incoming,
@@ -131,8 +131,8 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
   });
 
   it("stores and preserves pmSellProceeds on buy (PF-aligned)", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const first = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const first = mergeOrderLogicalSave(
       { bet_money: 100, money: 0 },
       {
         pmOrigin: "changmen",
@@ -161,8 +161,8 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
     expect(first.raw.pmSellProceeds).toBe(11.5);
     expect(first.raw.pmLastSellOrderId).toBe("0xsell");
 
-    // sync 不带回款字段时保留
-    const wiped = mergePolymarketLogicalSave(
+    // sync 不带回款字段时保�?
+    const wiped = mergeOrderLogicalSave(
       { bet_money: 100, money: 10 },
       first.raw,
       {
@@ -183,8 +183,8 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
   });
 
   it("does not invent pmSellProceeds=0 on legacy closed sync", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const { raw } = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw } = mergeOrderLogicalSave(
       { bet_money: 100, money: 10 },
       {
         pmOrigin: "changmen",
@@ -212,7 +212,7 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
   });
 
   it("keeps original betMoney on first partial sell patch", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
     const prevRaw = {
       pmOrigin: "changmen",
       pmSide: "buy",
@@ -233,7 +233,7 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
       money: 8,
       status: "none",
     };
-    const { raw, bet_money, money } = mergePolymarketLogicalSave(
+    const { raw, bet_money, money } = mergeOrderLogicalSave(
       { bet_money: 112, money: 0 },
       prevRaw,
       incoming,
@@ -247,7 +247,7 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
   });
 
   it("preserves legacy sell money when sync sends money=0", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
     const prevRaw = {
       pmOrigin: "changmen",
       pmSide: "sell",
@@ -263,7 +263,7 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
       money: 0,
       pmBuyOrderId: "0xbuy",
     };
-    const { money, raw } = mergePolymarketLogicalSave(
+    const { money, raw } = mergeOrderLogicalSave(
       { bet_money: 115, money: 3 },
       prevRaw,
       incoming,
@@ -274,10 +274,10 @@ describe("mergePolymarketLogicalSave buy stake after manual sell", () => {
   });
 });
 
-describe("mergePolymarketLogicalSave PredictFun partial sync", () => {
+describe("mergeOrderLogicalSave PredictFun partial sync", () => {
   it("keeps pfSellState/pfSide/pfBuyOrderId when incoming omits them", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw, money, bet_money } = mergeOrderLogicalSave(
       { bet_money: 80, money: 9 },
       {
         pfSide: "buy",
@@ -305,8 +305,8 @@ describe("mergePolymarketLogicalSave PredictFun partial sync", () => {
   });
 
   it("preserves PF sell money when sync sends money=0", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const { money, bet_money, raw } = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { money, bet_money, raw } = mergeOrderLogicalSave(
       { bet_money: 40, money: 2 },
       {
         pfSide: "sell",
@@ -329,10 +329,10 @@ describe("mergePolymarketLogicalSave PredictFun partial sync", () => {
   });
 });
 
-describe("mergePolymarketLogicalSave parallel branches (characterization)", () => {
+describe("mergeOrderLogicalSave parallel branches (characterization)", () => {
   it("OB venue still preserves stray pfFee* from prev (historical non-PM tail)", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const { raw, money, bet_money } = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw, money, bet_money } = mergeOrderLogicalSave(
       { bet_money: 10, money: 0 },
       {
         pfFeeAmountWei: "1000",
@@ -353,13 +353,13 @@ describe("mergePolymarketLogicalSave parallel branches (characterization)", () =
     expect(raw.pfFeeRateBps).toBe(50);
     expect(money).toBe(0);
     expect(bet_money).toBe(10);
-    // 场馆不走 PF 身份保护：不应发明 pfSide
+    // ???? PF ????????? pfSide
     expect(raw.pfSide).toBeUndefined();
   });
 
   it("OB does not apply PF money empty-write guard", async () => {
-    const { mergePolymarketLogicalSave } = await import("./order_store.js");
-    const { money, bet_money } = mergePolymarketLogicalSave(
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { money, bet_money } = mergeOrderLogicalSave(
       { bet_money: 80, money: 12 },
       { money: 12, betMoney: 80 },
       {
@@ -369,8 +369,111 @@ describe("mergePolymarketLogicalSave parallel branches (characterization)", () =
       },
       undefined,
     );
-    // 与拆分前一致：非 PF 不保护 money/bet
+    // ???????? PF ??? money/bet
     expect(money).toBe(0);
     expect(bet_money).toBe(0);
+  });
+
+  it("PM buy preserves max fill shares and fillPrice", async () => {
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw, bet_money, money } = mergeOrderLogicalSave(
+      { bet_money: 50, money: 0 },
+      {
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 50,
+        pmShares: 20,
+        pmFillPrice: 0.42,
+        money: 0,
+        status: "none",
+      },
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        betMoney: 50,
+        pmShares: 0,
+        pmFillPrice: 0,
+        money: 0,
+        status: "none",
+      },
+      "changmen",
+    );
+    expect(raw).toMatchObject({
+      pmSide: "buy",
+      pmShares: 20,
+      pmFillPrice: 0.42,
+      betMoney: 50,
+    });
+    expect(bet_money).toBe(50);
+    expect(money).toBe(0);
+  });
+
+  it("PM changmen sell keeps buy id and non-zero money from prev when sync sends 0", async () => {
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw, bet_money, money } = mergeOrderLogicalSave(
+      { bet_money: 12, money: 3.5 },
+      {
+        pmOrigin: "changmen",
+        pmSide: "sell",
+        pmBuyOrderId: "0xBuyParent",
+        betMoney: 12,
+        money: 3.5,
+        status: "none",
+      },
+      {
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "sell",
+        betMoney: 0,
+        money: 0,
+        status: "none",
+      },
+      "changmen",
+    );
+    expect(raw).toMatchObject({
+      pmSide: "sell",
+      pmOrigin: "changmen",
+      pmBuyOrderId: "0xBuyParent",
+    });
+    expect(money).toBe(3.5);
+    expect(bet_money).toBe(12);
+  });
+
+  it("PF keeps identity fields on partial sync (characterization)", async () => {
+    const { mergeOrderLogicalSave } = await import("./order_store.js");
+    const { raw, money, bet_money } = mergeOrderLogicalSave(
+      { bet_money: 40, money: 2 },
+      {
+        pfSide: "buy",
+        pfSellState: "open",
+        pfBuyOrderId: "",
+        pfTokenId: "tok-1",
+        pfMarketId: "mkt-9",
+        pfOrderHash: "0xhash",
+        pfApiOrderId: "api-1",
+        money: 2,
+        betMoney: 40,
+      },
+      {
+        provider: "PredictFun",
+        status: "Pending",
+        money: 0,
+        betMoney: 0,
+      },
+      undefined,
+    );
+    expect(raw).toMatchObject({
+      pfSide: "buy",
+      pfSellState: "open",
+      pfTokenId: "tok-1",
+      pfMarketId: "mkt-9",
+      pfOrderHash: "0xhash",
+      pfApiOrderId: "api-1",
+      money: 2,
+      betMoney: 40,
+    });
+    expect(money).toBe(2);
+    expect(bet_money).toBe(40);
   });
 });

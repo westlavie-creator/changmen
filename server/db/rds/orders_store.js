@@ -568,18 +568,20 @@ export async function fetchOrdersByPlayerAll(playerId, userId) {
   }
 }
 
-/** saveOrder 合并：只读本次 upsert 涉及的 order_id（及 PM 关联买单） */
+/** saveOrder 合并：只读本次 upsert 涉及的 order_id（及 PM/PF 关联买单；大小写不敏感） */
 export async function fetchOrdersByPlayerOrderIds(playerId, userId, orderIds) {
   const pool = getPgPool();
   if (!pool || !userId || !Array.isArray(orderIds) || !orderIds.length)
     return [];
-  const ids = [...new Set(orderIds.map(id => String(id).trim()).filter(Boolean))];
+  const ids = [...new Set(
+    orderIds.map(id => String(id).trim().toLowerCase()).filter(Boolean),
+  )];
   if (!ids.length)
     return [];
   try {
     const { rows } = await pool.query(
       `SELECT * FROM orders
-       WHERE user_id = $1 AND player_id = $2 AND order_id = ANY($3::text[])`,
+       WHERE user_id = $1 AND player_id = $2 AND lower(order_id) = ANY($3::text[])`,
       [String(userId), Number(playerId), ids],
     );
     return rows || [];

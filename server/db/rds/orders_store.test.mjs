@@ -83,10 +83,10 @@ describe("orders_store read SQL", () => {
 
   it("fetchOrdersByPlayerOrderIds filters by order_id list", async () => {
     queryMock.mockResolvedValue({ rows: [] });
-    await fetchOrdersByPlayerOrderIds(7, "user-1", ["o1", "o2"]);
+    await fetchOrdersByPlayerOrderIds(7, "user-1", ["o1", "O2"]);
     expect(queryMock).toHaveBeenCalledOnce();
     const [sql, params] = queryMock.mock.calls[0];
-    expect(sql).toMatch(/order_id = ANY\(\$3::text\[\]\)/);
+    expect(sql).toMatch(/lower\(order_id\) = ANY\(\$3::text\[\]\)/);
     expect(params).toEqual(["user-1", 7, ["o1", "o2"]]);
   });
 });

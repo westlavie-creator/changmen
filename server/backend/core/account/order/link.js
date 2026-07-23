@@ -233,13 +233,12 @@ export async function enrichOrdersBelongingToDate(dayRows, dateKey, opts = {}) {
 }
 
 /** order_id 大小写不敏感查找（PM 0x hex 偶发大小写不一致） */
-function findOrderRowById(byOrderId, orderId) {
+export function findOrderRowById(byOrderId, orderId) {
   const id = String(orderId ?? "").trim();
   if (!id)
     return undefined;
-  const direct = byOrderId.get(id);
-  if (direct)
-    return direct;
+  if (byOrderId.has(id))
+    return byOrderId.get(id);
   const needle = id.toLowerCase();
   for (const [key, row] of byOrderId) {
     if (String(key).toLowerCase() === needle)
@@ -289,7 +288,11 @@ export function resolveSaveOrderLink(
       return incomingBuyLink;
   }
 
-  const boundLink = Number(linkByOrderId.get(orderId)) || 0;
+  // 本单已绑 link：与 prevRow 一样大小写不敏感（linkByOrderId 与 existing 同源）
+  const boundFromRow = findOrderRowById(existingByOrderId, orderId);
+  const boundLink = boundFromRow
+    ? (Number(boundFromRow.link) || 0)
+    : (Number(linkByOrderId.get(orderId)) || 0);
   // 已绑套利 Link：SaveOrder 同步不覆盖（Bind 确认后保持稳定）
   if (isArbBindLink(boundLink))
     return boundLink;

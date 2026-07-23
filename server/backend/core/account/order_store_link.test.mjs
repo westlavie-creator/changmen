@@ -874,3 +874,83 @@ describe("listByDatePage link siblings", () => {
     expect(list.map(r => r.OrderID).sort()).toEqual(["ob-1", "pm-1"]);
   });
 });
+
+describe("saveOrder current orderId case-insensitive prev", () => {
+  beforeEach(() => {
+    fetchOrdersByPlayerOrderIds.mockReset();
+    upsertOrders.mockReset();
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([]);
+    upsertOrders.mockResolvedValue(true);
+  });
+
+  it("finds prevRow when RDS order_id casing differs from incoming", async () => {
+    const createAt = 1_781_900_000_000;
+    const arbLink = 1_781_900_000_500;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      {
+        order_id: "0xAbCDef",
+        link: arbLink,
+        create_at: createAt,
+        provider: "Polymarket",
+        bet_money: 88,
+        money: 7,
+        raw: {
+          pmOrigin: "changmen",
+          pmSide: "buy",
+          betMoney: 88,
+          money: 7,
+          pmShares: 15,
+          pmFillPrice: 0.55,
+          pmSellState: "closed",
+          status: "none",
+        },
+      },
+    ]);
+
+    await saveOrder(
+      7,
+      [{
+        orderId: "0xabcdef",
+        createAt,
+        provider: "Polymarket",
+        pmOrigin: "changmen",
+        pmSide: "buy",
+        // partial sync：空写金额，应保留库内
+        betMoney: 0,
+        money: 0,
+        pmShares: 0,
+        status: "none",
+      }],
+      "user-1",
+    );
+
+    expect(upsertOrders).toHaveBeenCalledOnce();
+    const row = upsertOrders.mock.calls[0][0][0];
+    // 命中 prev 后写出库内 order_id，保证 ON CONFLICT 更新而非插重复行
+    expect(row.order_id).toBe("0xAbCDef");
+    expect(row.link).toBe(arbLink);
+    expect(row.create_at).toBe(createAt);
+    expect(row.money).toBe(7);
+    expect(row.raw.pmShares).toBe(15);
+    expect(row.raw.pmFillPrice).toBe(0.55);
+    expect(row.raw.pmSellState).toBe("closed");
+  });
+
+  it("keeps arb bind link when only casing differs on re-save", async () => {
+    const createAt = 1_781_900_111_000;
+    const arbLink = 1_781_900_222_000;
+    fetchOrdersByPlayerOrderIds.mockResolvedValue([
+      { order_id: "0xDeadBeef", link: arbLink, create_at: createAt, provider: "OB", raw: {} },
+    ]);
+
+    await saveOrder(
+      7,
+      [{ orderId: "0xdeadbeef", createAt, provider: "OB", status: "Pending" }],
+      "user-1",
+    );
+
+    const row = upsertOrders.mock.calls[0][0][0];
+    expect(row.order_id).toBe("0xDeadBeef");
+    expect(row.link).toBe(arbLink);
+  });
+});
