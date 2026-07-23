@@ -3,7 +3,7 @@ import { adminOrderBetMoneyCny, adminOrderMoneyCny, sumAdminOrdersMoneyCny } fro
 
 describe("adminOrderMoneyCny", () => {
   it("passes through CNY venue money", () => {
-    expect(adminOrderMoneyCny({ provider: "OB", money: 100, pfSide: null })).toBe(100);
+    expect(adminOrderMoneyCny({ provider: "OB", money: 100 })).toBe(100);
   });
 
   it("scales PredictFun buy money USDT → CNY", () => {
@@ -22,7 +22,7 @@ describe("adminOrderMoneyCny", () => {
 
   it("sums mixed venues with PF FX", () => {
     const sum = sumAdminOrdersMoneyCny([
-      { provider: "OB", money: 100, pfSide: null },
+      { provider: "OB", money: 100 },
       { provider: "PredictFun", money: -10, pfSide: "buy" },
       { provider: "PredictFun", money: 0, pfSide: "sell" },
     ]);
