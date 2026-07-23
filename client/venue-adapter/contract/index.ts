@@ -145,9 +145,12 @@ export function isVenueLegPendingConfirm(outcome: VenueLegOutcome): boolean {
 export interface ResolveLegOutcomeOpts {
   /** PM：轮询 settle / trades；false 时仅按 getOrders + orderId 判拒 */
   confirmPmPost?: boolean;
-  /** 编排层已拉取的订单列表，避免重复 getOrders */
+  /** 显式订单快照（测试/兜底）；有 fetchVenueOrders 时 A8 路径优先回调 */
   orders?: VenueOrder[];
-  /** 编排层拉单回调（含 saveOrders）；PM settle 后刷新用 */
+  /**
+   * 编排层拉单回调（含 saveOrders）。
+   * [A8 可证实] A8 场馆须在 rejectWaitSec 之后调用，勿在编排入口预拉后塞入 orders。
+   */
   fetchVenueOrders?: () => Promise<VenueOrder[]>;
   /**
    * 拒单检测前等待秒数（A8 类场馆：sleep 后拉单一次）。

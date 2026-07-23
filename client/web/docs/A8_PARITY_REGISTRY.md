@@ -266,7 +266,9 @@ cd changmen/client/web && npm run test && npm run build
 |------|------|------|
 | 编排 | settleBothArbLegs | 并行双腿 settleArbLeg；Oe tip 不阻塞 |
 | 编排 | legRejectWaitSec | UI config.waitTime -> 场馆 rejectWaitSec |
-| 场馆 | resolveLegOutcome / venueRejectWaitBeforePoll | 单次 wait + 单次拉单 + orders[0].status |
+| 编排 | resolveVenueLegOutcome | 有 resolveLegOutcome 时**不预拉**；只传 fetchVenueOrders（2026-07 修：曾先拉再 wait，导致拒单漏检） |
+| 场馆 | resolveLegOutcome / venueRejectWaitBeforePoll | wait + 拉单 + orders[0].status；对齐 A8 tip→wait→updateOrders |
+| 场馆 | a8LegOutcome 短轮询 [changmen 扩展] | wait 后若空列表或 orders[0]=none，再最多 2 次、间隔 1s；终态仍只认 reject |
 | 补单配对 | arbMakeUpSides | 锚腿 vs 败腿 -> enqueueA / enqueueB / null |
 | 手动 A8 | betGateway.placeBet | 不做 A8 拒单复检；PM delayed settle 为扩展 |
 

@@ -9,11 +9,10 @@ export type { ResolveLegOutcomeOpts };
 
 /**
  * 编排层入口：委托场馆 provider.resolveLegOutcome。
- * fetchVenueOrders 通常为 accountStore.updateVenueOrders（非 PF 含 saveOrders；PF 只拉单统计）。
+ * fetchVenueOrders 通常为 accountStore.updateVenueOrders（含 saveOrders / 统计）。
  *
- * [changmen 扩展] `confirmPmPost`：不在入口预拉；由 PM `resolvePolymarketLegOutcome`
- * 按需拉单（fill confirmed 快路径仅一次；delayed 在 settlement 后再拉）。
- * A8 场馆：仍预拉后传入 `orders`（拒单等待在 a8LegOutcome 内）。
+ * [A8 可证实] tip → wait(q) → updateOrders：有 resolveLegOutcome 时不预拉，
+ * 只传 fetchVenueOrders，由场馆层 wait 后再拉（含 A8 / PM / PF / SX）。
  */
 export async function resolveVenueLegOutcome(
   account: PlatformAccount,
@@ -24,7 +23,7 @@ export async function resolveVenueLegOutcome(
   const pullSorted = async () => sortVenueOrdersNewestFirst((await fetchVenueOrders()) ?? []);
   const provider = getProvider(account);
 
-  if (provider?.resolveLegOutcome && opts.confirmPmPost) {
+  if (provider?.resolveLegOutcome) {
     return provider.resolveLegOutcome(account, result, {
       ...opts,
       fetchVenueOrders: pullSorted,
@@ -32,9 +31,6 @@ export async function resolveVenueLegOutcome(
   }
 
   const orders = await pullSorted();
-  if (provider?.resolveLegOutcome) {
-    return provider.resolveLegOutcome(account, result, { ...opts, orders });
-  }
   return {
     orders,
     settlement: isA8VenueReject(orders) ? "unfilled" : "filled",

@@ -13,7 +13,7 @@ describe("resolveVenueLegOutcome", () => {
     getProvider.mockReset();
   });
 
-  it("confirmPmPost skips entry pre-fetch; provider gets fetchVenueOrders callback", async () => {
+  it("with resolveLegOutcome skips entry pre-fetch; provider gets fetchVenueOrders", async () => {
     const resolveLegOutcome = vi.fn().mockResolvedValue({
       orders: [],
       settlement: "filled",
@@ -24,17 +24,20 @@ describe("resolveVenueLegOutcome", () => {
     ]);
 
     const out = await resolveVenueLegOutcome(
-      { provider: "Polymarket" } as never,
-      new BetResult("Polymarket", true),
+      { provider: "OB" } as never,
+      new BetResult("OB", true),
       fetchVenueOrders,
-      { confirmPmPost: true },
+      { rejectWaitSec: 5 },
     );
 
     expect(fetchVenueOrders).not.toHaveBeenCalled();
     expect(resolveLegOutcome).toHaveBeenCalledWith(
-      { provider: "Polymarket" },
+      { provider: "OB" },
       expect.any(BetResult),
-      expect.objectContaining({ confirmPmPost: true, fetchVenueOrders: expect.any(Function) }),
+      expect.objectContaining({
+        rejectWaitSec: 5,
+        fetchVenueOrders: expect.any(Function),
+      }),
     );
     expect(out.settlement).toBe("filled");
   });
@@ -75,6 +78,7 @@ describe("resolveVenueLegOutcome", () => {
       fetchVenueOrders,
     );
 
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
     expect(out.settlement).toBe("unfilled");
   });
 });

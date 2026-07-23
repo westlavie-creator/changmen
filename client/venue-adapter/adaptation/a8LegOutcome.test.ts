@@ -30,7 +30,7 @@ describe("a8LegOutcome", () => {
 
   it("waits rejectWaitSec before pulling orders", async () => {
     vi.useFakeTimers();
-    const getOrders = vi.fn().mockResolvedValue([{ status: "none", createAt: 1 } as never]);
+    const getOrders = vi.fn().mockResolvedValue([{ status: "reject", createAt: 1 } as never]);
     const provider = { getOrders };
 
     const pending = resolveA8VenueLegOutcome(
@@ -42,8 +42,92 @@ describe("a8LegOutcome", () => {
     await vi.advanceTimersByTimeAsync(2999);
     expect(getOrders).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
-    await pending;
+    const out = await pending;
     expect(getOrders).toHaveBeenCalledTimes(1);
+    expect(out.settlement).toBe("unfilled");
+    vi.useRealTimers();
+  });
+
+  it("prefers fetchVenueOrders after wait; does not use stale opts.orders", async () => {
+    vi.useFakeTimers();
+    const fetchVenueOrders = vi.fn().mockResolvedValue([
+      { status: "reject", createAt: 2 } as never,
+    ]);
+    const getOrders = vi.fn().mockResolvedValue([
+      { status: "none", createAt: 1 } as never,
+    ]);
+    const provider = { getOrders };
+
+    const pending = resolveA8VenueLegOutcome(
+      provider,
+      { provider: "RAY" } as never,
+      undefined,
+      {
+        rejectWaitSec: 2,
+        orders: [{ status: "none", createAt: 1 } as never],
+        fetchVenueOrders,
+      },
+    );
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(fetchVenueOrders).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    const out = await pending;
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
+    expect(getOrders).not.toHaveBeenCalled();
+    expect(out.settlement).toBe("unfilled");
+    vi.useRealTimers();
+  });
+
+  it("uses opts.orders when fetchVenueOrders is absent (no uncertain re-poll)", async () => {
+    const getOrders = vi.fn();
+    const out = await resolveA8VenueLegOutcome(
+      { getOrders },
+      { provider: "OB" } as never,
+      undefined,
+      { orders: [{ status: "none", createAt: 1 } as never] },
+    );
+    expect(getOrders).not.toHaveBeenCalled();
+    expect(out.settlement).toBe("filled");
+  });
+
+  it("re-polls when first snapshot is none then reject", async () => {
+    vi.useFakeTimers();
+    const fetchVenueOrders = vi.fn()
+      .mockResolvedValueOnce([{ status: "none", createAt: 1 } as never])
+      .mockResolvedValueOnce([{ status: "reject", createAt: 2 } as never]);
+
+    const pending = resolveA8VenueLegOutcome(
+      { getOrders: vi.fn() },
+      { provider: "RAY" } as never,
+      undefined,
+      { rejectWaitSec: 0, fetchVenueOrders },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    const out = await pending;
+    expect(fetchVenueOrders).toHaveBeenCalledTimes(2);
+    expect(out.settlement).toBe("unfilled");
+    vi.useRealTimers();
+  });
+
+  it("re-polls empty list then still empty → filled", async () => {
+    vi.useFakeTimers();
+    const getOrders = vi.fn().mockResolvedValue([]);
+    const pending = resolveA8VenueLegOutcome(
+      { getOrders },
+      { provider: "OB" } as never,
+      undefined,
+      { rejectWaitSec: 0 },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(getOrders).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(getOrders).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1000);
+    const out = await pending;
+    expect(getOrders).toHaveBeenCalledTimes(3);
+    expect(out.settlement).toBe("filled");
     vi.useRealTimers();
   });
 });
