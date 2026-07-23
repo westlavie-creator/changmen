@@ -6,6 +6,10 @@ import * as accountService from "../account/account_service.js";
 import * as accountStore from "../account/account_store.js";
 import { getMonthReport } from "../account/report_service.js";
 import * as dbStore from "../db/store.js";
+import {
+  handlePmHttpRequest,
+  handleRefreshPmBalance,
+} from "../integrations/polymarket/pm_client_handlers.js";
 
 interface ApiSuccess<T = unknown> {
   success: 1;
@@ -153,15 +157,15 @@ export async function handleAccountClientAction(
     case "Client_RefreshAccountBalance":
       return fail("已废弃：PM 余额请用 Pm_RefreshBalance");
     case "Pm_RefreshBalance": {
-      const refreshed = await accountService.handleRefreshPmBalance(body, ctx.user!.id);
+      const refreshed = await handleRefreshPmBalance(body, ctx.user!.id);
       return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
     }
     case "Pm_HttpRequest": {
-      const proxied = await accountService.handlePmHttpRequest(body, ctx.user!.id);
+      const proxied = await handlePmHttpRequest(body, ctx.user!.id);
       if (!proxied.ok)
         return fail(proxied.msg);
-      const upstream = proxied.info;
-      if (upstream?.status >= 400) {
+      const upstream = proxied.info as { status?: number; text?: string } | undefined;
+      if (upstream?.status != null && upstream.status >= 400) {
         const snippet = String(upstream.text || "").slice(0, 160) || `HTTP ${upstream.status}`;
         return fail(snippet);
       }

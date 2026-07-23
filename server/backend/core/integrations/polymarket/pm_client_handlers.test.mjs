@@ -11,31 +11,64 @@ vi.mock("./clob_proxy.js", () => ({
           ? JSON.stringify({ heartbeat_id: "hb-next" })
           : JSON.stringify({ success: true, orderID: "oid-1" }),
   })),
+  pickPolymarketPolyHeaders: vi.fn((raw) => {
+    if (!raw || typeof raw !== "object")
+      return undefined;
+    const out = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (String(k).toUpperCase().startsWith("POLY_"))
+        out[k] = v;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }),
 }));
 
 vi.mock("./clob_l2.js", () => ({
   fetchPolymarketTradesSince: vi.fn(async () => [{ taker_order_id: "t1", side: "BUY" }]),
 }));
 
+vi.mock("./balance.js", () => ({
+  fetchPolymarketCollateralBalance: vi.fn(async () => ({ balance: 12.5, currency: "USDT" })),
+}));
+
 vi.mock("../../db/store.js", () => ({
   refreshAccountsFromRdsIfEmpty: vi.fn(async () => {}),
 }));
 
+const accounts = [{
+  accountId: 47,
+  provider: "polymarket",
+  credit: 10,
+  token: JSON.stringify({
+    walletAddress: "0xabc",
+    apiCreds: { apiKey: "k", secret: "c2VjcmV0", passphrase: "p" },
+  }),
+}];
+
 vi.mock("../../esport-api/store.js", () => ({
   default: {
-    getAccountsForUser: () => [{
-      accountId: 47,
-      provider: "polymarket",
-      token: JSON.stringify({
-        walletAddress: "0xabc",
-        apiCreds: { apiKey: "k", secret: "c2VjcmV0", passphrase: "p" },
-      }),
-    }],
+    getAccountsForUser: () => accounts,
+    setAccountsForUser: vi.fn((_uid, list) => {
+      accounts.splice(0, accounts.length, ...list);
+    }),
   },
 }));
 
 vi.mock("../../account/player_ownership.js", () => ({
   assertPlayerOwnedByUser: vi.fn(async () => ({ ok: true })),
+}));
+
+vi.mock("../../account/account_store.js", () => ({
+  updatePlayerBalance: vi.fn(async (_id, bal) => ({ total: bal })),
+  getAccountsFromKv: vi.fn(() => accounts),
+}));
+
+vi.mock("../../account/balance_provider.js", () => ({
+  enrichAccountFromPlatformDefaults: (a) => a,
+}));
+
+vi.mock("@changmen/shared/account_multiply", () => ({
+  normalizeAccountMultiplyField: (v) => v,
 }));
 
 const {
@@ -45,6 +78,8 @@ const {
   handlePmHeartbeat,
   handlePmGetOpenOrders,
   handlePmCancelOrder,
+  handlePmHttpRequest,
+  handleRefreshPmBalance,
 } = await import("./pm_client_handlers.js");
 
 describe("pm_client_handlers", () => {
@@ -111,5 +146,41 @@ describe("pm_client_handlers", () => {
         body: { orderID: "oid-1" },
       }),
     );
+  });
+
+  test("Pm_HttpRequest 需要 url", async () => {
+    const res = await handlePmHttpRequest({ method: "GET" }, "user-1");
+    expect(res.ok).toBe(false);
+    expect(String(res.msg)).toMatch(/url/);
+  });
+
+  test("Pm_HttpRequest 成功透传上游", async () => {
+    const { executePolymarketHttpRequest } = await import("./clob_proxy.js");
+    vi.mocked(executePolymarketHttpRequest).mockResolvedValueOnce({
+      status: 200,
+      text: "{\"ok\":1}",
+    });
+    const res = await handlePmHttpRequest({
+      method: "GET",
+      url: "https://clob.polymarket.com/book?token_id=1",
+    }, "user-1");
+    expect(res.ok).toBe(true);
+    expect(res.info).toEqual({ status: 200, text: "{\"ok\":1}" });
+  });
+
+  test("Pm_RefreshBalance 写入余额", async () => {
+    const { updatePlayerBalance } = await import("../../account/account_store.js");
+    const res = await handleRefreshPmBalance({ playerId: 47 }, "user-1");
+    expect(res.ok).toBe(true);
+    expect(res.info).toMatchObject({ balance: 12.5, currency: "USDT" });
+    expect(updatePlayerBalance).toHaveBeenCalledWith(47, 12.5, "user-1");
+  });
+
+  test("Pm_RefreshBalance 拒绝非 PM 账号", async () => {
+    accounts[0] = { ...accounts[0], provider: "OB" };
+    const res = await handleRefreshPmBalance({ playerId: 47 }, "user-1");
+    expect(res.ok).toBe(false);
+    expect(String(res.msg)).toMatch(/Polymarket/);
+    accounts[0] = { ...accounts[0], provider: "polymarket" };
   });
 });

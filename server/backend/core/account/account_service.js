@@ -1,11 +1,6 @@
 import { normalizeAccountMultiplyField, preserveStoredAccountMultiply } from "@changmen/shared/account_multiply";
 import * as dbStore from "../db/store.js";
 import { VenueAccountKeyConflictError, isVenueAccountKeyUniqueViolation } from "@changmen/db/venue_account_key.js";
-import { fetchPolymarketCollateralBalance } from "../integrations/polymarket/balance.js";
-import {
-  executePolymarketHttpRequest,
-  pickPolymarketPolyHeaders,
-} from "../integrations/polymarket/clob_proxy.js";
 import store from "../esport-api/store.js";
 import { emptyPage } from "../esport-api/stubs.js";
 import {
@@ -480,118 +475,6 @@ async function handleRefreshAccountBalance(body, userId) {
   return { ok: true, info: { ...row, balance: undefined } };
 }
 
-function parsePmHttpBodyField(raw) {
-  if (raw == null || raw === "")
-    return undefined;
-  if (typeof raw === "object")
-    return raw;
-  const text = String(raw).trim();
-  if (!text)
-    return undefined;
-  if (text.startsWith("{") || text.startsWith("[")) {
-    try {
-      return JSON.parse(text);
-    }
-    catch {
-      return text;
-    }
-  }
-  return text;
-}
-
-function findPolymarketAccountRow(accounts, playerId) {
-  const want = String(playerId).trim();
-  if (!want)
-    return null;
-  return accounts.find((row) => {
-    const id = String(row.accountId ?? row.AccountId ?? "").trim();
-    const provider = String(row.provider ?? "").trim().toLowerCase();
-    return id === want && provider === "polymarket";
-  }) ?? null;
-}
-
-/** [changmen 扩展] PM HTTP：VPS 直连 Gamma/CLOB，不经 http-relay */
-async function handlePmHttpRequest(body, userId) {
-  if (!userId)
-    return { ok: false, msg: "请先登录" };
-
-  const method = String(body.method || "GET").trim().toUpperCase();
-  const url = String(body.url || "").trim();
-  if (!url)
-    return { ok: false, msg: "url 必填" };
-
-  const l2Path = String(body.l2Path || "").trim();
-  const playerId = body.playerId;
-  let accountToken;
-  if (playerId && l2Path) {
-    const owned = await assertPlayerOwnedByUser(playerId, userId);
-    if (!owned.ok)
-      return owned;
-    await dbStore.refreshAccountsFromRdsIfEmpty(userId);
-    const row = findPolymarketAccountRow(store.getAccountsForUser(userId), playerId);
-    if (!row?.token)
-      return { ok: false, msg: "PM 账号不存在或缺少 token" };
-    accountToken = row.token;
-  }
-
-  const polyHeaders = pickPolymarketPolyHeaders(parsePmHttpBodyField(body.polyHeaders));
-  if (l2Path && !accountToken && !polyHeaders)
-    return { ok: false, msg: "L2 请求需要 playerId 或 polyHeaders" };
-
-  try {
-    const result = await executePolymarketHttpRequest({
-      method,
-      url,
-      l2Path: l2Path || undefined,
-      accountToken,
-      polyHeaders,
-      body: parsePmHttpBodyField(body.body),
-    });
-    return { ok: true, info: result };
-  }
-  catch (err) {
-    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/** [changmen 扩展] PM 余额：VPS 直连 CLOB，不经 http-relay */
-async function handleRefreshPmBalance(body, userId) {
-  const playerId = body.playerId;
-  if (!playerId)
-    return { ok: false, msg: "playerId 必填" };
-  const owned = await assertPlayerOwnedByUser(playerId, userId);
-  if (!owned.ok)
-    return owned;
-  const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
-  const row = enrichAccountRowFromPlayer(
-    accounts.find(r => String(r.accountId) === String(playerId)),
-  );
-  if (!row)
-    return { ok: false, msg: "account 不存在" };
-  if (String(row.provider ?? "").trim().toLowerCase() !== "polymarket")
-    return { ok: false, msg: "仅 Polymarket 账号可用 Pm_RefreshBalance" };
-  const enriched = enrichAccountFromPlatformDefaults(row);
-  if (!enriched.token)
-    return { ok: false, msg: "PM 账号缺少 token" };
-  try {
-    const bal = await fetchPolymarketCollateralBalance(enriched);
-    if (!bal)
-      return { ok: true, info: { ...row, balance: undefined } };
-    const balance = Number(bal.balance) || 0;
-    const credit = Number(row.credit) || 0;
-    await accountStore.updatePlayerBalance(playerId, balance, userId);
-    const synced = syncAccountRowInKv(playerId, {
-      balance,
-      currency: bal.currency || "USDT",
-      totalProfit: balance - credit,
-    }, userId);
-    return { ok: true, info: { ...synced, balance } };
-  }
-  catch (err) {
-    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
-  }
-}
-
 async function handleSaveUserLog(body, userId) {
   if (!userId)
     return { ok: false, msg: "请先登录" };
@@ -622,8 +505,6 @@ export {
   handleGetTagPlatforms,
   handleGetUserProfit,
   handleGetUsers,
-  handleRefreshPmBalance,
-  handlePmHttpRequest,
   handleRefreshAccountBalance,
   handleSaveAccounts,
   handleSaveData,

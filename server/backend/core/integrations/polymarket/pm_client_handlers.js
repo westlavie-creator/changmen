@@ -1,10 +1,14 @@
 /**
  * Polymarket 语义 Pm_* 处理器（VPS 直连 CLOB）
  */
+import { normalizeAccountMultiplyField } from "@changmen/shared/account_multiply";
+import * as accountStore from "../../account/account_store.js";
+import { assertPlayerOwnedByUser } from "../../account/player_ownership.js";
+import { enrichAccountFromPlatformDefaults } from "../../account/balance_provider.js";
 import * as dbStore from "../../db/store.js";
 import store from "../../esport-api/store.js";
-import { assertPlayerOwnedByUser } from "../../account/player_ownership.js";
-import { executePolymarketHttpRequest } from "./clob_proxy.js";
+import { fetchPolymarketCollateralBalance } from "./balance.js";
+import { executePolymarketHttpRequest, pickPolymarketPolyHeaders } from "./clob_proxy.js";
 import { fetchPolymarketTradesSince } from "./clob_l2.js";
 
 const DEFAULT_CLOB = "https://clob.polymarket.com";
@@ -105,6 +109,99 @@ async function resolveOwnedPmAccount(playerId, userId) {
   if (!row?.token)
     return { ok: false, msg: "PM 账号不存在或缺少 token" };
   return { ok: true, account: row };
+}
+
+function syncAccountRowInKv(accountId, updates, userId) {
+  const list = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
+  const idx = list.findIndex(row => String(row.accountId) === String(accountId));
+  if (idx < 0)
+    return null;
+  list[idx] = { ...list[idx], ...updates, updateTime: Date.now() };
+  if (userId)
+    store.setAccountsForUser(userId, list);
+  return list[idx];
+}
+
+/** [changmen 扩展] Pm_HttpRequest：VPS 直连 Gamma/CLOB，不经 http-relay */
+export async function handlePmHttpRequest(body, userId) {
+  if (!userId)
+    return { ok: false, msg: "请先登录" };
+
+  const method = String(body.method || "GET").trim().toUpperCase();
+  const url = String(body.url || "").trim();
+  if (!url)
+    return { ok: false, msg: "url 必填" };
+
+  const l2Path = String(body.l2Path || "").trim();
+  const playerId = body.playerId;
+  let accountToken;
+  if (playerId && l2Path) {
+    const owned = await assertPlayerOwnedByUser(playerId, userId);
+    if (!owned.ok)
+      return owned;
+    await dbStore.refreshAccountsFromRdsIfEmpty(userId);
+    const row = findPolymarketAccountRow(store.getAccountsForUser(userId), playerId);
+    if (!row?.token)
+      return { ok: false, msg: "PM 账号不存在或缺少 token" };
+    accountToken = row.token;
+  }
+
+  const polyHeaders = pickPolymarketPolyHeaders(parseBodyField(body.polyHeaders));
+  if (l2Path && !accountToken && !polyHeaders)
+    return { ok: false, msg: "L2 请求需要 playerId 或 polyHeaders" };
+
+  try {
+    const result = await executePolymarketHttpRequest({
+      method,
+      url,
+      l2Path: l2Path || undefined,
+      accountToken,
+      polyHeaders,
+      body: parseBodyField(body.body),
+    });
+    return { ok: true, info: result };
+  }
+  catch (err) {
+    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** [changmen 扩展] Pm_RefreshBalance：VPS 直连 CLOB，不经 http-relay */
+export async function handleRefreshPmBalance(body, userId) {
+  const playerId = body.playerId;
+  if (!playerId)
+    return { ok: false, msg: "playerId 必填" };
+  const owned = await assertPlayerOwnedByUser(playerId, userId);
+  if (!owned.ok)
+    return owned;
+  const accounts = userId ? store.getAccountsForUser(userId) : accountStore.getAccountsFromKv();
+  const row = normalizeAccountMultiplyField(
+    accounts.find(r => String(r.accountId) === String(playerId)),
+  );
+  if (!row)
+    return { ok: false, msg: "account 不存在" };
+  if (String(row.provider ?? "").trim().toLowerCase() !== "polymarket")
+    return { ok: false, msg: "仅 Polymarket 账号可用 Pm_RefreshBalance" };
+  const enriched = enrichAccountFromPlatformDefaults(row);
+  if (!enriched.token)
+    return { ok: false, msg: "PM 账号缺少 token" };
+  try {
+    const bal = await fetchPolymarketCollateralBalance(enriched);
+    if (!bal)
+      return { ok: true, info: { ...row, balance: undefined } };
+    const balance = Number(bal.balance) || 0;
+    const credit = Number(row.credit) || 0;
+    await accountStore.updatePlayerBalance(playerId, balance, userId);
+    const synced = syncAccountRowInKv(playerId, {
+      balance,
+      currency: bal.currency || "USDT",
+      totalProfit: balance - credit,
+    }, userId);
+    return { ok: true, info: { ...synced, balance } };
+  }
+  catch (err) {
+    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /** Pm_SubmitOrder */
