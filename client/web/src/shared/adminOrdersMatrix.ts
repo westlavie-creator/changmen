@@ -1,5 +1,6 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { isSingleLegLink } from "@changmen/client-core/shared/format";
+import { adminOrderBetMoneyCny, adminOrderMoneyCny } from "@/shared/adminOrderMoney";
 import { linkIdGroupKey } from "@/shared/orderLink";
 
 export interface LinkOrderGroup {
@@ -183,8 +184,8 @@ export function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
         linkId,
         rows: sorted,
         createAt: sorted[0].createAt,
-        betMoney: sorted.reduce((s, r) => s + (Number(r.betMoney) || 0), 0),
-        money: sorted.reduce((s, r) => s + (Number(r.money) || 0), 0),
+        betMoney: sorted.reduce((s, r) => s + adminOrderBetMoneyCny(r), 0),
+        money: sorted.reduce((s, r) => s + adminOrderMoneyCny(r), 0),
         isLinked: linkId !== 0 && !isSingleLegLink(linkId) && sorted.length > 1,
       };
     })
