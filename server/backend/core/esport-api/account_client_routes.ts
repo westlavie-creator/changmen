@@ -1,15 +1,11 @@
 /**
- * 账号/订单/流水等 Client_*（及仍走 account_service 的 Pm_RefreshBalance / Pm_HttpRequest）。
- * 由 router.handle 委托；行为与拆出前一致。勿 import router 运行时符号，以免 ESM 环。
+ * 账号/订单/流水等 Client_* 分发。由 router.handle 委托；行为与拆出前一致。
+ * 勿 import router 运行时符号，以免 ESM 环。
  */
 import * as accountService from "../account/account_service.js";
 import * as accountStore from "../account/account_store.js";
 import { getMonthReport } from "../account/report_service.js";
 import * as dbStore from "../db/store.js";
-import {
-  handlePmHttpRequest,
-  handleRefreshPmBalance,
-} from "../integrations/polymarket/pm_client_handlers.js";
 
 interface ApiSuccess<T = unknown> {
   success: 1;
@@ -54,8 +50,6 @@ const ACCOUNT_CLIENT_ACTIONS = new Set([
   "Client_DeletePlayer",
   "Client_UpdateBalance",
   "Client_RefreshAccountBalance",
-  "Pm_RefreshBalance",
-  "Pm_HttpRequest",
   "Client_GetMoneyLogs",
   "Client_GetMoneyLog",
   "Client_MonthReport",
@@ -156,21 +150,6 @@ export async function handleAccountClientAction(
     }
     case "Client_RefreshAccountBalance":
       return fail("已废弃：PM 余额请用 Pm_RefreshBalance");
-    case "Pm_RefreshBalance": {
-      const refreshed = await handleRefreshPmBalance(body, ctx.user!.id);
-      return refreshed.ok ? ok(refreshed.info) : fail(refreshed.msg);
-    }
-    case "Pm_HttpRequest": {
-      const proxied = await handlePmHttpRequest(body, ctx.user!.id);
-      if (!proxied.ok)
-        return fail(proxied.msg);
-      const upstream = proxied.info as { status?: number; text?: string } | undefined;
-      if (upstream?.status != null && upstream.status >= 400) {
-        const snippet = String(upstream.text || "").slice(0, 160) || `HTTP ${upstream.status}`;
-        return fail(snippet);
-      }
-      return ok(upstream);
-    }
     case "Client_GetMoneyLogs": {
       const page = await accountService.handleGetMoneyLogs(body, ctx.user!.id);
       return page.ok ? ok(page.info) : fail(page.msg);

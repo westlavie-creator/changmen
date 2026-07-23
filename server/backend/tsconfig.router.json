@@ -19,7 +19,8 @@
   "include": [
     "core/esport-api/router.ts",
     "core/esport-api/admin_routes.ts",
-    "core/esport-api/account_client_routes.ts"
+    "core/esport-api/account_client_routes.ts",
+    "core/esport-api/pm_pf_routes.ts"
   ],
   "exclude": ["**/*.js", "node_modules"]
 }

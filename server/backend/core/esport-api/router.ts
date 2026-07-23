@@ -15,26 +15,6 @@ import catalog from "@changmen/shared/catalog/game_catalog.json" with { type: "j
 import venueGames from "@changmen/shared/catalog/venue_games.json" with { type: "json" };
 import { getDefaultMarketCode, getPlatformRules } from "@changmen/shared/catalog/market_catalog";
 import { isWsForwardHttpPath } from "@changmen/ws-forward";
-import {
-  handlePmCancelOrder,
-  handlePmGetBook,
-  handlePmGetOpenOrders,
-  handlePmGetOrder,
-  handlePmGetTrades,
-  handlePmHeartbeat,
-  handlePmSubmitOrder,
-} from "../integrations/polymarket/pm_client_handlers.js";
-import {
-  handlePfCheckBet,
-  handlePfGetOrder,
-  handlePfGetOrders,
-  handlePfHouseRedeemResolved,
-  handlePfRecoverStuckOrders,
-  handlePfRefreshBalance,
-  handlePfSettleOpenOrders,
-  handlePfSubmitOrder,
-  handlePfSubmitSell,
-} from "../integrations/predictfun/pf_client_handlers.js";
 import * as accountStore from "../account/account_store.js";
 import { assertProfileActive } from "../account/admin_service.js";
 import { normalizeClientIp, recordUserLastLogin } from "../account/user_login_meta.js";
@@ -47,6 +27,7 @@ import { requirePlatform } from "../shared/adapter_paths.js";
 import { handleAccountClientAction, isAccountClientAction } from "./account_client_routes.js";
 import { handleAdminAction, isAdminAction } from "./admin_routes.js";
 import { handleCommonApi } from "./hg_follow.js";
+import { handlePmPfAction, isPmPfAction } from "./pm_pf_routes.js";
 import store from "./store.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
 import { handleV4Request } from "./v4_router.js";
@@ -278,6 +259,13 @@ async function handle(
     return adminResult ?? fail(`未知管理端 action: ${action}`);
   }
 
+  if (isPmPfAction(String(action))) {
+    if (!ctx.user)
+      return fail("未登录");
+    const pmPfResult = await handlePmPfAction(String(action), body, { user: ctx.user });
+    return pmPfResult ?? fail(`未知预测市场 action: ${action}`);
+  }
+
   if (isAccountClientAction(String(action))) {
     const accountResult = await handleAccountClientAction(String(action), body, { user: ctx.user });
     return (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope;
@@ -481,72 +469,6 @@ async function handle(
       }
     case "API_SaveScore":
       return ok(true);
-    case "Pm_SubmitOrder": {
-      const submitted = await handlePmSubmitOrder(body, ctx.user.id);
-      return submitted.ok ? ok(submitted.info) : fail(submitted.msg);
-    }
-    case "Pm_CancelOrder": {
-      const cancelled = await handlePmCancelOrder(body, ctx.user.id);
-      return cancelled.ok ? ok(cancelled.info) : fail(cancelled.msg);
-    }
-    case "Pm_GetTrades": {
-      const trades = await handlePmGetTrades(body, ctx.user.id);
-      return trades.ok ? ok(trades.info) : fail(trades.msg);
-    }
-    case "Pm_GetOrder": {
-      const order = await handlePmGetOrder(body, ctx.user.id);
-      return order.ok ? ok(order.info) : fail(order.msg);
-    }
-    case "Pm_GetBook": {
-      const book = await handlePmGetBook(body, ctx.user.id);
-      return book.ok ? ok(book.info) : fail(book.msg);
-    }
-    case "Pm_Heartbeat": {
-      const heartbeat = await handlePmHeartbeat(body, ctx.user.id);
-      return heartbeat.ok ? ok(heartbeat.info) : fail(heartbeat.msg);
-    }
-    case "Pm_GetOpenOrders": {
-      const openOrders = await handlePmGetOpenOrders(body, ctx.user.id);
-      return openOrders.ok ? ok(openOrders.info) : fail(openOrders.msg);
-    }
-    case "Pf_CheckBet": {
-      const checked = await handlePfCheckBet(body, ctx.user.id);
-      return checked.ok ? ok(checked.info) : fail(checked.msg);
-    }
-    case "Pf_SubmitOrder": {
-      const submittedPf = await handlePfSubmitOrder(body, ctx.user.id);
-      return submittedPf.ok ? ok(submittedPf.info) : fail(submittedPf.msg);
-    }
-    case "Pf_SubmitSell": {
-      const soldPf = await handlePfSubmitSell(body, ctx.user.id);
-      return soldPf.ok ? ok(soldPf.info) : fail(soldPf.msg);
-    }
-    case "Pf_RefreshBalance": {
-      const pfBal = await handlePfRefreshBalance(body, ctx.user.id);
-      return pfBal.ok ? ok(pfBal.info) : fail(pfBal.msg);
-    }
-    case "Pf_GetOrder": {
-      const pfOrder = await handlePfGetOrder(body, ctx.user.id);
-      return pfOrder.ok ? ok(pfOrder.info) : fail(pfOrder.msg);
-    }
-    case "Pf_GetOrders": {
-      const pfOrders = await handlePfGetOrders(body, ctx.user.id);
-      return pfOrders.ok ? ok(pfOrders.info) : fail(pfOrders.msg);
-    }
-    case "Pf_SettleOpenOrders": {
-      const pfSettle = await handlePfSettleOpenOrders(body, ctx.user.id);
-      return pfSettle.ok ? ok(pfSettle.info) : fail(pfSettle.msg);
-    }
-    case "Pf_HouseRedeemResolved": {
-      if (!isAdminUser(ctx.user))
-        return fail("需要管理员权限");
-      const pfRedeem = await handlePfHouseRedeemResolved(body, ctx.user.id);
-      return pfRedeem.ok ? ok(pfRedeem.info) : fail(pfRedeem.msg);
-    }
-    case "Pf_RecoverStuckOrders": {
-      const pfRecover = await handlePfRecoverStuckOrders(body, ctx.user.id);
-      return pfRecover.ok ? ok(pfRecover.info) : fail(pfRecover.msg);
-    }
     case "Client_GetDefaultOdds": {
       const betId = Number(body.betId);
       const team = String(body.team || "");
