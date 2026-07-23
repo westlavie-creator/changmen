@@ -56,10 +56,10 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ pmAutoExitSell: true })).toEqual(defaultPrefs);
   });
 
-  it("can enable arbFailAutoSell", () => {
+  it("forces arbFailAutoSell off while temporarily locked", () => {
     expect(normalizeExtensionPrefs({
       arbFailAutoSell: { enabled: true },
-    }).arbFailAutoSell).toEqual({ enabled: true });
+    }).arbFailAutoSell).toEqual({ enabled: false });
   });
 
   it("defaults arbFailAutoSell off", () => {

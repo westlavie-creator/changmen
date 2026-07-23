@@ -20,10 +20,16 @@ export interface StakeScaleByProfitPrefs {
  * [changmen 扩展] 套利失败敞口自动减仓。
  * 一腿 PM/PF 已成交、对侧拒单且未能入补单队列（或补单随后放弃）时，市价卖掉已成交预测市场腿。
  * 默认关闭；不做止盈，仅风控减仓。
+ *
+ * 暂不可开启：与 A8 补单 prune 叠加有误卖敞口风险，待 staging 验证后再放开。
+ * 放开时：改 `ARB_FAIL_AUTO_SELL_AVAILABLE`、UI 开关，并恢复 normalize 对 enabled 的解析。
  */
 export interface ArbFailAutoSellPrefs {
   enabled: boolean;
 }
+
+/** 失败减仓是否允许用户开启（临时锁死） */
+export const ARB_FAIL_AUTO_SELL_AVAILABLE = false;
 
 /**
  * [changmen 扩展] 庄+PM/PF 提前锁利：可卖价使「判定净利」高于锁定套利利润时卖掉预测市场腿。
@@ -131,6 +137,8 @@ function normalizeStakeScaleByProfit(raw: unknown): StakeScaleByProfitPrefs {
 }
 
 function normalizeArbFailAutoSell(raw: unknown): ArbFailAutoSellPrefs {
+  if (!ARB_FAIL_AUTO_SELL_AVAILABLE)
+    return createDefaultArbFailAutoSell();
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     return createDefaultArbFailAutoSell();
   const row = raw as Record<string, unknown>;

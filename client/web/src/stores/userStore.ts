@@ -207,6 +207,8 @@ export const useUserStore = defineStore("user", {
     },
 
     async saveExtensionPrefs() {
+      // 失败减仓暂锁死：保存前再归一化，避免内存/旧 KV 把 enabled:true 写回
+      this.extensionPrefs = normalizeExtensionPrefs(this.extensionPrefs);
       const result = await saveClientDataDetailed("Extensions", JSON.stringify(this.extensionPrefs));
       if (!result.ok)
         throw new Error(result.msg || "保存扩展配置失败");

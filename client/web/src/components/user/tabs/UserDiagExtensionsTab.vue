@@ -3,11 +3,13 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import type { UiTheme } from "@/types/extensionPrefs";
+import { ARB_FAIL_AUTO_SELL_AVAILABLE } from "@/types/extensionPrefs";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
 const { extensionPrefs } = storeToRefs(user);
 const saving = ref(false);
+const arbFailAutoSellAvailable = ARB_FAIL_AUTO_SELL_AVAILABLE;
 
 const uiThemeOptions: { value: UiTheme; label: string }[] = [
   { value: "default", label: "默认深色" },
@@ -168,6 +170,7 @@ async function save() {
       <el-form-item label="自动卖 PM/PF:" class="extensions-tab__control">
         <el-switch
           v-model="extensionPrefs.arbFailAutoSell.enabled"
+          :disabled="!arbFailAutoSellAvailable"
           inline-prompt
           active-text="开启"
           inactive-text="关闭"
@@ -175,7 +178,12 @@ async function save() {
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        开：双边套利中 PM/PF 腿已成交、对侧拒单且未能补单（或补单随后放弃）时，自动市价卖掉该预测市场腿。默认关闭；不做止盈，仅风控减仓。9999 单边不触发。
+        <template v-if="!arbFailAutoSellAvailable">
+          暂不可开启（与补单 prune 叠加有误卖敞口风险，验证后再放开）。功能保留，开关锁定为关。
+        </template>
+        <template v-else>
+          开：双边套利中 PM/PF 腿已成交、对侧拒单且未能补单（或补单随后放弃）时，自动市价卖掉该预测市场腿。默认关闭；不做止盈，仅风控减仓。9999 单边不触发。
+        </template>
       </p>
     </div>
 
