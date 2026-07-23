@@ -24,6 +24,14 @@ vi.mock("@changmen/db", () => ({
         raw: { pfSide: "sell", pfBuyOrderId: "pfbuy" },
       },
       { create_at: new Date("2026-06-14T12:00:00").getTime(), money: -20, bet_money: 200, status: "Lose" },
+      {
+        create_at: new Date("2026-06-14T13:00:00").getTime(),
+        money: 10,
+        bet_money: 5,
+        status: "None",
+        provider: "PredictFun",
+        raw: { pfSide: "buy" },
+      },
       { create_at: new Date("2026-06-13T18:00:00").getTime(), money: 999, bet_money: 999, status: "Reject" },
     ];
     const user2Orders = [
@@ -56,7 +64,8 @@ describe("getMonthReport", () => {
     expect(report.month).toBe("2026-06");
     expect(report.list).toHaveLength(30);
 
-    const day13 = report.list.find(r => new Date(r.Date).getDate() === 13);
+    const day13 = report.list.find(r => String(r.Date).endsWith("-13") || new Date(r.Date).getDate() === 13);
+    expect(day13.Date).toBe("2026-06-13");
     expect(day13.Profit).toBe(150);
     expect(day13.OrderCount).toBe(2);
     expect(day13.BetMoney).toBe(1500);
@@ -67,18 +76,20 @@ describe("getMonthReport", () => {
     expect(day13.Wallet).toBe(4000);
     expect(day13.RealProfit).toBe(120);
 
-    const day14 = report.list.find(r => new Date(r.Date).getDate() === 14);
-    expect(day14.Profit).toBe(-20);
-    expect(day14.OrderCount).toBe(1);
+    const day14 = report.list.find(r => String(r.Date).endsWith("-14") || new Date(r.Date).getDate() === 14);
+    // -20 + PredictFun 10*6.8；卖单不计盈亏/流水
+    expect(day14.Profit).toBeCloseTo(-20 + 10 * 6.8, 6);
+    expect(day14.OrderCount).toBe(2);
+    expect(day14.BetMoney).toBeCloseTo(200 + 5 * 6.8, 6);
 
-    expect(report.total.Profit).toBe(130);
-    expect(report.total.OrderCount).toBe(3);
-    expect(report.total.BetMoney).toBe(1700);
+    expect(report.total.Profit).toBeCloseTo(130 + 10 * 6.8, 6);
+    expect(report.total.OrderCount).toBe(4);
+    expect(report.total.BetMoney).toBeCloseTo(1700 + 5 * 6.8, 6);
     expect(report.total.Deposit).toBe(5200);
     expect(report.total.Withdraw).toBe(1000);
     expect(report.total.Hacked).toBe(30);
     expect(report.total.Wallet).toBe(4200);
-    expect(report.total.RealProfit).toBe(100);
+    expect(report.total.RealProfit).toBeCloseTo(100 + 10 * 6.8, 6);
   });
 
   it("filters by userId when provided", async () => {

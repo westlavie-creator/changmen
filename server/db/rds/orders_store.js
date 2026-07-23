@@ -11,6 +11,29 @@ import { Currency, getExchange } from "@changmen/shared/currency";
 import { _jsonb, getPgPool } from "./common.js";
 import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
+/**
+ * 聚合用 CNY 盈亏 SQL（对齐 profit_cny / 前端 polymarketMoneyForAggregate）。
+ * @param {string} alias 表别名，如 "" / "o" / "a"
+ * @param {string} fxParam 汇率占位符，如 "$3"
+ */
+function sqlOrderMoneyCny(alias, fxParam) {
+  const p = alias ? `${alias}.` : "";
+  return `CASE
+    WHEN ${p}provider = 'PredictFun' AND LOWER(COALESCE(${p}raw->>'pfSide', '')) = 'sell' THEN 0
+    WHEN ${p}provider = 'PredictFun' THEN COALESCE(${p}money, 0) * ${fxParam}
+    ELSE COALESCE(${p}money, 0)
+  END`;
+}
+
+/** PF bet_money 为 USDT → CNY */
+function sqlOrderBetCny(alias, fxParam) {
+  const p = alias ? `${alias}.` : "";
+  return `CASE
+    WHEN ${p}provider = 'PredictFun' THEN COALESCE(${p}bet_money, 0) * ${fxParam}
+    ELSE COALESCE(${p}bet_money, 0)
+  END`;
+}
+
 const UPSERT_ORDERS_BATCH_SQL = `
   INSERT INTO orders (
     user_id, player_id, order_id, link, provider, match, bet, item,
@@ -1181,8 +1204,11 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const moneyCny = sqlOrderMoneyCny("", "$3");
+    const betCny = sqlOrderBetCny("", "$3");
     const { rows } = await pool.query(
       `SELECT provider,
         COUNT(*)::int AS total_orders,
@@ -1190,8 +1216,8 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
         COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE status = 'Reject')::int AS rejects,
         COUNT(*) FILTER (WHERE status = 'None')::int AS pending,
-        COALESCE(SUM(bet_money), 0)::float AS total_bet,
-        COALESCE(SUM(money), 0)::float AS total_profit
+        COALESCE(SUM(${betCny}), 0)::float AS total_bet,
+        COALESCE(SUM(${moneyCny}), 0)::float AS total_profit
        FROM orders
        WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''${uf}
        GROUP BY provider
@@ -1212,15 +1238,20 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const moneyA = sqlOrderMoneyCny("a", "$3");
+    const moneyB = sqlOrderMoneyCny("b", "$3");
+    const betA = sqlOrderBetCny("a", "$3");
+    const betB = sqlOrderBetCny("b", "$3");
     const { rows } = await pool.query(
       `WITH pairs AS (
         SELECT
           a.provider AS provider_a, b.provider AS provider_b,
           a.status AS status_a, b.status AS status_b,
-          a.money AS money_a, b.money AS money_b,
-          a.bet_money AS bet_a, b.bet_money AS bet_b
+          (${moneyA}) AS money_a, (${moneyB}) AS money_b,
+          (${betA}) AS bet_a, (${betB}) AS bet_b
         FROM orders a
         JOIN orders b ON ABS(a.link) = ABS(b.link)
           AND a.provider < b.provider
@@ -1265,8 +1296,11 @@ export async function fetchGameAnalytics(startMs, endMs, userIds) {
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const moneyCny = sqlOrderMoneyCny("o", "$3");
+    const betCny = sqlOrderBetCny("o", "$3");
     const { rows } = await pool.query(
       `SELECT
         COALESCE(cm.game, '未知') AS game,
@@ -1274,8 +1308,8 @@ export async function fetchGameAnalytics(startMs, endMs, userIds) {
         COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,
-        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
-        COALESCE(SUM(o.money), 0)::float AS total_profit
+        COALESCE(SUM(${betCny}), 0)::float AS total_bet,
+        COALESCE(SUM(${moneyCny}), 0)::float AS total_profit
        FROM orders o
        LEFT JOIN LATERAL (
          SELECT game FROM client_matches
@@ -1302,16 +1336,19 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const moneyCny = sqlOrderMoneyCny("", "$3");
+    const betCny = sqlOrderBetCny("", "$3");
     const { rows } = await pool.query(
       `SELECT
         EXTRACT(HOUR FROM to_timestamp(create_at / 1000.0))::int AS hour,
         COUNT(*)::int AS total_orders,
         COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
-        COALESCE(SUM(money), 0)::float AS total_profit,
-        COALESCE(SUM(bet_money), 0)::float AS total_bet
+        COALESCE(SUM(${moneyCny}), 0)::float AS total_profit,
+        COALESCE(SUM(${betCny}), 0)::float AS total_bet
        FROM orders
        WHERE create_at >= $1 AND create_at < $2
          AND provider IS NOT NULL AND provider != ''${uf}
@@ -1731,8 +1768,11 @@ export async function fetchAccountAnalytics(startMs, endMs, userIds) {
   if (!pool)
     return [];
   try {
-    const params = [startMs, endMs];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const moneyCny = sqlOrderMoneyCny("o", "$3");
+    const betCny = sqlOrderBetCny("o", "$3");
     const { rows } = await pool.query(
       `SELECT
         o.player_id,
@@ -1741,8 +1781,8 @@ export async function fetchAccountAnalytics(startMs, endMs, userIds) {
         COUNT(*) FILTER (WHERE o.status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE o.status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE o.status = 'Reject')::int AS rejects,
-        COALESCE(SUM(o.bet_money), 0)::float AS total_bet,
-        COALESCE(SUM(o.money), 0)::float AS total_profit
+        COALESCE(SUM(${betCny}), 0)::float AS total_bet,
+        COALESCE(SUM(${moneyCny}), 0)::float AS total_profit
        FROM orders o
        WHERE o.create_at >= $1 AND o.create_at < $2
          AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace("user_id", "o.user_id") : ""}

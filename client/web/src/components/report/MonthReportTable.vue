@@ -34,9 +34,13 @@ function moneyCellClass(value: number | undefined) {
 function formatDay(_row: MonthReportRow, _col: unknown, cellValue: string | number | undefined) {
   if (!cellValue)
     return "—";
+  const raw = String(cellValue);
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m)
+    return m[3];
   const d = new Date(cellValue);
   if (Number.isNaN(d.getTime()))
-    return String(cellValue);
+    return raw;
   return String(d.getDate()).padStart(2, "0");
 }
 

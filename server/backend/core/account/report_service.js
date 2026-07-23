@@ -6,9 +6,10 @@ import {
   moneyForProfitAggregate,
 } from "./order/profit_cny.js";
 
-function emptyReportRow(date) {
+function emptyReportRow(dateKey) {
   return {
-    Date: date instanceof Date ? date.toISOString() : String(date),
+    // 用 YYYY-MM-DD，避免 toISOString 在 UTC 下导致日期列错位
+    Date: String(dateKey),
     Profit: 0,
     OrderCount: 0,
     BetMoney: 0,
@@ -51,7 +52,7 @@ export async function getMonthReport(month, userId, userIds) {
   const byDate = new Map();
   for (let day = 1; day <= days; day += 1) {
     const key = dateKeyForDay(year, mon, day);
-    byDate.set(key, emptyReportRow(new Date(year, mon - 1, day)));
+    byDate.set(key, emptyReportRow(key));
   }
 
   const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
