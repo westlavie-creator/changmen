@@ -32,18 +32,23 @@ export interface ArbFailAutoSellPrefs {
 export const ARB_FAIL_AUTO_SELL_AVAILABLE = false;
 
 /**
- * [changmen 扩展] 庄+PM/PF 提前锁利：可卖价使「判定净利」高于锁定套利利润时卖掉预测市场腿。
- * 默认关闭。mode=pmEdge 看 PM 浮盈是否盖过锁定利润（卖后保留庄家单边）；floor 要求最差结果仍不低于锁定利润。
+ * [changmen 扩展] 双边预测市场提前锁利。
+ * 仅当套利 Link 两边都是可卖的 PM/PF 时生效：两边同时市价卖出，
+ * 卖出净利 ≥ 锁定利润 × (1 + minExtraProfitPct/100) 才触发。
+ * 庄+预测市场不触发（避免打单边）。默认关闭。
  */
 export interface ArbEarlyLockSellPrefs {
   enabled: boolean;
-  /** pmEdge | floor；默认 pmEdge */
+  /**
+   * 遗留字段（旧版 pmEdge/floor）。新逻辑固定「双边同卖净利 vs 锁定利润」，忽略 mode。
+   * 保留以免旧 Clients 反序列化炸掉。
+   */
   mode: "pmEdge" | "floor";
   /**
-   * 相对锁定利润至少多出的 CNY（默认 0）。
-   * pmEdge：PM浮盈 − 锁定利润 ≥ 该值；floor：最差结果 − 锁定利润 ≥ 该值。
+   * 相对锁定利润至少再多出的百分比（默认 0）。
+   * 例：10 = 同卖净利 ≥ 锁定利润 × 1.10。旧字段 minExtraProfit（CNY）忽略。
    */
-  minExtraProfit: number;
+  minExtraProfitPct: number;
 }
 
 /** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
@@ -73,7 +78,7 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /** 套利失败敞口：自动卖掉已成交的 PM/PF 腿 */
   arbFailAutoSell: ArbFailAutoSellPrefs;
-  /** 庄+预测市场：可卖价优于锁定利润时提前卖 PM/PF */
+  /** 双边预测市场：同卖净利优于锁定利润时两边一起卖 */
   arbEarlyLockSell: ArbEarlyLockSellPrefs;
   /**
    * 控制台 UI 皮肤。
@@ -104,8 +109,8 @@ export function createDefaultArbFailAutoSell(): ArbFailAutoSellPrefs {
 export function createDefaultArbEarlyLockSell(): ArbEarlyLockSellPrefs {
   return {
     enabled: false,
-    mode: "pmEdge",
-    minExtraProfit: 0,
+    mode: "floor",
+    minExtraProfitPct: 0,
   };
 }
 
@@ -150,11 +155,15 @@ function normalizeArbEarlyLockSell(raw: unknown): ArbEarlyLockSellPrefs {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     return defaults;
   const row = raw as Record<string, unknown>;
-  const minExtra = Number(row.minExtraProfit);
+  const pct = Number(row.minExtraProfitPct);
   return {
     enabled: row.enabled === true,
-    mode: row.mode === "floor" ? "floor" : "pmEdge",
-    minExtraProfit: Number.isFinite(minExtra) ? minExtra : defaults.minExtraProfit,
+    // 新逻辑忽略 mode；normalize 仍落合法值以免脏数据
+    mode: row.mode === "pmEdge" ? "pmEdge" : "floor",
+    // 不迁移旧 minExtraProfit（CNY），避免把「多 20 块」误读成 20%
+    minExtraProfitPct: Number.isFinite(pct) && pct >= 0 && pct <= 500
+      ? pct
+      : defaults.minExtraProfitPct,
   };
 }
 

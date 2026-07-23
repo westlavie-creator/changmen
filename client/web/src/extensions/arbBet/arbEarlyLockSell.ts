@@ -1,11 +1,9 @@
 /**
- * [changmen 扩展] 庄+PM/PF 提前锁利。
+ * [changmen 扩展] 双边预测市场提前锁利。
  *
- * 扫描未结套利 Link：若卖掉预测市场腿后「判定净利」仍高于锁定利润 + minExtra，则市价卖出。
- * - pmEdge：PM/PF 浮盈（可卖回款 − 成本）≥ 锁定利润 + minExtra（卖后保留庄家单边）
- * - floor：最差结果（卖出回款 − 组本金）≥ 锁定利润 + minExtra（二元盘极少触发）
- *
- * 挂在 mainBetLoop 末尾，节流；默认关闭，不挡 A8 主路径。
+ * 仅扫描「两边都是可卖 PM/PF、无庄家腿」的未结套利 Link：
+ * 若两边同卖回款 − 组本金 ≥ 锁定利润 × (1 + 额外%/100)，则两边市价卖出。
+ * 庄+预测市场不触发（避免打单边）。挂在 mainBetLoop 末尾，默认关闭。
  */
 import type { ArbEarlyLockSellPrefs } from "@/types/extensionPrefs";
 import type { OrderRow } from "@/types/order";
@@ -13,15 +11,16 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { Currency, getExchange } from "@changmen/shared/currency";
 import {
   estimatePolymarketManualSellProceedsUsdc,
+  hasOpenPolymarketPosition,
   sellPolymarketBuyPosition,
   type OrderRowLike,
 } from "@changmen/venue-adapter/polymarket";
 import { pfSubmitSell } from "@changmen/venue-adapter/predictfun";
 import { saveOrders } from "@/api/order";
 import { a8Tip } from "@/shared/a8Notify";
+import { isSingleLegLink } from "@changmen/client-core/shared/format";
 import {
   estimateArbLockedProfitCny,
-  isLinkedArbOrderGroup,
   isMakeupSyntheticOrderRow,
 } from "@/shared/orderLink";
 import { canManualSellPfBuy } from "@/stores/account/pfManualSell";
@@ -38,14 +37,12 @@ export const ARB_EARLY_LOCK_COOLDOWN_MS = 60_000;
 
 export interface ArbEarlyLockDecisionInput {
   enabled: boolean;
-  mode: "pmEdge" | "floor";
-  minExtraProfit: number;
+  /** 相对锁定利润的额外百分比，如 10 = 需多 10% */
+  minExtraProfitPct: number;
   lockedProfitCny: number;
-  /** 可卖回款（CNY） */
-  sellProceedsCny: number;
-  /** 预测市场腿成本（CNY） */
-  pmCostCny: number;
-  /** 套利组总本金（CNY）= 庄 + PM */
+  /** 两边可卖回款合计（CNY） */
+  sellBothProceedsCny: number;
+  /** 套利组总本金（CNY） */
   totalCostCny: number;
 }
 
@@ -59,7 +56,11 @@ export function isArbEarlyLockSellEnabled(
   return prefs?.enabled === true;
 }
 
-/** 纯判定：是否应提前卖掉预测市场腿 */
+/**
+ * 纯判定：双边同卖净利是否优于锁定利润。
+ * net = sellBothProceeds − totalCost；
+ * 要求 net ≥ locked × (1 + minExtraProfitPct/100)。
+ */
 export function decideArbEarlyLockSell(
   input: ArbEarlyLockDecisionInput,
 ): boolean {
@@ -67,19 +68,71 @@ export function decideArbEarlyLockSell(
     return false;
   if (!(Number.isFinite(input.lockedProfitCny)))
     return false;
-  // 锁定利润为负时不提前卖：否则任意小浮盈都会触发
   if (input.lockedProfitCny < 0)
     return false;
-  if (!(input.sellProceedsCny > 0) || !(input.pmCostCny > 0))
+  if (!(input.sellBothProceedsCny > 0) || !(input.totalCostCny > 0))
     return false;
-  const minExtra = Number.isFinite(input.minExtraProfit) ? input.minExtraProfit : 0;
-  const threshold = input.lockedProfitCny + minExtra;
-  if (input.mode === "floor") {
-    const worst = input.sellProceedsCny - input.totalCostCny;
-    return worst >= threshold;
-  }
-  const pmEdge = input.sellProceedsCny - input.pmCostCny;
-  return pmEdge >= threshold;
+  const pct = Number.isFinite(input.minExtraProfitPct) ? input.minExtraProfitPct : 0;
+  const threshold = input.lockedProfitCny * (1 + pct / 100);
+  const net = input.sellBothProceedsCny - input.totalCostCny;
+  return net >= threshold;
+}
+
+/** 未结组里是否还有非预测市场腿（庄家等） */
+export function hasOpenBookmakerLeg(rows: OrderRow[]): boolean {
+  return rows.some((row) => {
+    if (isMakeupSyntheticOrderRow(row))
+      return false;
+    if (String(row.Status ?? "") !== "None")
+      return false;
+    if (row.PfSide === "sell" || row.PmSide === "sell")
+      return false;
+    const t = String(row.Type ?? "").trim();
+    return t !== "Polymarket" && t !== "PredictFun";
+  });
+}
+
+/** 未结、未退出的预测市场买单（不论当前能否手卖） */
+export function collectOpenPredictionBuys(rows: OrderRow[]): OrderRow[] {
+  return rows.filter((row) => {
+    if (isMakeupSyntheticOrderRow(row))
+      return false;
+    if (String(row.Status ?? "") !== "None")
+      return false;
+    if (row.PmSide === "sell" || row.PfSide === "sell")
+      return false;
+    const t = String(row.Type ?? "").trim();
+    if (t === "Polymarket")
+      return hasOpenPolymarketPosition(row);
+    if (t === "PredictFun") {
+      const state = String(row.PfSellState ?? "").toLowerCase();
+      if (state === "closed" || state === "settled")
+        return false;
+      return true;
+    }
+    return false;
+  });
+}
+
+/** 可市价卖掉的预测市场买单（PM/PF） */
+export function collectSellablePredictionBuys(rows: OrderRow[]): OrderRow[] {
+  return rows.filter(r => canManualSellPmBuy(r) || canManualSellPfBuy(r));
+}
+
+/**
+ * 是否双边预测市场套利组：
+ * - 无庄家腿
+ * - 未结预测买单 ≥ 2
+ * - 且每一条都能卖（避免卖掉两腿后还留着不可卖敞口）
+ */
+export function isDualPredictionArbGroup(rows: OrderRow[]): boolean {
+  if (hasOpenBookmakerLeg(rows))
+    return false;
+  const openPred = collectOpenPredictionBuys(rows);
+  if (openPred.length < 2)
+    return false;
+  const sellable = collectSellablePredictionBuys(rows);
+  return sellable.length === openPred.length;
 }
 
 function readPrefs(
@@ -99,21 +152,20 @@ function usdtToCny(usdt: number): number {
   return usdt * getExchange(Currency.USDT);
 }
 
-function pmCostCny(row: OrderRow): number {
-  const usdc = Number(row.PmStakeUsdc) || 0;
-  if (usdc > 0)
-    return usdtToCny(usdc);
-  return Number(row.BetMoney) || 0;
-}
-
-function pfCostCny(row: OrderRow): number {
-  const notional = Number(row.PfNotionalUsdt);
-  if (Number.isFinite(notional) && notional > 0)
-    return usdtToCny(notional);
-  return usdtToCny(Number(row.BetMoney) || 0);
-}
-
-function bookCostCny(row: OrderRow): number {
+function predCostCny(row: OrderRow): number {
+  const t = String(row.Type ?? "").trim();
+  if (t === "Polymarket") {
+    const usdc = Number(row.PmStakeUsdc) || 0;
+    if (usdc > 0)
+      return usdtToCny(usdc);
+    return Number(row.BetMoney) || 0;
+  }
+  if (t === "PredictFun") {
+    const notional = Number(row.PfNotionalUsdt);
+    if (Number.isFinite(notional) && notional > 0)
+      return usdtToCny(notional);
+    return usdtToCny(Number(row.BetMoney) || 0);
+  }
   return Number(row.BetMoney) || 0;
 }
 
@@ -144,7 +196,6 @@ function estimatePfSellProceedsUsdt(row: OrderRow): number {
     const price = 1 / odds;
     if (!(price > 0 && price < 1))
       return 0;
-    // 无 bid 深度：打 2% 折保守估
     return Math.round(shares * price * 0.98 * 10000) / 10000;
   }
   catch {
@@ -198,6 +249,40 @@ async function sellPf(account: PlatformAccount, row: OrderRow): Promise<boolean>
   }
 }
 
+async function sellPredLeg(
+  accountStore: ReturnType<typeof useAccountStore>,
+  row: OrderRow,
+): Promise<boolean> {
+  const account = accountStore.findAccount(Number(row.PlayerID));
+  if (!account)
+    return false;
+  const t = String(row.Type ?? "").trim();
+  if (t === "Polymarket")
+    return sellPm(account, row);
+  if (t === "PredictFun")
+    return sellPf(account, row);
+  return false;
+}
+
+async function estimatePredSellProceedsCny(
+  accountStore: ReturnType<typeof useAccountStore>,
+  row: OrderRow,
+): Promise<number> {
+  const account = accountStore.findAccount(Number(row.PlayerID));
+  if (!account)
+    return 0;
+  const t = String(row.Type ?? "").trim();
+  if (t === "Polymarket") {
+    const usdc = await estimatePmSellProceedsUsdc(account, row);
+    return usdc > 0 ? usdtToCny(usdc) : 0;
+  }
+  if (t === "PredictFun") {
+    const usdt = estimatePfSellProceedsUsdt(row);
+    return usdt > 0 ? usdtToCny(usdt) : 0;
+  }
+  return 0;
+}
+
 function linkHasPendingMakeup(linkId: number): boolean {
   try {
     const lose = useLoseOrderStore();
@@ -210,66 +295,51 @@ function linkHasPendingMakeup(linkId: number): boolean {
   return false;
 }
 
-function isOpenBookLeg(row: OrderRow): boolean {
-  if (isMakeupSyntheticOrderRow(row))
-    return false;
-  const t = String(row.Type ?? "").trim();
-  if (t === "Polymarket" || t === "PredictFun")
-    return false;
-  return String(row.Status ?? "") === "None";
-}
-
-interface EarlyLockTarget {
+interface DualPredTarget {
   linkId: number;
-  pred: OrderRow;
-  kind: "Polymarket" | "PredictFun";
+  legs: OrderRow[];
   lockedProfitCny: number;
   rows: OrderRow[];
+  cooldownKey: string;
 }
 
-function collectTargets(orders: Map<number, OrderRow[]>): EarlyLockTarget[] {
-  const out: EarlyLockTarget[] = [];
+function collectDualPredTargets(orders: Map<number, OrderRow[]>): DualPredTarget[] {
+  const out: DualPredTarget[] = [];
   for (const [linkId, rows] of orders) {
-    if (!(Number.isFinite(linkId) && linkId !== 0))
+    // 不用 isLinkedArbOrderGroup：它要求「跨平台 Type」，会把 PM+PM / PF+PF 整组挡掉
+    if (!(Number.isFinite(linkId) && linkId !== 0) || isSingleLegLink(linkId))
       continue;
-    if (!isLinkedArbOrderGroup(rows))
+    if (rows.length < 2)
       continue;
     if (linkHasPendingMakeup(linkId))
       continue;
-    const bookOk = rows.some(isOpenBookLeg);
-    if (!bookOk)
+    if (!isDualPredictionArbGroup(rows))
       continue;
+    // 锁定利润要求至少两侧结果；同向两腿会在这里被滤掉
     const locked = estimateArbLockedProfitCny(rows);
     if (locked == null || !Number.isFinite(locked) || locked < 0)
       continue;
-    const pm = rows.find(r => canManualSellPmBuy(r));
-    if (pm) {
-      out.push({
-        linkId,
-        pred: pm,
-        kind: "Polymarket",
-        lockedProfitCny: locked,
-        rows,
-      });
+    const legs = collectSellablePredictionBuys(rows);
+    const ids = legs
+      .map(r => String(r.OrderID ?? "").trim())
+      .filter(Boolean)
+      .sort();
+    if (ids.length < 2)
       continue;
-    }
-    const pf = rows.find(r => canManualSellPfBuy(r));
-    if (pf) {
-      out.push({
-        linkId,
-        pred: pf,
-        kind: "PredictFun",
-        lockedProfitCny: locked,
-        rows,
-      });
-    }
+    out.push({
+      linkId,
+      legs,
+      lockedProfitCny: locked,
+      rows,
+      cooldownKey: `dual:${linkId}:${ids.join("+")}`,
+    });
   }
   return out;
 }
 
 /**
  * 主循环钩子：节流扫描；失败不影响调用方。
- * @returns 本轮实际卖出笔数
+ * @returns 本轮成功双边同卖的组数
  */
 export async function runArbEarlyLockSellTick(opts?: {
   prefs?: ArbEarlyLockSellPrefs | null;
@@ -286,98 +356,88 @@ export async function runArbEarlyLockSellTick(opts?: {
     return 0;
   lastScanAt = now;
   scanInFlight = true;
-  let sold = 0;
+  let soldGroups = 0;
   try {
     const orderStore = useOrderStore();
     const accountStore = useAccountStore();
-    const targets = collectTargets(orderStore.orders);
+    const targets = collectDualPredTargets(orderStore.orders);
     for (const target of targets) {
-      const orderId = String(target.pred.OrderID ?? "").trim();
-      if (!orderId)
-        continue;
-      const cd = cooldownUntil.get(orderId) ?? 0;
+      const cd = cooldownUntil.get(target.cooldownKey) ?? 0;
       if (now < cd)
         continue;
 
-      const account = accountStore.findAccount(Number(target.pred.PlayerID));
-      if (!account)
+      let sellBoth = 0;
+      let okEstimate = true;
+      for (const leg of target.legs) {
+        const p = await estimatePredSellProceedsCny(accountStore, leg);
+        if (!(p > 0)) {
+          okEstimate = false;
+          break;
+        }
+        sellBoth += p;
+      }
+      if (!okEstimate) {
+        cooldownUntil.set(target.cooldownKey, now + ARB_EARLY_LOCK_COOLDOWN_MS);
         continue;
-
-      let sellProceedsCny = 0;
-      let pmCost = 0;
-      if (target.kind === "Polymarket") {
-        const proceedsUsdc = await estimatePmSellProceedsUsdc(account, target.pred);
-        if (!(proceedsUsdc > 0)) {
-          cooldownUntil.set(orderId, now + ARB_EARLY_LOCK_COOLDOWN_MS);
-          continue;
-        }
-        sellProceedsCny = usdtToCny(proceedsUsdc);
-        pmCost = pmCostCny(target.pred);
-      }
-      else {
-        const proceedsUsdt = estimatePfSellProceedsUsdt(target.pred);
-        if (!(proceedsUsdt > 0)) {
-          cooldownUntil.set(orderId, now + ARB_EARLY_LOCK_COOLDOWN_MS);
-          continue;
-        }
-        sellProceedsCny = usdtToCny(proceedsUsdt);
-        pmCost = pfCostCny(target.pred);
       }
 
-      const totalCost = target.rows
-        .filter(r =>
-          String(r.Status ?? "") === "None"
-          && !isMakeupSyntheticOrderRow(r)
-          && r.PfSide !== "sell"
-          && r.PmSide !== "sell",
-        )
-        .reduce((sum, r) => {
-          const t = String(r.Type ?? "").trim();
-          if (t === "Polymarket")
-            return sum + pmCostCny(r);
-          if (t === "PredictFun")
-            return sum + pfCostCny(r);
-          return sum + bookCostCny(r);
-        }, 0);
-
+      const totalCost = target.legs.reduce((sum, r) => sum + predCostCny(r), 0);
+      const pctRaw = Number(prefs?.minExtraProfitPct);
       const should = decideArbEarlyLockSell({
         enabled: true,
-        mode: prefs!.mode === "floor" ? "floor" : "pmEdge",
-        minExtraProfit: prefs!.minExtraProfit,
+        minExtraProfitPct: Number.isFinite(pctRaw) ? pctRaw : 0,
         lockedProfitCny: target.lockedProfitCny,
-        sellProceedsCny,
-        pmCostCny: pmCost,
+        sellBothProceedsCny: sellBoth,
         totalCostCny: totalCost,
       });
       if (!should) {
-        cooldownUntil.set(orderId, now + Math.min(15_000, ARB_EARLY_LOCK_COOLDOWN_MS));
+        cooldownUntil.set(
+          target.cooldownKey,
+          now + Math.min(15_000, ARB_EARLY_LOCK_COOLDOWN_MS),
+        );
         continue;
       }
 
-      cooldownUntil.set(orderId, now + ARB_EARLY_LOCK_COOLDOWN_MS);
-      const ok = target.kind === "Polymarket"
-        ? await sellPm(account, target.pred)
-        : await sellPf(account, target.pred);
-      if (ok) {
-        sold += 1;
+      cooldownUntil.set(target.cooldownKey, now + ARB_EARLY_LOCK_COOLDOWN_MS);
+
+      const results: boolean[] = [];
+      for (const leg of target.legs)
+        results.push(await sellPredLeg(accountStore, leg));
+
+      const okCount = results.filter(Boolean).length;
+      if (okCount === target.legs.length) {
+        soldGroups += 1;
         notify(
           "提前锁利",
-          `${target.kind} Link ${target.linkId} 浮盈优于锁定利润，已自动卖出`,
+          `Link ${target.linkId} 双边预测市场同卖净利优于锁定，已全部卖出`,
         );
+      }
+      else if (okCount > 0) {
+        // 部分成功 = 暂时单边，必须刷新订单并提示手处理
+        notify(
+          "提前锁利部分失败",
+          `Link ${target.linkId} 仅 ${okCount}/${target.legs.length} 腿卖出成功，请手动处理剩余`,
+        );
+      }
+      else {
+        notify("提前锁利失败", `Link ${target.linkId} 双边卖出均未成功`);
+      }
+
+      if (okCount > 0) {
+        for (const leg of target.legs) {
+          const account = accountStore.findAccount(Number(leg.PlayerID));
+          if (!account)
+            continue;
+          try {
+            await accountStore.refreshBalance(account);
+          }
+          catch { /* ignore */ }
+        }
         try {
-          await accountStore.refreshBalance(account);
+          await useOrderStore().fetchOrders();
         }
         catch { /* ignore */ }
       }
-      else {
-        notify("提前锁利失败", `${target.kind} ${orderId} 卖出未成功`);
-      }
-    }
-    if (sold > 0) {
-      try {
-        await useOrderStore().fetchOrders();
-      }
-      catch { /* ignore */ }
     }
   }
   catch {
@@ -386,5 +446,5 @@ export async function runArbEarlyLockSellTick(opts?: {
   finally {
     scanInFlight = false;
   }
-  return sold;
+  return soldGroups;
 }

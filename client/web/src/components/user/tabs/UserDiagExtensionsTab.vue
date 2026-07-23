@@ -202,39 +202,24 @@ async function save() {
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        开：未结庄+PM/PF 套利中，若卖掉预测市场腿后的判定净利高于锁定利润，则自动市价卖出（庄腿继续持有）。默认关闭。
+        仅对「两边都是预测市场（PM/PF）」的未结套利生效：两边同时市价卖出，
+        同卖净利 ≥ 锁定利润 × (1+额外%) 才触发。庄+预测市场不会触发（避免打单边）。默认关闭。
       </p>
     </div>
 
     <div class="extensions-tab__row">
-      <el-form-item label="判定模式:" class="extensions-tab__control">
-        <el-radio-group v-model="extensionPrefs.arbEarlyLockSell.mode" size="large">
-          <el-radio value="pmEdge" border>
-            PM浮盈
-          </el-radio>
-          <el-radio value="floor" border>
-            最差结果
-          </el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <p class="extensions-tab__desc">
-        PM浮盈：可卖回款−PM成本 ≥ 锁定利润（常用）。最差结果：卖出后庄家输光仍 ≥ 锁定利润（二元盘极少触发）。
-      </p>
-    </div>
-
-    <div class="extensions-tab__row">
-      <el-form-item label="额外利润(CNY):" class="extensions-tab__control">
+      <el-form-item label="额外利润(%):" class="extensions-tab__control">
         <el-input-number
-          v-model="extensionPrefs.arbEarlyLockSell.minExtraProfit"
-          :min="-1000"
-          :max="10000"
+          v-model="extensionPrefs.arbEarlyLockSell.minExtraProfitPct"
+          :min="0"
+          :max="500"
           :step="1"
           :precision="0"
           controls-position="right"
         />
       </el-form-item>
       <p class="extensions-tab__desc">
-        相对锁定利润至少再多出的金额。0 = 刚好优于锁定即卖。
+        双边同卖净利相对锁定利润至少再多出的百分比。0 = 刚好 ≥ 锁定即两边同卖；10 = 至少多 10%。
       </p>
     </div>
 

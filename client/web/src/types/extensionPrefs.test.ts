@@ -14,7 +14,7 @@ const defaultPrefs = {
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
-  arbEarlyLockSell: { enabled: false, mode: "pmEdge" as const, minExtraProfit: 0 },
+  arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
   uiTheme: "default" as const,
 };
 
@@ -66,20 +66,37 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({}).arbFailAutoSell).toEqual({ enabled: false });
   });
 
-  it("can enable arbEarlyLockSell and normalize mode", () => {
+  it("can enable arbEarlyLockSell (dual prediction only; mode ignored by runtime)", () => {
     expect(normalizeExtensionPrefs({
-      arbEarlyLockSell: { enabled: true, mode: "floor", minExtraProfit: 5 },
-    }).arbEarlyLockSell).toEqual({
-      enabled: true,
-      mode: "floor",
-      minExtraProfit: 5,
-    });
-    expect(normalizeExtensionPrefs({
-      arbEarlyLockSell: { enabled: true, mode: "nope", minExtraProfit: "x" },
+      arbEarlyLockSell: { enabled: true, mode: "pmEdge", minExtraProfitPct: 5 },
     }).arbEarlyLockSell).toEqual({
       enabled: true,
       mode: "pmEdge",
-      minExtraProfit: 0,
+      minExtraProfitPct: 5,
+    });
+    expect(normalizeExtensionPrefs({
+      arbEarlyLockSell: { enabled: true, mode: "nope", minExtraProfitPct: "x" },
+    }).arbEarlyLockSell).toEqual({
+      enabled: true,
+      mode: "floor",
+      minExtraProfitPct: 0,
+    });
+  });
+
+  it("clamps invalid minExtraProfitPct to default", () => {
+    expect(normalizeExtensionPrefs({
+      arbEarlyLockSell: { enabled: true, minExtraProfitPct: 999 },
+    }).arbEarlyLockSell.minExtraProfitPct).toBe(0);
+    expect(normalizeExtensionPrefs({
+      arbEarlyLockSell: { enabled: true, minExtraProfitPct: -1 },
+    }).arbEarlyLockSell.minExtraProfitPct).toBe(0);
+  });
+
+  it("defaults arbEarlyLockSell off", () => {
+    expect(normalizeExtensionPrefs({}).arbEarlyLockSell).toEqual({
+      enabled: false,
+      mode: "floor",
+      minExtraProfitPct: 0,
     });
   });
 

@@ -12,7 +12,7 @@
  * | 9999 用正EV金额 | 无 | `singleLeg9999UseValueBetMoney`：真下单腿改用 `valueBetMoney`（预检腿不动） |
  * | 高利润加仓 | 无 | `stakeScaleByProfit`：implied 达阈值时两腿注码同乘；可选忽略账号比例 |
  * | 失败敞口减仓 | 无 | `arbFailAutoSell`：对侧拒单且未补单时自动卖 PM/PF 成交腿 |
- * | 提前锁利 | 无 | `arbEarlyLockSell`：可卖价优于锁定利润时卖 PM/PF（默认 pmEdge） |
+ * | 提前锁利 | 无 | `arbEarlyLockSell`：仅双边 PM/PF，同卖净利优于锁定时两边一起卖 |
  * | Telegram | 仅成功推单等（见 messageStore） | 同左 + 可选套利进度报告（`extensions/notify`） |
  * | BetRow 红线 / flash | 无 / bundle 内联 | `extensions/arbBet/ui` |
  *
