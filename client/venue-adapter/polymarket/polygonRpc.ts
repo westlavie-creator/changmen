@@ -66,7 +66,7 @@ export function polygonChainForRpc(): Chain {
  * `transport: http()`（只吃 chain.rpcUrls.default.http[0]）。
  * 构造后替换 publicClient，使 deriveDepositWalletAddress 的 eth_call 走 fallback。
  */
-export function patchRelayClientPublicClient(client: { publicClient?: unknown }, chain: Chain = polygonChainForRpc()): void {
+export function patchRelayClientPublicClient(client: object, chain: Chain = polygonChainForRpc()): void {
   Reflect.set(client, "publicClient", createPublicClient({
     chain,
     transport: createPolygonHttpTransport(),
