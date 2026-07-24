@@ -4,7 +4,7 @@
  */
 import { ElMessage } from "element-plus";
 import { shallowRef } from "vue";
-import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
   awaitPolymarketManualSellFinalOutcome,

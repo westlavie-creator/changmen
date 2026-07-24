@@ -602,6 +602,7 @@ export async function confirmPolymarketManualSellDelayedFill(params: {
       reward: 0,
       money: 0,
       status: "none",
+      game: "",
       match: "",
       bet: "",
       item: "",
