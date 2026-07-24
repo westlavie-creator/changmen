@@ -154,6 +154,66 @@ export function pmOrderStakeDisplayCny(row: OrderRow): number {
   return pmOrderOriginalStakeDisplayCny(row);
 }
 
+/** CNY 金额 → USDC（当前汇率；无有效汇率时返回 0） */
+export function pmCnyToUsdc(cny: number): number {
+  const n = Number(cny);
+  if (!Number.isFinite(n) || n === 0)
+    return 0;
+  const fx = getExchange(Currency.USDT);
+  if (!(fx > 0))
+    return 0;
+  return Math.round((n / fx) * 10000) / 10000;
+}
+
+/**
+ * 买单原始本金（USDC）。
+ * - 优先 fill×买入价（链上真实名义）
+ * - 其次未卖出时的 pmStakeUsdc
+ * - 再回退 BetMoney(CNY)/汇率
+ */
+export function pmOrderOriginalStakeDisplayUsdc(row: OrderRow): number {
+  const fill = resolvePmFillShares(row);
+  const price = resolvePmFillPrice(row);
+  if (fill > 0.0001 && price != null && price > 0)
+    return Math.round(fill * price * 10000) / 10000;
+
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  const stakeUsdc = Number(row.PmStakeUsdc);
+  if (attr <= 0 && Number.isFinite(stakeUsdc) && stakeUsdc > 0)
+    return Math.round(stakeUsdc * 10000) / 10000;
+
+  return pmCnyToUsdc(Number(row.BetMoney) || 0);
+}
+
+/** 买单展示本金（USDC）；卖单为回款（BetMoney CNY→U，或 PmSellProceeds） */
+export function pmOrderStakeDisplayUsdc(row: OrderRow): number {
+  if (isPmSellOrderListRow(row)) {
+    const proceeds = Number(row.PmSellProceeds);
+    if (Number.isFinite(proceeds) && proceeds > 0)
+      return Math.round(proceeds * 10000) / 10000;
+    return pmCnyToUsdc(Number(row.BetMoney) || 0);
+  }
+  return pmOrderOriginalStakeDisplayUsdc(row);
+}
+
+/**
+ * 买单盈亏（USDC）。
+ * Money 在 RDS 为 CNY；有 PmRealizedPnlUsdc 时优先用。
+ */
+export function pmOrderProfitDisplayUsdc(row: OrderRow, peers: OrderRow[] = []): number | null {
+  if (isPmSellOrderListRow(row))
+    return null;
+
+  const realized = Number(row.PmRealizedPnlUsdc);
+  if (Number.isFinite(realized) && Math.abs(realized) > 1e-9)
+    return Math.round(realized * 10000) / 10000;
+
+  const cny = pmOrderProfitDisplayCny(row, peers);
+  if (cny == null)
+    return null;
+  return pmCnyToUsdc(cny);
+}
+
 /**
  * 侧栏盈亏展示（CNY）。
  * - 卖单：不展示（返回 null → UI 显示 —）

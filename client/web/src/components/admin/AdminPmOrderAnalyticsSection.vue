@@ -2,6 +2,7 @@
 import type { PolymarketOrderAnalyticsPayload } from "@/api/admin";
 import { computed, ref } from "vue";
 import { toFixed } from "@changmen/client-core/shared/format";
+import { pmCnyToUsdc } from "@/shared/pmOrderDisplay";
 
 const props = defineProps<{
   data: PolymarketOrderAnalyticsPayload | null | undefined;
@@ -33,8 +34,8 @@ const priceBandRows = computed(() => {
         winCount: row?.win_count ?? 0,
         loseCount: row?.lose_count ?? 0,
         winRate: row?.win_rate ?? 0,
-        pmBet: row?.pm_bet ?? 0,
-        holdProfit: row?.hold_profit ?? 0,
+        pmBet: pmCnyToUsdc(row?.pm_bet ?? 0),
+        holdProfit: pmCnyToUsdc(row?.hold_profit ?? 0),
         avgFill: row?.avg_fill_price ?? 0,
         roi: row?.roi ?? 0,
       };
@@ -52,18 +53,30 @@ const venueRows = computed(() => {
     winCount: r.win_count,
     loseCount: r.lose_count,
     winRate: r.win_rate,
-    pmBet: r.pm_bet,
-    holdProfit: r.hold_profit,
+    pmBet: pmCnyToUsdc(r.pm_bet),
+    holdProfit: pmCnyToUsdc(r.hold_profit),
     avgFill: r.avg_fill_price,
     roi: r.roi,
   }));
 });
 
+/** Poly Builder 页统一 U；RDS analytics 存 CNY，展示前已换算 */
 function fmtMoney(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n))
     return "-";
-  return toFixed(n, 0);
+  return toFixed(n, 2);
 }
+
+const summaryUsdc = computed(() => {
+  const s = summary.value;
+  if (!s)
+    return null;
+  return {
+    ...s,
+    totalPmBet: pmCnyToUsdc(s.totalPmBet),
+    totalHoldProfit: pmCnyToUsdc(s.totalHoldProfit),
+  };
+});
 
 function fmtRoi(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n))
@@ -131,10 +144,10 @@ const hasData = computed(() => (summary.value?.groupCount ?? 0) > 0);
             已出赛果组数
           </div>
           <div class="stat__value">
-            {{ summary!.groupCount }}
+            {{ summaryUsdc!.groupCount }}
           </div>
           <div class="stat__sub">
-            套利 {{ summary!.arbGroupCount }} · 单边 {{ summary!.singleLegCount }}
+            套利 {{ summaryUsdc!.arbGroupCount }} · 单边 {{ summaryUsdc!.singleLegCount }}
           </div>
         </div>
         <div class="stat">
@@ -142,32 +155,32 @@ const hasData = computed(() => (summary.value?.groupCount ?? 0) > 0);
             赛果胜率
           </div>
           <div class="stat__value">
-            {{ fmtPct(summary!.winRate) }}
+            {{ fmtPct(summaryUsdc!.winRate) }}
           </div>
           <div class="stat__sub">
-            {{ summary!.winCount }} 赢 / {{ summary!.loseCount }} 输
+            {{ summaryUsdc!.winCount }} 赢 / {{ summaryUsdc!.loseCount }} 输
           </div>
         </div>
         <div class="stat">
           <div class="stat__label">
             理论持有 ROI
           </div>
-          <div class="stat__value" :class="profitClass(summary!.totalHoldProfit)">
-            {{ fmtRoi(summary!.roi) }}
+          <div class="stat__value" :class="profitClass(summaryUsdc!.totalHoldProfit)">
+            {{ fmtRoi(summaryUsdc!.roi) }}
           </div>
           <div class="stat__sub">
-            盈亏 {{ fmtMoney(summary!.totalHoldProfit) }}
+            盈亏 {{ fmtMoney(summaryUsdc!.totalHoldProfit) }} U
           </div>
         </div>
         <div class="stat">
           <div class="stat__label">
-            PM 本金
+            PM 本金 U
           </div>
           <div class="stat__value">
-            {{ fmtMoney(summary!.totalPmBet) }}
+            {{ fmtMoney(summaryUsdc!.totalPmBet) }}
           </div>
           <div class="stat__sub">
-            含中途卖光 {{ summary!.soldCloseCount }} 组
+            含中途卖光 {{ summaryUsdc!.soldCloseCount }} 组
           </div>
         </div>
       </div>
@@ -196,12 +209,12 @@ const hasData = computed(() => (summary.value?.groupCount ?? 0) > 0);
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="PM本金" width="80" align="right">
+        <el-table-column label="PM本金 U" width="90" align="right">
           <template #default="{ row }">
             {{ row.groupCount ? fmtMoney(row.pmBet) : "" }}
           </template>
         </el-table-column>
-        <el-table-column label="理论盈亏" width="90" align="right">
+        <el-table-column label="理论盈亏 U" width="100" align="right">
           <template #default="{ row }">
             <span v-if="row.groupCount" :class="profitClass(row.holdProfit)">
               {{ fmtMoney(row.holdProfit) }}
@@ -244,12 +257,12 @@ const hasData = computed(() => (summary.value?.groupCount ?? 0) > 0);
             <span class="text-red">{{ row.loseCount }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="PM本金" width="80" align="right">
+        <el-table-column label="PM本金 U" width="90" align="right">
           <template #default="{ row }">
             {{ fmtMoney(row.pmBet) }}
           </template>
         </el-table-column>
-        <el-table-column label="理论盈亏" width="90" align="right">
+        <el-table-column label="理论盈亏 U" width="100" align="right">
           <template #default="{ row }">
             <span :class="profitClass(row.holdProfit)">{{ fmtMoney(row.holdProfit) }}</span>
           </template>

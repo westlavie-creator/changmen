@@ -10,8 +10,18 @@ import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminPmOrderAnalyticsSection from "@/components/admin/AdminPmOrderAnalyticsSection.vue";
+import {
+  cmBuilderSideLabel,
+  groupChangmenPmOrdersForDisplay,
+  type CmBuilderDisplayEntry,
+} from "@/shared/adminPmBuilderOrders";
 import { todayKey, todayUtcKey, utcWeekBounds } from "@/shared/dateKey";
-import { pmOrderStakeDisplayCny } from "@/shared/pmOrderDisplay";
+import {
+  pmCnyToUsdc,
+  pmOrderProfitDisplayUsdc,
+  pmOrderStakeDisplayUsdc,
+  resolvePmOrderListStatusClass,
+} from "@/shared/pmOrderDisplay";
 import { toFixed } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
 
@@ -58,6 +68,7 @@ const cmSummary = computed(() => data.value?.changmen.summary);
 const cmAnalytics = computed(() => data.value?.changmen.analytics ?? null);
 const polyTrades = computed(() => data.value?.polymarket.trades ?? []);
 const cmOrders = computed(() => data.value?.changmen.orders ?? []);
+const cmDisplayEntries = computed(() => groupChangmenPmOrdersForDisplay(cmOrders.value));
 
 const polyUserOptions = computed(() => {
   const names = new Set<string>();
@@ -128,7 +139,7 @@ const polyTradesPage = computed(() => {
 
 const cmOrdersPage = computed(() => {
   const start = (cmPage.value - 1) * PAGE_SIZE;
-  return cmOrders.value.slice(start, start + PAGE_SIZE);
+  return cmDisplayEntries.value.slice(start, start + PAGE_SIZE);
 });
 
 function fmtUsdc(n: number | null | undefined): string {
@@ -171,21 +182,50 @@ function cmOrderToOrderRow(row: PolymarketChangmenOrderRow): OrderRow {
     PmSellState: row.pmSellState || undefined,
     PmAttributedSellShares: row.pmAttributedSellShares || undefined,
     PmSide: row.pmSide === "sell" ? "sell" : "buy",
+    PmBuyOrderId: row.pmBuyOrderId || undefined,
+    PmLastSellOrderId: row.pmLastSellOrderId || undefined,
+    PmSellProceeds: row.pmSellProceeds || undefined,
   };
 }
 
-/** 卖单无「下注」；买单展示原始本金 CNY */
+/** 卖单无「下注」；买单展示原始本金 U */
 function cmDisplayBetMoney(row: PolymarketChangmenOrderRow): number | null {
   if (isCmSellOrder(row))
     return null;
-  return pmOrderStakeDisplayCny(cmOrderToOrderRow(row));
+  return pmOrderStakeDisplayUsdc(cmOrderToOrderRow(row));
 }
 
-/** 卖单盈亏已记在买单，此处不展示 */
+/** 卖单盈亏已记在买单，此处不展示；买单盈亏为 U */
 function cmDisplayProfit(row: PolymarketChangmenOrderRow): number | null {
   if (isCmSellOrder(row))
     return null;
-  return Number(row.profit) || 0;
+  return pmOrderProfitDisplayUsdc(cmOrderToOrderRow(row));
+}
+
+function cmEntryStatus(entry: CmBuilderDisplayEntry): string {
+  return resolvePmOrderListStatusClass(cmOrderToOrderRow(entry.primary));
+}
+
+/** 卖单回款 U：优先买单累计 pmSellProceeds，否则卖单 BetMoney(CNY)→U */
+function cmSellProceedsLabel(entry: CmBuilderDisplayEntry): string {
+  if (entry.kind === "orphan-sell")
+    return "-";
+  const fromBuy = Number(entry.primary.pmSellProceeds) || 0;
+  if (fromBuy > 0)
+    return fmtUsdc(fromBuy);
+  const fromSells = entry.sells.reduce(
+    (s, r) => s + pmCnyToUsdc(Number(r.betMoney) || 0),
+    0,
+  );
+  return fromSells > 0 ? fmtUsdc(fromSells) : (entry.sells.length ? "—" : "-");
+}
+
+function cmSellRowProceedsUsdc(sell: PolymarketChangmenOrderRow): number {
+  return pmOrderStakeDisplayUsdc(cmOrderToOrderRow(sell));
+}
+
+function cmRowClassName({ row }: { row: CmBuilderDisplayEntry }): string {
+  return row.sells.length > 0 ? "" : "cm-order-row--no-sells";
 }
 
 function fmtTime(ms: number | null | undefined): string {
@@ -386,14 +426,14 @@ onMounted(async () => {
           </p>
           <p>成交笔数</p>
           <ul>
-            <li>成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} USDC</li>
-            <li>feeUsdc {{ fmtUsdc(polyViewSummary.feeUsdc) }} USDC</li>
-            <li>builderFee {{ fmtUsdc(polyViewSummary.builderFeeUsdc) }} USDC</li>
+            <li>成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} U</li>
+            <li>feeUsdc {{ fmtUsdc(polyViewSummary.feeUsdc) }} U</li>
+            <li>builderFee {{ fmtUsdc(polyViewSummary.builderFeeUsdc) }} U</li>
             <li>
-              BUY {{ polyViewSummary.buyCount }} 笔 / {{ fmtUsdc(polyViewSummary.buyVolumeUsdc) }} USDC
+              BUY {{ polyViewSummary.buyCount }} 笔 / {{ fmtUsdc(polyViewSummary.buyVolumeUsdc) }} U
             </li>
             <li>
-              SELL {{ polyViewSummary.sellCount }} 笔 / {{ fmtUsdc(polyViewSummary.sellVolumeUsdc) }} USDC
+              SELL {{ polyViewSummary.sellCount }} 笔 / {{ fmtUsdc(polyViewSummary.sellVolumeUsdc) }} U
             </li>
           </ul>
         </article>
@@ -404,7 +444,7 @@ onMounted(async () => {
           </p>
           <p>订单数</p>
           <ul>
-            <li>下注 {{ fmtUsdc(cmSummary.totalBet) }}  盈亏 {{ fmtUsdc(cmSummary.totalProfit) }}</li>
+            <li>下注 {{ fmtUsdc(pmCnyToUsdc(cmSummary.totalBet)) }} U · 盈亏 {{ fmtUsdc(pmCnyToUsdc(cmSummary.totalProfit)) }} U</li>
             <li>Win / Lose / Reject / Pending：{{ cmSummary.wins }} / {{ cmSummary.losses }} / {{ cmSummary.rejects }} / {{ cmSummary.pending }}</li>
           </ul>
         </article>
@@ -433,7 +473,7 @@ onMounted(async () => {
         <p class="table-filter-summary">
           {{ polyUserFilter ? polyUserLabel(polyUserFilter) : "全部用户" }}
           · {{ polyViewSummary.tradeCount }} 笔
-          · 成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} USDC
+          · 成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} U
           · BUY {{ polyViewSummary.buyCount }}/{{ fmtUsdc(polyViewSummary.buyVolumeUsdc) }}
           · SELL {{ polyViewSummary.sellCount }}/{{ fmtUsdc(polyViewSummary.sellVolumeUsdc) }}
           · fee {{ fmtUsdc(polyViewSummary.feeUsdc) }}
@@ -446,17 +486,17 @@ onMounted(async () => {
             </template>
           </el-table-column>
           <el-table-column prop="side" label="方向" width="70" />
-          <el-table-column label="金额 USDC" width="100">
+          <el-table-column label="金额 U" width="100">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               {{ fmtUsdc(row.sizeUsdc) }}
             </template>
           </el-table-column>
-          <el-table-column label="feeUsdc" width="100">
+          <el-table-column label="fee U" width="100">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               {{ fmtUsdc(row.feeUsdc) }}
             </template>
           </el-table-column>
-          <el-table-column label="builderFee" width="110">
+          <el-table-column label="builderFee U" width="110">
             <template #default="{ row }: { row: PolymarketBuilderTradeRow }">
               {{ fmtUsdc(row.builderFeeUsdc) }}
             </template>
@@ -497,50 +537,110 @@ onMounted(async () => {
 
       <section class="admin-card table-section">
         <h3>changmen Polymarket 订单</h3>
-        <el-table :data="cmOrdersPage" size="small" stripe empty-text="该时段无 changmen Polymarket 订单">
+        <p class="table-filter-summary">
+          买单主行合并卖单 · 展示 {{ cmDisplayEntries.length }} 组
+          （原始 {{ cmOrders.length }} 行，含卖单附属）
+        </p>
+        <el-table
+          :data="cmOrdersPage"
+          size="small"
+          stripe
+          row-key="key"
+          :row-class-name="cmRowClassName"
+          empty-text="该时段无 changmen Polymarket 订单"
+        >
+          <el-table-column type="expand" width="36">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              <div v-if="row.sells.length" class="cm-sell-expand">
+                <div
+                  v-for="sell in row.sells"
+                  :key="sell.orderId"
+                  class="cm-sell-expand__row"
+                >
+                  <span>{{ fmtTime(sell.createAt) }}</span>
+                  <span>SELL</span>
+                  <span>回款 {{ fmtUsdc(cmSellRowProceedsUsdc(sell)) }} U</span>
+                  <span>价 {{ fmtPrice(sell.price) }}</span>
+                  <span class="cm-sell-expand__id" :title="sell.orderId">{{ shortHash(sell.orderId) }}</span>
+                </div>
+              </div>
+              <div v-else class="cm-sell-expand cm-sell-expand--empty">
+                无挂接卖单行
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="时间" :width="rangeMode === 'utcDay' || rangeMode === 'utcWeek' ? 190 : 170">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtTime(row.createAt) }}
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ fmtTime(row.primary.createAt) }}
             </template>
           </el-table-column>
-          <el-table-column prop="userName" label="用户" width="90" />
-          <el-table-column prop="pmSide" label="方向" width="70">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ row.pmSide ? row.pmSide.toUpperCase() : "-" }}
+          <el-table-column label="用户" width="90">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ row.primary.userName }}
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="状态" width="80" />
-          <el-table-column label="下注" width="90">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtUsdc(cmDisplayBetMoney(row)) }}
+          <el-table-column label="方向" width="110">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ cmBuilderSideLabel(row) }}
             </template>
           </el-table-column>
-          <el-table-column label="盈亏" width="90">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtUsdc(cmDisplayProfit(row)) }}
+          <el-table-column label="状态" width="80">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ cmEntryStatus(row) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="下注 U" width="100">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ fmtUsdc(cmDisplayBetMoney(row.primary)) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="盈亏 U" width="100">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ fmtUsdc(cmDisplayProfit(row.primary)) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="卖出回款 U" width="110">
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ cmSellProceedsLabel(row) }}
             </template>
           </el-table-column>
           <el-table-column label="赔率" width="80">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtOdds(row.odds) }}
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ fmtOdds(row.primary.odds) }}
             </template>
           </el-table-column>
           <el-table-column label="价格" width="80">
-            <template #default="{ row }: { row: PolymarketChangmenOrderRow }">
-              {{ fmtPrice(row.price) }}
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ fmtPrice(row.primary.price) }}
             </template>
           </el-table-column>
-          <el-table-column prop="game" label="类型" width="90" show-overflow-tooltip />
-          <el-table-column prop="matchTitle" label="比赛" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="betTitle" label="玩法" width="90" show-overflow-tooltip />
-          <el-table-column prop="item" label="选项" min-width="120" show-overflow-tooltip />
+          <el-table-column label="类型" width="90" show-overflow-tooltip>
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ row.primary.game }}
+            </template>
+          </el-table-column>
+          <el-table-column label="比赛" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ row.primary.matchTitle }}
+            </template>
+          </el-table-column>
+          <el-table-column label="玩法" width="90" show-overflow-tooltip>
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ row.primary.betTitle }}
+            </template>
+          </el-table-column>
+          <el-table-column label="选项" min-width="120" show-overflow-tooltip>
+            <template #default="{ row }: { row: CmBuilderDisplayEntry }">
+              {{ row.primary.item }}
+            </template>
+          </el-table-column>
         </el-table>
-        <div v-if="cmOrders.length > PAGE_SIZE" class="table-pager">
+        <div v-if="cmDisplayEntries.length > PAGE_SIZE" class="table-pager">
           <el-pagination
             v-model:current-page="cmPage"
             background
             layout="total, prev, pager, next"
-            :total="cmOrders.length"
+            :total="cmDisplayEntries.length"
             :page-size="PAGE_SIZE"
           />
         </div>
@@ -654,5 +754,32 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   margin-top: 12px;
+}
+
+.cm-sell-expand {
+  padding: 8px 12px 8px 48px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+}
+
+.cm-sell-expand--empty {
+  color: var(--el-text-color-secondary);
+}
+
+.cm-sell-expand__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.cm-sell-expand__id {
+  font-family: ui-monospace, monospace;
+  color: var(--el-text-color-secondary);
+}
+
+:deep(.cm-order-row--no-sells .el-table__expand-icon) {
+  visibility: hidden;
+  pointer-events: none;
 }
 </style>

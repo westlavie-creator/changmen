@@ -913,7 +913,7 @@ function unlockRate() {
               从私钥推导 EOA / funder
             </el-button>
             <span class="poly-credential-hint">
-              保存账号时会自动推导；funder 为 Deposit Wallet 充值地址
+              保存账号时会自动推导 EOA 与充值地址
             </span>
           </el-form-item>
           <el-form-item label="EOA 地址：">
@@ -925,18 +925,30 @@ function unlockRate() {
               style="font-family: monospace; font-size: 12px"
             />
           </el-form-item>
-          <el-form-item label="Funder：">
+          <el-form-item label="充值地址：">
             <el-input
               v-model="polyFunder"
-              placeholder="由私钥自动推导的 Deposit Wallet"
+              placeholder="由私钥自动推导的 Deposit Wallet（funder）"
               :readonly="!polyAdvancedMode"
               :disabled="readonly && !polyFunder"
+              class="poly-funder-input"
+              :class="{ 'poly-credential-readonly': !polyAdvancedMode }"
               style="font-family: monospace; font-size: 12px"
             />
+            <p class="poly-funder-deposit-hint">
+              请向此地址充值 <strong>Polygon</strong> 链上的 <strong>USDC</strong>
+              （勿充 ETH 主网或其它链）。
+              <template v-if="!polyAdvancedMode">
+                地址由私钥自动推导，不可修改。
+              </template>
+              <template v-else>
+                当前为高级模式，可手动指定（官网 Proxy/Safe 导入）。
+              </template>
+            </p>
           </el-form-item>
           <el-form-item v-if="!readonly" label="高级：">
             <el-checkbox v-model="polyAdvancedMode">
-              手动指定 EOA / funder（官网 Proxy/Safe 导入）
+              手动指定 EOA / 充值地址（官网 Proxy/Safe 导入）
             </el-checkbox>
           </el-form-item>
           <el-form-item v-if="!readonly" label="API 凭证：">
@@ -1093,5 +1105,25 @@ function unlockRate() {
 .poly-credential-readonly :deep(.el-input__inner) {
   cursor: default;
   color: var(--el-text-color-regular);
+}
+
+.poly-funder-input {
+  width: 100%;
+}
+
+.poly-funder-deposit-hint {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-color-warning-light-9);
+  border: 1px solid var(--el-color-warning-light-5);
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.poly-funder-deposit-hint strong {
+  color: var(--el-color-warning-dark-2);
+  font-weight: 600;
 }
 </style>

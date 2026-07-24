@@ -312,6 +312,12 @@ function mapChangmenOrder(row) {
       ? sellState
       : "",
     pmAttributedSellShares: Number(raw.pmAttributedSellShares) || 0,
+    pmBuyOrderId: String(raw.pmBuyOrderId || "").trim(),
+    pmLastSellOrderId: String(raw.pmLastSellOrderId || "").trim(),
+    pmSellProceeds: (() => {
+      const n = Number(raw.pmSellProceeds);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    })(),
     pmMatchResult: (() => {
       const m = String(raw.pmMatchResult || "").trim().toLowerCase();
       return m === "win" || m === "lose" ? m : "";

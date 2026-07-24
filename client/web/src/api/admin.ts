@@ -468,6 +468,12 @@ export interface PolymarketChangmenOrderRow {
   pmStakeUsdc: number;
   pmSellState: "" | "open" | "partial" | "closed" | "settled";
   pmAttributedSellShares: number;
+  /** 卖单 → 父买单 orderId（合并展示用） */
+  pmBuyOrderId?: string;
+  /** 买单最近一笔卖单 orderId */
+  pmLastSellOrderId?: string;
+  /** 买单累计卖出回款 USDC */
+  pmSellProceeds?: number;
   /** 赛果（持有到期）：win/lose，与 status/money 脱钩 */
   pmMatchResult: string;
   matchTitle: string;
