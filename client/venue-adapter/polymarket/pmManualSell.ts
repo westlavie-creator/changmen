@@ -37,10 +37,14 @@ import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import {
   parsePolymarketSellOrderFill,
   POLYMARKET_SELL_FILL_RETRY_OPTS,
-  resolvePolymarketSellFill,
+  polymarketShareCount,
   resolvePolymarketSellFillWithRetry,
 } from "./orders";
-import { POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS } from "./orderStatus";
+import {
+  fetchPolymarketOrderRow,
+  interpretPolymarketOrderRow,
+  POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS,
+} from "./orderStatus";
 import {
   normalizePolymarketTickSize,
   type PolymarketTickSize,
@@ -83,9 +87,31 @@ export interface PolymarketManualSellResult {
   ordersToSave?: VenueOrder[];
   /** 已确认成交但份数少于请求（仍应落库） */
   partialFill?: boolean;
-  /** 链上已拿到 sell orderId，但成交确认/落库未完成 */
+  /**
+   * 链上已拿到 sell orderId。
+   * 正常路径会 await 到 filled/unfilled；仅异常中断时仍可能为 true。
+   */
   chainSubmitted?: boolean;
+  /** CLOB 已确认未成交（FOK 取消等）：可再卖 */
+  unfilled?: boolean;
 }
+
+/** 平仓确认终态：禁止永久 pending */
+export type PolymarketManualSellFinalOutcome =
+  | {
+    outcome: "filled";
+    sellOrderId: string;
+    sharesSold: number;
+    proceedsUsdc: number;
+    fillPrice: number;
+    ordersToSave: VenueOrder[];
+    partialFill: boolean;
+  }
+  | {
+    outcome: "unfilled";
+    sellOrderId: string;
+    reason: string;
+  };
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
@@ -337,6 +363,221 @@ function buildSellAndBuyPatchOrders(params: {
 /** 单测 / 调试：手动卖出后的买卖补丁 */
 export { buildSellAndBuyPatchOrders };
 
+function normalizeManualSellBuy(buyRow: OrderRowLike | VenueOrder): VenueOrder {
+  return "provider" in buyRow && "orderId" in buyRow
+    ? buyRow as VenueOrder
+    : venueOrderFromOrderRow(buyRow);
+}
+
+function buildFilledOutcome(params: {
+  account: PlatformAccount;
+  buy: VenueOrder;
+  sellOrderId: string;
+  sharesSold: number;
+  proceedsUsdc: number;
+  fallbackPrice: number;
+  sharesWanted: number;
+}): Extract<PolymarketManualSellFinalOutcome, { outcome: "filled" }> {
+  const fillPriceRaw = params.proceedsUsdc / params.sharesSold;
+  const fillPrice = fillPriceRaw > 0 && fillPriceRaw < 1
+    ? round4(fillPriceRaw)
+    : (params.fallbackPrice > 0 && params.fallbackPrice < 1 ? round4(params.fallbackPrice) : round4(fillPriceRaw));
+  markPolymarketChangmenOrder(params.account.accountId, params.sellOrderId);
+  const ordersToSave = buildSellAndBuyPatchOrders({
+    buy: { ...params.buy, provider: PLATFORMS.Polymarket },
+    sellOrderId: params.sellOrderId,
+    sharesSold: params.sharesSold,
+    proceedsUsdc: params.proceedsUsdc,
+    fillPrice,
+    createAt: Date.now(),
+  });
+  return {
+    outcome: "filled",
+    sellOrderId: params.sellOrderId,
+    sharesSold: params.sharesSold,
+    proceedsUsdc: params.proceedsUsdc,
+    fillPrice,
+    ordersToSave,
+    partialFill: params.sharesSold + 0.05 < params.sharesWanted,
+  };
+}
+
+/**
+ * 按卖单号确认到终态（filled | unfilled）。
+ * 轮询 order/trades；截止后仍模糊则按 FOK 未确认成交 → unfilled。
+ */
+export async function awaitPolymarketManualSellFinalOutcome(params: {
+  account: PlatformAccount;
+  buyRow: OrderRowLike | VenueOrder;
+  sellOrderId: string;
+  postResponse?: {
+    makingAmount?: string | number;
+    takingAmount?: string | number;
+    status?: string;
+  } | null;
+  /** 限价兜底（无成交价时用） */
+  fallbackPrice?: number;
+  sharesWanted?: number;
+}): Promise<PolymarketManualSellFinalOutcome> {
+  const sellOrderId = String(params.sellOrderId ?? "").trim();
+  const buy = normalizeManualSellBuy(params.buyRow);
+  const sharesWanted = params.sharesWanted && params.sharesWanted > 0
+    ? params.sharesWanted
+    : (resolvePmRemainingShares(buy) > 0.0001
+      ? resolvePmRemainingShares(buy)
+      : resolvePmFillShares(buy));
+  const fallbackPrice = Number(params.fallbackPrice) || 0;
+
+  if (!sellOrderId) {
+    return { outcome: "unfilled", sellOrderId: "", reason: "缺少卖单号" };
+  }
+
+  const fromPost = parsePolymarketSellOrderFill(params.postResponse);
+  if (fromPost.sharesSold > 0 && fromPost.proceedsUsdc > 0) {
+    return buildFilledOutcome({
+      account: params.account,
+      buy,
+      sellOrderId,
+      sharesSold: fromPost.sharesSold,
+      proceedsUsdc: fromPost.proceedsUsdc,
+      fallbackPrice,
+      sharesWanted,
+    });
+  }
+
+  const conditionId = String(buy.pmConditionId ?? "").trim();
+  const delayInfo = conditionId
+    ? await fetchPolymarketMarketSecondsDelay(conditionId)
+    : { secondsDelay: 1, takerOrderDelayEnabled: false };
+  const poll = buildPolymarketDelayedPollOpts(delayInfo.secondsDelay);
+  const watchTimeoutMs = buildPolymarketWatchTimeoutMs(delayInfo.secondsDelay);
+  if (conditionId) {
+    registerPolymarketOrderWatch(params.account, sellOrderId, {
+      conditionId,
+      timeoutMs: watchTimeoutMs,
+    });
+  }
+
+  const tradeConfirm = {
+    ...POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS,
+    maxRetries: Math.max(
+      POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS.maxRetries,
+      poll.maxAttempts,
+    ),
+  };
+  startPolymarketSettlementJob(params.account, sellOrderId, {
+    side: "SELL",
+    poll,
+    tradeConfirm,
+  });
+
+  const settled = await awaitPolymarketSettlementJob(params.account, sellOrderId)
+    ?? await settlePolymarketDelayedOrder(params.account, sellOrderId, {
+      side: "SELL",
+      poll,
+      tradeConfirm,
+    });
+
+  if (settled.outcome === "unfilled") {
+    return {
+      outcome: "unfilled",
+      sellOrderId,
+      reason: "卖单未成交（FOK 已取消）",
+    };
+  }
+
+  const resolved = await resolvePolymarketSellFillWithRetry(
+    params.account,
+    sellOrderId,
+    params.postResponse,
+    {
+      lookbackMs: POLYMARKET_SELL_FILL_RETRY_OPTS.lookbackMs,
+      retryMs: POLYMARKET_SELL_FILL_RETRY_OPTS.retryMs,
+      maxRetries: Math.max(6, Math.ceil(poll.maxAttempts / 2)),
+      orderRow: settled.row,
+    },
+  );
+
+  if (resolved.sharesSold > 0 && resolved.proceedsUsdc > 0) {
+    return buildFilledOutcome({
+      account: params.account,
+      buy,
+      sellOrderId,
+      sharesSold: resolved.sharesSold,
+      proceedsUsdc: resolved.proceedsUsdc,
+      fallbackPrice,
+      sharesWanted,
+    });
+  }
+
+  // 有份数无回款：用限价 / 买单成交价估算回款，仍算成交终态（避免误判未成交导致双卖）
+  const rowShares = polymarketShareCount(settled.row?.size_matched);
+  const sharesSold = resolved.sharesSold > 0 ? resolved.sharesSold : rowShares;
+  const estimatePrice = fallbackPrice > 0 && fallbackPrice < 1
+    ? fallbackPrice
+    : (Number(buy.pmFillPrice) > 0 && Number(buy.pmFillPrice) < 1 ? round4(Number(buy.pmFillPrice)) : 0);
+  if (sharesSold > 0 && estimatePrice > 0) {
+    const proceedsUsdc = resolved.proceedsUsdc > 0
+      ? resolved.proceedsUsdc
+      : round4(sharesSold * estimatePrice);
+    if (proceedsUsdc > 0) {
+      return buildFilledOutcome({
+        account: params.account,
+        buy,
+        sellOrderId,
+        sharesSold,
+        proceedsUsdc,
+        fallbackPrice: estimatePrice,
+        sharesWanted,
+      });
+    }
+  }
+
+  // 截止后最终读一次 order 行
+  const lastRow = settled.row ?? await fetchPolymarketOrderRow(params.account, sellOrderId);
+  const lastState = interpretPolymarketOrderRow(lastRow);
+  if (lastState === "matched" || settled.outcome === "matched") {
+    const matchedShares = polymarketShareCount(lastRow?.size_matched) || sharesSold;
+    if (matchedShares > 0 && estimatePrice > 0) {
+      return buildFilledOutcome({
+        account: params.account,
+        buy,
+        sellOrderId,
+        sharesSold: matchedShares,
+        proceedsUsdc: round4(matchedShares * estimatePrice),
+        fallbackPrice: estimatePrice,
+        sharesWanted,
+      });
+    }
+    // 已 matched 但无价可估：仍不得判 unfilled（防双卖）；用 dust 回款占位落库
+    if (matchedShares > 0) {
+      return buildFilledOutcome({
+        account: params.account,
+        buy,
+        sellOrderId,
+        sharesSold: matchedShares,
+        proceedsUsdc: round4(matchedShares * 0.01),
+        fallbackPrice: 0.01,
+        sharesWanted,
+      });
+    }
+  }
+  if (lastState === "unfilled") {
+    return {
+      outcome: "unfilled",
+      sellOrderId,
+      reason: "卖单未成交（FOK 已取消）",
+    };
+  }
+
+  // 截止仍模糊且无 matched 证据：按未成交终态退出平仓中
+  return {
+    outcome: "unfilled",
+    sellOrderId,
+    reason: "截止未确认成交，按未成交处理",
+  };
+}
+
 /**
  * [changmen 扩展] 手动卖 delayed：与买单对齐——按 conditionId 拉 `sd`、
  * User WS watch + settlement job（SELL），再补齐 shares/USDC。
@@ -350,75 +591,47 @@ export async function confirmPolymarketManualSellDelayedFill(params: {
     takingAmount?: string | number;
   } | null | undefined;
 }): Promise<{ sharesSold: number; proceedsUsdc: number }> {
-  const conditionId = String(params.conditionId ?? "").trim();
-  const delayInfo = conditionId
-    ? await fetchPolymarketMarketSecondsDelay(conditionId)
-    : { secondsDelay: 1, takerOrderDelayEnabled: false };
-  const poll = buildPolymarketDelayedPollOpts(delayInfo.secondsDelay);
-  const watchTimeoutMs = buildPolymarketWatchTimeoutMs(delayInfo.secondsDelay);
-  if (conditionId) {
-    registerPolymarketOrderWatch(params.account, params.sellOrderId, {
-      conditionId,
-      timeoutMs: watchTimeoutMs,
-    });
-  }
-  else {
-    console.warn(
-      "[Polymarket] 手动卖 delayed 缺 pmConditionId，User WS 未订阅；仅 REST 确认",
-    );
-  }
-
-  const tradeConfirm = {
-    ...POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS,
-    maxRetries: Math.max(
-      POLYMARKET_DELAYED_TRADE_CONFIRM_OPTS.maxRetries,
-      poll.maxAttempts,
-    ),
-  };
-  startPolymarketSettlementJob(params.account, params.sellOrderId, {
-    side: "SELL",
-    poll,
-    tradeConfirm,
-  });
-
-  const settled = await awaitPolymarketSettlementJob(params.account, params.sellOrderId)
-    ?? await settlePolymarketDelayedOrder(params.account, params.sellOrderId, {
-      side: "SELL",
-      poll,
-      tradeConfirm,
-    });
-
-  if (settled.outcome === "unfilled")
-    throw new Error("卖单延迟窗结束后未成交，未写入平仓");
-  if (settled.outcome !== "matched")
-    throw new Error("卖单延迟撮合未确认成交，未写入平仓");
-
-  const resolved = await resolvePolymarketSellFillWithRetry(
-    params.account,
-    params.sellOrderId,
-    params.postResponse,
-    {
-      lookbackMs: POLYMARKET_SELL_FILL_RETRY_OPTS.lookbackMs,
-      retryMs: POLYMARKET_SELL_FILL_RETRY_OPTS.retryMs,
-      maxRetries: Math.max(6, Math.ceil(poll.maxAttempts / 2)),
-      orderRow: settled.row,
+  const final = await awaitPolymarketManualSellFinalOutcome({
+    account: params.account,
+    buyRow: {
+      provider: PLATFORMS.Polymarket,
+      orderId: "",
+      odds: 0,
+      createAt: Date.now(),
+      betMoney: 0,
+      reward: 0,
+      money: 0,
+      status: "none",
+      match: "",
+      bet: "",
+      item: "",
+      pmConditionId: params.conditionId,
+      pmSide: "buy",
+      pmSellState: "open",
     },
-  );
-  if (!(resolved.sharesSold > 0) || !(resolved.proceedsUsdc > 0))
-    throw new Error("卖单延迟撮合未确认成交份数/回款，未写入平仓");
-  return resolved;
+    sellOrderId: params.sellOrderId,
+    postResponse: params.postResponse,
+  });
+  if (final.outcome !== "filled")
+    throw new Error(final.reason || "卖单延迟撮合未确认成交");
+  return { sharesSold: final.sharesSold, proceedsUsdc: final.proceedsUsdc };
 }
 
 /**
  * 按指令卖出当前买单剩余份额（FOK），并返回成交结果（含仅本买单的落库 patch）。
+ * 一旦拿到 sellOrderId，会 await 到 filled/unfilled 终态。
  */
 export async function sellPolymarketBuyPosition(params: {
   account: PlatformAccount;
   buyRow: OrderRowLike | VenueOrder;
+  /** 卖单已受理（有 orderId）时回调，供 UI 进入「平仓中」 */
+  onSubmitted?: (info: {
+    sellOrderId: string;
+    fallbackPrice: number;
+    sharesWanted: number;
+  }) => void;
 }): Promise<PolymarketManualSellResult> {
-  const buy = "provider" in params.buyRow && "orderId" in params.buyRow
-    ? params.buyRow as VenueOrder
-    : venueOrderFromOrderRow(params.buyRow);
+  const buy = normalizeManualSellBuy(params.buyRow);
 
   if (String(buy.provider) !== "Polymarket" && String((params.buyRow as OrderRowLike).Type ?? "") !== "Polymarket")
     return { ok: false, error: "非 Polymarket 订单" };
@@ -450,6 +663,7 @@ export async function sellPolymarketBuyPosition(params: {
   const gateway = params.account.gateway || POLYMARKET_CLOB_API;
 
   let submittedSellOrderId = "";
+  let sellLimitPrice = 0;
   try {
     const book = await pmGetBook<PolymarketOrderBookResponse>(tokenId, gateway);
     const bids = parseBidsFromBook(book);
@@ -462,6 +676,7 @@ export async function sellPolymarketBuyPosition(params: {
       throw new Error("bids 深度不足以全卖该买单份额");
 
     const price = calculateSellMarketLimitPrice(bids, sharesWanted, minOrderSize);
+    sellLimitPrice = price;
     const orderBody = await createPolymarketFokSellOrderBody(
       gateway,
       privateKey,
@@ -479,69 +694,87 @@ export async function sellPolymarketBuyPosition(params: {
       throw new Error(String(result?.errorMsg ?? "FOK 卖单未受理").trim() || "FOK 卖单未受理");
     }
 
-    const filled = parsePolymarketSellOrderFill(result);
-    let sharesSold = filled.sharesSold;
-    let proceedsUsdc = filled.proceedsUsdc;
-    // 卖单：making=shares、taking=USDC；勿复用买单的 isPolymarketDelayedPending(只看 taking)
-    const statusLc = String(result?.status ?? "").trim().toLowerCase();
-    const sellFillComplete = sharesSold > 0 && proceedsUsdc > 0;
-    const pending = Boolean(result?.success)
-      && statusLc === "delayed"
-      && !sellFillComplete;
-
-    if (!sellFillComplete && !pending) {
-      const resolved = await resolvePolymarketSellFill(params.account, sellOrderId, result);
-      sharesSold = resolved.sharesSold;
-      proceedsUsdc = resolved.proceedsUsdc;
-    }
-
-    if (pending && !(sharesSold > 0 && proceedsUsdc > 0)) {
-      const resolved = await confirmPolymarketManualSellDelayedFill({
-        account: params.account,
-        sellOrderId,
-        conditionId: String(buy.pmConditionId ?? "").trim(),
-        postResponse: result,
-      });
-      sharesSold = resolved.sharesSold;
-      proceedsUsdc = resolved.proceedsUsdc;
-    }
-
-    if (!(sharesSold > 0) || !(proceedsUsdc > 0)) {
-      throw new Error("FOK 卖出未确认成交份数/回款");
-    }
-
-    // 已确认成交必须落库；部分成交也按实成交归因（勿 throw，否则本地仍可再卖）
-    const fillPrice = round4(proceedsUsdc / sharesSold);
     markPolymarketChangmenOrder(params.account.accountId, sellOrderId);
 
-    const ordersToSave = buildSellAndBuyPatchOrders({
-      buy: { ...buy, provider: PLATFORMS.Polymarket },
+    try {
+      params.onSubmitted?.({
+        sellOrderId,
+        fallbackPrice: price,
+        sharesWanted,
+      });
+    }
+    catch { /* UI 回调失败不阻断确认 */ }
+
+    const final = await awaitPolymarketManualSellFinalOutcome({
+      account: params.account,
+      buyRow: buy,
       sellOrderId,
-      sharesSold,
-      proceedsUsdc,
-      fillPrice: fillPrice > 0 && fillPrice < 1 ? fillPrice : price,
-      createAt: Date.now(),
+      postResponse: result,
+      fallbackPrice: price,
+      sharesWanted,
     });
-    const sellRow = ordersToSave.find(o => o.pmSide === "sell");
+
+    if (final.outcome === "unfilled") {
+      return {
+        ok: false,
+        error: final.reason,
+        sellOrderId,
+        unfilled: true,
+        chainSubmitted: false,
+      };
+    }
 
     return {
       ok: true,
-      sellOrderId,
-      sharesSold,
-      fillPrice: sellRow?.pmFillPrice,
-      proceedsUsdc,
+      sellOrderId: final.sellOrderId,
+      sharesSold: final.sharesSold,
+      fillPrice: final.fillPrice,
+      proceedsUsdc: final.proceedsUsdc,
       pending: false,
-      ordersToSave,
-      partialFill: sharesSold + 0.05 < sharesWanted,
+      ordersToSave: final.ordersToSave,
+      partialFill: final.partialFill,
     };
   }
   catch (err) {
+    // 已受理但确认过程抛错：再跑一遍终态，保证不卡在模糊态
+    if (submittedSellOrderId) {
+      try {
+        const final = await awaitPolymarketManualSellFinalOutcome({
+          account: params.account,
+          buyRow: buy,
+          sellOrderId: submittedSellOrderId,
+          fallbackPrice: sellLimitPrice > 0 ? sellLimitPrice : undefined,
+          sharesWanted,
+        });
+        if (final.outcome === "filled") {
+          return {
+            ok: true,
+            sellOrderId: final.sellOrderId,
+            sharesSold: final.sharesSold,
+            fillPrice: final.fillPrice,
+            proceedsUsdc: final.proceedsUsdc,
+            pending: false,
+            ordersToSave: final.ordersToSave,
+            partialFill: final.partialFill,
+          };
+        }
+        return {
+          ok: false,
+          error: final.reason,
+          sellOrderId: submittedSellOrderId,
+          unfilled: true,
+        };
+      }
+      catch {
+        /* fall through */
+      }
+    }
     return {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
       sellOrderId: submittedSellOrderId || undefined,
-      /** 链上已受理但成交未确认：上层应禁止再点卖出 */
       chainSubmitted: Boolean(submittedSellOrderId),
+      unfilled: !submittedSellOrderId,
     };
   }
 }

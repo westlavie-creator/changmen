@@ -215,14 +215,32 @@ async function sellPm(account: PlatformAccount, row: OrderRow): Promise<boolean>
   if (!orderId || !beginArbAutoSell(orderId))
     return false;
   try {
+    const { trackPmManualSellClosing, clearPmManualSellClosing } = await import("@/stores/account/pmManualSell");
     const result = await sellPolymarketBuyPosition({
       account,
       buyRow: row as OrderRowLike,
+      onSubmitted: (info) => {
+        trackPmManualSellClosing(orderId, info);
+      },
     });
-    if (!result.ok)
+    if (!result.ok) {
+      if (result.unfilled)
+        clearPmManualSellClosing(orderId);
       return false;
-    if (result.ordersToSave?.length)
-      await saveOrders(account, result.ordersToSave);
+    }
+    if (result.ordersToSave?.length) {
+      try {
+        await saveOrders(account, result.ordersToSave);
+        clearPmManualSellClosing(orderId);
+      }
+      catch {
+        // 保留 closing，等订单刷新 resume 再落库
+        return false;
+      }
+    }
+    else {
+      clearPmManualSellClosing(orderId);
+    }
     return true;
   }
   catch {

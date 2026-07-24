@@ -92,6 +92,10 @@ export const useOrderStore = defineStore("order", {
           .filter(r => orderBelongsToDateKey(r, this.orderDate, list))
           .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, list) }));
         useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
+        // 恢复「平仓中」会话：跑完 CLOB 终态（已平仓 / 可再卖）
+        void import("@/stores/account/pmManualSell")
+          .then(m => m.resumePmManualSellClosings())
+          .catch(() => {});
         return true;
       }
       finally {

@@ -1,10 +1,13 @@
 /**
- * [changmen 扩展] 订单栏 PM 卖出：对当前买单下 FOK，保存本买卖结果。
+ * [changmen 扩展] 订单栏 PM 卖出：对当前买单下 FOK，确认到终态后落库。
+ * 平仓中（closing）为过渡态；出口只有已平仓 / 未成交可再卖。
  */
 import { ElMessage } from "element-plus";
 import { shallowRef } from "vue";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import {
+  awaitPolymarketManualSellFinalOutcome,
   hasOpenPolymarketPosition,
   resolvePmRemainingShares,
   sellPolymarketBuyPosition,
@@ -16,32 +19,114 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 import type { OrderRow } from "@/types/order";
 
+type ClosingEntry = {
+  sellOrderId: string;
+  at: number;
+  fallbackPrice?: number;
+  sharesWanted?: number;
+};
+
 /** 飞行中 / 确认框中：响应式，供按钮 disabled */
 const sellingOrderIds = shallowRef(new Set<string>());
-/** 链上已卖、落库失败：禁止再点卖出，避免双卖（session 内跨刷新保留） */
-const PERSIST_BLOCK_KEY = "pmManualSell.persistBlocked";
-const persistBlockedOrderIds = shallowRef(loadPersistBlocked());
+/** 平仓确认中：买单 → 卖单号（session 内跨刷新保留） */
+const CLOSING_KEY = "pmManualSell.closing";
+/** 兼容旧 persistBlocked */
+const LEGACY_BLOCK_KEY = "pmManualSell.persistBlocked";
+const closingByBuyId = shallowRef(loadClosing());
+/** resume 防重入 */
+let resumeInFlight = false;
 
-function loadPersistBlocked(): Set<string> {
+function loadClosing(): Map<string, ClosingEntry> {
+  const map = new Map<string, ClosingEntry>();
   try {
-    const raw = sessionStorage.getItem(PERSIST_BLOCK_KEY);
-    if (!raw)
-      return new Set();
-    const arr = JSON.parse(raw) as unknown;
-    if (!Array.isArray(arr))
-      return new Set();
-    return new Set(arr.map(x => String(x ?? "").trim()).filter(Boolean));
+    const raw = sessionStorage.getItem(CLOSING_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw) as Record<string, ClosingEntry | string>;
+      for (const [buyId, v] of Object.entries(obj)) {
+        const id = String(buyId ?? "").trim();
+        if (!id)
+          continue;
+        if (typeof v === "string") {
+          const sellId = v.trim();
+          if (sellId)
+            map.set(id, { sellOrderId: sellId, at: Date.now() });
+          continue;
+        }
+        const sellId = String(v?.sellOrderId ?? "").trim();
+        if (sellId) {
+          map.set(id, {
+            sellOrderId: sellId,
+            at: Number(v?.at) || Date.now(),
+            fallbackPrice: Number(v?.fallbackPrice) > 0 ? Number(v.fallbackPrice) : undefined,
+            sharesWanted: Number(v?.sharesWanted) > 0 ? Number(v.sharesWanted) : undefined,
+          });
+        }
+      }
+    }
   }
-  catch {
-    return new Set();
+  catch { /* ignore */ }
+
+  // 迁移旧禁卖列表：无 sellOrderId 的仅占位，resume 时按未成交清掉
+  try {
+    const legacy = sessionStorage.getItem(LEGACY_BLOCK_KEY);
+    if (legacy) {
+      const arr = JSON.parse(legacy) as unknown;
+      if (Array.isArray(arr)) {
+        for (const x of arr) {
+          const id = String(x ?? "").trim();
+          if (id && !map.has(id))
+            map.set(id, { sellOrderId: "", at: Date.now() });
+        }
+      }
+      sessionStorage.removeItem(LEGACY_BLOCK_KEY);
+    }
   }
+  catch { /* ignore */ }
+
+  return map;
 }
 
-function writePersistBlocked(ids: Set<string>): void {
+function writeClosing(map: Map<string, ClosingEntry>): void {
   try {
-    sessionStorage.setItem(PERSIST_BLOCK_KEY, JSON.stringify([...ids]));
+    const obj: Record<string, ClosingEntry> = {};
+    for (const [k, v] of map)
+      obj[k] = v;
+    sessionStorage.setItem(CLOSING_KEY, JSON.stringify(obj));
   }
   catch { /* ignore quota */ }
+}
+
+function setClosingMap(next: Map<string, ClosingEntry>): void {
+  closingByBuyId.value = next;
+  writeClosing(next);
+}
+
+function enterClosing(
+  buyOrderId: string,
+  sellOrderId: string,
+  opts?: { fallbackPrice?: number; sharesWanted?: number },
+): void {
+  const id = String(buyOrderId ?? "").trim();
+  const sellId = String(sellOrderId ?? "").trim();
+  if (!id)
+    return;
+  const next = new Map(closingByBuyId.value);
+  next.set(id, {
+    sellOrderId: sellId,
+    at: Date.now(),
+    fallbackPrice: opts?.fallbackPrice,
+    sharesWanted: opts?.sharesWanted,
+  });
+  setClosingMap(next);
+}
+
+function clearClosing(buyOrderId: string): void {
+  const id = String(buyOrderId ?? "").trim();
+  if (!id || !closingByBuyId.value.has(id))
+    return;
+  const next = new Map(closingByBuyId.value);
+  next.delete(id);
+  setClosingMap(next);
 }
 
 function setHas(refSet: typeof sellingOrderIds, id: string): boolean {
@@ -54,8 +139,6 @@ function addId(refSet: typeof sellingOrderIds, id: string): void {
   const next = new Set(refSet.value);
   next.add(id);
   refSet.value = next;
-  if (refSet === persistBlockedOrderIds)
-    writePersistBlocked(next);
 }
 
 function removeId(refSet: typeof sellingOrderIds, id: string): void {
@@ -64,8 +147,6 @@ function removeId(refSet: typeof sellingOrderIds, id: string): void {
   const next = new Set(refSet.value);
   next.delete(id);
   refSet.value = next;
-  if (refSet === persistBlockedOrderIds)
-    writePersistBlocked(next);
 }
 
 function venueOrdersToLocalRows(buyRow: OrderRow, orders: VenueOrder[]): OrderRow[] {
@@ -108,7 +189,6 @@ function venueOrdersToLocalRows(buyRow: OrderRow, orders: VenueOrder[]): OrderRo
       PmLastSellOrderId: vo.pmLastSellOrderId,
       PmSide: "buy",
       PmOrigin: vo.pmOrigin ?? buyRow.PmOrigin,
-      // 本地乐观更新：合并仓位事件（vo 往往只带本笔，勿整段覆盖）
       PositionEvents: mergePositionEventsLocal(buyRow.PositionEvents, vo.positionEvents),
     } satisfies OrderRow;
   });
@@ -158,11 +238,55 @@ function applyManualSellOrdersLocally(buyRow: OrderRow, ordersToSave: VenueOrder
   orderStore.orders = groupOrdersByEffectiveLink([...byId.values()]);
 }
 
+async function persistFilledSell(
+  account: PlatformAccount,
+  buyRow: OrderRow,
+  ordersToSave: VenueOrder[],
+): Promise<boolean> {
+  try {
+    await saveOrders(account, ordersToSave);
+    return true;
+  }
+  catch (saveErr) {
+    try {
+      await saveOrders(account, ordersToSave);
+      return true;
+    }
+    catch {
+      // 勿立刻 fetchOrders：会冲掉本地乐观已平仓，导致按钮可再卖 → 双卖
+      applyManualSellOrdersLocally(buyRow, ordersToSave);
+      ElMessage.error(
+        `链上已平仓，但订单落库失败：${saveErr instanceof Error ? saveErr.message : String(saveErr)}。已按已平仓展示，请稍后刷新。`,
+      );
+      return false;
+    }
+  }
+}
+
+export function isPmManualSellClosing(orderId: string | number | undefined): boolean {
+  return closingByBuyId.value.has(String(orderId ?? "").trim());
+}
+
+/** 供自动卖（arb）写入平仓中会话，落库失败时可 resume */
+export function trackPmManualSellClosing(
+  buyOrderId: string,
+  info: { sellOrderId: string; fallbackPrice?: number; sharesWanted?: number },
+): void {
+  enterClosing(buyOrderId, info.sellOrderId, {
+    fallbackPrice: info.fallbackPrice,
+    sharesWanted: info.sharesWanted,
+  });
+}
+
+export function clearPmManualSellClosing(buyOrderId: string): void {
+  clearClosing(buyOrderId);
+}
+
 export function canManualSellPmBuy(row: OrderRow): boolean {
   const orderId = String(row.OrderID ?? "").trim();
   if (!orderId)
     return false;
-  if (setHas(persistBlockedOrderIds, orderId))
+  if (isPmManualSellClosing(orderId))
     return false;
   if (String(row.Type ?? "").trim() !== "Polymarket")
     return false;
@@ -176,7 +300,122 @@ export function canManualSellPmBuy(row: OrderRow): boolean {
 }
 
 export function isPmManualSellInFlight(orderId: string | number | undefined): boolean {
-  return setHas(sellingOrderIds, String(orderId ?? "").trim());
+  const id = String(orderId ?? "").trim();
+  return setHas(sellingOrderIds, id) || isPmManualSellClosing(id);
+}
+
+async function applyFinalFilled(
+  buyRow: OrderRow,
+  account: PlatformAccount,
+  ordersToSave: VenueOrder[],
+  sharesSold: number,
+  sharesWanted: number,
+  partialFill: boolean,
+): Promise<void> {
+  const orderId = String(buyRow.OrderID ?? "").trim();
+  const saved = await persistFilledSell(account, buyRow, ordersToSave);
+  if (!saved) {
+    // 落库失败：已 toast error + 本地乐观已平仓 + 保留 closing；勿再报成功
+    return;
+  }
+  clearClosing(orderId);
+  try {
+    await useOrderStore().fetchOrders();
+  }
+  catch { /* ignore */ }
+  const sharesText = formatPolymarketApiDecimal(sharesWanted);
+  if (partialFill) {
+    ElMessage.warning(
+      `仅成交 ${formatPolymarketApiDecimal(sharesSold)} / ${sharesText} 份（已平仓写入）`,
+    );
+  }
+  else {
+    ElMessage.success(`已平仓 ${formatPolymarketApiDecimal(sharesSold)} 份`);
+  }
+}
+
+/**
+ * 刷新后恢复：对 session 内仍「平仓中」的买单跑完终态确认。
+ */
+export async function resumePmManualSellClosings(): Promise<void> {
+  if (resumeInFlight)
+    return;
+  const entries = [...closingByBuyId.value.entries()];
+  if (!entries.length)
+    return;
+
+  resumeInFlight = true;
+  const orderStore = useOrderStore();
+  const accountStore = useAccountStore();
+  try {
+    const byId = new Map<string, OrderRow>();
+    for (const rows of orderStore.orders.values()) {
+      for (const row of rows)
+        byId.set(String(row.OrderID ?? ""), row);
+    }
+
+    for (const [buyId, entry] of entries) {
+      // 正在卖出流程中：勿并发 resume
+      if (setHas(sellingOrderIds, buyId))
+        continue;
+
+      const row = byId.get(buyId);
+      if (!row) {
+        clearClosing(buyId);
+        continue;
+      }
+      if (!entry.sellOrderId) {
+        clearClosing(buyId);
+        continue;
+      }
+      // 已落库 closed：直接清会话
+      if (String(row.PmSellState ?? "").toLowerCase() === "closed"
+        || resolvePmRemainingShares(row) <= 0.0001) {
+        clearClosing(buyId);
+        continue;
+      }
+
+      const account = accountStore.findAccount(Number(row.PlayerID));
+      if (!account?.token) {
+        // 账号暂不可用：保留 closing，下次再 resume
+        continue;
+      }
+
+      addId(sellingOrderIds, buyId);
+      try {
+        const final = await awaitPolymarketManualSellFinalOutcome({
+          account,
+          buyRow: row,
+          sellOrderId: entry.sellOrderId,
+          fallbackPrice: entry.fallbackPrice,
+          sharesWanted: entry.sharesWanted,
+        });
+        if (final.outcome === "filled") {
+          const saved = await persistFilledSell(account, row, final.ordersToSave);
+          if (saved) {
+            clearClosing(buyId);
+            try {
+              await orderStore.fetchOrders();
+            }
+            catch { /* ignore */ }
+          }
+          // 落库失败：保留 closing 下次再试
+        }
+        else {
+          clearClosing(buyId);
+        }
+      }
+      catch {
+        // 网络/异常：保留平仓中，下次 fetchOrders 再试（勿清会话以免双卖）
+      }
+      finally {
+        removeId(sellingOrderIds, buyId);
+      }
+    }
+  }
+  finally {
+    resumeInFlight = false;
+  }
 }
 
 export async function confirmAndSellPmBuyOrder(row: OrderRow): Promise<boolean> {
@@ -186,7 +425,6 @@ export async function confirmAndSellPmBuyOrder(row: OrderRow): Promise<boolean> 
   if (setHas(sellingOrderIds, orderId))
     return false;
 
-  // 确认框前加锁，避免连点弹出多个确认
   addId(sellingOrderIds, orderId);
   try {
     const shares = resolvePmRemainingShares(row);
@@ -213,56 +451,71 @@ export async function confirmAndSellPmBuyOrder(row: OrderRow): Promise<boolean> 
     const result = await sellPolymarketBuyPosition({
       account,
       buyRow: row,
+      onSubmitted: (info) => {
+        enterClosing(orderId, info.sellOrderId, {
+          fallbackPrice: info.fallbackPrice,
+          sharesWanted: info.sharesWanted,
+        });
+      },
     });
-    if (!result.ok) {
-      if (result.chainSubmitted || result.sellOrderId) {
-        addId(persistBlockedOrderIds, orderId);
-        ElMessage.error(
-          `${result.error ?? "卖出失败"}（链上可能已成交，已禁止再次卖出，请刷新核对）`,
-        );
-      }
-      else {
-        ElMessage.error(result.error ?? "卖出失败");
-      }
+
+    if (result.ok && result.ordersToSave?.length) {
+      await applyFinalFilled(
+        row,
+        account,
+        result.ordersToSave,
+        result.sharesSold ?? shares,
+        shares,
+        Boolean(result.partialFill),
+      );
+      return true;
+    }
+
+    if (result.unfilled) {
+      clearClosing(orderId);
+      ElMessage.warning(result.error ?? "未成交，可重新卖出");
       return false;
     }
-    if (result.ordersToSave?.length) {
-      try {
-        await saveOrders(account, result.ordersToSave);
+
+    // 异常仍带 sellOrderId：再跑终态，保证离开平仓中
+    if (result.sellOrderId) {
+      const closing = closingByBuyId.value.get(orderId);
+      enterClosing(orderId, result.sellOrderId, {
+        fallbackPrice: closing?.fallbackPrice,
+        sharesWanted: closing?.sharesWanted ?? shares,
+      });
+      const final = await awaitPolymarketManualSellFinalOutcome({
+        account,
+        buyRow: row,
+        sellOrderId: result.sellOrderId,
+        fallbackPrice: closing?.fallbackPrice,
+        sharesWanted: closing?.sharesWanted ?? shares,
+      });
+      if (final.outcome === "filled") {
+        await applyFinalFilled(
+          row,
+          account,
+          final.ordersToSave,
+          final.sharesSold,
+          shares,
+          final.partialFill,
+        );
+        return true;
       }
-      catch (saveErr) {
-        try {
-          await saveOrders(account, result.ordersToSave);
-        }
-        catch {
-          applyManualSellOrdersLocally(row, result.ordersToSave);
-          addId(persistBlockedOrderIds, orderId);
-          ElMessage.error(
-            `链上已卖出，但订单落库失败：${saveErr instanceof Error ? saveErr.message : String(saveErr)}。已禁止再次卖出，请刷新核对。`,
-          );
-          try {
-            await useOrderStore().fetchOrders();
-          }
-          catch { /* ignore */ }
-          return false;
-        }
-      }
-      removeId(persistBlockedOrderIds, orderId);
+      clearClosing(orderId);
+      ElMessage.warning(final.reason || "未成交，可重新卖出");
+      return false;
     }
-    await useOrderStore().fetchOrders();
-    if (result.partialFill) {
-      ElMessage.warning(
-        `仅成交 ${formatPolymarketApiDecimal(result.sharesSold ?? shares)} / ${sharesText} 份（已写入）`,
-      );
-    }
-    else {
-      ElMessage.success(
-        `已卖出 ${formatPolymarketApiDecimal(result.sharesSold ?? shares)} 份`,
-      );
-    }
-    return true;
+
+    clearClosing(orderId);
+    ElMessage.error(result.error ?? "卖出失败");
+    return false;
   }
   catch (err) {
+    // 若已进入 closing（有卖单号），保留会话等 resume；否则清掉
+    const closing = closingByBuyId.value.get(orderId);
+    if (!closing?.sellOrderId)
+      clearClosing(orderId);
     ElMessage.error(err instanceof Error ? err.message : String(err));
     return false;
   }

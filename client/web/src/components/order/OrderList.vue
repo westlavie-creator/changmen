@@ -70,6 +70,7 @@ import { resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
 import {
   canManualSellPmBuy,
   confirmAndSellPmBuyOrder,
+  isPmManualSellClosing,
   isPmManualSellInFlight,
 } from "@/stores/account/pmManualSell";
 import {
@@ -168,6 +169,8 @@ function isPendingRow(row: OrderRow): boolean {
 }
 
 function statusClass(row: OrderRow): string {
+  if (isPmManualSellClosing(row.OrderID))
+    return "PmClosing";
   if (isPfOrderListRow(row))
     return resolvePfOrderListStatusClass(row);
   return resolvePmOrderListStatusClass(row);

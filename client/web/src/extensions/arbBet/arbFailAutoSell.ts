@@ -154,15 +154,23 @@ async function sellPmBuy(
   if (!beginArbAutoSell(orderId))
     return { ok: false, error: "卖出进行中" };
   try {
+    const { trackPmManualSellClosing, clearPmManualSellClosing } = await import("@/stores/account/pmManualSell");
     const result = await sellPolymarketBuyPosition({
       account,
       buyRow: buy as VenueOrder | OrderRowLike,
+      onSubmitted: (info) => {
+        trackPmManualSellClosing(orderId, info);
+      },
     });
-    if (!result.ok)
+    if (!result.ok) {
+      if (result.unfilled)
+        clearPmManualSellClosing(orderId);
       return { ok: false, error: result.error ?? "PM 卖出失败" };
+    }
     if (result.ordersToSave?.length) {
       try {
         await saveOrders(account, result.ordersToSave);
+        clearPmManualSellClosing(orderId);
       }
       catch (err) {
         return {
@@ -170,6 +178,9 @@ async function sellPmBuy(
           error: `链上已卖，落库失败：${err instanceof Error ? err.message : String(err)}`,
         };
       }
+    }
+    else {
+      clearPmManualSellClosing(orderId);
     }
     return { ok: true };
   }

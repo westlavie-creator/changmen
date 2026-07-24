@@ -532,6 +532,17 @@
   content: "已平仓";
 }
 
+/* [changmen 扩展] PM 手动卖出确认中（过渡态，确认后必离开） */
+.orders .status.PmClosing {
+  color: #e6a23c;
+  background: rgba(230, 162, 60, 0.12);
+  border: 1px solid #e6a23c;
+}
+
+.orders .status.PmClosing::after {
+  content: "平仓中";
+}
+
 /* [changmen 扩展] 历史 PmSold：现已改为全卖映 Win/Lose；样式保留防旧缓存 */
 .orders .status.PmSold {
   color: #7dcea0;
