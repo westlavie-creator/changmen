@@ -23,6 +23,7 @@ export * from "./pmTickPrice";
 export * from "./pmManualSell";
 export * from "./pmHeartbeat";
 export * from "./pmStoredOrders";
+export * from "./pmOrderSync";
 export * from "./pmAutoTransport";
 export * from "./pmOfficialReachability";
 export * from "./ws";

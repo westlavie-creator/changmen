@@ -41,9 +41,32 @@ describe("orders_store read SQL", () => {
   it("fetchOrdersByPlayer returns all orders (no filter)", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByPlayer(7, "user-1");
-    const [sql] = queryMock.mock.calls[0];
+    const [sql, params] = queryMock.mock.calls[0];
     expect(sql).not.toMatch(/link\s*<\s*create_at/i);
     expect(sql).not.toMatch(/changmen_bet/i);
+    expect(sql).not.toMatch(/create_at\s*>=\s*\$3/);
+    expect(params).toEqual(["user-1", 7]);
+  });
+
+  it("fetchOrdersByPlayer with sinceCreateAt keeps window + open Polymarket buys", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await fetchOrdersByPlayer(7, "user-1", { sinceCreateAt: 1_700_000_000_000 });
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/create_at\s*>=\s*\$3/);
+    expect(sql).not.toMatch(/status = 'None'/);
+    expect(sql).toMatch(/provider ILIKE 'Polymarket'/);
+    expect(sql).toMatch(/pmSellState/);
+    expect(sql).toMatch(/pmAttributedSellShares/);
+    expect(sql).toMatch(/> 0\.01/);
+    expect(params).toEqual(["user-1", 7, 1_700_000_000_000]);
+  });
+
+  it("fetchOrdersByPlayer ignores invalid sinceCreateAt and loads full", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await fetchOrdersByPlayer(7, "user-1", { sinceCreateAt: 0 });
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).not.toMatch(/create_at\s*>=\s*\$3/);
+    expect(params).toEqual(["user-1", 7]);
   });
 
   it("fetchOrdersAdminPage returns all orders (no filter)", async () => {

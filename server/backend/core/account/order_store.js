@@ -112,8 +112,8 @@ export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 102
   return { list, total: list.length };
 }
 
-export async function listByPlayer(playerId, userId) {
-  const rows = await sb.fetchOrdersByPlayer(playerId, userId);
+export async function listByPlayer(playerId, userId, opts = undefined) {
+  const rows = await sb.fetchOrdersByPlayer(playerId, userId, opts);
   return rows.map(rowToOrder);
 }
 

@@ -160,17 +160,27 @@ async function handleGetPlayerOrder(body, userId) {
   const owned = await assertPlayerOwnedByUser(playerId, userId);
   if (!owned.ok)
     return owned;
-  const page = await accountStore.listMoneyLogs(playerId, 1, 10000, userId);
-  const logs = (page.data || []).map(row => ({
-    ID: row.logId,
-    Type: row.type,
-    Money: Number(row.money) || 0,
-    Currency: row.currency || "CNY",
-    Description: row.description || "",
-    IsAuto: /\d+sec|\d+s$/i.test(row.description || "") ? 1 : 0,
-    CreateAt: row.createAt || 0,
-  }));
-  const orders = (await orderStore.listByPlayer(playerId, userId)).map(orderStore.scrubClientOrder);
+  // [changmen 扩展] includeLogs=false：PM getOrders 合并不需要流水，避免每次拉 1 万条
+  const includeLogs = body?.includeLogs !== false && body?.includeLogs !== 0 && body?.includeLogs !== "0";
+  let logs = [];
+  if (includeLogs) {
+    const page = await accountStore.listMoneyLogs(playerId, 1, 10000, userId);
+    logs = (page.data || []).map(row => ({
+      ID: row.logId,
+      Type: row.type,
+      Money: Number(row.money) || 0,
+      Currency: row.currency || "CNY",
+      Description: row.description || "",
+      IsAuto: /\d+sec|\d+s$/i.test(row.description || "") ? 1 : 0,
+      CreateAt: row.createAt || 0,
+    }));
+  }
+  // [changmen 扩展] sinceCreateAt：窗口内 + 未结；省略则全量（MoneyRiskView）
+  const sinceCreateAt = Number(body?.sinceCreateAt);
+  const listOpts = Number.isFinite(sinceCreateAt) && sinceCreateAt > 0
+    ? { sinceCreateAt }
+    : undefined;
+  const orders = (await orderStore.listByPlayer(playerId, userId, listOpts)).map(orderStore.scrubClientOrder);
   return { ok: true, info: { logs, orders } };
 }
 

@@ -26,7 +26,7 @@ profiles.accounts (jsonb)   ← [changmen 实现] 持久化 SaveData(ACCOUNT) �
 | `Client_UpdateBalance` | 更新 player 余额，返回 `{ total, platformId, platformName }` |
 | `Client_DeletePlayer` | 删除 player 元数据并清理 ACCOUNT KV 中对应项 |
 | `Client_GetMoneyLogs` / `Save` / `Delete` | 充提流水 |
-| `Client_GetPlayerOrder` / `Client_SaveOrder` | 按 player 读写 RDS `orders` |
+| `Client_GetPlayerOrder` / `Client_SaveOrder` | 按 player 读写 RDS `orders`；`GetPlayerOrder` 可选 `sinceCreateAt` / `includeLogs=false`（[changmen 扩展]，PM sync 用） |
 
 ## 凭证导入（插件 → 控制台）
 

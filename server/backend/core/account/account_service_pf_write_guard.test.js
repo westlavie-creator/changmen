@@ -208,4 +208,45 @@ describe("PredictFun client write guard", () => {
     expect(payload[0].balance).toBe(88.5);
     expect(payload[0].credit).toBe(0);
   });
+
+  it("handleGetPlayerOrder skips money logs and passes sinceCreateAt for PM sync", async () => {
+    const { handleGetPlayerOrder } = await import("./account_service.js");
+    const orderStore = await import("./order_store.js");
+    const accountStore = await import("./account_store.js");
+    orderStore.listByPlayer.mockResolvedValue([{ orderId: "pm1", Type: "Polymarket" }]);
+
+    const out = await handleGetPlayerOrder({
+      playerId: 42,
+      sinceCreateAt: 1_700_000_000_000,
+      includeLogs: false,
+    }, "u1");
+
+    expect(out.ok).toBe(true);
+    expect(out.info.logs).toEqual([]);
+    expect(out.info.orders).toEqual([{ orderId: "pm1", Type: "Polymarket" }]);
+    expect(accountStore.listMoneyLogs).not.toHaveBeenCalled();
+    expect(orderStore.listByPlayer).toHaveBeenCalledWith(42, "u1", { sinceCreateAt: 1_700_000_000_000 });
+  });
+
+  it("handleGetPlayerOrder default still loads money logs and full orders", async () => {
+    const { handleGetPlayerOrder } = await import("./account_service.js");
+    const orderStore = await import("./order_store.js");
+    const accountStore = await import("./account_store.js");
+    accountStore.listMoneyLogs.mockResolvedValue({ data: [{
+      logId: 1,
+      type: "in",
+      money: 10,
+      currency: "CNY",
+      description: "x",
+      createAt: 1,
+    }] });
+    orderStore.listByPlayer.mockResolvedValue([]);
+
+    const out = await handleGetPlayerOrder({ playerId: 42 }, "u1");
+
+    expect(out.ok).toBe(true);
+    expect(out.info.logs).toHaveLength(1);
+    expect(accountStore.listMoneyLogs).toHaveBeenCalled();
+    expect(orderStore.listByPlayer).toHaveBeenCalledWith(42, "u1", undefined);
+  });
 });

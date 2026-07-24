@@ -579,17 +579,44 @@ export async function fetchOrdersByDatePage(date, userId, pageIndex = 1, pageSiz
   }
 }
 
-/** 按 playerId 读取订单（全量） */
-export async function fetchOrdersByPlayer(playerId, userId) {
+/**
+ * 按 playerId 读取订单。
+ * @param {{ sinceCreateAt?: number }} [opts]
+ *   sinceCreateAt>0 时：[changmen 扩展] 只返回窗口内订单，并额外保留
+ *   Polymarket 仍有可卖剩余份额的买单（对齐 hasOpenPolymarketPosition / PM_SHARE_DUST=0.01）。
+ *   省略则全量（MoneyRiskView / A8 Client_GetPlayerOrder）。
+ */
+export async function fetchOrdersByPlayer(playerId, userId, opts = undefined) {
   const pool = getPgPool();
   if (!pool || !userId)
     return [];
+  const since = Number(opts?.sinceCreateAt);
+  const useSince = Number.isFinite(since) && since > 0;
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM orders
-       WHERE user_id = $1 AND player_id = $2
-       ORDER BY create_at DESC`,
-      [String(userId), Number(playerId)],
+      useSince
+        ? `SELECT * FROM orders
+           WHERE user_id = $1 AND player_id = $2
+             AND (
+               create_at >= $3
+               OR (
+                 provider ILIKE 'Polymarket'
+                 AND coalesce(raw->>'pmSide', '') IS DISTINCT FROM 'sell'
+                 AND coalesce(raw->>'pmSellState', '') NOT IN ('closed', 'settled')
+                 AND lower(coalesce(status, '')) NOT IN ('reject', 'return', 'pending')
+                 AND (
+                   coalesce(nullif(raw->>'pmShares', ''), '0')::float8
+                   - coalesce(nullif(raw->>'pmAttributedSellShares', ''), '0')::float8
+                 ) > 0.01
+               )
+             )
+           ORDER BY create_at DESC`
+        : `SELECT * FROM orders
+           WHERE user_id = $1 AND player_id = $2
+           ORDER BY create_at DESC`,
+      useSince
+        ? [String(userId), Number(playerId), since]
+        : [String(userId), Number(playerId)],
     );
     return rows || [];
   }
