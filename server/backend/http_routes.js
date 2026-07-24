@@ -29,6 +29,15 @@ import {
   getProcessMemorySnapshot,
   writeHeapSnapshotFile,
 } from "./core/shared/memory_diag.js";
+import {
+  catchErrors,
+  compose,
+  jsonResponse,
+  readJsonBody,
+  seedRequestContext,
+  sendUnhandledError,
+  withTiming,
+} from "./core/http/index.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
 const { fetchObLogin, DEFAULT_LOGIN_URL } = requirePlatform("OB", "node", "session.js");
@@ -41,33 +50,6 @@ async function getTryHandleMatcherApi() {
     ));
   }
   return _tryHandleMatcherApi;
-}
-
-function readJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = "";
-    req.on("data", (chunk) => {
-      raw += chunk;
-      if (raw.length > 1e6) {
-        reject(new Error("body too large"));
-        req.destroy();
-      }
-    });
-    req.on("end", () => {
-      try {
-        resolve(raw ? JSON.parse(raw) : {});
-      }
-      catch {
-        reject(new Error("invalid JSON body"));
-      }
-    });
-    req.on("error", reject);
-  });
-}
-
-function jsonResponse(res, status, body) {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify(body));
 }
 
 function isLoopbackAddress(value) {
@@ -156,10 +138,176 @@ async function handleObDemoLogin(req, res) {
   return true;
 }
 
+/**
+ * esport / proxy / WS / 快速静态 early-return 之后的应用路由。
+ * 阶段 1：逻辑与原先 if 链一致，仅挂到 compose 横切层。
+ */
+async function handleAppRoutes(req, res, serveStatic) {
+  const url = req.pathname || String(req.url || "").split("?")[0];
+  if (url === "/api/ob/demo-login") {
+    await handleObDemoLogin(req, res);
+    return;
+  }
+  if (url === "/api/a8/defaults") {
+    const cred = getHardcodedCredentials();
+    jsonResponse(res, 200, { userName: cred.userName, password: cred.password });
+    return;
+  }
+  if (url === "/api/a8/credit-plate-user") {
+    const token
+      = (typeof req.headers.token === "string" && req.headers.token)
+        || (typeof req.headers.Token === "string" && req.headers.Token)
+        || "";
+    const user = await store.getUserByToken(token);
+    const userName = resolveCreditPlateUserName(user);
+    jsonResponse(res, 200, { userName });
+    return;
+  }
+  if (url === "/api/polymarket/relayer/sign") {
+    await handlePolymarketRelayerSign(req, res, readJsonBody);
+    return;
+  }
+  if (url === "/api/polymarket/relayer/status") {
+    await handlePolymarketRelayerStatus(req, res);
+    return;
+  }
+  if (url === "/api/polymarket/clob/create-or-derive-api-creds") {
+    await handlePolymarketClobL1ApiCreds(req, res, readJsonBody);
+    return;
+  }
+  if (url === "/api/markets") {
+    jsonResponse(res, 200, getMarketCatalogSummary());
+    return;
+  }
+  if (url === "/api/games") {
+    jsonResponse(res, 200, getCatalogSummary());
+    return;
+  }
+  if (url === "/api/platforms") {
+    jsonResponse(res, 200, { platforms: listPlatforms(), updatedAt: Date.now() });
+    return;
+  }
+  if (url.toLowerCase() === "/api/proxy/status") {
+    const ws = getWsForwardStatus();
+    const hubs = { ...(ws.hubs || {}) };
+    if (!hubs.pmMarket) {
+      const remote = await fetchPmMarketHubStatusRemote();
+      if (remote)
+        hubs.pmMarket = remote;
+    }
+    if (!hubs.predictFunMarket) {
+      const remotePf = await fetchPredictFunMarketHubStatusRemote();
+      if (remotePf)
+        hubs.predictFunMarket = remotePf;
+    }
+    const platforms = [...(ws.platforms || [])];
+    // 独立 hub 进程时本机 platforms 不含对应 id；对外状态仍应标明可用
+    if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
+      platforms.push("PM-MARKET");
+    if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
+      platforms.push("PREDICTFUN-MARKET");
+    jsonResponse(res, 200, {
+      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+      wsRelay: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+      wsForward: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+      platforms,
+      platformStats: ws.platformStats,
+      hubs,
+      pmMarketHub: hubs.pmMarket
+        ? { isolated: !ws.hubs?.pmMarket, port: Number(process.env.PM_MARKET_HUB_PORT || 3457) }
+        : null,
+      predictFunMarketHub: hubs.predictFunMarket
+        ? { isolated: !ws.hubs?.predictFunMarket, port: Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458) }
+        : null,
+    });
+    return;
+  }
+  if (url === "/api/client-cert-status") {
+    const status = readClientCertStatus(req);
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({
+      ok: true,
+      hasClientCert: status.hasClientCert,
+      subject: status.subject,
+    }));
+    return;
+  }
+  if (url === "/health/diag" || url === "/health/diag/heapdump") {
+    if (!isLocalRequest(req)) {
+      jsonResponse(res, 403, { success: 0, msg: "localhost only", info: null });
+      return;
+    }
+    if (url === "/health/diag/heapdump") {
+      if (req.method !== "POST") {
+        jsonResponse(res, 405, { success: 0, msg: "POST only", info: null });
+        return;
+      }
+      try {
+        const file = writeHeapSnapshotFile();
+        jsonResponse(res, 200, { ok: true, file, memory: getProcessMemorySnapshot() });
+      }
+      catch (err) {
+        jsonResponse(res, 500, { ok: false, msg: err.message || String(err) });
+      }
+      return;
+    }
+    if (req.method !== "GET") {
+      jsonResponse(res, 405, { success: 0, msg: "GET only", info: null });
+      return;
+    }
+    const diag = await buildMemoryDiagSnapshot();
+    jsonResponse(res, 200, diag);
+    return;
+  }
+  if (url === "/health") {
+    const sendFullHealth = async () => {
+      const healthData = await buildHealthData();
+      const accept = String(req.headers.accept || "");
+      if (accept.includes("text/html")) {
+        res.writeHead(healthData.db.connected ? 200 : 503, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(renderHealthPage(healthData));
+      }
+      else {
+        jsonResponse(res, healthData.db.connected ? 200 : 503, healthData);
+      }
+    };
+    if (isLocalRequest(req)) {
+      await sendFullHealth();
+      return;
+    }
+    const token = String(req.headers.token || req.headers.Token || "");
+    if (token) {
+      const user = await store.getUserByToken(token);
+      if (user && canAccessAdminPanel(user)) {
+        await sendFullHealth();
+        return;
+      }
+    }
+    publicHealthResponse(req, res);
+    return;
+  }
+  if (await (await getTryHandleMatcherApi())(req, res))
+    return;
+  serveStatic(req, res);
+}
+
 export function createHttpHandler({ port, serveStatic }) {
+  // 仅覆盖 early-return 之后的路径；proxy/WS 不包 timing，避免干扰已写响应
+  const runApp = compose(
+    withTiming,
+    catchErrors,
+    async (req, res) => {
+      await handleAppRoutes(req, res, serveStatic);
+    },
+  );
+
   return async function handleHttp(req, res) {
+    seedRequestContext(req);
     try {
-      const url = req.url.split("?")[0];
+      const url = req.pathname;
       // Socket.IO 握手由 ws_forward / realtime-hub 处理，勿走 esport-api / 静态文件
       if (isWsForwardHttpPath(url))
         return;
@@ -186,160 +334,11 @@ export function createHttpHandler({ port, serveStatic }) {
         return;
       if (await tryEsportApi(req, res))
         return;
-      if (url === "/api/ob/demo-login") {
-        await handleObDemoLogin(req, res);
-        return;
-      }
-      if (url === "/api/a8/defaults") {
-        const cred = getHardcodedCredentials();
-        jsonResponse(res, 200, { userName: cred.userName, password: cred.password });
-        return;
-      }
-      if (url === "/api/a8/credit-plate-user") {
-        const token
-          = (typeof req.headers.token === "string" && req.headers.token)
-            || (typeof req.headers.Token === "string" && req.headers.Token)
-            || "";
-        const user = await store.getUserByToken(token);
-        const userName = resolveCreditPlateUserName(user);
-        jsonResponse(res, 200, { userName });
-        return;
-      }
-      if (url === "/api/polymarket/relayer/sign") {
-        await handlePolymarketRelayerSign(req, res, readJsonBody);
-        return;
-      }
-      if (url === "/api/polymarket/relayer/status") {
-        await handlePolymarketRelayerStatus(req, res);
-        return;
-      }
-      if (url === "/api/polymarket/clob/create-or-derive-api-creds") {
-        await handlePolymarketClobL1ApiCreds(req, res, readJsonBody);
-        return;
-      }
-      if (url === "/api/markets") {
-        jsonResponse(res, 200, getMarketCatalogSummary());
-        return;
-      }
-      if (url === "/api/games") {
-        jsonResponse(res, 200, getCatalogSummary());
-        return;
-      }
-      if (url === "/api/platforms") {
-        jsonResponse(res, 200, { platforms: listPlatforms(), updatedAt: Date.now() });
-        return;
-      }
-      if (url.toLowerCase() === "/api/proxy/status") {
-        const ws = getWsForwardStatus();
-        const hubs = { ...(ws.hubs || {}) };
-        if (!hubs.pmMarket) {
-          const remote = await fetchPmMarketHubStatusRemote();
-          if (remote)
-            hubs.pmMarket = remote;
-        }
-        if (!hubs.predictFunMarket) {
-          const remotePf = await fetchPredictFunMarketHubStatusRemote();
-          if (remotePf)
-            hubs.predictFunMarket = remotePf;
-        }
-        const platforms = [...(ws.platforms || [])];
-        // 独立 hub 进程时本机 platforms 不含对应 id；对外状态仍应标明可用
-        if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
-          platforms.push("PM-MARKET");
-        if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
-          platforms.push("PREDICTFUN-MARKET");
-        jsonResponse(res, 200, {
-          enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
-          wsRelay: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
-          wsForward: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
-          platforms,
-          platformStats: ws.platformStats,
-          hubs,
-          pmMarketHub: hubs.pmMarket
-            ? { isolated: !ws.hubs?.pmMarket, port: Number(process.env.PM_MARKET_HUB_PORT || 3457) }
-            : null,
-          predictFunMarketHub: hubs.predictFunMarket
-            ? { isolated: !ws.hubs?.predictFunMarket, port: Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458) }
-            : null,
-        });
-        return;
-      }
-      if (url === "/api/client-cert-status") {
-        const status = readClientCertStatus(req);
-        res.writeHead(200, {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-        });
-        res.end(JSON.stringify({
-          ok: true,
-          hasClientCert: status.hasClientCert,
-          subject: status.subject,
-        }));
-        return;
-      }
-      if (url === "/health/diag" || url === "/health/diag/heapdump") {
-        if (!isLocalRequest(req)) {
-          jsonResponse(res, 403, { success: 0, msg: "localhost only", info: null });
-          return;
-        }
-        if (url === "/health/diag/heapdump") {
-          if (req.method !== "POST") {
-            jsonResponse(res, 405, { success: 0, msg: "POST only", info: null });
-            return;
-          }
-          try {
-            const file = writeHeapSnapshotFile();
-            jsonResponse(res, 200, { ok: true, file, memory: getProcessMemorySnapshot() });
-          }
-          catch (err) {
-            jsonResponse(res, 500, { ok: false, msg: err.message || String(err) });
-          }
-          return;
-        }
-        if (req.method !== "GET") {
-          jsonResponse(res, 405, { success: 0, msg: "GET only", info: null });
-          return;
-        }
-        const diag = await buildMemoryDiagSnapshot();
-        jsonResponse(res, 200, diag);
-        return;
-      }
-      if (url === "/health") {
-        const sendFullHealth = async () => {
-          const healthData = await buildHealthData();
-          const accept = String(req.headers.accept || "");
-          if (accept.includes("text/html")) {
-            res.writeHead(healthData.db.connected ? 200 : 503, { "Content-Type": "text/html; charset=utf-8" });
-            res.end(renderHealthPage(healthData));
-          }
-          else {
-            jsonResponse(res, healthData.db.connected ? 200 : 503, healthData);
-          }
-        };
-        if (isLocalRequest(req)) {
-          await sendFullHealth();
-          return;
-        }
-        const token = String(req.headers.token || req.headers.Token || "");
-        if (token) {
-          const user = await store.getUserByToken(token);
-          if (user && canAccessAdminPanel(user)) {
-            await sendFullHealth();
-            return;
-          }
-        }
-        publicHealthResponse(req, res);
-        return;
-      }
-      if (await (await getTryHandleMatcherApi())(req, res))
-        return;
-      serveStatic(req, res);
+      await runApp(req, res);
     }
     catch (err) {
-      console.error("[server]", req.url, err);
-      if (!res.headersSent) {
-        jsonResponse(res, 500, { success: 0, msg: err.message || "\u670D\u52A1\u5668\u9519\u8BEF", info: null });
-      }
+      // early-return 路径（proxy/esport 等）的兜底；app 路径由 catchErrors 处理
+      sendUnhandledError(req, res, err);
     }
   };
 }
