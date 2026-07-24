@@ -75,6 +75,10 @@ export interface OrderRow {
   PfFeeType?: "COLLATERAL" | "SHARES";
   PfFeeUsdt?: number;
   PfFeeRateBps?: number;
+  /** Changmencodefee（管理端展示；用户侧栏经 scrub 不下发明细） */
+  PfChangmenCodeFeeRateBps?: number;
+  PfChangmenCodeFeeShares?: number;
+  PfChangmenCodeFeeUsdt?: number;
   /**
    * [changmen 扩展] Phase 1 仓位卖出事件（写在买单 raw.positionEvents）。
    * 仅双写生效后的买单会有；用于 UI 观察「仓位·N / 已记入 / 缺事件」。
