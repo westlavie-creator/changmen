@@ -187,14 +187,18 @@ export async function runValueBetConfirm(
     let bound = false;
     try {
       await wait(result.orderId ? 400 : 1500);
-      const waitForOrderId = String(result.orderId ?? "").trim() || undefined;
+      // delayed：勿空等 CLOB；仅 PM 即时成交走 waitForOrderId
+      const waitForOrderId = !result.pending
+        && String(account.provider ?? "") === "Polymarket"
+        ? (String(result.orderId ?? "").trim() || undefined)
+        : undefined;
       const orders = (await accountStore.updateVenueOrders(
         account,
         waitForOrderId ? { waitForOrderId } : undefined,
       )) ?? [];
       bound = await bindArbLegOrder(linkId, account, result, orders, false);
-      if (bound)
-        refreshOrderListAfterBind();
+      // 无论绑单是否成功都刷侧栏（有入库则可见；未入库也不挡后续 Io.f）
+      refreshOrderListAfterBind();
     }
     catch {
       bound = false;

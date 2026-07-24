@@ -117,7 +117,11 @@ export async function runManualBet(
     // [changmen 扩展] 对齐正 EV：立刻 sync 入库并刷侧栏，避免干等 Io.f 2–3 分钟
     try {
       await wait(result.orderId ? 400 : 1500);
-      const waitForOrderId = String(result.orderId ?? "").trim() || undefined;
+      // delayed：CLOB trades 可能久未出现，勿空转 waitForOrderId（否则最多 5 次慢 getOrders）
+      const waitForOrderId = !result.pending
+        && String(account.provider ?? "") === "Polymarket"
+        ? (String(result.orderId ?? "").trim() || undefined)
+        : undefined;
       await accountStore.updateVenueOrders(account, waitForOrderId ? { waitForOrderId } : undefined);
       refreshOrderListAfterBind();
     }

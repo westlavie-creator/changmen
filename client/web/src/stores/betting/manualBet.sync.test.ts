@@ -99,4 +99,32 @@ describe("runManualBet post-success sync", () => {
     expect(refreshBalance).toHaveBeenCalledOnce();
     expect(markSuccessfulBet).toHaveBeenCalledOnce();
   });
+
+  it("skips waitForOrderId when PM result is pending (delayed)", async () => {
+    betting.mockResolvedValueOnce({
+      success: true,
+      orderId: "0xdelayed",
+      pending: true,
+    });
+    const match = { title: "A vs B", bets: [], game: "CS" } as unknown as ViewMatch;
+    const bet = {
+      id: 1,
+      homeName: "A",
+      awayName: "B",
+      getBetName: () => "Map 1",
+      items: [],
+    } as unknown as ViewBet;
+    const item = {
+      type: "Polymarket",
+      matchId: "m1",
+      betId: "b1",
+      getOdds: () => 1.8,
+      getItemId: () => "i1",
+    } as unknown as ViewBetItem;
+
+    await runManualBet(match, bet, item, "Home", { setMessage: vi.fn() });
+
+    expect(updateVenueOrders).toHaveBeenCalledWith(expect.anything(), undefined);
+    expect(refreshBalance).not.toHaveBeenCalled();
+  });
 });
