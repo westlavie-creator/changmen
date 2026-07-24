@@ -18,8 +18,8 @@
 
 /* WIN 浮在胜方赔率格上方，不增加行高 */
 .matchs .bet .item .item-odds.pm-map-won {
-  border-color:#67c23a;
-  box-shadow:0 0 4px #67c23a66 inset;
+  border-color:var(--cm-color-success);
+  box-shadow:0 0 4px color-mix(in srgb, var(--cm-color-success) 40%, transparent) inset;
 }
 
 .matchs .bet .item .item-odds.pm-map-lost {
@@ -38,8 +38,8 @@
   font-weight:700;
   letter-spacing:0.06em;
   line-height:14px;
-  color:#fff;
-  background:#67c23a;
+  color:var(--cm-color-on-accent);
+  background:var(--cm-color-success);
   box-shadow:0 1px 4px #0008;
   pointer-events:none;
   white-space:nowrap;
@@ -62,7 +62,7 @@
 }
 
 .matchs .bet .item .item-odds.target {
-  border-color:#67c23a;box-shadow:0 0 6px #67c23a inset;
+  border-color:var(--cm-color-success);box-shadow:0 0 6px var(--cm-color-success) inset;
 }
 
 .matchs .bet .bet-items {
@@ -70,11 +70,11 @@
 }
 
 .matchs .bet .bet-items .item.defaultOdds .item-odds {
-  color:#67c23a;text-shadow:1px 1px 0px rgba(255,255,255,.2);
+  color:var(--cm-color-success);text-shadow:1px 1px 0px rgba(255,255,255,.2);
 }
 
 .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
-  color:#f56c6c;
+  color:var(--cm-color-danger);
 }
 
 .matchs .bet .bet-items .item.defaultOdds .item-type {
@@ -86,5 +86,5 @@
 }
 
 .matchs .bet .bet-items .item .item-type.limit {
-  border-color:red;
+  border-color:var(--cm-color-hacked);
 }

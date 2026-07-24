@@ -115,7 +115,7 @@
   justify-content: center;
   margin: 0;
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--cm-color-muted);
   opacity: 0.9;
 }
 
@@ -171,7 +171,7 @@
 
 .active-bet-run__phase {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--cm-color-muted);
   white-space: nowrap;
   text-align: right;
   flex: 1 1 auto;
@@ -325,7 +325,7 @@
 
 .active-bet-run__leg-event-stage {
   flex: 0 0 auto;
-  color: #94a3b8;
+  color: var(--cm-color-muted);
   font-weight: 700;
   white-space: nowrap;
 }

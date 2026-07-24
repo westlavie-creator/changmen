@@ -1,25 +1,42 @@
 /**
  * [changmen 扩展] 终端风皮肤
- * 近黑底 + 磷光绿；只换显示，不改 DOM / 空间定位。
+ * 近黑底 + 磷光绿；只换显示，不改 DOM。
+ *
+ * 策略同 brutal：优先覆写 --cm-* / --el-*；业务 DOM 靠特异性；
+ * !important 仅留给 EP 强样式或基类已有 !important。
+ * 网格背景写入 --cm-body-bg-gradient，避免 body 上再 !important。
  */
 
 html[data-ui-theme="terminal"] {
   color-scheme: dark;
 
   --cm-body-bg: #0b120e;
-  --cm-body-bg-gradient: none;
+  --cm-body-bg-mid: #0b120e;
+  --cm-body-bg-gradient:
+    linear-gradient(rgba(124, 255, 154, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 255, 154, 0.03) 1px, transparent 1px);
   --cm-sidebar-bg: #0b120e;
+  --cm-sidebar-shadow: none;
+  --cm-color-primary: #7cff9a;
   --cm-color-success: #7cff9a;
   --cm-color-warning: #fbbf24;
   --cm-color-danger: #fb7185;
   --cm-color-info: #3d8f55;
   --cm-color-odds: #7cff9a;
+  --cm-color-link: #7cff9a;
+  --cm-color-on-accent: #0b120e;
+  --cm-color-pos: #7cff9a;
+  --cm-color-neg: #fb7185;
+  --cm-color-muted: #3d8f55;
+  --cm-color-hacked: #fb7185;
 
   --term-ink: #7cff9a;
   --term-ink-dim: #3d8f55;
+  --term-ink-bright: #d8ffe4;
   --term-bg: #0b120e;
   --term-panel: #0f1a14;
   --term-panel-2: #14241b;
+  --term-odds: #0c1610;
   --term-amber: #fbbf24;
   --term-danger: #fb7185;
   --term-border: 1px solid #1f3d2a;
@@ -56,18 +73,14 @@ html[data-ui-theme="terminal"] {
 }
 
 html[data-ui-theme="terminal"] body {
-  background-color: var(--cm-body-bg) !important;
-  background-image:
-    linear-gradient(rgba(124, 255, 154, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 255, 154, 0.03) 1px, transparent 1px) !important;
-  background-size: 24px 24px !important;
+  background-size: 24px 24px;
+  background-repeat: repeat;
   color: var(--term-ink);
   font-variant-numeric: tabular-nums;
 }
 
 html[data-ui-theme="terminal"] #app .el-aside,
 html[data-ui-theme="terminal"] .common-layout .el-aside {
-  background: var(--term-bg) !important;
   border-right: var(--term-border);
   box-shadow: none;
 }
@@ -75,29 +88,29 @@ html[data-ui-theme="terminal"] .common-layout .el-aside {
 html[data-ui-theme="terminal"] #app .el-main,
 html[data-ui-theme="terminal"] .common-layout .el-main,
 html[data-ui-theme="terminal"] .home-main {
-  background: var(--term-bg) !important;
+  background: var(--term-bg);
 }
 
 html[data-ui-theme="terminal"] .userinfo {
-  border-bottom: var(--term-border) !important;
+  border-bottom: var(--term-border);
   background: transparent;
   box-shadow: none;
 }
 
 html[data-ui-theme="terminal"] .userinfo .info,
 html[data-ui-theme="terminal"] .userinfo .report {
-  color: var(--term-ink) !important;
-  border-color: #1f3d2a !important;
+  color: var(--term-ink);
+  border-color: #1f3d2a;
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .userinfo .info .ms {
-  color: var(--term-ink-dim) !important;
+  color: var(--term-ink-dim);
 }
 
 html[data-ui-theme="terminal"] .userinfo .report-number .el-statistic__head,
 html[data-ui-theme="terminal"] .userinfo .report-number .el-statistic__number {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-family: var(--term-font);
 }
 
@@ -105,27 +118,27 @@ html[data-ui-theme="terminal"] .date,
 html[data-ui-theme="terminal"] .loseorder-container {
   margin: 8px;
   padding: 8px;
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
-  background: var(--term-panel) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  background: var(--term-panel);
   box-shadow: var(--term-glow);
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-family: var(--term-font);
 }
 
-/* 侧栏订单：勿加左右 margin，否则卡片左边框不贴侧栏 */
 html[data-ui-theme="terminal"] .orders {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  background-image: none !important;
+  border: none;
+  box-shadow: none;
   margin: 0;
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .orders legend {
-  color: var(--term-ink) !important;
-  text-shadow: 0 0 8px rgba(124, 255, 154, 0.25) !important;
+  color: var(--term-ink);
+  text-shadow: 0 0 8px rgba(124, 255, 154, 0.25);
   border: var(--term-border);
   border-radius: var(--term-radius);
   font-weight: 600;
@@ -135,81 +148,81 @@ html[data-ui-theme="terminal"] .orders legend {
 
 html[data-ui-theme="terminal"] .orders legend.success {
   background: rgba(124, 255, 154, 0.12);
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
 }
 
 html[data-ui-theme="terminal"] .orders legend.fail {
   background: rgba(251, 113, 133, 0.15);
-  color: var(--term-danger) !important;
+  color: var(--term-danger);
 }
 
 html[data-ui-theme="terminal"] .orders .orderlink {
-  overflow: visible !important;
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
+  overflow: visible;
+  border: var(--term-border);
+  border-radius: var(--term-radius);
   background: var(--term-panel);
   box-shadow: var(--term-glow);
 }
 
 html[data-ui-theme="terminal"] .order-makeup-status {
-  background: rgba(251, 191, 36, 0.12) !important;
-  color: var(--term-amber) !important;
-  text-shadow: none !important;
-  border: 1px solid rgba(251, 191, 36, 0.35) !important;
-  border-radius: var(--term-radius) !important;
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--term-amber);
+  text-shadow: none;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: var(--term-radius);
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .providers {
-  background: var(--term-panel) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: var(--term-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: var(--term-border);
 }
 
 html[data-ui-theme="terminal"] .providers .actions {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .providers .account {
-  background-image: none !important;
-  background: var(--term-panel-2) !important;
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
+  background-image: none;
+  background: var(--term-panel-2);
+  border: var(--term-border);
+  border-radius: var(--term-radius);
   box-shadow: var(--term-glow);
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .providers .account .platform {
-  background: rgba(124, 255, 154, 0.1) !important;
-  color: var(--term-ink) !important;
+  background: rgba(124, 255, 154, 0.1);
+  color: var(--term-ink);
   border: var(--term-border);
-  border-radius: var(--term-radius) !important;
+  border-radius: var(--term-radius);
 }
 
 html[data-ui-theme="terminal"] .providers .account.selected .platform {
-  background: rgba(124, 255, 154, 0.22) !important;
-  color: #d8ffe4 !important;
+  background: rgba(124, 255, 154, 0.22);
+  color: var(--term-ink-bright);
   box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.35);
 }
 
 html[data-ui-theme="terminal"] .providers .account .balance .currency {
-  color: var(--term-ink-dim) !important;
+  color: var(--term-ink-dim);
 }
 
 html[data-ui-theme="terminal"] .providers .account .cm-platform-icon,
 html[data-ui-theme="terminal"] .providers .account .provider-icon {
   border: var(--term-border);
-  border-radius: var(--term-radius) !important;
+  border-radius: var(--term-radius);
   box-sizing: border-box;
 }
 
 html[data-ui-theme="terminal"] .providers .account .totalProfit {
-  background: rgba(124, 255, 154, 0.1) !important;
+  background: rgba(124, 255, 154, 0.1);
   border: var(--term-border);
-  border-radius: var(--term-radius) !important;
+  border-radius: var(--term-radius);
   color: var(--term-ink);
 }
 
@@ -220,39 +233,22 @@ html[data-ui-theme="terminal"] .sport-tab-row {
   font-family: var(--term-font);
 }
 
-html[data-ui-theme="terminal"] .match-count {
-  color: var(--term-ink-dim) !important;
-  font-family: var(--term-font);
-}
-
 html[data-ui-theme="terminal"] .home-main .sport-tab-row {
   background: var(--term-bg);
   background-image: none;
 }
 
-html[data-ui-theme="terminal"] .match-empty {
-  color: var(--term-ink-dim) !important;
-  font-family: var(--term-font);
-}
-
-html[data-ui-theme="terminal"] .pos {
-  color: #7cff9a !important;
-}
-html[data-ui-theme="terminal"] .neg {
-  color: #fb7185 !important;
-}
-
 html[data-ui-theme="terminal"] .matchs .match {
-  background: var(--term-panel) !important;
+  background: var(--term-panel);
   border: var(--term-border);
-  border-radius: var(--term-radius) !important;
+  border-radius: var(--term-radius);
   box-shadow: var(--term-glow);
   margin: 12px;
   padding: 12px;
 }
 
 html[data-ui-theme="terminal"] .matchs .match .match-title {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-weight: 600;
   font-family: var(--term-font);
   border-bottom: 1px solid #1f3d2a;
@@ -265,97 +261,97 @@ html[data-ui-theme="terminal"] .matchs .match .match-title .pm-sport,
 html[data-ui-theme="terminal"] .matchs .match .match-title .pm-sport-link,
 html[data-ui-theme="terminal"] .matchs .match .match-title .startTime,
 html[data-ui-theme="terminal"] .matchs .match .match-title .game-tag {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet {
-  background-image: none !important;
-  background: var(--term-panel-2) !important;
+  background-image: none;
+  background: var(--term-panel-2);
   border: var(--term-border);
-  border-radius: var(--term-radius) !important;
+  border-radius: var(--term-radius);
   box-shadow: none;
   padding: 10px 8px 8px;
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .bet-title {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
   font-weight: 600;
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-odds {
-  background-image: none !important;
-  background: #0c1610 !important;
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
-  color: var(--term-ink) !important;
+  background-image: none;
+  background: var(--term-odds);
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  color: var(--term-ink);
   font-weight: 700;
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.home {
-  background: rgba(96, 165, 250, 0.08) !important;
-  border-color: rgba(96, 165, 250, 0.28) !important;
+  background: rgba(96, 165, 250, 0.08);
+  border-color: rgba(96, 165, 250, 0.28);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.away {
-  background: rgba(251, 113, 133, 0.08) !important;
-  border-color: rgba(251, 113, 133, 0.28) !important;
+  background: rgba(251, 113, 133, 0.08);
+  border-color: rgba(251, 113, 133, 0.28);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .bet-items .item.defaultOdds .item-odds {
-  color: var(--term-ink) !important;
-  text-shadow: 0 0 6px rgba(124, 255, 154, 0.35) !important;
-  background: rgba(124, 255, 154, 0.08) !important;
+  color: var(--term-ink);
+  text-shadow: 0 0 6px rgba(124, 255, 154, 0.35);
+  background: rgba(124, 255, 154, 0.08);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
-  color: var(--term-amber) !important;
-  background: rgba(251, 191, 36, 0.1) !important;
+  color: var(--term-amber);
+  background: rgba(251, 191, 36, 0.1);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.target {
-  border-color: var(--term-ink) !important;
+  border-color: var(--term-ink);
   box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.45), 0 0 10px rgba(124, 255, 154, 0.15);
-  background: rgba(124, 255, 154, 0.12) !important;
+  background: rgba(124, 255, 154, 0.12);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-odds.lock:after {
-  background-color: rgba(0, 0, 0, 0.65) !important;
-  border-radius: var(--term-radius) !important;
+  background-color: rgba(0, 0, 0, 0.65);
+  border-radius: var(--term-radius);
 }
 
 html[data-ui-theme="terminal"] .matchs .bet .item .item-type,
 html[data-ui-theme="terminal"] .matchs .bet .item .provider-icon,
 html[data-ui-theme="terminal"] .matchs .bet .item.defaultOdds .item-type {
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
-  background-color: var(--term-panel) !important;
-  background-size: contain !important;
-  background-repeat: no-repeat !important;
-  background-position: center !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  background-color: var(--term-panel);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 html[data-ui-theme="terminal"] .odds-src {
-  color: var(--term-ink-dim) !important;
+  color: var(--term-ink-dim);
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .active-bet-run,
 html[data-ui-theme="terminal"] .active-bet-run__chrome,
 html[data-ui-theme="terminal"] .active-bet-run__col {
-  background: var(--term-panel) !important;
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
-  box-shadow: var(--term-glow) !important;
-  color: var(--term-ink) !important;
+  background: var(--term-panel);
+  border: var(--term-border);
+  border-radius: var(--term-radius);
+  box-shadow: var(--term-glow);
+  color: var(--term-ink);
   font-family: var(--term-font);
 }
 
 html[data-ui-theme="terminal"] .active-bet-run__chrome-title,
 html[data-ui-theme="terminal"] .active-bet-run__match,
 html[data-ui-theme="terminal"] .active-bet-run__leg {
-  color: var(--term-ink) !important;
+  color: var(--term-ink);
 }
 
 /* 管理后台 */
@@ -412,7 +408,7 @@ html[data-ui-theme="terminal"] .admin-shell__nav-item {
 
 html[data-ui-theme="terminal"] .admin-shell__nav-item--active {
   background: rgba(124, 255, 154, 0.14);
-  color: #d8ffe4;
+  color: var(--term-ink-bright);
   box-shadow: 0 0 0 1px rgba(124, 255, 154, 0.35);
 }
 
@@ -421,8 +417,8 @@ html[data-ui-theme="terminal"] .admin-card,
 html[data-ui-theme="terminal"] .admin-panel,
 html[data-ui-theme="terminal"] .admin-stat,
 html[data-ui-theme="terminal"] .admin-toolbar {
-  border: var(--term-border) !important;
-  border-radius: var(--term-radius) !important;
+  border: var(--term-border);
+  border-radius: var(--term-radius);
   box-shadow: var(--term-glow);
   background: var(--term-panel);
 }
@@ -502,5 +498,5 @@ html[data-ui-theme="terminal"] .el-menu-item {
 
 html[data-ui-theme="terminal"] .el-menu-item.is-active {
   background: rgba(124, 255, 154, 0.12) !important;
-  color: #d8ffe4 !important;
+  color: var(--term-ink-bright) !important;
 }

@@ -1,9 +1,15 @@
 /**
- * changmen ?????Vite bundle??
- * Element Plus ??? main.ts import??????????
+ * changmen 全局样式入口（Vite bundle）。
+ * Element Plus 组件样式在 main.ts 按需 import；此处只组装业务 CSS。
+ *
+ * 约定：
+ * - flex 工具类只在 layout.css
+ * - 颜色优先 --cm-*（tokens.css）
+ * - 主题皮肤：优先覆写 --cm-* / --el-*；!important 仅用于 EP 强样式或基类已有 !important
+ *   （brutal / paper / terminal 已按此收；admin-theme 自管 --adm-*）
  */
-@import "./login-carousel.css";
 @import "./tokens.css";
+@import "./login-carousel.css";
 @import "./layout.css";
 @import "./ep-fallback.css";
 @import "./am-icon.css";

@@ -1,6 +1,7 @@
 /**
  * changmen 设计基座。
- * EP 主题在 main.ts 通过 element-plus/dist/index.css 加载；此处维护 --cm-* 与业务动画
+ * EP 主题在 main.ts 通过 element-plus 样式加载；此处维护 --cm-* 与业务动画。
+ * 新样式优先用 var(--cm-*)，避免再散落魔法色值。
  */
 
 @font-face {
@@ -13,19 +14,33 @@
 :root {
   --cm-font-body: asus, "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+
+  /* 语义色（对齐 Element Plus 默认） */
+  --cm-color-primary: #409eff;
   --cm-color-success: #67c23a;
   --cm-color-warning: #e6a23c;
   --cm-color-danger: #f56c6c;
   --cm-color-info: #909399;
   --cm-color-odds: #1fa2ff;
+  --cm-color-link: #00bd7e;
+  --cm-color-on-accent: #fff;
+
+  /* 盈亏 / 正负展示（主界面 slate 系） */
+  --cm-color-pos: #4ade80;
+  --cm-color-neg: #f87171;
+  --cm-color-muted: #94a3b8;
+  --cm-color-hacked: #f00;
+
   /* 登录后主界面：略灰的 slate，弱化青蓝/靛光晕 */
   --cm-body-bg: #12151c;
+  --cm-body-bg-mid: #1a1f2a;
   --cm-body-bg-gradient:
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(148, 163, 184, 0.07), transparent),
     radial-gradient(ellipse 60% 50% at 100% 100%, rgba(100, 116, 139, 0.05), transparent),
-    linear-gradient(165deg, #12151c 0%, #1a1f2a 45%, #12151c 100%);
+    linear-gradient(165deg, var(--cm-body-bg) 0%, var(--cm-body-bg-mid) 45%, var(--cm-body-bg) 100%);
   --cm-sidebar-bg:
-    linear-gradient(180deg, #12151c 0%, #181c26 55%, #12151c 100%);
+    linear-gradient(180deg, var(--cm-body-bg) 0%, #181c26 55%, var(--cm-body-bg) 100%);
+  --cm-sidebar-shadow: 0 2px 5px #0006;
 }
 
 @keyframes balance-danger-80afd9d4 {
@@ -34,8 +49,8 @@
   }
   50% {
     transform: scale(0.9);
-    color: #fff;
-    background-color: red;
+    color: var(--cm-color-on-accent);
+    background-color: var(--cm-color-hacked);
     border-radius: 50%;
   }
   to {
@@ -45,21 +60,21 @@
 
 @keyframes account-active-80afd9d4 {
   0% {
-    background-color: #409eff;
+    background-color: var(--cm-color-primary);
   }
   20% {
-    background-color: #67c23a;
+    background-color: var(--cm-color-success);
   }
   40% {
-    background-color: #e6a23c;
+    background-color: var(--cm-color-warning);
   }
   60% {
-    background-color: #f56c6c;
+    background-color: var(--cm-color-danger);
   }
   80% {
-    background-color: #909399;
+    background-color: var(--cm-color-info);
   }
   to {
-    background-color: #409eff;
+    background-color: var(--cm-color-primary);
   }
 }

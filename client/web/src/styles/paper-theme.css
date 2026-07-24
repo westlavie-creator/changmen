@@ -1,19 +1,31 @@
 /**
  * [changmen 扩展] 浅纸感皮肤
- * 暖米白纸面 + 柔和阴影；只换显示，不改 DOM / 空间定位。
+ * 暖米白纸面 + 柔和阴影；只换显示，不改 DOM。
+ *
+ * 策略同 brutal：优先覆写 --cm-* / --el-*；业务 DOM 靠特异性；
+ * !important 仅留给 EP 强样式或基类已有 !important。
  */
 
 html[data-ui-theme="paper"] {
   color-scheme: light;
 
   --cm-body-bg: #f3eee4;
+  --cm-body-bg-mid: #f3eee4;
   --cm-body-bg-gradient: none;
   --cm-sidebar-bg: #f3eee4;
+  --cm-sidebar-shadow: none;
+  --cm-color-primary: #5b6b4a;
   --cm-color-success: #3f6f4e;
   --cm-color-warning: #a16207;
   --cm-color-danger: #b42318;
   --cm-color-info: #64748b;
   --cm-color-odds: #1d4ed8;
+  --cm-color-link: #3f6f4e;
+  --cm-color-on-accent: #f7f3eb;
+  --cm-color-pos: #3f6f4e;
+  --cm-color-neg: #b42318;
+  --cm-color-muted: #6b655c;
+  --cm-color-hacked: #b42318;
 
   --paper-ink: #2a2a2a;
   --paper-bg: #f3eee4;
@@ -24,6 +36,8 @@ html[data-ui-theme="paper"] {
   --paper-accent-soft: #dce5d2;
   --paper-home: #e8eef8;
   --paper-away: #f8e8ea;
+  --paper-soft-danger: #f8e8ea;
+  --paper-makeup: #f5efd8;
   --paper-border: 1px solid #c9bfae;
   --paper-shadow: 0 1px 2px rgba(42, 42, 42, 0.06), 0 4px 12px rgba(42, 42, 42, 0.04);
   --paper-radius: 8px;
@@ -57,14 +71,11 @@ html[data-ui-theme="paper"] {
 }
 
 html[data-ui-theme="paper"] body {
-  background-color: var(--cm-body-bg) !important;
-  background-image: none !important;
   color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] #app .el-aside,
 html[data-ui-theme="paper"] .common-layout .el-aside {
-  background: var(--paper-bg) !important;
   border-right: var(--paper-border);
   box-shadow: none;
 }
@@ -72,53 +83,54 @@ html[data-ui-theme="paper"] .common-layout .el-aside {
 html[data-ui-theme="paper"] #app .el-main,
 html[data-ui-theme="paper"] .common-layout .el-main,
 html[data-ui-theme="paper"] .home-main {
-  background: var(--paper-bg) !important;
+  background: var(--paper-bg);
 }
 
 html[data-ui-theme="paper"] .userinfo {
-  border-bottom: var(--paper-border) !important;
+  border-bottom: var(--paper-border);
   background: transparent;
   box-shadow: none;
 }
 
 html[data-ui-theme="paper"] .userinfo .info,
 html[data-ui-theme="paper"] .userinfo .report {
-  color: var(--paper-ink) !important;
-  border-color: #c9bfae !important;
+  color: var(--paper-ink);
+  border-color: #c9bfae;
 }
 
 html[data-ui-theme="paper"] .userinfo .info .ms {
-  color: var(--paper-muted) !important;
+  color: var(--paper-muted);
 }
 
 html[data-ui-theme="paper"] .userinfo .report-number .el-statistic__head,
 html[data-ui-theme="paper"] .userinfo .report-number .el-statistic__number {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] .date,
 html[data-ui-theme="paper"] .loseorder-container {
   margin: 8px;
   padding: 8px;
-  border: var(--paper-border) !important;
-  border-radius: var(--paper-radius) !important;
-  background: var(--paper-panel) !important;
+  border: var(--paper-border);
+  border-radius: var(--paper-radius);
+  background: var(--paper-panel);
   box-shadow: var(--paper-shadow);
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
-/* 侧栏订单：勿加左右 margin，否则卡片左边框不贴侧栏 */
+/* 基类 .orders 有 background:none !important */
 html[data-ui-theme="paper"] .orders {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
   background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  background-image: none !important;
+  border: none;
+  box-shadow: none;
   margin: 0;
 }
 
 html[data-ui-theme="paper"] .orders legend {
-  color: var(--paper-ink) !important;
-  text-shadow: none !important;
+  color: var(--paper-ink);
+  text-shadow: none;
   border: var(--paper-border);
   border-radius: 6px;
   font-weight: 600;
@@ -127,77 +139,77 @@ html[data-ui-theme="paper"] .orders legend {
 
 html[data-ui-theme="paper"] .orders legend.success {
   background: var(--paper-accent-soft);
-  color: var(--paper-accent) !important;
+  color: var(--paper-accent);
 }
 
 html[data-ui-theme="paper"] .orders legend.fail {
-  background: #f8e8ea;
-  color: #b42318 !important;
+  background: var(--paper-soft-danger);
+  color: var(--cm-color-danger);
 }
 
 html[data-ui-theme="paper"] .orders .orderlink {
-  overflow: visible !important;
-  border: var(--paper-border) !important;
-  border-radius: var(--paper-radius) !important;
+  overflow: visible;
+  border: var(--paper-border);
+  border-radius: var(--paper-radius);
   background: var(--paper-panel);
   box-shadow: var(--paper-shadow);
 }
 
 html[data-ui-theme="paper"] .order-makeup-status {
-  background: #f5efd8 !important;
-  color: var(--paper-ink) !important;
-  text-shadow: none !important;
-  border: var(--paper-border) !important;
-  border-radius: 6px !important;
+  background: var(--paper-makeup);
+  color: var(--paper-ink);
+  text-shadow: none;
+  border: var(--paper-border);
+  border-radius: 6px;
 }
 
 html[data-ui-theme="paper"] .providers {
-  background: var(--paper-panel) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: var(--paper-panel);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   border-bottom: var(--paper-border);
 }
 
 html[data-ui-theme="paper"] .providers .actions {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] .providers .account {
-  background-image: none !important;
-  background: var(--paper-panel-2) !important;
-  border: var(--paper-border) !important;
-  border-radius: var(--paper-radius) !important;
+  background-image: none;
+  background: var(--paper-panel-2);
+  border: var(--paper-border);
+  border-radius: var(--paper-radius);
   box-shadow: var(--paper-shadow);
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] .providers .account .platform {
-  background: var(--paper-accent-soft) !important;
-  color: var(--paper-accent) !important;
+  background: var(--paper-accent-soft);
+  color: var(--paper-accent);
   border: var(--paper-border);
-  border-radius: 6px !important;
+  border-radius: 6px;
 }
 
 html[data-ui-theme="paper"] .providers .account.selected .platform {
-  background: var(--paper-accent) !important;
-  color: #f7f3eb !important;
+  background: var(--paper-accent);
+  color: var(--cm-color-on-accent);
 }
 
 html[data-ui-theme="paper"] .providers .account .balance .currency {
-  color: var(--paper-muted) !important;
+  color: var(--paper-muted);
 }
 
 html[data-ui-theme="paper"] .providers .account .cm-platform-icon,
 html[data-ui-theme="paper"] .providers .account .provider-icon {
   border: var(--paper-border);
-  border-radius: 6px !important;
+  border-radius: 6px;
   box-sizing: border-box;
 }
 
 html[data-ui-theme="paper"] .providers .account .totalProfit {
-  background: var(--paper-accent-soft) !important;
+  background: var(--paper-accent-soft);
   border: var(--paper-border);
-  border-radius: 6px !important;
+  border-radius: 6px;
   color: var(--paper-accent);
 }
 
@@ -207,37 +219,22 @@ html[data-ui-theme="paper"] .sport-tab-row {
   color: var(--paper-ink);
 }
 
-html[data-ui-theme="paper"] .match-count {
-  color: var(--paper-muted) !important;
-}
-
 html[data-ui-theme="paper"] .home-main .sport-tab-row {
   background: var(--paper-bg);
   background-image: none;
 }
 
-html[data-ui-theme="paper"] .match-empty {
-  color: var(--paper-muted) !important;
-}
-
-html[data-ui-theme="paper"] .pos {
-  color: #3f6f4e !important;
-}
-html[data-ui-theme="paper"] .neg {
-  color: #b42318 !important;
-}
-
 html[data-ui-theme="paper"] .matchs .match {
-  background: var(--paper-panel) !important;
+  background: var(--paper-panel);
   border: var(--paper-border);
-  border-radius: var(--paper-radius) !important;
+  border-radius: var(--paper-radius);
   box-shadow: var(--paper-shadow);
   margin: 12px;
   padding: 12px;
 }
 
 html[data-ui-theme="paper"] .matchs .match .match-title {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
   font-weight: 600;
   border-bottom: 1px solid #d6cebd;
   margin-bottom: 10px;
@@ -248,91 +245,91 @@ html[data-ui-theme="paper"] .matchs .match .match-title .pm-sport,
 html[data-ui-theme="paper"] .matchs .match .match-title .pm-sport-link,
 html[data-ui-theme="paper"] .matchs .match .match-title .startTime,
 html[data-ui-theme="paper"] .matchs .match .match-title .game-tag {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] .matchs .bet {
-  background-image: none !important;
-  background: var(--paper-panel-2) !important;
+  background-image: none;
+  background: var(--paper-panel-2);
   border: var(--paper-border);
-  border-radius: var(--paper-radius) !important;
+  border-radius: var(--paper-radius);
   box-shadow: none;
   padding: 10px 8px 8px;
 }
 
 html[data-ui-theme="paper"] .matchs .bet .bet-title {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
   font-weight: 600;
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds {
-  background-image: none !important;
-  background: var(--paper-bg) !important;
-  border: var(--paper-border) !important;
-  border-radius: 6px !important;
-  color: var(--paper-ink) !important;
+  background-image: none;
+  background: var(--paper-bg);
+  border: var(--paper-border);
+  border-radius: 6px;
+  color: var(--paper-ink);
   font-weight: 600;
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds.home {
-  background: var(--paper-home) !important;
+  background: var(--paper-home);
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds.away {
-  background: var(--paper-away) !important;
+  background: var(--paper-away);
 }
 
 html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds {
-  color: #3f6f4e !important;
-  text-shadow: none !important;
-  background: var(--paper-accent-soft) !important;
+  color: var(--cm-color-success);
+  text-shadow: none;
+  background: var(--paper-accent-soft);
 }
 
 html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
-  color: #9d174d !important;
-  background: #f8e8ea !important;
+  color: #9d174d;
+  background: var(--paper-soft-danger);
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds.target {
-  border-color: var(--paper-accent) !important;
+  border-color: var(--paper-accent);
   box-shadow: inset 0 0 0 1px var(--paper-accent);
-  background: var(--paper-accent-soft) !important;
+  background: var(--paper-accent-soft);
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds.lock:after {
-  background-color: rgba(42, 42, 42, 0.4) !important;
-  border-radius: 6px !important;
+  background-color: rgba(42, 42, 42, 0.4);
+  border-radius: 6px;
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-type,
 html[data-ui-theme="paper"] .matchs .bet .item .provider-icon,
 html[data-ui-theme="paper"] .matchs .bet .item.defaultOdds .item-type {
-  border: var(--paper-border) !important;
-  border-radius: 6px !important;
-  background-color: var(--paper-panel) !important;
-  background-size: contain !important;
-  background-repeat: no-repeat !important;
-  background-position: center !important;
+  border: var(--paper-border);
+  border-radius: 6px;
+  background-color: var(--paper-panel);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 html[data-ui-theme="paper"] .odds-src {
-  color: var(--paper-muted) !important;
+  color: var(--paper-muted);
 }
 
 html[data-ui-theme="paper"] .active-bet-run,
 html[data-ui-theme="paper"] .active-bet-run__chrome,
 html[data-ui-theme="paper"] .active-bet-run__col {
-  background: var(--paper-panel) !important;
-  border: var(--paper-border) !important;
-  border-radius: var(--paper-radius) !important;
-  box-shadow: var(--paper-shadow) !important;
-  color: var(--paper-ink) !important;
+  background: var(--paper-panel);
+  border: var(--paper-border);
+  border-radius: var(--paper-radius);
+  box-shadow: var(--paper-shadow);
+  color: var(--paper-ink);
 }
 
 html[data-ui-theme="paper"] .active-bet-run__chrome-title,
 html[data-ui-theme="paper"] .active-bet-run__match,
 html[data-ui-theme="paper"] .active-bet-run__leg {
-  color: var(--paper-ink) !important;
+  color: var(--paper-ink);
 }
 
 /* 管理后台 */
@@ -396,8 +393,8 @@ html[data-ui-theme="paper"] .admin-card,
 html[data-ui-theme="paper"] .admin-panel,
 html[data-ui-theme="paper"] .admin-stat,
 html[data-ui-theme="paper"] .admin-toolbar {
-  border: var(--paper-border) !important;
-  border-radius: var(--paper-radius) !important;
+  border: var(--paper-border);
+  border-radius: var(--paper-radius);
   box-shadow: var(--paper-shadow);
   background: var(--paper-panel);
 }
@@ -411,7 +408,7 @@ html[data-ui-theme="paper"] .el-button {
 html[data-ui-theme="paper"] .el-button--primary {
   background: var(--paper-accent) !important;
   border-color: var(--paper-accent) !important;
-  color: #f7f3eb !important;
+  color: var(--cm-color-on-accent) !important;
 }
 
 html[data-ui-theme="paper"] .el-input__wrapper,

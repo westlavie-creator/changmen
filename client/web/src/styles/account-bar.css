@@ -12,19 +12,19 @@
 }
 
 .providers .actions .speed {
-  background-color:#67c23a;border-radius:4px;line-height:16px;padding:0;text-align:center;
+  background-color:var(--cm-color-success);border-radius:4px;line-height:16px;padding:0;text-align:center;
 }
 
 .providers .actions .speed.warning {
-  background-color:#e6a23c;
+  background-color:var(--cm-color-warning);
 }
 
 .providers .actions .speed.danger {
-  background-color:#f56c6c;
+  background-color:var(--cm-color-danger);
 }
 
 .providers .actions .speed.error {
-  background-color:red;
+  background-color:var(--cm-color-hacked);
 }
 
 .providers .actions .tools {
@@ -57,11 +57,11 @@
 }
 
 .providers .account .balance.danger {
-  color:red;font-weight:bolder;animation:balance-danger-80afd9d4 1s infinite linear;
+  color:var(--cm-color-hacked);font-weight:bolder;animation:balance-danger-80afd9d4 1s infinite linear;
 }
 
 .providers .account .balance.error {
-  color:red;
+  color:var(--cm-color-hacked);
 }
 
 .providers .account .balance.error .currency {
@@ -74,7 +74,7 @@
 
 /* [changmen 扩展] 瞬时刷新失败：保留数字，弱提示而非 TOKEN ERROR */
 .providers .account .balance.stale {
-  color:#e6a23c;
+  color:var(--cm-color-warning);
 }
 
 .providers .account .balance.stale:after {
@@ -102,7 +102,7 @@
 }
 
 .providers .account.selected .platform {
-  background-color:#409eff;
+  background-color:var(--cm-color-primary);
 }
 
 .providers .account.loading:after {
@@ -123,7 +123,7 @@
 }
 
 .providers .account.pause {
-  opacity:.5;background-color:#909399;
+  opacity:.5;background-color:var(--cm-color-info);
 }
 
 .providers .account.pause:hover {
