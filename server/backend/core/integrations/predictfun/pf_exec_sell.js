@@ -138,7 +138,7 @@ export async function executePfSellInLock({ playerId, userId, buyOrderId }) {
       const code = String(out.result?.data?.code ?? "").trim();
       throw new Error(code
         ? `Predict.fun 卖出未受理（code: ${code}）`
-        : "Predict.fun FOK 卖出未成交");
+        : "Predict.fun 卖出未受理");
     }
 
     sellHash = String(out.requestBody?.data?.order?.hash ?? "").trim();
@@ -243,7 +243,10 @@ export async function executePfSellInLock({ playerId, userId, buyOrderId }) {
     changmenCodeFeeRateBps,
   } = netSellProceedsAfterChangmenFee(afterOfficial, changmenBps);
   const proceeds = roundUsdt(proceedsRaw);
-  const filledSharesWei = fill.sharesWei > 0n ? fill.sharesWei : sharesWei;
+  // extractSellFill：显式 amountFilled=0 → 0；缺失才回退 maker/hold
+  const filledSharesWei = fill.sharesWei;
+  if (filledSharesWei <= 0n)
+    throw new Error("卖出未获得官网成交份额，请稍后重试");
   const stake = rdsBetMoney(buy);
   const profit = roundUsdt(proceeds - stake);
   const sellOdds = Number(out.bookOdds) || 0;

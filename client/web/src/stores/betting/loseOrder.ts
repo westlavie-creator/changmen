@@ -9,7 +9,7 @@ import {
 } from "@/stores/betting/loseOrderLookup";
 import {
   processPmMakeUpLeg,
-  tryResumePmPendingMakeUp,
+  tryResumePendingVenueMakeUp,
 } from "@/stores/betting/loseOrderPm";
 import { processA8RegularVenueMakeUpLeg } from "@/stores/betting/loseOrderRegular";
 import { markSuccessfulBet, readUsedAccounts } from "@/stores/betting/successMarkers";
@@ -73,7 +73,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
     }
     const { match, bet } = ref;
 
-    const resumed = await tryResumePmPendingMakeUp({
+    const resumed = await tryResumePendingVenueMakeUp({
       betId,
       order,
       match,
@@ -97,7 +97,7 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
         break;
 
       // 已有 pending 续查单时，禁止再 POST 新补单（等 tryResume / 下轮 settle）
-      if (order.pendingPmOrderId)
+      if (order.pendingVenueOrderId)
         break;
 
       const sideOdds = item.getOdds(order.target);

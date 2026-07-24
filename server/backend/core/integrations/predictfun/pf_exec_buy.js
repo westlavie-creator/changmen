@@ -109,9 +109,13 @@ export async function executePfBuyInLock({ playerId, userId, intent, fresh0, cha
   if (!isPredictFunOrderAccepted(out.result)) {
     await accountStore.creditPlayerBalance(playerId, chargeUsdt, userId);
     const code = String(out.result?.data?.code ?? "").trim();
+    console.info("[Pf_RejectBucket] post_not_accepted", {
+      marketId: intent.marketId,
+      code: code || null,
+    });
     throw new Error(code
       ? `Predict.fun 下单未受理（code: ${code}）`
-      : "Predict.fun FOK 订单未成交");
+      : "Predict.fun 下单未受理");
   }
 
   const pfOrderHash = String(out.requestBody?.data?.order?.hash ?? "").trim();
@@ -180,8 +184,7 @@ export async function executePfBuyInLock({ playerId, userId, intent, fresh0, cha
     pfNotionalUsdt: settledStake,
     pfOrderHash,
     pfApiOrderId,
-    pfSharesWei: sharesWei || undefined,
-    pfShares: shares > 0 ? shares : undefined,
+    // 成交份额只认官网 amountFilled；Pending 不写意向 size
     pfSide: "buy",
     pfSellState: "open",
     pfFeeRateBps: Number(fresh.feeRateBps ?? out.feeRateBps) >= 0

@@ -188,13 +188,19 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
     const houseEdgeUsdt = buyNotionalUsdt != null && buyFillCostUsdt != null
       ? buyNotionalUsdt - buyFillCostUsdt
       : null;
-    const fillShares = Number(buy.pfShares) > 0 ? Number(buy.pfShares) : null;
-    const buyFeeShares = feeSharesFromRow(buy);
-    // 只读 RDS 持仓；无 hold 时不在前端推算手续费
+    const buyStatus = String(buy.status || "").toLowerCase();
+    const unfilled = buyStatus === "reject" || buyStatus === "return";
+    const pending = buyStatus === "pending";
+    // 成交份额只认官网成交落库；拒单不展示意向 size
+    const fillShares = !unfilled && Number(buy.pfShares) > 0 ? Number(buy.pfShares) : null;
+    const buyFeeShares = unfilled ? null : feeSharesFromRow(buy);
+    // 只读 RDS 持仓；拒单无持仓；Pending 持仓未就绪
     const storedHold = Number(buy.pfHoldShares);
-    const netShares = Number.isFinite(storedHold) && storedHold > 0
-      ? storedHold
-      : (fillShares != null && fillShares > 0 ? fillShares : null);
+    const netShares = unfilled || pending
+      ? null
+      : (Number.isFinite(storedHold) && storedHold > 0
+          ? storedHold
+          : (fillShares != null && fillShares > 0 ? fillShares : null));
     const buyShares = fillShares;
     const feeRateBps = Number.isFinite(Number(buy.pfFeeRateBps)) && Number(buy.pfFeeRateBps) >= 0
       ? Number(buy.pfFeeRateBps)
@@ -249,4 +255,33 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       profitUsdt,
     };
   });
+}
+
+/** 管理端表格：买单主行 +（可选）挂接卖出行；盈亏仍挂在 cycle / 买单行 */
+export interface PfAdminDisplayRow {
+  kind: "buy" | "sell";
+  attach: boolean;
+  cycle: PfOrderCycle;
+  order: AdminOrderRow;
+}
+
+export function flattenPfCyclesForAdminDisplay(cycles: PfOrderCycle[]): PfAdminDisplayRow[] {
+  const out: PfAdminDisplayRow[] = [];
+  for (const cycle of cycles) {
+    out.push({
+      kind: "buy",
+      attach: false,
+      cycle,
+      order: cycle.buy,
+    });
+    if (cycle.sell) {
+      out.push({
+        kind: "sell",
+        attach: true,
+        cycle,
+        order: cycle.sell,
+      });
+    }
+  }
+  return out;
 }

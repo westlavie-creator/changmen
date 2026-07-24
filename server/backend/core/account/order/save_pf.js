@@ -18,6 +18,9 @@ export function mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_
     if (!String(merged[key] ?? "").trim() && String(prevRaw[key] ?? "").trim())
       merged[key] = prevRaw[key];
   };
+  const status = String(merged.status ?? merged.Status ?? "").toLowerCase();
+  const isUnfilledReject = status === "reject" || status === "return";
+
   keepPrevStr("pfSide");
   keepPrevStr("pfSellState");
   keepPrevStr("pfBuyOrderId");
@@ -26,7 +29,9 @@ export function mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_
   keepPrevStr("pfOrderHash");
   keepPrevStr("pfApiOrderId");
   keepPrevStr("pfOfficialStatus");
-  keepPrevStr("pfSharesWei");
+  // 拒单未成交：禁止把旧意向 pfSharesWei 补回（成交份额只认官网）
+  if (!isUnfilledReject)
+    keepPrevStr("pfSharesWei");
 
   // money/betMoney 空写勿覆盖库内有效值（对标 PM sell/closed 保护）
   const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);

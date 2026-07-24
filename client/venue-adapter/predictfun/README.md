@@ -147,7 +147,7 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
   - 官方状态：`FILLED`→成交持仓；`CANCELLED`/`EXPIRED`/`INVALIDATED`→拒单并退还 `total_balance`；`OPEN`→继续等
   - **买单拒单/成交**：`Pf_GetOrder` 走 `fetchHousePredictOrderResolved`（REST + `predictWalletEvents` hint），与卖出确认同源加速
   - 手动下注：`betGateway` 在 `pending` 后后台 `settleArbLeg`（与 PM 同路径，仅多开 PredictFun）
-  - **不改**共享 `resolveVenueLegOutcome` / `confirmPmPost`（PM 与其它场馆路径不变）
+  - **不改**共享 `resolveVenueLegOutcome` / `confirmPostAccepted`（PM 与其它场馆路径不变）
 - 市场结算：`Market.status=RESOLVED` + outcome `WON`/`LOST`（对 token=`onChainId`）
   - Win：`total_balance +=` 用户持仓份额（`pfHoldShares`，两位向 0 截断）× **$1**；订单 `money = 回款 − 名义本金`
   - Lose：余额不变（下单已扣本金），订单 `money=-betMoney`

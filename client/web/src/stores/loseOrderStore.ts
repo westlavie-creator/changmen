@@ -109,27 +109,34 @@ export const useLoseOrderStore = defineStore("loseorder", {
       }
     },
 
-    setPendingPmOrder(betId: number, orderId: string, accountId: number) {
+    /** 受理后确认场馆：挂原单供 jb 续查（勿重复 POST） */
+    setPendingVenueOrder(betId: number, orderId: string, accountId: number) {
       const existing = this.orders.get(betId);
       if (!existing)
         return;
       const id = String(orderId ?? "").trim();
       if (!id)
         return;
-      existing.pendingPmOrderId = id;
-      existing.pendingPmAccountId = Number(accountId) || undefined;
-      existing.runtimePhase = "pm_pending";
+      existing.pendingVenueOrderId = id;
+      existing.pendingVenueAccountId = Number(accountId) || undefined;
+      existing.runtimePhase = "venue_pending";
       this.touchOrdersMap();
       this.persist();
     },
 
-    clearPendingPmOrder(betId: number) {
+    clearPendingVenueOrder(betId: number) {
       const existing = this.orders.get(betId);
-      if (!existing?.pendingPmOrderId)
+      if (!existing)
         return;
-      existing.pendingPmOrderId = undefined;
-      existing.pendingPmAccountId = undefined;
-      if (existing.runtimePhase === "pm_pending")
+      const hadPending = Boolean(existing.pendingVenueOrderId)
+        || Boolean((existing as { pendingPmOrderId?: string }).pendingPmOrderId);
+      if (!hadPending)
+        return;
+      existing.pendingVenueOrderId = undefined;
+      existing.pendingVenueAccountId = undefined;
+      delete (existing as { pendingPmOrderId?: string }).pendingPmOrderId;
+      delete (existing as { pendingPmAccountId?: number }).pendingPmAccountId;
+      if (existing.runtimePhase === "venue_pending" || existing.runtimePhase === "pm_pending")
         existing.runtimePhase = undefined;
       this.touchOrdersMap();
       this.persist();

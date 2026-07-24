@@ -9,7 +9,8 @@ import {
 } from "@changmen/venue-adapter/predictfun";
 
 function hasLockedPredictFunDetectionQuote(data: PredictFunOptionQuoteData): boolean {
-  return isValidPredictClobPrice(Number(data.detectionMaxPrice ?? data.detectionClobPrice));
+  // 只认 fo 原价；detectionMaxPrice 是执行限价（可含 buffer），不能当锁定依据
+  return isValidPredictClobPrice(Number(data.detectionClobPrice));
 }
 
 /** PF ????? fo / MarketIndex ?? CLOB ??? marketId?Sources ???? fo ?????? */

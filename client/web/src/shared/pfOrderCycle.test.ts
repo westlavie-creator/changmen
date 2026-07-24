@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AdminOrderRow } from "@/types/admin";
 import {
   buildPfCycles,
+  flattenPfCyclesForAdminDisplay,
   pfNetShares,
   resolvePfCycleFinalUsdt,
   resolvePfCycleProfitUsdt,
@@ -132,6 +133,24 @@ describe("pfOrderCycle", () => {
     expect(resolvePfCycleProfitUsdt(10, null)).toBeNull();
   });
 
+  it("buildPfCycles reject has no fill/hold shares", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xrej",
+        status: "Reject",
+        betMoney: 29.41,
+        pfShares: 42.19677,
+        pfHoldShares: 42.19677,
+        pfBookPrice: 0.69,
+        pfNotionalUsdt: 29.41,
+      }),
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].buyShares).toBeNull();
+    expect(cycles[0].netShares).toBeNull();
+    expect(cycles[0].buyNotionalUsdt).toBe(29.41);
+  });
+
   it("buildPfCycles ignores non-PredictFun arb siblings (e.g. PB)", () => {
     const cycles = buildPfCycles([
       buy({
@@ -235,5 +254,38 @@ describe("pfOrderCycle", () => {
     expect(cycles[0].buyNotionalUsdt).toBe(14.12);
     expect(cycles[0].buyFillCostUsdt).toBe(13.68);
     expect(cycles[0].houseEdgeUsdt).toBeCloseTo(0.44, 6);
+  });
+
+  it("flattenPfCyclesForAdminDisplay: buy + attached sell", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xbuy1",
+        pfSellState: "closed",
+        pfSellOrderId: "0xsell1",
+        pfSellProceeds: 12,
+      }),
+      {
+        ...buy({
+          orderId: "0xsell1",
+          pfSide: "sell",
+          pfBuyOrderId: "0xbuy1",
+          betMoney: 12,
+        }),
+      },
+    ]);
+    const rows = flattenPfCyclesForAdminDisplay(cycles);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ kind: "buy", attach: false, order: { orderId: "0xbuy1" } });
+    expect(rows[1]).toMatchObject({ kind: "sell", attach: true, order: { orderId: "0xsell1" } });
+    expect(rows[0].cycle).toBe(rows[1].cycle);
+  });
+
+  it("flattenPfCyclesForAdminDisplay: buy only when no sell", () => {
+    const cycles = buildPfCycles([buy({ orderId: "0xopen" })]);
+    const rows = flattenPfCyclesForAdminDisplay(cycles);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].kind).toBe("buy");
+    expect(rows[0].attach).toBe(false);
+    expect(rows[0].order.orderId).toBe("0xopen");
   });
 });

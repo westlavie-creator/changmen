@@ -16,9 +16,10 @@ import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { isPendingConfirmVenueProvider, isPredictFunProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
 import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
+import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts;
 
@@ -58,6 +59,12 @@ function notifyPendingVenueConfirm(
     if (!rejected && !stillPending) {
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
+      // PF：受理≠成交；成功计数推迟到此处（filled）再写
+      if (isPredictFunProvider(account.provider)) {
+        const betRowId = Number(option.bet?.id ?? option.betId);
+        if (Number.isFinite(betRowId) && betRowId > 0)
+          markSuccessfulBet(account, betRowId, option.target, option.odds);
+      }
     }
     // PM/PF：仅在 settle 已有结论（非仍 pending）后补刷，避免与 place 早刷竞态写回旧余额。
     // 失败不阻断 toast / 其它场馆路径不变。
@@ -201,7 +208,7 @@ export async function placeBet(
       result.pending
       && !option.loseOrder
       && isPendingConfirmVenueProvider(account.provider)
-      && !option.deferPmSettlement
+      && !option.deferPostAcceptSettlement
     ) {
       notifyPendingVenueConfirm(
         store,

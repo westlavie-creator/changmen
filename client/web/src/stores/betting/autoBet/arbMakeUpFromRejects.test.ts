@@ -5,11 +5,11 @@ import { BetResult } from "@changmen/client-core/models/betResult";
 import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
 
 const enqueueMakeUpOrder = vi.hoisted(() => vi.fn());
-const setPendingPmOrder = vi.hoisted(() => vi.fn());
+const setPendingVenueOrder = vi.hoisted(() => vi.fn());
 const useLoseOrderStore = vi.hoisted(() =>
   vi.fn(() => ({
     orders: new Map(),
-    setPendingPmOrder,
+    setPendingVenueOrder,
   })),
 );
 
@@ -57,11 +57,11 @@ describe("applyArbMakeUpFromRejects", () => {
   beforeEach(() => {
     enqueueMakeUpOrder.mockReset();
     enqueueMakeUpOrder.mockResolvedValue(true);
-    setPendingPmOrder.mockReset();
+    setPendingVenueOrder.mockReset();
     useLoseOrderStore.mockReset();
     useLoseOrderStore.mockReturnValue({
       orders: new Map(),
-      setPendingPmOrder,
+      setPendingVenueOrder,
     });
   });
 
@@ -271,7 +271,7 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("hangs pendingPm resume when OB filled and PM still timeout/pendingConfirm", async () => {
+  it("hangs pendingVenue resume when OB filled and PM still timeout/pendingConfirm", async () => {
     const placed = basePlaced();
     placed.accountA = { accountId: 14, provider: "OB" } as never;
     placed.accountB = { accountId: 99, provider: "Polymarket" } as never;
@@ -305,6 +305,6 @@ describe("applyArbMakeUpFromRejects", () => {
         failedPlatformLabel: "Polymarket(待确认续查)",
       }),
     );
-    expect(setPendingPmOrder).toHaveBeenCalledWith(100, "0xpm-timeout", 99);
+    expect(setPendingVenueOrder).toHaveBeenCalledWith(100, "0xpm-timeout", 99);
   });
 });

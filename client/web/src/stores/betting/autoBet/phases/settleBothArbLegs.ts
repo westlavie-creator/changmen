@@ -5,6 +5,7 @@ import type {
   ArbBetPlaced,
   ArbLegPlaceOutcome,
 } from "@/stores/betting/autoBet/phases/types";
+import { isArbLegPlaceNeedsSettle } from "@/stores/betting/autoBet/phases/types";
 import {
   legRejectWaitSec,
   maxLegRejectWaitSec,
@@ -87,9 +88,9 @@ export async function settleBothArbLegs(
 
   if (!successAccounts.length) {
     // 无 API 成功腿：不进场馆 settle；编排层仍用 placeOutcome 收尾
-    if (accountA && placeOutcomeA !== "filled_pending_settle")
+    if (accountA && !isArbLegPlaceNeedsSettle(placeOutcomeA))
       syncActiveBetLegSettleResult(bet.id, "A", false, false);
-    if (accountB && placeOutcomeB !== "filled_pending_settle")
+    if (accountB && !isArbLegPlaceNeedsSettle(placeOutcomeB))
       syncActiveBetLegSettleResult(bet.id, "B", false, false);
     return emptySettleSnapshot(placeOutcomeA, placeOutcomeB);
   }
@@ -110,9 +111,9 @@ export async function settleBothArbLegs(
   const legTasks: Promise<void>[] = [];
 
   // API 失败 / 未下单腿：不上场馆 settle，只回编排态（避免误标「未拒单」）
-  if (accountA && placeOutcomeA !== "filled_pending_settle")
+  if (accountA && !isArbLegPlaceNeedsSettle(placeOutcomeA))
     syncActiveBetLegSettleResult(bet.id, "A", false, false);
-  if (accountB && placeOutcomeB !== "filled_pending_settle")
+  if (accountB && !isArbLegPlaceNeedsSettle(placeOutcomeB))
     syncActiveBetLegSettleResult(bet.id, "B", false, false);
 
   if (resultA?.success && accountA) {

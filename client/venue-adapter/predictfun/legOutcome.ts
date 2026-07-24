@@ -15,8 +15,11 @@ import { sortVenueOrdersNewestFirst } from "../contract";
 import { venueRejectWaitBeforePoll } from "../shared/rejectWait";
 import { pfGetOrder } from "./pfClientApi";
 
-/** 前密后疏：服务端 wallet-first，前几轮快收；无 hint 时拉长间隔少打 REST（守 240rpm） */
-const DEFAULT_POLL_ATTEMPTS = 12;
+/**
+ * 前密后疏：wallet-first 快收；总间隔对齐服务端 waitForHouseOrderTerminal（约 25×300ms）。
+ * 4×200 + 4×400 + 10×500 ≈ 7.4s，减少「已 CANCELLED 却先 timeout」。
+ */
+const DEFAULT_POLL_ATTEMPTS = 18;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => {
@@ -26,11 +29,11 @@ function sleep(ms: number): Promise<void> {
 
 /** @param attemptIndex 0-based，刚完成的轮次下标 */
 function pollIntervalMs(attemptIndex: number): number {
-  if (attemptIndex < 3)
+  if (attemptIndex < 4)
     return 200;
-  if (attemptIndex < 6)
+  if (attemptIndex < 8)
     return 400;
-  return 700;
+  return 500;
 }
 
 function rejectVenueOrder(
@@ -203,8 +206,8 @@ export async function resolvePredictFunProviderLegOutcome(
     return sortVenueOrdersNewestFirst(await getOrders(account));
   };
 
-  // 与 PM 一致：仅 confirmPmPost 时进 GetOrder 轮询；拉单用编排 fetchVenueOrders（PF 不 saveOrders）
-  if (result && opts?.confirmPmPost) {
+  // 仅 confirmPostAccepted 时进 GetOrder 轮询；拉单用编排 fetchVenueOrders（PF 不 saveOrders）
+  if (result && opts?.confirmPostAccepted) {
     return resolvePredictFunLegOutcome(account, result, {
       ...opts,
       fetchVenueOrders: pull,

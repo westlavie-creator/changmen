@@ -14,7 +14,7 @@ describe("markArbSuccessLegs", () => {
     markSuccessfulBet.mockReset();
   });
 
-  it("marks both success legs without pendingConfirm gate (A8 parity)", () => {
+  it("marks both success legs without pendingConfirm gate for A8/PM", () => {
     const legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
     const legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     markArbSuccessLegs(
@@ -22,8 +22,8 @@ describe("markArbSuccessLegs", () => {
       {
         legA,
         legB,
-        accountA: { accountId: 1 } as never,
-        accountB: { accountId: 2 } as never,
+        accountA: { accountId: 1, provider: "OB" } as never,
+        accountB: { accountId: 2, provider: "Polymarket" } as never,
         resultA: new BetResult("OB", true),
         resultB: Object.assign(new BetResult("Polymarket", true), {
           orderId: "0xpm",
@@ -53,6 +53,50 @@ describe("markArbSuccessLegs", () => {
     );
   });
 
+  it("skips PredictFun while pendingConfirm; marks after filled", () => {
+    const legA = new BetOption("PredictFun" as never, "m1", "b1", "h1", 10, "Home", 1.8);
+    const legB = new BetOption("OB" as never, "m2", "b2", "a1", 70, "Away", 2);
+    const placed = {
+      legA,
+      legB,
+      accountA: { accountId: 1, provider: "PredictFun" } as never,
+      accountB: { accountId: 2, provider: "OB" } as never,
+      resultA: Object.assign(new BetResult("PredictFun", true), { pending: true, orderId: "0xpf" }),
+      resultB: new BetResult("OB", true),
+    } as never;
+
+    markArbSuccessLegs(
+      { id: 77 } as never,
+      placed,
+      {
+        rejectA: false,
+        rejectB: false,
+        pendingConfirmA: true,
+        pendingConfirmB: false,
+      } as never,
+    );
+    expect(markSuccessfulBet).toHaveBeenCalledTimes(1);
+    expect(markSuccessfulBet).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 2 }),
+      77,
+      "Away",
+      2,
+    );
+
+    markSuccessfulBet.mockReset();
+    markArbSuccessLegs(
+      { id: 77 } as never,
+      placed,
+      {
+        rejectA: false,
+        rejectB: false,
+        pendingConfirmA: false,
+        pendingConfirmB: false,
+      } as never,
+    );
+    expect(markSuccessfulBet).toHaveBeenCalledTimes(2);
+  });
+
   it("skips confirmed unfilled legs", () => {
     const legA = new BetOption("RAY" as never, "m1", "b1", "h1", 40, "Home", 1.5);
     const legB = new BetOption("OB" as never, "m2", "b2", "a1", 70, "Away", 2);
@@ -61,8 +105,8 @@ describe("markArbSuccessLegs", () => {
       {
         legA,
         legB,
-        accountA: { accountId: 1 } as never,
-        accountB: { accountId: 2 } as never,
+        accountA: { accountId: 1, provider: "RAY" } as never,
+        accountB: { accountId: 2, provider: "OB" } as never,
         resultA: new BetResult("RAY", true),
         resultB: new BetResult("OB", true),
       } as never,

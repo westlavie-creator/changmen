@@ -42,7 +42,7 @@ export async function settleArbLeg(
       pendingBindOrderId,
     }),
     {
-      confirmPmPost: isPendingConfirmVenueProvider(account.provider) && Boolean(result),
+      confirmPostAccepted: isPendingConfirmVenueProvider(account.provider) && Boolean(result),
       rejectWaitSec: opts.rejectWaitSec,
     },
   );

@@ -96,7 +96,7 @@ export async function retryFailedLeg(
     let retryLeg = new BetOption(match, bet, pickedItem, failedLeg.target, stake);
     retryLeg.odds = pickedItem.getOdds(failedLeg.target);
     if (isPendingConfirmVenueProvider(pickedAccount.provider))
-      retryLeg.deferPmSettlement = true;
+      retryLeg.deferPostAcceptSettlement = true;
     trace?.event("重试", `第 ${round + 1} 轮 ${pickedAccount.provider}@${retryLeg.odds}`);
     retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
     if (!retryLeg.data)

@@ -159,6 +159,10 @@ export function assertPredictFokBuyDepth(asks, apiBetMoney) {
   }
 
   const availText = Number.isFinite(available) ? available.toFixed(2) : "0";
+  console.info("[Pf_RejectBucket] depth_insufficient", {
+    needUsdt: amount,
+    availableUsdt: Number.isFinite(available) ? Number(available.toFixed(4)) : 0,
+  });
   throw new Error([
     "Predict.fun FOK 盘口深度不足",
     `- 需要 ${amount} USDT，限价内可立即成交约 ${availText} USDT`,

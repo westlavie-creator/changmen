@@ -208,7 +208,7 @@ export async function resolvePolymarketProviderLegOutcome(
     return sortVenueOrdersNewestFirst(await getOrders(account));
   };
 
-  if (result && opts?.confirmPmPost) {
+  if (result && opts?.confirmPostAccepted) {
     return resolvePolymarketLegOutcome(account, result, { fetchVenueOrders: pull });
   }
 

@@ -22,8 +22,10 @@ export function isPredictionMarketUsdtStakeProvider(provider: unknown): boolean 
 }
 
 /**
- * PM / PF：betting 可 `pending`，须 `resolveLegOutcome` 确认（confirmPmPost / deferPmSettlement）
- * 与官方：PF POST 无 status，只能事后 GetOrder / wallet events。
+ * PM / PF：betting 可 `pending`，须 `resolveLegOutcome` 确认。
+ * 门控：confirmPostAccepted / deferPostAcceptSettlement（受理后确认；原 PM 命名已弃用）。
+ * - PM：可能有 matched 快路径，或 delayed 待确认
+ * - PF：POST 仅受理挂单（无 status），必须事后 GetOrder / wallet；类 A8「受理后可能拒」+ timeout
  */
 export function isPendingConfirmVenueProvider(provider: unknown): boolean {
   return isPolymarketProvider(provider) || isPredictFunProvider(provider);

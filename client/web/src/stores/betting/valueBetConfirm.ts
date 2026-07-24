@@ -183,7 +183,10 @@ export async function runValueBetConfirm(
   const linkId = createValueBetLinkId();
   const result = await accountStore.betting(account, option, toastSec);
   if (result?.success) {
-    markSuccessfulBet(account, bet.id, side, option.odds);
+    // PF pending：等 betGateway settle 确认 filled 后再 mark
+    const skipMark = String(account.provider ?? "") === "PredictFun" && result.pending;
+    if (!skipMark)
+      markSuccessfulBet(account, bet.id, side, option.odds);
     // 方案 B：先入库再绑 💎；PM matched 已在 placeBet 用 POST 乐观落库
     let bound = false;
     try {

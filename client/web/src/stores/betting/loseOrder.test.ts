@@ -13,8 +13,8 @@ const loseOrders = vi.hoisted(() => new Map<number, LoseOrder>());
 const matchs = vi.hoisted(() => [] as ViewMatch[]);
 
 const removeOrder = vi.hoisted(() => vi.fn());
-const setPendingPmOrder = vi.hoisted(() => vi.fn());
-const clearPendingPmOrder = vi.hoisted(() => vi.fn());
+const setPendingVenueOrder = vi.hoisted(() => vi.fn());
+const clearPendingVenueOrder = vi.hoisted(() => vi.fn());
 const getAccount = vi.hoisted(() => vi.fn());
 const findAccount = vi.hoisted(() => vi.fn());
 const checkBetting = vi.hoisted(() => vi.fn());
@@ -61,8 +61,8 @@ vi.mock("@/stores/loseOrderStore", () => ({
   useLoseOrderStore: () => ({
     orders: loseOrders,
     removeOrder,
-    setPendingPmOrder,
-    clearPendingPmOrder,
+    setPendingVenueOrder,
+    clearPendingVenueOrder,
     setMakeupRuntimePhase: vi.fn(),
     has: (id: number) => loseOrders.has(id),
   }),
@@ -170,18 +170,18 @@ describe("processLoseOrders (A8 jb parity)", () => {
     findAccount.mockReset();
     checkBetting.mockReset();
     betting.mockReset();
-    setPendingPmOrder.mockImplementation((betId: number, orderId: string, accountId: number) => {
+    setPendingVenueOrder.mockImplementation((betId: number, orderId: string, accountId: number) => {
       const order = loseOrders.get(betId);
       if (order) {
-        order.pendingPmOrderId = orderId;
-        order.pendingPmAccountId = accountId;
+        order.pendingVenueOrderId = orderId;
+        order.pendingVenueAccountId = accountId;
       }
     });
-    clearPendingPmOrder.mockImplementation((betId: number) => {
+    clearPendingVenueOrder.mockImplementation((betId: number) => {
       const order = loseOrders.get(betId);
       if (order) {
-        order.pendingPmOrderId = undefined;
-        order.pendingPmAccountId = undefined;
+        order.pendingVenueOrderId = undefined;
+        order.pendingVenueAccountId = undefined;
       }
     });
     vi.mocked(makeUpBetToastSeconds).mockReset();
@@ -506,7 +506,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     );
   });
 
-  it("PM timeout：写入 pendingPmOrderId，续轮 settle 不再 POST", async () => {
+  it("timeout：写入 pendingVenueOrderId，续轮 settle 不再 POST", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.167)]);
     matchs.push(makeMatch(bet));
     queueOrder();
@@ -531,11 +531,11 @@ describe("processLoseOrders (A8 jb parity)", () => {
     await processLoseOrders({ setMessage: vi.fn() });
 
     expect(betting).toHaveBeenCalledTimes(1);
-    expect(setPendingPmOrder).toHaveBeenCalledWith(100, "0xtimeout-order", 47);
+    expect(setPendingVenueOrder).toHaveBeenCalledWith(100, "0xtimeout-order", 47);
     expect(removeOrder).not.toHaveBeenCalled();
 
     const queued = loseOrders.get(100);
-    expect(queued?.pendingPmOrderId).toBe("0xtimeout-order");
+    expect(queued?.pendingVenueOrderId).toBe("0xtimeout-order");
 
     betting.mockClear();
     checkBetting.mockClear();
@@ -567,7 +567,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     expect(checkBetting).not.toHaveBeenCalled();
     expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xtimeout-order");
     expect(removeOrder).toHaveBeenCalledWith(100, true);
-    expect(clearPendingPmOrder).toHaveBeenCalledWith(100);
+    expect(clearPendingVenueOrder).toHaveBeenCalledWith(100);
   });
 
   it("PM waitTime=-1 + pending unfilled：拒单检测后不出队", async () => {

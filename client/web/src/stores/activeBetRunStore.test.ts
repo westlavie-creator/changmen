@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
-import { useActiveBetRunStore, legPlacementStatusLabel } from "@/stores/activeBetRunStore";
+import { useActiveBetRunStore, legPlacementStatusLabel, ACTIVE_BET_RUN_QUEUE_CAP } from "@/stores/activeBetRunStore";
 import {
   syncActiveBetBegin,
   syncActiveBetAfterRejectSync,
@@ -59,9 +59,10 @@ describe("activeBetRunStore", () => {
     expect(store.visibleRuns).toHaveLength(1);
   });
 
-  it("FIFO queue keeps at most 5 columns and drops oldest", () => {
+  it(`FIFO queue keeps at most ${ACTIVE_BET_RUN_QUEUE_CAP} columns and drops oldest`, () => {
     const store = useActiveBetRunStore();
-    for (let i = 1; i <= 6; i += 1) {
+    const n = ACTIVE_BET_RUN_QUEUE_CAP + 1;
+    for (let i = 1; i <= n; i += 1) {
       syncActiveBetBegin({
         match: { id: i, title: `M${i}` } as never,
         bet: { id: 1000 + i, getBetName: () => `盘${i}` } as never,
@@ -73,10 +74,11 @@ describe("activeBetRunStore", () => {
         betBothLegs: true,
       });
     }
-    expect(store.visibleRuns).toHaveLength(5);
-    expect(store.visibleRuns.map(r => r.betId)).toEqual([1006, 1005, 1004, 1003, 1002]);
-    expect(store.visibleRuns[0]?.matchTitle).toBe("M6");
-    expect(store.visibleRuns[4]?.matchTitle).toBe("M2");
+    expect(store.visibleRuns).toHaveLength(ACTIVE_BET_RUN_QUEUE_CAP);
+    const expectedIds = Array.from({ length: ACTIVE_BET_RUN_QUEUE_CAP }, (_, i) => 1000 + n - i);
+    expect(store.visibleRuns.map(r => r.betId)).toEqual(expectedIds);
+    expect(store.visibleRuns[0]?.matchTitle).toBe(`M${n}`);
+    expect(store.visibleRuns[ACTIVE_BET_RUN_QUEUE_CAP - 1]?.matchTitle).toBe("M2");
   });
 
   it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {
@@ -104,7 +106,7 @@ describe("activeBetRunStore", () => {
     expect(run?.legs.find(l => l.target === "Home")?.platform).toBe("OB");
   });
 
-  it("PM delayed POST shows pending_confirm leg and phase label", () => {
+  it("pending POST shows pending_confirm leg and phase label", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -127,10 +129,10 @@ describe("activeBetRunStore", () => {
 
     const run = store.visibleRuns[0];
     expect(run?.phase).toBe("settling");
-    expect(run?.overallLabel).toBe("PM 延迟确认");
+    expect(run?.overallLabel).toBe("待场馆确认");
     expect(run?.legs.find(l => l.side === "B")?.status).toBe("pending_confirm");
     expect(legPlacementStatusLabel(run!.legs.find(l => l.side === "B")!)).toBe("delayed 待确认");
-    expect(run?.legs.find(l => l.side === "B")?.detail).toContain("PM delayed");
+    expect(run?.legs.find(l => l.side === "B")?.detail).toContain("delayed");
   });
 
   it("A8 submitted legs show 等待场馆确认 during settling", () => {

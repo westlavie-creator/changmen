@@ -33,8 +33,16 @@ export interface ArbBetChecked extends ArbBetReady {
  */
 export type ArbLegPlaceOutcome =
   | "filled_pending_settle"
+  /** PF：官网已收下挂单，成交/拒单待 confirm（须进 settle） */
+  | "accepted_pending_confirm"
   | "api_failed"
   | "not_attempted";
+
+/** place 成功且需进场馆 settle 的腿态（含 PF 挂单待确认） */
+export function isArbLegPlaceNeedsSettle(placeOutcome: ArbLegPlaceOutcome): boolean {
+  return placeOutcome === "filled_pending_settle"
+    || placeOutcome === "accepted_pending_confirm";
+}
 
 export interface ArbBetPlaced extends ArbBetChecked {
   resultA?: BetResult;
@@ -51,9 +59,12 @@ export function resolveArbLegPlaceOutcome(
 ): ArbLegPlaceOutcome {
   if (!attempted)
     return "not_attempted";
-  if (result?.success)
-    return "filled_pending_settle";
-  return "api_failed";
+  if (!result?.success)
+    return "api_failed";
+  // PF：API 成功 = 挂单受理，不是成交
+  if (String(result.provider ?? "").trim().toLowerCase() === "predictfun")
+    return "accepted_pending_confirm";
+  return "filled_pending_settle";
 }
 
 export interface ArbBetAttemptParams {

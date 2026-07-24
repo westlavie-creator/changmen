@@ -622,8 +622,12 @@ export function makeupPendingProfitLabel(row: OrderRow): string {
     case "MakeupSettling":
       return "检测拒单中";
     default:
-      if (String(row.Player?.UserName ?? "").includes("PM待确认"))
-        return "PM待确认";
+      if (
+        String(row.Player?.UserName ?? "").includes("待确认")
+        || String(row.Player?.UserName ?? "").includes("PM待确认")
+      ) {
+        return "待确认";
+      }
       if (String(row.Player?.UserName ?? "").includes("再次被拒"))
         return "再次被拒，补单中";
       return "补单中";
@@ -634,16 +638,18 @@ function resolveMakeupPendingPresentation(order: LoseOrder): {
   status: string;
   playerUserName: string;
 } {
-  const pendingPm = String(order.pendingPmOrderId ?? "").trim();
-  const phase = pendingPm ? "pm_pending" : order.runtimePhase;
+  const pendingVenue = String(order.pendingVenueOrderId ?? "").trim();
+  const phase = pendingVenue
+    ? "venue_pending"
+    : (order.runtimePhase === "pm_pending" ? "venue_pending" : order.runtimePhase);
   if (phase === "placing") {
     return { status: "MakeupPlacing", playerUserName: "下单中" };
   }
   if (phase === "settling") {
     return { status: "MakeupSettling", playerUserName: "检测拒单中" };
   }
-  if (phase === "pm_pending" || pendingPm) {
-    return { status: "Makeup", playerUserName: "补单中 · PM待确认" };
+  if (phase === "venue_pending" || pendingVenue) {
+    return { status: "Makeup", playerUserName: "补单中 · 待确认" };
   }
   if (phase === "rejected_retry") {
     return { status: "Makeup", playerUserName: "补单中 · 再次被拒" };

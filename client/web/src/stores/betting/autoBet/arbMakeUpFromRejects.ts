@@ -54,7 +54,7 @@ export async function applyArbMakeUpFromRejects(
   const pendingConfirmA = Boolean(pending.pendingConfirmA);
   const pendingConfirmB = Boolean(pending.pendingConfirmB);
 
-  // 一腿已成交 + 一腿仍待确认：挂 LoseOrder 续查原单（对齐 jb pendingPm），不立刻补新单
+  // 一腿已成交 + 一腿仍待确认：挂 LoseOrder 续查原单（对齐 jb pendingVenue），不立刻补新单
   const resumePending = async (
     pendingSide: "A" | "B",
   ): Promise<boolean> => {
@@ -72,7 +72,7 @@ export async function applyArbMakeUpFromRejects(
     if (!isPendingConfirmVenueProvider(pendingAccount.provider))
       return false;
     if (loseStore.orders.has(bet.id)) {
-      loseStore.setPendingPmOrder(bet.id, orderId, pendingAccount.accountId);
+      loseStore.setPendingVenueOrder(bet.id, orderId, pendingAccount.accountId);
       return true;
     }
     const successRef = resolveMakeUpSuccessReference(
@@ -89,7 +89,7 @@ export async function applyArbMakeUpFromRejects(
       config,
       setMessage,
       linkId,
-      // 锚腿账号（与确认拒单补单一致）；pendingPm 记 PM 原单供 jb 续查
+      // 锚腿账号（与确认拒单补单一致）；pendingVenue 记原单供 jb 续查
       accountId: anchorAccount.accountId,
       target: pendingLeg.target,
       betMoney: successRef.betMoney,
@@ -98,7 +98,7 @@ export async function applyArbMakeUpFromRejects(
       failedPlatformLabel: `${pendingLeg.type}(待确认续查)`,
     });
     if (enqueued)
-      loseStore.setPendingPmOrder(bet.id, orderId, pendingAccount.accountId);
+      loseStore.setPendingVenueOrder(bet.id, orderId, pendingAccount.accountId);
     return enqueued;
   };
 

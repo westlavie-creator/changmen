@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   detectionMaxPriceFromOdds,
+  applyPredictFunExecMaxPriceBuffer,
   isValidPredictClobPrice,
   resolvePredictFunDetectionMaxPrice,
 } from "./pfDetection";
@@ -41,17 +42,32 @@ describe("predictfun bet helpers", () => {
       odds: 1.818,
       data: { detectionClobPrice: 0.55 },
     } as never;
-    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(0.55);
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(
+      applyPredictFunExecMaxPriceBuffer(0.55),
+    );
   });
 
   it("ignores stale fo clob when display odds disagree", () => {
-    // 展示 1.587（≈0.63），fo 旧价 0.6203（≈1.612）→ 用 1/1.587
     const option = {
       odds: 1.587,
       data: { detectionClobPrice: 0.6203 },
     } as never;
     expect(resolvePredictFunDetectionMaxPrice(option, 1.587)).toBe(
-      detectionMaxPriceFromOdds(1.587),
+      applyPredictFunExecMaxPriceBuffer(detectionMaxPriceFromOdds(1.587)),
+    );
+  });
+
+  it("does not treat buffered detectionMaxPrice as raw clob", () => {
+    // exec 限价已 buffer，不能再当 fo 原价去 match
+    const option = {
+      odds: 1.818,
+      data: {
+        detectionMaxPrice: applyPredictFunExecMaxPriceBuffer(0.55),
+        detectionClobPrice: 0.55,
+      },
+    } as never;
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(
+      applyPredictFunExecMaxPriceBuffer(0.55),
     );
   });
 });

@@ -26,7 +26,12 @@ import {
   pfOrderItemText,
   pfOrderMatchText,
 } from "@/shared/pfOrderDisplay";
-import { buildPfCycles, type PfOrderCycle } from "@/shared/pfOrderCycle";
+import {
+  buildPfCycles,
+  flattenPfCyclesForAdminDisplay,
+  type PfAdminDisplayRow,
+  type PfOrderCycle,
+} from "@/shared/pfOrderCycle";
 import { useUserStore } from "@/stores/userStore";
 
 const route = useRoute();
@@ -115,10 +120,30 @@ function panelCycles(panel: MemberOrdersPanel): PfOrderCycle[] {
   return buildPfCycles(panel.orders);
 }
 
+function panelDisplayRows(panel: MemberOrdersPanel): PfAdminDisplayRow[] {
+  return flattenPfCyclesForAdminDisplay(panelCycles(panel));
+}
+
+function panelBuySellCounts(panel: MemberOrdersPanel) {
+  const cycles = panelCycles(panel);
+  const buys = cycles.length;
+  const sells = cycles.filter(c => !!c.sell).length;
+  return { buys, sells };
+}
+
+function panelOrdersSummaryText(panel: MemberOrdersPanel) {
+  const { buys, sells } = panelBuySellCounts(panel);
+  return `${buys} 买单 · ${sells} 卖单`;
+}
+
 function panelDayProfitUsdt(panel: MemberOrdersPanel) {
   return panelCycles(panel).reduce((sum, c) => {
     return sum + (c.profitUsdt != null ? c.profitUsdt : 0);
   }, 0);
+}
+
+function pfOrderRowClassName({ row }: { row: PfAdminDisplayRow }) {
+  return row.attach ? "admin-pf-order-row--sell-attach" : "";
 }
 
 function fmtMoney(n: number | undefined) {
@@ -174,6 +199,20 @@ function feeRateBpsLabel(bps: number | null | undefined) {
   })}%`;
 }
 
+/** Changmencodefee：库内未写（费率 0 时不落库）按 0 展示，勿显示 — */
+function changmenFeeRateLabel(bps: number | null | undefined) {
+  const n = bps != null && Number.isFinite(bps) && bps >= 0 ? bps : 0;
+  return feeRateBpsLabel(n);
+}
+
+function changmenSharesOrZero(n: number | null | undefined) {
+  return fmtNumOrDash(n != null && Number.isFinite(n) ? n : 0);
+}
+
+function changmenUsdtOrZero(n: number | null | undefined) {
+  return fmtUsdtOrDash(n != null && Number.isFinite(n) ? n : 0);
+}
+
 function cycleLifecycleLabel(cycle: PfOrderCycle) {
   if (cycle.sell || String(cycle.buy.pfSellState || "").toLowerCase() === "closed")
     return "已卖出";
@@ -187,6 +226,54 @@ function cycleLifecycleLabel(cycle: PfOrderCycle) {
   if (s === "pending")
     return "待成交";
   return "持仓中";
+}
+
+function displayRowLifecycleLabel(row: PfAdminDisplayRow) {
+  if (row.kind === "sell")
+    return "卖出记录";
+  return cycleLifecycleLabel(row.cycle);
+}
+
+function ordersToDeleteForDisplayRow(row: PfAdminDisplayRow): AdminOrderRow[] {
+  const { cycle } = row;
+  return [cycle.buy, ...(cycle.sell ? [cycle.sell] : [])];
+}
+
+/** 卖行官网手续费：卖多为 COLLATERAL(U)；偶发 SHARES(份) */
+function displayOfficialSellFeeText(drow: PfAdminDisplayRow): string {
+  const showOnThisRow = drow.kind === "sell" || (drow.kind === "buy" && !drow.cycle.sell);
+  if (!showOnThisRow)
+    return "—";
+  const { cycle } = drow;
+  if (cycle.sellFeeUsdt != null && Number.isFinite(cycle.sellFeeUsdt))
+    return `${fmtUsdt(cycle.sellFeeUsdt)} U`;
+  if (cycle.sellFeeShares != null && Number.isFinite(cycle.sellFeeShares))
+    return `${fmtShares(cycle.sellFeeShares)} 份`;
+  const feeOrder = drow.kind === "sell" ? drow.order : cycle.sell;
+  if (!feeOrder)
+    return "—";
+  const type = String(feeOrder.pfFeeType || "").toUpperCase();
+  const usdt = Number(feeOrder.pfFeeUsdt);
+  if (type !== "SHARES" && Number.isFinite(usdt) && usdt > 0)
+    return `${fmtUsdt(usdt)} U`;
+  if (type === "SHARES" && feeOrder.pfFeeAmountWei) {
+    try {
+      const shares = Number(BigInt(String(feeOrder.pfFeeAmountWei))) / 1e18;
+      if (Number.isFinite(shares) && shares > 0)
+        return `${fmtShares(shares)} 份`;
+    }
+    catch {
+      /* ignore */
+    }
+  }
+  return "—";
+}
+
+function displaySellShares(drow: PfAdminDisplayRow): number | null {
+  if (drow.kind !== "sell")
+    return null;
+  const n = Number(drow.order.pfShares);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function orderMatchLabel(row: AdminOrderRow) {
@@ -203,14 +290,6 @@ function orderItemLabel(row: AdminOrderRow) {
 
 function orderBuyPriceText(row: AdminOrderRow) {
   return pfOrderFillPriceText(adminOrderToOrderRow(row)) || "—";
-}
-
-function cycleSellOrderId(cycle: PfOrderCycle) {
-  const fromSell = String(cycle.sell?.orderId || "").trim();
-  if (fromSell)
-    return fromSell;
-  const fromBuy = String(cycle.buy.pfSellOrderId || "").trim();
-  return fromBuy || "—";
 }
 
 function statusBadgeClass(status: string) {
@@ -696,7 +775,7 @@ onMounted(async () => {
                     刷新
                   </el-button>
                   <span class="admin-pf-orders-summary">
-                    {{ panelCycles(getPanel(row.userId)!).length }} 轮
+                    {{ panelOrdersSummaryText(getPanel(row.userId)!) }}
                     · 当日盈亏
                     <span :class="moneyClass(panelDayProfitUsdt(getPanel(row.userId)!))">
                       {{ fmtUsdt(panelDayProfitUsdt(getPanel(row.userId)!)) }} U
@@ -708,156 +787,206 @@ onMounted(async () => {
                 </p>
                 <div v-loading="getPanel(row.userId)!.loading" class="admin-pf-orders-body">
                   <el-table
-                    :data="panelCycles(getPanel(row.userId)!)"
+                    :data="panelDisplayRows(getPanel(row.userId)!)"
                     size="small"
                     stripe
                     class="admin-orders-el-table"
-                    empty-text="当日暂无 PF 买单"
+                    empty-text="当日暂无 PF 订单"
+                    :row-class-name="pfOrderRowClassName"
                   >
                     <el-table-column label="时间" width="156" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-time">{{ fmtTime(cycle.buy.createAt) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-time">{{ fmtTime(drow.order.createAt) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="结局" width="72" align="center">
-                      <template #default="{ row: cycle }">
-                        {{ cycleLifecycleLabel(cycle) }}
+                    <el-table-column label="结局" width="80" align="center">
+                      <template #default="{ row: drow }">
+                        <span :class="{ 'admin-pf-sell-attach-label': drow.attach }">
+                          {{ displayRowLifecycleLabel(drow) }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="比赛" min-width="140" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        {{ orderMatchLabel(cycle.buy) }}
+                      <template #default="{ row: drow }">
+                        {{ orderMatchLabel(drow.cycle.buy) }}
                       </template>
                     </el-table-column>
                     <el-table-column label="盘口" min-width="90" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        {{ orderBetLabel(cycle.buy) }}
+                      <template #default="{ row: drow }">
+                        {{ orderBetLabel(drow.cycle.buy) }}
                       </template>
                     </el-table-column>
                     <el-table-column label="选项" width="90" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        {{ orderItemLabel(cycle.buy) }}
+                      <template #default="{ row: drow }">
+                        {{ orderItemLabel(drow.cycle.buy) }}
                       </template>
                     </el-table-column>
-                    <el-table-column label="买入价" width="72" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ orderBuyPriceText(cycle.buy) }}</span>
+                    <el-table-column label="成交价" width="72" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">{{ orderBuyPriceText(drow.order) }}</span>
                       </template>
                     </el-table-column>
                     <el-table-column label="名义买入" width="88" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.buyNotionalUsdt) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtUsdtOrDash(drow.cycle.buyNotionalUsdt) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="实付" width="80" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.buyFillCostUsdt) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtUsdtOrDash(drow.cycle.buyFillCostUsdt) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="用户扣款" width="80" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdt(cycle.buyStakeUsdt) }} U</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? `${fmtUsdt(drow.cycle.buyStakeUsdt)} U` : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="价差" width="72" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.houseEdgeUsdt) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtUsdtOrDash(drow.cycle.houseEdgeUsdt) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="成交份额" width="80" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtNumOrDash(cycle.buyShares) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{
+                            drow.kind === "buy"
+                              ? fmtNumOrDash(drow.cycle.buyShares)
+                              : fmtNumOrDash(displaySellShares(drow))
+                          }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="官网买手续费" width="100" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtNumOrDash(cycle.buyFeeShares) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtNumOrDash(drow.cycle.buyFeeShares) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="官网费率" width="72" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ cycleFeeRateLabel(cycle) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{
+                            drow.kind === "buy"
+                              ? cycleFeeRateLabel(drow.cycle)
+                              : feeRateBpsLabel(
+                                Number.isFinite(Number(drow.order.pfFeeRateBps))
+                                  ? Number(drow.order.pfFeeRateBps)
+                                  : drow.cycle.feeRateBps,
+                              )
+                          }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="Changmen买费率" width="110" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ feeRateBpsLabel(cycle.changmenBuyFeeRateBps) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? changmenFeeRateLabel(drow.cycle.changmenBuyFeeRateBps) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="Changmen买扣份额" width="120" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtNumOrDash(cycle.changmenBuyFeeShares) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? changmenSharesOrZero(drow.cycle.changmenBuyFeeShares) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="持仓份额" width="88" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtNumOrDash(cycle.netShares) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtNumOrDash(drow.cycle.netShares) : "—" }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="卖出回款" width="88" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.sellProceedsUsdt) }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{
+                            drow.kind === "sell" || (drow.kind === "buy" && !drow.cycle.sell)
+                              ? fmtUsdtOrDash(drow.cycle.sellProceedsUsdt)
+                              : "—"
+                          }}
+                        </span>
                       </template>
                     </el-table-column>
                     <el-table-column label="官网卖手续费" width="100" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">
-                          <template v-if="cycle.sellFeeUsdt != null">{{ fmtUsdt(cycle.sellFeeUsdt) }} U</template>
-                          <template v-else-if="cycle.sellFeeShares != null">{{ fmtUsdt(cycle.sellFeeShares) }} 份</template>
-                          <template v-else>—</template>
-                        </span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">{{ displayOfficialSellFeeText(drow) }}</span>
                       </template>
                     </el-table-column>
                     <el-table-column label="Changmen卖费率" width="110" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ feeRateBpsLabel(cycle.changmenSellFeeRateBps) }}</span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="Changmen卖扣U" width="110" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.changmenSellFeeUsdt) }}</span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="最终到手" width="88" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.finalUsdt) }}</span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="盈亏" width="88" align="right" class-name="admin-order-cell--num">
-                      <template #default="{ row: cycle }">
-                        <span
-                          class="admin-order-num"
-                          :class="{
-                            pos: (cycle.profitUsdt ?? 0) > 0,
-                            neg: (cycle.profitUsdt ?? 0) < 0,
-                          }"
-                        >
-                          {{ fmtUsdtOrDash(cycle.profitUsdt) }}
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{
+                            drow.kind === "sell" || (drow.kind === "buy" && !drow.cycle.sell)
+                              ? changmenFeeRateLabel(drow.cycle.changmenSellFeeRateBps)
+                              : "—"
+                          }}
                         </span>
                       </template>
                     </el-table-column>
+                    <el-table-column label="Changmen卖扣U" width="110" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{
+                            drow.kind === "sell" || (drow.kind === "buy" && !drow.cycle.sell)
+                              ? changmenUsdtOrZero(drow.cycle.changmenSellFeeUsdt)
+                              : "—"
+                          }}
+                        </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="最终到手" width="88" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-num">
+                          {{ drow.kind === "buy" ? fmtUsdtOrDash(drow.cycle.finalUsdt) : "—" }}
+                        </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="盈亏" width="88" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: drow }">
+                        <span
+                          v-if="drow.kind === 'buy'"
+                          class="admin-order-num"
+                          :class="{
+                            pos: (drow.cycle.profitUsdt ?? 0) > 0,
+                            neg: (drow.cycle.profitUsdt ?? 0) < 0,
+                          }"
+                        >
+                          {{ fmtUsdtOrDash(drow.cycle.profitUsdt) }}
+                        </span>
+                        <span v-else class="admin-order-num">—</span>
+                      </template>
+                    </el-table-column>
                     <el-table-column label="状态" width="80" align="center" class-name="admin-order-cell--center">
-                      <template #default="{ row: cycle }">
-                        <span class="admin-badge" :class="statusBadgeClass(cycle.buy.status)">{{ cycle.buy.status || "—" }}</span>
+                      <template #default="{ row: drow }">
+                        <span class="admin-badge" :class="statusBadgeClass(drow.order.status)">
+                          {{ drow.order.status || "—" }}
+                        </span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="买单号" min-width="120" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-mono">{{ cycle.buy.orderId || "—" }}</span>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="卖单号" min-width="120" show-overflow-tooltip>
-                      <template #default="{ row: cycle }">
-                        <span class="admin-order-mono">{{ cycleSellOrderId(cycle) }}</span>
+                    <el-table-column label="订单号" min-width="140" show-overflow-tooltip>
+                      <template #default="{ row: drow }">
+                        <span class="admin-order-mono">{{ drow.order.orderId || "—" }}</span>
                       </template>
                     </el-table-column>
                     <el-table-column label="操作" width="72" align="center" class-name="admin-order-cell--center">
-                      <template #default="{ row: cycle }">
+                      <template #default="{ row: drow }">
                         <el-button
                           link
                           type="danger"
                           size="small"
-                          @click="onDeleteOrders(row.userId, [cycle.buy, ...(cycle.sell ? [cycle.sell] : [])])"
+                          @click="onDeleteOrders(row.userId, ordersToDeleteForDisplayRow(drow))"
                         >
                           删除
                         </el-button>
@@ -1164,6 +1293,16 @@ onMounted(async () => {
 }
 .admin-pf-orders-body {
   min-height: 72px;
+}
+.admin-pf-sell-attach-label {
+  color: var(--adm-text-muted);
+  font-size: 12px;
+}
+:deep(.admin-pf-order-row--sell-attach td .cell) {
+  color: var(--adm-text-muted);
+}
+:deep(.admin-pf-order-row--sell-attach td:first-child .cell) {
+  padding-left: 18px;
 }
 :deep(.admin-pf-expand-col) {
   width: 0 !important;

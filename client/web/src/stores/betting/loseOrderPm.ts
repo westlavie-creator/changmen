@@ -3,8 +3,8 @@ import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { syncActiveBetMakeupPmDelayed } from "@/stores/betting/activeBetRunSync";
-import { applyPmJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
+import { syncActiveBetMakeupPendingConfirm } from "@/stores/betting/activeBetRunSync";
+import { applyVenueJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 
@@ -22,7 +22,7 @@ export interface PmMakeUpLegContext {
   setMessage: (msg: string) => void;
 }
 
-/** [changmen 扩展] PM 补单 jb：拒单等待 → adapter 状态层 → 收尾 */
+/** [changmen 扩展] 受理后确认场馆补单 jb：拒单等待 → adapter 状态层 → 收尾 */
 export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void> {
   const {
     betId,
@@ -39,9 +39,9 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
   } = ctx;
 
   if (result.pending)
-    syncActiveBetMakeupPmDelayed(betId, result.orderId);
+    syncActiveBetMakeupPendingConfirm(betId, result.orderId);
 
-  const outcome = await applyPmJbSettlementOutcome({
+  const outcome = await applyVenueJbSettlementOutcome({
     betId,
     order,
     match,
@@ -58,5 +58,13 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
     markSuccessfulBet(account, bet.id, order.target);
 }
 
-export type { PmJbResumeResult, PmJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
-export { tryResumePmPendingMakeUp } from "@/stores/betting/loseOrderPmPending";
+export type {
+  VenueJbResumeResult,
+  VenueJbSettlementOutcome,
+  PmJbResumeResult,
+  PmJbSettlementOutcome,
+} from "@/stores/betting/loseOrderPmPending";
+export {
+  tryResumePendingVenueMakeUp,
+  tryResumePmPendingMakeUp,
+} from "@/stores/betting/loseOrderPmPending";

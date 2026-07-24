@@ -12,6 +12,10 @@ import { parseNum, resolvePfHoldSharesFromRaw } from "./dto.js";
  * @returns {{ raw: object, money: number, bet_money: number }}
  */
 export function finalizeNonPolymarketSave(merged, prevRaw, money, bet_money) {
+  const incomingStatus = String(merged.status ?? merged.Status ?? "").toLowerCase();
+  /** 拒单未成交：成交/持仓份额必须可清空，禁止从 prev 回填意向 size */
+  const isUnfilledReject = incomingStatus === "reject" || incomingStatus === "return";
+
   // PredictFun 等：save 常只带部分字段；勿丢掉已落库的手续费 / 费率
   if (!String(merged.pfFeeAmountWei ?? "").trim() && String(prevRaw.pfFeeAmountWei ?? "").trim()) {
     merged.pfFeeAmountWei = prevRaw.pfFeeAmountWei;
@@ -106,19 +110,26 @@ export function finalizeNonPolymarketSave(merged, prevRaw, money, bet_money) {
   ) {
     merged.pfBookPrice = Number(prevRaw.pfBookPrice);
   }
-  if (!(Number(merged.pfShares) > 0) && Number(prevRaw.pfShares) > 0)
-    merged.pfShares = Number(prevRaw.pfShares);
-  const hold = resolvePfHoldSharesFromRaw(merged);
-  const incomingStatus = String(merged.status ?? merged.Status ?? "").toLowerCase();
-  // Pending 未 fee-ready：禁止用毛仓「发明」可卖 hold
-  if (incomingStatus !== "pending") {
-    if (hold != null && hold > 0)
-      merged.pfHoldShares = hold;
-    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
-      merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+  if (isUnfilledReject) {
+    delete merged.pfShares;
+    delete merged.pfSharesWei;
+    delete merged.pfHoldShares;
+    delete merged.pfHoldSharesWei;
   }
-  else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0) {
-    merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+  else {
+    if (!(Number(merged.pfShares) > 0) && Number(prevRaw.pfShares) > 0)
+      merged.pfShares = Number(prevRaw.pfShares);
+    const hold = resolvePfHoldSharesFromRaw(merged);
+    // Pending 未 fee-ready：禁止用毛仓「发明」可卖 hold
+    if (incomingStatus !== "pending") {
+      if (hold != null && hold > 0)
+        merged.pfHoldShares = hold;
+      else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0)
+        merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+    }
+    else if (!(Number(merged.pfHoldShares) > 0) && Number(prevRaw.pfHoldShares) > 0) {
+      merged.pfHoldShares = Number(prevRaw.pfHoldShares);
+    }
   }
   if (!String(merged.pfLedgerState ?? "").trim() && String(prevRaw.pfLedgerState ?? "").trim())
     merged.pfLedgerState = prevRaw.pfLedgerState;

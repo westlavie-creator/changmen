@@ -159,8 +159,11 @@ export function isVenueLegPendingConfirm(outcome: VenueLegOutcome): boolean {
 }
 
 export interface ResolveLegOutcomeOpts {
-  /** PM：轮询 settle / trades；false 时仅按 getOrders + orderId 判拒 */
-  confirmPmPost?: boolean;
+  /**
+   * 受理后确认：轮询官方 GetOrder / settle / trades。
+   * PM delayed、PF 挂单等须为 true；false 时仅按 getOrders + orderId 判拒。
+   */
+  confirmPostAccepted?: boolean;
   /** 显式订单快照（测试/兜底）；有 fetchVenueOrders 时 A8 路径优先回调 */
   orders?: VenueOrder[];
   /**
@@ -170,7 +173,7 @@ export interface ResolveLegOutcomeOpts {
   fetchVenueOrders?: () => Promise<VenueOrder[]>;
   /**
    * 拒单检测前等待秒数（A8 类场馆：sleep 后拉单一次）。
-   * PM delayed 忽略此项，走 adapter 内 settlement 时序。
+   * 受理后确认场馆（PM delayed / PF）忽略此项，走 adapter 内确认时序。
    */
   rejectWaitSec?: number;
 }

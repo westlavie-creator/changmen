@@ -275,19 +275,19 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       for (const [betId, order] of orders) {
         if (this.runs.has(betId))
           continue;
-        const pendingPm = String(order.pendingPmOrderId ?? "").trim();
+        const pendingVenue = String(order.pendingVenueOrderId ?? "").trim();
         this.upsertRun(betId, {
           matchId: order.matchId,
           matchTitle: order.match,
           betName: order.bet,
           linkId: order.linkId,
           phase: "makeup",
-          overallLabel: pendingPm ? "补单中 · 等待 PM 确认" : PHASE_LABEL.makeup,
+          overallLabel: pendingVenue ? "补单中 · 等待场馆确认" : PHASE_LABEL.makeup,
           legs: legsFromLoseOrder(order),
         });
         const makeupLeg = this.runs.get(betId)?.legs.find(l => l.status === "makeup");
         if (makeupLeg)
-          this.appendLegEvent(betId, makeupLeg.side, "补单", pendingPm ? "续查 PM 订单" : "队列已恢复");
+          this.appendLegEvent(betId, makeupLeg.side, "补单", pendingVenue ? "续查场馆订单" : "队列已恢复");
       }
     },
   },

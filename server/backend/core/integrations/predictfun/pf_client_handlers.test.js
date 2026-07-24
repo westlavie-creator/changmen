@@ -152,7 +152,7 @@ vi.mock("./pf_house_redeem.js", () => ({
 
 vi.mock("./pf_order_service.js", () => ({
   isValidPredictClobPrice: (v) => Number.isFinite(v) && v > 0 && v < 1,
-  REUSE_BOOK_MAX_AGE_MS: 1500,
+  REUSE_BOOK_MAX_AGE_MS: 800,
   prepareHouseSigner: vi.fn(async () => ({
     Side: {},
     orderBuilder: {},
@@ -351,6 +351,9 @@ describe("pf_client_handlers", () => {
     expect(accountStore.debitPlayerBalance).toHaveBeenCalled();
     const saved = orderStore.saveOrder.mock.calls[0][1][0];
     expect(saved.pfHoldShares).toBeUndefined();
+    expect(saved.pfShares).toBeUndefined();
+    expect(saved.pfSharesWei).toBeUndefined();
+    expect(saved.pfNotionalUsdt).toBeGreaterThan(0);
   });
 
   it("getOrder rejects unknown orderId without house lookup", async () => {
@@ -437,6 +440,48 @@ describe("pf_client_handlers", () => {
     expect(saved.pfFillCostUsdt).toBe(9.8);
     expect(saved.pfShares).toBe(25);
     expect(accountStore.updatePlayerBalance).not.toHaveBeenCalled();
+  });
+
+  it("GetOrder keeps settlement=timeout when FILLED but buy fee not ready", async () => {
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xhash-fee",
+      status: "Pending",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "830202",
+      item: "t",
+      link: 0,
+      raw: {
+        pfOrderHash: "0xhash-fee",
+        pfApiOrderId: "ord-fee",
+        pfSide: "buy",
+        pfNotionalUsdt: 10,
+        pfFeeRateBps: 30,
+      },
+    }]);
+    fetchHousePredictOrderByHash.mockResolvedValue({
+      id: "ord-fee",
+      status: "FILLED",
+      marketId: 830202,
+      amount: "9.8",
+      amountFilled: "25000000000000000000",
+      order: {
+        hash: "0xhash-fee",
+        tokenId: "t",
+        side: 0,
+        makerAmount: "10000000000000000000",
+        takerAmount: "25000000000000000000",
+      },
+    });
+    const r = await handlePfGetOrder({ playerId: 42, orderId: "0xhash-fee" }, "u1");
+    expect(r.ok).toBe(true);
+    expect(r.info.settlement).toBe("timeout");
+    expect(r.info.order?.status).toBe("pending");
+    const saved = orderStore.saveOrder.mock.calls.at(-1)[1][0];
+    expect(saved.status).toBe("pending");
+    expect(saved.pfOfficialStatus).toBe("FILLED");
   });
 
   it("refreshBalance returns total_balance", async () => {

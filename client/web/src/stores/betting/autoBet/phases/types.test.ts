@@ -6,6 +6,9 @@ describe("resolveArbLegPlaceOutcome", () => {
   it("maps attempted + success / fail / skip", () => {
     expect(resolveArbLegPlaceOutcome(false)).toBe("not_attempted");
     expect(resolveArbLegPlaceOutcome(true, new BetResult("OB", true))).toBe("filled_pending_settle");
+    expect(resolveArbLegPlaceOutcome(true, new BetResult("PredictFun", true))).toBe(
+      "accepted_pending_confirm",
+    );
     expect(resolveArbLegPlaceOutcome(true, new BetResult("OB", false))).toBe("api_failed");
     expect(resolveArbLegPlaceOutcome(true, undefined)).toBe("api_failed");
   });

@@ -43,7 +43,7 @@ describe("resolvePredictFunProviderLegOutcome", () => {
     pfGetOrder.mockReset();
   });
 
-  it("polls Pf_GetOrder when confirmPmPost", async () => {
+  it("polls Pf_GetOrder when confirmPostAccepted", async () => {
     pfGetOrder.mockResolvedValue({
       orderId: "0xh",
       found: true,
@@ -88,7 +88,7 @@ describe("resolvePredictFunProviderLegOutcome", () => {
       getOrders,
       { provider: "PredictFun", accountId: 1 } as never,
       result,
-      { confirmPmPost: true, fetchVenueOrders },
+      { confirmPostAccepted: true, fetchVenueOrders },
     );
     expect(pfGetOrder).toHaveBeenCalled();
     expect(out.settlement).toBe("filled");
@@ -96,7 +96,7 @@ describe("resolvePredictFunProviderLegOutcome", () => {
     expect(getOrders).not.toHaveBeenCalled();
   });
 
-  it("uses list path when confirmPmPost is off", async () => {
+  it("uses list path when confirmPostAccepted is off", async () => {
     const getOrders = vi.fn(async () => [
       {
         provider: "PredictFun",

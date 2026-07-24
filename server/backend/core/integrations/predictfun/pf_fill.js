@@ -48,19 +48,30 @@ function orderSide(official) {
 }
 
 /**
- * BUY FILLED：份额优先 amountFilled → order.takerAmount → fallback
+ * BUY FILLED：成交份额只认官网 amountFilled。
+ * - amountFilled > 0 → 用官网成交
+ * - amountFilled 显式为 0 → 成交 0（不回退 taker/意向 size）
+ * - amountFilled 缺失 → 才允许 takerAmount / fallback（兼容旧响应）
  * @param {object|null|undefined} official
  * @param {string|bigint|number|null|undefined} fallbackWei
  * @returns {{ sharesWei: bigint, shares: number, amountFilledRaw?: string }}
  */
 export function extractBuyFillShares(official, fallbackWei) {
+  const amountFilledRaw = official?.amountFilled != null
+    ? String(official.amountFilled)
+    : undefined;
+  const hasAmountFilledField = amountFilledRaw != null && amountFilledRaw.trim() !== "";
   const fromFilled = parsePredictQuantityToWei(official?.amountFilled);
   const fromTaker = parsePredictQuantityToWei(official?.order?.takerAmount);
   let sharesWei = 0n;
   if (fromFilled > 0n)
     sharesWei = fromFilled;
-  else if (fromTaker > 0n)
+  else if (hasAmountFilledField) {
+    sharesWei = 0n;
+  }
+  else if (fromTaker > 0n) {
     sharesWei = fromTaker;
+  }
   else {
     try {
       sharesWei = BigInt(String(fallbackWei ?? "0"));
@@ -72,7 +83,7 @@ export function extractBuyFillShares(official, fallbackWei) {
   return {
     sharesWei,
     shares: weiToDecimal18(sharesWei),
-    amountFilledRaw: official?.amountFilled != null ? String(official.amountFilled) : undefined,
+    amountFilledRaw,
   };
 }
 
@@ -184,21 +195,35 @@ export function computePfNotionalUsdt(input) {
 
 /**
  * SELL FILLED：回款优先 amount（人类 USDT）→ order.takerAmount wei → fallback 预估
- * 份额：amountFilled → order.makerAmount → fallbackSharesWei
+ * 份额只认官网 amountFilled：
+ * - amountFilled > 0 → 用官网成交
+ * - amountFilled 显式为 0 → 成交 0（不回退 maker/意向 size）
+ * - amountFilled 缺失 → 才允许 makerAmount / fallbackSharesWei（兼容旧响应）
  * @param {object|null|undefined} official
  * @param {{ fallbackProceedsUsdt?: number, fallbackSharesWei?: string|bigint }} [opts]
  */
 export function extractSellFill(official, opts = {}) {
   const fallbackProceeds = Number(opts.fallbackProceedsUsdt) || 0;
-  let sharesWei = parsePredictQuantityToWei(official?.amountFilled);
-  if (sharesWei <= 0n)
+  const amountFilledRaw = official?.amountFilled != null
+    ? String(official.amountFilled)
+    : undefined;
+  const hasAmountFilledField = amountFilledRaw != null && amountFilledRaw.trim() !== "";
+  const fromFilled = parsePredictQuantityToWei(official?.amountFilled);
+  let sharesWei = 0n;
+  if (fromFilled > 0n)
+    sharesWei = fromFilled;
+  else if (hasAmountFilledField) {
+    sharesWei = 0n;
+  }
+  else {
     sharesWei = parsePredictQuantityToWei(official?.order?.makerAmount);
-  if (sharesWei <= 0n) {
-    try {
-      sharesWei = BigInt(String(opts.fallbackSharesWei ?? "0"));
-    }
-    catch {
-      sharesWei = 0n;
+    if (sharesWei <= 0n) {
+      try {
+        sharesWei = BigInt(String(opts.fallbackSharesWei ?? "0"));
+      }
+      catch {
+        sharesWei = 0n;
+      }
     }
   }
 
@@ -222,6 +247,6 @@ export function extractSellFill(official, opts = {}) {
     shares: weiToDecimal18(sharesWei),
     proceedsUsdt: roundUsdt(proceeds),
     side: orderSide(official),
-    amountFilledRaw: official?.amountFilled != null ? String(official.amountFilled) : undefined,
+    amountFilledRaw,
   };
 }

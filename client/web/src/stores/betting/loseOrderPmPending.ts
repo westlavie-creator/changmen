@@ -19,14 +19,16 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
 import {
   syncActiveBetMakeupDone,
-  syncActiveBetMakeupPmDelayed,
+  syncActiveBetMakeupPendingConfirm,
   syncActiveBetMakeupRejected,
 } from "@/stores/betting/activeBetRunSync";
 import { a8Tip } from "@/shared/a8Notify";
 
-export type PmJbSettlementOutcome = "dequeued" | "pending" | "rejected";
+export type VenueJbSettlementOutcome = "dequeued" | "pending" | "rejected";
+/** @deprecated 用 VenueJbSettlementOutcome */
+export type PmJbSettlementOutcome = VenueJbSettlementOutcome;
 
-export interface PmJbSettlementContext {
+export interface VenueJbSettlementContext {
   betId: number;
   order: LoseOrder;
   match: ViewMatch;
@@ -40,14 +42,14 @@ export interface PmJbSettlementContext {
   setMessage: (msg: string) => void;
 }
 
-function isPmTimeoutReject(result: BetResult): boolean {
+function isVenueTimeoutReject(result: BetResult): boolean {
   return result.reject === "timeout";
 }
 
-/** PM jb：订单状态层确认后按 filled / timeout / unfilled 收尾 */
-export async function applyPmJbSettlementOutcome(
-  ctx: PmJbSettlementContext,
-): Promise<PmJbSettlementOutcome> {
+/** 受理后确认场馆 jb：订单状态层确认后按 filled / timeout / unfilled 收尾 */
+export async function applyVenueJbSettlementOutcome(
+  ctx: VenueJbSettlementContext,
+): Promise<VenueJbSettlementOutcome> {
   const {
     betId,
     order,
@@ -67,12 +69,12 @@ export async function applyPmJbSettlementOutcome(
       pendingBindLinkId: order.linkId || undefined,
       pendingBindOrderId: String(result.orderId ?? "").trim() || undefined,
     }),
-    { confirmPmPost: true },
+    { confirmPostAccepted: true },
   );
   const venueOrders = legOutcome.orders;
 
   if (!isVenueLegRejected(legOutcome)) {
-    loseStore.clearPendingPmOrder(betId);
+    loseStore.clearPendingVenueOrder(betId);
     const orderId = resolveArbBindOrderId(venueOrders, result, false);
     if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, false)) && orderId) {
       enqueuePendingOrderBind({
@@ -98,15 +100,15 @@ export async function applyPmJbSettlementOutcome(
     return "dequeued";
   }
 
-  if (isVenueLegPendingConfirm(legOutcome) || isPmTimeoutReject(result)) {
-    loseStore.setPendingPmOrder(betId, String(result.orderId ?? ""), account.accountId);
+  if (isVenueLegPendingConfirm(legOutcome) || isVenueTimeoutReject(result)) {
+    loseStore.setPendingVenueOrder(betId, String(result.orderId ?? ""), account.accountId);
     setMessage(`订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
-    syncActiveBetMakeupPmDelayed(betId, result.orderId);
+    syncActiveBetMakeupPendingConfirm(betId, result.orderId);
     useMessageStore().loseOrderMessage(account, order, checked, true);
     return "pending";
   }
 
-  loseStore.clearPendingPmOrder(betId);
+  loseStore.clearPendingVenueOrder(betId);
   const orderId = resolveArbBindOrderId(venueOrders, result, true);
   if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, true)) && orderId) {
     enqueuePendingOrderBind({
@@ -132,10 +134,15 @@ export async function applyPmJbSettlementOutcome(
   return "rejected";
 }
 
-export type PmJbResumeResult = "not-applicable" | "handled";
+/** @deprecated 用 applyVenueJbSettlementOutcome */
+export const applyPmJbSettlementOutcome = applyVenueJbSettlementOutcome;
 
-/** 队列项已有 pendingPmOrderId 时续轮 settle，不再 POST */
-export async function tryResumePmPendingMakeUp(params: {
+export type VenueJbResumeResult = "not-applicable" | "handled";
+/** @deprecated 用 VenueJbResumeResult */
+export type PmJbResumeResult = VenueJbResumeResult;
+
+/** 队列项已有 pendingVenueOrderId 时续轮 settle，不再 POST */
+export async function tryResumePendingVenueMakeUp(params: {
   betId: number;
   order: LoseOrder;
   match: ViewMatch;
@@ -145,7 +152,7 @@ export async function tryResumePmPendingMakeUp(params: {
   removeIds: Set<number>;
   setMessage: (msg: string) => void;
   markSuccess: (account: PlatformAccount) => void;
-}): Promise<PmJbResumeResult> {
+}): Promise<VenueJbResumeResult> {
   const {
     betId,
     order,
@@ -158,20 +165,20 @@ export async function tryResumePmPendingMakeUp(params: {
     markSuccess,
   } = params;
 
-  const pendingId = String(order.pendingPmOrderId ?? "").trim();
+  const pendingId = String(order.pendingVenueOrderId ?? "").trim();
   if (!pendingId)
     return "not-applicable";
 
-  const account = accountStore.findAccount(order.pendingPmAccountId);
+  const account = accountStore.findAccount(order.pendingVenueAccountId);
   if (!account || !isPendingConfirmVenueProvider(account.provider)) {
     // 账号丢失/非预测馆：清掉 stale pending，避免永久阻断其它盘口补单
-    loseStore.clearPendingPmOrder(betId);
+    loseStore.clearPendingVenueOrder(betId);
     return "not-applicable";
   }
 
   const ref = bet.items.find(item => item.type === account.provider);
   if (!ref) {
-    loseStore.clearPendingPmOrder(betId);
+    loseStore.clearPendingVenueOrder(betId);
     return "not-applicable";
   }
 
@@ -184,7 +191,7 @@ export async function tryResumePmPendingMakeUp(params: {
     pending: true,
   });
 
-  const outcome = await applyPmJbSettlementOutcome({
+  const outcome = await applyVenueJbSettlementOutcome({
     betId,
     order,
     match,
@@ -203,3 +210,6 @@ export async function tryResumePmPendingMakeUp(params: {
 
   return "handled";
 }
+
+/** @deprecated 用 tryResumePendingVenueMakeUp */
+export const tryResumePmPendingMakeUp = tryResumePendingVenueMakeUp;

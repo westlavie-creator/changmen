@@ -79,7 +79,7 @@ describe("retryFailedLeg stake (A8 anyOdds + PM CNY)", () => {
 });
 
 describe("retryFailedLeg PM settlement defer", () => {
-  it("sets deferPmSettlement on Polymarket retry leg", async () => {
+  it("sets deferPostAcceptSettlement on Polymarket retry leg", async () => {
     const pmAccount = new PlatformAccount({
       accountId: 1,
       provider: "Polymarket",
@@ -112,10 +112,10 @@ describe("retryFailedLeg PM settlement defer", () => {
       10,
     );
 
-    expect(out?.leg.deferPmSettlement).toBe(true);
+    expect(out?.leg.deferPostAcceptSettlement).toBe(true);
     expect(betting).toHaveBeenCalledWith(
       pmAccount,
-      expect.objectContaining({ deferPmSettlement: true }),
+      expect.objectContaining({ deferPostAcceptSettlement: true }),
       10,
     );
   });

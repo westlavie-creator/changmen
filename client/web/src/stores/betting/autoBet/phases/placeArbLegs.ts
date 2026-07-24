@@ -56,9 +56,9 @@ export async function placeArbLegs(
   let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
 
   if (isPendingConfirmVenueProvider(legA.type))
-    legA.deferPmSettlement = true;
+    legA.deferPostAcceptSettlement = true;
   if (isPendingConfirmVenueProvider(legB.type))
-    legB.deferPmSettlement = true;
+    legB.deferPostAcceptSettlement = true;
 
   syncActiveBetPhase(bet.id, "placing", "提交场馆订单");
   if (accountA)

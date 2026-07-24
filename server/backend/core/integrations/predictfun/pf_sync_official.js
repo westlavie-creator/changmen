@@ -49,35 +49,56 @@ import { upsertPfServerOrder } from "./pf_server_order.js";
  * @returns {{ venueOrder: object, refunded: boolean, settlement: string }}
  */
 export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
-  const settlement = settlementFromPredictOfficialStatus(official?.status);
-  const venueOrder = mapPredictOrderToVenueOrder(official, rdsToMapInput(rdsRow));
+  let settlement = settlementFromPredictOfficialStatus(official?.status);
+  let venueOrder = mapPredictOrderToVenueOrder(official, rdsToMapInput(rdsRow));
 
-  // ? reject ????????? pending_credit???????????
-  if (
-    String(rdsOrderStatus(rdsRow)).toLowerCase() === "reject"
-    && readPfLedgerState(rdsRow) === "pending_credit"
-  ) {
-    return withHouseOrderLock(async () => {
-      const freshList = await loadPfOrders(playerId, userId);
-      const key = rdsOrderKey(rdsRow);
-      const fresh = freshList.find(row => rdsOrderKey(row) === key) ?? rdsRow;
-      if (rdsAlreadyRefunded(fresh)) {
+  // 已是 Reject：清掉残留意向份额；pending_credit 继续补退款
+  if (String(rdsOrderStatus(rdsRow)).toLowerCase() === "reject") {
+    const dirtyShares = Number(rdsRow?.pfShares) > 0
+      || Number(rdsRow?.pfHoldShares) > 0
+      || Boolean(String(rdsRow?.pfSharesWei ?? "").trim());
+    if (dirtyShares) {
+      const clearRow = {
+        ...mapPredictOrderToVenueOrder(official, rdsToMapInput(rdsRow)),
+        status: "reject",
+        pfOfficialStatus: official?.status ?? rdsRow?.pfOfficialStatus,
+        pfOrderHash: rdsPfHash(rdsRow),
+        pfApiOrderId: rdsPfApiOrderId(rdsRow),
+      };
+      delete clearRow.pfShares;
+      delete clearRow.pfSharesWei;
+      delete clearRow.pfHoldShares;
+      delete clearRow.pfHoldSharesWei;
+      await upsertPfServerOrder(playerId, [clearRow], userId);
+    }
+    if (readPfLedgerState(rdsRow) === "pending_credit") {
+      return withHouseOrderLock(async () => {
+        const freshList = await loadPfOrders(playerId, userId);
+        const key = rdsOrderKey(rdsRow);
+        const fresh = freshList.find(row => rdsOrderKey(row) === key) ?? rdsRow;
+        if (rdsAlreadyRefunded(fresh)) {
+          return {
+            venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh)),
+            refunded: false,
+            settlement: "unfilled",
+          };
+        }
+        const creditResult = await applyPendingPfLedgerCredit(playerId, userId, fresh);
         return {
-          venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh)),
-          refunded: false,
+          venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput({
+            ...fresh,
+            status: "reject",
+          })),
+          refunded: Boolean(creditResult.ok && creditResult.amount > 0),
           settlement: "unfilled",
         };
-      }
-      const creditResult = await applyPendingPfLedgerCredit(playerId, userId, fresh);
-      return {
-        venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput({
-          ...fresh,
-          status: "reject",
-        })),
-        refunded: Boolean(creditResult.ok && creditResult.amount > 0),
-        settlement: "unfilled",
-      };
-    });
+      });
+    }
+    return {
+      venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput(rdsRow)),
+      refunded: false,
+      settlement: "unfilled",
+    };
   }
 
   if (venueOrder.status === "reject" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
@@ -93,10 +114,15 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         };
       }
 
+      console.info("[Pf_RejectBucket] accepted_then_cancelled", {
+        playerId,
+        orderKey: key,
+        officialStatus: String(official?.status ?? ""),
+      });
+
       const stake = rdsBetMoney(fresh);
       const nextVenue = mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh));
-      // ?? reject + pending_credit??? pfRefundedAt????????? credited/RefundedAt
-      const saved = await upsertPfServerOrder(playerId, [{
+      const rejectRow = {
         ...nextVenue,
         status: "reject",
         pfOfficialStatus: official?.status,
@@ -105,9 +131,15 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         pfLedgerState: stake > 0 ? "pending_credit" : "credited",
         pfPendingCreditUsdt: stake > 0 ? stake : 0,
         ...(stake > 0 ? {} : { pfRefundedAt: Date.now() }),
-      }], userId);
+      };
+      // 未成交：清空意向/残留成交份额（merge 对 reject 亦不再回填）
+      delete rejectRow.pfShares;
+      delete rejectRow.pfSharesWei;
+      delete rejectRow.pfHoldShares;
+      delete rejectRow.pfHoldSharesWei;
+      const saved = await upsertPfServerOrder(playerId, [rejectRow], userId);
       if (!saved)
-        throw new Error("??????");
+        throw new Error("拒单落库失败");
 
       let refunded = false;
       if (stake > 0) {
@@ -131,27 +163,38 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
   }
 
   if (venueOrder.status === "none" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
-    const fill = extractBuyFillShares(official, rdsRow?.pfSharesWei);
     const isSellRow = String(rdsRow?.pfSide ?? rdsRow?.PfSide ?? "").toLowerCase() === "sell";
+    const fill = isSellRow
+      ? extractSellFill(official, {
+          fallbackSharesWei: rdsRow?.pfSharesWei ?? rdsRow?.PfSharesWei,
+        })
+      : extractBuyFillShares(official, rdsRow?.pfSharesWei);
+    // 成交份额只认官网；fill=0 时勿把 RDS 意向 size 喂给 fee/hold
     const feePatch = resolvePfFeeSavePatch(official, rdsRow, {
-      pfShares: fill.shares > 0 ? fill.shares : (rdsRow?.pfShares ?? rdsRow?.PfShares),
-      pfSharesWei: fill.sharesWei > 0n
-        ? String(fill.sharesWei)
-        : (rdsRow?.pfSharesWei ?? rdsRow?.PfSharesWei),
+      ...(fill.shares > 0
+        ? {
+            pfShares: fill.shares,
+            pfSharesWei: fill.sharesWei > 0n ? String(fill.sharesWei) : undefined,
+          }
+        : {}),
     });
     const feeRateBps = Number(
       rdsRow?.pfFeeRateBps ?? rdsRow?.PfFeeRateBps ?? feePatch.pfFeeRateBps ?? 0,
     ) || 0;
-    // ???????>0 ????? wallet fee????? hold ?? None
+    // feeRateBps>0 且尚无 wallet fee：hold 未齐；RDS 保持 pending，编排须继续等（勿提前 filled）
+    const feeWeiReady = (() => {
+      const wei = String(feePatch.pfFeeAmountWei ?? "").trim();
+      return /^\d+$/.test(wei) && BigInt(wei) > 0n;
+    })();
     const buyFeeReady = isSellRow || feeRateBps <= 0 || hasWalletFeeSignal(official)
-      || Boolean(String(feePatch.pfFeeAmountWei ?? "").trim());
-    // ??????????? Changmencodefee????????? RDS ??
+      || feeWeiReady;
+    // fee 齐后再扣 Changmencodefee，并写入 hold
     if (!isSellRow && buyFeeReady) {
       const storedBuyBps = readChangmenCodeFeeRateBps(rdsRow);
       const buyBps = storedBuyBps != null ? storedBuyBps : resolvePfChangmenBuyFeeRateBps();
       const officialHold = Number(feePatch.pfHoldShares) > 0
         ? Number(feePatch.pfHoldShares)
-        : (fill.shares > 0 ? fill.shares : Number(rdsRow?.pfShares));
+        : (fill.shares > 0 ? fill.shares : 0);
       if (officialHold > 0 && buyBps > 0) {
         const applied = applyChangmenBuyFeeToHoldShares(officialHold, buyBps);
         feePatch.pfHoldShares = applied.holdShares;
@@ -177,7 +220,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
           Number(rdsRow?.pfNotionalUsdt ?? rdsRow?.PfNotionalUsdt) > 0
             ? roundUsdt(Number(rdsRow?.pfNotionalUsdt ?? rdsRow?.PfNotionalUsdt))
             : extractBuyNotionalUsdt(official, {
-                shares: fill.shares > 0 ? fill.shares : Number(rdsRow?.pfShares),
+                shares: fill.shares > 0 ? fill.shares : undefined,
                 bookPrice: bookPrice > 0 ? bookPrice : undefined,
                 fallbackUsdt: planned,
               })
@@ -203,6 +246,11 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       ...feePatch,
       ...(feeRateBps >= 0 ? { pfFeeRateBps: feeRateBps } : {}),
     }], userId);
+      if (!isSellRow && !buyFeeReady) {
+        // 官方已 FILLED，但手续费未齐：对编排仍为 timeout，继续 GetOrder 轮询
+        settlement = "timeout";
+        venueOrder = { ...venueOrder, status: "pending" };
+      }
   }
   else if (
     venueOrder.status === "none"

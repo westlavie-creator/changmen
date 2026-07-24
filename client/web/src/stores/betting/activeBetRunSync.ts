@@ -237,7 +237,11 @@ export function syncActiveBetBindSuccess(
 }
 
 type PostLegResult = { success?: boolean; pending?: boolean; message?: string | null };
-type PlaceOutcome = "filled_pending_settle" | "api_failed" | "not_attempted";
+type PlaceOutcome =
+  | "filled_pending_settle"
+  | "accepted_pending_confirm"
+  | "api_failed"
+  | "not_attempted";
 
 function legStatusAfterPost(
   result?: PostLegResult,
@@ -247,7 +251,7 @@ function legStatusAfterPost(
     return "failed";
   if (!result?.success)
     return "failed";
-  if (result.pending)
+  if (result.pending || placeOutcome === "accepted_pending_confirm")
     return "pending_confirm";
   return "submitted";
 }
@@ -260,8 +264,10 @@ function legDetailAfterPost(
     return "未下单";
   if (!result?.success)
     return "API 失败";
+  if (placeOutcome === "accepted_pending_confirm")
+    return "已挂单待确认";
   if (result.pending)
-    return "PM delayed 待确认";
+    return "delayed 待确认";
   const msg = String(result.message ?? "").trim();
   return msg || "API 成功";
 }
@@ -283,7 +289,7 @@ export function syncActiveBetPlaceResults(
       legStatusAfterPost(resultA, placeOutcomeA),
       legDetailAfterPost(resultA, placeOutcomeA),
     );
-    // 非 PM delayed：进入拒单检测层（追加，不覆盖）；仅 API 成功腿
+    // 非 delayed/pending：进入拒单检测层（追加，不覆盖）；仅 API 成功腿
     if (store && resultA?.success && !resultA.pending)
       store.appendLegEvent(betId, "A", "拒单", "等待场馆确认");
   }
@@ -304,12 +310,12 @@ export function syncActiveBetPlaceResults(
     syncActiveBetPhase(betId, "syncing", "下单未成功");
     return;
   }
-  const pmPending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
-  syncActiveBetPhase(betId, "settling", pmPending ? "PM 延迟确认" : "等待场馆确认");
+  const venuePending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
+  syncActiveBetPhase(betId, "settling", venuePending ? "待场馆确认" : "等待场馆确认");
 }
 
-/** PM 补单 POST 返回 delayed：腿行与阶段立即反映待确认 */
-export function syncActiveBetMakeupPmDelayed(betId: number, orderId?: string | null) {
+/** 补单受理后仍待确认：腿行与阶段立即反映 */
+export function syncActiveBetMakeupPendingConfirm(betId: number, orderId?: string | null) {
   const store = activeStore();
   if (!store)
     return;
@@ -317,11 +323,11 @@ export function syncActiveBetMakeupPmDelayed(betId: number, orderId?: string | n
   const makeupLeg = run?.legs.find(l => l.status === "makeup" || l.status === "pending_confirm");
   const idHint = String(orderId ?? "").trim();
   const detail = idHint
-    ? `PM delayed 待确认 · ${idHint.slice(0, 10)}…`
-    : "PM delayed 待确认";
+    ? `待确认 · ${idHint.slice(0, 10)}…`
+    : "待确认";
   if (makeupLeg)
     store.patchLeg(betId, makeupLeg.side, { status: "makeup", detail });
-  store.setPhase(betId, "makeup", "PM 延迟确认");
+  store.setPhase(betId, "makeup", "待场馆确认");
   if (makeupLeg)
     store.appendLegEvent(betId, makeupLeg.side, "补单", detail);
 }
@@ -377,7 +383,7 @@ export function syncActiveBetAfterRejectSync(
             ? "rejected"
             : "failed",
       detail: pendingA
-        ? "delayed 待确认"
+        ? (flags.placeOutcomeA === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
         : finalizeLegDetail({
           ok: flags.okA,
           reject: flags.rejectA,
@@ -395,7 +401,7 @@ export function syncActiveBetAfterRejectSync(
             ? "rejected"
             : "failed",
       detail: pendingB
-        ? "delayed 待确认"
+        ? (flags.placeOutcomeB === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
         : finalizeLegDetail({
           ok: flags.okB,
           reject: flags.rejectB,
@@ -429,7 +435,7 @@ export function syncActiveBetAfterRejectSync(
 
   // 待确认续查：挂补单队列但腿态保持 pending_confirm（jb 续查原单，非立刻重下）
   if (flags.makeupQueued && (pendingA || pendingB)) {
-    store.setPhase(betId, "makeup", "PM 延迟确认");
+    store.setPhase(betId, "makeup", "待场馆确认");
     if (flags.makeupTarget && flags.makeupPlatform) {
       store.patchLeg(betId, flags.makeupTarget, {
         status: "pending_confirm",
@@ -460,7 +466,7 @@ export function syncActiveBetAfterRejectSync(
   }
 
   if (pendingA || pendingB) {
-    store.setPhase(betId, "settling", "PM 延迟确认");
+    store.setPhase(betId, "settling", "待场馆确认");
     return;
   }
 
@@ -513,7 +519,7 @@ export function syncActiveBetFail(betId: number, reason: string) {
 
 /** @deprecated 完成后不再定时移除；保留空实现以免旧调用报错 */
 export function scheduleActiveBetRunRemoval(_betId: number, _delayMs = 6000) {
-  // FIFO 队列：失败/完成均留在面板，超出 5 列时由 upsertRun.trimQueueFifo 挤出
+  // FIFO 队列：失败/完成均留在面板，超出上限时由 upsertRun.trimQueueFifo 挤出
 }
 
 export function syncActiveBetMakeupEnqueue(

@@ -64,6 +64,24 @@ describe("pf_fill", () => {
     expect(r.shares).toBe(10);
   });
 
+  it("amountFilled explicit 0 does not fall back to takerAmount", () => {
+    const r = extractBuyFillShares({
+      amountFilled: "0",
+      order: { takerAmount: "25000000000000000000" },
+    }, "25000000000000000000");
+    expect(r.sharesWei).toBe(0n);
+    expect(r.shares).toBe(0);
+    expect(r.amountFilledRaw).toBe("0");
+  });
+
+  it("missing amountFilled may fall back to takerAmount", () => {
+    const r = extractBuyFillShares({
+      order: { takerAmount: "25000000000000000000" },
+    }, "1");
+    expect(r.sharesWei).toBe(25000000000000000000n);
+    expect(r.shares).toBe(25);
+  });
+
   it("extracts buy fill cost from BUY makerAmount", () => {
     const r = extractBuyFillCostUsdt({
       amountFilled: "10000000000000000000",
@@ -122,6 +140,31 @@ describe("pf_fill", () => {
       },
     }, { fallbackProceedsUsdt: 1, fallbackSharesWei: 1n });
     expect(r.proceedsUsdt).toBe(13.75);
+    expect(r.shares).toBe(25);
+  });
+
+  it("sell amountFilled explicit 0 does not fall back to makerAmount", () => {
+    const r = extractSellFill({
+      amountFilled: "0",
+      order: {
+        makerAmount: "25000000000000000000",
+        takerAmount: "10000000000000000000",
+        side: 1,
+      },
+    }, { fallbackSharesWei: 25000000000000000000n });
+    expect(r.sharesWei).toBe(0n);
+    expect(r.shares).toBe(0);
+    expect(r.amountFilledRaw).toBe("0");
+  });
+
+  it("sell missing amountFilled may fall back to makerAmount", () => {
+    const r = extractSellFill({
+      order: {
+        makerAmount: "25000000000000000000",
+        side: 1,
+      },
+    }, { fallbackSharesWei: 1n });
+    expect(r.sharesWei).toBe(25000000000000000000n);
     expect(r.shares).toBe(25);
   });
 });

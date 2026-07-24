@@ -2,6 +2,24 @@ import type { LoseOrderRecord, MakeupRuntimePhase } from "../types/order";
 import type { BetSide } from "./match";
 import { toFixed } from "../shared/format";
 
+function normalizeMakeupRuntimePhase(raw: unknown): MakeupRuntimePhase | undefined {
+  const phase = String(raw ?? "").trim();
+  if (!phase)
+    return undefined;
+  // 旧持久化 pm_pending → venue_pending
+  if (phase === "pm_pending")
+    return "venue_pending";
+  if (
+    phase === "placing"
+    || phase === "settling"
+    || phase === "venue_pending"
+    || phase === "rejected_retry"
+  ) {
+    return phase;
+  }
+  return undefined;
+}
+
 /** 对齐 A8 bundle `eb`（补单队列项） */
 export class LoseOrder implements LoseOrderRecord {
   accountId: number;
@@ -16,11 +34,14 @@ export class LoseOrder implements LoseOrderRecord {
   createAt: number;
   isCreateOrder: boolean;
   betCount: number;
-  pendingPmOrderId?: string;
-  pendingPmAccountId?: number;
+  pendingVenueOrderId?: string;
+  pendingVenueAccountId?: number;
   runtimePhase?: MakeupRuntimePhase;
 
-  constructor(raw: Partial<LoseOrderRecord>) {
+  constructor(raw: Partial<LoseOrderRecord> & {
+    pendingPmOrderId?: string;
+    pendingPmAccountId?: number;
+  }) {
     this.accountId = Number(raw.accountId) || 0;
     this.matchId = Number(raw.matchId) || 0;
     this.betId = Number(raw.betId) || 0;
@@ -33,13 +54,17 @@ export class LoseOrder implements LoseOrderRecord {
     this.createAt = Number(raw.createAt) || Date.now();
     this.isCreateOrder = Boolean(raw.isCreateOrder);
     this.betCount = Number(raw.betCount) || 1;
-    const pendingId = String(raw.pendingPmOrderId ?? "").trim();
-    this.pendingPmOrderId = pendingId || undefined;
-    const pendingAcc = Number(raw.pendingPmAccountId);
-    this.pendingPmAccountId = pendingId && Number.isFinite(pendingAcc) && pendingAcc > 0
+    const pendingId = String(
+      raw.pendingVenueOrderId ?? raw.pendingPmOrderId ?? "",
+    ).trim();
+    this.pendingVenueOrderId = pendingId || undefined;
+    const pendingAcc = Number(
+      raw.pendingVenueAccountId ?? raw.pendingPmAccountId,
+    );
+    this.pendingVenueAccountId = pendingId && Number.isFinite(pendingAcc) && pendingAcc > 0
       ? pendingAcc
       : undefined;
-    this.runtimePhase = raw.runtimePhase;
+    this.runtimePhase = normalizeMakeupRuntimePhase(raw.runtimePhase);
   }
 
   getBetMoney(odds: number) {
@@ -75,10 +100,10 @@ export class LoseOrder implements LoseOrderRecord {
       createAt: this.createAt,
       isCreateOrder: this.isCreateOrder,
       betCount: this.betCount,
-      ...(this.pendingPmOrderId
+      ...(this.pendingVenueOrderId
         ? {
-            pendingPmOrderId: this.pendingPmOrderId,
-            pendingPmAccountId: this.pendingPmAccountId,
+            pendingVenueOrderId: this.pendingVenueOrderId,
+            pendingVenueAccountId: this.pendingVenueAccountId,
           }
         : {}),
       ...(this.runtimePhase ? { runtimePhase: this.runtimePhase } : {}),

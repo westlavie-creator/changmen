@@ -14,9 +14,12 @@ export interface LoseOrderRecord {
   createAt: number;
   isCreateOrder: boolean;
   betCount: number;
-  /** [changmen 扩展] PM jb：timeout 后续轮 settle，避免重复 POST */
-  pendingPmOrderId?: string;
-  pendingPmAccountId?: number;
+  /**
+   * [changmen 扩展] 受理后确认场馆（PM delayed / PF）jb：timeout 后续轮 settle，避免重复 POST
+   * 读兼容旧键 pendingPmOrderId
+   */
+  pendingVenueOrderId?: string;
+  pendingVenueAccountId?: number;
   /** [changmen 扩展] 侧栏补单行运行时阶段（刷新后 placing/settling 会清空） */
   runtimePhase?: MakeupRuntimePhase;
 }
@@ -25,6 +28,8 @@ export interface LoseOrderRecord {
 export type MakeupRuntimePhase
   = | "placing"
     | "settling"
+    | "venue_pending"
+    /** @deprecated 读旧持久化时映射为 venue_pending */
     | "pm_pending"
     | "rejected_retry";
 

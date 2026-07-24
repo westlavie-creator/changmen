@@ -12,13 +12,16 @@ const { manualOrders } = storeToRefs(loseStore);
 const { config } = storeToRefs(user);
 
 function runtimeLabel(order: (typeof manualOrders.value)[number]) {
-  if (String(order.pendingPmOrderId ?? "").trim())
-    return " · PM待确认";
+  if (String(order.pendingVenueOrderId ?? "").trim())
+    return " · 待确认";
   switch (order.runtimePhase) {
     case "placing":
       return " · 下单中";
     case "settling":
       return " · 检测拒单中";
+    case "venue_pending":
+    case "pm_pending":
+      return " · 待确认";
     case "rejected_retry":
       return " · 再次被拒";
     default:

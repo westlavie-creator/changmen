@@ -14,7 +14,9 @@ import {
 } from "./pfClientApi";
 import {
   detectionMaxPriceFromOdds,
+  isValidPredictClobPrice,
   resolvePredictFunDetectionMaxPrice,
+  resolvePredictFunDetectionMaxPriceRaw,
 } from "./pfDetection";
 import { resolvePredictFunProviderLegOutcome } from "./legOutcome";
 import {
@@ -24,7 +26,8 @@ import {
 } from "./marketIndex";
 
 const PLATFORM = PLATFORMS.PredictFun;
-const PRECHECK_BOOK_REUSE_MS = 800;
+/** check 结果复用窗：缩短以压受理前盘口漂移 */
+const PRECHECK_BOOK_REUSE_MS = 400;
 
 export interface PredictFunBuyCheckData {
   tokenId: string;
@@ -123,7 +126,14 @@ function isPredictFunBuyCheckData(data: unknown): data is PredictFunBuyCheckData
     && Number.isFinite(row.bookFetchedAt) && row.bookFetchedAt > 0;
 }
 
-function applyCheckResult(option: BetOption, checked: PfCheckBetResult, detectionOdds: number, apiBetMoney: number): void {
+function applyCheckResult(
+  option: BetOption,
+  checked: PfCheckBetResult,
+  detectionOdds: number,
+  apiBetMoney: number,
+  execMaxPrice: number,
+  rawMaxPrice: number,
+): void {
   option.odds = checked.bookOdds;
   option.newOdds = checked.bookOdds;
   option.data = {
@@ -131,8 +141,10 @@ function applyCheckResult(option: BetOption, checked: PfCheckBetResult, detectio
     marketId: checked.marketId,
     odds: checked.bookOdds,
     detectionOdds,
-    detectionMaxPrice: checked.detectionMaxPrice,
-    detectionClobPrice: checked.detectionMaxPrice,
+    // 执行限价（已 buffer）：submit 必须原样复用，禁止再 resolve+buffer
+    detectionMaxPrice: execMaxPrice,
+    // 原始检测价：供 fo 同档判断 / 展示，勿与 exec 混用
+    detectionClobPrice: rawMaxPrice,
     bookPrice: checked.bookPrice,
     betMoney: option.betMoney,
     apiBetMoney,
@@ -156,6 +168,7 @@ export const predictFunProvider: PlatformProvider = {
     const tokenId = String(option.itemId ?? "").trim();
     const marketId = await ensureMarketId(option, tokenId);
     const detectionOdds = resolveDetectionOdds(option);
+    const rawMaxPrice = resolvePredictFunDetectionMaxPriceRaw(option, detectionOdds);
     const maxPrice = resolvePredictFunDetectionMaxPrice(option, detectionOdds);
     const apiBetMoney = resolveApiBetMoney(option);
 
@@ -188,7 +201,7 @@ export const predictFunProvider: PlatformProvider = {
         detectionMaxPrice: maxPrice,
         detectionOdds,
       });
-      applyCheckResult(option, checked, detectionOdds, apiBetMoney);
+      applyCheckResult(option, checked, detectionOdds, apiBetMoney, maxPrice, rawMaxPrice);
     }
     catch (err) {
       option.checkError = err instanceof Error ? err.message : String(err);
@@ -207,7 +220,10 @@ export const predictFunProvider: PlatformProvider = {
 
     const tokenId = String(option.itemId ?? "").trim();
     const detectionOdds = resolveDetectionOdds(option);
-    const maxPrice = resolvePredictFunDetectionMaxPrice(option, detectionOdds);
+    // 与预检同一执行限价，禁止再次 resolve+buffer 造成 check/submit 漂移
+    const maxPrice = isValidPredictClobPrice(Number(check.detectionMaxPrice))
+      ? Number(check.detectionMaxPrice)
+      : resolvePredictFunDetectionMaxPrice(option, detectionOdds);
     const apiBetMoney = resolveApiBetMoney(option);
     const display = buildPfOrderDisplayLabels(option);
 
@@ -227,7 +243,7 @@ export const predictFunProvider: PlatformProvider = {
         return new BetResult(
           PLATFORM,
           false,
-          "Predict.fun FOK 订单未成交",
+          "Predict.fun 下单未受理",
           check,
           submitted,
         );

@@ -30,21 +30,30 @@
 |--------|------|----------|
 | `filled` | 成交 | 不补 |
 | `unfilled` | 确认未成交（FOK/unmatched/cancel） | **可补** |
-| `timeout` | 仍待确认（delay/接口滞后） | **不补新单**；挂 `pendingPmOrderId` 由 jb 续查原单 |
+| `timeout` | 仍待确认（delay/接口滞后） | **不补新单**；挂 `pendingVenueOrderId` 由 jb 续查原单 |
 
 `[changmen 扩展]` fill confirmed 时编排入口可跳过无意义预拉（见 `resolveVenueLegOutcome`）。
 `isVenueLegConfirmedUnfilled` = 仅 `unfilled`；`isVenueLegRejected` 仍含 timeout（jb 须先查 pending）。
 
 ## PredictFun 三态（betting → settle）
 
+**模型**：受理后确认场馆（类 A8 + timeout 第三态），**不是** PM「POST 常已成交」。
+
 官方依据：[Create order](https://dev.predict.fun/create-an-order-32534694e0)、[Get order by hash](https://dev.predict.fun/get-order-by-hash-25326901e0)、[OrderStatus](https://dev.predict.fun/orderstatus-14037508d0)、[OrderStatusFilter](https://dev.predict.fun/orderstatusfilter-14037509d0)、[predictWalletEvents](https://dev.predict.fun/subscription-topics-1915507m0)。
 
-| 官方事实 | 编排含义 |
+| 阶段 | 官方事实 | changmen 含义 |
+|------|----------|----------------|
+| 预检 | 限价 + FOK 深度 | 挡必挂单；**不保证成交** |
+| **API 下单成功** | `POST /v1/orders` 返回 `orderId`（体无 `status`） | **仅**官网收下挂单；`success=true` + `pending=true`；placeOutcome=`accepted_pending_confirm` |
+| 未受理 | 无 `orderId` / 抛错 | `api_failed`（不进 settle） |
+| 成交 | `FILLED` / wallet `orderTransactionSuccess` | 唯一可当「成了」；成功计数 / 补单锚腿以 **filled** 为准；买单若 `feeRateBps>0` 且尚无 wallet fee，编排仍报 `timeout`（hold 未齐） |
+| 拒单 | `CANCELLED` / `EXPIRED` / `INVALIDATED` | 与 A8 `reject` 同级 → `unfilled`，**可补** |
+| 未决 | 仍 `OPEN` / 查不到 | `timeout`，**不补新单**；挂 `pendingVenueOrderId` 续查原单 |
+
+| 官方细节 | 编排含义 |
 |----------|----------|
-| `POST /v1/orders` 成功体仅 `code` / `orderId` / `orderHash`，**无** `status` | **无 PM 式 POST fill-confirmed**；`betting` 必须 `pending=true` |
-| `OrderStatus` = `OPEN \| FILLED \| EXPIRED \| CANCELLED \| INVALIDATED` | `FILLED`→filled；`CANCELLED/EXPIRED/INVALIDATED`→unfilled；`OPEN`→timeout（仍待确认） |
-| `GET /v1/orders` filter **仅** `OPEN\|FILLED` | 拒单不能靠列表猜，须 `GET …/{hash}` |
-| house 下单：`MARKET` + `isFillOrKill` + `isMinAmountOut` | 受理 ≠ 成交；FOK 可能随后 CANCELLED |
+| `GET /v1/orders` filter **仅** `OPEN\|FILLED` | 拒单不能靠列表猜，须 `GET …/{hash}`；套利/jb/手动 settle **必须** `confirmPostAccepted=true` |
+| house：`MARKET` + `isFillOrKill` + `isMinAmountOut` | 受理 ≠ 成交；FOK 可能随后 CANCELLED（接受→取消为正规路径） |
 
 | 确认信号 | settlement |
 |----------|------------|
@@ -53,13 +62,20 @@
 | wallet `orderAccepted` / `orderTransactionSubmitted` | 继续等 |
 | REST `FILLED` / 拒单终态 / 仍 `OPEN` 到时限 | filled / unfilled / **timeout** |
 
-编排门控（与 PM 同消费面，`isPendingConfirmVenueProvider`）：
+编排门控（与 PM **同消费面**；命名为「受理后确认」，不再绑 PM）：
 
-- `confirmPmPost` / `deferPmSettlement` / `rejectWait=0` 对 PredictFun 生效
-- `betGateway`：仅 `!deferPmSettlement` 时后台 settle（双腿套利防双 settle）
-- timeout：**不补新单**；挂 `pendingPmOrderId`（字段复用）由 jb / `arbMakeUpFromRejects` 续查原单
+- `isPendingConfirmVenueProvider` / `confirmPostAccepted` / `deferPostAcceptSettlement` / `rejectWait=0` 对 PredictFun 生效
+- `betGateway`：仅 `!deferPostAcceptSettlement` 时后台 settle（双腿套利防双 settle）
+- `markArbSuccessLegs`：**仅 PF** 在仍 `pendingConfirm` 时不记成功（等 filled）；A8/PM 不变
+- timeout：**不补新单**；jb / `arbMakeUpFromRejects` 续查原单（`pendingVenueOrderId`）
 
-确认实现：VPS `predictWalletEvents` **优先**（`orderNotAccepted` 快拒不打 REST；`orderTransactionSuccess` 先 REST 校正金额再 stub）；`fetchHousePredictOrderResolved` / `waitForHouseOrderTerminal` / `Pf_GetOrder` REST 兜底。客户端 confirm 轮询前密后疏（有 hint 首轮收束）。勿依赖列表 filter 判拒。
+确认实现：VPS `predictWalletEvents` **优先**；`fetchHousePredictOrderResolved` / `waitForHouseOrderTerminal` / `Pf_GetOrder` REST 兜底。客户端 confirm 轮询前密后疏，总窗对齐服务端 sell 确认量级。勿依赖列表 filter 判拒。
+
+与 A8 / PM 对照：
+
+- **像 A8**：受理 ≠ 成交，必须事后确认
+- **不像 A8**：确认靠 hash/`wallet`，不是长 `rejectWait` + 列表首条；多 timeout
+- **不像 PM**：无 `matched` fill-confirmed 快路径
 
 ## A8 场馆（OB / RAY / …）
 
@@ -75,3 +91,4 @@
 - 门控：`isPendingConfirmVenueProvider`（`packages/shared/account_multiply.ts`）
 - A8 outcome：`client/venue-adapter/adaptation/a8LegOutcome.ts`
 - 套利 settle：`settleBothArbLegs` → `settleArbLeg`
+- place 腿态：`ArbLegPlaceOutcome`（`accepted_pending_confirm` = PF 挂单待确认）

@@ -26,7 +26,8 @@ import {
   resolvePfHouseMaxStakeUsdt,
 } from "./house_credentials.js";
 import { roundUsdt } from "./pf_ledger.js";
-const DEFAULT_SLIPPAGE_BPS = 100n;
+/** 默认 2%：MARKET + isMinAmountOut 类 FOK 容忍；配合检测限价 buffer 压受理后 CANCELLED */
+const DEFAULT_SLIPPAGE_BPS = 200n;
 
 /** house 签单串行，避免并发 nonce/余额竞态 */
 let houseOrderChain = Promise.resolve();
@@ -198,7 +199,7 @@ async function prepareHouseSigner() {
 export { prepareHouseSigner };
 
 /** 预检盘口可复用的最大年龄（ms）；超时则锁内再拉一次 */
-export const REUSE_BOOK_MAX_AGE_MS = Number(process.env.PF_HOUSE_REUSE_BOOK_MS || 1500);
+export const REUSE_BOOK_MAX_AGE_MS = Number(process.env.PF_HOUSE_REUSE_BOOK_MS || 800);
 
 /** check→submit 短缓存：同 market/token/maxPrice 少打 orderbook+market */
 /** @type {Map<string, { at: number, value: object }>} */
@@ -264,6 +265,11 @@ export async function resolveExecutableBuy({
       const best = bestAskFromPredictBook(book);
       const liveOdds = best > 0 ? truncateOddsTo3(1 / best) : 0;
       const detectOdds = Number(detectionOdds) > 1 ? truncateOddsTo3(detectionOdds) : 0;
+      console.info("[Pf_RejectBucket] price_above_detection", {
+        marketId,
+        maxPrice,
+        bestAsk: best || null,
+      });
       throw new Error([
         "Predict.fun 盘口价高于检测价，整单取消",
         best > 0

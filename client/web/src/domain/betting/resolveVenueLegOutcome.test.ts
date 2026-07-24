@@ -42,7 +42,7 @@ describe("resolveVenueLegOutcome", () => {
     expect(out.settlement).toBe("filled");
   });
 
-  it("confirmPmPost fill-confirmed path: provider pull runs once when callback used", async () => {
+  it("confirmPostAccepted fill-confirmed path: provider pull runs once when callback used", async () => {
     const fetchVenueOrders = vi.fn().mockResolvedValue([
       { orderId: "0xnew", status: "none", createAt: 2 } as never,
     ]);
@@ -58,7 +58,7 @@ describe("resolveVenueLegOutcome", () => {
       { provider: "Polymarket" } as never,
       Object.assign(new BetResult("Polymarket", true), { orderId: "0xnew" }),
       fetchVenueOrders,
-      { confirmPmPost: true },
+      { confirmPostAccepted: true },
     );
 
     expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
