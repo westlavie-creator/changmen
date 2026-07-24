@@ -153,6 +153,19 @@ export function rowToOrder(r) {
       const n = parseNum(raw.pfFeeRateBps, NaN);
       return Number.isFinite(n) && n >= 0 ? n : undefined;
     })(),
+    /** Changmencodefee：买入扣份额 / 卖出扣 USDT（兼容旧 pfChangmenFee*） */
+    PfChangmenCodeFeeRateBps: (() => {
+      const n = parseNum(raw.pfChangmenCodeFeeRateBps ?? raw.pfChangmenFeeRateBps, NaN);
+      return Number.isFinite(n) && n >= 0 ? n : undefined;
+    })(),
+    PfChangmenCodeFeeShares: (() => {
+      const n = parseNum(raw.pfChangmenCodeFeeShares ?? raw.pfChangmenFeeShares, 0);
+      return n > 0 ? n : undefined;
+    })(),
+    PfChangmenCodeFeeUsdt: (() => {
+      const n = parseNum(raw.pfChangmenCodeFeeUsdt ?? raw.pfChangmenFeeUsdt, 0);
+      return n > 0 ? n : undefined;
+    })(),
     /** [changmen 扩展] Phase 1 仓位卖出事件（买单上；便于 UI 观察双写） */
     PositionEvents: (() => {
       const sells = readPositionSellEvents(raw);
@@ -175,6 +188,9 @@ export function scrubClientOrder(order) {
     PfFeeType: _feeType,
     PfFeeUsdt: _feeUsdt,
     PfFeeRateBps: _bps,
+    PfChangmenCodeFeeRateBps: _cmRate,
+    PfChangmenCodeFeeShares: _cmShares,
+    PfChangmenCodeFeeUsdt: _cmUsdt,
     ...rest
   } = order;
   if (String(rest.Type ?? "").trim() === "PredictFun") {

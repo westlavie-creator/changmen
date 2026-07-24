@@ -178,6 +178,12 @@ export interface AdminOrderRow {
   pfFeeUsdt?: number;
   /** [changmen 扩展] PredictFun 官方市场 feeRateBps */
   pfFeeRateBps?: number;
+  /** Changmencodefee 费率 bps（买扣份额 / 卖扣 USDT 各自落在对应单上） */
+  pfChangmenCodeFeeRateBps?: number;
+  /** Changmencodefee 买入扣份额 */
+  pfChangmenCodeFeeShares?: number;
+  /** Changmencodefee 卖出扣 USDT */
+  pfChangmenCodeFeeUsdt?: number;
   /** [changmen 扩展] Phase 1 仓位卖出事件（买单；观察双写） */
   positionEvents?: {
     sells?: Array<{

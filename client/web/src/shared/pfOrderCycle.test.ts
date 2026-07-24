@@ -44,6 +44,35 @@ describe("pfOrderCycle", () => {
     })).toBe(12);
   });
 
+  it("buildPfCycles surfaces Changmencodefee from buy/sell raw fields", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xbuy1",
+        betMoney: 10,
+        pfSellState: "closed",
+        pfSellOrderId: "0xsell1",
+        pfSellProceeds: 13.23,
+        pfChangmenCodeFeeRateBps: 100,
+        pfChangmenCodeFeeShares: 0.25,
+      }),
+      {
+        ...buy({
+          orderId: "0xsell1",
+          pfSide: "sell",
+          pfBuyOrderId: "0xbuy1",
+          betMoney: 13.23,
+          money: 0,
+          pfChangmenCodeFeeRateBps: 200,
+          pfChangmenCodeFeeUsdt: 0.27,
+        }),
+      },
+    ]);
+    expect(cycles[0].changmenBuyFeeRateBps).toBe(100);
+    expect(cycles[0].changmenBuyFeeShares).toBe(0.25);
+    expect(cycles[0].changmenSellFeeRateBps).toBe(200);
+    expect(cycles[0].changmenSellFeeUsdt).toBe(0.27);
+  });
+
   it("buildPfCycles reads RDS proceeds without client-side fee deduction", () => {
     const cycles = buildPfCycles([
       buy({

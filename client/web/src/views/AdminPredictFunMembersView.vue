@@ -161,7 +161,10 @@ function fmtUsdtOrDash(n: number | null | undefined) {
 }
 
 function cycleFeeRateLabel(cycle: PfOrderCycle) {
-  const bps = cycle.feeRateBps;
+  return feeRateBpsLabel(cycle.feeRateBps);
+}
+
+function feeRateBpsLabel(bps: number | null | undefined) {
   if (bps == null || !Number.isFinite(bps) || bps < 0)
     return "—";
   const pct = bps / 100;
@@ -766,14 +769,24 @@ onMounted(async () => {
                         <span class="admin-order-num">{{ fmtNumOrDash(cycle.buyShares) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="买手续费份额" width="100" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="官网买手续费" width="100" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">{{ fmtNumOrDash(cycle.buyFeeShares) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="费率" width="64" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="官网费率" width="72" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">{{ cycleFeeRateLabel(cycle) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Changmen买费率" width="110" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ feeRateBpsLabel(cycle.changmenBuyFeeRateBps) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Changmen买扣份额" width="120" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ fmtNumOrDash(cycle.changmenBuyFeeShares) }}</span>
                       </template>
                     </el-table-column>
                     <el-table-column label="持仓份额" width="88" align="right" class-name="admin-order-cell--num">
@@ -786,13 +799,23 @@ onMounted(async () => {
                         <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.sellProceedsUsdt) }}</span>
                       </template>
                     </el-table-column>
-                    <el-table-column label="卖手续费" width="88" align="right" class-name="admin-order-cell--num">
+                    <el-table-column label="官网卖手续费" width="100" align="right" class-name="admin-order-cell--num">
                       <template #default="{ row: cycle }">
                         <span class="admin-order-num">
                           <template v-if="cycle.sellFeeUsdt != null">{{ fmtUsdt(cycle.sellFeeUsdt) }} U</template>
                           <template v-else-if="cycle.sellFeeShares != null">{{ fmtUsdt(cycle.sellFeeShares) }} 份</template>
                           <template v-else>—</template>
                         </span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Changmen卖费率" width="110" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ feeRateBpsLabel(cycle.changmenSellFeeRateBps) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="Changmen卖扣U" width="110" align="right" class-name="admin-order-cell--num">
+                      <template #default="{ row: cycle }">
+                        <span class="admin-order-num">{{ fmtUsdtOrDash(cycle.changmenSellFeeUsdt) }}</span>
                       </template>
                     </el-table-column>
                     <el-table-column label="最终到手" width="88" align="right" class-name="admin-order-cell--num">

@@ -102,6 +102,9 @@ export function adminOrderToOrderRow(
     PfFeeType: row.pfFeeType,
     PfFeeUsdt: row.pfFeeUsdt,
     PfFeeRateBps: row.pfFeeRateBps,
+    PfChangmenCodeFeeRateBps: row.pfChangmenCodeFeeRateBps,
+    PfChangmenCodeFeeShares: row.pfChangmenCodeFeeShares,
+    PfChangmenCodeFeeUsdt: row.pfChangmenCodeFeeUsdt,
     PositionEvents: row.positionEvents,
   };
 }

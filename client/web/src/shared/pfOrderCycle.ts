@@ -27,6 +27,14 @@ export interface PfOrderCycle {
   netShares: number | null;
   /** 官方费率 bps */
   feeRateBps: number | null;
+  /** Changmencodefee 买入费率 bps（买单） */
+  changmenBuyFeeRateBps: number | null;
+  /** Changmencodefee 买入扣份额 */
+  changmenBuyFeeShares: number | null;
+  /** Changmencodefee 卖出费率 bps（卖单） */
+  changmenSellFeeRateBps: number | null;
+  /** Changmencodefee 卖出扣 USDT */
+  changmenSellFeeUsdt: number | null;
   /** 卖出回款 U（RDS：买单 pfSellProceeds，已含官网 + Changmencodefee 扣 USDT） */
   sellProceedsUsdt: number | null;
   /** 卖手续费份额（RDS 明细，不参与回款重算） */
@@ -122,6 +130,27 @@ export function resolvePfCycleProfitUsdt(
   return finalUsdt - (Number(buyStakeUsdt) || 0);
 }
 
+function changmenFeeRateBpsFromRow(row: AdminOrderRow | undefined): number | null {
+  if (!row)
+    return null;
+  const n = Number(row.pfChangmenCodeFeeRateBps);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function changmenFeeSharesFromRow(row: AdminOrderRow | undefined): number | null {
+  if (!row)
+    return null;
+  const n = Number(row.pfChangmenCodeFeeShares);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function changmenFeeUsdtFromRow(row: AdminOrderRow | undefined): number | null {
+  if (!row)
+    return null;
+  const n = Number(row.pfChangmenCodeFeeUsdt);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
   const list = (Array.isArray(orders) ? orders : [])
     .filter(o => String(o.provider || "").trim() === "PredictFun");
@@ -170,6 +199,10 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
     const feeRateBps = Number.isFinite(Number(buy.pfFeeRateBps)) && Number(buy.pfFeeRateBps) >= 0
       ? Number(buy.pfFeeRateBps)
       : null;
+    const changmenBuyFeeRateBps = changmenFeeRateBpsFromRow(buy);
+    const changmenBuyFeeShares = changmenFeeSharesFromRow(buy);
+    const changmenSellFeeRateBps = changmenFeeRateBpsFromRow(sell);
+    const changmenSellFeeUsdt = changmenFeeUsdtFromRow(sell) ?? changmenFeeUsdtFromRow(buy);
 
     let sellProceedsUsdt: number | null = null;
     // 回款真相在买单；卖单 betMoney 仅旧单/镜像兜底（勿当买入本金）
@@ -205,6 +238,10 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
       buyFeeShares,
       netShares,
       feeRateBps,
+      changmenBuyFeeRateBps,
+      changmenBuyFeeShares,
+      changmenSellFeeRateBps,
+      changmenSellFeeUsdt,
       sellProceedsUsdt,
       sellFeeShares,
       sellFeeUsdt,
