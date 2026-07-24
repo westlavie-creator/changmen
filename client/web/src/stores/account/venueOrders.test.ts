@@ -112,8 +112,8 @@ describe("syncVenueOrders PredictFun", () => {
         ...makeVenueOrder({ orderId: "pf1", status: "none", odds: 2, betMoney: 10 }),
         provider: "PredictFun",
         pfSide: "buy",
-        pfSellState: "open",
         pfHoldShares: 20,
+        pfSellState: "open",
       },
     ]);
   });
@@ -130,5 +130,48 @@ describe("syncVenueOrders PredictFun", () => {
     expect(orders?.length).toBe(1);
     expect(acc.unsettle).toBe(1);
     expect(saveOrders).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncVenueOrders waitForOrderId", () => {
+  beforeEach(() => {
+    saveOrders.mockClear();
+    getOrders.mockReset();
+  });
+
+  it("retries getOrders until orderId appears then saves once", async () => {
+    getOrders
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "old", status: "none", odds: 2, betMoney: 10 }),
+      ])
+      .mockResolvedValueOnce([
+        makeVenueOrder({ orderId: "old", status: "none", odds: 2, betMoney: 10 }),
+        makeVenueOrder({ orderId: "0xnew", status: "none", odds: 1.8, betMoney: 20 }),
+      ]);
+
+    const acc = makeAccount(100);
+    acc.provider = "Polymarket";
+    const orders = await syncVenueOrders(acc, {
+      waitForOrderId: "0xnew",
+      waitForOrderGapMs: 1,
+    });
+
+    expect(getOrders).toHaveBeenCalledTimes(2);
+    expect(orders?.some(o => o.orderId === "0xnew")).toBe(true);
+    expect(saveOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves last result after exhausting attempts", async () => {
+    getOrders.mockResolvedValue([
+      makeVenueOrder({ orderId: "old", status: "none", odds: 2, betMoney: 10 }),
+    ]);
+    const acc = makeAccount(100);
+    await syncVenueOrders(acc, {
+      waitForOrderId: "0xmissing",
+      waitForOrderAttempts: 3,
+      waitForOrderGapMs: 1,
+    });
+    expect(getOrders).toHaveBeenCalledTimes(3);
+    expect(saveOrders).toHaveBeenCalledTimes(1);
   });
 });

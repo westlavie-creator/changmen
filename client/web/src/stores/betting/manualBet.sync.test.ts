@@ -91,6 +91,10 @@ describe("runManualBet post-success sync", () => {
 
     expect(wait).toHaveBeenCalledWith(400);
     expect(updateVenueOrders).toHaveBeenCalledOnce();
+    expect(updateVenueOrders).toHaveBeenCalledWith(
+      expect.anything(),
+      { waitForOrderId: "0xabc" },
+    );
     expect(refreshOrderListAfterBind).toHaveBeenCalledOnce();
     expect(refreshBalance).toHaveBeenCalledOnce();
     expect(markSuccessfulBet).toHaveBeenCalledOnce();

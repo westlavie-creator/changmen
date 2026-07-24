@@ -117,7 +117,8 @@ export async function runManualBet(
     // [changmen 扩展] 对齐正 EV：立刻 sync 入库并刷侧栏，避免干等 Io.f 2–3 分钟
     try {
       await wait(result.orderId ? 400 : 1500);
-      await accountStore.updateVenueOrders(account);
+      const waitForOrderId = String(result.orderId ?? "").trim() || undefined;
+      await accountStore.updateVenueOrders(account, waitForOrderId ? { waitForOrderId } : undefined);
       refreshOrderListAfterBind();
     }
     catch {

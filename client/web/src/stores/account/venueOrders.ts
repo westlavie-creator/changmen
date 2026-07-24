@@ -2,10 +2,15 @@ import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import { hasOpenPolymarketPosition, resolvePmRemainingShares } from "@changmen/venue-adapter/polymarket";
+import { wait } from "@changmen/client-core/shared/wait";
 import { Currency, getExchange } from "@changmen/shared/currency";
 import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
+
+/** PM 下单后等 CLOB trades 索引：最多尝试次数 / 间隔 */
+const WAIT_FOR_ORDER_ATTEMPTS_DEFAULT = 5;
+const WAIT_FOR_ORDER_GAP_MS_DEFAULT = 500;
 
 function isOpenUnsettledVenueOrder(o: VenueOrder): boolean {
   if (o.status !== "none")
@@ -62,6 +67,20 @@ export function applyUnsettledStats(account: PlatformAccount, orders: VenueOrder
 export interface SyncVenueOrdersOpts {
   pendingBindLinkId?: number;
   pendingBindOrderId?: string;
+  /**
+   * [changmen 扩展] 下单后等待 getOrders 出现该 orderId 再 save。
+   * 缓解 PM getPlayerOrder 变快后、CLOB trades 尚未索引导致首轮漏单。
+   */
+  waitForOrderId?: string;
+  waitForOrderAttempts?: number;
+  waitForOrderGapMs?: number;
+}
+
+function ordersIncludeId(orders: VenueOrder[], orderId: string): boolean {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return true;
+  return orders.some(o => String(o.orderId ?? "").trim() === id);
 }
 
 function stampPendingBindLink(orders: VenueOrder[], opts?: SyncVenueOrdersOpts): void {
@@ -83,6 +102,7 @@ function stampPendingBindLink(orders: VenueOrder[], opts?: SyncVenueOrdersOpts):
 /**
  * 对齐 A8 `uv.updateOrders` + `Vt.saveOrders`（全场馆统一 provider.getOrders）。
  * [changmen 扩展] PredictFun：只拉单更新本地统计，不 Client_SaveOrder（RDS 仅 Pf_* 写）。
+ * [changmen 扩展] waitForOrderId：可重试 getOrders，只在最终结果上 save 一次。
  */
 export async function syncVenueOrders(
   account: PlatformAccount,
@@ -91,10 +111,31 @@ export async function syncVenueOrders(
   const provider = getProvider(account);
   if (!provider?.getOrders)
     return undefined;
-  const raw = await provider.getOrders(account);
-  if (raw == null)
+
+  const waitId = String(opts?.waitForOrderId ?? "").trim();
+  const attempts = waitId
+    ? Math.max(1, Number(opts?.waitForOrderAttempts) || WAIT_FOR_ORDER_ATTEMPTS_DEFAULT)
+    : 1;
+  const gapMs = Math.max(0, Number(opts?.waitForOrderGapMs) || WAIT_FOR_ORDER_GAP_MS_DEFAULT);
+
+  let orders: VenueOrder[] | undefined;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const raw = await provider.getOrders(account);
+    if (raw == null) {
+      // 保留上一轮成功结果；首轮失败则整体失败
+      if (orders)
+        break;
+      return undefined;
+    }
+    orders = sortVenueOrdersNewestFirst(raw);
+    if (!waitId || ordersIncludeId(orders, waitId))
+      break;
+    if (attempt < attempts)
+      await wait(gapMs);
+  }
+  if (!orders)
     return undefined;
-  const orders = sortVenueOrdersNewestFirst(raw);
+
   stampPendingBindLink(orders, opts);
   applyUnsettledStats(account, orders);
   if (String(account.provider ?? "").trim() !== "PredictFun")

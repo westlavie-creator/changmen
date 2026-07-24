@@ -187,7 +187,11 @@ export async function runValueBetConfirm(
     let bound = false;
     try {
       await wait(result.orderId ? 400 : 1500);
-      const orders = (await accountStore.updateVenueOrders(account)) ?? [];
+      const waitForOrderId = String(result.orderId ?? "").trim() || undefined;
+      const orders = (await accountStore.updateVenueOrders(
+        account,
+        waitForOrderId ? { waitForOrderId } : undefined,
+      )) ?? [];
       bound = await bindArbLegOrder(linkId, account, result, orders, false);
       if (bound)
         refreshOrderListAfterBind();
