@@ -22,10 +22,14 @@ vi.mock("@changmen/venue-adapter/polymarket/settlementJob", () => ({
   awaitPolymarketSettlementJob: (...args: unknown[]) => awaitPolymarketSettlementJob(...args),
 }));
 
-vi.mock("@changmen/venue-adapter/polymarket/orders", () => ({
-  fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
-    fetchPolymarketConfirmedTradeForOrder(...args),
-}));
+vi.mock("@changmen/venue-adapter/polymarket/orders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@changmen/venue-adapter/polymarket/orders")>();
+  return {
+    ...actual,
+    fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
+      fetchPolymarketConfirmedTradeForOrder(...args),
+  };
+});
 
 function account(provider: string): PlatformAccount {
   return { provider } as PlatformAccount;
@@ -127,7 +131,8 @@ describe("settleArbLeg (Polymarket)", () => {
         success: true,
         status: "matched",
         orderID: "0xnew",
-        takingAmount: "10",
+        makingAmount: "10000000",
+        takingAmount: "20000000",
       }),
       { orderId: "0xnew" },
     );
@@ -143,7 +148,7 @@ describe("settleArbLeg (Polymarket)", () => {
       expect.objectContaining({ pendingBindOrderId: expect.any(String) }),
     );
     expect(out.rejected).toBe(false);
-    expect(out.orders.length).toBeGreaterThan(0);
+    expect(out.orders[0]?.orderId).toBe("0xnew");
   });
 
   it("uncertain fill polls trade before rejecting on stale list", async () => {
