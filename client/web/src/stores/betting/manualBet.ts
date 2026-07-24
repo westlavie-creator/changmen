@@ -114,15 +114,16 @@ export async function runManualBet(
   if (result?.success) {
     markSuccessfulBet(account, bet.id, side, option.odds);
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
-    // [changmen 扩展] 对齐正 EV：立刻 sync 入库并刷侧栏，避免干等 Io.f 2–3 分钟
+    // [changmen 扩展] PM matched 已在 placeBet 用 POST 乐观落库；此处刷侧栏 + 后台校正
     try {
-      await wait(result.orderId ? 400 : 1500);
-      // delayed：CLOB trades 可能久未出现，勿空转 waitForOrderId（否则最多 5 次慢 getOrders）
-      const waitForOrderId = !result.pending
-        && String(account.provider ?? "") === "Polymarket"
-        ? (String(result.orderId ?? "").trim() || undefined)
-        : undefined;
-      await accountStore.updateVenueOrders(account, waitForOrderId ? { waitForOrderId } : undefined);
+      if (result.pending || String(account.provider ?? "") !== "Polymarket") {
+        await wait(result.orderId ? 400 : 1500);
+        await accountStore.updateVenueOrders(account);
+      }
+      else {
+        // matched：不干等 trades；后台 merge 校正即可
+        void accountStore.updateVenueOrders(account);
+      }
       refreshOrderListAfterBind();
     }
     catch {

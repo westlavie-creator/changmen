@@ -68,9 +68,13 @@ describe("runManualBet post-success sync", () => {
       provider: "Polymarket",
       getBalance: () => 1000,
     });
+    betting.mockResolvedValue({
+      success: true,
+      orderId: "0xabc",
+    });
   });
 
-  it("waits then updateVenueOrders + refresh sidebar after success", async () => {
+  it("PM matched: refresh sidebar without waitForOrderId (POST optimistic in placeBet)", async () => {
     const match = { title: "A vs B", bets: [], game: "Valorant" } as unknown as ViewMatch;
     const bet = {
       id: 1,
@@ -89,18 +93,15 @@ describe("runManualBet post-success sync", () => {
 
     await runManualBet(match, bet, item, "Home", { setMessage: vi.fn() });
 
-    expect(wait).toHaveBeenCalledWith(400);
+    expect(wait).not.toHaveBeenCalled();
     expect(updateVenueOrders).toHaveBeenCalledOnce();
-    expect(updateVenueOrders).toHaveBeenCalledWith(
-      expect.anything(),
-      { waitForOrderId: "0xabc" },
-    );
+    expect(updateVenueOrders).toHaveBeenCalledWith(expect.anything());
     expect(refreshOrderListAfterBind).toHaveBeenCalledOnce();
     expect(refreshBalance).toHaveBeenCalledOnce();
     expect(markSuccessfulBet).toHaveBeenCalledOnce();
   });
 
-  it("skips waitForOrderId when PM result is pending (delayed)", async () => {
+  it("PM pending: waits then updateVenueOrders without waitForOrderId", async () => {
     betting.mockResolvedValueOnce({
       success: true,
       orderId: "0xdelayed",
@@ -124,7 +125,7 @@ describe("runManualBet post-success sync", () => {
 
     await runManualBet(match, bet, item, "Home", { setMessage: vi.fn() });
 
-    expect(updateVenueOrders).toHaveBeenCalledWith(expect.anything(), undefined);
-    expect(refreshBalance).not.toHaveBeenCalled();
+    expect(wait).toHaveBeenCalledWith(400);
+    expect(updateVenueOrders).toHaveBeenCalledWith(expect.anything());
   });
 });

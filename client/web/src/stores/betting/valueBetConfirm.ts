@@ -26,6 +26,7 @@ import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
+import { buildPolymarketMatchedBuyVenueOrderFromBet } from "@changmen/venue-adapter/polymarket";
 
 export interface ValueBetConfirmContext {
   setMessage: (msg: string) => void;
@@ -183,21 +184,24 @@ export async function runValueBetConfirm(
   const result = await accountStore.betting(account, option, toastSec);
   if (result?.success) {
     markSuccessfulBet(account, bet.id, side, option.odds);
-    // 方案 B：先 saveOrders 入库，再绑 💎 Link（多数场馆 BetResult 无 orderId）
+    // 方案 B：先入库再绑 💎；PM matched 已在 placeBet 用 POST 乐观落库
     let bound = false;
     try {
-      await wait(result.orderId ? 400 : 1500);
-      // delayed：勿空等 CLOB；仅 PM 即时成交走 waitForOrderId
-      const waitForOrderId = !result.pending
-        && String(account.provider ?? "") === "Polymarket"
-        ? (String(result.orderId ?? "").trim() || undefined)
-        : undefined;
-      const orders = (await accountStore.updateVenueOrders(
-        account,
-        waitForOrderId ? { waitForOrderId } : undefined,
-      )) ?? [];
+      let orders: Awaited<ReturnType<typeof accountStore.updateVenueOrders>> = [];
+      if (result.pending || String(account.provider ?? "") !== "Polymarket") {
+        await wait(result.orderId ? 400 : 1500);
+        orders = (await accountStore.updateVenueOrders(account)) ?? [];
+      }
+      else {
+        orders = (await accountStore.updateVenueOrders(account)) ?? [];
+        const oid = String(result.orderId ?? "").trim();
+        if (oid && !orders.some(o => String(o.orderId ?? "").trim() === oid)) {
+          const synthetic = buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
+          if (synthetic)
+            orders = [synthetic, ...orders];
+        }
+      }
       bound = await bindArbLegOrder(linkId, account, result, orders, false);
-      // 无论绑单是否成功都刷侧栏（有入库则可见；未入库也不挡后续 Io.f）
       refreshOrderListAfterBind();
     }
     catch {

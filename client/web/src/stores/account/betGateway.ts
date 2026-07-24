@@ -18,6 +18,7 @@ import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetect
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
+import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts;
 
@@ -146,6 +147,15 @@ export async function placeBet(
     }
     else {
       result = await provider.betting(account, option);
+      // PM matched：官方 POST 成交即真相，立刻落库，勿干等 /data/trades
+      if (result.success && !result.pending && account.provider === "Polymarket") {
+        try {
+          await persistPolymarketMatchedBuyOrder(account, option, result);
+        }
+        catch {
+          /* 乐观落库失败不阻断下单成功；后续 Io.f / updateVenueOrders 仍可补 */
+        }
+      }
     }
   }
   catch (e) {

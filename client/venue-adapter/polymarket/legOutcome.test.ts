@@ -16,10 +16,14 @@ vi.mock("./settlementJob", () => ({
   awaitPolymarketSettlementJob: (...args: unknown[]) => awaitPolymarketSettlementJob(...args),
 }));
 
-vi.mock("./orders", () => ({
-  fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
-    fetchPolymarketConfirmedTradeForOrder(...args),
-}));
+vi.mock("./orders", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./orders")>();
+  return {
+    ...actual,
+    fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
+      fetchPolymarketConfirmedTradeForOrder(...args),
+  };
+});
 
 function account(): PlatformAccount {
   return { provider: "Polymarket", accountId: 9 } as PlatformAccount;
@@ -109,7 +113,8 @@ describe("resolvePolymarketLegOutcome", () => {
         success: true,
         status: "matched",
         orderID: "0xnew",
-        takingAmount: "10",
+        makingAmount: "10000000",
+        takingAmount: "20000000",
       }),
       { orderId: "0xnew" },
     );
@@ -120,6 +125,7 @@ describe("resolvePolymarketLegOutcome", () => {
     const out = await resolvePolymarketLegOutcome(account(), result, { fetchVenueOrders });
 
     expect(out.settlement).toBe("filled");
+    expect(out.orders[0]?.orderId).toBe("0xnew");
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
     expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
     expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
