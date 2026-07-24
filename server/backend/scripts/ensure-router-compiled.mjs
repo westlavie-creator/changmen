@@ -17,6 +17,7 @@ const COMPILED_PAIRS = [
   ["admin_routes.ts", "admin_routes.js"],
   ["account_client_routes.ts", "account_client_routes.js"],
   ["pm_pf_routes.ts", "pm_pf_routes.js"],
+  ["action_registry.ts", "action_registry.js"],
 ];
 
 function pairIsStale(tsName, jsName) {

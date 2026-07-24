@@ -28,6 +28,13 @@ import { handleAccountClientAction, isAccountClientAction } from "./account_clie
 import { handleAdminAction, isAdminAction } from "./admin_routes.js";
 import { handleCommonApi } from "./hg_follow.js";
 import { handlePmPfAction, isPmPfAction } from "./pm_pf_routes.js";
+import {
+  compareActionRoute,
+  getActionDispatchMode,
+  getActionRoute,
+  legacyBucketFor,
+  type ActionBucket,
+} from "./action_registry.js";
 import store from "./store.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
 import { handleV4Request } from "./v4_router.js";
@@ -252,25 +259,108 @@ async function handle(
     touchUserPresence(ctx.user.id);
   }
 
-  if (isAdminAction(String(action))) {
+  const mode = getActionDispatchMode();
+  let legacyBucket: ActionBucket;
+  let result: ApiEnvelope;
+
+  if (mode === "registry") {
+    legacyBucket = legacyBucketFor(String(action));
+    result = await dispatchViaRegistry(String(action), body, ctx);
+  }
+  else {
+    const dispatched = await dispatchLegacy(String(action), body, ctx);
+    legacyBucket = dispatched.bucket;
+    result = dispatched.result;
+  }
+
+  compareActionRoute(String(action), legacyBucket);
+  return result;
+}
+
+async function dispatchLegacy(
+  action: string,
+  body: Record<string, unknown>,
+  ctx: EsportContext,
+): Promise<{ bucket: ActionBucket, result: ApiEnvelope }> {
+  if (isAdminAction(action)) {
     if (!ctx.user)
-      return fail("未登录");
-    const adminResult = await handleAdminAction(String(action), body, { user: ctx.user });
-    return adminResult ?? fail(`未知管理端 action: ${action}`);
+      return { bucket: "admin", result: fail("未登录") };
+    const adminResult = await handleAdminAction(action, body, { user: ctx.user });
+    return {
+      bucket: "admin",
+      result: adminResult ?? fail(`未知管理端 action: ${action}`),
+    };
   }
 
-  if (isPmPfAction(String(action))) {
+  if (isPmPfAction(action)) {
     if (!ctx.user)
-      return fail("未登录");
-    const pmPfResult = await handlePmPfAction(String(action), body, { user: ctx.user });
-    return pmPfResult ?? fail(`未知预测市场 action: ${action}`);
+      return { bucket: "pm_pf", result: fail("未登录") };
+    const pmPfResult = await handlePmPfAction(action, body, { user: ctx.user });
+    return {
+      bucket: "pm_pf",
+      result: pmPfResult ?? fail(`未知预测市场 action: ${action}`),
+    };
   }
 
-  if (isAccountClientAction(String(action))) {
-    const accountResult = await handleAccountClientAction(String(action), body, { user: ctx.user });
-    return (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope;
+  if (isAccountClientAction(action)) {
+    const accountResult = await handleAccountClientAction(action, body, { user: ctx.user });
+    return {
+      bucket: "account",
+      result: (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope,
+    };
   }
 
+  return {
+    bucket: "core",
+    result: await handleCoreAction(action as EsportAction, body, ctx),
+  };
+}
+
+async function dispatchViaRegistry(
+  action: string,
+  body: Record<string, unknown>,
+  ctx: EsportContext,
+): Promise<ApiEnvelope> {
+  // 未进 contract 表的 action 仍按 live 规则分类，与 legacy 前缀/Set 行为一致
+  const route = getActionRoute(action) ?? {
+    action,
+    bucket: legacyBucketFor(action),
+    handlerId: action,
+  };
+
+  switch (route.bucket) {
+    case "login":
+      // 正常路径不会进入：HTTP/IPC 已提前处理 Client_Login。
+      // 与 legacy→handleCoreAction default 保持同一文案，避免模式切换出现可观测差异。
+      return fail(`unknown action: ${action}`);
+    case "admin": {
+      if (!ctx.user)
+        return fail("未登录");
+      const adminResult = await handleAdminAction(action, body, { user: ctx.user });
+      return adminResult ?? fail(`未知管理端 action: ${action}`);
+    }
+    case "pm_pf": {
+      if (!ctx.user)
+        return fail("未登录");
+      const pmPfResult = await handlePmPfAction(action, body, { user: ctx.user });
+      return pmPfResult ?? fail(`未知预测市场 action: ${action}`);
+    }
+    case "account": {
+      const accountResult = await handleAccountClientAction(action, body, { user: ctx.user });
+      return (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope;
+    }
+    case "core":
+      return handleCoreAction(action as EsportAction, body, ctx);
+    default:
+      return fail(`unknown action: ${action}`);
+  }
+}
+
+async function handleCoreAction(
+  action: EsportAction | string,
+  body: Record<string, unknown>,
+  ctx: EsportContext,
+): Promise<ApiEnvelope> {
   switch (action as EsportAction) {
     case "Client_Logout": {
       await sb.authSignOut(ctx.token);
