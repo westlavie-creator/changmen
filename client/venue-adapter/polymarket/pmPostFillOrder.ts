@@ -19,11 +19,15 @@ export interface PolymarketMatchedBuyDisplayCtx {
   item?: string;
   pmTokenId?: string;
   pmConditionId?: string;
+  /** POST 缺 makingAmount 时用预检 USDC / bookPrice 兜底 */
+  fallbackStakeUsdc?: number;
+  fallbackPrice?: number;
 }
 
 /**
- * 官方 Place Order：FOK BUY `matched` + takingAmount/makingAmount 即为成交真相，
+ * 官方 Place Order：FOK BUY `matched` + takingAmount 即为成交真相，
  * 不必等 `/data/trades` 索引。返回 CLOB 口径 USDC（save 前再 scale 一次）。
+ * makingAmount 缺失时用 fallbackStakeUsdc + takingAmount/price 补齐。
  */
 export function buildPolymarketMatchedBuyVenueOrderUsdc(
   orderId: string,
@@ -34,14 +38,29 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
   if (!id)
     return null;
   const fill = parsePolymarketBuyOrderFill(response);
-  if (!(fill.stakeUsdc > 0) || !(fill.shares > 0))
+  let stake = fill.stakeUsdc;
+  let shares = fill.shares;
+  const fallbackStake = Number(ctx.fallbackStakeUsdc);
+  const fallbackPrice = Number(ctx.fallbackPrice);
+  const oddsHint = Number(ctx.odds);
+  const priceHint = (fallbackPrice > 0 && fallbackPrice < 1)
+    ? fallbackPrice
+    : (oddsHint > 1 ? (1 / oddsHint) : 0);
+
+  if (!(stake > 0) && fallbackStake > 0)
+    stake = round4(fallbackStake);
+  if (!(shares > 0) && stake > 0 && priceHint > 0)
+    shares = round4(stake / priceHint);
+  if (!(stake > 0) && shares > 0 && priceHint > 0)
+    stake = round4(shares * priceHint);
+
+  if (!(stake > 0) || !(shares > 0))
     return null;
-  const fillPrice = fill.stakeUsdc / fill.shares;
+  const fillPrice = stake / shares;
   if (!(fillPrice > 0 && fillPrice < 1))
     return null;
   const oddsFromFill = round4(1 / fillPrice);
-  const odds = Number(ctx.odds) > 0 ? Number(ctx.odds) : oddsFromFill;
-  const stake = fill.stakeUsdc;
+  const odds = oddsHint > 0 ? oddsHint : oddsFromFill;
   return {
     provider: PLATFORMS.Polymarket,
     orderId: id,
@@ -56,7 +75,7 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
     bet: String(ctx.bet ?? ""),
     item: String(ctx.item ?? ""),
     pmTokenId: String(ctx.pmTokenId ?? "").trim() || undefined,
-    pmShares: fill.shares,
+    pmShares: shares,
     pmFillPrice: round4(fillPrice),
     pmStakeUsdc: stake,
     pmConditionId: String(ctx.pmConditionId ?? "").trim() || undefined,
@@ -92,6 +111,15 @@ export function buildPolymarketMatchedBuyVenueOrderFromBet(
   const itemName = option.target === "Home"
     ? option.bet?.homeName
     : option.bet?.awayName;
+  const data = (option.data ?? {}) as {
+    bookPrice?: number;
+    apiBetMoney?: number;
+    betMoney?: number;
+  };
+  const bookPrice = Number(data.bookPrice);
+  const fallbackStake = Number(data.apiBetMoney) > 0
+    ? Number(data.apiBetMoney)
+    : Number(option.betMoney);
   return buildPolymarketMatchedBuyVenueOrderForSave(
     orderId,
     result.response as PolymarketOrderResponseLike | undefined,
@@ -104,6 +132,8 @@ export function buildPolymarketMatchedBuyVenueOrderFromBet(
       item: String(itemName ?? "").trim(),
       pmTokenId: String(option.itemId ?? "").trim(),
       pmConditionId: String(option.betId ?? "").trim(),
+      fallbackStakeUsdc: fallbackStake > 0 ? fallbackStake : undefined,
+      fallbackPrice: bookPrice > 0 && bookPrice < 1 ? bookPrice : undefined,
     },
   );
 }

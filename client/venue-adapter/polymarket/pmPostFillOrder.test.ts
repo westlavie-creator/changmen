@@ -47,7 +47,29 @@ describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
     expect(order?.reward).toBe(20);
   });
 
-  it("returns null without fill amounts", () => {
+  it("falls back to stake/price when makingAmount missing", () => {
+    const order = buildPolymarketMatchedBuyVenueOrderUsdc(
+      "0xno-make",
+      {
+        success: true,
+        status: "matched",
+        takingAmount: "20000000",
+      },
+      {
+        fallbackStakeUsdc: 10,
+        fallbackPrice: 0.5,
+        odds: 2,
+      },
+    );
+    expect(order).toMatchObject({
+      orderId: "0xno-make",
+      betMoney: 10,
+      pmShares: 20,
+      pmFillPrice: 0.5,
+    });
+  });
+
+  it("returns null without fill amounts or fallbacks", () => {
     expect(buildPolymarketMatchedBuyVenueOrderUsdc("0x1", {
       success: true,
       status: "matched",

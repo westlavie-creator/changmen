@@ -116,12 +116,22 @@ export async function runManualBet(
     setMessage(`手动下单成功 ${item.type}@${option.odds}`);
     // [changmen 扩展] PM matched 已在 placeBet 用 POST 乐观落库；此处刷侧栏 + 后台校正
     try {
-      if (result.pending || String(account.provider ?? "") !== "Polymarket") {
+      const provider = String(account.provider ?? "");
+      const optimisticOk = Boolean(
+        (result.tip as { pmOptimisticSaved?: boolean } | null | undefined)?.pmOptimisticSaved,
+      );
+      if (result.pending || provider !== "Polymarket") {
         await wait(result.orderId ? 400 : 1500);
         await accountStore.updateVenueOrders(account);
       }
+      else if (!optimisticOk) {
+        // matched 但乐观落库失败：短重试等 trades，避免侧栏空窗
+        await wait(400);
+        await accountStore.updateVenueOrders(account, {
+          waitForOrderId: String(result.orderId ?? "").trim() || undefined,
+        });
+      }
       else {
-        // matched：不干等 trades；后台 merge 校正即可
         void accountStore.updateVenueOrders(account);
       }
       refreshOrderListAfterBind();

@@ -188,9 +188,19 @@ export async function runValueBetConfirm(
     let bound = false;
     try {
       let orders: Awaited<ReturnType<typeof accountStore.updateVenueOrders>> = [];
-      if (result.pending || String(account.provider ?? "") !== "Polymarket") {
+      const provider = String(account.provider ?? "");
+      const optimisticOk = Boolean(
+        (result.tip as { pmOptimisticSaved?: boolean } | null | undefined)?.pmOptimisticSaved,
+      );
+      if (result.pending || provider !== "Polymarket") {
         await wait(result.orderId ? 400 : 1500);
         orders = (await accountStore.updateVenueOrders(account)) ?? [];
+      }
+      else if (!optimisticOk) {
+        await wait(400);
+        orders = (await accountStore.updateVenueOrders(account, {
+          waitForOrderId: String(result.orderId ?? "").trim() || undefined,
+        })) ?? [];
       }
       else {
         orders = (await accountStore.updateVenueOrders(account)) ?? [];

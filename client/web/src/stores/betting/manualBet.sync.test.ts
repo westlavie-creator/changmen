@@ -12,9 +12,11 @@ const betting = vi.hoisted(() => vi.fn(async (): Promise<{
   success: boolean;
   orderId: string;
   pending?: boolean;
+  tip?: { pmOptimisticSaved?: boolean };
 }> => ({
   success: true,
   orderId: "0xabc",
+  tip: { pmOptimisticSaved: true },
 })));
 const getAccount = vi.hoisted(() => vi.fn());
 const refreshOrderListAfterBind = vi.hoisted(() => vi.fn());
@@ -75,10 +77,11 @@ describe("runManualBet post-success sync", () => {
     betting.mockResolvedValue({
       success: true,
       orderId: "0xabc",
+      tip: { pmOptimisticSaved: true },
     });
   });
 
-  it("PM matched: refresh sidebar without waitForOrderId (POST optimistic in placeBet)", async () => {
+  it("PM matched + optimistic saved: refresh without waitForOrderId", async () => {
     const match = { title: "A vs B", bets: [], game: "Valorant" } as unknown as ViewMatch;
     const bet = {
       id: 1,
@@ -131,5 +134,35 @@ describe("runManualBet post-success sync", () => {
 
     expect(wait).toHaveBeenCalledWith(400);
     expect(updateVenueOrders).toHaveBeenCalledWith(expect.anything());
+  });
+
+  it("PM matched without optimistic tip: falls back to waitForOrderId", async () => {
+    betting.mockResolvedValueOnce({
+      success: true,
+      orderId: "0xfallback",
+    });
+    const match = { title: "A vs B", bets: [], game: "CS" } as unknown as ViewMatch;
+    const bet = {
+      id: 1,
+      homeName: "A",
+      awayName: "B",
+      getBetName: () => "Map 1",
+      items: [],
+    } as unknown as ViewBet;
+    const item = {
+      type: "Polymarket",
+      matchId: "m1",
+      betId: "b1",
+      getOdds: () => 1.8,
+      getItemId: () => "i1",
+    } as unknown as ViewBetItem;
+
+    await runManualBet(match, bet, item, "Home", { setMessage: vi.fn() });
+
+    expect(wait).toHaveBeenCalledWith(400);
+    expect(updateVenueOrders).toHaveBeenCalledWith(
+      expect.anything(),
+      { waitForOrderId: "0xfallback" },
+    );
   });
 });

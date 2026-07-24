@@ -150,7 +150,10 @@ export async function placeBet(
       // PM matched：官方 POST 成交即真相，立刻落库，勿干等 /data/trades
       if (result.success && !result.pending && account.provider === "Polymarket") {
         try {
-          await persistPolymarketMatchedBuyOrder(account, option, result);
+          const saved = await persistPolymarketMatchedBuyOrder(account, option, result);
+          // 供手动/正EV：乐观落库失败时回退 waitForOrderId
+          if (saved)
+            result.tip = { pmOptimisticSaved: true };
         }
         catch {
           /* 乐观落库失败不阻断下单成功；后续 Io.f / updateVenueOrders 仍可补 */
