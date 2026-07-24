@@ -8,7 +8,11 @@ const checkBetting = vi.hoisted(() => vi.fn(async (opt: unknown) => {
   o.data = {};
   return o;
 }));
-const betting = vi.hoisted(() => vi.fn(async () => ({
+const betting = vi.hoisted(() => vi.fn(async (): Promise<{
+  success: boolean;
+  orderId: string;
+  pending?: boolean;
+}> => ({
   success: true,
   orderId: "0xabc",
 })));
