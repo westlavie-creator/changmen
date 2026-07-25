@@ -51,7 +51,7 @@ export async function handlePolymarketRelayerSign(req, res, readJsonBody) {
     return true;
   }
 
-  const signed = signPolymarketRelayerRequest(payload);
+  const signed = await signPolymarketRelayerRequest(payload);
   if (!signed.ok) {
     res.writeHead(signed.msg.includes("未配置") ? 503 : 400, {
       "Content-Type": "application/json; charset=utf-8",

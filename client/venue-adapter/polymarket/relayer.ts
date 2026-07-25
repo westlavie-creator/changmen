@@ -8,6 +8,8 @@ import {
   POLYGON_CHAIN_ID,
 } from "./depositWallet";
 import { POLYGON_POLYMARKET, polymarketTradeSpenders } from "./contracts";
+import { resolvePmWalletPrepSdk } from "./pmWalletPrepSdk";
+import { preparePolymarketWalletUnified } from "./walletPrepUnified";
 
 export {
   buildDepositWalletApprovalCalls,
@@ -30,6 +32,12 @@ export interface PolymarketRelayerPrepareInput {
   authToken: string;
   relayerUrl?: string;
   signatureType?: SignatureType;
+  /** unified 路径可选：已有 CLOB L2 凭证，避免 createSecureClient 再派生 */
+  credentials?: {
+    key: string;
+    secret: string;
+    passphrase: string;
+  };
 }
 
 export interface PolymarketRelayerPrepareResult {
@@ -235,6 +243,10 @@ async function preparePolymarketWalletInner(
   const signUrl = input.signUrl.trim();
   if (!signUrl.startsWith("http://") && !signUrl.startsWith("https://"))
     return { ok: false, message: "Relayer 远程签名 URL 必须是绝对地址" };
+
+  // 备选：@polymarket/client；默认 legacy（builder-relayer-client）
+  if (resolvePmWalletPrepSdk() === "unified")
+    return preparePolymarketWalletUnified(input);
 
   const numeric = Number(input.signatureType ?? 3);
   if (numeric === 3)

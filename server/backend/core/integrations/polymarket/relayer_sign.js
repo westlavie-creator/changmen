@@ -5,22 +5,38 @@ import {
   loadPolymarketBuilderCreds,
   loadPolymarketRelayerApiKeyAuth,
 } from "./relayer_config.js";
+import { signPolymarketRelayerRequestUnified } from "./relayer_sign_unified.js";
 
 /**
- * 返回 Relayer 请求头。SDK remoteBuilderConfig 会 POST 到此逻辑。
+ * Relayer HMAC 实现选型。默认 legacy（builder-signing-sdk）。
+ * 备选 unified → relayer_sign_unified.js（@polymarket/client.buildHmacSignature）。
+ * 环境变量：POLYMARKET_RELAYER_SIGN_SDK=legacy|unified
+ */
+export function resolvePolymarketRelayerSignSdk() {
+  const raw = String(process.env.POLYMARKET_RELAYER_SIGN_SDK || "").trim().toLowerCase();
+  if (raw === "unified" || raw === "client" || raw === "ts-sdk")
+    return "unified";
+  return "legacy";
+}
+
+/**
+ * 返回 Relayer 请求头。SDK remoteBuilderConfig / remoteBuilderSigning 会 POST 到此逻辑。
  * - relayer_api_key：固定两 header，无需 HMAC
  * - builder_hmac：按 method/path/body 算 POLY_BUILDER_* 签名
  *
  * @param {{ method?: string, path?: string, body?: string, timestamp?: number }} payload
- * @returns {{ ok: true, headers: Record<string, string> } | { ok: false, msg: string }}
+ * @returns {Promise<{ ok: true, headers: Record<string, string> } | { ok: false, msg: string }>}
  */
-export function signPolymarketRelayerRequest(payload) {
+export async function signPolymarketRelayerRequest(payload) {
   const mode = getPolymarketRelayerAuthMode();
   if (mode === "relayer_api_key") {
     const relayerHeaders = loadPolymarketRelayerApiKeyAuth();
     if (relayerHeaders)
       return { ok: true, headers: { ...relayerHeaders } };
   }
+
+  if (resolvePolymarketRelayerSignSdk() === "unified")
+    return signPolymarketRelayerRequestUnified(payload);
 
   const creds = loadPolymarketBuilderCreds();
   if (!creds) {
@@ -56,5 +72,6 @@ export function getPolymarketRelayerPublicStatus() {
   return {
     configured: isPolymarketRelayerConfigured(),
     authMode: getPolymarketRelayerAuthMode(),
+    signSdk: resolvePolymarketRelayerSignSdk(),
   };
 }

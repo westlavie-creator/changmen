@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { afterEach, it } from "vitest";
+import { BuilderSigner } from "@polymarket/builder-signing-sdk";
 import {
   getPolymarketRelayerPublicStatus,
+  resolvePolymarketRelayerSignSdk,
   signPolymarketRelayerRequest,
 } from "./relayer_sign.js";
 
@@ -11,6 +13,7 @@ const ENV_KEYS = [
   "POLY_BUILDER_API_KEY",
   "POLY_BUILDER_SECRET",
   "POLY_BUILDER_PASSPHRASE",
+  "POLYMARKET_RELAYER_SIGN_SDK",
 ];
 
 function clearRelayerEnv() {
@@ -22,28 +25,28 @@ afterEach(() => {
   clearRelayerEnv();
 });
 
-it("signPolymarketRelayerRequest fails when creds missing", () => {
+it("signPolymarketRelayerRequest fails when creds missing", async () => {
   clearRelayerEnv();
-  const r = signPolymarketRelayerRequest({ method: "POST", path: "/submit" });
+  const r = await signPolymarketRelayerRequest({ method: "POST", path: "/submit" });
   assert.equal(r.ok, false);
   assert.match(r.msg, /未配置/);
 });
 
-it("signPolymarketRelayerRequest returns RELAYER_API_KEY headers (preferred)", () => {
+it("signPolymarketRelayerRequest returns RELAYER_API_KEY headers (preferred)", async () => {
   process.env.RELAYER_API_KEY = "01967c03-b8c8-7000-8f68-8b8eaec6fd3d";
   process.env.RELAYER_API_KEY_ADDRESS = "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5";
-  const r = signPolymarketRelayerRequest({ method: "POST", path: "/submit" });
+  const r = await signPolymarketRelayerRequest({ method: "POST", path: "/submit" });
   assert.equal(r.ok, true);
   assert.equal(r.headers.RELAYER_API_KEY, "01967c03-b8c8-7000-8f68-8b8eaec6fd3d");
   assert.equal(r.headers.RELAYER_API_KEY_ADDRESS, "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5");
   assert.equal(r.headers.POLY_BUILDER_API_KEY, undefined);
 });
 
-it("signPolymarketRelayerRequest returns POLY_BUILDER_* when no relayer key", () => {
+it("signPolymarketRelayerRequest returns POLY_BUILDER_* when no relayer key", async () => {
   process.env.POLY_BUILDER_API_KEY = "test-key";
   process.env.POLY_BUILDER_SECRET = "dGVzdC1zZWNyZXQ=";
   process.env.POLY_BUILDER_PASSPHRASE = "test-pass";
-  const r = signPolymarketRelayerRequest({
+  const r = await signPolymarketRelayerRequest({
     method: "POST",
     path: "/submit",
     body: "{\"foo\":1}",
@@ -56,6 +59,31 @@ it("signPolymarketRelayerRequest returns POLY_BUILDER_* when no relayer key", ()
   assert.match(r.headers.POLY_BUILDER_SIGNATURE, /^[A-Za-z0-9_=-]+$/);
 });
 
+it("unified sign sdk matches legacy BuilderSigner HMAC", async () => {
+  process.env.POLY_BUILDER_API_KEY = "test-key";
+  process.env.POLY_BUILDER_SECRET = "dGVzdC1zZWNyZXQ=";
+  process.env.POLY_BUILDER_PASSPHRASE = "test-pass";
+  process.env.POLYMARKET_RELAYER_SIGN_SDK = "unified";
+  assert.equal(resolvePolymarketRelayerSignSdk(), "unified");
+
+  const method = "POST";
+  const path = "/submit";
+  const body = "{\"foo\":1}";
+  const timestamp = 1_700_000_000;
+  const r = await signPolymarketRelayerRequest({ method, path, body, timestamp });
+  assert.equal(r.ok, true);
+
+  const legacy = new BuilderSigner({
+    key: "test-key",
+    secret: "dGVzdC1zZWNyZXQ=",
+    passphrase: "test-pass",
+  }).createBuilderHeaderPayload(method, path, body, timestamp);
+
+  assert.equal(r.headers.POLY_BUILDER_SIGNATURE, legacy.POLY_BUILDER_SIGNATURE);
+  assert.equal(r.headers.POLY_BUILDER_API_KEY, "test-key");
+  assert.equal(r.headers.POLY_BUILDER_TIMESTAMP, "1700000000");
+});
+
 it("getPolymarketRelayerPublicStatus reflects env", () => {
   clearRelayerEnv();
   assert.equal(getPolymarketRelayerPublicStatus().configured, false);
@@ -64,6 +92,7 @@ it("getPolymarketRelayerPublicStatus reflects env", () => {
   const s = getPolymarketRelayerPublicStatus();
   assert.equal(s.configured, true);
   assert.equal(s.authMode, "relayer_api_key");
+  assert.equal(s.signSdk, "legacy");
 });
 
 it("prefers builder_hmac when both relayer key and builder creds exist", () => {

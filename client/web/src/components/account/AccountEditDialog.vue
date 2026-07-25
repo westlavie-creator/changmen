@@ -523,6 +523,15 @@ async function onPreparePolymarketWallet() {
       signatureType: resolvePolymarketRelayerSignatureType(),
       signUrl: polymarketRelayerSignUrl(),
       authToken,
+      ...(polyApiCreds.value?.apiKey && polyApiCreds.value.secret && polyApiCreds.value.passphrase
+        ? {
+            credentials: {
+              key: polyApiCreds.value.apiKey,
+              secret: polyApiCreds.value.secret,
+              passphrase: polyApiCreds.value.passphrase,
+            },
+          }
+        : {}),
     });
     if (!result.ok)
       throw new Error(result.message);

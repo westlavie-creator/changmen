@@ -33,6 +33,7 @@ export * from "./pmUserWsMode";
 export * from "./pmLogicalPosition";
 export * from "./pmMapOutcomeStore";
 export * from "./pmTransportMode";
+export * from "./pmWalletPrepSdk";
 export * from "./credentials";
 export * from "./depositWallet";
 export * from "./polygonRpc";
