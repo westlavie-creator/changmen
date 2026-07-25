@@ -71,7 +71,8 @@ const filteredUsers = computed(() => {
   return users.value.filter(
     u =>
       u.userName.toLowerCase().includes(q)
-      || u.id.toLowerCase().includes(q),
+      || u.id.toLowerCase().includes(q)
+      || String(u.lastLoginIp || "").toLowerCase().includes(q),
   );
 });
 
@@ -450,7 +451,7 @@ onUnmounted(() => {
           v-model="keyword"
           clearable
           size="small"
-          placeholder="搜索用户名 / ID"
+          placeholder="搜索用户名 / ID / IP"
           style="width: 200px"
         />
         <el-button size="small" @click="loadUsers">
@@ -549,6 +550,16 @@ onUnmounted(() => {
             <el-table-column label="最近活跃" width="100">
               <template #default="{ row }">
                 {{ fmtTime(row.lastActiveAt || 0) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="登录 IP" min-width="128" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span
+                  class="admin-user-ip"
+                  :title="row.lastLoginAt ? `登录于 ${fmtTime(row.lastLoginAt)}` : undefined"
+                >
+                  {{ row.lastLoginIp || "—" }}
+                </span>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="340" fixed="right">

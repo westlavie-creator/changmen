@@ -122,7 +122,7 @@ async function preparePolymarketWalletUnifiedInner(
     relayer: { rest: relayerRest },
   });
 
-  const client = await createSecureClient({
+  const baseOpts = {
     signer,
     environment,
     apiKey: remoteBuilderSigning({
@@ -131,16 +131,21 @@ async function preparePolymarketWalletUnifiedInner(
         Authorization: `Bearer ${authToken}`,
       },
     }),
-    ...(input.credentials?.key && input.credentials.secret && input.credentials.passphrase
+  };
+  const creds = input.credentials;
+  // ApiKeyCreds 使用 branded string；账号侧存的是普通 string，此处断言接入 SDK
+  const client = await createSecureClient(
+    (creds?.key && creds.secret && creds.passphrase
       ? {
+          ...baseOpts,
           credentials: {
-            key: input.credentials.key,
-            secret: input.credentials.secret,
-            passphrase: input.credentials.passphrase,
+            key: creds.key,
+            secret: creds.secret,
+            passphrase: creds.passphrase,
           },
         }
-      : {}),
-  });
+      : baseOpts) as Parameters<typeof createSecureClient>[0],
+  );
 
   const funder = String(client.account.wallet);
   await client.setupTradingApprovals();
