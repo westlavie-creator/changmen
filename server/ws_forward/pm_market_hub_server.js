@@ -22,7 +22,7 @@ async function resolveIdentityLight(token) {
   if (!token)
     return null;
   try {
-    const { authGetUser, authPeekAccessToken } = await import("@changmen/db");
+    const { authGetUser, authPeekAccessToken, fetchUserById } = await import("@changmen/db");
     let userId = "";
     try {
       const auth = await authGetUser(token);
@@ -42,7 +42,15 @@ async function resolveIdentityLight(token) {
     }
     if (!userId)
       return null;
-    return { userId, userName: "" };
+    let userName = "";
+    try {
+      const user = await fetchUserById(userId);
+      userName = String(user?.user_name || "").trim();
+    }
+    catch {
+      /* userName 可选；缺省时健康页回退显示 userId */
+    }
+    return { userId, userName };
   }
   catch {
     return null;

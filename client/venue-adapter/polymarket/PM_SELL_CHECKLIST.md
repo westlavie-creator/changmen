@@ -63,7 +63,7 @@ PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏
 | 双计扫修 | `scripts/ops/incidents/scan-fix-pm-sell-pnl-double.mjs`（先 `--dry-run`） |
 | 历史迁移 | `migrate-pm-sell-pnl-to-buy.mjs` 等 |
 
-**巡检基线（2026-07-21，近 30 天）**：`pm_money_2x_sell_pnl` / 买卖双计 / 孤儿卖单 = 0；残留 high 仅 `pm_sold_out_but_stake_left`（stake 未扣干净，另案）。
+**巡检基线（2026-07-25，近 30 天）**：`audit-order-sidebar-health` 全桶 = 0（含 `pm_sold_out_but_stake_left`）；全量 dry-run `fix-pm-sold-out-stake-left` 亦 = 0。历史残留已清，无需再 `--execute`。
 
 ---
 
