@@ -42,7 +42,11 @@ assert.equal(resolveFootballLeagueFromText("Premier League"), "epl");
 assert.equal(resolveFootballLeagueFromText("Chinese Super League"), "chi");
 assert.equal(resolveFootballLeagueFromText("中超"), "chi");
 assert.equal(resolveFootballLeagueFromText("CSL"), "chi");
+assert.equal(resolveFootballLeagueFromText("chi"), "chi");
 assert.equal(resolveFootballLeagueFromText("chi-hai-jin-2026-07-25"), "chi");
+// 无 /u 时 \bchi\b 会误伤 Chişinău（ş 非 ASCII \w）
+assert.equal(resolveFootballLeagueFromText("Noah FA vs FC Zimbru Chişinău"), null);
+assert.equal(resolveFootballLeagueFromText("Chișinău"), null);
 assert.equal(resolveFootballLeagueFromText("mls"), "mls");
 assert.equal(resolveFootballLeagueFromText("Copa América"), "copa");
 assert.equal(resolveFootballLeagueFromText("Copa del Rey"), null);

@@ -255,35 +255,38 @@ export function orientSpreadLine(line, flipped) {
 
 /**
  * PF/PM 文本 → 足球联赛 Game 码；对不上返回 null（调用方兜底）。
+ * chi 勿用裸 \bchi\b（V8 对 Chişinău 的 ş 仍可能切出 chi）；用 \p{L} 环视。
  * @param {string} text
  */
 export function resolveFootballLeagueFromText(text) {
   const raw = String(text || "").toLowerCase();
   if (!raw)
     return null;
+  /** @type {Array<[RegExp, string]>} */
   const table = [
-    [/\b(epl|premier league)\b/, "epl"],
-    [/\b(lal|la liga|laliga)\b/, "lal"],
-    [/\b(bun|bundesliga)\b/, "bun"],
-    [/\b(fl1|ligue 1)\b/, "fl1"],
-    [/\b(sea|serie a)\b/, "sea"],
-    [/\b(ucl|champions league)\b/, "ucl"],
-    [/\b(uel|europa league)\b/, "uel"],
-    [/\bmls\b/, "mls"],
-    [/\b(ere|eredivisie)\b/, "ere"],
-    [/\b(por|primeira liga|liga portugal)\b/, "por"],
-    [/\b(uef|uefa)\b/, "uef"],
-    [/\b(fif|fifa|world cup)\b/, "fif"],
-    [/\b(mex|liga mx)\b/, "mex"],
-    [/\b(bra|brasileir)/, "bra"],
-    [/\b(arg|primera(?:\s+divisi[oó]n)?|argentina)\b/, "arg"],
+    [/\b(epl|premier league)\b/u, "epl"],
+    [/\b(lal|la liga|laliga)\b/u, "lal"],
+    [/\b(bun|bundesliga)\b/u, "bun"],
+    [/\b(fl1|ligue 1)\b/u, "fl1"],
+    [/\b(sea|serie a)\b/u, "sea"],
+    [/\b(ucl|champions league)\b/u, "ucl"],
+    [/\b(uel|europa league)\b/u, "uel"],
+    [/\bmls\b/u, "mls"],
+    [/\b(ere|eredivisie)\b/u, "ere"],
+    [/\b(por|primeira liga|liga portugal)\b/u, "por"],
+    [/\b(uef|uefa)\b/u, "uef"],
+    [/\b(fif|fifa|world cup)\b/u, "fif"],
+    [/\b(mex|liga mx)\b/u, "mex"],
+    [/\b(bra|brasileir)/u, "bra"],
+    [/\b(arg|primera(?:\s+divisi[oó]n)?|argentina)\b/u, "arg"],
     // 仅美洲杯；勿用裸 \bcopa\b（会误伤 Copa del Rey / Copa Libertadores 等）
-    [/\bcopa\s+am[eé]rica\b|\bamerica'?s?\s+cup\b|美洲杯/, "copa"],
-    [/\b(jap|j-?league)\b/, "jap"],
-    [/\b(afc)\b/, "afc"],
-    [/\b(caf)\b/, "caf"],
-    [/\b(chi2|china league one)\b/, "chi2"],
-    [/\b(chi|csl|chinese super league)\b|中超/, "chi"],
+    [/\bcopa\s+am[eé]rica\b|\bamerica'?s?\s+cup\b|美洲杯/u, "copa"],
+    [/\b(jap|j-?league)\b/u, "jap"],
+    [/\b(afc)\b/u, "afc"],
+    [/\b(caf)\b/u, "caf"],
+    [/\b(chi2|china league one)\b/u, "chi2"],
+    // 勿用裸 \bchi\b：V8 对 Chişinău 的 ş 词界仍可能切出 chi；用字母类环视
+    [/\b(csl|chinese\s+super\s+league)\b|(?<![\p{L}\p{N}_])chi(?![\p{L}\p{N}_])|中超/u, "chi"],
   ];
   for (const [re, code] of table) {
     if (re.test(raw))

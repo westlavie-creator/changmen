@@ -82,6 +82,24 @@
 6. **N3.5**：棒/足赔率随 WS 变；关 Tab 后体育订阅清空；电竞 fo 无 MLB/soccer token；`BetRow.vue` 无 `sportOddsStore` 引用
 7. **足球让球/大小**：中超常见双馆有线；MLS 等可仅 PM 有线、PF 只有胜负
 
+### Phase 0 合并质量抽检（2026-07-25）
+
+脚本：[`audit-football-merge-coverage.mjs`](../server/backend/scripts/ops/diagnostics/audit-football-merge-coverage.mjs)（默认 `store.buildFootballMatchList`，与 API 同路径）。
+
+| 指标（当次） | 结果 |
+|--------------|------|
+| 总场次 | 131 |
+| 双馆场 | 45 |
+| 双馆且有 props 行 | 44 |
+| **双馆同线**（`spreads\|line` / `totals\|line` 两侧皆有） | **9**（全部 `chi`） |
+| `chi` | 11 场；双馆 9；**同线 9**；抽检 gap（双馆有 props 但无同线 / 有 props 但单馆）**0** |
+| `mls` / `ucl` / `uel` | 双馆多，但同线 **0**（PF 无对应让球/大小 → 上游供给） |
+| `uef` / `bra` / `mex` / `chi2` | 基本单馆并列 |
+
+**检测宇宙（N4-detect）**：以 **中超 `chi` 双馆同线** 为主；不把 MLS/欧战「有双馆胜负但无线」当漏并。  
+**已修**：`resolveFootballLeagueFromText` 对 `chi` 使用 unicode 词界，避免 `Chişinău` 误标中超（`sport_football_markets`）。  
+**噪声**：偶发非中超场进列表（如过期缓存 `Yes vs No`）由检测过滤；不因此新建 matcher。
+
 ### 验收记录（2026-07-15）
 
 | # | 结论 | 依据 |
