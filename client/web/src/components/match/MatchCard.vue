@@ -2,6 +2,7 @@
 import type { ViewMatch } from "@/models/match";
 import BetRow from "@/components/match/BetRow.vue";
 import { formatDate } from "@changmen/client-core/shared/format";
+import { getGameDisplayName } from "@changmen/shared/catalog/game_catalog.browser";
 import {
   formatResolutionSourceLabel,
   normalizeResolutionSourceHref,
@@ -25,6 +26,9 @@ const props = withDefaults(
   { allowBetting: true },
 );
 
+/** catalog code → 中文名；电竞 DTO 已是中文名时原样 */
+const gameTag = computed(() => getGameDisplayName(props.match.game || ""));
+
 /** Gamma resolutionSource（经 MarketIndex）；Index 未命中时回退 pm_sport 上的同字段（Gamma 合并写入，非 Sports 比分） */
 const resolutionSource = computed(() => {
   void pmMapOutcomeTick.value;
@@ -42,7 +46,7 @@ const resolutionHref = computed(() => normalizeResolutionSourceHref(resolutionSo
 <template>
   <div class="match">
     <div class="match-title">
-      <label v-if="match.game" class="game-tag">[{{ match.game }}]</label>
+      <label v-if="gameTag" class="game-tag">[{{ gameTag }}]</label>
       <label v-html="match.title" />
       <label class="startTime">{{ formatDate(match.startAt) }}</label>
       <span v-if="resolutionLabel && resolutionHref" class="pm-sport">

@@ -98,7 +98,10 @@ function listGames(): GameEntry[] {
 }
 
 function getGameByCode(code: string): GameEntry | null {
-  return (catalog.games as GameEntry[]).find(g => g.code === code) || null;
+  const key = String(code || "").trim().toLowerCase();
+  if (!key)
+    return null;
+  return (catalog.games as GameEntry[]).find(g => g.code === key) || null;
 }
 
 /** game_catalog.code → sport；缺省 esport */
@@ -107,6 +110,25 @@ function getGameSport(code: string): string | null {
   if (!game)
     return null;
   return game.sport ?? DEFAULT_GAME_SPORT;
+}
+
+/**
+ * UI 展示名：catalog code → name；电竞 Client_GetMatchs 已下发中文名时原样返回。
+ * 内部合并/配对仍用 code，不在此改写。
+ */
+function getGameDisplayName(codeOrName: string): string {
+  const raw = String(codeOrName || "").trim();
+  if (!raw)
+    return "";
+  const game = getGameByCode(raw);
+  if (game)
+    return game.name || raw;
+  return raw;
+}
+
+/** Client_GetGames / 采集凭证：仅电竞条目（棒球/足球联赛不进 venue_games） */
+function isEsportCatalogGame(game: GameEntry): boolean {
+  return (game.sport ?? DEFAULT_GAME_SPORT) === "esport";
 }
 
 function normalizePlatformKey(platform: string): string {
@@ -122,8 +144,9 @@ function normalizePlatformKey(platform: string): string {
 
 function parseActiveGameCodes(): string[] {
   const raw = process.env.AGGREGATE_GAME_CODES;
+  const all = (catalog.games as GameEntry[]).filter(isEsportCatalogGame);
   if (!raw || raw === "*") {
-    return (catalog.games as GameEntry[]).map(g => g.code);
+    return all.map(g => g.code);
   }
   const wanted = new Set(
     raw
@@ -131,7 +154,7 @@ function parseActiveGameCodes(): string[] {
       .map(s => s.trim().toLowerCase())
       .filter(Boolean),
   );
-  return (catalog.games as GameEntry[]).filter(g => wanted.has(g.code)).map(g => g.code);
+  return all.filter(g => wanted.has(g.code)).map(g => g.code);
 }
 
 function getActiveGames(): GameEntry[] {
@@ -284,6 +307,7 @@ export {
   getCatalogSummary,
   getGameByCode,
   getGameCodeForPlatformId,
+  getGameDisplayName,
   getGameSport,
   getPlatformGameId,
   isAllowedPlatformGameId,

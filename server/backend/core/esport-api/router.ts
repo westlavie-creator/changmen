@@ -167,6 +167,9 @@ function gamesForProvider(provider: string): string[] {
 
   const ids = new Set<string>();
   for (const game of catalog.games || []) {
+    // 棒球/足球联赛不进 Client_GetGames（与 venue_games 仅电竞一致）
+    if (((game as { sport?: string }).sport ?? "esport") !== "esport")
+      continue;
     const id = game.platforms?.[provider];
     if (id)
       ids.add(String(id));

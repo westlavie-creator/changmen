@@ -79,6 +79,10 @@ export class ViewBet {
   initialAwayOdds: number;
   isLive?: boolean;
   startTime?: number;
+  /** [changmen 扩展] 体育规范盘口 */
+  marketCode?: string;
+  /** [changmen 扩展] 让球/大小线 */
+  line?: number | null;
 
   constructor(row: BetRowDto, providers: Record<string, string | number>, liveRound: number, roundStart: number) {
     this.id = row.ID;
@@ -86,6 +90,8 @@ export class ViewBet {
     this.awayName = row.AwayName;
     this.name = row.Name;
     this.round = row.Map;
+    this.marketCode = row.MarketCode;
+    this.line = row.Line ?? null;
     this.initialHomeOdds = Number(row.InitialHomeOdds) || 0;
     this.initialAwayOdds = Number(row.InitialAwayOdds) || 0;
     if (liveRound !== 0 && liveRound === this.round) {
@@ -103,6 +109,17 @@ export class ViewBet {
   }
 
   getBetName(): string {
+    // [changmen 扩展] 仅体育盘带 MarketCode；电竞 Bets.Name 是平台原文，不得由此改写标题
+    if (this.marketCode) {
+      if (this.name)
+        return this.name;
+      if (this.marketCode === "spreads")
+        return this.line != null ? `让球 ${this.line}` : "让球";
+      if (this.marketCode === "totals")
+        return this.line != null ? `大小 ${this.line}` : "大小球";
+      if (this.marketCode === "moneyline")
+        return "全场胜负";
+    }
     if (this.round === -1)
       return this.name ?? "";
     if (this.round === 0)

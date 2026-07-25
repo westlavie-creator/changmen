@@ -152,6 +152,16 @@ export interface BetRowDto {
   /** matcher 进行中 OB 无 Map=0 时保留，供 Web 初赔行 */
   InitialHomeOdds?: number;
   InitialAwayOdds?: number;
+  /**
+   * [changmen 扩展] 体育规范盘口：moneyline | spreads | totals。
+   * 电竞路径不使用。
+   */
+  MarketCode?: string;
+  /**
+   * [changmen 扩展] 让球/大小球线（相对主队；moneyline 为 null）。
+   * 电竞路径不使用。
+   */
+  Line?: number | null;
   Sources: Record<string, BetSourceDto>;
 }
 

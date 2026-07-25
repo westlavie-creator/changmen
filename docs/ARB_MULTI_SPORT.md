@@ -1,7 +1,27 @@
 # 多运动接入 — MVP 与收敛
 
-> **目标**：同一主控台按 Tab 看电竞 / 棒球（及以后足球）；列表只读即可。  
+> **目标**：同一主控台按 Tab 看电竞 / 棒球 / 足球；体育列表只读即可。  
 > **电竞红线**：`Client_GetMatchs` / matcher / `client_matches` / `matchStore` 主循环 **零改动**。
+
+---
+
+## 0. 总原则（硬约束 · 不可破）
+
+**足球（及任何非电竞运动）的需求、实现、回归，绝对不能影响电竞已成熟业务。**
+
+含义：
+
+| 允许 | 禁止 |
+|------|------|
+| 新 API（`Client_GetFootballMatchs` 等）、`sport_*` 表/缓存、足球 Tab / store | 改 `Client_GetMatchs` / `buildMatchList` / `client_matches` |
+| 体育专用 fetch / merge / catalog 的 `football` 段 | 改 matcher、`match-engine`、电竞 collector、`mainBetLoop` |
+| 可选 DTO 字段（电竞不填则行为不变） | 为足球改电竞 `getBetName` / 下单门控 / fo 语义 |
+| 共用 UI 壳（`MatchCard`/`BetRow`）且电竞分支保持原样 | 体育写 `oddsStore`(fo)；体育套利塞进电竞主循环 |
+| `sportOddsStore` + hub 只读体育板 | 「顺手」改 `manualBet` / 账号过滤等电竞路径 |
+
+**判定标准**：电竞列表、赔率 fo、套利主循环、手动/自动下单，在切到足球 Tab、拉足球盘口、合并让球/大小之后，行为须与改前一致。有疑义时 **优先保电竞、砍足球方案**。
+
+验收锚点：`npm run test:catalog-smoke`（含 `esport_isolation_audit`）、`npm run test:frontend`、以及改共享壳时补电竞 `getBetName` / fo 隔离测。
 
 ---
 
@@ -31,12 +51,14 @@
 - 验收：`rg client_matches` 在 `sport_gamma_fetch` / `sport_list_cache` / `*_gamma_fetch` 中无读写调用（仅有拒绝路径/注释）
 - 冒烟：`sport_list_cache.smoke.test.mjs` 已挂入 `npm run test:catalog-smoke`（防路径回退）；`storage/sport/**` 已 gitignore
 
-### 产品冻结（维护态 · 2026-07-15 · N3 接线已勘误）
+### 产品冻结（维护态 · 2026-07-25 · 足球让球/大小已接）
 
-多运动：**只读列表 + 本机缓存 + PM∥PF**；N3 moneyline **服务端合并已接线**（`sport_*` 表 + `sport_merge`；仅双场馆对替换 API，否则 fallback concat）。电竞路径零污染。  
-**允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗）小修。  
-**禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、sport 下注、改 `GetMatchs` / `client_matches` / `mainBetLoop`、把体育套利塞进电竞 `mainBetLoop`。  
-（电竞 house 已 `PredictFun.bet: true`；与 sport 下注无关。）
+多运动：**只读列表 + 本机缓存 + PM∥PF**；N3 **服务端合并已接线**（`sport_*` 表 + `sport_merge`；仅双场馆对替换 API，否则 fallback concat）。电竞路径零污染。  
+**足球 N3（已做）**：胜负 + **让球/大小全量线**（`MarketCode`/`Line`）；`Game`=联赛码（`epl`/`chi`/…）；UI 经 `game_catalog` 显示中文名（如 `[中超]`）。  
+**PF 供给**：非胜负盘（`SPORTS_PROPS` / More Markets）目前几乎只有 **中超 CSL**（外加少量世界杯）；MLS 等常仅有胜负——属上游供给，非漏采。  
+**允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗 / 联赛解析）小修。  
+**禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、sport 下注、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
+（电竞 house 已 `PredictFun.bet: true`；与 sport 下注无关。）  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
 **N4 套利盘口（产品硬规则 · 未实现）**：
 
@@ -45,8 +67,8 @@
 | **棒球** | 胜负（moneyline，主/客二选一） | 无平局，双边可对敲；`Game`=`mlb`/`kbo`/`npb` 与电竞 cs2/lol **同构**（展示标签 + **同 Game 才合并**） |
 | **足球** | **让球 + 大小球** | 有平局；**不以**胜负（1X2 / 单纯主胜客胜）作套利主盘 |
 
-今日 N3/N3.5 仍只接 moneyline **只读展示**；足球胜负盘可继续显示，但 **不算** N4 套利标的。足球让球/大小球拉取与合并 = **另开 plan**（`market_code`/`line` 已预留，尚未接）。仍禁止现在开 N4 / 改 `mainBetLoop` / 写 fo。  
-**当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)。  
+足球胜负盘可继续 **只读展示**，但 **不算** N4 套利标的。仍禁止现在开 N4 / 改 `mainBetLoop` / 写 fo。  
+**当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)；**足球/棒球/网球 = 维护态**（隔离回归与文档勘误可做，新功能默认不开）。  
 **例外（N3.5）**：体育板赔率实时显示（collector hub → `sportOddsStore`），仍 **禁止** N4 / fo 交叉。  
 分层隔离定案：数据/循环必须隔离；壳 UI + 场馆 WS（hub）可共用；`BetRow` **不** import `sportOddsStore`（由 `SportMatchBoard` 注入 `oddsDisplayTick`）。
 
@@ -56,8 +78,9 @@
 2. 棒球/足球有场；`storage/sport/` 有 JSON；双场馆队名+同小时窗应对上时 API 返回 **同一 `ID` 且 `Matchs` 含 Polymarket+PredictFun**（否则仍为并列 concat）
 3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
 4. `rg` / smoke 隔离仍成立；体育板 **不** seed `oddsStore`
-5. 改完合并相关代码后 **重启 backend**，再验 Network（旧进程会一直返回并列）
+5. 改完合并相关代码后 **重启 backend**，再验 Network（旧进程会一直返回旧缓存）
 6. **N3.5**：棒/足赔率随 WS 变；关 Tab 后体育订阅清空；电竞 fo 无 MLB/soccer token；`BetRow.vue` 无 `sportOddsStore` 引用
+7. **足球让球/大小**：中超常见双馆有线；MLS 等可仅 PM 有线、PF 只有胜负
 
 ### 验收记录（2026-07-15）
 
@@ -72,9 +95,9 @@
 
 UI 点验（登录后切 Tab 看电竞循环仍转、棒/足 PM∥PF 赔率）可按日常联调补勾。
 
-### Predict.fun 只读并列（已做 · 仍无匹配/无下单）
+### Predict.fun 只读并列（已做 · N3 经 sport_merge 合并）
 
-- `Client_GetBaseballMatchs` / `GetFootballMatchs` / `GetTennisMatchs`：**Polymarket Gamma + Predict.fun REST** 数组 concat，同场**不合并**
+- `Client_GetBaseballMatchs` / `GetFootballMatchs` / `GetTennisMatchs`：Polymarket Gamma + Predict.fun REST **先拉后合并**（`sport_merge`；仅双场馆对上时同一 `ID`，否则 fallback 并列）
 - 实现：[`sport_predictfun_fetch.js`](../server/backend/core/esport-api/sport_predictfun_fetch.js)；缓存 key `mlb_pf` / `soccer_pf` / `tennis_pf`
 - 棒球联赛 Game：优先 category `teams[].league`（官方 required；`mlb`/`kbo`/`npb`），无则 title/tag 回退
 - 需 `PREDICT_FUN_API_KEY`（backend `.env`）；**不必**启 `changmen-predictfun-collector`（那是电竞 RDS 入库）
@@ -92,7 +115,7 @@ UI 点验（登录后切 Tab 看电竞循环仍转、棒/足 PM∥PF 赔率）�
 | 做 | 不做 |
 |----|------|
 | `Client_GetBaseballMatchs` | 改 `Client_GetMatchs` |
-| 服务端 Gamma MLB + Predict.fun → `ClientMatchDto[]` 并列 | matcher / baseball profile / 下单 |
+| 服务端 Gamma MLB + Predict.fun → `sport_merge` | matcher / baseball profile / 下单 |
 | UI：HomeView「棒球」Tab + `MatchCard` | 棒球套利 |
 | `baseballStore` 独立轮询 | 独立棒球站；拆 users/orders |
 
@@ -116,7 +139,7 @@ POST /esport/Client_GetBaseballMatchs
 | DTO 字段 | 来源 |
 |----------|------|
 | `Game` | `"mlb"` / `"kbo"` / `"npb"`（按联赛） |
-| `Matchs.Polymarket` / `Matchs.PredictFun` | 各源 id（并列场次，不合并） |
+| `Matchs.Polymarket` / `Matchs.PredictFun` | 各源 id（经 `sport_merge` 同场合并时同卡；对不上则各保留一场） |
 | `Bets[0].Sources.*` | moneyline；`Type` = Polymarket 或 PredictFun |
 
 ### 前端
@@ -134,27 +157,31 @@ POST /esport/Client_GetBaseballMatchs
 | 做 | 不做 |
 |----|------|
 | `Client_GetFootballMatchs` | 改 GetMatchs / matcher |
-| Gamma soccer + Predict.fun → DTO 并列 | 匹配 / 套利 / 下单 |
-| HomeView「足球」Tab | 独立 `football/web` |
+| Gamma 联赛 series + Predict.fun → 合并 DTO | 套利 / 下单 / 进 `mainBetLoop` |
+| 胜负 + 让球/大小（全量线） | 伪造 PF 未上架的盘 |
+| HomeView「足球」Tab；联赛中文名 | 独立 `football/web` |
 
 ```text
 POST /esport/Client_GetFootballMatchs
-→ { success: 1, info: ClientMatchDto[] }  // Game: "soccer"
+→ { success: 1, info: ClientMatchDto[] }
+// Game = 联赛码（chi/mls/epl/…）；UI 显示 catalog 中文名
+// Bets: moneyline + spreads/totals（MarketCode + Line）；按场馆 Sources 并列
 ```
 
 | 模块 | 路径 |
 |------|------|
-| API | `getFootballMatchs()` → `api/match.ts`（PM ∥ Predict.fun 并列） |
+| API | `getFootballMatchs()` → `api/match.ts`（PM ∥ PF 经 `sport_merge`） |
 | Store | `stores/footballStore.ts`（`createSportListStore`） |
 | UI | `FootballBoard.vue` → `SportMatchBoard` + `MatchCard` |
 | Manifest | `lines/football/` |
+| 联赛名 | `packages/shared/catalog/game_catalog.json`（`sport: football`） |
 
 ## 3b. 网球 MVP（只读，同模式）
 
 | 做 | 不做 |
 |----|------|
 | `Client_GetTennisMatchs` | 改 GetMatchs / matcher |
-| Gamma ATP+WTA 单打 + Predict.fun → DTO 并列 | 双打 / ITF / 匹配 / 套利 / 下单 |
+| Gamma ATP+WTA 单打 + Predict.fun → `sport_merge` | 双打 / ITF / 匹配 / 套利 / 下单 |
 | HomeView「网球」Tab | 独立 `tennis/web` |
 
 ```text
@@ -164,7 +191,7 @@ POST /esport/Client_GetTennisMatchs
 
 | 模块 | 路径 |
 |------|------|
-| API | `getTennisMatchs()` → `api/match.ts`（PM ∥ Predict.fun 并列） |
+| API | `getTennisMatchs()` → `api/match.ts`（PM ∥ PF 经 `sport_merge`） |
 | Store | `stores/tennisStore.ts`（`createSportListStore`） |
 | UI | `TennisBoard.vue` → `SportMatchBoard` + `MatchCard` |
 | Manifest | `lines/tennis/` |
@@ -185,6 +212,7 @@ POST /esport/Client_GetTennisMatchs
 | 阶段 | 状态 | 隔离要点 |
 |------|------|----------|
 | **N3 moneyline 合并** | **已做**（请求路径 + `sport_*`；非独立 PM2 matcher） | 禁写电竞 `client_matches`；禁 import 电竞 `team_db`；仅双场馆对替换 API |
+| **N3 足球让球/大小** | **已做**（只读；PF 供给以中超为主） | 不改 `GetMatchs` / fo / `mainBetLoop` |
 | **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop`；棒球主盘 moneyline，足球主盘 **让球+大小球**（胜负不作套利主盘） |
 | **Sport Team UI / PF 下注** | **未开** | — |
 

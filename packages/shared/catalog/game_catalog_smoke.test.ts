@@ -35,6 +35,8 @@ assert.ok(g.getActivePlatformGameIds("OB").length > 0);
 
 const derivedVenueGames: Record<string, string[]> = {};
 for (const game of gameCatalog.default.games) {
+  if ((game.sport ?? "esport") !== "esport")
+    continue;
   for (const [provider, gameId] of Object.entries(game.platforms || {})) {
     derivedVenueGames[provider] ||= [];
     if (!derivedVenueGames[provider].includes(String(gameId)))
@@ -42,6 +44,16 @@ for (const game of gameCatalog.default.games) {
   }
 }
 assert.deepEqual(venueGames.default.providers, derivedVenueGames);
+
+assert.equal(g.getGameDisplayName("chi"), "中超");
+assert.equal(g.getGameDisplayName("mlb"), "美职棒");
+assert.equal(g.getGameDisplayName("英雄联盟"), "英雄联盟");
+assert.equal(g.getGameDisplayName("CS2"), "CS2");
+assert.equal(g.getGameSport("chi"), "football");
+assert.equal(g.getPlatformGameId("Polymarket", "chi"), "chi");
+assert.equal(g.getGameCodeForPlatformId("PredictFun", "epl"), "epl");
+assert.ok(!g.getActivePlatformGameIds("Polymarket").includes("chi"));
+
 
 const pb = await import("./pb_team_platform_id.ts");
 assert.equal(pb.formatPbTeamPlatformId("cs2", "navi"), "navi@cs2");

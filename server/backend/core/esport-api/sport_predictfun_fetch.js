@@ -1,6 +1,7 @@
 /**
- * Predict.fun REST → ClientMatchDto[]（棒球/足球/网球只读；与 PM 列表并列，不合并）。
- * 不写电竞 client_matches / platform_*；不做跨站匹配；不开下注。
+ * Predict.fun REST → ClientMatchDto[]（棒球/足球/网球只读）。
+ * 本模块只产出单馆 DTO；与 PM 的跨馆合并在 `sport_merge`（对不上则 API fallback 并列）。
+ * 不写电竞 client_matches / platform_*；不做电竞 matcher；不开 sport 下注。
  *
  * 官方形态（dev.predict.fun MarketVariant / Get categories）：
  * - 棒球常为 SPORTS_TEAM_MATCH：单盘 SPORTS_MONEYLINE + 双 outcome（各含 team）
@@ -16,6 +17,20 @@ import {
   readSportListCache,
   writeSportListCache,
 } from "./sport_list_cache.js";
+import {
+  FOOTBALL_FALLBACK_GAMES,
+  FOOTBALL_LEAGUE_CODES,
+  MARKET_MONEYLINE,
+  MARKET_SPREADS,
+  MARKET_TOTALS,
+  baseFootballEventTitle,
+  displayBetName,
+  encodeSportBetId,
+  isFootballSiblingEventTitle,
+  parseLineFromTitle,
+  resolveFootballLeagueFromText,
+  stripFootballHandicapSuffix,
+} from "./sport_football_markets.js";
 
 const PREDICT_FUN_API = String(
   process.env.PREDICT_FUN_API_BASE || "https://api.predict.fun",
@@ -247,8 +262,14 @@ async function predictHttpGet(url) {
 function variantsForGame(gameCode) {
   if (gameCode === "mlb" || gameCode === "tennis")
     return ["SPORTS_TEAM_MATCH"];
-  // soccer：官方以 SPORTS_MATCH 为主，另含 FIFA / 少数 TEAM_MATCH
-  return ["SPORTS_MATCH", "SPORTS_TEAM_MATCH", "SPORTS_FIFA_WORLD_CUP", "SPORTS_FIFA_FRIENDLIES"];
+  // soccer：胜负 SPORTS_MATCH；让球/大小在 SPORTS_PROPS（- More Markets）
+  return [
+    "SPORTS_MATCH",
+    "SPORTS_TEAM_MATCH",
+    "SPORTS_FIFA_WORLD_CUP",
+    "SPORTS_FIFA_FRIENDLIES",
+    "SPORTS_PROPS",
+  ];
 }
 
 function tagIdsForGame(gameCode) {
@@ -532,6 +553,40 @@ export function resolveBaseballLeagueGame(category) {
 }
 
 /**
+ * 足球联赛 Game（与 PM sport key 对齐）。
+ * @param {object} category
+ * @returns {string}
+ */
+export function resolveFootballLeagueGame(category) {
+  const allow = new Set(FOOTBALL_LEAGUE_CODES);
+  for (const team of category?.teams ?? []) {
+    const league = String(team?.league ?? "").toLowerCase().trim();
+    if (allow.has(league))
+      return league;
+    const fromLeague = resolveFootballLeagueFromText(league);
+    if (fromLeague)
+      return fromLeague;
+  }
+  for (const tag of category?.tags ?? []) {
+    // PF 偶发 string tag；正规为 { name }
+    const name = typeof tag === "string" ? tag : String(tag?.name ?? "");
+    const fromTag = resolveFootballLeagueFromText(name);
+    if (fromTag)
+      return fromTag;
+    const low = name.toLowerCase().trim();
+    if (allow.has(low))
+      return low;
+  }
+  const fromTitle = resolveFootballLeagueFromText(String(category?.title ?? ""));
+  if (fromTitle)
+    return fromTitle;
+  const fromSlug = resolveFootballLeagueFromText(String(category?.slug ?? ""));
+  if (fromSlug)
+    return fromSlug;
+  return "uef";
+}
+
+/**
  * @param {object} category
  * @param {Record<string, number>} buyPrices marketId → best ask
  * @param {string} gameCode
@@ -591,13 +646,25 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
   // 去掉 "KBO: " 等前缀，避免与 PM 队名对不齐
   homeName = homeName.replace(/^(kbo|npb|mlb)\s*:\s*/i, "").trim() || homeName;
   awayName = awayName.replace(/^(kbo|npb|mlb)\s*:\s*/i, "").trim() || awayName;
+  // 足球：偶发盘口线写进队名 "Yunnan Yukun FC (-1.5)"
+  if (gameCode === "soccer") {
+    homeName = stripFootballHandicapSuffix(homeName) || homeName;
+    awayName = stripFootballHandicapSuffix(awayName) || awayName;
+  }
 
   const locked = !homeOdds || !awayOdds;
   const startTime = startTimeMsOf(category);
   const matchId = stableMatchId(`pf:${sourceMatchId}`, idBase);
-  const betId = matchId * 10 + 1;
-  const title = String(category.title ?? `${homeName} vs ${awayName}`).trim();
-  const dtoGame = gameCode === "mlb" ? resolveBaseballLeagueGame(category) : gameCode;
+  const betId = encodeSportBetId(matchId, 1);
+  const rawTitle = String(category.title ?? `${homeName} vs ${awayName}`).trim();
+  const title = gameCode === "soccer"
+    ? (baseFootballEventTitle(rawTitle) || `${homeName} vs ${awayName}`)
+    : rawTitle;
+  const dtoGame = gameCode === "mlb"
+    ? resolveBaseballLeagueGame(category)
+    : gameCode === "soccer"
+      ? resolveFootballLeagueGame(category)
+      : gameCode;
 
   return {
     ID: matchId,
@@ -612,7 +679,9 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
       ID: betId,
       MatchID: matchId,
       Map: 0,
-      Name: "Moneyline",
+      Name: displayBetName(MARKET_MONEYLINE, null),
+      MarketCode: MARKET_MONEYLINE,
+      Line: null,
       HomeID: betId * 10 + 1,
       HomeName: homeName,
       AwayID: betId * 10 + 2,
@@ -672,17 +741,27 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
       throw new Error("PREDICT_FUN_API_KEY 未配置");
 
     const rawCategories = await fetchPredictCategoriesForGame(gameCode);
-    const filtered = rawCategories.filter((category) => {
+    const moneylineCats = rawCategories.filter((category) => {
       if (!isPredictSportMoneylineCategory(category, gameCode))
         return false;
       return startTimeAllowed(startTimeMsOf(category));
     });
+    const propsCats = gameCode === "soccer"
+      ? rawCategories.filter((category) => {
+        if (String(category.marketVariant ?? "") !== "SPORTS_PROPS")
+          return false;
+        if (String(category.status ?? "").toUpperCase() !== "OPEN")
+          return false;
+        if (!isFootballSiblingEventTitle(String(category.title ?? "")))
+          return false;
+        return startTimeAllowed(startTimeMsOf(category));
+      })
+      : [];
 
     const marketIds = [];
-    for (const category of filtered) {
+    for (const category of moneylineCats) {
       const dual = pickDualTeamMarkets(category);
       if (dual) {
-        // 仅在类别快照缺 Yes 价时再拉 orderbook（棒球单盘双 outcome 不打 book，靠 outcome.bestAsk）
         const homeYes = yesOutcome(dual.home);
         const awayYes = yesOutcome(dual.away);
         if (!outcomeHasUsablePrice(homeYes) && dual.home.id != null)
@@ -702,13 +781,40 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
         buyPrices[id] = ask;
     }
 
+    /** @type {Map<string, object>} */
+    const byBase = new Map();
     const rows = [];
-    for (const category of filtered) {
+    for (const category of moneylineCats) {
       const dto = categoryToClientMatchDto(category, buyPrices, gameCode, idBase);
-      if (dto)
-        rows.push(dto);
+      if (!dto)
+        continue;
+      rows.push(dto);
+      const base = baseFootballEventTitle(String(dto.Title || "")).toLowerCase();
+      if (base)
+        byBase.set(`${dto.Game}|${base}`, dto);
       if (rows.length >= MAX_TRACKED)
         break;
+    }
+
+    for (const propsCat of propsCats) {
+      const base = baseFootballEventTitle(String(propsCat.title ?? "")).toLowerCase();
+      if (!base)
+        continue;
+      const league = resolveFootballLeagueGame(propsCat);
+      let dto = byBase.get(`${league}|${base}`);
+      if (!dto) {
+        const candidates = [...byBase.values()].filter(d =>
+          baseFootballEventTitle(String(d.Title || "")).toLowerCase() === base);
+        const lg = String(league || "").toLowerCase();
+        dto = candidates.find(d => String(d.Game || "").toLowerCase() === lg)
+          || (FOOTBALL_FALLBACK_GAMES.has(lg)
+            ? candidates[0]
+            : candidates.find(d => FOOTBALL_FALLBACK_GAMES.has(String(d.Game || "").toLowerCase())))
+          || null;
+      }
+      if (!dto)
+        continue;
+      appendPredictFootballPropsBets(dto, propsCat);
     }
 
     const at = Date.now();
@@ -730,6 +836,143 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
     }
     throw err;
   }
+}
+
+/**
+ * 把 SPORTS_PROPS 里的 spreads/totals 挂到胜负 DTO 上。
+ * @param {object} dto
+ * @param {object} category
+ */
+function appendPredictFootballPropsBets(dto, category) {
+  const ml = dto.Bets?.[0];
+  if (!ml)
+    return;
+  const homeName = String(ml.HomeName || "");
+  const awayName = String(ml.AwayName || "");
+  const matchId = Number(dto.ID) || 0;
+  let betSeq = dto.Bets.length;
+  /** @type {Set<string>} */
+  const seen = new Set(
+    dto.Bets.map(b => `${b.MarketCode || MARKET_MONEYLINE}|${b.Line ?? ""}`),
+  );
+
+  for (const market of category.markets ?? []) {
+    if (!isTradableMarket(market))
+      continue;
+    const mt = String(market.marketType ?? "");
+    const outcomes = market.outcomes ?? [];
+    if (outcomes.length < 2)
+      continue;
+    const marketId = String(market.id ?? "");
+
+    if (mt === "SPORTS_SPREADS") {
+      const listedLine = parseLineFromTitle(String(market.title ?? ""));
+      if (listedLine == null)
+        continue;
+      const listedTeam = String(market.title ?? "")
+        .replace(/\s*\([+-]?\d+(?:\.\d+)?\)\s*$/, "")
+        .trim();
+      const homeRel = teamMatchesLabel(listedTeam, homeName)
+        ? listedLine
+        : teamMatchesLabel(listedTeam, awayName)
+          ? -listedLine
+          : listedLine;
+      const key = `${MARKET_SPREADS}|${homeRel}`;
+      if (seen.has(key))
+        continue;
+      const o0 = outcomes[0];
+      const o1 = outcomes[1];
+      const odds0 = decimalOddsFromProbability(outcomeProb(o0, 0));
+      const odds1 = decimalOddsFromProbability(outcomeProb(o1, 0));
+      const listedIsHome = teamMatchesLabel(listedTeam, homeName)
+        || (!teamMatchesLabel(listedTeam, awayName) && homeRel === listedLine);
+      betSeq += 1;
+      const betId = encodeSportBetId(matchId, betSeq);
+      dto.Bets.push({
+        ID: betId,
+        MatchID: matchId,
+        Map: 0,
+        Name: displayBetName(MARKET_SPREADS, homeRel),
+        MarketCode: MARKET_SPREADS,
+        Line: homeRel,
+        HomeID: betId * 10 + 1,
+        HomeName: homeName,
+        AwayID: betId * 10 + 2,
+        AwayName: awayName,
+        Sources: {
+          PredictFun: {
+            Type: "PredictFun",
+            BetID: marketId || String(category.id ?? ""),
+            HomeID: String((listedIsHome ? o0 : o1)?.onChainId ?? `${marketId}-home`),
+            AwayID: String((listedIsHome ? o1 : o0)?.onChainId ?? `${marketId}-away`),
+            HomeOdds: listedIsHome ? odds0 : odds1,
+            AwayOdds: listedIsHome ? odds1 : odds0,
+            Status: (listedIsHome ? odds0 : odds1) && (listedIsHome ? odds1 : odds0) ? "Normal" : "Locked",
+            HomeMarketID: marketId,
+            AwayMarketID: marketId,
+          },
+        },
+      });
+      seen.add(key);
+      continue;
+    }
+
+    if (mt === "SPORTS_TOTALS") {
+      const line = parseLineFromTitle(String(market.title ?? ""));
+      if (line == null)
+        continue;
+      const key = `${MARKET_TOTALS}|${line}`;
+      if (seen.has(key))
+        continue;
+      let over = outcomes.find(o => /^over/i.test(String(o.name ?? o.title ?? "")));
+      let under = outcomes.find(o => /^under/i.test(String(o.name ?? o.title ?? "")));
+      if (!over || !under) {
+        over = outcomes[0];
+        under = outcomes[1];
+      }
+      const overOdds = decimalOddsFromProbability(outcomeProb(over, 0));
+      const underOdds = decimalOddsFromProbability(outcomeProb(under, 0));
+      betSeq += 1;
+      const betId = encodeSportBetId(matchId, betSeq);
+      dto.Bets.push({
+        ID: betId,
+        MatchID: matchId,
+        Map: 0,
+        Name: displayBetName(MARKET_TOTALS, line),
+        MarketCode: MARKET_TOTALS,
+        Line: line,
+        HomeID: betId * 10 + 1,
+        HomeName: "大",
+        AwayID: betId * 10 + 2,
+        AwayName: "小",
+        Sources: {
+          PredictFun: {
+            Type: "PredictFun",
+            BetID: marketId || String(category.id ?? ""),
+            HomeID: String(over?.onChainId ?? `${marketId}-over`),
+            AwayID: String(under?.onChainId ?? `${marketId}-under`),
+            HomeOdds: overOdds,
+            AwayOdds: underOdds,
+            Status: overOdds && underOdds ? "Normal" : "Locked",
+            HomeMarketID: marketId,
+            AwayMarketID: marketId,
+          },
+        },
+      });
+      seen.add(key);
+    }
+  }
+}
+
+function teamMatchesLabel(label, teamName) {
+  const a = String(label || "").toLowerCase().trim();
+  const b = String(teamName || "").toLowerCase().trim();
+  if (!a || !b)
+    return false;
+  if (a === b || a.includes(b) || b.includes(a))
+    return true;
+  const last = b.split(/\s+/).pop() || "";
+  return last.length > 2 && a.includes(last);
 }
 
 export async function fetchPredictFunMlbAsClientMatchDtos() {

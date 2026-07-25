@@ -19,7 +19,10 @@ assert.deepEqual(baseball!.defaultGameCodes, ["mlb", "kbo", "npb"]);
 const football = sport.getSport("football");
 assert.ok(football);
 assert.equal(football!.status, "active");
-assert.deepEqual(football!.defaultGameCodes, ["soccer"]);
+assert.ok(football!.defaultGameCodes?.includes("epl"));
+assert.ok(football!.defaultGameCodes?.includes("ucl"));
+assert.ok(football!.defaultGameCodes?.includes("chi"));
+assert.deepEqual(football!.markets, ["moneyline", "spreads", "totals"]);
 
 const tennis = sport.getSport("tennis");
 assert.ok(tennis);
@@ -33,16 +36,19 @@ assert.deepEqual(
 
 for (const game of gameCatalog.default.games) {
   const sportCode = game.sport ?? sport.DEFAULT_SPORT;
-  assert.equal(sportCode, "esport", `${game.code} sport`);
   assert.ok(sport.isKnownSport(sportCode), `${game.code} → ${sportCode}`);
 }
 
 assert.equal(sport.getSportForGameCode("cs2"), "esport");
 assert.equal(sport.getSportForGameCode("lol"), "esport");
+assert.equal(sport.getSportForGameCode("mlb"), "baseball");
+assert.equal(sport.getSportForGameCode("chi"), "football");
+assert.equal(sport.getSportForGameCode("tennis"), "tennis");
 assert.equal(sport.getSportForGameCode("unknown"), null);
 
 const g = await import("./game_catalog.ts");
 assert.equal(g.getGameSport("dota2"), "esport");
+assert.equal(g.getGameSport("epl"), "football");
 assert.equal(g.DEFAULT_GAME_SPORT, "esport");
 
 console.log("sport_catalog_smoke: ok");

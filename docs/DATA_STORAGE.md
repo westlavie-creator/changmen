@@ -77,7 +77,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveScore` | — | — | 空实现 | — |
 | `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | 多实例前勿假设共享 |
 | `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at/pm_sport_rev 未变跳过全量 SELECT | — | 只读 matchMerge 结果，不做 Round/promote overlay |
-| `Client_GetBaseballMatchs` / `Client_GetFootballMatchs` / `Client_GetTennisMatchs` | M+J | 进程内存 + `storage/sport/{mlb,soccer,tennis,mlb_pf,soccer_pf,tennis_pf}/`；未命中再打 Gamma / Predict.fun REST（并列 concat） | 写 sport JSON only | **不读写** `client_matches` / RDS 赛表 |
+| `Client_GetBaseballMatchs` / `Client_GetFootballMatchs` / `Client_GetTennisMatchs` | M+J | 进程内存 + `storage/sport/{mlb,soccer,tennis,mlb_pf,soccer_pf,tennis_pf}/`；未命中再打 Gamma / Predict.fun REST，经 `sport_merge`（对不上则 fallback 并列） | 写 sport JSON only | **不读写** `client_matches` / RDS 赛表 |
 | `Client_GetDefaultOdds` / `GetMatchDefaultOdds` | M+J | 内存列表 + `default_odds.json` | debounce 写 JSON | — |
 
 ### 采集凭证 / 游戏

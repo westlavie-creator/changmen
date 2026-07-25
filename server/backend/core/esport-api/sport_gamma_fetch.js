@@ -9,12 +9,23 @@ import {
   readSportListCache,
   writeSportListCache,
 } from "./sport_list_cache.js";
+import {
+  MARKET_MONEYLINE,
+  MARKET_SPREADS,
+  MARKET_TOTALS,
+  baseFootballEventTitle,
+  displayBetName,
+  encodeSportBetId,
+  isFootballSiblingEventTitle,
+  parseMarketLine,
+  sportHourBucket,
+} from "./sport_football_markets.js";
 
 const GAMMA_BASE = process.env.POLYMARKET_GAMMA_BASE || "https://gamma-api.polymarket.com";
 const CLOB_BASE = process.env.POLYMARKET_CLOB_BASE || "https://clob.polymarket.com";
 
 const KEYSET_PAGE_LIMIT = 200;
-const MAX_KEYSET_PAGES = 5;
+const MAX_KEYSET_PAGES = 8;
 const PAST_MS = 24 * 3600 * 1000;
 const FUTURE_MS = 7 * 24 * 3600 * 1000;
 const CACHE_TTL_MS = 30_000;
@@ -30,7 +41,8 @@ const _caches = new Map();
  * @property {number} [idBase] stableMatchId 基数，与电竞/其他运动错开
  * @property {string} [cacheKey] 进程内缓存键，默认 sportKey
  * @property {string} [logTag]
- * @property {string[]} [leagueGameCodes] 若设，用 event.sport.sport 等覆盖 Game（棒球 mlb|kbo|npb）
+ * @property {string[]} [leagueGameCodes] 若设，用 event.sport.sport 等覆盖 Game（棒球 mlb|kbo|npb；足球 epl|…）
+ * @property {boolean} [lineMarkets] 若 true，挂接 spreads/totals（足球 More Markets）
  */
 
 function parseJsonArray(value) {
@@ -168,6 +180,8 @@ function splitTitleTeams(title) {
   let text = String(title || "").trim();
   // 去掉联赛前缀，避免 HomeName 变成 "KBO: NC Dinos"
   text = text.replace(/^(kbo|npb|mlb)(?:\s+playoffs?)?\s*:\s*/i, "");
+  // 足球：标题里偶发 "Team (-1.5) vs Team (-1.5)"
+  text = text.replace(/\s*\([+-]?\d+(?:\.\d+)?\)\s*/g, " ").replace(/\s+/g, " ").trim();
   const parts = text.split(/\s+vs\.?\s+/i);
   if (parts.length >= 2)
     return { home: parts[0].trim(), away: parts.slice(1).join(" vs ").trim() };
@@ -219,6 +233,7 @@ export async function fetchSportAsClientMatchDtos(options) {
   const leagueGameCodes = Array.isArray(options.leagueGameCodes)
     ? options.leagueGameCodes.map(k => String(k || "").toLowerCase()).filter(Boolean)
     : [];
+  const lineMarkets = Boolean(options.lineMarkets);
 
   const mem = _caches.get(cacheKey);
   if (mem && Date.now() - mem.at < CACHE_TTL_MS)
@@ -238,6 +253,7 @@ export async function fetchSportAsClientMatchDtos(options) {
       idBase,
       logTag,
       leagueGameCodes,
+      lineMarkets,
     });
     const at = Date.now();
     _caches.set(cacheKey, { at, rows });
@@ -261,10 +277,10 @@ export async function fetchSportAsClientMatchDtos(options) {
 }
 
 /**
- * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[] }} opts
+ * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], lineMarkets?: boolean }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes } = opts;
+  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, lineMarkets } = opts;
 
   const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag);
   if (!seriesIds.length) {
@@ -275,7 +291,7 @@ async function fetchSportRowsFromGamma(opts) {
 
   const now = Date.now();
   /** @type {object[]} */
-  const events = [];
+  const collected = [];
   let cursor = "";
 
   for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
@@ -297,30 +313,51 @@ async function fetchSportRowsFromGamma(opts) {
       const title = String(raw.title ?? "").trim();
       if (!title)
         continue;
-      if (/\b(halftime|half[\s-]?time|1st half|2nd half|second half|map\s*\d|period\s*\d)\b/i.test(title))
+      const sibling = isFootballSiblingEventTitle(title);
+      if (!sibling && /\b(halftime|half[\s-]?time|1st half|2nd half|second half|map\s*\d|period\s*\d)\b/i.test(title))
         continue;
+
       const openMarkets = (raw.markets ?? []).filter(isOpenMarket);
-      let moneyline = null;
+      /** @type {object[]} */
+      const typed = [];
       for (const market of openMarkets) {
-        if (marketTypeOf(market) !== "moneyline")
+        const t = marketTypeOf(market);
+        if (t !== MARKET_MONEYLINE && !(lineMarkets && (t === MARKET_SPREADS || t === MARKET_TOTALS)))
           continue;
         const outcomes = parseJsonArray(market.outcomes);
         const prices = parseJsonArray(market.outcomePrices ?? market.outcome_prices);
         const tokenIds = parseJsonArray(market.clobTokenIds ?? market.clob_token_ids);
         if (outcomes.length < 2)
           continue;
-        moneyline = { outcomes, prices, tokenIds };
-        break;
+        // moneyline 可无无 CLOB token（靠 outcomePrices）；spreads/totals 至少要有双边 outcome
+        if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && tokenIds.length < 2 && prices.length < 2)
+          continue;
+        const line = t === MARKET_MONEYLINE
+          ? null
+          : parseMarketLine(market.line ?? market.spread ?? market.groupItemTitle ?? market.question);
+        if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && line == null)
+          continue;
+        typed.push({
+          marketCode: t,
+          line,
+          outcomes,
+          prices,
+          tokenIds,
+          question: String(market.question || market.groupItemTitle || ""),
+          groupItemTitle: String(market.groupItemTitle || ""),
+        });
       }
-      if (!moneyline)
+      if (!typed.length)
         continue;
-      events.push({
+
+      collected.push({
         id: String(raw.id ?? raw.slug ?? title),
         title,
-        slug: String(raw.slug ?? ""),
+        base: baseFootballEventTitle(title),
         startTimeMs: startTimeMsOf(raw),
-        moneyline,
         game: resolveEventGameCode(raw, gameCode, leagueGameCodes),
+        markets: typed,
+        sibling,
       });
     }
     cursor = nextCursor(data);
@@ -328,83 +365,265 @@ async function fetchSportRowsFromGamma(opts) {
       break;
   }
 
+  /** @type {Map<string, object>} */
+  const groups = new Map();
+  for (const ev of collected) {
+    const hourBucket = sportHourBucket(ev.startTimeMs);
+    const key = `${ev.game}|${String(ev.base).toLowerCase()}|${hourBucket}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        game: ev.game,
+        base: ev.base,
+        startTimeMs: ev.startTimeMs,
+        mainId: null,
+        mainTitle: ev.base,
+        markets: /** @type {object[]} */ ([]),
+      });
+    }
+    const g = groups.get(key);
+    if (!ev.sibling && ev.markets.some(m => m.marketCode === MARKET_MONEYLINE)) {
+      g.mainId = ev.id;
+      g.mainTitle = ev.base;
+      g.startTimeMs = ev.startTimeMs || g.startTimeMs;
+    }
+    else if (!g.mainId && !ev.sibling) {
+      g.mainId = ev.id;
+      g.mainTitle = ev.base;
+    }
+    if (ev.startTimeMs && (!g.startTimeMs || ev.startTimeMs < g.startTimeMs))
+      g.startTimeMs = ev.startTimeMs;
+    for (const m of ev.markets)
+      g.markets.push(m);
+  }
+
+  /** @type {object[]} */
+  const events = [];
+  for (const g of groups.values()) {
+    const hasMl = g.markets.some(m => m.marketCode === MARKET_MONEYLINE);
+    if (!hasMl)
+      continue;
+    if (!g.mainId)
+      g.mainId = `${g.game}:${g.base}`;
+    events.push(g);
+  }
   events.sort((a, b) => a.startTimeMs - b.startTimeMs);
 
   const tokenIds = [];
   for (const ev of events) {
-    if (!ev.moneyline)
-      continue;
-    for (const tid of ev.moneyline.tokenIds) {
-      if (tid)
-        tokenIds.push(tid);
+    for (const m of ev.markets) {
+      for (const tid of m.tokenIds) {
+        if (tid)
+          tokenIds.push(tid);
+      }
     }
   }
   const livePrices = tokenIds.length
-    ? await fetchBatchBuyPrices([...new Set(tokenIds)].slice(0, 200))
+    ? await fetchBatchBuyPrices([...new Set(tokenIds)].slice(0, 400))
     : {};
 
   return events.map((ev) => {
-    const { home, away } = splitTitleTeams(ev.title);
-    const ml = ev.moneyline;
-    let homeOdds = 0;
-    let awayOdds = 0;
-    let homeToken = "";
-    let awayToken = "";
-    if (ml) {
-      const p0 = livePrices[ml.tokenIds[0]] ?? Number(ml.prices[0] ?? 0);
-      const p1 = livePrices[ml.tokenIds[1]] ?? Number(ml.prices[1] ?? 0);
-      homeOdds = decimalOddsFromProbability(p0);
-      awayOdds = decimalOddsFromProbability(p1);
-      homeToken = ml.tokenIds[0] || "";
-      awayToken = ml.tokenIds[1] || "";
-      const o0 = String(ml.outcomes[0] ?? "").toLowerCase();
-      const o1 = String(ml.outcomes[1] ?? "").toLowerCase();
-      const homeL = home.toLowerCase();
-      if (o1 && homeL && (homeL.includes(o1) || o1.includes(homeL.split(" ").pop() || ""))) {
-        homeOdds = decimalOddsFromProbability(p1);
-        awayOdds = decimalOddsFromProbability(p0);
-        homeToken = ml.tokenIds[1] || "";
-        awayToken = ml.tokenIds[0] || "";
+    const { home, away } = splitTitleTeams(ev.mainTitle || ev.base);
+    const matchId = stableMatchId(ev.mainId, idBase);
+    /** @type {object[]} */
+    const bets = [];
+    let betSeq = 0;
+
+    const moneyline = ev.markets.find(m => m.marketCode === MARKET_MONEYLINE);
+    if (moneyline) {
+      betSeq += 1;
+      const oriented = orientBinaryOutcomes(moneyline, home, away, livePrices, "team");
+      bets.push(buildSportBetRow({
+        matchId,
+        betSeq,
+        marketCode: MARKET_MONEYLINE,
+        line: null,
+        homeName: home,
+        awayName: away,
+        homeOdds: oriented.homeOdds,
+        awayOdds: oriented.awayOdds,
+        homeToken: oriented.homeToken,
+        awayToken: oriented.awayToken,
+        sourceMatchId: ev.mainId,
+      }));
+    }
+
+    if (lineMarkets) {
+      /** @type {Map<number, object>} */
+      const spreadsByLine = new Map();
+      for (const m of ev.markets) {
+        if (m.marketCode !== MARKET_SPREADS || m.line == null)
+          continue;
+        const homeRel = homeRelativeSpreadLine(m, home, away);
+        if (homeRel == null || spreadsByLine.has(homeRel))
+          continue;
+        const oriented = orientBinaryOutcomes(m, home, away, livePrices, "team");
+        spreadsByLine.set(homeRel, { m, oriented, homeRel });
       }
-      else if (o0 && away.toLowerCase().includes(o0.split(" ").pop() || "___")) {
-        /* keep default order */
+      for (const { oriented, homeRel } of spreadsByLine.values()) {
+        betSeq += 1;
+        bets.push(buildSportBetRow({
+          matchId,
+          betSeq,
+          marketCode: MARKET_SPREADS,
+          line: homeRel,
+          homeName: home,
+          awayName: away,
+          homeOdds: oriented.homeOdds,
+          awayOdds: oriented.awayOdds,
+          homeToken: oriented.homeToken,
+          awayToken: oriented.awayToken,
+          sourceMatchId: ev.mainId,
+        }));
+      }
+
+      /** @type {Map<number, object>} */
+      const totalsByLine = new Map();
+      for (const m of ev.markets) {
+        if (m.marketCode !== MARKET_TOTALS || m.line == null)
+          continue;
+        const line = Number(m.line);
+        if (!Number.isFinite(line) || totalsByLine.has(line))
+          continue;
+        const oriented = orientBinaryOutcomes(m, "Over", "Under", livePrices, "ou");
+        totalsByLine.set(line, { oriented, line });
+      }
+      for (const { oriented, line } of totalsByLine.values()) {
+        betSeq += 1;
+        bets.push(buildSportBetRow({
+          matchId,
+          betSeq,
+          marketCode: MARKET_TOTALS,
+          line,
+          homeName: "大",
+          awayName: "小",
+          homeOdds: oriented.homeOdds,
+          awayOdds: oriented.awayOdds,
+          homeToken: oriented.homeToken,
+          awayToken: oriented.awayToken,
+          sourceMatchId: ev.mainId,
+        }));
       }
     }
 
-    const matchId = stableMatchId(ev.id, idBase);
-    const betId = matchId * 10 + 1;
+    if (!bets.length)
+      return null;
+
     return {
       ID: matchId,
-      Title: ev.title,
+      Title: ev.mainTitle || ev.base,
       Game: ev.game || gameCode,
       GameID: 0,
       StartTime: ev.startTimeMs,
       Matchs: {
-        Polymarket: ev.id,
+        Polymarket: ev.mainId,
       },
-      Bets: [{
-        ID: betId,
-        MatchID: matchId,
-        Map: 0,
-        Name: "Moneyline",
-        HomeID: betId * 10 + 1,
-        HomeName: home,
-        AwayID: betId * 10 + 2,
-        AwayName: away,
-        Sources: {
-          Polymarket: {
-            Type: "Polymarket",
-            BetID: homeToken || String(ev.id),
-            HomeID: homeToken || `${ev.id}-home`,
-            AwayID: awayToken || `${ev.id}-away`,
-            HomeOdds: homeOdds,
-            AwayOdds: awayOdds,
-            Status: "Normal",
-          },
-        },
-      }],
+      Bets: bets,
     };
-  });
+  }).filter(Boolean);
+}
+
+/**
+ * @param {object} market
+ * @param {string} homeLabel
+ * @param {string} awayLabel
+ * @param {Record<string, number>} livePrices
+ * @param {"team"|"ou"} mode
+ */
+function orientBinaryOutcomes(market, homeLabel, awayLabel, livePrices, mode) {
+  const o0 = String(market.outcomes[0] ?? "");
+  const o1 = String(market.outcomes[1] ?? "");
+  const p0 = livePrices[market.tokenIds[0]] ?? Number(market.prices[0] ?? 0);
+  const p1 = livePrices[market.tokenIds[1]] ?? Number(market.prices[1] ?? 0);
+  let homeIdx = 0;
+  if (mode === "ou") {
+    const l0 = o0.toLowerCase();
+    const l1 = o1.toLowerCase();
+    if (l0.startsWith("under") || l0 === "u")
+      homeIdx = 1;
+    else if (l1.startsWith("over") || l1 === "o")
+      homeIdx = 1;
+    else
+      homeIdx = 0;
+  }
+  else {
+    const homeL = String(homeLabel).toLowerCase();
+    const awayL = String(awayLabel).toLowerCase();
+    const l0 = o0.toLowerCase();
+    const l1 = o1.toLowerCase();
+    if (homeL && (l1.includes(homeL) || homeL.includes(l1) || homeL.includes(l1.split(" ").pop() || "___")))
+      homeIdx = 1;
+    else if (awayL && (l0.includes(awayL) || awayL.includes(l0)))
+      homeIdx = 1;
+    else
+      homeIdx = 0;
+  }
+  const awayIdx = homeIdx === 0 ? 1 : 0;
+  return {
+    homeOdds: decimalOddsFromProbability(homeIdx === 0 ? p0 : p1),
+    awayOdds: decimalOddsFromProbability(awayIdx === 0 ? p0 : p1),
+    homeToken: market.tokenIds[homeIdx] || "",
+    awayToken: market.tokenIds[awayIdx] || "",
+  };
+}
+
+/**
+ * 将 PM spread 线转成相对主队（标题主队）。
+ * outcomes[0] / groupItemTitle 为让球方队名。
+ * @param {object} market
+ * @param {string} home
+ * @param {string} away
+ */
+function homeRelativeSpreadLine(market, home, away) {
+  const line = Number(market.line);
+  if (!Number.isFinite(line))
+    return null;
+  const o0 = String(market.outcomes[0] ?? "").toLowerCase();
+  const group = String(market.groupItemTitle || market.question || "").toLowerCase();
+  const homeL = home.toLowerCase();
+  const awayL = away.toLowerCase();
+  const matches = (label, text) => {
+    if (!label || !text)
+      return false;
+    if (text.includes(label) || label.includes(text))
+      return true;
+    const last = label.split(/\s+/).pop() || "";
+    return last.length > 2 && text.includes(last);
+  };
+  if (matches(homeL, o0) || matches(homeL, group))
+    return line;
+  if (matches(awayL, o0) || matches(awayL, group))
+    return -line;
+  return line;
+}
+
+/**
+ * @param {object} p
+ */
+function buildSportBetRow(p) {
+  const betId = encodeSportBetId(p.matchId, p.betSeq);
+  return {
+    ID: betId,
+    MatchID: p.matchId,
+    Map: 0,
+    Name: displayBetName(p.marketCode, p.line),
+    MarketCode: p.marketCode,
+    Line: p.line,
+    HomeID: betId * 10 + 1,
+    HomeName: p.homeName,
+    AwayID: betId * 10 + 2,
+    AwayName: p.awayName,
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket",
+        BetID: p.homeToken || String(p.sourceMatchId),
+        HomeID: p.homeToken || `${p.sourceMatchId}-home`,
+        AwayID: p.awayToken || `${p.sourceMatchId}-away`,
+        HomeOdds: p.homeOdds,
+        AwayOdds: p.awayOdds,
+        Status: "Normal",
+      },
+    },
+  };
 }
 
 /** @param {string} [cacheKey] */
