@@ -22,9 +22,23 @@
 .matchs .match .match-title {
   display:flex;
   flex-wrap:wrap;
-  align-items:baseline;
+  align-items:center;
   gap:0;
   color:#fff;font-size:14px;padding-bottom:12px;
+}
+
+.matchs .match .match-title .game-icon {
+  width:18px;
+  height:18px;
+  margin-right:8px;
+  border-radius:4px;
+  flex-shrink:0;
+  vertical-align:middle;
+  object-fit:contain;
+}
+
+.matchs .match .match-title .game-tag {
+  margin-right:6px;
 }
 
 .matchs .match .match-title .startTime {

@@ -248,6 +248,10 @@ html[data-ui-theme="paper"] .matchs .match .match-title .game-tag {
   color: var(--paper-ink);
 }
 
+html[data-ui-theme="paper"] .matchs .match .match-title .game-icon {
+  border: 1px solid var(--paper-ink);
+}
+
 html[data-ui-theme="paper"] .matchs .bet {
   background-image: none;
   background: var(--paper-panel-2);

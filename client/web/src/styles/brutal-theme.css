@@ -287,6 +287,11 @@ html[data-ui-theme="brutal"] .matchs .match .match-title .game-tag {
   color: var(--brutal-ink);
 }
 
+html[data-ui-theme="brutal"] .matchs .match .match-title .game-icon {
+  border: 1.5px solid var(--brutal-ink);
+  border-radius: 0;
+}
+
 html[data-ui-theme="brutal"] .matchs .match .match-title .pm-sport-link {
   text-decoration-thickness: 2px;
 }

@@ -264,6 +264,11 @@ html[data-ui-theme="terminal"] .matchs .match .match-title .game-tag {
   color: var(--term-ink);
 }
 
+html[data-ui-theme="terminal"] .matchs .match .match-title .game-icon {
+  border-radius: 2px;
+  opacity: 0.95;
+}
+
 html[data-ui-theme="terminal"] .matchs .bet {
   background-image: none;
   background: var(--term-panel-2);

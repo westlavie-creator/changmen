@@ -126,6 +126,30 @@ function getGameDisplayName(codeOrName: string): string {
   return raw;
 }
 
+/**
+ * UI / 图标：把 Client_GetMatchs 的 Game（中文名 / a8Name / code）解析成 catalog code。
+ * 匹配 code、name、nameEn、a8Name（大小写不敏感）。
+ */
+function resolveGameCode(codeOrName: string): string | null {
+  const raw = String(codeOrName || "").trim();
+  if (!raw)
+    return null;
+  const byCode = getGameByCode(raw);
+  if (byCode)
+    return byCode.code;
+  const key = raw.toLowerCase();
+  for (const game of catalog.games as GameEntry[]) {
+    if (
+      game.name?.toLowerCase() === key
+      || game.nameEn?.toLowerCase() === key
+      || game.a8Name?.toLowerCase() === key
+    ) {
+      return game.code;
+    }
+  }
+  return null;
+}
+
 /** Client_GetGames / 采集凭证：仅电竞条目（棒球/足球联赛不进 venue_games） */
 function isEsportCatalogGame(game: GameEntry): boolean {
   return (game.sport ?? DEFAULT_GAME_SPORT) === "esport";
@@ -314,4 +338,5 @@ export {
   listGames,
   parseActiveGameCodes,
   resolveClientGame,
+  resolveGameCode,
 };
