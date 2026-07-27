@@ -13,6 +13,13 @@ import {
 import { resolveAccountCurrency } from "@changmen/shared/currency";
 import { PlatformAccount } from "@/models/platformAccount";
 import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
+import {
+  mergeVaultKeysIntoAccounts,
+  migrateTokenPrivateKeysToVault,
+  normalizePmVaultUserId,
+  stripPrivateKeysForPersist,
+} from "@/security/pmVault";
+import { useUserStore } from "@/stores/userStore";
 
 async function warmPolymarketUserWsFromAccounts(accounts: PlatformAccount[]) {
   try {
@@ -73,6 +80,16 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         return acc;
       });
     store.loaded = true;
+    const userId = normalizePmVaultUserId(useUserStore().userId);
+    if (userId) {
+      mergeVaultKeysIntoAccounts(store.accounts, userId);
+      try {
+        await migrateTokenPrivateKeysToVault(store.accounts, userId);
+      }
+      catch {
+        /* vault 未解锁时跳过迁移 */
+      }
+    }
     void warmPolymarketUserWsFromAccounts(store.accounts);
   }
   finally {
@@ -96,6 +113,8 @@ export async function persistAccounts(store: AccountStoreContext) {
   const payload = store.accounts
     .filter(a => a.accountId)
     .map(a => normalizeAccountMultiplyField(a.toJSON()));
+  // 方案 C：私钥只在本机仓；写回 RDS 前剥离
+  stripPrivateKeysForPersist(payload);
   return saveAccounts(payload);
 }
 

@@ -92,6 +92,7 @@ declare module 'vue' {
     OrderView: typeof import('./src/components/order/OrderView.vue')['default']
     PlatformIcon: typeof import('./src/components/platform/PlatformIcon.vue')['default']
     PluginIntroShell: typeof import('./src/components/layout/PluginIntroShell.vue')['default']
+    PmVaultDialogs: typeof import('./src/components/account/PmVaultDialogs.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SessionRestoreLoader: typeof import('./src/components/layout/SessionRestoreLoader.vue')['default']

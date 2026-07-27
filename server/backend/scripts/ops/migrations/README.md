@@ -10,6 +10,7 @@
 | `migrate-players-owner-user-id.mjs` | `db:migrate-players-owner` | 回填 `owner_user_id`（027 前） |
 | `finalize-players-owner-user-id.mjs` | `db:finalize-players-owner` | 收尾 orphan player（027 前必跑） |
 | `migrate-accounts-jsonb-to-players.mjs` | `db:migrate-accounts-from-jsonb` | `profiles.accounts` → `players.account_data` |
+| `strip-pm-private-keys.mjs` | （手动） | 剥离 Polymarket `token.privateKey`（先 dry-run，再 `--apply`） |
 | `check-players-rds-migrate.mjs` | `db:check-players` | 迁移后审计报告 |
 | `backup-profiles-accounts.mjs` | `db:backup-accounts` | 部署前 players 账号快照 |
 | `backfill-pm-match-result.mjs` | — | 买单回填 `raw.pmMatchResult`（只写赛果，不改 money/status） |

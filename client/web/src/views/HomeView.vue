@@ -15,7 +15,6 @@ import MakeupCalcBar from "@/components/user/MakeupCalcBar.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import {
   mountAppSession,
-  startAppSession,
   stopAppSession,
 } from "@/runtime/appSession";
 import { useAccountStore } from "@/stores/accountStore";
@@ -34,8 +33,6 @@ const {
   match: createLoseMatch,
   bet: createLoseBet,
 } = storeToRefs(createLoseDialog);
-
-startAppSession();
 
 const searchQuery = ref("");
 /** 电竞 / 棒球 / 足球 / 网球：仅切换列表面板；不影响 matchStore 套利主循环 */
@@ -68,7 +65,7 @@ const matchCountLabel = computed(() => {
   return `${shown} 场`;
 });
 
-/** [A8 可证实] xo：await getUserInfo(), loadAccounts(!0) — comma 不 await loadAccounts */
+/** [A8 可证实] xo：await getUserInfo(), loadAccounts — 解锁本机钱包后再 startAppSession */
 onMounted(() => {
   void mountAppSession();
 });

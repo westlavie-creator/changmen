@@ -3,8 +3,9 @@
  */
 import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { resolveAccountCurrency } from "@changmen/shared/currency";
+import { stripPolymarketPrivateKeyFromToken } from "./pm_token_strip.js";
 
-/** 管理端账号：含 gateway/token/referer 等完整凭证（仅 Client_Admin* 接口，需 is_admin） */
+/** 管理端账号：含 gateway/token（PM 已投影为落库 DTO）/referer 等（仅 Client_Admin*，需 is_admin） */
 export function sanitizeAccountForAdmin(raw) {
   if (!raw || typeof raw !== "object")
     return null;
@@ -20,9 +21,13 @@ export function sanitizeAccountForAdmin(raw) {
     }
   }
   const game = a.game && typeof a.game === "object" ? a.game : {};
+  const provider = String(a.provider ?? a.Provider ?? a.platform ?? a.Platform ?? a.Type ?? "");
+  let token = a.token ?? a.Token ? String(a.token ?? a.Token) : undefined;
+  if (token && /polymarket|^pm$/i.test(provider.trim()))
+    token = stripPolymarketPrivateKeyFromToken(token);
   return {
     accountId: Number(a.accountId ?? a.AccountId) || 0,
-    platform: String(a.provider ?? a.Provider ?? a.platform ?? a.Platform ?? a.Type ?? ""),
+    platform: provider,
     platformId: Number(a.platformId ?? a.PlatformId) || 0,
     platformName: String(a.platformName ?? a.PlatformName ?? ""),
     playerName: String(a.playerName ?? a.PlayerName ?? ""),
@@ -58,7 +63,7 @@ export function sanitizeAccountForAdmin(raw) {
     mobile: String(a.mobile ?? a.Mobile ?? ""),
     city: String(a.city ?? a.City ?? ""),
     gateway: gateway || undefined,
-    token: a.token ?? a.Token ? String(a.token ?? a.Token) : undefined,
+    token,
     referer: a.referer ?? a.Referer ? String(a.referer ?? a.Referer) : undefined,
     userAgent: a.userAgent ?? a.UserAgent ? String(a.userAgent ?? a.UserAgent) : undefined,
     cookie: a.cookie ?? a.Cookie ? String(a.cookie ?? a.Cookie) : undefined,

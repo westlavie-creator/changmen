@@ -597,7 +597,7 @@ export const polymarketProvider: PlatformProvider = {
     if (!creds.address)
       return new BetResult("Polymarket", false, "凭证缺少 walletAddress");
     if (!privateKey)
-      return new BetResult("Polymarket", false, "缺少有效私钥（在 token 中加 0x 开头 privateKey 字段）");
+      return new BetResult("Polymarket", false, "缺少有效私钥：请先解锁本机钱包，或在账号设置中重新导入私钥");
     if (!creds.apiKey || !creds.secret || !creds.passphrase)
       return new BetResult("Polymarket", false, "凭证缺少用户 API Key（apiKey/secret/passphrase），请重新通过插件采集");
 

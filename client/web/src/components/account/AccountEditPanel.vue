@@ -16,6 +16,8 @@ interface PlatformSuggestion { value: string; link: string }
 const props = withDefaults(
   defineProps<{
     readonly?: boolean;
+    /** 编辑已有账号：场馆不可改，只展示当前场馆图标 */
+    providerLocked?: boolean;
     rateLocked?: boolean;
     multiplyEditable?: boolean;
     gameExpanded?: boolean;
@@ -505,7 +507,13 @@ function unlockRate() {
 
       <div class="account-edit-panel__col account-edit-panel__col--right">
     <el-form-item label="场馆：">
+      <!-- 编辑已有账号：场馆已绑定，只展示当前场馆，不再铺可选图标 -->
+      <div v-if="providerLocked" class="account-edit-panel__provider-locked" :title="form.provider">
+        <PlatformIcon :platform="form.provider" />
+        <span class="account-edit-panel__provider-locked-name">{{ form.provider }}</span>
+      </div>
       <el-radio-group
+        v-else
         v-model="form.provider"
         size="large"
         class="account-edit-panel__providers"
@@ -601,6 +609,23 @@ function unlockRate() {
 .account-edit-panel__col--right {
   padding-left: 28px;
   border-left: 1px solid var(--el-border-color-lighter);
+}
+
+.account-edit-panel__provider-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.account-edit-panel__provider-locked :deep(.provider-icon) {
+  width: 28px;
+  height: 28px;
+}
+
+.account-edit-panel__provider-locked-name {
+  font-size: 14px;
+  color: var(--el-text-color-regular);
 }
 
 .account-edit-panel__providers {

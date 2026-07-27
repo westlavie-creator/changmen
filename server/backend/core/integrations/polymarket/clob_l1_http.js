@@ -1,5 +1,4 @@
 import store from "../../esport-api/store.js";
-import { createOrDerivePolymarketApiCredsOnServer } from "./clob_l1.js";
 
 function readAuthToken(req) {
   const bearer = String(req.headers.authorization || "").trim();
@@ -20,9 +19,9 @@ async function requireAuthedUser(req) {
 
 /**
  * POST /api/polymarket/clob/create-or-derive-api-creds
- * Body: { privateKey, gateway?, walletAddress? }
+ * [方案 C] 已废弃：禁止客户端把 privateKey POST 到 VPS；请在浏览器内派生。
  */
-export async function handlePolymarketClobL1ApiCreds(req, res, readJsonBody) {
+export async function handlePolymarketClobL1ApiCreds(req, res, _readJsonBody) {
   if (req.method !== "POST") {
     res.writeHead(405, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "method not allowed" }));
@@ -36,37 +35,9 @@ export async function handlePolymarketClobL1ApiCreds(req, res, readJsonBody) {
     return true;
   }
 
-  let payload;
-  try {
-    payload = await readJsonBody(req);
-  }
-  catch (err) {
-    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: err.message || "invalid JSON body" }));
-    return true;
-  }
-
-  const privateKey = String(payload?.privateKey ?? "").trim();
-  if (!privateKey) {
-    res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: "privateKey required" }));
-    return true;
-  }
-
-  try {
-    const result = await createOrDerivePolymarketApiCredsOnServer({
-      privateKey,
-      gateway: payload?.gateway,
-      walletAddress: payload?.walletAddress,
-    });
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify(result));
-    return true;
-  }
-  catch (err) {
-    const status = Number(err?.status) >= 400 && Number(err?.status) < 600 ? Number(err.status) : 400;
-    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
-    return true;
-  }
+  res.writeHead(410, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify({
+    error: "已废弃：请在浏览器内派生 Polymarket apiCreds，勿将 privateKey 提交到服务端",
+  }));
+  return true;
 }

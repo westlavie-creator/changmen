@@ -657,7 +657,7 @@ export async function sellPolymarketBuyPosition(params: {
   if (!creds.address)
     return { ok: false, error: "凭证缺少 walletAddress" };
   if (!privateKey)
-    return { ok: false, error: "缺少有效私钥" };
+    return { ok: false, error: "缺少有效私钥：请先解锁本机钱包，或重新导入私钥" };
   if (!creds.apiKey || !creds.secret || !creds.passphrase)
     return { ok: false, error: "凭证缺少用户 API Key" };
 

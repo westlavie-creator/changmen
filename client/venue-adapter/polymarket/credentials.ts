@@ -63,39 +63,9 @@ function normalizeApiCreds(raw: ApiKeyRaw | unknown): PolymarketApiCreds | undef
 
 export async function createOrDerivePolymarketApiCreds(
   input: PolymarketCredentialInput,
-  options?: PolymarketCredentialRequestOptions,
+  _options?: PolymarketCredentialRequestOptions,
 ): Promise<PolymarketDerivedCredentials> {
-  const authToken = options?.authToken?.trim();
-  if (authToken) {
-    const base = (options?.apiBase?.trim() || (typeof window !== "undefined" ? window.location.origin : ""))
-      .replace(/\/+$/, "");
-    const res = await fetch(`${base}/api/polymarket/clob/create-or-derive-api-creds`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        token: authToken,
-      },
-      body: JSON.stringify({
-        privateKey: input.privateKey,
-        gateway: input.gateway,
-        walletAddress: input.walletAddress,
-      }),
-    });
-    const text = await res.text();
-    let parsed: { error?: string; signerAddress?: string; apiCreds?: PolymarketApiCreds } = {};
-    try {
-      parsed = text ? JSON.parse(text) as typeof parsed : {};
-    }
-    catch {
-      /* ignore */
-    }
-    if (!res.ok)
-      throw new Error(parsed.error || text.trim() || `HTTP ${res.status}`);
-    if (!parsed.signerAddress || !parsed.apiCreds)
-      throw new Error("服务端未返回有效 Polymarket API 凭证");
-    return { signerAddress: parsed.signerAddress, apiCreds: parsed.apiCreds };
-  }
-
+  // 方案 C：仅浏览器内 L1 派生，禁止把 privateKey POST 到 VPS
   const gateway = normalizeGateway(input.gateway);
   const privateKey = normalizePrivateKey(input.privateKey);
   const [

@@ -16,6 +16,7 @@ import {
 import * as orderStore from "./order_store.js";
 import { assertPlayerOwnedByUser, assertPlayersOwnedByUser, isPredictFunPlayerRow } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
+import { enforcePolymarketPersistDto, stripPrivateKeysFromAccountList } from "./pm_token_strip.js";
 
 async function handleCreateTagPlatform(body, userId) {
   const platformName = body.platform || body.platformName || "";
@@ -298,6 +299,9 @@ async function handleSaveAccounts(accounts, userId) {
     }
     return locked;
   });
+  const dto = enforcePolymarketPersistDto(normalized);
+  if (!dto.ok)
+    return dto;
   try {
     await store.setAccountsForUser(userId, normalized);
   }
@@ -334,7 +338,10 @@ async function handleSaveData(key, content, userId) {
 function handleGetData(key, userId) {
   if (key === "ACCOUNT") {
     const accounts = store.getAccountsForUser(userId);
-    return { ok: true, info: accounts, direct: accounts };
+    const stripped = stripPrivateKeysFromAccountList(
+      accounts.map(a => (a && typeof a === "object" ? { ...a } : a)),
+    );
+    return { ok: true, info: stripped, direct: stripped };
   }
 
   const isUserScoped = store.isUserSettingKey(key);

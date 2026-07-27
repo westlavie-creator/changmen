@@ -10,6 +10,7 @@ import { useMessageStore } from "@/stores/messageStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
+import { lockPmVault } from "@/security/pmVault";
 
 async function applyPmTransportRoutingOnLogin(): Promise<void> {
   try {
@@ -61,7 +62,7 @@ export function startAppSession(): void {
   syncArbRuntime();
 }
 
-/** HomeView onMounted：用户信息、账号列表、采集运行时 */
+/** HomeView onMounted：先拉账号并解锁本机钱包，再启主循环与余额刷新 */
 export async function mountAppSession(): Promise<void> {
   const user = useUserStore();
   if (!user.userId) {
@@ -69,14 +70,56 @@ export async function mountAppSession(): Promise<void> {
   }
   await applyPmTransportRoutingOnLogin();
   await applyPfTransportRoutingOnLogin();
-  useAccountStore().loadAccounts(true);
+  const accountStore = useAccountStore();
+  // 先快速拉账号列表（不阻塞在余额刷新上），以便尽早弹解锁框
+  await accountStore.loadAccounts(false);
+  try {
+    const {
+      ensurePmVaultUnlocked,
+      hasVault,
+      mergeVaultKeysIntoAccounts,
+      migrateTokenPrivateKeysToVault,
+      normalizePmVaultUserId,
+    } = await import("@/security/pmVault");
+    const uid = normalizePmVaultUserId(user.userId);
+    if (uid && await hasVault(uid)) {
+      const unlocked = await ensurePmVaultUnlocked(uid);
+      if (unlocked) {
+        mergeVaultKeysIntoAccounts(accountStore.accounts, uid);
+        const migrated = await migrateTokenPrivateKeysToVault(accountStore.accounts, uid);
+        if (migrated > 0)
+          void accountStore.saveAccounts();
+      }
+    }
+  }
+  catch (err) {
+    if (import.meta.env?.DEV)
+      console.warn("[pmVault] unlock skipped", err);
+  }
   await bootSessionRuntime();
+  startAppSession();
+  // 解锁完成后再刷余额 / 订单（与原 loadAccounts(true) 后半段对齐）
+  void (async () => {
+    try {
+      await accountStore.loadTagPlatforms();
+      accountStore.startBalanceRefreshLoop();
+      const balanceRefresh = await import("@/stores/account/balanceRefresh");
+      await balanceRefresh.refreshAllFromVenues(accountStore, true);
+      const { useOrderStore } = await import("@/stores/orderStore");
+      await useOrderStore().fetchOrders();
+    }
+    catch (err) {
+      if (import.meta.env?.DEV)
+        console.warn("[mountAppSession] post-unlock refresh", err);
+    }
+  })();
 }
 
 /** HomeView 卸载 / logout：对称 teardown（不含 user.logout） */
 export function stopAppSession(): void {
   void resetPmTransportRoutingOnLogout();
   void resetPfTransportRoutingOnLogout();
+  lockPmVault();
   stopSessionRuntime();
   teardownArbRuntimeSync();
   useMessageStore().stop();
