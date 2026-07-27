@@ -206,7 +206,8 @@ export async function settleBothArbLegs(
     }
     if (outcome === "not_attempted")
       return `${leg.type} 未下单`;
-    return `${leg.type} API失败`;
+    const failMsg = String(result?.message ?? "").trim();
+    return failMsg || `${leg.type} 下单失败`;
   };
 
   trace?.event(

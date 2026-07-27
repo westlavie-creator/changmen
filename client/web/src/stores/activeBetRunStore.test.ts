@@ -318,7 +318,7 @@ describe("activeBetRunStore", () => {
     syncActiveBetPlaceResults(
       100,
       { success: true, message: "买入成功" },
-      { success: false },
+      { success: false, message: "Predict.fun 盘口价高于检测价，整单取消" },
       true,
       true,
       "filled_pending_settle",
@@ -331,9 +331,36 @@ describe("activeBetRunStore", () => {
     expect(legA.events.some(e => e.stage === "预检" && e.detail === "预检通过")).toBe(true);
     expect(legA.events.some(e => e.stage === "下单" && e.detail === "买入成功")).toBe(true);
     expect(legA.events.some(e => e.stage === "拒单" && e.detail === "等待场馆确认")).toBe(true);
-    expect(legB.events.some(e => e.stage === "下单" && e.detail === "API 失败")).toBe(true);
+    expect(legB.events.some(e => e.stage === "下单" && e.detail === "Predict.fun 盘口价高于检测价，整单取消")).toBe(true);
     expect(legB.events.some(e => e.stage === "拒单")).toBe(false);
     expect(run.overallLabel).toBe("等待场馆确认");
+  });
+
+  it("place failure without message falls back to 下单失败", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+    store.setPhase(100, "placing", "提交场馆订单");
+    syncActiveBetPlaceResults(
+      100,
+      { success: false },
+      { success: false },
+      true,
+      true,
+      "api_failed",
+      "api_failed",
+    );
+    const run = store.visibleRuns[0]!;
+    expect(run.legs.every(l => l.detail === "下单失败")).toBe(true);
+    expect(run.legs.every(l => l.events.some(e => e.stage === "下单" && e.detail === "下单失败"))).toBe(true);
   });
 
   it("api_failed / not_attempted finalize details are not 未拒单", () => {

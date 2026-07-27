@@ -215,8 +215,9 @@ export async function changmenPmEsportCall<T>(
   if (!token)
     throw new Error("请先登录");
 
+  let res;
   try {
-    const res = await a8Axios.post<{ success?: number; msg?: string; info?: T }>(
+    res = await a8Axios.post<{ success?: number; msg?: string; info?: T }>(
       buildEsportUrl(action, "", requireHttpCtx().getApiBase()),
       toEsportPostBody(body),
       {
@@ -224,17 +225,17 @@ export async function changmenPmEsportCall<T>(
         ...(opts?.timeoutMs != null ? { timeout: opts.timeoutMs } : {}),
       },
     );
-    const json = res.data;
-    if (json?.success !== 1) {
-      const hint = String(json?.msg || `${action} failed`).slice(0, 160);
-      throw new Error(hint);
-    }
-    return json.info as T;
   }
   catch (e) {
     const hint = e instanceof Error ? e.message : String(e);
     throw new Error(`PM API 不可用（${action}）：${hint}`);
   }
+  const json = res.data;
+  if (json?.success !== 1) {
+    // 业务失败：原样抛 msg，供进行中订单 / 弹窗展示（勿包成「API 不可用」）
+    throw new Error(String(json?.msg || `${action} failed`).slice(0, 160));
+  }
+  return json.info as T;
 }
 
 /**

@@ -262,14 +262,14 @@ function legDetailAfterPost(
 ): string {
   if (placeOutcome === "not_attempted")
     return "未下单";
+  const msg = String(result?.message ?? "").trim();
   if (!result?.success)
-    return "API 失败";
+    return msg || "下单失败";
   if (placeOutcome === "accepted_pending_confirm")
     return "已挂单待确认";
   if (result.pending)
     return "delayed 待确认";
-  const msg = String(result.message ?? "").trim();
-  return msg || "API 成功";
+  return msg || "已提交";
 }
 
 export function syncActiveBetPlaceResults(
