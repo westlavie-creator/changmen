@@ -19,8 +19,9 @@ async function postCollectApi(action: string, fields: Record<string, string>): P
 }
 
 export async function saveMatchSource(provider: string, matchs: unknown[]) {
-  // [changmen 扩展] PredictFun 由 VPS collector 独占写；浏览器不得 SaveMatch
-  if (String(provider) === "PredictFun")
+  // [changmen 扩展] PredictFun / Polymarket 由 VPS collector 独占写；浏览器不得 SaveMatch
+  const plat = String(provider);
+  if (plat === "PredictFun" || plat === "Polymarket")
     return false;
   const wire = (matchs as CollectMatchDto[]).map(toA8SaveMatchRow);
   return postCollectApi(`API_SaveMatch?${provider}`, {
@@ -30,8 +31,9 @@ export async function saveMatchSource(provider: string, matchs: unknown[]) {
 }
 
 export async function saveBetSource(provider: string, matchId: string | number, bets: unknown[]) {
-  // [changmen 扩展] PredictFun 由 VPS collector 独占写；浏览器不得 SaveBet（会抹局盘）
-  if (String(provider) === "PredictFun")
+  // [changmen 扩展] PredictFun / Polymarket 由 VPS collector 独占写；浏览器不得 SaveBet（会抹局盘）
+  const plat = String(provider);
+  if (plat === "PredictFun" || plat === "Polymarket")
     return false;
   const wire = (bets as CollectBetDto[]).map(toA8SaveBetRow);
   return postCollectApi(`API_SaveBet?${provider}`, {
@@ -43,6 +45,10 @@ export async function saveBetSource(provider: string, matchId: string | number, 
 
 /** [A8 可证实] `Ut.saveLiveTimer` → POST `API_SaveLiveTimer?{provider}` form: provider + timer */
 export async function saveLiveTimer(provider: string, timer: unknown[]) {
+  // [changmen 扩展] PredictFun / Polymarket 由 VPS collector 独占写；浏览器不得 SaveLiveTimer
+  const plat = String(provider);
+  if (plat === "PredictFun" || plat === "Polymarket")
+    return false;
   const wire = (timer as Array<{ MatchID: string | number; Round: number; StartTime: number }>).map(
     toA8LiveTimerRow,
   );

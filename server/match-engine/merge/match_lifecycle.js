@@ -13,7 +13,7 @@ import { liveRound } from "./match_merge.js";
 /** 无 is_live 且无地图锁盘信号时的兜底等待（避免误判） */
 const PAST_START_FALLBACK_MS = 30 * 60 * 1000;
 
-/** 所有平台停止 saveMatch 后视为结束的等待时间（最长采集间隔 60s × 3） */
+/** 所有平台来源都已从 platform_matches 消失后视为结束的等待时间（最长采集间隔 60s × 3） */
 const ALL_SOURCES_GONE_MS = 3 * 60 * 1000;
 
 function findPlatformMatch(matches, provider, sourceMatchId) {
@@ -177,7 +177,7 @@ function isObConfirmEnded(row, platformMatches, timersByProvider) {
   return obMapSourcesLockedOrAbsent(row?.Bets);
 }
 
-/** 所有平台来源都已从 platform_matches 消失（saveMatch 不再上报） */
+/** 所有平台来源都已从 platform_matches 消失（采集不再保留该场） */
 function allPlatformSourcesGone(matchs, platformMatches) {
   const providers = Object.entries(matchs || {});
   if (!providers.length)
@@ -200,9 +200,10 @@ function allPlatformSourcesGone(matchs, platformMatches) {
 function isClientMatchEnded(row, platformMatches, timersByProvider, now = Date.now(), pmSport = null) {
   const startMs = normalizeEpochMs(row?.StartTime);
 
-  // 所有平台都已停止 saveMatch 上报：即使 live_timers 残留（OB getTimer 不清已结束
-  // 比赛），也判定为结束。saveMatch 是整批快照替换，不在最新批次里 = 该平台认为比赛
-  // 已结束。等待 3 分钟（最长采集间隔 60s × 3）确保不是采集临时中断。
+  // 所有平台来源都已从 platform_matches 消失：即使 live_timers 残留（OB getTimer 不清已结束
+  // 比赛），也判定为结束。多数平台仍是 SaveMatch 整批快照；Polymarket / PredictFun 由 VPS
+  // collector upsert+ended-prune 写库（非浏览器 SaveMatch），「不在 platform_matches」语义相同。
+  // 等待 3 分钟（最长采集间隔 60s × 3）确保不是采集临时中断。
   if (startMs > 0 && startMs <= now - ALL_SOURCES_GONE_MS
     && allPlatformSourcesGone(row?.Matchs, platformMatches)) {
     return true;

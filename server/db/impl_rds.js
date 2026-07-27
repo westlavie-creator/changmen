@@ -96,6 +96,7 @@ export {
   writePlatformBets,
   writePlatformMatches,
   writePlatformMatchesAsync,
+  prunePolymarketPlatformMatches,
 } from "./rds/platform_collector_store.js";
 
 export {

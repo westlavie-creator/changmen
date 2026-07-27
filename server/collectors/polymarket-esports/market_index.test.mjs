@@ -5,6 +5,7 @@ import {
   rebuildPlatformRowsFromIndexEntries,
   resolveRetainIdsFromPreviousIndex,
   mergeRetainedPolymarketIndexEntries,
+  mergePolymarketIndexLifecycle,
 } from "./market_index.js";
 
 describe("polymarket market_index soft-retain helpers", () => {
@@ -133,5 +134,33 @@ describe("polymarket market_index soft-retain helpers", () => {
     const edg = merged.filter(e => e.sourceMatchId === "752423");
     assert.equal(edg.length, 3, "must retain all map entries, not only the first");
     assert.deepEqual(edg.map(e => e.map).sort((a, b) => a - b), [0, 1, 2]);
+  });
+});
+
+describe("polymarket market_index lifecycle merge", () => {
+  it("empty fresh keeps previous minus removeSourceMatchIds", () => {
+    const out = mergePolymarketIndexLifecycle([], {
+      removeSourceMatchIds: ["gone"],
+      previousEntries: [
+        { sourceMatchId: "keep", marketId: "m1" },
+        { sourceMatchId: "gone", marketId: "m2" },
+      ],
+    });
+    assert.deepEqual(out.map(e => e.sourceMatchId), ["keep"]);
+  });
+
+  it("fresh overrides same sid and keeps other previous", () => {
+    const out = mergePolymarketIndexLifecycle(
+      [{ sourceMatchId: "a", marketId: "new-a", homeOdds: 1.2 }],
+      {
+        previousEntries: [
+          { sourceMatchId: "a", marketId: "old-a", homeOdds: 9 },
+          { sourceMatchId: "b", marketId: "old-b" },
+        ],
+      },
+    );
+    assert.equal(out.length, 2);
+    assert.equal(out.find(e => e.sourceMatchId === "a")?.marketId, "new-a");
+    assert.equal(out.find(e => e.sourceMatchId === "b")?.marketId, "old-b");
   });
 });

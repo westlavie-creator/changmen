@@ -16,8 +16,15 @@ loadChangmenEnv();
 
 const DISCOVERY_MS = Number(process.env.POLYMARKET_COLLECTOR_INTERVAL_MS || 60_000);
 let stopped = false;
+/** 防止 setInterval 与慢轮次重叠写库，后写覆盖先写导致闪删 */
+let tickRunning = false;
 
 async function tick() {
+  if (tickRunning) {
+    console.warn("[polymarket-esports] skip tick: previous cycle still running");
+    return;
+  }
+  tickRunning = true;
   try {
     const stats = await runPolymarketEsportsDiscoveryCycle();
     if (stats.skipped) {
@@ -30,16 +37,17 @@ async function tick() {
     const mode = stats.writePlatform ? "live" : "shadow";
     console.log(
       `[polymarket-esports] cycle ok mode=${mode} matches=${stats.matches} bets=${stats.bets}`
-      + (stats.softRetained ? ` softRetained=${stats.softRetained}` : "")
-      + (stats.resurrected ? " resurrected=1" : "")
+      + (stats.pruned ? ` pruned=${stats.pruned}` : "")
       + (stats.truncated ? " truncated=1" : "")
-      + (stats.cleared ? " cleared=1" : "")
       + (stats.shadow ? " (shadow; platform write off)" : " (live; browser uses MarketIndex)")
       + (stats.collectTypes ? ` types=${stats.collectTypes.join(",")}` : ""),
     );
   }
   catch (err) {
     console.warn("[polymarket-esports] cycle error:", err.message);
+  }
+  finally {
+    tickRunning = false;
   }
 }
 

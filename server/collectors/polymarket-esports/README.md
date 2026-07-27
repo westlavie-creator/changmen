@@ -1,6 +1,8 @@
 # polymarket-esports (`@changmen/polymarket-esports-collector`)
 
-VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_*` + 本机 `polymarket_market_index.json`。
+VPS 守护进程：Polymarket **Gamma + CLOB /prices** → `platform_*` + 本机 `polymarket_market_index.json`。
+
+**职责一句话**：只有 VPS 写 Polymarket 电竞库；浏览器只吃 Index → Market WS → fo。
 
 对齐官方文档：
 
@@ -8,28 +10,22 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 - [GET /sports](https://docs.polymarket.com/api-reference/sports/get-sports-metadata-information)
 - [GET /sports/market-types](https://docs.polymarket.com/api-reference/sports/get-valid-sports-market-types)
 - [POST /prices](https://docs.polymarket.com/api-reference/market-data/get-market-prices-request-body)（`side: SELL` = 买入 ask）
+- [Fetching markets](https://docs.polymarket.com/market-data/fetching-markets)（列盘主路径 `closed=false`）
 - 实时顶价仍走 Market WS（浏览器 / hub），**不**用本进程 HTTP 当实时源
-
-## 迁移节奏
-
-| 阶段 | 浏览器 | VPS collector |
-|------|--------|----------------|
-| **已切流（当前）** | 仅 Index → Market WS → fo（无 Gamma/`Save*`） | **live** 写 `platform_*` + MarketIndex |
-| **旁路** | 同上 | `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` → shadow |
 
 ## 采集逻辑（一轮）
 
 1. `GET /sports` → 电竞 `series_id`（缓存 1h）
-2. `GET /sports/market-types` → 与 `moneyline`/`child_moneyline` 求交（缓存 6h；可用 env 追加类型）
+2. `GET /sports/market-types` → 与 `moneyline`/`child_moneyline` 求交（缓存 6h；可用 env 追加）
 3. `GET /events/keyset`（官方 `closed=false` + `series_id` + cursor）：
-   - **主 pass**：`start_time` ∈ [now-6h, now+1h]（已开赛未 ended 仍在窗内；不依赖 `live`）
+   - **主 pass**：`start_time` ∈ [now-6h, now+1h]
    - **补 pass**：`live=true`（开赛早于 6h 但仍标 live 的长局）
-   - **本地**：丢弃 `ended===true` / market `closed|archived`（OpenAPI 无 `ended` 查询参数）
-4. 规范化类型（**无默认 moneyline**）→ allowlist → 双 token / 可解析 / 开赛 ≤ now+1h
+   - **本地**：丢弃 `ended===true` / market `closed|archived`
+4. 类型 allowlist → 双 token / 可解析 / 开赛 ≤ now+1h
 5. `POST /prices` `SELL` 种子价
-6. **按 SourceMatchID 整场截断**（默认最多 400 盘，不拆半场）
-7. **软保留（兜底）**：网络/偶发漏抓时 Index+alsoKeep，不替代官方入选条件
-8. **默认 live**：写 `platform_*` + index；`WRITE_PLATFORM=0` 仅写 index
+6. 按 SourceMatchID 整场截断（默认最多 400 盘）
+7. **写库**：upsert 本轮场次 + bets；**prune** 仅 `ended/closed` ∪ `synced_at` 过旧（**不**按 start 窗外删；窗只约束拉取体积）
+8. 写 MarketIndex（与 DB 同生命周期：空窗不硬清空，只剔 ended）；浏览器禁止 `API_SaveMatch` / `API_SaveBet` / `API_SaveLiveTimer`
 
 ## 运行
 
@@ -41,15 +37,15 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices** →（可选）`platform_
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `POLYMARKET_COLLECTOR_INTERVAL_MS` | `60000` | 周期 |
-| `POLYMARKET_COLLECTOR_WRITE_PLATFORM` | `1`（live） | `0`/`false` 关闭写库改 shadow |
-| `POLYMARKET_COLLECTOR_EXTRA_MARKET_TYPES` | 空 | 逗号分隔额外类型（须在官方 list 内，如 `esports_match_result`） |
+| `POLYMARKET_COLLECTOR_WRITE_PLATFORM` | `1`（live） | `0`/`false` → shadow（只写 Index） |
+| `POLYMARKET_COLLECTOR_EXTRA_MARKET_TYPES` | 空 | 逗号分隔额外类型（须在官方 list 内） |
 
 ## 安全写库（live）
 
 | 情况 | 行为 |
 |------|------|
 | HTTP 抛错 | 本轮不写 |
-| 有 typed ML 但解析全失败 | skip，不 clear |
-| 窗口内无 ML | 允许 clear + 空 index |
+| 有 typed ML 但解析全失败 | skip，不写不 prune |
+| 窗内无 ML | Index 剔 ended 保留其余 + prune(ended∪synced 过旧)，**不**硬清空 |
 
 索引：[collectors/README.md](../README.md) · [PRODUCTION_DEPLOYMENT.md](../../../PRODUCTION_DEPLOYMENT.md)

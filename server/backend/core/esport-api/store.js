@@ -180,10 +180,13 @@ function linkedClientMatchId(row) {
 }
 
 export function saveMatches(provider, matchs) {
-  // PredictFun 电竞由 VPS predictfun-collector 独占写 platform_*；
-  // 浏览器若再 SaveMatch，会 orphan-delete / 与 collector 抢写。
-  if (String(provider) === "PredictFun") {
-    console.warn("[esport-api] ignore API_SaveMatch for PredictFun (VPS collector owns platform_*)");
+  // PredictFun / Polymarket 电竞由 VPS collector 独占写 platform_*；
+  // 浏览器若再 SaveMatch（旧前端 / CollectConfig 仍开），会 orphan-delete 已开赛场次。
+  const plat = String(provider || "").trim();
+  if (plat === "PredictFun" || plat === "Polymarket") {
+    console.warn(
+      `[esport-api] ignore API_SaveMatch for ${plat} (VPS collector owns platform_*)`,
+    );
     return;
   }
   const now = Date.now();
@@ -257,11 +260,12 @@ function normalizeSaveBetRows(bets) {
 }
 
 export function saveBets(provider, matchId, bets) {
-  // PredictFun 电竞由 VPS predictfun-collector 独占写；
-  // 浏览器 SaveBet 常只有 Match Winner，replace 会抹掉地图盘。
-  if (String(provider) === "PredictFun") {
+  // PredictFun / Polymarket 电竞由 VPS collector 独占写；
+  // 浏览器 SaveBet 会与 collector 抢写 / 抹掉地图盘。
+  const plat = String(provider || "").trim();
+  if (plat === "PredictFun" || plat === "Polymarket") {
     console.warn(
-      `[esport-api] ignore API_SaveBet for PredictFun match=${matchId} (VPS collector owns platform_bets)`,
+      `[esport-api] ignore API_SaveBet for ${plat} match=${matchId} (VPS collector owns platform_bets)`,
     );
     return;
   }
@@ -285,6 +289,14 @@ export function saveBets(provider, matchId, bets) {
 export async function saveLiveTimer(provider, timer) {
   let incoming = Array.isArray(timer) ? timer : [];
   const plat = String(provider || "").trim();
+  // PredictFun / Polymarket 电竞由 VPS collector 独占写 platform_*；
+  // 浏览器 SaveLiveTimer 会与 matcher 生命周期抢写（且 PM 本无 timer 采集）。
+  if (plat === "PredictFun" || plat === "Polymarket") {
+    console.warn(
+      `[esport-api] ignore API_SaveLiveTimer for ${plat} (VPS collector owns platform_*)`,
+    );
+    return;
+  }
   if (plat === "OB") {
     const prev = _timers.OB?.timer || [];
     const liveOnIndex = Object.values(_matches.OB || {}).some(

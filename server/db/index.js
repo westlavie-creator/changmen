@@ -91,6 +91,7 @@ export const {
   fetchLiveTimers,
   writePlatformMatches,
   writePlatformMatchesAsync,
+  prunePolymarketPlatformMatches,
   writePlatformBets,
   replacePlatformBetsForMatch,
   replacePlatformBetsForMatchAsync,

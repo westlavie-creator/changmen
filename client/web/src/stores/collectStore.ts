@@ -8,7 +8,8 @@ const CONFIG_KEY = "CollectConfig";
 
 /** VPS collector 独占写 platform_*；浏览器不得 SaveMatch/SaveBet（即便 CollectConfig 打开）。 */
 function isVpsOwnedPlatformCollect(platform: PlatformId | string): boolean {
-  return String(platform) === "PredictFun";
+  const p = String(platform);
+  return p === "PredictFun" || p === "Polymarket";
 }
 
 /**

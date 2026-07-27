@@ -1,4 +1,7 @@
-import { writePolymarketMarketIndex } from "@changmen/storage/polymarket_market_index.js";
+import {
+  readPolymarketMarketIndex,
+  writePolymarketMarketIndex,
+} from "@changmen/storage/polymarket_market_index.js";
 
 /** @param {import("@changmen/api-contract").PolymarketMarketIndexEntry[]} entries */
 export function buildPolymarketMarketIndexFromEntries(entries) {
@@ -14,6 +17,38 @@ export function buildPolymarketMarketIndexFromEntries(entries) {
     assetIds: [...assetIdSet],
     entries,
   };
+}
+
+/**
+ * Index 与 DB 同生命周期：本轮 candidates 覆盖同 sid；其余保留；只剔 removeSourceMatchIds（ended）。
+ * 禁止无脑写空数组清空（空窗仍保留未 ended 场次）。
+ * @param {import("@changmen/api-contract").PolymarketMarketIndexEntry[]} freshEntries
+ * @param {{
+ *   removeSourceMatchIds?: string[],
+ *   previousEntries?: import("@changmen/api-contract").PolymarketMarketIndexEntry[],
+ * }} [opts]
+ */
+export function mergePolymarketIndexLifecycle(freshEntries, opts = {}) {
+  const removeIds = new Set(
+    (opts.removeSourceMatchIds || []).map(String).filter(Boolean),
+  );
+  const fresh = (freshEntries || []).filter(
+    e => !removeIds.has(String(e?.sourceMatchId || "")),
+  );
+  const freshSids = new Set(
+    fresh.map(e => String(e.sourceMatchId || "")).filter(Boolean),
+  );
+  const previous = opts.previousEntries
+    ?? readPolymarketMarketIndex()?.entries
+    ?? [];
+  const kept = [];
+  for (const prev of previous) {
+    const sid = String(prev?.sourceMatchId || "");
+    if (!sid || removeIds.has(sid) || freshSids.has(sid))
+      continue;
+    kept.push(prev);
+  }
+  return [...fresh, ...kept];
 }
 
 /**
@@ -161,6 +196,7 @@ export function rebuildPlatformRowsFromIndexEntries(previousEntries, retainSourc
  *   retainSourceMatchIds?: string[],
  *   previousEntries?: import("@changmen/api-contract").PolymarketMarketIndexEntry[],
  *   nowMs?: number,
+ *   removeSourceMatchIds?: string[],
  * }} [opts]
  */
 export function persistPolymarketMarketIndex(candidates, buyPrices = {}, opts = {}) {
@@ -206,6 +242,11 @@ export function persistPolymarketMarketIndex(candidates, buyPrices = {}, opts = 
       ...(eventSlug ? { eventSlug } : {}),
     };
   });
-  const merged = mergeRetainedPolymarketIndexEntries(entries, opts);
+  // 旧 soft-retain（按窗）仅在显式传 retainSourceMatchIds 时启用；默认走 lifecycle merge
+  const softMerged = mergeRetainedPolymarketIndexEntries(entries, opts);
+  const merged = mergePolymarketIndexLifecycle(softMerged, {
+    removeSourceMatchIds: opts.removeSourceMatchIds,
+    previousEntries: opts.previousEntries,
+  });
   writePolymarketMarketIndex(buildPolymarketMarketIndexFromEntries(merged));
 }

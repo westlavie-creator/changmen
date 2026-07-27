@@ -106,6 +106,8 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
     ...rows.map(r => String(r.source_match_id)),
     ...alsoKeep,
   ])];
+  // Polymarket：VPS 独占，只 upsert；清理走 prunePolymarketPlatformMatches（ended ∪ synced 过旧）
+  const allowOrphanDelete = platform !== "Polymarket";
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
@@ -144,8 +146,75 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
       rows.map(r => JSON.stringify(Array.isArray(r.teams) ? r.teams : [])),
       rows.map(r => r.synced_at),
     ]);
-    await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds);
+    if (allowOrphanDelete)
+      await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds);
     await client.query("COMMIT");
+  }
+  catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+  finally {
+    client.release();
+  }
+}
+
+/**
+ * Polymarket 显式清理：只删已 ended/closed（forceDeleteIds），或 synced_at 过旧（防堆积）。
+ * 采集窗只约束 Gamma 拉取体积，不得按 start_time 窗外删行（否则与 live 补 pass 矛盾）。
+ * @param {{
+ *   forceDeleteIds?: string[],
+ *   staleBeforeMs?: number,
+ * }} [opts]
+ * @returns {Promise<string[]>} 删除的 source_match_id
+ */
+async function _rdsPrunePolymarketPlatformMatches(pool, opts = {}) {
+  const forceDelete = Array.isArray(opts.forceDeleteIds)
+    ? [...new Set(opts.forceDeleteIds.map(String).filter(Boolean))]
+    : [];
+  const now = Date.now();
+  // 48h 无 upsert：Gamma 既不返回 ended 也不再出现在窗/live 时兜底下线
+  const staleBefore = Number.isFinite(Number(opts.staleBeforeMs))
+    ? Number(opts.staleBeforeMs)
+    : now - 48 * 3600 * 1000;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const moved = await client.query(
+      `WITH moved AS (
+         DELETE FROM platform_matches
+         WHERE platform = 'Polymarket'
+           AND (
+             source_match_id = ANY($1::text[])
+             OR (synced_at IS NOT NULL AND synced_at < $2::bigint)
+           )
+         RETURNING *
+       )
+       INSERT INTO platform_matches_history (
+         platform, source_match_id, source_game_id, start_time, home_id, home,
+         away_id, away, bo, is_live, teams, synced_at, match_id
+       )
+       SELECT platform, source_match_id, source_game_id, start_time, home_id, home,
+              away_id, away, bo, is_live, teams, synced_at, match_id
+       FROM moved
+       RETURNING source_match_id`,
+      [forceDelete, staleBefore],
+    );
+    const deletedIds = moved.rows.map(r => String(r.source_match_id));
+    if (deletedIds.length) {
+      await client.query(
+        `DELETE FROM platform_bets
+         WHERE platform = 'Polymarket' AND source_match_id = ANY($1::text[])`,
+        [deletedIds],
+      );
+      await client.query(
+        `DELETE FROM live_timers
+         WHERE platform = 'Polymarket' AND source_match_id = ANY($1::text[])`,
+        [deletedIds],
+      );
+    }
+    await client.query("COMMIT");
+    return deletedIds;
   }
   catch (err) {
     await client.query("ROLLBACK");
@@ -452,17 +521,22 @@ function mapPlatformMatchRows(provider, matchs) {
   }));
 }
 
-/** fire-and-forget：按平台快照 upsert 本批比赛，并删除本批之外的孤儿行（含 platform_bets）；[] = 空快照全清
+/** fire-and-forget：按平台 upsert 本批比赛。
+ * 非 Polymarket：并删除本批之外的孤儿行；[] = 空快照全清。
+ * Polymarket：只 upsert（VPS 独占）；[] 忽略；清理用 prunePolymarketPlatformMatches。
  * @param {string} provider
  * @param {object[]} matchs
  * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]
- *   alsoKeepSourceMatchIds：软保留这些 source_match_id，本轮未出现也不当孤儿删（防 Gamma 漏抓闪没）
  */
 export function writePlatformMatches(provider, matchs, opts = {}) {
   if (!Array.isArray(matchs))
     return;
   const plat = String(provider);
   if (!matchs.length) {
+    if (plat === "Polymarket") {
+      console.warn("[rds] ignore writePlatformMatches([]) for Polymarket (use prune)");
+      return;
+    }
     _writeRds(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches", {
       key: `collector:${plat}`,
     });
@@ -476,7 +550,7 @@ export function writePlatformMatches(provider, matchs, opts = {}) {
   );
 }
 
-/** await 版：与 replacePlatformBetsForMatchAsync 配对，保证同 cycle 内 matches→bets 有序落库
+/** await 版：与 replacePlatformBetsForMatchAsync 配对
  * @param {string} provider
  * @param {object[]} matchs
  * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]
@@ -486,11 +560,36 @@ export async function writePlatformMatchesAsync(provider, matchs, opts = {}) {
     return;
   const plat = String(provider);
   if (!matchs.length) {
+    if (plat === "Polymarket") {
+      console.warn("[rds] ignore writePlatformMatchesAsync([]) for Polymarket (use prune)");
+      return;
+    }
     await _writeRdsAsync(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches");
     return;
   }
   const rows = mapPlatformMatchRows(provider, matchs);
   await _writeRdsAsync(pool => _rdsUpsertPlatformMatches(pool, rows, opts), "platform_matches");
+}
+
+/**
+ * Polymarket 显式 prune：ended/closed id ∪ synced_at 过旧。
+ * @param {{
+ *   forceDeleteIds?: string[],
+ *   staleBeforeMs?: number,
+ * }} [opts]
+ * @returns {Promise<string[]>} 删除的 source_match_id
+ */
+export async function prunePolymarketPlatformMatches(opts = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    return await _rdsPrunePolymarketPlatformMatches(pool, opts);
+  }
+  catch (err) {
+    console.warn("[rds:platform_matches_prune]", err.message);
+    throw err;
+  }
 }
 
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
