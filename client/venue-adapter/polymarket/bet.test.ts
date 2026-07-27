@@ -10,6 +10,8 @@ const polymarketPluginPost = vi.hoisted(() => vi.fn());
 const pmGetBook = vi.hoisted(() => vi.fn());
 const pmGetTrades = vi.hoisted(() => vi.fn());
 const pmSubmitOrder = vi.hoisted(() => vi.fn());
+const saveVenueOdds = vi.hoisted(() => vi.fn());
+const getVenueOddsEntry = vi.hoisted(() => vi.fn());
 
 vi.mock("./transport", () => ({
   polymarketPluginGet,
@@ -22,6 +24,22 @@ vi.mock("./pmClientApi", () => ({
   pmGetBook,
   pmSubmitOrder,
   pmGetTrades,
+}));
+
+vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
+  saveVenueOdds,
+  getVenueOddsEntry,
+  readVenueOdds: () => 0,
+  writeVenueOdds: () => {},
+  cleanVenueOdds: () => {},
+  isVenueOdds: () => false,
+  updateVenueOddsLock: () => {},
+  updateVenueBetLock: () => {},
+  updateVenueOddsMessage: () => {},
+  getVenueOddsLimit: () => undefined,
+  setVenueOddsLimit: () => {},
+  registerOddsAccess: () => {},
+  clearOddsAccess: () => {},
 }));
 
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
@@ -354,6 +372,8 @@ describe("polymarketProvider.betting", () => {
     vi.mocked(pmSubmitOrder).mockReset();
     vi.mocked(pmGetBook).mockReset();
     vi.mocked(pmSubmitOrder).mockReset();
+    saveVenueOdds.mockReset();
+    getVenueOddsEntry.mockReset();
   });
 
   test("下单走 Pm_SubmitOrder", async () => {
@@ -515,6 +535,15 @@ describe("polymarketProvider.betting", () => {
       neg_risk: false,
       asks: [{ price: "0.32", size: "100" }],
     });
+    getVenueOddsEntry.mockReturnValue({
+      id: "123456789",
+      odds: 5,
+      clobPrice: 0.2,
+      isLock: false,
+      betId: "cond-1",
+      side: "home",
+      time: 1,
+    });
 
     const account = accountWithToken(JSON.stringify({
       walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
@@ -530,6 +559,7 @@ describe("polymarketProvider.betting", () => {
 
     const result = await polymarketProvider.betting!(account, {
       itemId: "123456789",
+      betId: "cond-1",
       odds: 3.125,
       betMoney: 35,
       data: { detectionOdds: 5, apiBetMoney: 5 },
@@ -538,6 +568,14 @@ describe("polymarketProvider.betting", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("盘口价高于检测价");
     expect(pmSubmitOrder).not.toHaveBeenCalled();
+    expect(saveVenueOdds).toHaveBeenCalledWith(
+      "Polymarket",
+      expect.objectContaining({
+        id: "123456789",
+        clobPrice: 0.32,
+      }),
+      "http",
+    );
   });
 
   test("accepts FOK when fo clobPrice matches detection odds (trunc3)", async () => {
@@ -906,6 +944,8 @@ describe("polymarketProvider.checkBet", () => {
   beforeEach(() => {
     vi.mocked(polymarketPluginGet).mockReset();
     vi.mocked(pmGetBook).mockReset();
+    saveVenueOdds.mockReset();
+    getVenueOddsEntry.mockReset();
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
       if (url.includes("gamma-api.polymarket.com/markets")) {
         return [{
@@ -1033,9 +1073,21 @@ describe("polymarketProvider.checkBet", () => {
       neg_risk: false,
       asks: [{ price: "0.32", size: "100" }],
     });
+    getVenueOddsEntry.mockReturnValue({
+      id: "123456789",
+      odds: 5,
+      clobPrice: 0.2,
+      isLock: false,
+      betId: "cond-1",
+      side: "home",
+      time: 1,
+    });
+    saveVenueOdds.mockClear();
 
     const option = {
       itemId: "123456789",
+      betId: "cond-1",
+      target: "Home",
       odds: 5,
       betMoney: 5,
     };
@@ -1047,6 +1099,114 @@ describe("polymarketProvider.checkBet", () => {
 
     expect(out.data).toBeNull();
     expect(out.checkError).toContain("盘口价高于检测价");
+    expect(saveVenueOdds).toHaveBeenCalledWith(
+      "Polymarket",
+      expect.objectContaining({
+        id: "123456789",
+        clobPrice: 0.32,
+        betId: "cond-1",
+        side: "home",
+        isLock: false,
+      }),
+      "http",
+    );
+  });
+
+  test("price-above fo sync preserves existing lock and betId from fo", async () => {
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.32", size: "100" }],
+    });
+    getVenueOddsEntry.mockReturnValue({
+      id: "123456789",
+      odds: 5,
+      clobPrice: 0.2,
+      isLock: true,
+      betId: "fo-cond",
+      side: "away",
+      time: 1,
+    });
+    saveVenueOdds.mockClear();
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      { itemId: "123456789", betId: "", odds: 5, betMoney: 5 } as any,
+    );
+
+    expect(out.checkError).toContain("盘口价高于检测价");
+    expect(saveVenueOdds).toHaveBeenCalledWith(
+      "Polymarket",
+      expect.objectContaining({
+        id: "123456789",
+        clobPrice: 0.32,
+        betId: "fo-cond",
+        side: "away",
+        isLock: true,
+      }),
+      "http",
+    );
+  });
+
+  test("does not rewrite fo when book ask is not worse than current fo clob", async () => {
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.32", size: "100" }],
+    });
+    getVenueOddsEntry.mockReturnValue({
+      id: "123456789",
+      odds: 3,
+      clobPrice: 0.4,
+      isLock: false,
+      betId: "cond-1",
+      side: "home",
+      time: 1,
+    });
+    saveVenueOdds.mockClear();
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      { itemId: "123456789", betId: "cond-1", odds: 5, betMoney: 5 } as any,
+    );
+
+    expect(out.checkError).toContain("盘口价高于检测价");
+    expect(saveVenueOdds).not.toHaveBeenCalled();
+  });
+
+  test("does not rewrite fo on min-size precheck failure", async () => {
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "50",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    getVenueOddsEntry.mockReturnValue({
+      id: "123456789",
+      odds: 2,
+      clobPrice: 0.5,
+      isLock: false,
+      betId: "cond-1",
+      side: "home",
+      time: 1,
+    });
+    saveVenueOdds.mockClear();
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      {
+        itemId: "123456789",
+        betId: "cond-1",
+        odds: 2,
+        betMoney: 5,
+        data: { detectionClobPrice: 0.5, detectionOdds: 2 },
+      } as any,
+    );
+
+    expect(out.checkError).toContain("低于最小份数");
+    expect(saveVenueOdds).not.toHaveBeenCalled();
   });
 
   test("derives apiBetMoney from USDT betMoney after exchange", async () => {

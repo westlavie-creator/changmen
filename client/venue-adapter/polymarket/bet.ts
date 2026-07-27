@@ -34,6 +34,11 @@ import {
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
+import {
+  isPolymarketPriceAboveDetectionError,
+  PolymarketPriceAboveDetectionError,
+  syncPolymarketFoOnPriceAboveDetection,
+} from "./pmTokenQuote";
 import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet } from "./transport";
@@ -279,7 +284,7 @@ function calculateBuyMarketLimitPrice(
   };
   if (maxPrice != null && !bookAsks.length) {
     const best = asks[0];
-    throw new Error([
+    const message = [
       "Polymarket 盘口价高于检测价，整单取消",
       ...diagnosticLines({
         ...baseDiag,
@@ -292,7 +297,10 @@ function calculateBuyMarketLimitPrice(
         ? `- 最佳卖价 ${fmt(best.price, 4)}（赔率 ${fmt(1 / best.price, 4)}）高于检测价 ${fmt(maxPrice, 4)}（赔率 ${fmt(diagnostic.displayedOdds, 4)}）`
         : "- 盘口无卖单",
       "- 不会在高于套利检测价的位置 FOK 成交。",
-    ].join("\n"));
+    ].join("\n");
+    if (best && Number.isFinite(best.price) && best.price > 0 && best.price < 1)
+      throw new PolymarketPriceAboveDetectionError(message, best.price, maxPrice);
+    throw new Error(message);
   }
   let remaining = amountUsdc;
   for (const level of bookAsks) {
@@ -578,6 +586,14 @@ export const polymarketProvider: PlatformProvider = {
       } satisfies PolymarketBuyCheckData;
     }
     catch (err) {
+      if (isPolymarketPriceAboveDetectionError(err)) {
+        try {
+          syncPolymarketFoOnPriceAboveDetection(option, err);
+        }
+        catch (syncErr) {
+          console.warn("[Polymarket] fo sync after price-above precheck failed", syncErr);
+        }
+      }
       option.checkError = err instanceof Error ? err.message : String(err);
       option.data = null;
     }
@@ -692,6 +708,14 @@ export const polymarketProvider: PlatformProvider = {
       }
       return bet;
     } catch (err) {
+      if (isPolymarketPriceAboveDetectionError(err)) {
+        try {
+          syncPolymarketFoOnPriceAboveDetection(option, err);
+        }
+        catch (syncErr) {
+          console.warn("[Polymarket] fo sync after price-above bet failed", syncErr);
+        }
+      }
       const msg = err instanceof Error ? err.message : String(err);
       return new BetResult("Polymarket", false, msg);
     }

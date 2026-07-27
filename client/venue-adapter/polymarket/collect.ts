@@ -27,32 +27,13 @@ import {
   registerPolymarketQuoteAssets,
   unregisterPolymarketQuoteConsumer,
 } from "./marketQuoteHub";
+import { saveTokenQuote } from "./pmTokenQuote";
+
+export { saveTokenQuote } from "./pmTokenQuote";
 
 const PLATFORM = PLATFORMS.Polymarket;
 const INDEX_SYNC_MS = 30_000;
 const QUOTE_CONSUMER = "esport" as const;
-
-/** PM 写 fo 的唯一入口：decimal odds 供展示/套利，clobPrice 供预检限价 */
-export function saveTokenQuote(
-  params: {
-    tokenId: string;
-    clobPrice: number;
-    betId: string;
-    side: "home" | "away";
-    locked: boolean;
-  },
-  source: "http" | "mqtt",
-) {
-  saveVenueOdds(PLATFORM, {
-    id: params.tokenId,
-    odds: decimalOddsFromProbability(params.clobPrice),
-    clobPrice: params.clobPrice,
-    isLock: params.locked,
-    betId: params.betId,
-    side: params.side,
-    time: Date.now(),
-  }, source);
-}
 
 function saveBetOddsToFo(
   bet: CollectBetDto,

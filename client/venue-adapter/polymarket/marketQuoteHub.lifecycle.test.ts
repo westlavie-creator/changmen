@@ -144,6 +144,9 @@ describe("PM collect / hub source contracts", () => {
     const indexStart = src.indexOf("async function syncMarketIndex");
     expect(indexStart).toBeGreaterThanOrEqual(0);
     expect(src.slice(indexStart)).toMatch(/refreshOddsOnBets\(/);
+
+    const quoteMod = readFileSync(join(root, "pmTokenQuote.ts"), "utf8");
+    expect(quoteMod).toMatch(/export function saveTokenQuote\(/);
   });
 
   test("hub layer never imports oddsAccess", () => {

@@ -12,6 +12,11 @@ export * from "./settlementJob";
 export * from "./legOutcome";
 export * from "./orderTypes";
 export * from "./collect";
+export {
+  PolymarketPriceAboveDetectionError,
+  isPolymarketPriceAboveDetectionError,
+  syncPolymarketFoOnPriceAboveDetection,
+} from "./pmTokenQuote";
 export * from "./parse";
 export * from "./pmSportGuard";
 export * from "./pmSportGamma";
