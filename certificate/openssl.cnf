@@ -1,0 +1,67 @@
+# changmen internal CA — used by certificate/*.sh
+# Output root: certificate/out/
+
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = out/ca
+certs             = $dir/certs
+crl_dir           = $dir/crl
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+crlnumber         = $dir/crlnumber
+RANDFILE          = $dir/.rand
+unique_subject    = no
+
+private_key       = $dir/private/ca.key
+certificate       = $dir/ca.crt
+
+default_days      = 825
+default_crl_days  = 365
+default_md        = sha256
+preserve          = no
+policy            = policy_loose
+copy_extensions   = copy
+
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+[ req ]
+default_bits        = 4096
+default_md          = sha256
+string_mask         = utf8only
+distinguished_name  = req_dn
+x509_extensions     = v3_ca
+
+[ req_dn ]
+commonName = Common Name
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+[ v3_server ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+
+[ v3_client ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+
+[ crl_ext ]
+authorityKeyIdentifier = keyid:always

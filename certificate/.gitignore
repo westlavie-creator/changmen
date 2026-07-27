@@ -1,0 +1,9 @@
+# 忽略 PKI 产出（私钥 / 证书 / CRL），只提交脚本与说明
+out/
+*.key
+*.p12
+*.pfx
+*.csr
+*.srl
+*.pem
+!openssl.cnf

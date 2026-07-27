@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>安装访问证书 — changmen</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --btn: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 189, 248, 0.15), transparent),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(520px, 100%);
+      background: var(--card);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+    ol {
+      margin: 0 0 20px;
+      padding-left: 1.25rem;
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+    li { margin-bottom: 6px; }
+    code {
+      background: #0f172a;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: var(--btn);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .btn:hover { filter: brightness(1.08); }
+    .hint {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .hint a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>下载根证书 ca.crt</h1>
+    <p>首次访问 HTTPS 前，请先安装本文件到「受信任的根证书颁发机构」。客户端 .p12 仍由管理员单独发给你。</p>
+    <ol>
+      <li>点击下方按钮下载 <code>ca.crt</code></li>
+      <li>双击打开 → 安装证书 → <strong>当前用户</strong></li>
+      <li>选「将所有的证书放入下列存储」→ 浏览 → <strong>受信任的根证书颁发机构</strong></li>
+      <li>完成后再安装管理员发给你的 <code>.p12</code>（导入到「个人」）</li>
+      <li>完全退出浏览器后，打开 HTTPS 地址并选择自己的证书</li>
+    </ol>
+    <a class="btn" href="/setup/ca.crt" download="ca.crt">下载 ca.crt</a>
+    <p class="hint">
+      本页仅通过 HTTP 开放（无需证书）。安装完成后请使用
+      <a href="https://47.57.10.202/">https://47.57.10.202/</a>
+    </p>
+  </div>
+</body>
+</html>

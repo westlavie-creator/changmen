@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>じらいや</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .stage {
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 1.5rem;
+      background:
+        radial-gradient(ellipse 70% 45% at 50% 40%, rgba(15, 23, 42, 0.35), transparent 70%),
+        linear-gradient(#000 0%, #020617 100%);
+    }
+    #starfield {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    .brand {
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-indent: 0.12em;
+      color: rgba(226, 232, 240, 0.78);
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(4px);
+      animation: heroIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.02s forwards;
+    }
+    .title {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.35em 0.45em;
+      font-size: clamp(1.75rem, 6.5vw, 3.75rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6);
+    }
+    .hero-word {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(4px);
+      animation: heroIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    }
+    .w1 { animation-delay: 0.05s; }
+    .w2 { animation-delay: 0.15s; }
+    .w3 { animation-delay: 0.25s; }
+    .w4 {
+      animation-delay: 0.35s;
+      animation-name: heroInAccent;
+      color: #60a5fa;
+    }
+    @keyframes heroIn {
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+    @keyframes heroInAccent {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+        color: #60a5fa;
+        text-shadow: 0 0 20px rgba(59, 130, 246, 0.45);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .brand, .hero-word {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+      }
+      .w4 { color: #60a5fa; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <canvas id="starfield" aria-hidden="true"></canvas>
+    <div class="content">
+      <div class="brand">じらいや</div>
+      <h1 class="title" aria-label="Bet Bigger. Faster. Smarter.">
+        <span class="hero-word w1">Bet</span>
+        <span class="hero-word w2">Bigger.</span>
+        <span class="hero-word w3">Faster.</span>
+        <span class="hero-word w4">Smarter.</span>
+      </h1>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var canvas = document.getElementById("starfield");
+      if (!canvas) return;
+      var ctx = canvas.getContext("2d", { alpha: true });
+      if (!ctx) return;
+      var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var disc = document.createElement("canvas");
+      disc.width = 64; disc.height = 64;
+      var dg = disc.getContext("2d");
+      var r = 32;
+      var grad = dg.createRadialGradient(r, r, 0, r, r, r);
+      grad.addColorStop(0, "rgba(255,255,255,1)");
+      grad.addColorStop(0.35, "rgba(255,255,255,0.85)");
+      grad.addColorStop(0.65, "rgba(220,230,240,0.35)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      dg.fillStyle = grad;
+      dg.fillRect(0, 0, 64, 64);
+      var count = reduced ? 2500 : 9000;
+      var stars = [];
+      for (var i = 0; i < count; i++) {
+        stars.push({
+          x: (Math.random() - 0.5) * 10,
+          y: (Math.random() - 0.5) * 10,
+          z: (Math.random() - 0.5) * 10,
+        });
+      }
+      var mouseX = 0, mouseY = 0, camX = 0, camY = 0, camZ = 2.5;
+      function sync() {
+        var w = window.innerWidth, h = window.innerHeight;
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      function rotate(s, t) {
+        var rx = 0.25 * t, ry = 0.5 * t;
+        var x = s.x, y = s.y, z = s.z;
+        var y1 = y * Math.cos(rx) - z * Math.sin(rx);
+        var z1 = y * Math.sin(rx) + z * Math.cos(rx);
+        y = y1; z = z1;
+        var x1 = x * Math.cos(ry) + z * Math.sin(ry);
+        var z2 = -x * Math.sin(ry) + z * Math.cos(ry);
+        return { x: x1, y: y, z: z2 };
+      }
+      function project(x, y, z, w, h) {
+        var dx = x - camX, dy = y - camY, dz = z - camZ;
+        if (dz >= -0.08) return null;
+        var f = 1 / Math.tan((75 * Math.PI) / 360);
+        var aspect = w / Math.max(h, 1);
+        var px = ((dx / -dz) * f) / aspect;
+        var py = (dy / -dz) * f;
+        return {
+          sx: (px * 0.5 + 0.5) * w,
+          sy: (-py * 0.5 + 0.5) * h,
+          size: Math.max(0.8, (0.038 * f * Math.min(w, h)) / -dz),
+          a: Math.min(0.95, 0.25 + 0.75 * (1 / (1 + -dz * 0.12))),
+        };
+      }
+      function frame() {
+        var w = window.innerWidth, h = window.innerHeight;
+        ctx.clearRect(0, 0, w, h);
+        if (!reduced) {
+          camX += (mouseX - camX) * 0.05;
+          camY += (-mouseY - camY) * 0.05;
+        }
+        var t = reduced ? 0 : 1e-4 * Date.now();
+        for (var i = 0; i < stars.length; i++) {
+          var p = rotate(stars[i], t);
+          var proj = project(p.x, p.y, p.z, w, h);
+          if (!proj) continue;
+          ctx.globalAlpha = proj.a;
+          ctx.drawImage(disc, proj.sx - proj.size, proj.sy - proj.size, proj.size * 2, proj.size * 2);
+        }
+        ctx.globalAlpha = 1;
+        if (!reduced) requestAnimationFrame(frame);
+      }
+      sync();
+      window.addEventListener("resize", sync);
+      document.addEventListener("mousemove", function (e) {
+        if (reduced) return;
+        mouseX = (e.clientX - window.innerWidth / 2) / 1000;
+        mouseY = (e.clientY - window.innerHeight / 2) / 1000;
+      }, { passive: true });
+      if (reduced) frame();
+      else requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
