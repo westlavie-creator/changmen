@@ -99,6 +99,10 @@ export interface PolymarketMarketIndexEntry {
   homeClobPrice?: number;
   awayClobPrice?: number;
   /**
+   * [changmen 扩展] 开赛时间 epoch ms（软保留 / 漏抓回填用）
+   */
+  startTime?: number;
+  /**
    * [changmen 扩展] 该市场胜负（home/away 相对 Index 的 homeToken/awayToken）。
    * official = tokens[].winner；price = outcomePrices ≥ 0.99。
    */

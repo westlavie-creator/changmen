@@ -107,7 +107,7 @@ describe("buildMatchListMerged start time window", () => {
     expect(list).toHaveLength(0);
   });
 
-  it("merges ID-mapped rows within 60min even when outside 30min name window", () => {
+  it("merges ID-mapped rows within 60min name window via id basis when ids lock", () => {
     setTeamPlugin({
       lookupById(platform, platformId) {
         const maps = {
@@ -120,7 +120,8 @@ describe("buildMatchListMerged start time window", () => {
       },
     });
 
-    const delta = MERGE_START_TIME_TOLERANCE_MS + 15 * 60 * 1000;
+    // 45min：落在 60min 名/ID 窗内；有 gb id 锁时走 id 合并
+    const delta = 45 * 60 * 1000;
     const matches = {
       OB: {
         ob1: baseMatch("OB", "ob1", "Leviatán GC", "Daruma Synergy", "100217", "100218", T0),
@@ -142,6 +143,32 @@ describe("buildMatchListMerged start time window", () => {
     expect(list).toHaveLength(1);
     expect(list[0].MergeBasis).toBe("id");
     expect(Object.keys(list[0].Matchs).sort()).toEqual(["OB", "RAY"]);
+  });
+
+  it("name-merges Polymarket-like 40min start skew within 60min window", () => {
+    const matches = {
+      OB: {
+        ob1: baseMatch("OB", "ob1", "CYBERSHOKE Esports", "Team Comanche", "1", "2", T0),
+      },
+      Polymarket: {
+        pm1: {
+          ...baseMatch(
+            "OB",
+            "pm1",
+            "CYBERSHOKE Esports",
+            "Team Comanche",
+            "pm-h",
+            "pm-a",
+            T0 + 40 * 60 * 1000,
+          ),
+          SourceGameID: "cs2",
+        },
+      },
+    };
+
+    const list = buildMatchListMerged(matches, {}, {}, () => null);
+    expect(list).toHaveLength(1);
+    expect(Object.keys(list[0].Matchs).sort()).toEqual(["OB", "Polymarket"]);
   });
 
   it("does not name-merge when either platform lacks start time", () => {

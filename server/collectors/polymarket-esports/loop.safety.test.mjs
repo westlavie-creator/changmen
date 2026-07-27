@@ -17,6 +17,7 @@ describe("polymarket-esports write safety", () => {
         rawMarketCount: 0,
       }),
       fetchPrices: async () => ({}),
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
       writeMatches: () => writes.push("matches"),
       replaceBets: () => writes.push("bets"),
       persistIndex: (c) => writes.push(["index", c.length]),
@@ -45,6 +46,8 @@ describe("polymarket-esports write safety", () => {
         rawMarketCount: 1,
       }),
       fetchPrices: async () => ({}),
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
+      readPrevIndex: () => ({ entries: [] }),
       writeMatches: (p, rows) => writes.push(["matches", p, rows.length]),
       replaceBets: () => writes.push(["bets"]),
       persistIndex: (c) => writes.push(["index", c.length]),
@@ -55,6 +58,37 @@ describe("polymarket-esports write safety", () => {
       ["index", 0],
       ["matches", "Polymarket", 0],
     ]);
+  });
+
+  it("does not clear when soft-retain ids exist but index cannot rebuild", async () => {
+    const writes = [];
+    const now = Date.now();
+    const stats = await runPolymarketEsportsDiscoveryCycle({
+      writePlatform: true,
+      nowMs: now,
+      resolveTypes: async () => MONEYLINE_TYPES,
+      fetchMarkets: async () => ({
+        markets: [],
+        rawEventCount: 0,
+        rawMarketCount: 0,
+      }),
+      fetchPrices: async () => ({}),
+      fetchExistingMatches: async () => ({
+        Polymarket: [{
+          SourceMatchID: "752423",
+          StartTime: now - 30 * 60_000,
+          Home: "EDG",
+          Away: "RNG",
+        }],
+      }),
+      readPrevIndex: () => ({ entries: [] }),
+      writeMatches: (...args) => writes.push(args),
+      replaceBets: (...args) => writes.push(["bets", ...args]),
+      persistIndex: (...args) => writes.push(["index", args[0]?.length ?? args[0]]),
+    });
+    assert.equal(stats.skipped, true);
+    assert.equal(stats.reason, "soft_retain_without_index");
+    assert.equal(writes.length, 0);
   });
 
   it("skips clear when typed moneyline exists but parse yields zero", async () => {
@@ -77,6 +111,7 @@ describe("polymarket-esports write safety", () => {
         rawMarketCount: 1,
       }),
       fetchPrices: async () => ({}),
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
       writeMatches: (p, rows) => writes.push(["matches", p, rows.length]),
       replaceBets: () => writes.push(["bets"]),
       persistIndex: () => writes.push(["index"]),
@@ -127,6 +162,7 @@ describe("polymarket-esports write safety", () => {
         h2: 0.52,
         a2: 0.5,
       }),
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
       writeMatches: () => {},
       replaceBets: (p, sid, bets) => replaces.push({ p, sid, n: bets.length }),
       persistIndex: () => {},
@@ -169,6 +205,7 @@ describe("polymarket-esports write safety", () => {
         rawMarketCount: 3,
       }),
       fetchPrices: async () => prices,
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
       writeMatches: () => {},
       replaceBets: () => {},
       persistIndex: () => {},
@@ -202,6 +239,7 @@ describe("polymarket-esports write safety", () => {
         rawMarketCount: 1,
       }),
       fetchPrices: async () => ({ h: 0.5, a: 0.5 }),
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
       writeMatches: () => writes.push("matches"),
       replaceBets: () => writes.push("bets"),
       persistIndex: (c) => writes.push(["index", c.length]),
@@ -209,5 +247,137 @@ describe("polymarket-esports write safety", () => {
     assert.equal(stats.shadow, true);
     assert.equal(stats.matches, 1);
     assert.deepEqual(writes, [["index", 1]]);
+  });
+
+  it("soft-retains in-window match missing from this Gamma pass", async () => {
+    const now = Date.now();
+    const writes = [];
+    const indexCalls = [];
+    const betWrites = [];
+    const stats = await runPolymarketEsportsDiscoveryCycle({
+      writePlatform: true,
+      nowMs: now,
+      resolveTypes: async () => MONEYLINE_TYPES,
+      fetchMarkets: async () => ({
+        markets: [{
+          condition_id: "cond-keep",
+          sportsMarketType: "moneyline",
+          groupItemTitle: "Match Winner",
+          active: true,
+          closed: false,
+          gameStartTime: now + 600_000,
+          clob_token_ids: '["h","a"]',
+          outcomes: '["Alpha","Beta"]',
+          events: [{ id: "evt-keep" }],
+          tags: [{ slug: "lol" }],
+        }],
+        rawEventCount: 1,
+        rawMarketCount: 1,
+      }),
+      fetchPrices: async () => ({ h: 0.5, a: 0.5 }),
+      fetchExistingMatches: async () => ({
+        Polymarket: [{
+          SourceMatchID: "751074",
+          StartTime: now - 45 * 60_000,
+          Home: "CYBERSHOKE Esports",
+          Away: "Team Comanche",
+        }],
+      }),
+      readPrevIndex: () => ({
+        updatedAt: now - 60_000,
+        assetIds: ["ph", "pa"],
+        entries: [{
+          sourceMatchId: "751074",
+          marketId: "cond-old",
+          homeTokenId: "ph",
+          awayTokenId: "pa",
+          sourceBetId: "cond-old",
+          map: 0,
+          homeName: "CYBERSHOKE Esports",
+          awayName: "Team Comanche",
+          homeOdds: 1.9,
+          awayOdds: 1.9,
+          status: "Normal",
+          startTime: now - 45 * 60_000,
+        }],
+      }),
+      writeMatches: async (p, rows, opts) => writes.push({
+        p,
+        n: rows.length,
+        sids: rows.map(r => String(r.SourceMatchID)),
+        alsoKeep: opts?.alsoKeepSourceMatchIds || [],
+      }),
+      replaceBets: async (p, sid, bets) => betWrites.push({ sid, n: bets.length }),
+      persistIndex: (c, _prices, opts) => indexCalls.push({
+        n: c.length,
+        retain: opts?.retainSourceMatchIds || [],
+        prev: (opts?.previousEntries || []).length,
+      }),
+    });
+    // 本轮 1 场 + Index 回填 751074
+    assert.equal(stats.matches, 2);
+    assert.equal(stats.softRetained, 1);
+    assert.ok(writes[0]?.sids.includes("751074"));
+    assert.ok(writes[0]?.sids.includes("evt-keep"));
+    assert.deepEqual(writes[0]?.alsoKeep, ["751074"]);
+    assert.deepEqual(indexCalls[0]?.retain, ["751074"]);
+    assert.equal(indexCalls[0]?.prev, 1);
+    assert.ok(betWrites.some(b => b.sid === "751074"));
+  });
+
+  it("resurrects from Index when DB already orphan-deleted the row", async () => {
+    const now = Date.now();
+    const writes = [];
+    const stats = await runPolymarketEsportsDiscoveryCycle({
+      writePlatform: true,
+      nowMs: now,
+      resolveTypes: async () => MONEYLINE_TYPES,
+      fetchMarkets: async () => ({
+        markets: [{
+          condition_id: "cond-keep",
+          sportsMarketType: "moneyline",
+          groupItemTitle: "Match Winner",
+          active: true,
+          closed: false,
+          gameStartTime: now + 600_000,
+          clob_token_ids: '["h","a"]',
+          outcomes: '["Alpha","Beta"]',
+          events: [{ id: "evt-keep" }],
+          tags: [{ slug: "lol" }],
+        }],
+        rawEventCount: 1,
+        rawMarketCount: 1,
+      }),
+      fetchPrices: async () => ({ h: 0.5, a: 0.5 }),
+      // DB 已空 —— 纯靠 Index startTime 回填
+      fetchExistingMatches: async () => ({ Polymarket: [] }),
+      readPrevIndex: () => ({
+        updatedAt: now - 60_000,
+        assetIds: ["eh", "ea"],
+        entries: [{
+          sourceMatchId: "752423",
+          marketId: "cond-edg",
+          homeTokenId: "eh",
+          awayTokenId: "ea",
+          sourceBetId: "cond-edg",
+          map: 0,
+          homeName: "EDward Gaming",
+          awayName: "RNG M",
+          homeOdds: 1.85,
+          awayOdds: 2.05,
+          status: "Normal",
+          startTime: now - 50 * 60_000,
+        }],
+      }),
+      writeMatches: async (_p, rows, opts) => writes.push({
+        sids: rows.map(r => String(r.SourceMatchID)),
+        alsoKeep: opts?.alsoKeepSourceMatchIds || [],
+      }),
+      replaceBets: async () => {},
+      persistIndex: () => {},
+    });
+    assert.equal(stats.softRetained, 1);
+    assert.ok(writes[0]?.sids.includes("752423"));
+    assert.deepEqual(writes[0]?.alsoKeep, ["752423"]);
   });
 });

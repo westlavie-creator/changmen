@@ -5,8 +5,13 @@
  * https://docs.polymarket.com/api-reference/sports/get-sports-metadata-information
  * https://docs.polymarket.com/api-reference/sports/get-valid-sports-market-types
  * https://docs.polymarket.com/api-reference/market-data/get-market-prices-request-body
+ * https://docs.polymarket.com/market-data/fetching-markets （列盘主路径 closed=false）
  *
- * 采集窗：官方 live=true ∪ 开赛 ∈ [now, now+1h]（本地二次滤：开赛 ≤ now+1h，过去不设下限）
+ * 入选（相对官方）：
+ * 1) 每请求必带 closed=false + series_id + keyset cursor
+ * 2) 主 pass：start_time ∈ [now-6h, now+1h]（控制分页体积；开赛已过但未 ended 的盘仍在窗内）
+ * 3) 补 pass：live=true（开赛可能远早于 6h 但仍标 live 的长局）
+ * 4) 本地再丢 ended===true（OpenAPI 无 ended 查询参数；live 不可靠，不能当唯一门控）
  */
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
@@ -14,8 +19,8 @@ import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
 
-/** 过去不设下限（进行中可任意久）；仅作兼容导出 */
-const COLLECT_PAST_MS = 0;
+/** 主 pass 向过去保留 6 小时：已开赛、closed=false、但 live 尚未翻 true 的场次 */
+const COLLECT_PAST_MS = 6 * 3600 * 1000;
 const COLLECT_FUTURE_MS = 3600 * 1000;
 const KEYSET_PAGE_LIMIT = 500;
 const MAX_KEYSET_PAGES = 3;
@@ -35,7 +40,22 @@ let esportsSeriesCache = null;
 /** @type {{ types: Set<string>, expiresAt: number, fromOfficial: boolean } | null} */
 let marketTypesCache = null;
 
-/** 开赛 ≤ now+1h（含已开赛进行中）；拒绝更远的未开赛 */
+/**
+ * 官方响应字段：未关闭且未结束才纳入采集。
+ * ended 无查询参数，只能本地滤；勿用 live===true 当充分条件。
+ * @param {object|null|undefined} event
+ */
+export function polymarketEventOpenForCollect(event) {
+  if (!event || typeof event !== "object")
+    return false;
+  if (event.closed === true)
+    return false;
+  if (event.ended === true)
+    return false;
+  return true;
+}
+
+/** 本地二次滤只拒绝更远的未开赛；已开赛（含 live 补 pass）允许 */
 export function polymarketCollectStartTimeAllowed(startMs) {
   const ms = normalizeEpochMs(startMs);
   if (!ms)
@@ -199,13 +219,22 @@ export async function resolveCollectMarketTypes() {
  * @param {Record<string, string>} extraParams
  * @param {Set<string>} seenMarketIds
  * @param {object[]} blocks
- * @returns {Promise<number>} rawEventCount
+ * @param {Set<string>} [excludeSourceMatchIds] 上游已 ended/closed 的 event.id，禁止软保留回填
+ * @returns {Promise<number>} rawEventCount（含本地丢弃前的上游事件数）
  */
-async function fetchEsportsKeysetPass(seriesIds, pageLimit, extraParams, seenMarketIds, blocks) {
+async function fetchEsportsKeysetPass(
+  seriesIds,
+  pageLimit,
+  extraParams,
+  seenMarketIds,
+  blocks,
+  excludeSourceMatchIds,
+) {
   let cursor = "";
   let rawEventCount = 0;
   for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
     const params = new URLSearchParams({
+      // [官方] Discover Markets：列未关闭盘
       closed: "false",
       limit: String(pageLimit),
       order: "startTime",
@@ -221,8 +250,16 @@ async function fetchEsportsKeysetPass(seriesIds, pageLimit, extraParams, seenMar
     const events = unwrapArray(data);
     rawEventCount += events.length;
     for (const event of events) {
+      const sid = String(event?.id ?? "").trim();
+      if (!polymarketEventOpenForCollect(event)) {
+        if (sid && excludeSourceMatchIds)
+          excludeSourceMatchIds.add(sid);
+        continue;
+      }
       const markets = Array.isArray(event.markets) ? event.markets : [];
       for (const market of markets) {
+        if (market?.closed === true || market?.archived === true)
+          continue;
         const marketKey = marketKeyOf(market);
         if (marketKey && seenMarketIds.has(marketKey))
           continue;
@@ -239,38 +276,50 @@ async function fetchEsportsKeysetPass(seriesIds, pageLimit, extraParams, seenMar
 }
 
 /**
- * 官方：live 进行中 ∪ 开赛未来 1h 内；去重合并。
- * @returns {Promise<{ markets: object[], rawEventCount: number, rawMarketCount: number }>}
+ * 官方 closed=false + series；主窗 start_time + 补 pass live（live 不可单独依赖）。
+ * @returns {Promise<{
+ *   markets: object[],
+ *   rawEventCount: number,
+ *   rawMarketCount: number,
+ *   excludeSourceMatchIds: string[],
+ * }>}
  */
 export async function fetchPolymarketEsportsMarkets() {
   const pageLimit = KEYSET_PAGE_LIMIT;
   const blocks = [];
   const seenMarketIds = new Set();
+  /** @type {Set<string>} */
+  const excludeSourceMatchIds = new Set();
   const seriesIds = await fetchEsportsSeriesIds();
   const now = Date.now();
 
+  // 主 pass：未关闭 + 开赛窗（覆盖 live 滞后的已开赛场）
+  const windowEvents = await fetchEsportsKeysetPass(
+    seriesIds,
+    pageLimit,
+    {
+      start_time_min: new Date(now - COLLECT_PAST_MS).toISOString(),
+      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
+    },
+    seenMarketIds,
+    blocks,
+    excludeSourceMatchIds,
+  );
+  // 补 pass：仍标 live 但开赛可能早于 past 窗的长局
   const liveEvents = await fetchEsportsKeysetPass(
     seriesIds,
     pageLimit,
     { live: "true" },
     seenMarketIds,
     blocks,
-  );
-  const upcomingEvents = await fetchEsportsKeysetPass(
-    seriesIds,
-    pageLimit,
-    {
-      start_time_min: new Date(now).toISOString(),
-      start_time_max: new Date(now + COLLECT_FUTURE_MS).toISOString(),
-    },
-    seenMarketIds,
-    blocks,
+    excludeSourceMatchIds,
   );
 
   return {
     markets: blocks,
-    rawEventCount: liveEvents + upcomingEvents,
+    rawEventCount: windowEvents + liveEvents,
     rawMarketCount: blocks.length,
+    excludeSourceMatchIds: [...excludeSourceMatchIds],
   };
 }
 /**
@@ -348,3 +397,4 @@ export function resetPolymarketEsportsApiCachesForTests() {
   esportsSeriesCache = null;
   marketTypesCache = null;
 }
+

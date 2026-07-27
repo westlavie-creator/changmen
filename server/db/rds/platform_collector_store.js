@@ -94,12 +94,18 @@ async function _rdsClearPlatformMatchSnapshot(pool, platform) {
   }
 }
 
-async function _rdsUpsertPlatformMatches(pool, rows) {
+async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
   if (!rows.length)
     return;
   const client = await pool.connect();
   const platform = String(rows[0].platform);
-  const keepIds = rows.map(r => String(r.source_match_id));
+  const alsoKeep = Array.isArray(opts.alsoKeepSourceMatchIds)
+    ? opts.alsoKeepSourceMatchIds.map(String).filter(Boolean)
+    : [];
+  const keepIds = [...new Set([
+    ...rows.map(r => String(r.source_match_id)),
+    ...alsoKeep,
+  ])];
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
@@ -446,8 +452,13 @@ function mapPlatformMatchRows(provider, matchs) {
   }));
 }
 
-/** fire-and-forget：按平台快照 upsert 本批比赛，并删除本批之外的孤儿行（含 platform_bets）；[] = 空快照全清 */
-export function writePlatformMatches(provider, matchs) {
+/** fire-and-forget：按平台快照 upsert 本批比赛，并删除本批之外的孤儿行（含 platform_bets）；[] = 空快照全清
+ * @param {string} provider
+ * @param {object[]} matchs
+ * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]
+ *   alsoKeepSourceMatchIds：软保留这些 source_match_id，本轮未出现也不当孤儿删（防 Gamma 漏抓闪没）
+ */
+export function writePlatformMatches(provider, matchs, opts = {}) {
   if (!Array.isArray(matchs))
     return;
   const plat = String(provider);
@@ -458,13 +469,19 @@ export function writePlatformMatches(provider, matchs) {
     return;
   }
   const rows = mapPlatformMatchRows(provider, matchs);
-  _writeRds(pool => _rdsUpsertPlatformMatches(pool, rows), "platform_matches", {
-    key: `collector:${provider}`,
-  });
+  _writeRds(
+    pool => _rdsUpsertPlatformMatches(pool, rows, opts),
+    "platform_matches",
+    { key: `collector:${provider}` },
+  );
 }
 
-/** await 版：与 replacePlatformBetsForMatchAsync 配对，保证同 cycle 内 matches→bets 有序落库 */
-export async function writePlatformMatchesAsync(provider, matchs) {
+/** await 版：与 replacePlatformBetsForMatchAsync 配对，保证同 cycle 内 matches→bets 有序落库
+ * @param {string} provider
+ * @param {object[]} matchs
+ * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]
+ */
+export async function writePlatformMatchesAsync(provider, matchs, opts = {}) {
   if (!Array.isArray(matchs))
     return;
   const plat = String(provider);
@@ -473,7 +490,7 @@ export async function writePlatformMatchesAsync(provider, matchs) {
     return;
   }
   const rows = mapPlatformMatchRows(provider, matchs);
-  await _writeRdsAsync(pool => _rdsUpsertPlatformMatches(pool, rows), "platform_matches");
+  await _writeRdsAsync(pool => _rdsUpsertPlatformMatches(pool, rows, opts), "platform_matches");
 }
 
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */

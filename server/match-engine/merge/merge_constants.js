@@ -4,8 +4,10 @@
 
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
-/** 队名归一化合并 / name-align：开赛时间 ±30 分钟视为同一场 */
-export const MERGE_START_TIME_TOLERANCE_MS = 30 * 60 * 1000;
+/** 队名归一化合并 / name-align：开赛时间 ±60 分钟视为同一场
+ * （Polymarket 开赛时间常相对 OB/RAY 偏移 30–45 分钟，原 ±30 会漏合）
+ */
+export const MERGE_START_TIME_TOLERANCE_MS = 60 * 60 * 1000;
 
 /** gb_team_id（platform ID）合并 / id-align：各平台上报时间差更大，±60 分钟 */
 export const MERGE_ID_START_TIME_TOLERANCE_MS = 60 * 60 * 1000;

@@ -30,6 +30,8 @@ async function tick() {
     const mode = stats.writePlatform ? "live" : "shadow";
     console.log(
       `[polymarket-esports] cycle ok mode=${mode} matches=${stats.matches} bets=${stats.bets}`
+      + (stats.softRetained ? ` softRetained=${stats.softRetained}` : "")
+      + (stats.resurrected ? " resurrected=1" : "")
       + (stats.truncated ? " truncated=1" : "")
       + (stats.cleared ? " cleared=1" : "")
       + (stats.shadow ? " (shadow; platform write off)" : " (live; browser uses MarketIndex)")
