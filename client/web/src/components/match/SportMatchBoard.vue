@@ -4,6 +4,7 @@ import type { ViewMatch } from "@/models/match";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, watch } from "vue";
 import MatchCard from "@/components/match/MatchCard.vue";
+import MakeupCalcBar from "@/components/user/MakeupCalcBar.vue";
 import {
   startSportLiveOddsSession,
   type SportLiveOddsSession,
@@ -62,9 +63,12 @@ const count = computed(() => matchs.value.length);
 <template>
   <div class="sport-board">
     <div class="match-search sport-toolbar">
-      <span class="sport-toolbar__meta">
-        {{ metaLabel }} · {{ count }} 场
-      </span>
+      <div class="sport-toolbar__leading">
+        <span class="sport-toolbar__meta">
+          {{ metaLabel }} · {{ count }} 场
+        </span>
+        <MakeupCalcBar />
+      </div>
       <el-button link type="primary" :loading="loading" @click="store.fetchMatchs(true)">
         刷新
       </el-button>
@@ -95,9 +99,18 @@ const count = computed(() => matchs.value.length);
   gap: 8px;
   max-width: none;
 }
+.sport-toolbar__leading {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
 .sport-toolbar__meta {
+  flex: 0 0 auto;
   font-size: 13px;
   color: #94a3b8;
+  white-space: nowrap;
 }
 .sport-toolbar__error {
   flex: 0 0 auto;

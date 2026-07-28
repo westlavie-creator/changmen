@@ -13,7 +13,7 @@
   display: flex !important;
   flex-direction: column;
   min-height: 0;
-  /* 禁止整栏滚动，否则电竞/棒球/足球 tab + 水手公式会跟着滚走 */
+  /* 禁止整栏滚动，否则电竞/棒球/足球 tab 会跟着滚走 */
   overflow: hidden !important;
 }
 

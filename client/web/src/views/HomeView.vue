@@ -138,7 +138,6 @@ async function logout() {
               网球
             </el-radio-button>
           </el-radio-group>
-          <MakeupCalcBar />
         </div>
         <template v-if="sportTab === 'esport'">
           <div class="sport-board">
@@ -152,6 +151,7 @@ async function logout() {
               <span class="match-count" :title="`当前列表 ${filteredMatchs.length} 场`">
                 {{ matchCountLabel }}
               </span>
+              <MakeupCalcBar />
             </div>
             <div v-if="filteredMatchs.length" class="matchs">
               <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />

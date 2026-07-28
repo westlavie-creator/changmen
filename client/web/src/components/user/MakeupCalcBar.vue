@@ -117,9 +117,9 @@ function fmtProfit(n: number): string {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 6px;
   background: linear-gradient(90deg, #1e293b99 0%, #0f172a66 100%);
   border: 1px solid #334155aa;
@@ -131,7 +131,7 @@ function fmtProfit(n: number): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #7dd3fc;
@@ -139,7 +139,7 @@ function fmtProfit(n: number): string {
 }
 
 .sailor-calc__brand :deep([class*="am-icon-"])::before {
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .sailor-calc__fields {
@@ -163,13 +163,13 @@ function fmtProfit(n: number): string {
   align-items: center;
   gap: 6px;
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   color: #94a3b8;
   white-space: nowrap;
 }
 
 .sailor-calc__field :deep(.el-input-number) {
-  width: 88px;
+  width: 92px;
 }
 
 .sailor-calc__field :deep(.el-input__wrapper) {
@@ -180,11 +180,12 @@ function fmtProfit(n: number): string {
 .sailor-calc__field :deep(.el-input__inner) {
   color: #e2e8f0;
   text-align: left;
+  font-size: 13px;
 }
 
 .sailor-calc__break-even strong {
-  min-width: 52px;
-  font-size: 13px;
+  min-width: 56px;
+  font-size: 15px;
   font-weight: 700;
   color: #fbbf24;
   font-variant-numeric: tabular-nums;
@@ -198,25 +199,26 @@ function fmtProfit(n: number): string {
 }
 
 .sailor-calc__money {
-  font-size: 12px;
+  font-size: 13px;
   color: #cbd5e1;
 }
 
 .sailor-calc__money strong {
   margin-left: 4px;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #4ade80;
   font-variant-numeric: tabular-nums;
 }
 
 .sailor-calc__profit {
-  font-size: 12px;
+  font-size: 13px;
   color: #cbd5e1;
 }
 
 .sailor-calc__profit strong {
   margin-left: 2px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -231,7 +233,7 @@ function fmtProfit(n: number): string {
 
 .sailor-calc__meta,
 .sailor-calc__hint {
-  font-size: 11px;
+  font-size: 12px;
   color: #64748b;
 }
 </style>
