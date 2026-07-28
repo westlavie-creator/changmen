@@ -329,13 +329,13 @@ describe("orderLink A8 parity", () => {
     expect(text.startsWith("💎")).toBe(true);
   });
 
-  it("computeOrderGroupProfit uses buy Money when present; else legacy sell Money", () => {
-    const profitLegacy = computeOrderGroupProfit([
+  it("computeOrderGroupProfit uses buy Money only; sell Money ignored", () => {
+    const profitZeroBuy = computeOrderGroupProfit([
       { Type: "OB", Money: 10 },
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "closed" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 15, BetMoney: 85, PmBuyOrderId: "buy" },
     ]);
-    expect(profitLegacy).toBe(25);
+    expect(profitZeroBuy).toBe(10);
 
     const profitNew = computeOrderGroupProfit([
       { Type: "OB", Money: 10 },
@@ -538,7 +538,7 @@ describe("orderLink A8 parity", () => {
     });
   });
 
-  it("orderLinkLegend uses sell P&L when buy Money still 0 (legacy)", () => {
+  it("orderLinkLegend uses buy Money only (sell Money ignored)", () => {
     const text = orderLinkLegend([
       {
         OrderID: "0xsell",
@@ -567,7 +567,7 @@ describe("orderLink A8 parity", () => {
         PmSide: "buy",
         Status: "None",
         BetMoney: 112,
-        Money: 0,
+        Money: 3,
         Odds: 2.941,
         PmShares: 48.2353,
         PmAttributedSellShares: 48.23,
@@ -718,12 +718,12 @@ describe("orderLink A8 parity", () => {
     expect(profit).toBe(8);
   });
 
-  it("computeOrderGroupProfit includes legacy sell Money on partial close", () => {
+  it("computeOrderGroupProfit ignores sell Money on partial close (PnL on buy only)", () => {
     const profit = computeOrderGroupProfit([
       { OrderID: "buy", Type: "Polymarket", PmSide: "buy", Money: 0, Status: "None", PmSellState: "partial" },
       { OrderID: "sell", Type: "Polymarket", PmSide: "sell", Money: 8, BetMoney: 40, PmBuyOrderId: "buy" },
     ]);
-    expect(profit).toBe(8);
+    expect(profit).toBe(0);
   });
 
   it("isLinkedArbOrderGroup detects cross-platform arb legs on same Link", () => {

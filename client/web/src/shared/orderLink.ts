@@ -723,10 +723,8 @@ export function mergePendingMakeupIntoOrderGroups(
   return groupOrdersByEffectiveLink(allRows);
 }
 
-/** 组内盈亏：优先买单 Money（新模型）；买单仍为 0 时回退卖单 Money（迁移前旧数据）
- * PF：只认买单 Money；卖单恒 0（卖单 betMoney 是回款镜像，不进合计）
- */
-export function polymarketMoneyForAggregate(row: OrderRow, peers: OrderRow[]): number {
+/** 组内盈亏：PM/PF 只认买单 Money；卖单恒 0（防双计） */
+export function polymarketMoneyForAggregate(row: OrderRow, _peers: OrderRow[]): number {
   if (isMakeupSyntheticOrderRow(row))
     return 0;
 
@@ -740,21 +738,8 @@ export function polymarketMoneyForAggregate(row: OrderRow, peers: OrderRow[]): n
   if (!isPolymarketOrderRow(row))
     return Number(row.Money) || 0;
 
-  if (row.PmSide === "sell") {
-    const buyId = String(row.PmBuyOrderId ?? "").trim().toLowerCase();
-    if (buyId) {
-      const buy = peers.find(r =>
-        isPolymarketOrderRow(r)
-        && r.PmSide !== "sell"
-        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
-      );
-      // 新模型：盈亏已累加到买单
-      if (buy && Math.abs(Number(buy.Money) || 0) > 1e-9)
-        return 0;
-    }
-    // 旧数据 / orphan：盈亏仍在卖单
-    return Number(row.Money) || 0;
-  }
+  if (row.PmSide === "sell")
+    return 0;
 
   return Number(row.Money) || 0;
 }

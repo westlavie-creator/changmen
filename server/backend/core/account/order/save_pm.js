@@ -46,17 +46,8 @@ export function mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merge
 
   if (isSell) {
     const proceedsBet = incomingBet > 0 ? incomingBet : (prevBet > 0 ? prevBet : 0);
-    const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
-    const incomingMoney = parseNum(o.money ?? o.Money, 0);
-    /**
-     * 新模型：卖单 money 应为 0（盈亏在买单）。
-     * 但客户端 sync 会带 money=0 覆盖；未迁移旧卖单若库内仍有盈亏，必须保留，否则日盈亏被清掉。
-     */
-    let sellMoney = 0;
-    if (Math.abs(incomingMoney) > 1e-9)
-      sellMoney = incomingMoney;
-    else if (Math.abs(prevMoney) > 1e-9)
-      sellMoney = prevMoney;
+    // 卖单 money 恒 0（盈亏在买单）；不再保留历史非零 sell money
+    const sellMoney = 0;
 
     if (isChangmen || prevRaw.pmOrigin === "changmen") {
       merged = {

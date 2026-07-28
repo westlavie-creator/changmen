@@ -33,42 +33,24 @@ export function finalizeNonPolymarketSave(merged, prevRaw, money, bet_money) {
   }
   if (
     !(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
-    && !(Number.isFinite(Number(merged.pfChangmenFeeRateBps)) && Number(merged.pfChangmenFeeRateBps) >= 0)
   ) {
-    const prevRate = Number(prevRaw.pfChangmenCodeFeeRateBps ?? prevRaw.pfChangmenFeeRateBps);
+    const prevRate = Number(prevRaw.pfChangmenCodeFeeRateBps);
     if (Number.isFinite(prevRate) && prevRate >= 0)
       merged.pfChangmenCodeFeeRateBps = prevRate;
   }
-  else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeRateBps)) && Number(merged.pfChangmenCodeFeeRateBps) >= 0)
-    && Number.isFinite(Number(merged.pfChangmenFeeRateBps))
-    && Number(merged.pfChangmenFeeRateBps) >= 0) {
-    merged.pfChangmenCodeFeeRateBps = Number(merged.pfChangmenFeeRateBps);
-  }
   if (
     !(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
-    && !(Number.isFinite(Number(merged.pfChangmenFeeUsdt)) && Number(merged.pfChangmenFeeUsdt) > 0)
   ) {
-    const prevUsdt = Number(prevRaw.pfChangmenCodeFeeUsdt ?? prevRaw.pfChangmenFeeUsdt);
+    const prevUsdt = Number(prevRaw.pfChangmenCodeFeeUsdt);
     if (Number.isFinite(prevUsdt) && prevUsdt > 0)
       merged.pfChangmenCodeFeeUsdt = prevUsdt;
   }
-  else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeUsdt)) && Number(merged.pfChangmenCodeFeeUsdt) > 0)
-    && Number.isFinite(Number(merged.pfChangmenFeeUsdt))
-    && Number(merged.pfChangmenFeeUsdt) > 0) {
-    merged.pfChangmenCodeFeeUsdt = Number(merged.pfChangmenFeeUsdt);
-  }
   if (
     !(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
-    && !(Number.isFinite(Number(merged.pfChangmenFeeShares)) && Number(merged.pfChangmenFeeShares) > 0)
   ) {
-    const prevShares = Number(prevRaw.pfChangmenCodeFeeShares ?? prevRaw.pfChangmenFeeShares);
+    const prevShares = Number(prevRaw.pfChangmenCodeFeeShares);
     if (Number.isFinite(prevShares) && prevShares > 0)
       merged.pfChangmenCodeFeeShares = prevShares;
-  }
-  else if (!(Number.isFinite(Number(merged.pfChangmenCodeFeeShares)) && Number(merged.pfChangmenCodeFeeShares) > 0)
-    && Number.isFinite(Number(merged.pfChangmenFeeShares))
-    && Number(merged.pfChangmenFeeShares) > 0) {
-    merged.pfChangmenCodeFeeShares = Number(merged.pfChangmenFeeShares);
   }
   if (!String(merged.pfSellOrderId ?? "").trim() && String(prevRaw.pfSellOrderId ?? "").trim())
     merged.pfSellOrderId = prevRaw.pfSellOrderId;

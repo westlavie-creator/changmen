@@ -15,6 +15,14 @@ describe("adminOrderMoneyCny", () => {
     expect(adminOrderMoneyCny({ provider: "PredictFun", money: 3, pfSide: "sell" })).toBe(0);
   });
 
+  it("zeros Polymarket sell money", () => {
+    expect(adminOrderMoneyCny({ provider: "Polymarket", money: 12, pmSide: "sell" })).toBe(0);
+  });
+
+  it("keeps Polymarket buy money", () => {
+    expect(adminOrderMoneyCny({ provider: "Polymarket", money: 12, pmSide: "buy" })).toBe(12);
+  });
+
   it("scales PredictFun betMoney", () => {
     expect(adminOrderBetMoneyCny({ provider: "PredictFun", betMoney: 27.21 }))
       .toBeCloseTo(27.21 * 6.8, 6);

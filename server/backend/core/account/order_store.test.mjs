@@ -383,7 +383,7 @@ describe("mergeOrderLogicalSave buy stake after manual sell", () => {
     expect(money).toBe(8);
   });
 
-  it("preserves legacy sell money when sync sends money=0", async () => {
+  it("forces sell money to 0 when sync sends money=0 (PnL lives on buy)", async () => {
     const { mergeOrderLogicalSave } = await import("./order_store.js");
     const prevRaw = {
       pmOrigin: "changmen",
@@ -406,8 +406,8 @@ describe("mergeOrderLogicalSave buy stake after manual sell", () => {
       incoming,
       "changmen",
     );
-    expect(money).toBe(3);
-    expect(raw.money).toBe(3);
+    expect(money).toBe(0);
+    expect(raw.money).toBe(0);
   });
 });
 
@@ -441,7 +441,7 @@ describe("mergeOrderLogicalSave PredictFun partial sync", () => {
     expect(bet_money).toBe(80);
   });
 
-  it("preserves PF sell money when sync sends money=0", async () => {
+  it("forces PF sell money to 0; keeps betMoney proceeds mirror", async () => {
     const { mergeOrderLogicalSave } = await import("./order_store.js");
     const { money, bet_money, raw } = mergeOrderLogicalSave(
       { bet_money: 40, money: 2 },
@@ -460,8 +460,8 @@ describe("mergeOrderLogicalSave PredictFun partial sync", () => {
       },
       undefined,
     );
-    expect(money).toBe(2);
-    expect(raw.money).toBe(2);
+    expect(money).toBe(0);
+    expect(raw.money).toBe(0);
     expect(bet_money).toBe(40);
   });
 });
@@ -546,7 +546,7 @@ describe("mergeOrderLogicalSave parallel branches (characterization)", () => {
     expect(money).toBe(0);
   });
 
-  it("PM changmen sell keeps buy id and non-zero money from prev when sync sends 0", async () => {
+  it("PM changmen sell keeps buy id; money forced to 0 when sync sends 0", async () => {
     const { mergeOrderLogicalSave } = await import("./order_store.js");
     const { raw, bet_money, money } = mergeOrderLogicalSave(
       { bet_money: 12, money: 3.5 },
@@ -573,7 +573,7 @@ describe("mergeOrderLogicalSave parallel branches (characterization)", () => {
       pmOrigin: "changmen",
       pmBuyOrderId: "0xBuyParent",
     });
-    expect(money).toBe(3.5);
+    expect(money).toBe(0);
     expect(bet_money).toBe(12);
   });
 
@@ -612,5 +612,51 @@ describe("mergeOrderLogicalSave parallel branches (characterization)", () => {
     });
     expect(money).toBe(2);
     expect(bet_money).toBe(40);
+  });
+});
+
+describe("rowToOrder sell money zeroing", () => {
+  it("zeros Polymarket sell Money on read", async () => {
+    const { rowToOrder } = await import("./order_store.js");
+    const o = rowToOrder({
+      order_id: "0xsell",
+      provider: "Polymarket",
+      money: 12,
+      bet_money: 40,
+      create_at: 1,
+      link: 1,
+      raw: { pmSide: "sell", pmBuyOrderId: "0xbuy" },
+    });
+    expect(o.Money).toBe(0);
+    expect(o.BetMoney).toBe(40);
+  });
+
+  it("does not zero PredictFun buy Money when stray pmSide=sell is present", async () => {
+    const { rowToOrder } = await import("./order_store.js");
+    const o = rowToOrder({
+      order_id: "0xpfbuy",
+      provider: "PredictFun",
+      money: 9,
+      bet_money: 80,
+      create_at: 1,
+      link: 1,
+      raw: { pfSide: "buy", pmSide: "sell" },
+    });
+    expect(o.Money).toBe(9);
+    expect(o.PfSide).toBe("buy");
+  });
+
+  it("zeros PredictFun sell Money on read", async () => {
+    const { rowToOrder } = await import("./order_store.js");
+    const o = rowToOrder({
+      order_id: "0xpfsell",
+      provider: "PredictFun",
+      money: 2,
+      bet_money: 40,
+      create_at: 1,
+      link: 1,
+      raw: { pfSide: "sell", pfBuyOrderId: "0xpfbuy" },
+    });
+    expect(o.Money).toBe(0);
   });
 });

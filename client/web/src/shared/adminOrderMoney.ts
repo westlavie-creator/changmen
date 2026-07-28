@@ -4,6 +4,7 @@ type AdminMoneyRow = {
   provider?: string | null;
   money?: number | null;
   pfSide?: string | null;
+  pmSide?: string | null;
 };
 
 type AdminBetRow = {
@@ -13,15 +14,18 @@ type AdminBetRow = {
 
 /**
  * 管理端订单盈亏 → CNY（对齐战绩 / polymarketMoneyForAggregate）。
- * PF 库内 money 为 USDT；卖单盈亏记在买单。
+ * PF 库内 money 为 USDT；PM/PF 卖单盈亏记在买单。
  */
 export function adminOrderMoneyCny(row: AdminMoneyRow): number {
-  const money = Number(row.money) || 0;
-  if (String(row.provider || "").trim() !== "PredictFun")
-    return money;
-  if (String(row.pfSide || "").toLowerCase() === "sell")
+  const provider = String(row.provider || "").trim();
+  if (provider === "Polymarket" && String(row.pmSide || "").toLowerCase() === "sell")
     return 0;
-  return money * getExchange(Currency.USDT);
+  if (provider === "PredictFun" && String(row.pfSide || "").toLowerCase() === "sell")
+    return 0;
+  const money = Number(row.money) || 0;
+  if (provider === "PredictFun")
+    return money * getExchange(Currency.USDT);
+  return money;
 }
 
 /** PF betMoney 为 USDT → CNY（含卖单回款镜像） */

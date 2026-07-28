@@ -19,6 +19,7 @@ import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 function sqlOrderMoneyCny(alias, fxParam) {
   const p = alias ? `${alias}.` : "";
   return `CASE
+    WHEN ${p}provider = 'Polymarket' AND LOWER(COALESCE(${p}raw->>'pmSide', '')) = 'sell' THEN 0
     WHEN ${p}provider = 'PredictFun' AND LOWER(COALESCE(${p}raw->>'pfSide', '')) = 'sell' THEN 0
     WHEN ${p}provider = 'PredictFun' THEN COALESCE(${p}money, 0) * ${fxParam}
     ELSE COALESCE(${p}money, 0)
@@ -879,11 +880,11 @@ export async function fetchOrdersAdminStats(dateKey) {
       const isPf = provider === "PredictFun";
       const isSell = (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")
         || (isPf && String(raw.pfSide || "").toLowerCase() === "sell");
-      // PF 买单 money/bet_money 为 USDT；卖单盈亏记买单，此处 money 计 0
+      // PM/PF 买单 money；卖单盈亏记买单，此处 money 计 0。PF 买单 USDT→CNY
       const rawMoney = Number(o.money) || 0;
-      money += isPf
-        ? (isSell ? 0 : rawMoney * fx)
-        : rawMoney;
+      money += isSell
+        ? 0
+        : (isPf ? rawMoney * fx : rawMoney);
       if (!isSell) {
         count += 1;
         const rawBet = Number(o.bet_money) || 0;

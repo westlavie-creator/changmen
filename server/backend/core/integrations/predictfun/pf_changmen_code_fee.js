@@ -5,25 +5,25 @@
  * - 买入：从持仓份额扣
  * - 卖出：从回款 USDT 扣
  *
- * 落库字段：pfChangmenCodeFee*（兼容读旧 pfChangmenFee*）
+ * 落库字段：pfChangmenCodeFee*
  */
 export const CHANGMEN_CODE_FEE = "Changmencodefee";
 
 /** @param {Record<string, unknown>|null|undefined} raw */
 export function readChangmenCodeFeeRateBps(raw) {
-  const n = Number(raw?.pfChangmenCodeFeeRateBps ?? raw?.pfChangmenFeeRateBps);
+  const n = Number(raw?.pfChangmenCodeFeeRateBps);
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 /** @param {Record<string, unknown>|null|undefined} raw */
 export function readChangmenCodeFeeShares(raw) {
-  const n = Number(raw?.pfChangmenCodeFeeShares ?? raw?.pfChangmenFeeShares);
+  const n = Number(raw?.pfChangmenCodeFeeShares);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /** @param {Record<string, unknown>|null|undefined} raw */
 export function readChangmenCodeFeeUsdt(raw) {
-  const n = Number(raw?.pfChangmenCodeFeeUsdt ?? raw?.pfChangmenFeeUsdt);
+  const n = Number(raw?.pfChangmenCodeFeeUsdt);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 

@@ -352,7 +352,7 @@ describe("saveOrder backend bind link", () => {
     expect(row.raw.pfMarketId).toBe("mkt-1");
   });
 
-  it("PF typeFallback alone still applies sell-link + money preserve", async () => {
+  it("PF typeFallback alone still applies sell-link; sell money forced to 0", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
         order_id: "0xpfbuy-fb",
@@ -392,7 +392,7 @@ describe("saveOrder backend bind link", () => {
     const row = upsertOrders.mock.calls[0][0][0];
     expect(row.provider).toBe("PredictFun");
     expect(row.link).toBe(99);
-    expect(row.money).toBe(2);
+    expect(row.money).toBe(0);
     expect(row.bet_money).toBe(40);
     expect(row.raw.pfSide).toBe("sell");
     expect(row.raw.pfBuyOrderId).toBe("0xpfbuy-fb");

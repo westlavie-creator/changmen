@@ -4,6 +4,7 @@
  */
 import { placeholderLinkFromCreateAt } from "@changmen/db";
 import { computePfHoldShares } from "../../integrations/predictfun/pf_fee.js";
+import { isPredictionSellForCount } from "./kinds.js";
 import { readPositionSellEvents } from "./position_events.js";
 
 /** @internal 与 save 路径共用；暂放 dto，后续可再抽 util */
@@ -58,7 +59,9 @@ export function rowToOrder(r) {
   let betMoney = r.bet_money || 0;
   let money = r.money || 0;
   const pfHoldShares = resolvePfHoldSharesFromRaw(raw);
-  // 卖单盈亏：新写入已为 0（记在买单）；旧数据 money 仍可能非 0，读出时勿清零
+  // 按 provider 判卖单（对齐 kinds / order_store），避免 PF 买单误带 pmSide=sell 时清零盈亏
+  if (isPredictionSellForCount({ provider: r.provider, raw }))
+    money = 0;
   return {
     OrderID: r.order_id,
     Link: resolveStoredLink(r.link, r.order_id, r.create_at),
@@ -153,17 +156,17 @@ export function rowToOrder(r) {
       const n = parseNum(raw.pfFeeRateBps, NaN);
       return Number.isFinite(n) && n >= 0 ? n : undefined;
     })(),
-    /** Changmencodefee：买入扣份额 / 卖出扣 USDT（兼容旧 pfChangmenFee*） */
+    /** Changmencodefee：买入扣份额 / 卖出扣 USDT */
     PfChangmenCodeFeeRateBps: (() => {
-      const n = parseNum(raw.pfChangmenCodeFeeRateBps ?? raw.pfChangmenFeeRateBps, NaN);
+      const n = parseNum(raw.pfChangmenCodeFeeRateBps, NaN);
       return Number.isFinite(n) && n >= 0 ? n : undefined;
     })(),
     PfChangmenCodeFeeShares: (() => {
-      const n = parseNum(raw.pfChangmenCodeFeeShares ?? raw.pfChangmenFeeShares, 0);
+      const n = parseNum(raw.pfChangmenCodeFeeShares, 0);
       return n > 0 ? n : undefined;
     })(),
     PfChangmenCodeFeeUsdt: (() => {
-      const n = parseNum(raw.pfChangmenCodeFeeUsdt ?? raw.pfChangmenFeeUsdt, 0);
+      const n = parseNum(raw.pfChangmenCodeFeeUsdt, 0);
       return n > 0 ? n : undefined;
     })(),
     /** [changmen 扩展] Phase 1 仓位卖出事件（买单上；便于 UI 观察双写） */

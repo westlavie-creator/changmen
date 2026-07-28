@@ -30,8 +30,6 @@ type ClosingEntry = {
 const sellingOrderIds = shallowRef(new Set<string>());
 /** 平仓确认中：买单 → 卖单号（session 内跨刷新保留） */
 const CLOSING_KEY = "pmManualSell.closing";
-/** 兼容旧 persistBlocked */
-const LEGACY_BLOCK_KEY = "pmManualSell.persistBlocked";
 const closingByBuyId = shallowRef(loadClosing());
 /** resume 防重入 */
 let resumeInFlight = false;
@@ -62,23 +60,6 @@ function loadClosing(): Map<string, ClosingEntry> {
           });
         }
       }
-    }
-  }
-  catch { /* ignore */ }
-
-  // 迁移旧禁卖列表：无 sellOrderId 的仅占位，resume 时按未成交清掉
-  try {
-    const legacy = sessionStorage.getItem(LEGACY_BLOCK_KEY);
-    if (legacy) {
-      const arr = JSON.parse(legacy) as unknown;
-      if (Array.isArray(arr)) {
-        for (const x of arr) {
-          const id = String(x ?? "").trim();
-          if (id && !map.has(id))
-            map.set(id, { sellOrderId: "", at: Date.now() });
-        }
-      }
-      sessionStorage.removeItem(LEGACY_BLOCK_KEY);
     }
   }
   catch { /* ignore */ }

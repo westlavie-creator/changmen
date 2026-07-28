@@ -217,42 +217,25 @@ export function pmOrderProfitDisplayUsdc(row: OrderRow, peers: OrderRow[] = []):
 /**
  * 侧栏盈亏展示（CNY）。
  * - 卖单：不展示（返回 null → UI 显示 —）
- * - 买单：优先自身 Money；未迁移旧数据 Money=0 时回退汇总对应卖单 Money
+ * - 买单：自身 Money（盈亏已记在买单）
  */
-export function pmOrderProfitDisplayCny(row: OrderRow, peers: OrderRow[] = []): number | null {
+export function pmOrderProfitDisplayCny(row: OrderRow, _peers: OrderRow[] = []): number | null {
   if (isPmSellOrderListRow(row))
     return null;
-
-  const own = Number(row.Money) || 0;
-  if (Math.abs(own) > 1e-9)
-    return own;
-
-  if (!isPmManuallySoldBuy(row))
-    return own;
-
-  const buyId = String(row.OrderID ?? "").trim().toLowerCase();
-  if (!buyId)
-    return own;
-
-  return peers
-    .filter(p =>
-      isPmSellOrderListRow(p)
-      && String(p.PmBuyOrderId ?? "").trim().toLowerCase() === buyId,
-    )
-    .reduce((sum, p) => sum + (Number(p.Money) || 0), 0);
+  return Number(row.Money) || 0;
 }
 
 /**
  * 买单累计卖出回款 USDC（对标 PF `pfSellProceeds`）。
  * - 优先买单 `PmSellProceeds`（新成交真相）
- * - 旧单缺失：用关联卖单 `BetMoney`(CNY) ÷ 汇率兜底
+ * - 缺失/0：用关联卖单 `BetMoney`(CNY) ÷ 汇率兜底（防 sync 误写 0）
  * - **不改变**侧栏卖单行展示：卖单仍读自身 BetMoney（见 `pmOrderStakeDisplayCny`）
  */
 export function resolvePmSellProceedsUsdc(buy: OrderRow, peers: OrderRow[] = []): number | null {
   if (!isPmBuyOrderListRow(buy))
     return null;
   const fromBuy = Number(buy.PmSellProceeds);
-  // 仅正数视为真相；0/缺失走卖单兜底，避免 sync 误写 0 挡住旧单
+  // 仅正数视为真相；0/缺失走卖单兜底，避免 sync 误写 0
   if (Number.isFinite(fromBuy) && fromBuy > 0)
     return fromBuy;
 

@@ -223,7 +223,7 @@ describe("pmOrderDisplay", () => {
     expect(formatPolymarketApiDecimal(7.352941, 6)).toBe("7.352941");
   });
 
-  it("pmOrderProfitDisplayCny hides sell and falls back to linked sell Money for unsynced buy", () => {
+  it("pmOrderProfitDisplayCny hides sell and uses buy Money only", () => {
     const buy: OrderRow = {
       ...pmBuy,
       OrderID: "0xbuy",
@@ -240,7 +240,7 @@ describe("pmOrderDisplay", () => {
       PmBuyOrderId: "0xbuy",
     };
     expect(pmOrderProfitDisplayCny(sell, [buy, sell])).toBeNull();
-    expect(pmOrderProfitDisplayCny(buy, [buy, sell])).toBe(65);
+    expect(pmOrderProfitDisplayCny(buy, [buy, sell])).toBe(0);
     expect(pmOrderProfitDisplayCny({ ...buy, Money: 12 }, [buy, sell])).toBe(12);
   });
 

@@ -340,6 +340,7 @@ function legProfit(leg: AdminOrderLogLegSection) {
       provider: o.provider,
       money: o.money,
       pfSide: o.pfSide,
+      pmSide: o.pmSide,
     });
   }
   return sum;

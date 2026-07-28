@@ -768,6 +768,7 @@ function normalizeOrderRow(row) {
     return null;
   const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw) ? row.raw : {};
   const pfSide = String(raw.pfSide || raw.PfSide || "").toLowerCase();
+  const pmSide = String(raw.pmSide || raw.PmSide || "").toLowerCase();
   return {
     orderId: String(row.order_id),
     link: Number(row.link) || 0,
@@ -782,6 +783,7 @@ function normalizeOrderRow(row) {
     status: row.status,
     createAt: Number(row.create_at) || 0,
     pfSide: pfSide === "buy" || pfSide === "sell" ? pfSide : undefined,
+    pmSide: pmSide === "buy" || pmSide === "sell" ? pmSide : undefined,
   };
 }
 

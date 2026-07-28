@@ -33,13 +33,22 @@ export function mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_
   if (!isUnfilledReject)
     keepPrevStr("pfSharesWei");
 
-  // money/betMoney 空写勿覆盖库内有效值（对标 PM sell/closed 保护）
   const prevMoney = parseNum(prevRaw.money ?? prevRow?.money, 0);
   const prevBet = parseNum(prevRaw.betMoney ?? prevRow?.bet_money, 0);
-  if (Math.abs(money) <= 1e-9 && Math.abs(prevMoney) > 1e-9)
-    money = prevMoney;
-  if (Math.abs(bet_money) <= 1e-9 && Math.abs(prevBet) > 1e-9)
-    bet_money = prevBet;
+  const isSell = String(merged.pfSide ?? prevRaw.pfSide ?? "").toLowerCase() === "sell";
+  if (isSell) {
+    // 卖单 money 恒 0（盈亏在买单）；betMoney 空写仍保留回款镜像
+    money = 0;
+    if (Math.abs(bet_money) <= 1e-9 && Math.abs(prevBet) > 1e-9)
+      bet_money = prevBet;
+  }
+  else {
+    // 买单：money/betMoney 空写勿覆盖库内有效值（防 sync 误写 0）
+    if (Math.abs(money) <= 1e-9 && Math.abs(prevMoney) > 1e-9)
+      money = prevMoney;
+    if (Math.abs(bet_money) <= 1e-9 && Math.abs(prevBet) > 1e-9)
+      bet_money = prevBet;
+  }
   merged.money = money;
   merged.betMoney = bet_money;
 

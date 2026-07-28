@@ -307,6 +307,7 @@ export interface AdminOrderLogOrder {
   status: string;
   createAt: number;
   pfSide?: "buy" | "sell";
+  pmSide?: "buy" | "sell";
 }
 
 export interface AdminOrderLogLookup {

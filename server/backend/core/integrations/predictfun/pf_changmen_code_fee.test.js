@@ -12,12 +12,13 @@ describe("pf_changmen_code_fee", () => {
     expect(CHANGMEN_CODE_FEE).toBe("Changmencodefee");
   });
 
-  it("reads new fields preferentially, falls back to legacy", () => {
+  it("reads pfChangmenCodeFee* fields only", () => {
     expect(readChangmenCodeFeeRateBps({
       pfChangmenCodeFeeRateBps: 100,
       pfChangmenFeeRateBps: 50,
     })).toBe(100);
-    expect(readChangmenCodeFeeShares({ pfChangmenFeeShares: 0.5 })).toBe(0.5);
+    expect(readChangmenCodeFeeShares({ pfChangmenFeeShares: 0.5 })).toBeUndefined();
+    expect(readChangmenCodeFeeShares({ pfChangmenCodeFeeShares: 0.5 })).toBe(0.5);
     expect(readChangmenCodeFeeUsdt({ pfChangmenCodeFeeUsdt: 0.27 })).toBe(0.27);
   });
 
