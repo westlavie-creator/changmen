@@ -26,5 +26,5 @@
 
 - **PredictFun**：浏览器不经 `Client_SaveOrder`；权威写经 `upsertPfServerOrder` → `saveOrder(..., "PredictFun")`。
 - **本单 orderId**：读 prev 与 prefetch 均大小写不敏感；若命中已有行，upsert 主键用**库内** `order_id`，避免 PG 大小写敏感冲突键插出重复行。
-- **仓位卖出事件**：写在买单 `raw.positionEvents.sells[]`；`mergeOrderLogicalSave` 缺省保留、按 sell id 幂等；卖单行剥掉该字段。Phase 1 仍双写独立卖单行，盈亏不以事件重算。
+- **仓位卖出事件**：写在买单 `raw.positionEvents.sells[]`；`mergeOrderLogicalSave` 缺省保留、按 sell id 幂等；卖单行剥掉该字段。Phase 1 读路径优先事件；仍双写独立卖单行，盈亏不以事件重算。
 - 勿与合场 `matchMerge` 混淆：这里是订单字段合并，不是多馆比赛合成。

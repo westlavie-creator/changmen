@@ -193,6 +193,22 @@ describe("pfOrderCycle", () => {
     expect(cycles[0].netShares).toBeCloseTo(46.428, 5);
   });
 
+  it("buildPfCycles prefers events when pfSellProceeds is 0 (sync miswrite)", () => {
+    const cycles = buildPfCycles([
+      buy({
+        orderId: "0xbuy-ev",
+        betMoney: 10,
+        pfSellState: "closed",
+        pfSellProceeds: 0,
+        positionEvents: {
+          sells: [{ id: "0xs-ev", proceeds: 7.5, shares: 10 }],
+        },
+      }),
+    ]);
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].sellProceedsUsdt).toBe(7.5);
+  });
+
   it("buildPfCycles joins sell onto buy and hides sell rows", () => {
     const cycles = buildPfCycles([
       buy({

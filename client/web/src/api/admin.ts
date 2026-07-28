@@ -474,6 +474,18 @@ export interface PolymarketChangmenOrderRow {
   pmLastSellOrderId?: string;
   /** 买单累计卖出回款 USDC */
   pmSellProceeds?: number;
+  /** Phase 1 减仓事件（买单 raw） */
+  positionEvents?: {
+    sells?: Array<{
+      id: string;
+      at?: number;
+      shares?: number;
+      price?: number;
+      proceeds?: number;
+      pnl?: number;
+      origin?: "changmen" | "external";
+    }>;
+  };
   /** 赛果（持有到期）：win/lose，与 status/money 脱钩 */
   pmMatchResult: string;
   matchTitle: string;

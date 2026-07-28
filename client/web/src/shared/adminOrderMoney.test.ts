@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { adminOrderBetMoneyCny, adminOrderMoneyCny, sumAdminOrdersMoneyCny } from "./adminOrderMoney";
+import {
+  adminOrderBetMoneyCny,
+  adminOrderBuyStakeCny,
+  adminOrderMoneyCny,
+  isAdminPredictionSell,
+  sumAdminOrdersMoneyCny,
+} from "./adminOrderMoney";
 
 describe("adminOrderMoneyCny", () => {
   it("passes through CNY venue money", () => {
@@ -26,6 +32,26 @@ describe("adminOrderMoneyCny", () => {
   it("scales PredictFun betMoney", () => {
     expect(adminOrderBetMoneyCny({ provider: "PredictFun", betMoney: 27.21 }))
       .toBeCloseTo(27.21 * 6.8, 6);
+  });
+
+  it("buy stake sum skips prediction sell proceeds mirror", () => {
+    expect(isAdminPredictionSell({ provider: "Polymarket", pmSide: "sell" })).toBe(true);
+    expect(isAdminPredictionSell({ provider: "PredictFun", pfSide: "sell" })).toBe(true);
+    expect(adminOrderBuyStakeCny({
+      provider: "Polymarket",
+      pmSide: "sell",
+      betMoney: 80,
+    })).toBe(0);
+    expect(adminOrderBuyStakeCny({
+      provider: "PredictFun",
+      pfSide: "sell",
+      betMoney: 9.9,
+    })).toBe(0);
+    expect(adminOrderBuyStakeCny({
+      provider: "Polymarket",
+      pmSide: "buy",
+      betMoney: 100,
+    })).toBe(100);
   });
 
   it("sums mixed venues with PF FX", () => {

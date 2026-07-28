@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import { formatLinkId, isSingleLegLink, isValueBetLink } from "@changmen/client-core/shared/format";
 import { formatLinkIdFull } from "@/shared/linkDisplay";
-import { adminOrderBetMoneyCny, adminOrderMoneyCny, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
+import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -205,9 +205,15 @@ function spanMethod({
         <span class="admin-order-num">{{ row.order.odds }}</span>
       </template>
     </el-table-column>
-    <el-table-column label="买入" width="88" align="right" class-name="admin-order-cell--num">
+    <el-table-column label="金额" width="96" align="right" class-name="admin-order-cell--num">
       <template #default="{ row }">
-        <span class="admin-order-num">{{ fmtMoney(adminOrderBetMoneyCny(row.order)) }}</span>
+        <span class="admin-order-num">
+          {{ fmtMoney(adminOrderBetMoneyCny(row.order)) }}
+          <span
+            v-if="isAdminPredictionSell(row.order)"
+            class="admin-order-amount-hint"
+          >回款</span>
+        </span>
       </template>
     </el-table-column>
     <el-table-column label="单笔盈利" width="96" align="right" class-name="admin-order-cell--num">
@@ -283,5 +289,12 @@ function spanMethod({
   margin: 0 !important;
   padding-left: 4px !important;
   padding-right: 4px !important;
+}
+
+.admin-order-amount-hint {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  font-weight: 400;
 }
 </style>

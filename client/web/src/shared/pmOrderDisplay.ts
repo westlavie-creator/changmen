@@ -147,10 +147,21 @@ export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
   return 0;
 }
 
-/** 买单展示本金（CNY）= 原始成交本金；卖单为回款 BetMoney */
+/**
+ * 买单展示本金（CNY）= 原始成交本金；
+ * 卖单回款：优先 PmStakeUsdc（事件合成）→ 再 deprecated BetMoney 兜底。
+ */
 export function pmOrderStakeDisplayCny(row: OrderRow): number {
-  if (isPmSellOrderListRow(row))
+  if (isPmSellOrderListRow(row)) {
+    const stakeUsdc = Number(row.PmStakeUsdc);
+    if (Number.isFinite(stakeUsdc) && stakeUsdc > 0) {
+      const fx = getExchange(Currency.USDT);
+      if (fx > 0)
+        return Math.round(stakeUsdc * fx);
+    }
+    // @deprecated Phase 1 影子卖单行回款镜像；无事件/无 PmStakeUsdc 时兜底
     return Number(row.BetMoney) || 0;
+  }
   return pmOrderOriginalStakeDisplayCny(row);
 }
 
@@ -185,12 +196,16 @@ export function pmOrderOriginalStakeDisplayUsdc(row: OrderRow): number {
   return pmCnyToUsdc(Number(row.BetMoney) || 0);
 }
 
-/** 买单展示本金（USDC）；卖单为回款（BetMoney CNY→U，或 PmSellProceeds） */
+/** 买单展示本金（USDC）；卖单回款优先 PmStakeUsdc / PmSellProceeds */
 export function pmOrderStakeDisplayUsdc(row: OrderRow): number {
   if (isPmSellOrderListRow(row)) {
+    const stakeUsdc = Number(row.PmStakeUsdc);
+    if (Number.isFinite(stakeUsdc) && stakeUsdc > 0)
+      return Math.round(stakeUsdc * 10000) / 10000;
     const proceeds = Number(row.PmSellProceeds);
     if (Number.isFinite(proceeds) && proceeds > 0)
       return Math.round(proceeds * 10000) / 10000;
+    // @deprecated Phase 1 影子卖单行 BetMoney(CNY)→U
     return pmCnyToUsdc(Number(row.BetMoney) || 0);
   }
   return pmOrderOriginalStakeDisplayUsdc(row);
@@ -228,21 +243,32 @@ export function pmOrderProfitDisplayCny(row: OrderRow, _peers: OrderRow[] = []):
 /**
  * 买单累计卖出回款 USDC（对标 PF `pfSellProceeds`）。
  * - 优先买单 `PmSellProceeds`（新成交真相）
- * - 缺失/0：用关联卖单 `BetMoney`(CNY) ÷ 汇率兜底（防 sync 误写 0）
- * - **不改变**侧栏卖单行展示：卖单仍读自身 BetMoney（见 `pmOrderStakeDisplayCny`）
+ * - 其次 `positionEvents.sells[].proceeds` 合计
+ * - 最后 @deprecated：关联影子卖单 `BetMoney`(CNY) ÷ 汇率（旧单兜底）
  */
 export function resolvePmSellProceedsUsdc(buy: OrderRow, peers: OrderRow[] = []): number | null {
   if (!isPmBuyOrderListRow(buy))
     return null;
   const fromBuy = Number(buy.PmSellProceeds);
-  // 仅正数视为真相；0/缺失走卖单兜底，避免 sync 误写 0
+  // 仅正数视为真相；0/缺失走事件/卖单兜底，避免 sync 误写 0
   if (Number.isFinite(fromBuy) && fromBuy > 0)
     return fromBuy;
+
+  const events = Array.isArray(buy.PositionEvents?.sells) ? buy.PositionEvents!.sells! : [];
+  let fromEvents = 0;
+  for (const ev of events) {
+    const p = Number(ev?.proceeds);
+    if (Number.isFinite(p) && p > 0)
+      fromEvents += p;
+  }
+  if (fromEvents > 0)
+    return Math.round(fromEvents * 10000) / 10000;
 
   const buyId = String(buy.OrderID ?? "").trim().toLowerCase();
   if (!buyId)
     return null;
 
+  // @deprecated Phase 1：影子卖单行回款镜像
   const sellCny = peers
     .filter(p =>
       isPmSellOrderListRow(p)

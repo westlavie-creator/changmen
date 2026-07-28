@@ -90,7 +90,7 @@ export function pfNetShares(buyShares: number | null, buyFeeShares: number | nul
 
 /**
  * 最终到手 U（只读 RDS 口径，不在此扣手续费）：
- * 1. 已卖出 → RDS 卖出回款（买单 pfSellProceeds 优先；无则卖单 betMoney 旧单兜底）
+ * 1. 已卖出 → RDS 卖出回款（买单 pfSellProceeds 优先；再事件 proceeds；无则卖单 betMoney 旧单兜底）
  * 2. Win → betMoney + money
  * 3. Lose → 0
  * 4. Reject → null（—）
@@ -211,14 +211,30 @@ export function buildPfCycles(orders: AdminOrderRow[]): PfOrderCycle[] {
     const changmenSellFeeUsdt = changmenFeeUsdtFromRow(sell) ?? changmenFeeUsdtFromRow(buy);
 
     let sellProceedsUsdt: number | null = null;
-    // 回款真相在买单；卖单 betMoney 仅旧单/镜像兜底（勿当买入本金）
+    // 回款真相在买单；其次 positionEvents；卖单 betMoney 仅旧单/镜像兜底（@deprecated）
+    // 与 PM resolvePmSellProceedsUsdc 对齐：仅正数视为真相，误写 0 不挡兜底
     const fromBuy = Number(buy.pfSellProceeds);
-    if (Number.isFinite(fromBuy) && fromBuy >= 0)
+    if (Number.isFinite(fromBuy) && fromBuy > 0)
       sellProceedsUsdt = fromBuy;
-    else if (sell) {
-      const fromSell = Number(sell.betMoney);
-      if (Number.isFinite(fromSell) && fromSell >= 0)
-        sellProceedsUsdt = fromSell;
+    else {
+      const events = Array.isArray(buy.positionEvents?.sells) ? buy.positionEvents!.sells! : [];
+      let fromEvents = 0;
+      let any = false;
+      for (const ev of events) {
+        const p = Number(ev?.proceeds);
+        if (Number.isFinite(p) && p > 0) {
+          fromEvents += p;
+          any = true;
+        }
+      }
+      if (any)
+        sellProceedsUsdt = fromEvents;
+      else if (sell) {
+        // @deprecated Phase 1 影子卖单行回款镜像
+        const fromSell = Number(sell.betMoney);
+        if (Number.isFinite(fromSell) && fromSell > 0)
+          sellProceedsUsdt = fromSell;
+      }
     }
 
     const sellFeeShares = feeSharesFromRow(sell);

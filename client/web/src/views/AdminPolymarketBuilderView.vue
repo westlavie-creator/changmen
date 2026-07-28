@@ -206,13 +206,24 @@ function cmEntryStatus(entry: CmBuilderDisplayEntry): string {
   return resolvePmOrderListStatusClass(cmOrderToOrderRow(entry.primary));
 }
 
-/** 卖单回款 U：优先买单累计 pmSellProceeds，否则卖单 BetMoney(CNY)→U */
+/** 卖单回款 U：优先买单累计 pmSellProceeds → positionEvents → 卖单 BetMoney(CNY)→U */
 function cmSellProceedsLabel(entry: CmBuilderDisplayEntry): string {
   if (entry.kind === "orphan-sell")
     return "-";
   const fromBuy = Number(entry.primary.pmSellProceeds) || 0;
   if (fromBuy > 0)
     return fmtUsdc(fromBuy);
+  const events = entry.primary.positionEvents?.sells;
+  if (Array.isArray(events) && events.length) {
+    let fromEvents = 0;
+    for (const ev of events) {
+      const p = Number(ev?.proceeds);
+      if (Number.isFinite(p) && p > 0)
+        fromEvents += p;
+    }
+    if (fromEvents > 0)
+      return fmtUsdc(fromEvents);
+  }
   const fromSells = entry.sells.reduce(
     (s, r) => s + pmCnyToUsdc(Number(r.betMoney) || 0),
     0,

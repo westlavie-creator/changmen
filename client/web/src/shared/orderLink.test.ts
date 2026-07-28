@@ -1,4 +1,5 @@
 import { LoseOrder } from "@/models/loseOrder";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { describe, expect, it } from "vitest";
 import {
   canRebindOrderLinkTo,
@@ -506,7 +507,44 @@ describe("orderLink A8 parity", () => {
     const fromEvent = blocks.find(b => b.row.OrderID === "sell");
     expect(fromEvent?.row.PmShares).toBe(10);
     expect(fromEvent?.row.PmFillPrice).toBe(0.6);
-    expect(fromEvent?.row.BetMoney).toBe(41);
+    expect(fromEvent?.row.PmStakeUsdc).toBe(6);
+    // Phase 1：事件 proceeds 优先于影子卖单 BetMoney
+    expect(fromEvent?.row.BetMoney).toBe(Math.round(6 * getExchange(Currency.USDT)));
+  });
+
+  it("orderListDisplayBlocks PF prefers positionEvents proceeds over sell BetMoney", () => {
+    const blocks = orderListDisplayBlocks([
+      {
+        OrderID: "pf-buy",
+        Type: "PredictFun",
+        Link: 1,
+        PfSide: "buy",
+        Match: "PF A",
+        Status: "None",
+        BetMoney: 10,
+        Money: 1,
+        CreateAt: 100,
+        PositionEvents: {
+          sells: [{ id: "pf-sell", at: 200, shares: 8, price: 0.55, proceeds: 4.2 }],
+        },
+      },
+      {
+        OrderID: "pf-sell",
+        Type: "PredictFun",
+        Link: 1,
+        PfSide: "sell",
+        PfBuyOrderId: "pf-buy",
+        Status: "None",
+        BetMoney: 9.9,
+        CreateAt: 200,
+      },
+    ]);
+    const fromEvent = blocks.find(b => b.row.OrderID === "pf-sell");
+    expect(fromEvent?.sellSource).toBe("event");
+    expect(fromEvent?.attach).toBe(true);
+    expect(fromEvent?.row.BetMoney).toBe(4.2);
+    expect(fromEvent?.row.PfSellProceeds).toBe(4.2);
+    expect(fromEvent?.row.PfShares).toBe(8);
   });
 
   it("orderListDisplayBlocks synthesizes attach from events when sell row missing", () => {

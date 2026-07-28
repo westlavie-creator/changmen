@@ -1,6 +1,6 @@
 import type { AdminOrderRow } from "@/types/admin";
 import { isSingleLegLink } from "@changmen/client-core/shared/format";
-import { adminOrderBetMoneyCny, adminOrderMoneyCny } from "@/shared/adminOrderMoney";
+import { adminOrderBuyStakeCny, adminOrderMoneyCny } from "@/shared/adminOrderMoney";
 import { linkIdGroupKey } from "@/shared/orderLink";
 
 export interface LinkOrderGroup {
@@ -184,7 +184,8 @@ export function buildLinkGroups(rows: AdminOrderRow[]): LinkOrderGroup[] {
         linkId,
         rows: sorted,
         createAt: sorted[0].createAt,
-        betMoney: sorted.reduce((s, r) => s + adminOrderBetMoneyCny(r), 0),
+        // Phase 1：组「买入」只计仓位本金；影子卖单 betMoney 是回款镜像，不计入
+        betMoney: sorted.reduce((s, r) => s + adminOrderBuyStakeCny(r), 0),
         money: sorted.reduce((s, r) => s + adminOrderMoneyCny(r), 0),
         isLinked: linkId !== 0 && !isSingleLegLink(linkId) && sorted.length > 1,
       };

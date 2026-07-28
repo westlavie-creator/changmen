@@ -10,7 +10,7 @@ import { ElMessage } from "element-plus";
 import { computed, ref } from "vue";
 import { getAdminOrderLogs } from "@/api/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
-import { adminOrderMoneyCny, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
+import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { formatLinkId } from "@changmen/client-core/shared/format";
 
 const ARB_LINK_MIN = 1_000_000_000_000;
@@ -36,6 +36,33 @@ function fmtTime(ts: number) {
 
 function fmtMoney(n: number) {
   return Math.floor(n).toLocaleString();
+}
+
+function orderMoneyCny(order: NonNullable<AdminOrderLogAttempt["order"]>) {
+  return adminOrderMoneyCny({
+    provider: order.provider,
+    money: order.money,
+    pfSide: order.pfSide,
+    pmSide: order.pmSide,
+  });
+}
+
+function orderStakeLabel(order: NonNullable<AdminOrderLogAttempt["order"]>) {
+  return isAdminPredictionSell(order) ? "回款" : "金额";
+}
+
+function orderStakeCny(order: NonNullable<AdminOrderLogAttempt["order"]>) {
+  return adminOrderBetMoneyCny({
+    provider: order.provider,
+    betMoney: order.betMoney,
+    pfSide: order.pfSide,
+    pmSide: order.pmSide,
+  });
+}
+
+function reduceEvents(order: NonNullable<AdminOrderLogAttempt["order"]>) {
+  const sells = order.positionEvents?.sells;
+  return Array.isArray(sells) ? sells : [];
 }
 
 function fmtMaybeNumber(n: number | null | undefined) {
@@ -521,17 +548,34 @@ defineExpose({ open });
                           {{ attempt.order!.item || attempt.order!.bet }} @ {{ attempt.order!.odds }}
                         </div>
                         <div class="admin-order-log-overview-order__meta">
-                          <span>¥{{ fmtMoney(attempt.order!.betMoney) }}</span>
+                          <span>{{ orderStakeLabel(attempt.order!) }} ¥{{ fmtMoney(orderStakeCny(attempt.order!)) }}</span>
                           <span
-                            :class="pnlClass(attempt.order!.money)"
+                            :class="pnlClass(orderMoneyCny(attempt.order!))"
                           >
-                            {{ attempt.order!.money ? `盈亏 ¥${fmtMoney(attempt.order!.money)}` : "—" }}
+                            {{
+                              orderMoneyCny(attempt.order!)
+                                ? `盈亏 ¥${fmtMoney(orderMoneyCny(attempt.order!))}`
+                                : "—"
+                            }}
                           </span>
                           <span class="admin-order-log-order-col__oid">#{{ attempt.order!.orderId }}</span>
                           <span class="admin-order-log-overview-order__time">{{
                             fmtTime(attempt.order!.createAt)
                           }}</span>
                         </div>
+                        <ul
+                          v-if="reduceEvents(attempt.order!).length"
+                          class="admin-order-log-reduce-events"
+                        >
+                          <li
+                            v-for="ev in reduceEvents(attempt.order!)"
+                            :key="ev.id"
+                          >
+                            减仓 #{{ ev.id.slice(0, 10) }}
+                            <template v-if="ev.shares != null"> · {{ ev.shares }} 份</template>
+                            <template v-if="ev.proceeds != null"> · 回款 {{ ev.proceeds }}</template>
+                          </li>
+                        </ul>
                       </div>
                     </template>
                     <p v-else class="admin-order-log-overview__empty">
@@ -604,7 +648,7 @@ defineExpose({ open });
                         </div>
                         <div v-if="attempt.order" class="admin-order-log-order-col__meta">
                           <span>{{ attempt.order.item || attempt.order.bet }} @ {{ attempt.order.odds }}</span>
-                          <span>¥{{ fmtMoney(attempt.order.betMoney) }}</span>
+                          <span>{{ orderStakeLabel(attempt.order) }} ¥{{ fmtMoney(orderStakeCny(attempt.order)) }}</span>
                           <span class="admin-order-log-order-col__oid">#{{ attempt.order.orderId }}</span>
                         </div>
                         <p

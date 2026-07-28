@@ -27,14 +27,22 @@ PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏
 
 终态：**仓位 = 买单行**；减仓只存在于仓位 `raw`（聚合字段 + `positionEvents.sells[]`）；**无独立卖单行**。今日仍双写。
 
-| Phase | 内容 | 风险 |
-|-------|------|------|
-| 0 | 词汇冻结 + 只读双写覆盖率巡检 | 无行为变更 |
-| 1 | 读路径默认只认事件/仓位聚合 | 低 |
-| 2 | 写入以仓位+事件为成功条件 | 中（防双卖） |
-| 3 | 禁止 sync / SaveOrder 回流 sell 行 | 高（必过闸门） |
-| 4 | 停写影子卖单行 | 中 |
-| 5 | 清历史 sell 行 + 删死代码 | 中 |
+| Phase | 内容 | 风险 | 状态 |
+|-------|------|------|------|
+| 0 | 词汇冻结 + 只读双写覆盖率巡检 | 无行为变更 | ✅ |
+| 1 | 读路径默认只认事件/仓位聚合 | 低 | ✅ |
+| 2 | 写入以仓位+事件为成功条件 | 中（防双卖） | |
+| 3 | 禁止 sync / SaveOrder 回流 sell 行 | 高（必过闸门） | |
+| 4 | 停写影子卖单行 | 中 | |
+| 5 | 清历史 sell 行 + 删死代码 | 中 | |
+
+**Phase 1 读路径约定**（双写仍在）：
+
+- 侧栏：`orderListDisplayBlocks` 默认 `sellSource: event`；缺事件 id 才 `row`
+- 合成卖出回款优先 `event.proceeds`（影子卖单 `BetMoney` 仅兜底）
+- 仓位累计回款：`*SellProceeds` → `positionEvents.sells[].proceeds` → deprecated 卖单 `BetMoney`
+- 盈亏只认买单 `Money`；管理端 Link「买入合计」跳过影子卖单回款镜像
+- 诊断 API / UI 透出并展示 `positionEvents.sells`
 
 只读基线：
 
@@ -57,7 +65,7 @@ node scripts\ops\diagnostics\audit-position-dual-write.mjs --days 30
 - [x] `orders.ts`：external reconcile 可设 `pmBuyOrderId` / `pmSellState`（官网卖路径）
 - [x] `pmLogicalPosition.ts`：剩余份额 / 持仓判断
 - [x] SELL POST 解析 / fill 确认 / VenueOrder 映射（CLOB sync 在用）
-- [x] 回款真相对齐 PF：买单 `pmSellProceeds`；读路径 `resolvePmSellProceedsUsdc` 优先买单、旧单兜底卖单 `BetMoney`；**侧栏卖单展示仍读自身 BetMoney**
+- [x] 回款真相对齐 PF：买单 `pmSellProceeds`；读路径 `resolvePmSellProceedsUsdc` 优先买单 → 事件 → 旧单兜底卖单 `BetMoney`；侧栏卖出优先事件/`PmStakeUsdc`
 
 > **说明**：手动卖走 `pmManualSell`，**不是** `bet.ts` 通用 `Side.SELL` 分支。§仍待办里的「bet.ts SELL」仅在要做预检深度 UI / 通用下注路径时才需要。
 

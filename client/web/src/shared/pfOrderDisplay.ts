@@ -285,12 +285,19 @@ export function pfOrderSharesText(row: OrderRow): string | null {
 /**
  * 侧栏买入金额 / 回款：CNY 展示（对齐 PM `scaleUsdtToCnyDisplay`）。
  * - 买单：优先名义 PfNotionalUsdt（限价×份额，如 14.12）；无则 BetMoney（用户扣款）
- * - 卖单 BetMoney = 回款镜像（RDS 落库值；与买单 pfSellProceeds 同值）
+ * - 卖单回款：优先 PfSellProceeds（极少挂在卖行）→ BetMoney 镜像（@deprecated 影子行兜底）
  * 库内为场馆 USDT；展示 × 汇率，勿直接甩裸 U。
  */
 export function pfOrderStakeDisplayCny(row: OrderRow): number {
-  if (isPfSellOrderListRow(row))
+  if (isPfSellOrderListRow(row)) {
+    const proceeds = Number(
+      row.PfSellProceeds ?? (row as { pfSellProceeds?: number }).pfSellProceeds,
+    );
+    if (Number.isFinite(proceeds) && proceeds > 0)
+      return scaleUsdtToCnyDisplay(proceeds);
+    // @deprecated Phase 1 影子卖单行回款镜像
     return scaleUsdtToCnyDisplay(Number(row.BetMoney) || 0);
+  }
   const notional = Number(
     row.PfNotionalUsdt ?? (row as { pfNotionalUsdt?: number }).pfNotionalUsdt,
   );

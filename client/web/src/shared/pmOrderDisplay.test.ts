@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import {
   formatPolymarketApiDecimal,
   isPmOrderListRow,
@@ -244,7 +245,7 @@ describe("pmOrderDisplay", () => {
     expect(pmOrderProfitDisplayCny({ ...buy, Money: 12 }, [buy, sell])).toBe(12);
   });
 
-  it("resolvePmSellProceedsUsdc prefers buy field and falls back to sell BetMoney", () => {
+  it("resolvePmSellProceedsUsdc prefers buy field, then events, then sell BetMoney", () => {
     const buy: OrderRow = {
       ...pmBuy,
       OrderID: "0xbuy",
@@ -256,13 +257,25 @@ describe("pmOrderDisplay", () => {
       ...pmBuy,
       OrderID: "0xsell",
       PmSide: "sell",
+      PmStakeUsdc: undefined,
       BetMoney: 68,
       Money: 0,
       PmBuyOrderId: "0xbuy",
     };
     expect(resolvePmSellProceedsUsdc(buy, [buy, sell])).toBe(12.5);
-    // 侧栏卖单回款展示仍读自身 BetMoney，不因 helper 改变
+    // 无 PmStakeUsdc 时仍读影子卖单 BetMoney（deprecated 兜底）
     expect(pmOrderStakeDisplayCny(sell)).toBe(68);
+
+    const eventBuy: OrderRow = {
+      ...pmBuy,
+      OrderID: "0xev",
+      PmSellState: "closed",
+      PmAttributedSellShares: 5,
+      PositionEvents: {
+        sells: [{ id: "0xs-ev", proceeds: 4.25, shares: 5 }],
+      },
+    };
+    expect(resolvePmSellProceedsUsdc(eventBuy, [eventBuy])).toBe(4.25);
 
     const legacyBuy: OrderRow = {
       ...pmBuy,
@@ -274,6 +287,7 @@ describe("pmOrderDisplay", () => {
       ...pmBuy,
       OrderID: "0xs-legacy",
       PmSide: "sell",
+      PmStakeUsdc: undefined,
       BetMoney: 68,
       Money: 0,
       PmBuyOrderId: "0xlegacy",
@@ -288,5 +302,14 @@ describe("pmOrderDisplay", () => {
       ...legacyBuy,
       PmSellProceeds: 0,
     }, [legacyBuy, legacySell])).toBe(fallback);
+  });
+
+  it("pmOrderStakeDisplayCny sell prefers PmStakeUsdc from event synthesis", () => {
+    expect(pmOrderStakeDisplayCny({
+      ...pmBuy,
+      PmSide: "sell",
+      PmStakeUsdc: 6,
+      BetMoney: 41,
+    })).toBe(Math.round(6 * getExchange(Currency.USDT)));
   });
 });

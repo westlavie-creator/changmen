@@ -79,7 +79,32 @@ describe("buildLinkGroups", () => {
       order({ id: 2, linkId, provider: "RAY" }),
     ]);
     expect(groups).toHaveLength(1);
-    expect(groups[0].rows).toHaveLength(2);
+    expect(groups[0].betMoney).toBe(200);
+  });
+
+  it("excludes PM/PF sell proceeds mirror from group buy stake", () => {
+    const linkId = 1_735_000_000_790;
+    const groups = buildLinkGroups([
+      order({
+        id: 1,
+        linkId,
+        provider: "Polymarket",
+        pmSide: "buy",
+        betMoney: 100,
+      }),
+      order({
+        id: 2,
+        linkId,
+        provider: "Polymarket",
+        pmSide: "sell",
+        betMoney: 80,
+        money: 0,
+        createAt: 1_700_000_000_050,
+      }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].betMoney).toBe(100);
+    expect(groups[0].money).toBe(0);
   });
 });
 

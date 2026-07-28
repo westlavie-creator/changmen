@@ -308,6 +308,22 @@ export interface AdminOrderLogOrder {
   createAt: number;
   pfSide?: "buy" | "sell";
   pmSide?: "buy" | "sell";
+  /** 仓位累计卖出回款（买单；USDC/USDT） */
+  pmSellProceeds?: number;
+  pfSellProceeds?: number;
+  /** Phase 1 减仓事件（写在买单） */
+  positionEvents?: {
+    sells?: Array<{
+      id: string;
+      at?: number;
+      shares?: number;
+      price?: number;
+      proceeds?: number;
+      pnl?: number;
+      origin?: "changmen" | "external";
+      status?: string;
+    }>;
+  };
 }
 
 export interface AdminOrderLogLookup {

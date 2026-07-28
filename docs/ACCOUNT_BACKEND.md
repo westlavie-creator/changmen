@@ -94,7 +94,7 @@ orders / money_logs
 | `origin` | 否 | `changmen` \| `external` |
 | `status` | 否 | 如 `closed` |
 
-迁移路线（expand-contract）：读只认仓位 → 写入以仓位+事件为成功条件 → **禁止 sync 回流 sell 行** → 停写影子行 → 清历史 sell 行。详见 `client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md` §仓位迁移。
+迁移路线（expand-contract）：读只认仓位（Phase 1 ✅）→ 写入以仓位+事件为成功条件 → **禁止 sync 回流 sell 行** → 停写影子行 → 清历史 sell 行。详见 `client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md` §仓位迁移。
 
 详细 checklist：`client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md`；PF 契约：`client/venue-adapter/predictfun/README.md`。
 

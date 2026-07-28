@@ -769,6 +769,42 @@ function normalizeOrderRow(row) {
   const raw = row.raw && typeof row.raw === "object" && !Array.isArray(row.raw) ? row.raw : {};
   const pfSide = String(raw.pfSide || raw.PfSide || "").toLowerCase();
   const pmSide = String(raw.pmSide || raw.PmSide || "").toLowerCase();
+  const pmSellProceeds = Number(raw.pmSellProceeds ?? raw.PmSellProceeds);
+  const pfSellProceeds = Number(raw.pfSellProceeds ?? raw.PfSellProceeds);
+  const pe = raw.positionEvents && typeof raw.positionEvents === "object" && !Array.isArray(raw.positionEvents)
+    ? raw.positionEvents
+    : null;
+  const sellsRaw = pe && Array.isArray(pe.sells) ? pe.sells : null;
+  const positionEvents = sellsRaw && sellsRaw.length
+    ? {
+        sells: sellsRaw
+          .map((ev) => {
+            if (!ev || typeof ev !== "object")
+              return null;
+            const id = String(ev.id ?? "").trim();
+            if (!id)
+              return null;
+            const out = { id };
+            if (ev.at != null)
+              out.at = Number(ev.at) || 0;
+            if (ev.shares != null)
+              out.shares = Number(ev.shares);
+            if (ev.price != null)
+              out.price = Number(ev.price);
+            if (ev.proceeds != null)
+              out.proceeds = Number(ev.proceeds);
+            if (ev.pnl != null)
+              out.pnl = Number(ev.pnl);
+            const origin = String(ev.origin || "").toLowerCase();
+            if (origin === "changmen" || origin === "external")
+              out.origin = origin;
+            if (ev.status != null)
+              out.status = String(ev.status);
+            return out;
+          })
+          .filter(Boolean),
+      }
+    : undefined;
   return {
     orderId: String(row.order_id),
     link: Number(row.link) || 0,
@@ -784,6 +820,9 @@ function normalizeOrderRow(row) {
     createAt: Number(row.create_at) || 0,
     pfSide: pfSide === "buy" || pfSide === "sell" ? pfSide : undefined,
     pmSide: pmSide === "buy" || pmSide === "sell" ? pmSide : undefined,
+    ...(Number.isFinite(pmSellProceeds) ? { pmSellProceeds } : {}),
+    ...(Number.isFinite(pfSellProceeds) ? { pfSellProceeds } : {}),
+    ...(positionEvents?.sells?.length ? { positionEvents } : {}),
   };
 }
 

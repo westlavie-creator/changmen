@@ -318,6 +318,35 @@ function mapChangmenOrder(row) {
       const n = Number(raw.pmSellProceeds);
       return Number.isFinite(n) && n > 0 ? n : 0;
     })(),
+    positionEvents: (() => {
+      const pe = raw.positionEvents;
+      if (!pe || typeof pe !== "object" || Array.isArray(pe))
+        return undefined;
+      const sells = Array.isArray(pe.sells) ? pe.sells : [];
+      const cleaned = sells.map((ev) => {
+        if (!ev || typeof ev !== "object")
+          return null;
+        const id = String(ev.id || "").trim();
+        if (!id)
+          return null;
+        const out = { id };
+        if (ev.at != null)
+          out.at = Number(ev.at) || 0;
+        if (ev.shares != null)
+          out.shares = Number(ev.shares);
+        if (ev.price != null)
+          out.price = Number(ev.price);
+        if (ev.proceeds != null)
+          out.proceeds = Number(ev.proceeds);
+        if (ev.pnl != null)
+          out.pnl = Number(ev.pnl);
+        const origin = String(ev.origin || "").toLowerCase();
+        if (origin === "changmen" || origin === "external")
+          out.origin = origin;
+        return out;
+      }).filter(Boolean);
+      return cleaned.length ? { sells: cleaned } : undefined;
+    })(),
     pmMatchResult: (() => {
       const m = String(raw.pmMatchResult || "").trim().toLowerCase();
       return m === "win" || m === "lose" ? m : "";

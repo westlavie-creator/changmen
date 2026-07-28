@@ -189,7 +189,7 @@ function orderIdKey(id: unknown): string {
   return String(id ?? "").trim().toLowerCase();
 }
 
-/** 事件 → 展示用卖单行；有卖单行时 enrich 文案/BetMoney */
+/** 事件 → 展示用卖单行；回款优先 event.proceeds，影子卖单 BetMoney 仅兜底 */
 export function synthesizeSellRowFromPositionEvent(
   buy: OrderRow,
   event: PositionSellEvent,
@@ -204,9 +204,14 @@ export function synthesizeSellRowFromPositionEvent(
   const origin = event.origin === "external" || event.origin === "changmen"
     ? event.origin
     : undefined;
+  const hasEventProceeds = Number.isFinite(proceeds) && proceeds >= 0;
 
   if (isPredictFunOrderRow(buy) || (sellRow != null && isPredictFunOrderRow(sellRow))) {
-    const proceedsUsdt = Number.isFinite(proceeds) && proceeds >= 0 ? proceeds : 0;
+    const proceedsUsdt = hasEventProceeds ? proceeds : 0;
+    // Phase 1：事件回款优先；无事件 proceeds 时才用影子卖单行 BetMoney（deprecated）
+    const betMoney = hasEventProceeds
+      ? proceedsUsdt
+      : (Number(sellRow?.BetMoney) || 0);
     return {
       ...(sellRow ?? {
         Match: buy.Match,
@@ -223,20 +228,24 @@ export function synthesizeSellRowFromPositionEvent(
       PfBuyOrderId: String(buy.OrderID ?? ""),
       PfShares: Number.isFinite(shares) ? shares : sellRow?.PfShares,
       PfBookPrice: Number.isFinite(price) && price > 0 ? price : sellRow?.PfBookPrice,
-      BetMoney: sellRow != null
-        ? (Number(sellRow.BetMoney) || 0)
-        : proceedsUsdt,
+      BetMoney: betMoney,
       Money: 0,
       PfSellState: "closed",
+      // 与 PM PmStakeUsdc 对齐：事件回款挂在卖出行，供 pfOrderStakeDisplayCny 优先读取
+      ...(hasEventProceeds && proceedsUsdt > 0 ? { PfSellProceeds: proceedsUsdt } : {}),
     };
   }
 
   // Polymarket（默认）
-  const proceedsUsdc = Number.isFinite(proceeds) && proceeds >= 0 ? proceeds : 0;
+  const proceedsUsdc = hasEventProceeds ? proceeds : 0;
   const fx = getExchange(Currency.USDT);
   const betFromEvent = proceedsUsdc > 0 && fx > 0
     ? Math.round(proceedsUsdc * fx)
     : 0;
+  // Phase 1：事件回款优先；无事件 proceeds 时才用影子卖单行 BetMoney（deprecated）
+  const betMoney = hasEventProceeds
+    ? betFromEvent
+    : (Number(sellRow?.BetMoney) || 0);
   return {
     ...(sellRow ?? {
       Match: buy.Match,
@@ -253,10 +262,12 @@ export function synthesizeSellRowFromPositionEvent(
     PmBuyOrderId: String(buy.OrderID ?? ""),
     PmShares: Number.isFinite(shares) ? shares : sellRow?.PmShares,
     PmFillPrice: Number.isFinite(price) && price > 0 && price < 1 ? price : sellRow?.PmFillPrice,
-    PmStakeUsdc: proceedsUsdc > 0 ? proceedsUsdc : sellRow?.PmStakeUsdc,
+    PmStakeUsdc: hasEventProceeds && proceedsUsdc > 0
+      ? proceedsUsdc
+      : sellRow?.PmStakeUsdc,
     PmRealizedPnlUsdc: Number.isFinite(pnl) ? pnl : sellRow?.PmRealizedPnlUsdc,
     PmOrigin: origin ?? sellRow?.PmOrigin,
-    BetMoney: sellRow != null ? (Number(sellRow.BetMoney) || 0) : betFromEvent,
+    BetMoney: betMoney,
     Money: 0,
   };
 }

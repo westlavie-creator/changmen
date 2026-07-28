@@ -1634,6 +1634,17 @@ html.admin-route #app > * {
   font-family: var(--adm-mono, ui-monospace, monospace);
   font-size: 10px;
 }
+.admin-order-log-reduce-events {
+  margin: 4px 0 0;
+  padding: 0 0 0 12px;
+  list-style: disc;
+  font-size: 10px;
+  color: var(--adm-text-muted);
+  line-height: 1.35;
+}
+.admin-order-log-reduce-events li {
+  margin: 0;
+}
 .admin-order-log-order-table {
   font-size: 12px;
   border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.18));

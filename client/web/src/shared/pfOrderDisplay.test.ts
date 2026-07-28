@@ -184,6 +184,16 @@ describe("pfOrderDisplay", () => {
     expect(resolvePfOrderListStatusClass(sell)).toBe("PfSell");
   });
 
+  it("sell row stake prefers PfSellProceeds over BetMoney mirror", () => {
+    expect(pfOrderStakeDisplayCny({
+      Type: "PredictFun",
+      PfSide: "sell",
+      BetMoney: 13.75,
+      PfSellProceeds: 4.2,
+      Status: "None",
+    })).toBeCloseTo(4.2 * 6.8, 5);
+  });
+
   it("treats 市场 N as bare and enriches from MarketIndex", () => {
     rememberPredictFunTokenMarketIds({
       updatedAt: Date.now(),
