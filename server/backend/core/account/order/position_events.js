@@ -1,8 +1,9 @@
 /**
- * Phase 1：仓位卖出事件流水（审计镜像）。
- * 权威盈亏/份额仍以买单聚合字段为准；本数组按 sell id 幂等 upsert，缺省保留库内值。
+ * 仓位减仓事件流水（审计 + 展示；Phase 0 起正式称「仓位」而非仅「买单附属」）。
+ * 权威盈亏/份额/回款仍以仓位聚合字段为准；本数组按 sell id 幂等 upsert，缺省保留库内值。
  *
  * Canonical: raw.positionEvents.sells[]
+ * 字段契约：id, at, shares, proceeds；可选 price, pnl, origin, status
  * Incoming 也可带 o.sells / o.positionEvents.sells（仅 upsert，空数组不清空）。
  */
 

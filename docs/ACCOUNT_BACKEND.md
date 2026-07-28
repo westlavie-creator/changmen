@@ -53,18 +53,48 @@ orders / money_logs
 | `Client_DeletePlayer` | 软删 player + 从内存账号列表移除 |
 | `Client_SaveOrder` / `SaveMoneyLog` | 仅本人 player_id |
 
-## 预测市场：卖单依附买单（`[changmen 扩展]`）
+## 预测市场：仓位（买单）与减仓事件（`[changmen 扩展]`）
 
 仅 **Polymarket / PredictFun**。无 A8 协议字段；落在 `orders.raw` + 前端展示层。
 
+### 词汇（终态 / 迁移中）
+
+| 词 | 含义 |
+|----|------|
+| **仓位** | 一条 PM/PF **买单** `orders` 行（开仓） |
+| **减仓 / 平仓** | 写在该仓位 `raw`：状态、已卖份额、回款、盈亏 + `positionEvents.sells[]` |
+| **独立卖单行** | 今日仍双写（影子行，`money` 恒 0）；迁移目标是 **禁止新建并最终删除** |
+| 场馆单（OB/RAY 等） | 仍是独立订单，不在仓位模型内 |
+
+官网卖 changmen 仓：**不归因**（仅侧栏手动卖写绑定）。
+
+### 字段（当前双写期）
+
 | | Polymarket | PredictFun |
 |--|------------|------------|
-| 绑父 | `pmBuyOrderId` | `pfBuyOrderId` |
-| 买单状态 | `pmSellState`：`open` / `partial` / `closed` / `settled` | `pfSellState`：`open` / `closed`（仅 1:1 全卖） |
-| 回款真相 | 买单 `pmSellProceeds`（USDC；旧单可缺，读路径兜底卖单） | 买单 `pfSellProceeds` |
-| 盈亏 | 记在**买单** `money`；卖单 `money` 恒 0 | 同左 |
-| 展示 | 侧栏软附属嵌套；卖单行回款仍读自身 `betMoney` | 同左 |
-| 归账日 | 卖单跟买单 `CreateAt`；跨日由 `mergePredictionBuySellSiblings` 并入 | 同左 |
+| 仓位状态 | `pmSellState`：`open` / `partial` / `closed`（手动减仓）；`settled`（**赛果结算**，不是卖出流水） | `pfSellState`：`open` / `closed`（仅 1:1 全卖）；另有 `closing` |
+| 回款真相 | 仓位 `pmSellProceeds`（USDC） | 仓位 `pfSellProceeds` |
+| 盈亏 | 记在**仓位** `money`；独立卖单行 `money` 恒 0 | 同左 |
+| 减仓事件 | `raw.positionEvents.sells[]`（审计 + 展示优先） | 同左 |
+| 影子卖单行 | `pmSide=sell` + `pmBuyOrderId`（迁移期保留） | `pfSide=sell` + `pfBuyOrderId` |
+| 归账日 | 影子卖单跟仓位 `CreateAt`；跨日 `mergePredictionBuySellSiblings` | 同左 |
+
+### `positionEvents.sells[]` 契约
+
+权威盈亏/回款仍以仓位聚合字段为准；事件是流水与侧栏展示源（按 `id` 幂等 upsert，空数组不清空）。
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `id` | 是 | 场馆 sell orderId |
+| `at` | 是 | 成交时间 ms |
+| `shares` | 是 | 减仓份额 |
+| `proceeds` | 是 | 回款（PM=USDC，PF=USDT） |
+| `price` | 否 | 成交价 |
+| `pnl` | 否 | 该笔已实现盈亏（同币种） |
+| `origin` | 否 | `changmen` \| `external` |
+| `status` | 否 | 如 `closed` |
+
+迁移路线（expand-contract）：读只认仓位 → 写入以仓位+事件为成功条件 → **禁止 sync 回流 sell 行** → 停写影子行 → 清历史 sell 行。详见 `client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md` §仓位迁移。
 
 详细 checklist：`client/venue-adapter/polymarket/PM_SELL_CHECKLIST.md`；PF 契约：`client/venue-adapter/predictfun/README.md`。
 
@@ -73,6 +103,7 @@ orders / money_logs
 ```bat
 cd changmen\server\backend
 node scripts\ops\diagnostics\audit-order-sidebar-health.mjs --days 30
+node scripts\ops\diagnostics\audit-position-dual-write.mjs --days 30
 node scripts\ops\incidents\scan-fix-pm-sell-pnl-double.mjs --dry-run
 ```
 

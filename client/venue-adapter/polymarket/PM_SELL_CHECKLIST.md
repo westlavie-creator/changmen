@@ -13,15 +13,37 @@
 | 可卖份额 | `resolvePmRemainingShares` = fill − `pmAttributedSellShares` |
 | 部分卖 | **支持** → `pmSellState`: `partial` / `closed`（卖光） |
 | 下单 | 当前买单剩余份额 **FOK 吃 bids**；不撤其它挂单 |
-| 依附字段 | 卖单 `pmBuyOrderId`；买单 `pmAttributedSellShares` + `pmSellState` + **`pmSellProceeds`（回款真相 USDC，对标 PF）** |
-| 盈亏 | **记在买单 `money`**；卖单 `money` 恒 0（回款在 `betMoney`，成本/PnL 在 raw） |
+| 依附字段 | 卖单 `pmBuyOrderId`；买单（**仓位**）`pmAttributedSellShares` + `pmSellState` + **`pmSellProceeds`（回款真相 USDC，对标 PF）** |
+| 盈亏 | **记在仓位（买单）`money`**；影子卖单行 `money` 恒 0（回款在 `betMoney`，成本/PnL 在 raw） |
 | 卖光后 | 倾向挡 Gamma 纸面结算（`changmenSoldOutBlocksGammaSettlement`；含 `open+full attr` 历史兜底） |
-| 展示 | 方案 A **软附属**：`orderListDisplayBlocks` 嵌在买单下；不改落库；卖单行回款仍读自身 `BetMoney`（旧单无 `pmSellProceeds` 不影响） |
-| 归账日 | 卖单跟父买单 `CreateAt`；后端 `mergePredictionBuySellSiblings` 跨日并入 |
+| 展示 | 方案 A **软附属**：优先 `positionEvents.sells`，缺事件再回退卖单行；卖单行回款仍可读自身 `BetMoney` |
+| 归账日 | 影子卖单跟父仓位 `CreateAt`；后端 `mergePredictionBuySellSiblings` 跨日并入 |
 | 官网卖 changmen 仓 | **不归因**（changmen 买单不进 external reconcile；仅侧栏手动卖写绑定） |
 | 卖出预检 UI | **不做**（手动卖仅简单确认份额后下单；深度校验在 FOK 下单时） |
 
-PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏在买单）。
+PF 同源语义见 `predictfun/README.md`（1:1 全卖、`pfBuyOrderId`、盈亏在仓位）。
+
+### 0.1 仓位迁移（expand-contract）
+
+终态：**仓位 = 买单行**；减仓只存在于仓位 `raw`（聚合字段 + `positionEvents.sells[]`）；**无独立卖单行**。今日仍双写。
+
+| Phase | 内容 | 风险 |
+|-------|------|------|
+| 0 | 词汇冻结 + 只读双写覆盖率巡检 | 无行为变更 |
+| 1 | 读路径默认只认事件/仓位聚合 | 低 |
+| 2 | 写入以仓位+事件为成功条件 | 中（防双卖） |
+| 3 | 禁止 sync / SaveOrder 回流 sell 行 | 高（必过闸门） |
+| 4 | 停写影子卖单行 | 中 |
+| 5 | 清历史 sell 行 + 删死代码 | 中 |
+
+只读基线：
+
+```bat
+cd changmen\server\backend
+node scripts\ops\diagnostics\audit-position-dual-write.mjs --days 30
+```
+
+事件契约见 `docs/ACCOUNT_BACKEND.md`（`positionEvents.sells[]`）。
 
 ---
 
