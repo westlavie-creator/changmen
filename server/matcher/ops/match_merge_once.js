@@ -14,6 +14,7 @@ import {
   alignUnmatchedToClientMatches,
   buildExistingClientIdKeyIndex,
 } from "./align_unmatched_to_client.js";
+import { attachPredictFunMarketIds } from "./pf_bet_source.js";
 import { autoRegisterTeams } from "./auto_register_teams.js";
 import { backfillPlatformMatchIdsForIdMerges } from "./backfill_platform_match_ids.js";
 import { setClientMatchesFromMatchMerge } from "../../backend/core/db/store.js";
@@ -54,15 +55,21 @@ function invalidateTeamPlugin() {
 }
 
 function sourceFromBet(provider, b) {
-  return {
+  const homeId = String(b.SourceHomeID || "");
+  const awayId = String(b.SourceAwayID || "");
+  const src = {
     Type: provider,
     BetID: String(b.SourceBetID),
-    HomeID: String(b.SourceHomeID || ""),
-    AwayID: String(b.SourceAwayID || ""),
+    HomeID: homeId,
+    AwayID: awayId,
     HomeOdds: formatOdds(b.HomeOdds),
     AwayOdds: formatOdds(b.AwayOdds),
     Status: b.Status || "Normal",
   };
+  // [changmen 扩展] PF：投影 Home/AwayMarketID，供 GetMatchs → checkBet 定结构
+  if (provider === "PredictFun")
+    attachPredictFunMarketIds(src, b);
+  return src;
 }
 
 async function ensureTeamPlugin() {

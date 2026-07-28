@@ -870,13 +870,19 @@ function refreshClientMatchBetMapNames(rows, matches, bets, timers, sourceFromBe
 function swapBetSource(src) {
   if (!src || typeof src !== "object")
     return src;
-  return {
+  const out = {
     ...src,
     HomeID: src.AwayID,
     AwayID: src.HomeID,
     HomeOdds: src.AwayOdds,
     AwayOdds: src.HomeOdds,
   };
+  // PredictFun（及体育）：主客翻转时一并交换 MarketID
+  if (src.HomeMarketID != null || src.AwayMarketID != null) {
+    out.HomeMarketID = src.AwayMarketID != null ? String(src.AwayMarketID) : "";
+    out.AwayMarketID = src.HomeMarketID != null ? String(src.HomeMarketID) : "";
+  }
+  return out;
 }
 
 /** 对齐 pipei/link_match.js analyzeSideAlignment，返回 aligned | reversed | ambiguous */

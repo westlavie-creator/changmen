@@ -446,3 +446,37 @@ it("swapBetSource 连换两次回到原方向（说明 promote 不可再 swap）
   assert.equal(twice.AwayOdds, raw.AwayOdds);
   assert.equal(twice.HomeID, raw.HomeID);
 });
+
+it("swapBetSource 交换 PredictFun Home/AwayMarketID", () => {
+  const raw = {
+    Type: "PredictFun",
+    BetID: "cat#m0",
+    HomeID: "tok-h",
+    AwayID: "tok-a",
+    HomeOdds: 2.1,
+    AwayOdds: 1.8,
+    HomeMarketID: "m-home",
+    AwayMarketID: "m-away",
+  };
+  const once = swapBetSource(raw);
+  assert.equal(once.HomeID, "tok-a");
+  assert.equal(once.AwayID, "tok-h");
+  assert.equal(once.HomeMarketID, "m-away");
+  assert.equal(once.AwayMarketID, "m-home");
+  const twice = swapBetSource(once);
+  assert.equal(twice.HomeMarketID, raw.HomeMarketID);
+  assert.equal(twice.AwayMarketID, raw.AwayMarketID);
+});
+
+it("swapBetSource 无 MarketID 时不引入空字段", () => {
+  const once = swapBetSource({
+    Type: "OB",
+    BetID: "1",
+    HomeID: "h",
+    AwayID: "a",
+    HomeOdds: 1.5,
+    AwayOdds: 2.5,
+  });
+  assert.equal(once.HomeMarketID, undefined);
+  assert.equal(once.AwayMarketID, undefined);
+});
