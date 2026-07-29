@@ -9,6 +9,7 @@ export {
   browserSaveMatchPlatformIds,
   collectPlatformIds,
   getPlatformMeta,
+  isVpsOwnedPlatformCollect,
   platformDir,
   platformSupportsBet,
   platformSupportsCollect,

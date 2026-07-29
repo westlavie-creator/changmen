@@ -43,4 +43,13 @@ describe("collectStore.saveMatch A8 parity", () => {
     expect(saveMatchSource).not.toHaveBeenCalled();
     expect(saveBetSource).not.toHaveBeenCalled();
   });
+
+  it("never posts SaveMatch/SaveBet for Polymarket even when collect switch is on", async () => {
+    const store = useCollectStore();
+    store.collect.set("Polymarket", true);
+    expect(await store.saveMatch("Polymarket", [])).toBe(false);
+    expect(await store.saveBets("Polymarket", "1", [])).toBe(false);
+    expect(saveMatchSource).not.toHaveBeenCalled();
+    expect(saveBetSource).not.toHaveBeenCalled();
+  });
 });

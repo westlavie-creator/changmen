@@ -1,16 +1,11 @@
 import type { CollectBetDto, CollectConfigDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@/types/esport";
+import { isVpsOwnedPlatformCollect } from "@changmen/venue-adapter/registry";
 import { defineStore } from "pinia";
 import { getClientData, saveBetSource, saveClientData, saveMatchSource, saveUserLog } from "@/api/esport";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const CONFIG_KEY = "CollectConfig";
-
-/** VPS collector 独占写 platform_*；浏览器不得 SaveMatch/SaveBet（即便 CollectConfig 打开）。 */
-function isVpsOwnedPlatformCollect(platform: PlatformId | string): boolean {
-  const p = String(platform);
-  return p === "PredictFun" || p === "Polymarket";
-}
 
 /**
  * 对齐 A8 Pinia `Tf`：`collect` 开关只控制是否调用后端 SaveMatch/SaveBets（数据回传），

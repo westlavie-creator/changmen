@@ -1,6 +1,17 @@
 import * as sb from "@changmen/db";
 import { formatBetOdds } from "@changmen/shared/odds_format";
 import { a8StartTimeListAllowed, normalizeEpochMs } from "@changmen/shared/time/match_time";
+import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
+import {
+  ensureStorageSeed,
+  getPlatform as getPlatformRow,
+  setPlatform as setPlatformRow,
+} from "@changmen/storage/platform_storage.js";
+import * as dbStore from "../db/store.js";
+import { adapterRequire } from "../shared/adapter_paths.js";
+import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
+import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
+import { createDefaultOddsApi } from "./default_odds.js";
 
 const PREDICTFUN_LIST_FUTURE_MS = Number(
   process.env.PREDICTFUN_LIST_FUTURE_MS
@@ -17,16 +28,16 @@ function providerStartTimeListAllowed(provider, start) {
   }
   return a8StartTimeListAllowed(start);
 }
-import { readJsonFile, writeJsonFile, writeJsonFileDebounced } from "@changmen/storage/json_file_store.js";
-import {
-  ensureStorageSeed,
-  getPlatform as getPlatformRow,
-  setPlatform as setPlatformRow,
-} from "@changmen/storage/platform_storage.js";
-import * as dbStore from "../db/store.js";
-import { isEmbeddedMatcher } from "../shared/matcher_mode.js";
-import { ESPORT_DATA_DIR } from "../shared/storage_paths.js";
-import { createDefaultOddsApi } from "./default_odds.js";
+
+/** manifest `collectionMode: vps_http_ws`；与前端 `isVpsOwnedPlatformCollect` 同源 */
+let _isVpsOwnedPlatformCollect;
+function isVpsOwnedPlatformCollect(provider) {
+  if (!_isVpsOwnedPlatformCollect) {
+    const feeds = adapterRequire("registry", "feeds.js");
+    _isVpsOwnedPlatformCollect = feeds.isVpsOwnedPlatformCollect;
+  }
+  return _isVpsOwnedPlatformCollect(provider);
+}
 
 const DATA_DIR = ESPORT_DATA_DIR;
 // 内存缓存（替代 matches.json / bets.json / live_timers.json）
@@ -180,10 +191,10 @@ function linkedClientMatchId(row) {
 }
 
 export function saveMatches(provider, matchs) {
-  // PredictFun / Polymarket 电竞由 VPS collector 独占写 platform_*；
+  // vps_http_ws 馆由 VPS collector 独占写 platform_*；
   // 浏览器若再 SaveMatch（旧前端 / CollectConfig 仍开），会 orphan-delete 已开赛场次。
   const plat = String(provider || "").trim();
-  if (plat === "PredictFun" || plat === "Polymarket") {
+  if (isVpsOwnedPlatformCollect(plat)) {
     console.warn(
       `[esport-api] ignore API_SaveMatch for ${plat} (VPS collector owns platform_*)`,
     );
@@ -260,10 +271,10 @@ function normalizeSaveBetRows(bets) {
 }
 
 export function saveBets(provider, matchId, bets) {
-  // PredictFun / Polymarket 电竞由 VPS collector 独占写；
+  // vps_http_ws 馆由 VPS collector 独占写；
   // 浏览器 SaveBet 会与 collector 抢写 / 抹掉地图盘。
   const plat = String(provider || "").trim();
-  if (plat === "PredictFun" || plat === "Polymarket") {
+  if (isVpsOwnedPlatformCollect(plat)) {
     console.warn(
       `[esport-api] ignore API_SaveBet for ${plat} match=${matchId} (VPS collector owns platform_bets)`,
     );
@@ -289,9 +300,9 @@ export function saveBets(provider, matchId, bets) {
 export async function saveLiveTimer(provider, timer) {
   let incoming = Array.isArray(timer) ? timer : [];
   const plat = String(provider || "").trim();
-  // PredictFun / Polymarket 电竞由 VPS collector 独占写 platform_*；
+  // vps_http_ws 馆由 VPS collector 独占写 platform_*；
   // 浏览器 SaveLiveTimer 会与 matcher 生命周期抢写（且 PM 本无 timer 采集）。
-  if (plat === "PredictFun" || plat === "Polymarket") {
+  if (isVpsOwnedPlatformCollect(plat)) {
     console.warn(
       `[esport-api] ignore API_SaveLiveTimer for ${plat} (VPS collector owns platform_*)`,
     );

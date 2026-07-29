@@ -29,6 +29,13 @@ describe("adapter_paths", () => {
     expect(MANIFEST.length).toBeGreaterThan(0);
   });
 
+  it("feeds.isVpsOwnedPlatformCollect follows manifest collectionMode", () => {
+    const { isVpsOwnedPlatformCollect } = adapterRequire("registry", "feeds.js");
+    expect(isVpsOwnedPlatformCollect("PredictFun")).toBe(true);
+    expect(isVpsOwnedPlatformCollect("Polymarket")).toBe(true);
+    expect(isVpsOwnedPlatformCollect("OB")).toBe(false);
+  });
+
   it("reqS loads @changmen/shared modules", async () => {
     const { getDefaultMarketCode } = await import("@changmen/shared/catalog/market_catalog");
     expect(typeof getDefaultMarketCode).toBe("function");
