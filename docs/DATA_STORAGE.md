@@ -147,6 +147,17 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 
 **拓扑约束**：memory-first 主工作集（profile / accounts / 采集热缓存 / 内嵌 matcher 的 `client_matches`）绑定 **单个** `changmen-esport` 进程。生产勿对该 app 开 `instances > 1` 或 cluster；详见 [PRODUCTION_DEPLOYMENT.md §2.1](../PRODUCTION_DEPLOYMENT.md#21-两团队独立发版单-ip--caddy)。
 
+### RDS 异步写队列（`_writeRds`）
+
+| 项 | 行为 |
+|----|------|
+| 入口 | [`server/db/rds/common.js`](../server/db/rds/common.js)；diag：`/health/diag` → `rdsWrite` |
+| 同 `opts.key` | 队列内 **coalesce**，只留最新（含队列已满时）；计入 `coalesced`，**不丢最新** |
+| 满队列且无法 coalesce | **drop 本次**（第一版，不踢最旧）；计入 `dropped` + 醒目日志 |
+| 调参 | `RDS_WRITE_QUEUE_MAX`（默认 2000）、`RDS_WRITE_CONCURRENCY`（默认 3） |
+
+采集快照写（`platform_*` / `live_timers`）应带 `key: collector:…`。持续 `dropped>0` 先查慢写 / 扩容，再考虑第二版「踢最旧」。
+
 ### 可选优化（低优先级）
 
 | 接口 | 方向 | 风险 |

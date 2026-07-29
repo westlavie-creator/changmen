@@ -1,6 +1,10 @@
 /**
  * RDS 公共工具 — pool 访问、fire-and-forget 写入、jsonb 序列化。
  * rds/*_store 均经此 getPgPool() 取连接池。
+ *
+ * 写队列满队列策略（W1 第一版）：
+ * - 同 opts.key：队列内 coalesce，只留最新（含已满时）→ 计入 coalesced，不丢最新
+ * - 无法 coalesce：仍 drop 本次 → 计入 dropped + 醒目日志（不做踢最旧）
  */
 
 import { getDbMode } from "../db_script.js";
@@ -11,6 +15,12 @@ const _writeQueue = [];
 let _activeWrites = 0;
 const _activeWriteKeys = new Set();
 let _droppedWrites = 0;
+let _coalescedWrites = 0;
+
+/** @type {number|null} */
+let _queueMaxOverride = null;
+/** @type {number|null} */
+let _concurrencyOverride = null;
 
 function envInt(name, fallback) {
   const n = Number(process.env[name]);
@@ -19,6 +29,14 @@ function envInt(name, fallback) {
 
 const WRITE_CONCURRENCY = envInt("RDS_WRITE_CONCURRENCY", 3);
 const WRITE_QUEUE_MAX = envInt("RDS_WRITE_QUEUE_MAX", 2000);
+
+function writeQueueMax() {
+  return _queueMaxOverride ?? WRITE_QUEUE_MAX;
+}
+
+function writeConcurrency() {
+  return _concurrencyOverride ?? WRITE_CONCURRENCY;
+}
 
 export function getPgPool() {
   return getSharedPgPool(`GAMEBET_DB_SCRIPT=${_mode.script}`);
@@ -33,22 +51,60 @@ export function jsonb(val, fallback) {
 /** impl_rds 内部沿用旧名 */
 export const _jsonb = jsonb;
 
+function _logDrop({ label, key, reason }) {
+  const tag = label ? `:${label}` : "";
+  const keyNote = key ? ` key=${key}` : "";
+  console.warn(
+    `[rds${tag}] write queue full (${reason}), dropped=${_droppedWrites}`
+    + `${keyNote}, pending=${_writeQueue.length}, max=${writeQueueMax()}`
+    + " — 同 key 会 coalesce；持续 dropped 请扩 RDS_WRITE_QUEUE_MAX 或查慢写",
+  );
+}
+
+/**
+ * @param {{ fn: Function, label: string, pool: object, key: string }} item
+ */
+function _offerWrite(item) {
+  const key = item.key || "";
+
+  // 同 key：无论是否已满，队列内只留最新（in-flight 不在队列里，随后仍会再跑本条）
+  if (key) {
+    const existing = _writeQueue.findIndex(q => q.key === key);
+    if (existing >= 0) {
+      _writeQueue[existing] = item;
+      _coalescedWrites += 1;
+      _drainWriteQueue();
+      return;
+    }
+  }
+
+  if (_writeQueue.length >= writeQueueMax()) {
+    _droppedWrites += 1;
+    if (_droppedWrites === 1 || _droppedWrites % 50 === 0) {
+      _logDrop({
+        label: item.label,
+        key,
+        reason: key ? "no pending twin to coalesce" : "no key",
+      });
+    }
+    return;
+  }
+
+  _writeQueue.push(item);
+  _drainWriteQueue();
+}
+
 /** fire-and-forget 写入 RDS */
 export function _writeRds(fn, label = "", opts = {}) {
   const pool = getPgPool();
   if (!pool)
     return;
-  if (_writeQueue.length >= WRITE_QUEUE_MAX) {
-    _droppedWrites += 1;
-    if (_droppedWrites === 1 || _droppedWrites % 100 === 0) {
-      console.warn(
-        `[rds${label ? `:${label}` : ""}] write queue full, dropped=${_droppedWrites}, pending=${_writeQueue.length}`,
-      );
-    }
-    return;
-  }
-  _writeQueue.push({ fn, label, pool, key: opts.key ? String(opts.key) : "" });
-  _drainWriteQueue();
+  _offerWrite({
+    fn,
+    label,
+    pool,
+    key: opts.key ? String(opts.key) : "",
+  });
 }
 
 function _nextWriteIndex() {
@@ -56,7 +112,7 @@ function _nextWriteIndex() {
 }
 
 function _drainWriteQueue() {
-  while (_activeWrites < WRITE_CONCURRENCY && _writeQueue.length) {
+  while (_activeWrites < writeConcurrency() && _writeQueue.length) {
     const idx = _nextWriteIndex();
     if (idx < 0)
       return;
@@ -96,7 +152,35 @@ export function getRdsWriteQueueStats() {
     active: _activeWrites,
     activeKeys: _activeWriteKeys.size,
     dropped: _droppedWrites,
-    max: WRITE_QUEUE_MAX,
-    concurrency: WRITE_CONCURRENCY,
+    coalesced: _coalescedWrites,
+    max: writeQueueMax(),
+    concurrency: writeConcurrency(),
   };
+}
+
+/**
+ * @internal 测试用：重置队列与计数；可覆写 max/concurrency（concurrency=0 可冻结 drain）
+ * @param {{ queueMax?: number, concurrency?: number }} [opts]
+ */
+export function __resetRdsWriteQueueForTests(opts = {}) {
+  _writeQueue.length = 0;
+  _activeWrites = 0;
+  _activeWriteKeys.clear();
+  _droppedWrites = 0;
+  _coalescedWrites = 0;
+  _queueMaxOverride = opts.queueMax != null ? opts.queueMax : null;
+  _concurrencyOverride = opts.concurrency != null ? opts.concurrency : null;
+}
+
+/**
+ * @internal 测试用：绕过 getPgPool，直接入队
+ * @param {{ fn: Function, label?: string, pool?: object, key?: string }} item
+ */
+export function __offerRdsWriteForTests(item) {
+  _offerWrite({
+    fn: item.fn,
+    label: item.label || "",
+    pool: item.pool || {},
+    key: item.key ? String(item.key) : "",
+  });
 }
