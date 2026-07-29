@@ -8,8 +8,9 @@ import { reprojectMergedList } from "../src/reproject_client_matches.js";
  * 复用旧 matcher 的合场骨架，再用投影层覆盖 Sources/Reverse/锁规则。
  * 默认不写库（MATCH_PROJECTOR_WRITE=1 才写）。
  *
- * 生产接替优先用 MATCHER_SIDE_ENGINE=projector（挂在 matchMergeOnce 内），
- * 本独立入口用于 dry-run / diff / 并行验证。
+ * 生产唯一 writer = MATCHER_WRITER=composer（esport 内嵌）。
+ * MATCHER_SIDE_ENGINE=projector 仅 MATCHER_WRITER=legacy 回滚时有效。
+ * 本独立入口用于 dry-run / diff；MATCHER_WRITER=composer 时 WRITE 被 write_guard 拒绝。
  */
 export async function projectMergeOnce({
   write = isProjectorWriteEnabled(),

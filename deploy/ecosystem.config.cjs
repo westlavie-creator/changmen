@@ -9,6 +9,12 @@
  * changmen-predictfun-market-hub：PREDICTFUN-MARKET WS hub（独立进程，同理）。
  * 写 platform_* + MarketIndex；浏览器仅 Index → WS → fo（已切流，无浏览器 Save*）。
  * 关写库设 POLYMARKET_COLLECTOR_WRITE_PLATFORM=0。
+ *
+ * 冻结：changmen-esport 保持单实例（勿 instances/cluster）。memory-first + platforms.json
+ * 不可多进程共享；见 PRODUCTION_DEPLOYMENT.md §2.1 / docs/DATA_STORAGE.md。
+ *
+ * 合场：MATCHER_WRITER=composer（默认）由 changmen-esport 内嵌 matchMergeOnce→composeOnce。
+ * 勿把独立 match-composer / match-projector WRITE 加进本清单（防双写 client_matches）。
  */
 const path = require("node:path");
 

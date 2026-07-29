@@ -6,15 +6,17 @@
 
 浏览器继续零校验；`Client_GetMatchs` 仍只读 `client_matches`。
 
-## 默认安全姿态
+## 生产姿态（已切流）
 
-| 开关 | 默认 | 含义 |
+生产唯一 writer = **`changmen-esport` 内嵌** `matchMergeOnce` → `composeOnce`（`MATCHER_WRITER=composer`，代码默认亦为 composer）。
+
+| 开关 | 生产 | 含义 |
 |------|------|------|
-| `MATCH_COMPOSER_WRITE` | 关 | 独立 `composer:start` / `composer:once` 是否写库 |
-| `MATCHER_WRITER` | `legacy` | backend embedded / matcher 循环写路径；`composer` 才整段交给 composer |
-| `MATCHER_SIDE_ENGINE` | `legacy` | 仅 `MATCHER_WRITER=legacy` 时：`projector` 为旧 merge + 投影覆写 |
+| `MATCHER_WRITER` | `composer`（默认） | embedded 写路径整段交给 composer |
+| `MATCH_COMPOSER_WRITE` | 关 | 独立 `composer:start` 写库；**composer 默认下被 write_guard 拒绝**（防双写） |
+| `MATCHER_SIDE_ENGINE` | 勿开 | 仅 `MATCHER_WRITER=legacy` 时有效；composer 下忽略 |
 
-生产在 `composer:diff` + 对冲不变式全绿前，**不得**打开写路径。
+独立 `match-composer` / `match-projector` **不进**默认 PM2。回滚：显式 `MATCHER_WRITER=legacy` 并重启 esport。
 
 ## 管线完备性（相对 legacy）
 
@@ -28,7 +30,7 @@
 | InitialOdds + 决胜局 promote + OB gate | ✅ |
 | backfill platform_matches.match_id | ✅ |
 | 人工绑定同队对校验 | ✅ |
-| 写互斥（挡 projector / 其它 composer；viaMatcherWriter 仅跳过本进程 matcher HB） | ✅ |
+| 写互斥（挡独立 projector / 独立 composer；viaMatcherWriter 仅跳过本进程 matcher HB） | ✅ |
 | 空合场：仅当本拍覆盖全部 previous active 且全 ended | ✅ |
 | 同队时间拆桶 MergeKey 加 `@startMs` | ✅ |
 | insert stub 仅对存活行（滤后） | ✅ |
@@ -47,25 +49,13 @@ npm run composer:once
 
 对照指标：Title / `home_gb_team_id`·`away_gb_team_id` / Reverse / Sources HomeID。
 
-## 切流清单（人工、逐步）
+## 运维要点
 
-1. **staging / 生产副本**跑 `composer:diff`，关键场 id（含曾出问题场）Reverse/Sources 符合对冲不变式。
-2. 停旧写路径：
-   - 独立 matcher 进程停掉；或
-   - embedded：确认 `MATCHER_WRITER` 尚未切 composer 前的心跳空窗。
-3. 停 `MATCHER_SIDE_ENGINE=projector` 与独立 `MATCH_PROJECTOR_WRITE`（禁止双写）。
-4. 打开**其一**（勿并行）：
-   - `MATCHER_WRITER=composer`（推荐：挂在现有 `matchMergeOnce` / UI 连线触发）；或
-   - `MATCH_COMPOSER_WRITE=1` + `npm run composer:start`（独立循环）。
-5. 观察 `.composer-heartbeat.json` / 日志 `writer=composer`；抽样 `Client_GetMatchs` 与订单对冲腿。
-6. 连线 UI 可改为直接调 `composeOnce`（现阶段经 `matchMergeOnce` 已转发）。
-7. 稳定后：下线 `match-projector` WRITE；文档指向本包；再评估删除 `server/matcher` 合场写逻辑。
-
-危险旁路：`MATCH_COMPOSER_FORCE_WRITE=1` 可绕过「matcher/projector 心跳仍活跃」互斥，仅应急。
-
-`MATCHER_WRITER=composer`（viaMatcherWriter）会跳过**本进程** matcher 心跳，但仍拒绝**其它 pid** 的 matcher 心跳，避免遗留 legacy 进程双写。
-
-若生产曾开主客 sticky，切流时设 `MATCH_COMPOSER_STICKY_ORIENTATION=1`（兼容 `MATCH_PROJECTOR_STICKY_ORIENTATION=1`）。
+- 日志应持续出现 `[matchMerge] writer=composer …`（随 esport，无独立 composer PM2）。
+- `MATCHER_WRITER=composer`（viaMatcherWriter）跳过**本进程** matcher 心跳，仍拒绝**其它 pid** matcher / projector WRITE / 其它 composer WRITE。
+- 独立 `MATCH_COMPOSER_WRITE=1` 循环在默认 composer 下会被拒；dry-run 保持 `MATCH_COMPOSER_WRITE=0`。
+- 危险旁路：`MATCH_COMPOSER_FORCE_WRITE=1` / `MATCH_PROJECTOR_FORCE_WRITE=1` 仅应急。
+- 若生产曾开主客 sticky，设 `MATCH_COMPOSER_STICKY_ORIENTATION=1`（兼容 `MATCH_PROJECTOR_STICKY_ORIENTATION=1`）。
 
 ## 红线回顾
 
@@ -76,4 +66,4 @@ npm run composer:once
 
 ## 与 match-projector 关系
 
-`match-projector` 是过渡层（旧 merge + 覆写）。composer 切流后，projector 仅保留文档指向本包，不再生产写库。
+`match-projector` 是过渡层（旧 merge + 覆写）。生产已 composer 后，projector **不得**独立 WRITE；包保留供 diff / 文档 / 显式 legacy 回滚。

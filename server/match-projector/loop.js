@@ -11,6 +11,7 @@ import {
 } from "./lib/config.js";
 import "./lib/env.js";
 import { writeProjectorHeartbeat } from "./lib/heartbeat.js";
+import { assertProjectorMayWrite } from "./lib/write_guard.js";
 import { projectMergeOnce } from "./ops/project_merge_once.js";
 
 let timer = null;
@@ -41,8 +42,15 @@ async function maybeArchiveStaleClientMatches() {
 }
 
 export async function runProjectorOnce() {
+  // WRITE 开启时先过互斥：禁止「合场被拒、archive 已改库」
+  const write = isProjectorWriteEnabled();
+  if (write) {
+    const guard = assertProjectorMayWrite();
+    if (!guard.ok)
+      throw new Error(`[match-projector] ${guard.reason}`);
+  }
   await maybeArchiveStaleClientMatches();
-  const result = await projectMergeOnce({ write: isProjectorWriteEnabled() });
+  const result = await projectMergeOnce({ write });
   writeProjectorHeartbeat({
     matchCount: result.matchCount,
     intervalMs: PROJECTOR_INTERVAL_MS,
@@ -69,8 +77,8 @@ export async function startProjectorLoop() {
     + ` reanchor=${String(process.env.MATCH_PROJECTOR_REANCHOR || "").trim() === "1" ? "ON" : "OFF"}`,
   );
   console.log(
-    "[match-projector] 生产接替请用 MATCHER_SIDE_ENGINE=projector（挂在 matchMergeOnce）；"
-    + "独立 WRITE 循环勿与 legacy matcher 双写",
+    "[match-projector] 生产唯一 writer = MATCHER_WRITER=composer（esport 内嵌）。"
+    + " MATCHER_SIDE_ENGINE=projector 仅 legacy 回滚时有效；独立 WRITE 默认被拒。",
   );
 
   const tick = async () => {

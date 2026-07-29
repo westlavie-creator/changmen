@@ -1,20 +1,21 @@
 # 用投影引擎接替旧 matcher 主客逻辑
 
-> **过渡说明**：从零合场请用 [`@changmen/match-composer`](../../match-composer/docs/REPLACE.md)
-> （`MATCHER_WRITER=composer`）。本包是「旧 merge + 主客覆写」过渡层，切流后不再生产写库。
+> **过渡说明**：生产唯一 writer 已是 [`@changmen/match-composer`](../../match-composer/docs/REPLACE.md)
+> （`MATCHER_WRITER=composer`，esport 内嵌）。本包是「旧 merge + 主客覆写」过渡层，**不得**在生产独立 WRITE。
 
 ## 生产红线（必读）
 
-1. **默认 `legacy`，未充分 diff/灰度前勿开 `MATCHER_SIDE_ENGINE=projector`**
+1. **生产用 composer**；`MATCHER_SIDE_ENGINE=projector` 仅在显式 `MATCHER_WRITER=legacy` 回滚时有意义（composer 下会被忽略）
 2. gb 写库：普通 `null` **保留**旧锁；仅 `_clearGbLock` 写哨兵 `0` 才清空（防 legacy 偶发清锁）
 3. 开 projector 后会重跑 `trimMapZero` / OB gate；IA-only 会清锁+空盘（产品需接受）
-4. **禁止**同时开独立 `MATCH_PROJECTOR_WRITE=1` 循环
+4. **禁止**同时开独立 `MATCH_PROJECTOR_WRITE=1` 循环；`MATCHER_WRITER=composer` 时 write_guard 直接拒绝
 
-## 推荐接替方式（同进程，不另起写库循环）
+## 仅 legacy 回滚时的接替方式（同进程）
 
 在 `server/backend/.env`：
 
 ```bat
+MATCHER_WRITER=legacy
 MATCHER_SIDE_ENGINE=projector
 ```
 
@@ -30,7 +31,7 @@ MATCHER_SIDE_ENGINE=projector
 ```bat
 npm run projector:test
 npm run projector:diff
-REM 设 MATCHER_SIDE_ENGINE=projector 后重启 backend，观察日志 sideEngine=projector
+REM 设 MATCHER_WRITER=legacy + MATCHER_SIDE_ENGINE=projector 后重启 backend，观察日志 sideEngine=projector
 ```
 
 ## 仍存在的接替缺口（接引擎后）
@@ -41,12 +42,12 @@ REM 设 MATCHER_SIDE_ENGINE=projector 后重启 backend，观察日志 sideEngin
 | `swap-gb` | 默认会 `upgrade` 回最高锚点朝向 | 需 `MATCH_PROJECTOR_STICKY_ORIENTATION=1` 才保留人工翻转 |
 | finalize 仍先跑旧 reconcile | 再被投影覆盖 | 多一次 CPU；无双写语义 |
 | 合场/对齐/归档 | 仍在旧 matcher | 非本包范围 |
-| 独立 projector WRITE | 仅 dry-run/diff 用 | 勿与 legacy 双开 |
+| 独立 projector WRITE | 仅 dry-run/diff 用 | 勿与 legacy/composer 双开 |
 
 ## 独立 projector 进程（仅对照，不建议生产双写）
 
 ```bat
-REM 必须先停旧 matcher 心跳
+REM MATCHER_WRITER=composer 时 write_guard 会直接拒绝；须 FORCE 或改 legacy 且停 matcher 心跳
 set MATCH_PROJECTOR_WRITE=1
 npm run projector:start
 ```

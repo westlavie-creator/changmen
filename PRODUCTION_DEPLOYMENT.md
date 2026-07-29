@@ -61,12 +61,14 @@ Nginx / Caddy 反代示例要点：
 | 组件 | 生产形态 | 发版 / 重启 |
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
-| API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`） | `pm2 restart changmen-esport --update-env` |
+| API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`）**单实例** | `pm2 restart changmen-esport --update-env` |
 | Polymarket Market WS hub | PM2：`changmen-pm-market-hub`（`:3457`） | `pm2 restart changmen-pm-market-hub --update-env` |
 | Predict.fun Market WS hub | PM2：`changmen-predictfun-market-hub`（`:3458`） | `pm2 restart changmen-predictfun-market-hub --update-env` |
 | Polymarket 电竞 HTTP 采集 | PM2：`changmen-polymarket-collector`（Gamma+/prices → `platform_*` + index） | `pm2 restart changmen-polymarket-collector --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
 | Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（REST → `platform_*`） | `pm2 restart changmen-predictfun-collector --update-env` |
+
+**冻结：`changmen-esport` 不可水平扩（多实例）**。账号/profile/`client_matches` 与采集热路径为进程内 memory-first；`platforms.json` 为本机文件（见 [docs/DATA_STORAGE.md](./docs/DATA_STORAGE.md)）。双开会分裂内存状态与凭证，导致列表/账号不一致。扩容前须先外置共享状态（或拆出无状态面）；当前拓扑保持 **一台 VPS 上该进程实例数 = 1**（`ecosystem.config.cjs` 勿设 `instances > 1` / cluster）。Collector / Market hub 可按机器资源另开，与 esport 单实例约束无关。
 
 开发联调才是两个进程：Vite（Win `5274` / 其它 `5174`）+ backend（Win `3560` / 其它 `3456`）（`BAT\dev.bat` 等），那是本地用，不是生产模型。
 
@@ -164,7 +166,7 @@ cd changmen
 pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
 ```
 
-`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。
+`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。合场写路径 **`MATCHER_WRITER=composer`（默认）**：`matchMergeOnce` → `@changmen/match-composer`。**勿**另起独立 match-composer / match-projector WRITE 进程（防双写 `client_matches`）；回滚显式 `MATCHER_WRITER=legacy`。
 
 `changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`，写 `platform_*` + MarketIndex。浏览器电竞侧**不再** Gamma/`Save*`，只同步 Index → Market WS → `fo`。设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow（仅 index）。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
 

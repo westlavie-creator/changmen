@@ -12,15 +12,15 @@ matchMerge 循环**内嵌在 `changmen-esport`**（`npm run web` / PM2 `changmen
 
 Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
 
-写路径选型（默认 `legacy`，生产切流前勿开）：
+写路径选型（**生产标准 = `composer`**，内嵌于 `changmen-esport`）：
 
 | 变量 | 值 | 行为 |
 |------|-----|------|
-| `MATCHER_WRITER` | `legacy`（默认） | 旧 `computeMatchMergeList` + finalize |
-| `MATCHER_WRITER` | `composer` | 整段交给 [`@changmen/match-composer`](../match-composer/docs/REPLACE.md) |
-| `MATCHER_SIDE_ENGINE` | `projector` | 仅 legacy 写路径下：旧 merge + 投影覆写（过渡） |
+| `MATCHER_WRITER` | `composer`（默认） | 整段交给 [`@changmen/match-composer`](../match-composer/docs/REPLACE.md) |
+| `MATCHER_WRITER` | `legacy` | 旧 `computeMatchMergeList` + finalize（仅显式回滚） |
+| `MATCHER_SIDE_ENGINE` | `projector` | 仅 `MATCHER_WRITER=legacy` 时生效；composer 下忽略并打 warn |
 
-PM2（`deploy/ecosystem.config.cjs`）仅注册 `changmen-esport` 与 `changmen-pm-sports`；合并循环随 web 进程启动。
+PM2（`deploy/ecosystem.config.cjs`）**不**注册独立 match-composer / match-projector 写进程；合场随 `changmen-esport` 内嵌启动。
 
 ## 依赖
 

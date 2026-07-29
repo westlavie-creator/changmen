@@ -75,7 +75,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveBet` | M→A | — | 内存 `_bets` → 异步 RDS | 保持 |
 | `API_SaveLiveTimer` | M→A* | — | 内存 `_timers` → `writeLiveTimersAsync` | *当前 await RDS，可改为与 SaveBet 一致 |
 | `API_SaveScore` | — | — | 空实现 | — |
-| `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | 多实例前勿假设共享 |
+| `API_UpdatePlatform` | J | `platforms.json` | 同步写文件 | **禁止**多 `changmen-esport` 实例共享假设；凭证非 RDS |
 | `Client_GetMatchs` | M+R | 内存 `client_matches`；built_at/pm_sport_rev 未变跳过全量 SELECT | — | 只读 matchMerge 结果，不做 Round/promote overlay |
 | `Client_GetBaseballMatchs` / `Client_GetFootballMatchs` / `Client_GetTennisMatchs` | M+J | 进程内存 + `storage/sport/{mlb,soccer,tennis,mlb_pf,soccer_pf,tennis_pf}/`；未命中再打 Gamma / Predict.fun REST，经 `sport_merge`（对不上则 fallback 并列） | 写 sport JSON only | **不读写** `client_matches` / RDS 赛表 |
 | `Client_GetDefaultOdds` / `GetMatchDefaultOdds` | M+J | 内存列表 + `default_odds.json` | debounce 写 JSON | — |
@@ -145,6 +145,8 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 场馆凭证                               → J           platforms.json（非 RDS）
 ```
 
+**拓扑约束**：memory-first 主工作集（profile / accounts / 采集热缓存 / 内嵌 matcher 的 `client_matches`）绑定 **单个** `changmen-esport` 进程。生产勿对该 app 开 `instances > 1` 或 cluster；详见 [PRODUCTION_DEPLOYMENT.md §2.1](../PRODUCTION_DEPLOYMENT.md#21-两团队独立发版单-ip--caddy)。
+
 ### 可选优化（低优先级）
 
 | 接口 | 方向 | 风险 |
@@ -152,7 +154,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `API_SaveLiveTimer` | 与 SaveBet 一样纯 M→A | 重启丢最近 timer |
 | `Client_GetMatchs` | built_at 未变时零 RDS（连 meta 不查） | 仅单机内嵌 matcher 安全 |
 | `Client_GetOrderList` | 热订单内存 + RDS 异步 | 实现复杂 |
-| `platforms.json` | 多实例前迁 RDS 或共享存储 | 部署拓扑变化 |
+| `platforms.json` | 迁 RDS 或共享存储（**当前冻结单 esport 实例**） | 部署拓扑变化；见 PRODUCTION_DEPLOYMENT §2.1 |
 
 ### 相关代码
 

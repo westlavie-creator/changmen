@@ -5,27 +5,41 @@ import {
   isProjectorSideEngine,
 } from "../../matcher/lib/side_engine.js";
 
-const prev = process.env.MATCHER_SIDE_ENGINE;
+const prevSide = process.env.MATCHER_SIDE_ENGINE;
+const prevWriter = process.env.MATCHER_WRITER;
 
 afterEach(() => {
-  if (prev === undefined)
+  if (prevSide === undefined)
     delete process.env.MATCHER_SIDE_ENGINE;
   else
-    process.env.MATCHER_SIDE_ENGINE = prev;
+    process.env.MATCHER_SIDE_ENGINE = prevSide;
+  if (prevWriter === undefined)
+    delete process.env.MATCHER_WRITER;
+  else
+    process.env.MATCHER_WRITER = prevWriter;
 });
 
 describe("MATCHER_SIDE_ENGINE", () => {
   it("defaults to legacy", () => {
+    process.env.MATCHER_WRITER = "legacy";
     delete process.env.MATCHER_SIDE_ENGINE;
     assert.equal(getMatcherSideEngine(), "legacy");
     assert.equal(isProjectorSideEngine(), false);
   });
 
-  it("accepts projector / project", () => {
+  it("accepts projector / project under legacy writer", () => {
+    process.env.MATCHER_WRITER = "legacy";
     process.env.MATCHER_SIDE_ENGINE = "projector";
     assert.equal(isProjectorSideEngine(), true);
     process.env.MATCHER_SIDE_ENGINE = "project";
     assert.equal(getMatcherSideEngine(), "projector");
+  });
+
+  it("ignores projector when MATCHER_WRITER=composer", () => {
+    process.env.MATCHER_WRITER = "composer";
+    process.env.MATCHER_SIDE_ENGINE = "projector";
+    assert.equal(getMatcherSideEngine(), "legacy");
+    assert.equal(isProjectorSideEngine(), false);
   });
 });
 

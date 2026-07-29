@@ -1,9 +1,30 @@
 #!/usr/bin/env node
+/**
+ * 独立 once：默认 dry-run。
+ * --write 在 MATCHER_WRITER=composer（生产默认）下会被 write_guard 拒绝；
+ * 应急：MATCH_COMPOSER_FORCE_WRITE=1，或显式 MATCHER_WRITER=legacy 且停 esport 合场。
+ */
 import "../lib/env.js";
 import { composeOnce } from "../ops/compose_once.js";
 import { isComposerWriteEnabled } from "../lib/config.js";
+import { assertComposerMayWrite } from "../lib/write_guard.js";
+import { isComposerWriter } from "../../matcher/lib/matcher_writer.js";
 
 const write = process.argv.includes("--write") || isComposerWriteEnabled();
+if (write) {
+  const guard = assertComposerMayWrite();
+  if (!guard.ok) {
+    console.error(`[match-composer] ${guard.reason}`);
+    if (isComposerWriter()) {
+      console.error(
+        "[match-composer] 提示：生产写路径已是 esport 内嵌 composer；"
+        + "独立 --write 需 MATCH_COMPOSER_FORCE_WRITE=1，或 MATCHER_WRITER=legacy 并停 esport 合场。",
+      );
+    }
+    process.exit(1);
+  }
+}
+
 const result = await composeOnce({ write, registerTeams: !process.argv.includes("--no-teams") });
 console.log(JSON.stringify({
   matchCount: result.matchCount,

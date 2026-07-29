@@ -3,16 +3,38 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, it } from "vitest";
-import { HEARTBEAT_PATH as MATCHER_HB } from "../../matcher/lib/heartbeat.js";
+import {
+  HEARTBEAT_PATH as MATCHER_HB,
+  isPidAlive,
+} from "../../matcher/lib/heartbeat.js";
 import { COMPOSER_HEARTBEAT_PATH } from "../lib/heartbeat.js";
 import { assertComposerMayWrite } from "../lib/write_guard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECTOR_HB = path.join(__dirname, "../../match-projector/.projector-heartbeat.json");
 
+const prevWriter = process.env.MATCHER_WRITER;
+
+/** 找一个仍存活且 ≠ 本进程的 pid（sanitize 会清掉已死 pid） */
+function resolveLiveOtherPid() {
+  const candidates = [
+    Number(process.ppid) || 0,
+    process.platform === "win32" ? 4 : 1,
+  ];
+  for (const pid of candidates) {
+    if (pid > 0 && pid !== process.pid && isPidAlive(pid))
+      return pid;
+  }
+  return null;
+}
+
+const liveOtherPid = resolveLiveOtherPid();
+
 function clearHbFiles() {
   delete process.env.MATCH_COMPOSER_FORCE_WRITE;
   delete process.env.MATCH_COMPOSER_ALLOW_MULTI;
+  // viaMatcherWriter 路径测例需要绕过「独立 loop 在 composer 默认下被拒」
+  process.env.MATCHER_WRITER = "legacy";
   for (const p of [PROJECTOR_HB, COMPOSER_HEARTBEAT_PATH, MATCHER_HB]) {
     try {
       if (fs.existsSync(p))
@@ -22,10 +44,39 @@ function clearHbFiles() {
   }
 }
 
+function restoreWriter() {
+  if (prevWriter === undefined)
+    delete process.env.MATCHER_WRITER;
+  else
+    process.env.MATCHER_WRITER = prevWriter;
+}
+
 beforeEach(clearHbFiles);
-afterEach(clearHbFiles);
+afterEach(() => {
+  clearHbFiles();
+  restoreWriter();
+});
 
 describe("write_guard", () => {
+  it("blocks independent WRITE when MATCHER_WRITER=composer", () => {
+    process.env.MATCHER_WRITER = "composer";
+    const g = assertComposerMayWrite();
+    assert.equal(g.ok, false);
+    assert.match(g.reason, /内嵌 composer|MATCHER_WRITER=composer/);
+  });
+
+  it("viaMatcherWriter allowed under MATCHER_WRITER=composer", () => {
+    process.env.MATCHER_WRITER = "composer";
+    fs.writeFileSync(MATCHER_HB, JSON.stringify({
+      mode: "embedded",
+      lastRun: Date.now(),
+      intervalMs: 30_000,
+      pid: process.pid,
+      matchCount: 1,
+    }));
+    assert.equal(assertComposerMayWrite({ skipMatcherHeartbeat: true }).ok, true);
+  });
+
   it("blocks when projector WRITE heartbeat active", () => {
     // 同 pid matcher HB：模拟 viaMatcherWriter 本进程，避免误撞其它存活 matcher
     fs.writeFileSync(MATCHER_HB, JSON.stringify({
@@ -46,19 +97,12 @@ describe("write_guard", () => {
     assert.match(g.reason, /projector/i);
   });
 
-  it("viaMatcherWriter still blocked by other live composer WRITE", () => {
-    const otherPid = process.ppid && process.ppid !== process.pid
-      ? process.ppid
-      : null;
-    if (!otherPid) {
-      // 无可用存活异 pid 时跳过（sanitize 会清掉已死 pid）
-      return;
-    }
+  it.skipIf(!liveOtherPid)("viaMatcherWriter still blocked by other live composer WRITE", () => {
     fs.writeFileSync(COMPOSER_HEARTBEAT_PATH, JSON.stringify({
       mode: "composer",
       wrote: true,
       lastRun: Date.now(),
-      pid: otherPid,
+      pid: liveOtherPid,
     }));
     const g = assertComposerMayWrite({ skipMatcherHeartbeat: true });
     assert.equal(g.ok, false);
@@ -86,19 +130,12 @@ describe("write_guard", () => {
     assert.equal(assertComposerMayWrite({ skipMatcherHeartbeat: true }).ok, true);
   });
 
-  it("viaMatcherWriter blocks other matcher pid", () => {
-    const otherPid = process.ppid && process.ppid !== process.pid
-      ? process.ppid
-      : null;
-    if (!otherPid) {
-      // 无可用存活异 pid 时跳过（sanitize 会清掉已死 pid）
-      return;
-    }
+  it.skipIf(!liveOtherPid)("viaMatcherWriter blocks other matcher pid", () => {
     fs.writeFileSync(MATCHER_HB, JSON.stringify({
       mode: "embedded",
       lastRun: Date.now(),
       intervalMs: 30_000,
-      pid: otherPid,
+      pid: liveOtherPid,
       matchCount: 1,
     }));
     const g = assertComposerMayWrite({ skipMatcherHeartbeat: true });
@@ -119,6 +156,7 @@ describe("write_guard", () => {
 
   it("FORCE_WRITE bypasses", () => {
     process.env.MATCH_COMPOSER_FORCE_WRITE = "1";
+    process.env.MATCHER_WRITER = "composer";
     fs.writeFileSync(PROJECTOR_HB, JSON.stringify({
       mode: "projector",
       wrote: true,

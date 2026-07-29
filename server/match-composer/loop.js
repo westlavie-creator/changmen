@@ -12,6 +12,7 @@ import {
 } from "./lib/config.js";
 import "./lib/env.js";
 import { writeComposerHeartbeat } from "./lib/heartbeat.js";
+import { assertComposerMayWrite } from "./lib/write_guard.js";
 import { composeOnce } from "./ops/compose_once.js";
 
 let timer = null;
@@ -43,8 +44,15 @@ async function maybeArchiveStaleClientMatches() {
 }
 
 export async function runComposerOnce() {
+  // WRITE 开启时先过互斥：禁止「合场被拒、archive 已改库」
+  const write = isComposerWriteEnabled();
+  if (write) {
+    const guard = assertComposerMayWrite();
+    if (!guard.ok)
+      throw new Error(`[match-composer] ${guard.reason}`);
+  }
   await maybeArchiveStaleClientMatches();
-  const result = await composeOnce({ write: isComposerWriteEnabled() });
+  const result = await composeOnce({ write });
   writeComposerHeartbeat({
     matchCount: result.matchCount,
     intervalMs: COMPOSER_INTERVAL_MS,
@@ -73,8 +81,8 @@ export async function startComposerLoop() {
     + ` reanchor=${isComposerForceReanchor() ? "ON" : "OFF"}`,
   );
   console.log(
-    "[match-composer] 生产切流前保持 MATCH_COMPOSER_WRITE=0；"
-    + "勿与 legacy matcher / match-projector 双写",
+    "[match-composer] 生产写路径已是 esport 内嵌 composer（MATCHER_WRITER=composer）；"
+    + "独立 loop 保持 MATCH_COMPOSER_WRITE=0。勿与 projector 双写。",
   );
 
   const tick = async () => {

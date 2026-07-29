@@ -14,7 +14,7 @@
 | `force_aligned` | `reversed` 时忽略；`ambiguous` 时**仍省略**（禁止强行出盘） |
 | Promote | 局盘无 native 时从已投影 Map0 回填，禁止二次 swap |
 | Reverse | 必填数组；仅含实际写出 Sources 且做过 swap 的平台 |
-| 写库互斥 | matcher 心跳活跃时拒绝 WRITE（`FORCE_WRITE=1` 危险覆盖） |
+| 写库互斥 | `MATCHER_WRITER=composer` 直接拒绝独立 WRITE；legacy 下仍挡 matcher 心跳（`FORCE_WRITE=1` 危险覆盖） |
 
 ## 命令
 
@@ -35,7 +35,8 @@ npm run reanchor --prefix server/match-projector
 REM 循环（默认仍 dry-run）
 npm start --prefix server/match-projector
 
-REM 真正写库（先停旧 matcher）
+REM 真正写库（生产勿用；须 MATCHER_WRITER=legacy 或 MATCH_PROJECTOR_FORCE_WRITE=1）
+set MATCHER_WRITER=legacy
 set MATCH_PROJECTOR_WRITE=1
 npm run once --prefix server/match-projector -- --write
 ```
@@ -60,22 +61,25 @@ Map promote、无锁清盘、NiP 事故回归、Home+Away 对冲组合属性、�
 
 不变式见 `src/invariants.js`（I1、Reverse⊆Sources、同边探测）。
 
-## 接替旧 matcher（推荐）
+## 生产姿态 / legacy 回滚
 
-见 [docs/REPLACE_MATCHER.md](./docs/REPLACE_MATCHER.md)。
+生产唯一 writer 已是 **`MATCHER_WRITER=composer`**（esport 内嵌）。本包独立 WRITE 默认被拒。
+
+仅在显式回滚时：
 
 ```bat
-REM backend .env：写路径自动投影（UI/Timer/loop 全覆盖）
+REM backend .env
+MATCHER_WRITER=legacy
 MATCHER_SIDE_ENGINE=projector
 ```
 
-独立 `MATCH_PROJECTOR_WRITE` 循环仅用于对照；生产勿与 legacy 双写。
+独立 `MATCH_PROJECTOR_WRITE` 循环仅 dry-run / diff；勿与 composer 或 legacy 双写。详见 [docs/REPLACE_MATCHER.md](./docs/REPLACE_MATCHER.md)。
 
-## 切流清单
+## 切流清单（legacy + projector，仅回滚场景）
 
 1. `npm run projector:test` 全绿
 2. `npm run projector:diff` 抽查关键场
-3. `.env` 设 `MATCHER_SIDE_ENGINE=projector`，重启 backend
+3. `.env` 设 `MATCHER_WRITER=legacy` + `MATCHER_SIDE_ENGINE=projector`，重启 backend
 4. 日志出现 `sideEngine=projector`，观察 GetMatchs / 下注主客
 5. （可选）对照期保留独立 dry-run diff，**不要**再开 WRITE 循环
 

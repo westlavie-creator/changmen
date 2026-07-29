@@ -3,6 +3,8 @@
  * - 默认挡 matcher HB + projector WRITE HB + 其它 composer WRITE HB
  * - viaMatcherWriter / skipMatcherHeartbeat：仅跳过「本进程 matcher HB」
  *   （仍挡 projector 与其它 composer）
+ * - 独立 MATCH_COMPOSER_WRITE loop：若 MATCHER_WRITER=composer（embedded 已是标准写者）
+ *   且未 skipMatcherHeartbeat → 直接拒绝，避免第二写循环
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +14,7 @@ import {
   readMatcherHeartbeat,
   sanitizeMatcherHeartbeat,
 } from "../../matcher/lib/heartbeat.js";
+import { isComposerWriter } from "../../matcher/lib/matcher_writer.js";
 import {
   COMPOSER_HEARTBEAT_PATH,
   sanitizeComposerHeartbeat,
@@ -49,6 +52,16 @@ export function assertComposerMayWrite(opts = {}) {
   if (isForceWriteEnabled())
     return { ok: true };
 
+  // 独立 composer loop（非 viaMatcherWriter）：生产已是 embedded composer，禁止第二写者
+  if (!opts.skipMatcherHeartbeat && isComposerWriter()) {
+    return {
+      ok: false,
+      reason: "MATCHER_WRITER=composer：生产写路径已是 esport 内嵌 composer，"
+        + "拒绝独立 MATCH_COMPOSER_WRITE 循环双写。"
+        + " dry-run 保持 MATCH_COMPOSER_WRITE=0；应急可设 MATCH_COMPOSER_FORCE_WRITE=1（危险）",
+    };
+  }
+
   {
     const raw = readMatcherHeartbeat();
     const hb = sanitizeMatcherHeartbeat(raw);
@@ -69,7 +82,7 @@ export function assertComposerMayWrite(opts = {}) {
       else {
         return {
           ok: false,
-          reason: "旧 matcher 心跳仍活跃，拒绝双写 client_matches。"
+          reason: "matcher 心跳仍活跃，拒绝双写 client_matches。"
             + " 请先停 matcher，或设 MATCH_COMPOSER_FORCE_WRITE=1（危险）",
           heartbeat: hb,
         };
