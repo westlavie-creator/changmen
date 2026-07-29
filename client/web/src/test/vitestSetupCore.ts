@@ -18,6 +18,10 @@ registerOddsAccess({
     withOddsStore(odds => odds.getOdds(provider, itemId, fallback) || 0, fallback || 0),
   save: (platform, entry, source = "http") => {
     withOddsStore(odds => {
+      const marketIdRaw = entry.marketId;
+      const marketId = marketIdRaw != null && String(marketIdRaw).trim()
+        ? String(marketIdRaw).trim()
+        : undefined;
       odds.save(platform, {
         id: entry.id,
         odds: Number(toFixed(entry.odds)),
@@ -26,6 +30,7 @@ registerOddsAccess({
         side: entry.side,
         time: entry.time ?? Date.now(),
         clobPrice: entry.clobPrice,
+        marketId,
       }, source);
     }, undefined);
   },

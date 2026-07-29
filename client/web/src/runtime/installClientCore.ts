@@ -51,6 +51,10 @@ export function installClientCoreBridges() {
     read: (provider, itemId, fallback) =>
       odds.getOdds(provider, itemId, fallback) || 0,
     save: (platform, entry, source = "http") => {
+      const marketIdRaw = entry.marketId;
+      const marketId = marketIdRaw != null && String(marketIdRaw).trim()
+        ? String(marketIdRaw).trim()
+        : undefined;
       odds.save(platform, {
         id: entry.id,
         odds: Number(toFixed(entry.odds)),
@@ -59,6 +63,7 @@ export function installClientCoreBridges() {
         side: entry.side,
         time: entry.time ?? Date.now(),
         clobPrice: entry.clobPrice,
+        marketId,
       }, source);
     },
     clean: platform => odds.clean(platform),

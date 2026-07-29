@@ -119,7 +119,13 @@ export const useOddsStore = defineStore("odds", {
           source,
         });
       }
-      bucket.set(id, { ...entry, id, source });
+      const next: OddsEntry = { ...entry, id, source };
+      if (next.marketId != null)
+        next.marketId = String(next.marketId).trim() || undefined;
+      // PredictFun：增量/writeVenueOdds 若漏传 marketId，保留已有值，避免 checkBet 丢 fo 缓存
+      if (!next.marketId && prev?.marketId)
+        next.marketId = prev.marketId;
+      bucket.set(id, next);
 
       if (entry.betId) {
         const betId = String(entry.betId);
