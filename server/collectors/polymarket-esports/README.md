@@ -1,8 +1,8 @@
 # polymarket-esports (`@changmen/polymarket-esports-collector`)
 
-VPS 守护进程：Polymarket **Gamma + CLOB /prices** → `platform_*` + 本机 `polymarket_market_index.json`。
+VPS 守护进程：Polymarket **Gamma + CLOB /prices discovery（唯一权威）** → `platform_*` + 本机 `polymarket_market_index.json`。解析见本包 `parse.js` / `api.js`。
 
-**职责一句话**：只有 VPS 写 Polymarket 电竞库；浏览器只吃 Index → Market WS → fo。
+**职责一句话**：只有 VPS 写 Polymarket 电竞库；浏览器只吃 Index → Market WS → fo（可经 VPS 或直连官网；**不**镜像列表 discovery）。
 
 对齐官方文档：
 

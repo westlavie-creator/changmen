@@ -1,6 +1,6 @@
 /**
  * 客户端采集/列表开赛时间窗 — 与 A8 bundle 一致（仅未来 1h 上限，无过去下限）。
- * Polymarket 为 [changmen 扩展] 场馆，见 venue-adapter/polymarket/api.ts 单独 6h 窗。
+ * Polymarket 为 [changmen 扩展]：电竞 discovery 窗在 VPS `polymarket-esports/api.js`，浏览器不扫盘。
  */
 export {
   A8_MATCH_MAX_FUTURE_MS,

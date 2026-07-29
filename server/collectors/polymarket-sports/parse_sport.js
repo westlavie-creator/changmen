@@ -1,5 +1,5 @@
 /**
- * Polymarket Sports WS 消息解析（纯函数，与 client/venue-adapter/polymarket/parse.ts 规则对齐）
+ * Polymarket Sports WS 消息解析（纯函数；赛程线权威在本包，与电竞 discovery 无关）
  * 只消费 PM 直接字段：score / period / status；不推断每图胜者或图内小分。
  */
 

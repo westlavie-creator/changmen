@@ -96,7 +96,7 @@ server/backend ──可选拷贝──► server/backend/platform_adapter（瘦
 
 ### `packages/shared` (`@changmen/shared`)
 
-跨进程共享：游戏/玩法 catalog、赔率格式化、IM 解析、**A8 采集开赛时间窗**（仅未来 1h 上限，无过去下限）。Polymarket 6h 窗在 `client/venue-adapter/polymarket/` [changmen 扩展]。  
+跨进程共享：游戏/玩法 catalog、赔率格式化、IM 解析、**A8 采集开赛时间窗**（仅未来 1h 上限，无过去下限）。Polymarket 电竞 discovery 窗（主 pass 过去 6h + 未来 1h）在 `server/collectors/polymarket-esports/api.js` [changmen 扩展]；浏览器不扫盘。  
 数据层与路径解析见 `@changmen/db`（`paths.js`、`load_env.js`）。  
 npm workspace 成员；通过 `@changmen/shared` 包名引用。
 

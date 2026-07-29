@@ -28,12 +28,11 @@
 
 ### Polymarket 采集窗 [changmen 扩展]
 
-A8 无 Polymarket。PM 不用 `a8StartTimeCollectAllowed`，单独 **过去 6h、未来 1h**：
+A8 无 Polymarket。电竞 **discovery 时间窗**只认 VPS collector（主 pass 过去 6h + 未来 1h，另补 `live=true`）：
 
-- **VPS 写库（当前）**：`changmen-polymarket-collector` 写 `platform_*` + `polymarket_market_index.json`；浏览器**不**再 Gamma/`Save*`，只 `GetCollectPlatform.MarketIndex` → Market WS → `fo`
-- **切流后**：VPS 独占写库；浏览器改为 MarketIndex → WS→fo
+- **VPS 写库**：`changmen-polymarket-collector` 写 `platform_*` + `polymarket_market_index.json`；浏览器**不**再列表 Gamma/`Save*`，只 `GetCollectPlatform.MarketIndex` → Market WS → `fo`
+- 采集窗 / 扫盘 API 权威：`server/collectors/polymarket-esports/api.js`（浏览器 `venue-adapter/polymarket/api.ts` 仅端点与 WS 报文）
 - 关 VPS 写库：`POLYMARKET_COLLECTOR_WRITE_PLATFORM=0`
-- 常量对齐：`venue-adapter/polymarket/api.ts` 与 collector `api.js`
 - 赛程状态另见：`server/collectors/polymarket-sports`（`pm_sport`）
 
 ## 游戏目录
