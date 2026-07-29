@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { BetSide, ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
-import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
@@ -42,7 +41,6 @@ const bettingEnabled = computed(() => props.allowBetting);
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
-const { liveTick } = storeToRefs(matchStore);
 
 const createLoseDialog = useCreateLoseDialogStore();
 
@@ -123,6 +121,37 @@ const showLiveTimer = computed(() => {
   return lr !== 0 && lr === props.bet.round;
 });
 
+/**
+ * [changmen 扩展] 直播秒数只在本行 tick，避免全表订阅全局计时代际。
+ * A8 Home 无全局 Vue tick，计时靠主循环顺带重绘。
+ */
+const liveClockTick = ref(0);
+let liveClockTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopLocalLiveClock() {
+  if (liveClockTimer) {
+    clearInterval(liveClockTimer);
+    liveClockTimer = null;
+  }
+}
+
+function startLocalLiveClock() {
+  stopLocalLiveClock();
+  liveClockTick.value += 1;
+  liveClockTimer = setInterval(() => {
+    liveClockTick.value += 1;
+  }, 1000);
+}
+
+watch(showLiveTimer, (on) => {
+  if (on)
+    startLocalLiveClock();
+  else
+    stopLocalLiveClock();
+}, { immediate: true });
+
+onUnmounted(stopLocalLiveClock);
+
 /** PM Index：地图盘口胜负（以 Polymarket 为准） */
 const pmMapOutcome = computed(() => {
   void pmMapOutcomeTick.value;
@@ -150,7 +179,7 @@ function pmOddsSideWon(side: BetSide): boolean {
 }
 
 const liveSeconds = computed(() => {
-  void liveTick.value;
+  void liveClockTick.value;
   if (!showLiveTimer.value)
     return 0;
   const rs = props.match.liveRoundStart;

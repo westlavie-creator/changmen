@@ -20,6 +20,15 @@ describe("sport / esport UI isolation", () => {
     expect(src).toMatch(/oddsStore\.getOdds/);
   });
 
+  test("BetRow live timer is local — no matchStore.liveTick fan-out", () => {
+    const row = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
+    const store = readFileSync(join(root, "stores/matchStore.ts"), "utf8");
+    expect(row).not.toMatch(/liveTick/);
+    expect(row).toMatch(/liveClockTick/);
+    expect(store).not.toMatch(/liveTick/);
+    expect(store).not.toMatch(/startLiveClock/);
+  });
+
   test("OrderList uses quoteTick for PM live price without BetRow fan-out", () => {
     const src = readFileSync(join(root, "components/order/OrderList.vue"), "utf8");
     expect(src).toMatch(/quoteTick/);
