@@ -8,6 +8,8 @@ import {
   SaveMatchRequest,
   SaveLiveTimerRequest,
   UpdatePlatformRequest,
+  warnClientGetMatchsOutbound,
+  getGetMatchsOutboundWarnStats,
 } from "@changmen/api-contract/schemas";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import * as sb from "@changmen/db";
@@ -534,8 +536,20 @@ async function handleCoreAction(
       await store.saveLiveTimer(stParsed.data.provider, timer);
       return ok(true);
     }
-    case "Client_GetMatchs":
-      return ok(await store.buildMatchList());
+    case "Client_GetMatchs": {
+      const list = await store.buildMatchList();
+      const warn = warnClientGetMatchsOutbound(list);
+      if (!warn.ok) {
+        const st = getGetMatchsOutboundWarnStats();
+        if (st.issueEvents === 1 || st.issueEvents % 50 === 0) {
+          console.warn(
+            `[GetMatchs] outbound warn issues=${warn.issues.length} pfSources=${warn.pfSourceCount}`
+            + ` events=${st.issueEvents}: ${warn.issues.slice(0, 5).join(" | ")}`,
+          );
+        }
+      }
+      return ok(list);
+    }
     case "Client_GetBaseballMatchs":
       try {
         return ok(await store.buildBaseballMatchList());

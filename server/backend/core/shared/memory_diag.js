@@ -4,6 +4,7 @@
 
 import v8 from "node:v8";
 import { getRdsWriteQueueStats } from "@changmen/db";
+import { getGetMatchsOutboundWarnStats } from "@changmen/api-contract/schemas";
 import { getWsForwardStatus } from "@changmen/ws-forward";
 import { getMemoryCacheStats } from "../db/store.js";
 import store from "../esport-api/store.js";
@@ -39,21 +40,22 @@ export async function buildMemoryDiagSnapshot() {
   const collector = store.getCollectorMemoryStats?.() ?? null;
   const dbCache = getMemoryCacheStats();
   const rdsWrite = getRdsWriteQueueStats();
+  const getMatchsOutbound = getGetMatchsOutboundWarnStats();
   const ws = getWsForwardStatus();
   const esportApi = getEsportRequestTimingSnapshot();
 
   let matcherLoop = null;
   let matcherRdsCache = null;
   try {
-    ({ getMatcherLoopState } = await import("../../../matcher/loop.js"));
-    matcherLoop = getMatcherLoopState();
+    const matcherLoopMod = await import("../../../matcher/loop.js");
+    matcherLoop = matcherLoopMod.getMatcherLoopState();
   }
   catch {
     /* matcher not loaded */
   }
   try {
-    ({ getMatcherRdsSnapshotCacheStats } = await import("../../../matcher/ops/rds_snapshot_cache.js"));
-    matcherRdsCache = getMatcherRdsSnapshotCacheStats();
+    const matcherCacheMod = await import("../../../matcher/ops/rds_snapshot_cache.js");
+    matcherRdsCache = matcherCacheMod.getMatcherRdsSnapshotCacheStats();
   }
   catch {
     /* ignore */
@@ -86,6 +88,7 @@ export async function buildMemoryDiagSnapshot() {
     collector,
     dbCache,
     rdsWrite,
+    getMatchsOutbound,
     wsForward: {
       enabled: ws.enabled,
       platforms: ws.platforms,
