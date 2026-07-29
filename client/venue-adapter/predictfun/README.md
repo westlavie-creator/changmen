@@ -78,7 +78,7 @@ PF_HOUSE_MAX_STAKE_USDT=500
 
 | 浏览器 `collect.ts` | **只消费** MarketIndex（映射+种子）+ Market WS；hub 将 Yes book 展开为 `{ tokenId, bestAsk }` → `fo`（对齐 Polymarket；**不**跑 categories discovery） |
 
-| `client/.../predictfun/parse.ts` | 行情工具（complement / book→token）；`buildPredictMappedMarket` 仅测试镜像，勿与 collector 强同步 |
+| `client/.../predictfun/parse.ts` | **仅**行情工具（complement / book→token / BookMeta）；discovery 映射已删，权威在 collector `parse.js` |
 
 | `server/ws_forward` hub | 全站单条上游 WS，合并订阅后 fan-out |
 

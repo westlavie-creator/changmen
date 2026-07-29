@@ -1,7 +1,8 @@
 /**
- * PredictFun 电竞 discovery 解析（**权威实现**）。
+ * PredictFun 电竞 discovery 解析（**唯一权威**）。
  * VPS collector：categories → orderbook → platform_* + MarketIndex。
- * 浏览器不跑本文件；client `venue-adapter/predictfun/parse.ts` 只做行情工具 + 测试镜像（对齐 PM）。
+ * 浏览器不跑本文件；`client/venue-adapter/predictfun/parse.ts` **只**保留报价工具
+ * （complement / Yes book→token），禁止再镜像 `buildPredictMappedMarket`。
  *
  * 官方电竞现形态：
  * - marketVariant: ESPORTS_LOL / ESPORTS_CS2 / …

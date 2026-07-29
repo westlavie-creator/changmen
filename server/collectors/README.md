@@ -17,7 +17,8 @@ VPS **守护进程级采集** 归集目录（浏览器采集仍在 `client/venue
 | 项 | 规则 |
 |----|------|
 | 写入 | `platform_matches` / `platform_bets`，或 `pm_sport` 列 |
-| parse | canonical 在 `client/venue-adapter/{platform}/`；daemon 薄封装 |
+| parse（A8 馆） | 浏览器 `client/venue-adapter/{platform}/` 仍为采集权威 |
+| parse（PM/PF） | **Discovery 权威在本目录 collector**（`*/parse.js`）；浏览器只留报价工具，不镜像 `build*MappedMarket` |
 | PM2 | `deploy/ecosystem.config.cjs` |
 | 新运动 collector | 新建 workspace 于本目录（如未来 `mlb-gamma-collector`） |
 

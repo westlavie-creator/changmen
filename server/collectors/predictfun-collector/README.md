@@ -1,8 +1,8 @@
 # predictfun-collector (`@changmen/predictfun-collector`)
 
-VPS 守护进程：Predict.fun **REST discovery** → `platform_matches` / `platform_bets` + 本机 `predictfun_market_index.json`。
+VPS 守护进程：Predict.fun **REST discovery（唯一权威）** → `platform_matches` / `platform_bets` + 本机 `predictfun_market_index.json`。解析见本包 `parse.js`（含 `buildPredictMappedMarket`）。
 
-浏览器 Predict.fun 采集器经 Market WS 收 orderbook，hub 展开为 token 买价写 `fo`（对齐 Polymarket）；**不经** http-relay 打 discovery。Index 仅映射/种子。
+浏览器 Predict.fun 采集器经 Market WS 收 orderbook，hub 展开为 token 买价写 `fo`（对齐 Polymarket）；**不经** http-relay 打 discovery，也**不**在 adapter 内镜像 discovery。Index 仅映射/种子。
 
 ## 运行
 

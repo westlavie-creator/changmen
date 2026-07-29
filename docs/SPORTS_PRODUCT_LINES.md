@@ -134,7 +134,7 @@ server/collectors/
 | 项 | 规则 |
 |----|------|
 | 写入 | `platform_matches` / `platform_bets`，或 `client_matches.pm_sport`（仅 PM 赛程快照） |
-| parse | canonical 在 `client/venue-adapter/{platform}/parse.ts`；Node daemon 薄封装或共享 `.mjs` |
+| parse | A8 馆：canonical 在 `client/venue-adapter/{platform}/parse.ts`。PM/PF：**discovery 权威在** `server/collectors/*/parse.js`；浏览器 adapter 只留报价工具，禁止再镜像 `build*MappedMarket` |
 | PM2 | 在 `deploy/ecosystem.config.cjs` 按运动分组注释 |
 | 测试 | 各 collector 包内 `node --test` |
 

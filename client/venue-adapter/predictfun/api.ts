@@ -1,12 +1,29 @@
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 
-import type { PredictCategory, PredictOrderbookData } from "./parse";
+import type { PredictOrderbookData } from "./parse";
 import {
   predictFunHttpGet,
   resolvePredictFunApiKey,
 } from "./transport";
 
 export { resolvePredictFunApiKey } from "./transport";
+
+/**
+ * Categories 列表形状（诊断/残留 HTTP 用）。
+ * 生产 discovery 只跑 VPS `predictfun-collector`；浏览器 collect 不扫盘。
+ */
+export interface PredictCategory {
+  id?: number;
+  slug?: string;
+  title?: string;
+  status?: string;
+  marketVariant?: string;
+  startsAt?: string;
+  endsAt?: string;
+  tags?: Array<{ id?: string; name?: string }>;
+  teams?: Array<{ id?: number; name?: string; league?: string }>;
+  markets?: unknown[];
+}
 
 /** [Predict 官方] 主网需 API Key；测试网用 VITE_PREDICT_FUN_API_BASE=https://api-testnet.predict.fun */
 export const PREDICT_FUN_API = (
