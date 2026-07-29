@@ -28,6 +28,18 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 服务端通过 `requirePlatform(..., "node")` 加载探针；**不得**引用各平台根目录下的采集/下注 ts（`client/venue-adapter/{platform}/shared/` 亦不在瘦包内）。
 
+## 新增平台（摘录）
+
+完整三类清单见 **[ADD_PLATFORM_CHECKLIST.md](./ADD_PLATFORM_CHECKLIST.md)**。归属速查：
+
+| 类型 | 主要改谁 |
+|------|----------|
+| browser | 客户端 `venue-adapter`；可选服务端 `platform_sync` / proxy |
+| plugin | 客户端 + `chrome-extension` |
+| vps-house（`vps_http_ws`） | 服务端 `server/collectors` + ecosystem；客户端仅报价/下单 adapter |
+
+`collectionMode` 写在客户端 manifest，前后端门控同源；**禁止**在 Save* 路径再硬编码馆名。
+
 ## 唯一集成面（HTTP）
 
 客户端 **只** 通过 HTTP 使用服务端能力（禁止在 `client/web/src` 里 `import` 服务端或 DB 包）：

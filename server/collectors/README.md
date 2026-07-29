@@ -21,5 +21,6 @@ VPS **守护进程级采集** 归集目录（浏览器采集仍在 `client/venue
 | parse（PM/PF） | **Discovery 权威在本目录 collector**（`*/parse.js`）；浏览器只留报价工具，不镜像 `build*MappedMarket` |
 | PM2 | `deploy/ecosystem.config.cjs` |
 | 新运动 collector | 新建 workspace 于本目录（如未来 `mlb-gamma-collector`） |
+| 新 VPS 电竞馆 | `collectionMode: vps_http_ws` + 本目录 collector；清单见 [docs/ADD_PLATFORM_CHECKLIST.md](../../docs/ADD_PLATFORM_CHECKLIST.md) §C |
 
 详见 [docs/SPORTS_PRODUCT_LINES.md](../../docs/SPORTS_PRODUCT_LINES.md) §5。

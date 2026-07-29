@@ -267,10 +267,14 @@ All A8 parity tracking lives under `client/web/docs/`:
 
 ### Adding a new platform
 
-1. `types/esport.ts` — add to `PlatformId`
-2. `client/venue-adapter/registry/` — register in `adapters.ts` + platform meta
-3. `client/venue-adapter/{id}/` — `index.ts` + `collect.ts` + `bet.ts`；探针在 `devtools/platform-probes/{dir}/`
-4. `runtime/collectors.ts` + `runtime/providers.ts` — 经 `buildCollectorFactories()` 自动注册（新平台需加入 registry）
-5. Backend: add `syncXxxFromEnv` / `syncXxxFromSession` in `platform_sync.js` and call it in `ensurePlatformCredentials`
+按馆类型走三类清单（**勿**再假设「每个馆都要手注册 collectors + 必写 platform_sync」）：
 
-详见 [client/venue-adapter/README.md](./client/venue-adapter/README.md)。
+| 类型 | `collectionMode` | 说明 |
+|------|------------------|------|
+| browser | `http_*` / `parse_ws` / … | 浏览器 Save* |
+| plugin | `plugin_*` | Chrome 扩展代发 |
+| vps-house | **`vps_http_ws`** | VPS collector 独占写 `platform_*` |
+
+完整步骤与过时项删除说明：**[docs/ADD_PLATFORM_CHECKLIST.md](./docs/ADD_PLATFORM_CHECKLIST.md)**。
+
+公共最小集：`PlatformId`（api-contract）→ `registry/manifest.json` + `adapters.ts` → `venue-adapter/{dir}/`；VPS 馆另加 `server/collectors/` + PM2。

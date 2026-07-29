@@ -202,6 +202,8 @@ export type CollectionMode =
   | "parse_ws"
   | "plugin_http"
   | "plugin_graphql_ws"
+  | "plugin_http_ws"
+  | "vps_http_ws"
   | "none";
 
 /** 平台能力元数据（与 registry/manifest.json 对齐） */

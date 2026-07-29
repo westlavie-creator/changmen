@@ -266,14 +266,17 @@ matchStore.runMainLoopTick（A8 `P()`，轮间 100ms）
 
 ## 新增平台 Checklist
 
-1. `types/esport.ts` — `PlatformId`（若尚未存在）
-2. `venue-adapter/registry/manifest.json` + `adapters.ts` — 注册一条 adapter
-3. `venue-adapter/{平台}/collect.ts` — `startXxxCollector()`
-4. `venue-adapter/{平台}/bet.ts` — `xxxProvider`（实现 `PlatformProvider`）
-5. `venue-adapter/{平台}/index.ts` — 导出 `PlatformAdapter`
-6. `runtime/collectors.ts` / `runtime/providers.ts` — 注册 adapter
-7. `server/backend` — `platform_sync.js` 加 `syncXxxFromEnv` 并在 `ensurePlatformCredentials` 中调用
-8. UI — 采集开关、账号卡片（通常随 `ALL_PLATFORMS` 自动出现）
+**权威清单**（browser / plugin / vps-house 三类）：[docs/ADD_PLATFORM_CHECKLIST.md](../../../docs/ADD_PLATFORM_CHECKLIST.md)。
+
+摘要：
+
+1. `packages/api-contract` — `PlatformId`
+2. `venue-adapter/registry/manifest.json` — 含正确 `collectionMode`（VPS = `vps_http_ws`）
+3. `venue-adapter/{平台}/` + `registry/adapters.ts` — `PlatformAdapter`
+4. **不要**手改 `runtime/collectors.ts` 逐馆列表（registry 自动）
+5. `platform_sync` — **仅**需要启动灌 `platforms.json` 凭证时才加
+6. VPS 馆：`server/collectors/` + ecosystem；浏览器只报价/下单
+7. UI — 随 `ALL_PLATFORMS`；Save* 门控读 manifest
 
 ---
 

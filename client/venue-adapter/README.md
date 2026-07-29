@@ -40,6 +40,14 @@ npm run check:exports --workspace=@changmen/venue-adapter
 
 `PLATFORMS` 常量从 `@changmen/venue-adapter/shared` 导入；`ALL_PLATFORMS` / manifest 元数据从 `@changmen/venue-adapter/registry`。
 
+## 新增平台
+
+先定类型再改代码：**[docs/ADD_PLATFORM_CHECKLIST.md](../../docs/ADD_PLATFORM_CHECKLIST.md)**（browser / plugin / `vps_http_ws`）。
+
+- 浏览器馆：本目录 `{platform}/collect.ts` + `bet.ts`，`collectionMode` ≠ `vps_http_ws`
+- VPS 馆：discovery 在 `server/collectors/`；本目录只留报价/下单，**勿**镜像 discovery parse
+- `collectionMode: vps_http_ws` 后 Save* 门控自动生效（勿再硬编码馆名）
+
 ## 测试
 
 ```bat
