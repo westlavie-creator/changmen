@@ -122,7 +122,7 @@ function unlockRate() {
       <div class="account-edit-panel__col account-edit-panel__col--left">
     <el-form-item label="平台：">
       <el-row :gutter="10" align="middle">
-        <el-col :span="5">
+        <el-col :span="form.provider === 'PredictFun' ? 16 : 8">
           <el-autocomplete
             v-if="fetchPlatforms && !readonly"
             v-model="form.platformName"
@@ -132,7 +132,7 @@ function unlockRate() {
           />
           <el-input v-else v-model="form.platformName" :disabled="fieldDisabled()" />
         </el-col>
-        <el-col v-if="form.provider !== 'PredictFun'" :span="5">
+        <el-col v-if="form.provider !== 'PredictFun'" :span="8">
           <el-input
             v-model="form.playerName"
             placeholder="选填，空则用场馆账号"
@@ -143,19 +143,7 @@ function unlockRate() {
             </template>
           </el-input>
         </el-col>
-        <el-col :span="form.provider === 'PredictFun' ? 13 : 8">
-          <div class="account-edit-panel__venue" :title="venueIdentityTitle()">
-            <span class="account-edit-panel__venue-item">
-              <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
-              <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
-            </span>
-            <span class="account-edit-panel__venue-item">
-              <span class="account-edit-panel__venue-label">账号ID</span>
-              <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ displayVenueMemberId() }}</span>
-            </span>
-          </div>
-        </el-col>
-        <el-col :span="6">
+        <el-col :span="8">
           <el-switch
             v-model="form.pause"
             size="large"
@@ -511,24 +499,45 @@ function unlockRate() {
       <div v-if="providerLocked" class="account-edit-panel__provider-locked" :title="form.provider">
         <PlatformIcon :platform="form.provider" />
         <span class="account-edit-panel__provider-locked-name">{{ form.provider }}</span>
-      </div>
-      <el-radio-group
-        v-else
-        v-model="form.provider"
-        size="large"
-        class="account-edit-panel__providers"
-        :disabled="fieldDisabled()"
-      >
-        <div
-          v-for="(row, rowIndex) in providerRows"
-          :key="rowIndex"
-          class="account-edit-panel__provider-row"
-        >
-          <el-radio-button v-for="p in row" :key="p" :value="p" :title="p">
-            <PlatformIcon :platform="p" />
-          </el-radio-button>
+        <div class="account-edit-panel__venue" :title="venueIdentityTitle()">
+          <span class="account-edit-panel__venue-item">
+            <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
+            <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
+          </span>
+          <span class="account-edit-panel__venue-item">
+            <span class="account-edit-panel__venue-label">账号ID</span>
+            <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ displayVenueMemberId() }}</span>
+          </span>
         </div>
-      </el-radio-group>
+      </div>
+      <template v-else>
+        <el-radio-group
+          v-model="form.provider"
+          size="large"
+          class="account-edit-panel__providers"
+          :disabled="fieldDisabled()"
+        >
+          <div
+            v-for="(row, rowIndex) in providerRows"
+            :key="rowIndex"
+            class="account-edit-panel__provider-row"
+          >
+            <el-radio-button v-for="p in row" :key="p" :value="p" :title="p">
+              <PlatformIcon :platform="p" />
+            </el-radio-button>
+          </div>
+        </el-radio-group>
+        <div class="account-edit-panel__venue account-edit-panel__venue--below" :title="venueIdentityTitle()">
+          <span class="account-edit-panel__venue-item">
+            <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
+            <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
+          </span>
+          <span class="account-edit-panel__venue-item">
+            <span class="account-edit-panel__venue-label">账号ID</span>
+            <span class="account-edit-panel__venue-value account-edit-panel__venue-value--mono">{{ displayVenueMemberId() }}</span>
+          </span>
+        </div>
+      </template>
     </el-form-item>
     <template v-if="!hideSensitive">
       <el-form-item v-if="form.provider === 'Polymarket'" label="官网链接：">
@@ -616,16 +625,29 @@ function unlockRate() {
   align-items: center;
   gap: 10px;
   min-height: 40px;
+  max-width: 100%;
 }
 
 .account-edit-panel__provider-locked :deep(.provider-icon) {
   width: 28px;
   height: 28px;
+  flex: 0 0 auto;
 }
 
 .account-edit-panel__provider-locked-name {
+  flex: 0 0 auto;
   font-size: 14px;
   color: var(--el-text-color-regular);
+}
+
+.account-edit-panel__provider-locked .account-edit-panel__venue {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  margin-left: 6px;
+  min-height: 0;
+  padding: 0;
 }
 
 .account-edit-panel__providers {
@@ -684,11 +706,16 @@ function unlockRate() {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  min-width: 0;
   min-height: 32px;
   padding: 2px 0;
   font-size: 12px;
   line-height: 1.35;
   color: var(--el-text-color-regular);
+}
+
+.account-edit-panel__venue--below {
+  margin-top: 10px;
 }
 
 .account-edit-panel__venue-item {
