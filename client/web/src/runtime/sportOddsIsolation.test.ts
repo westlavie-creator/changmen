@@ -29,12 +29,18 @@ describe("sport / esport UI isolation", () => {
     expect(store).not.toMatch(/startLiveClock/);
   });
 
-  test("OrderList uses quoteTick for PM live price without BetRow fan-out", () => {
+  test("OrderList live price watches only order tokens — no global quoteTick", () => {
     const src = readFileSync(join(root, "components/order/OrderList.vue"), "utf8");
-    expect(src).toMatch(/quoteTick/);
-    expect(src).toMatch(/storeToRefs\(oddsStore\)/);
-    expect(src).not.toMatch(/void oddsStore\.foRevision/);
+    const odds = readFileSync(join(root, "stores/oddsStore.ts"), "utf8");
+    expect(src).toMatch(/orderLiveTick/);
+    expect(src).toMatch(/watchedLiveTokens/);
+    expect(src).toMatch(/\$onAction/);
+    expect(src).not.toMatch(/storeToRefs\(\s*oddsStore\s*\)/);
+    expect(src).not.toMatch(/void quoteTick/);
+    expect(src).not.toMatch(/void sportOddsTick/);
     expect(src).toMatch(/pmShowLiveOdds/);
+    expect(odds).not.toMatch(/quoteTick:\s*0/);
+    expect(odds).not.toMatch(/bumpQuoteTick\s*\(/);
   });
 
   test("SportMatchBoard owns sportOddsStore and passes oddsDisplayTick", () => {

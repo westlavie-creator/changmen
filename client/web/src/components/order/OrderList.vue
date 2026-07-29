@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from "element-plus";
 import type { OrderRow } from "@/types/order";
-import { storeToRefs } from "pinia";
 import { onMounted, onUnmounted, computed, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { rebindOrderLink } from "@/api/order";
@@ -124,6 +123,8 @@ const dropTargetOrderId = ref<string | null>(null);
 const pfLabelTick = ref(0);
 let lineEl: SVGSVGElement | null = null;
 let startEl: HTMLElement | null = null;
+let stopOddsLiveWatch: (() => void) | undefined;
+let stopSportLiveWatch: (() => void) | undefined;
 
 onMounted(() => {
   void ensurePfOrderLabelIndex().then((ok) => {
@@ -186,17 +187,79 @@ function showPfSellButton(row: OrderRow): boolean {
 
 const oddsStore = useOddsStore();
 const sportOddsStore = useSportOddsStore();
-/** 旁路现价时钟：用 storeToRefs 保证 template/函数读价时一定建立依赖 */
-const { quoteTick } = storeToRefs(oddsStore);
-const { tick: sportOddsTick } = storeToRefs(sportOddsStore);
+
+/**
+ * [changmen 扩展] 订单现价局部时钟：仅当 fo/sportOdds 写入**挂单相关** token 时 bump。
+ * 不再订阅全局 quoteTick / sportOdds.tick（任意盘口变价会拖整栏重算）。
+ */
+const orderLiveTick = ref(0);
+
+function liveTokenKey(platform: string, tokenId: string): string {
+  return `${platform}:${tokenId}`;
+}
+
+/** 当前列表里需要盯现价的 PM/PF token */
+const watchedLiveTokens = computed(() => {
+  const set = new Set<string>();
+  for (const [, rows] of props.orderEntries) {
+    for (const row of rows) {
+      if (pmShowLivePrice(row)) {
+        const t = String(row.PmTokenId ?? "").trim();
+        if (t)
+          set.add(liveTokenKey(PLATFORMS.Polymarket, t));
+      }
+      if (pfShowLivePrice(row)) {
+        const t = String(row.PfTokenId ?? "").trim();
+        if (t)
+          set.add(liveTokenKey(PLATFORMS.PredictFun, t));
+      }
+    }
+  }
+  return set;
+});
+
+function bumpOrderLiveIfWatched(platform: unknown, oddId: unknown) {
+  const id = String(oddId ?? "").trim();
+  if (!id)
+    return;
+  if (watchedLiveTokens.value.has(liveTokenKey(String(platform), id)))
+    orderLiveTick.value += 1;
+}
+
+// 在 setup 同步订阅（勿等 onMounted）：避免首屏到 mount 之间漏掉 fo/sport 写入
+stopOddsLiveWatch = oddsStore.$onAction(({ name, args, after }) => {
+  after(() => {
+    if (name === "save") {
+      const entry = args[1] as { id?: unknown } | undefined;
+      bumpOrderLiveIfWatched(args[0], entry?.id);
+      return;
+    }
+    if (name === "updateOddsLock") {
+      bumpOrderLiveIfWatched(args[0], args[1]);
+      return;
+    }
+    if (name === "clean" && watchedLiveTokens.value.size > 0)
+      orderLiveTick.value += 1;
+  });
+});
+
+stopSportLiveWatch = sportOddsStore.$onAction(({ name, args, after }) => {
+  after(() => {
+    if (name === "save") {
+      bumpOrderLiveIfWatched(args[0], args[1]);
+      return;
+    }
+    if (name === "clear" && watchedLiveTokens.value.size > 0)
+      orderLiveTick.value += 1;
+  });
+});
 
 /**
  * 未结算买单实时价：只读、不写 fo。
  * 与盘口同源：fo.clobPrice → fo.odds→价；体育盘口价在 sportOddsStore（不进 fo）。
  */
 function pmLiveClobPrice(row: OrderRow): number | null {
-  void quoteTick.value;
-  void sportOddsTick.value;
+  void orderLiveTick.value;
   const tokenId = String(row.PmTokenId ?? "").trim();
   if (!tokenId)
     return null;
@@ -211,7 +274,7 @@ function pmLiveClobPrice(row: OrderRow): number | null {
 /**
  * 可卖持仓显示「当前价」行。
  * 不要求 fo 已有报价（否则首屏/未订阅 token 时连「当前价」字样都没有）；
- * 无 live 时文案为 —，fo/`quoteTick` 到达后填数。
+ * 无 live 时文案为 —，挂单相关 token 入 fo/sportOdds 后填数。
  */
 function pmShowLivePrice(row: OrderRow): boolean {
   if (!isPmBuyOrderListRow(row))
@@ -259,8 +322,7 @@ function pmLastLineOddsText(row: OrderRow): string {
 }
 
 function pfLiveClobPrice(row: OrderRow): number | null {
-  void quoteTick.value;
-  void sportOddsTick.value;
+  void orderLiveTick.value;
   const tokenId = String(row.PfTokenId ?? "").trim();
   if (!tokenId)
     return null;
@@ -562,6 +624,10 @@ if (typeof window !== "undefined")
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeydown);
   clearDragUi();
+  stopOddsLiveWatch?.();
+  stopOddsLiveWatch = undefined;
+  stopSportLiveWatch?.();
+  stopSportLiveWatch = undefined;
 });
 
 function badgeClass(row: OrderRow): Record<string, boolean> {
