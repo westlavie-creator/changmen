@@ -96,6 +96,7 @@ export async function listSharedVenueAccounts() {
       userName,
       platformName: String(r.platform_name || ""),
       playerName: String(r.player_name || ""),
+      venueMemberId: String(r.venue_member_id || ""),
       venueAccountName: String(r.venue_account_name || "").trim() || undefined,
       deleted,
       createdAt: Number(r.created_at) || 0,

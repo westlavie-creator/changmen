@@ -177,7 +177,7 @@ onMounted(async () => {
                 <div class="admin-maint__block-title">
                   <PlatformIcon :platform="g.provider" />
                   <strong>{{ g.provider }}</strong>
-                  <span>{{ g.players[0]?.playerName || g.venueMemberId }}</span>
+                  <span>{{ g.players.find(p => p.venueAccountName)?.venueAccountName || g.venueMemberId || g.players[0]?.playerName }}</span>
                   <el-tag v-if="g.bothActive" type="danger" size="small">
                     两边活跃
                   </el-tag>
@@ -197,6 +197,17 @@ onMounted(async () => {
                 <el-table-column label="playerId" width="90" prop="playerId" />
                 <el-table-column label="平台备注" min-width="120" prop="platformName" />
                 <el-table-column label="账号名" min-width="120" prop="playerName" />
+                <el-table-column label="账号ID" min-width="140">
+                  <template #default="{ row }">
+                    <span class="admin-maint__oid">{{ row.venueMemberId || "—" }}</span>
+                    <span
+                      v-if="row.venueAccountName && row.venueAccountName !== row.playerName"
+                      class="admin-maint__account-login"
+                    >
+                      （{{ row.venueAccountName }}）
+                    </span>
+                  </template>
+                </el-table-column>
                 <el-table-column label="状态" width="80">
                   <template #default="{ row }">
                     <el-tag :type="row.deleted ? 'info' : 'success'" size="small">
@@ -412,6 +423,12 @@ onMounted(async () => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   word-break: break-all;
+}
+
+.admin-maint__account-login {
+  margin-left: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .admin-maint__key {

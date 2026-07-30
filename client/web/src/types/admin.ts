@@ -357,6 +357,8 @@ export interface AdminMaintenancePlayerRow {
   userName: string;
   platformName: string;
   playerName: string;
+  /** 场馆会员 ID（共用判定依据） */
+  venueMemberId: string;
   venueAccountName?: string;
   deleted: boolean;
   createdAt: number;
