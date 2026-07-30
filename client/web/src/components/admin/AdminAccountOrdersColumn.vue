@@ -31,9 +31,12 @@ const grouped = computed(() => groupAdminOrderEntries(props.orders, props.accoun
 const titleText = computed(() => {
   const acc = props.accounts.find(a => a.accountId === props.playerId);
   const account = accountOrderDisplayName(acc ?? { playerName: props.playerName, accountId: props.playerId });
+  const deleted = props.orders.some(o => Number(o.playerId) === props.playerId && o.playerDeleted)
+    || (acc?.active === false && acc?.description === "已删除");
+  const suffix = deleted ? "（已删）" : "";
   if (props.userName)
-    return `${props.userName} · ${account}`;
-  return `${props.provider} / ${account}`;
+    return `${props.userName} · ${account}${suffix}`;
+  return `${props.provider} / ${account}${suffix}`;
 });
 
 const orderEntries = computed(() =>
@@ -53,7 +56,8 @@ function fmtMoney(n: number) {
 }
 
 function playerLabel(row: OrderRow) {
-  return adminPlayerLabel(row, props.accounts);
+  const admin = adminRowForOrder(row);
+  return adminPlayerLabel(row, props.accounts, admin);
 }
 
 function platformClass(row: OrderRow) {

@@ -75,6 +75,7 @@ vi.mock("@changmen/db", () => ({
   fetchOrdersByLinks: vi.fn(async () => []),
   fetchOrdersByUserOrderIds: vi.fn(async () => []),
   fetchPredictionSellsByBuyOrderIds: vi.fn(async () => []),
+  fetchPlayersByIdsIncludingDeleted: vi.fn(async () => []),
   // rowToOrder → resolveStoredLink 需要（link=0 时）
   placeholderLinkFromCreateAt: (ca) => Number(ca) || 0,
   backendBindLinkFromCreateAt: (ca) => Number(ca) || 0,

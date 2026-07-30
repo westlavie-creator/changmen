@@ -22,9 +22,14 @@ function mergeRawOrderRowsById(...lists) {
   const byId = new Map();
   for (const list of lists) {
     for (const r of list || []) {
-      const id = String(r?.order_id ?? "").trim().toLowerCase();
-      if (id)
-        byId.set(id, r);
+      const oid = String(r?.order_id ?? "").trim().toLowerCase();
+      if (!oid)
+        continue;
+      // 必须带 user_id：全站 enrich 时不同用户可能撞同一场馆 order_id
+      //（删号重加 / 账号误同步），只按 order_id 会吞掉他户订单。
+      const uid = String(r?.user_id ?? "").trim();
+      const key = uid ? `${uid}|${oid}` : oid;
+      byId.set(key, r);
     }
   }
   return [...byId.values()];

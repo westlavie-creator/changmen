@@ -350,6 +350,14 @@ export async function handleAdminAction(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminMaintenance": {
+      try {
+        return ok(await adminService.getAdminMaintenanceReport());
+      }
+      catch (err) {
+        return fail((err as Error).message || "诊断失败");
+      }
+    }
     default:
       return fail(`未知管理端 action: ${action}`);
   }

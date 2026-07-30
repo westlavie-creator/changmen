@@ -295,6 +295,31 @@ export async function fetchPlayersByIds(playerIds) {
   }
 }
 
+/**
+ * 批量读 players（含已 soft-delete）。
+ * 管理端历史订单展示原账号名；勿用于归属校验 / SaveData。
+ */
+export async function fetchPlayersByIdsIncludingDeleted(playerIds) {
+  const ids = [...new Set((playerIds || []).map(id => Number(id)).filter(id => id > 0))];
+  if (!ids.length)
+    return [];
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players WHERE id = ANY($1::bigint[])`,
+      [ids],
+    );
+    return (rows || []).map(r => _mapPlayerRow(r)).filter(Boolean);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayersByIdsIncludingDeleted:", err.message);
+    return [];
+  }
+}
+
 export async function insertUserLogRow(userId, title, data) {
   const uid = String(userId || "").trim();
   if (!uid)

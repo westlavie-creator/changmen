@@ -32,6 +32,12 @@ const navItems: AdminNavItem[] = [
   },
   { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" } },
   {
+    name: "admin-maintenance",
+    label: "订单和用户维护",
+    icon: "am-icon-exclamation-triangle",
+    to: { name: "admin-maintenance" },
+  },
+  {
     name: "admin-reports",
     label: "报表查询",
     icon: "am-icon-bar-chart",
@@ -73,6 +79,7 @@ const ADMIN_ONLY_NAV = new Set([
   "admin-polymarket-builder",
   "admin-accounts",
   "admin-predictfun-members",
+  "admin-maintenance",
 ]);
 
 const visibleNavItems = computed(() => {

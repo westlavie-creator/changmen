@@ -5,6 +5,7 @@ import {
   adminPlayerLabel,
   countAdminPrimaryOrders,
   groupAdminOrderEntries,
+  mergeAdminAccountsWithOrderHistory,
 } from "./adminOrderDisplay";
 import {
   pmBuyLifecycleTagText,
@@ -147,6 +148,58 @@ describe("adminOrderDisplay", () => {
       adminOrderToOrderRow(order({ playerId: 101 }), [account({ accountId: 101 })]),
       [account({ accountId: 101, venueAccountName: "ray_live", playerName: "old" })],
     )).toBe("平博 / ray_live");
+  });
+
+  it("falls back to historical player name when account deleted", () => {
+    expect(adminPlayerLabel(
+      adminOrderToOrderRow(order({ playerId: 255, provider: "OB" }), []),
+      [],
+      {
+        platformName: "2-OD",
+        playerName: "ttianjiazhuang1",
+        playerDeleted: true,
+      },
+    )).toBe("2-OD / ttianjiazhuang1（已删）");
+  });
+
+  it("keeps deleted mark when historical stub is already merged into accounts", () => {
+    const stub = mergeAdminAccountsWithOrderHistory(
+      [],
+      [order({
+        playerId: 255,
+        playerName: "ttianjiazhuang1",
+        platformName: "2-OD",
+        playerDeleted: true,
+      })],
+    );
+    expect(adminPlayerLabel(
+      adminOrderToOrderRow(order({ playerId: 255, provider: "OB" }), stub),
+      stub,
+      {
+        platformName: "2-OD",
+        playerName: "ttianjiazhuang1",
+        playerDeleted: true,
+      },
+    )).toBe("2-OD / ttianjiazhuang1（已删）");
+  });
+
+  it("mergeAdminAccountsWithOrderHistory adds stub for deleted player", () => {
+    const merged = mergeAdminAccountsWithOrderHistory(
+      [account({ accountId: 101 })],
+      [order({
+        playerId: 255,
+        playerName: "ttianjiazhuang1",
+        platformName: "2-OD",
+        playerDeleted: true,
+      })],
+    );
+    expect(merged.map(a => a.accountId).sort((a, b) => a - b)).toEqual([101, 255]);
+    expect(merged.find(a => a.accountId === 255)).toMatchObject({
+      playerName: "ttianjiazhuang1",
+      platformName: "2-OD",
+      active: false,
+      description: "已删除",
+    });
   });
 
   it("groupAdminOrderEntries aligns PM sell link to parent buy before grouping", () => {

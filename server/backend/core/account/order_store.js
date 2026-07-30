@@ -10,6 +10,7 @@ import {
 import { isPredictionSellForCount } from "./order/kinds.js";
 import {
   betMoneyForProfitAggregate,
+  dedupeOrdersByUserOrderId,
   moneyForProfitAggregate,
 } from "./order/profit_cny.js";
 import {
@@ -240,7 +241,7 @@ export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
     (profiles || []).map(p => [String(p.id), String(p.user_name || "").trim()]),
   );
   const agg = new Map();
-  for (const o of orders || []) {
+  for (const o of dedupeOrdersByUserOrderId(orders)) {
     const uid = String(o.user_id || "");
     if (!uid || adminIds.has(uid))
       continue;

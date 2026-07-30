@@ -133,6 +133,14 @@ export interface AdminOrderRow {
   money: number;
   status: string;
   createAt: number;
+  /** 历史订单回填：players.player_name（含已删账号） */
+  playerName?: string;
+  /** 历史订单回填：players.platform_name */
+  platformName?: string;
+  /** 历史订单回填：account_data.venueAccountName */
+  venueAccountName?: string;
+  /** 对应 players 已 soft-delete */
+  playerDeleted?: boolean;
   matchId?: number;
   matchKey?: string;
   matchLabel?: string;
@@ -340,4 +348,71 @@ export interface AdminOrderLogLookup {
   platforms?: AdminOrderLogPlatform[];
   orderSections?: AdminOrderLogOrderSection[];
   legSections?: AdminOrderLogLegSection[];
+}
+
+/** 管理端「订单和用户维护」诊断 */
+export interface AdminMaintenancePlayerRow {
+  playerId: number;
+  userId: string;
+  userName: string;
+  platformName: string;
+  playerName: string;
+  venueAccountName?: string;
+  deleted: boolean;
+  createdAt: number;
+  deletedAt: number | null;
+  orderCount: number;
+}
+
+export interface AdminMaintenanceSharedVenue {
+  venueAccountKey: string;
+  provider: string;
+  venueMemberId: string;
+  users: string[];
+  activeUsers: string[];
+  bothActive: boolean;
+  players: AdminMaintenancePlayerRow[];
+  suggestion: string;
+}
+
+export interface AdminMaintenanceOrderDupRow {
+  id: number;
+  userId: string;
+  userName: string;
+  playerId: number;
+  provider: string;
+  status: string;
+  money: number;
+}
+
+export interface AdminMaintenanceOrderDup {
+  kind: "same_user" | "cross_user";
+  orderId: string;
+  users: string[];
+  userIds: string[];
+  count: number;
+  day: string;
+  createAt: number;
+  rows: AdminMaintenanceOrderDupRow[];
+  suggestion: string;
+}
+
+export interface AdminMaintenanceReport {
+  generatedAt: number;
+  tips: string[];
+  sharedVenueAccounts: {
+    generatedAt: number;
+    total: number;
+    bothActive: number;
+    list: AdminMaintenanceSharedVenue[];
+  };
+  duplicateOrderIds: {
+    generatedAt: number;
+    sameUserTotal: number;
+    crossUserTotal: number;
+    byPair: Record<string, number>;
+    byDay: Record<string, number>;
+    sameUser: AdminMaintenanceOrderDup[];
+    crossUser: AdminMaintenanceOrderDup[];
+  };
 }

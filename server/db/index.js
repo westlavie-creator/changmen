@@ -144,6 +144,7 @@ export const {
   insertPlayerRow,
   fetchPlayerById,
   fetchPlayersByIds,
+  fetchPlayersByIdsIncludingDeleted,
   fetchAccountRecordsByOwner,
   fetchPolymarketPlayersForTradeLookup,
   countActivePlayersByOwner,

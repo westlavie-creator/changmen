@@ -2,6 +2,7 @@ import type {
   AdminAccountDetail,
   AdminAccountListRow,
   AdminDashboard,
+  AdminMaintenanceReport,
   AdminOrderLogLookup,
   AdminOrderMatrix,
   AdminOrderPage,
@@ -600,4 +601,9 @@ export async function getAdminOrderLogs(body: {
   paddingMs?: number;
 }) {
   return unwrap(await post<AdminOrderLogLookup>("Client_AdminOrderLogs", body));
+}
+
+/** 订单和用户维护：共用投注账号 + order_id 重复诊断 */
+export async function getAdminMaintenance() {
+  return unwrap(await post<AdminMaintenanceReport>("Client_AdminMaintenance", {}));
 }

@@ -1044,7 +1044,8 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
     return [];
   try {
     const params = [monthStart, monthEnd];
-    let sql = `SELECT create_at, money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`;
+    let sql = `SELECT id, user_id, order_id, create_at, money, bet_money, status, provider, raw
+               FROM orders WHERE create_at >= $1 AND create_at < $2`;
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
@@ -1070,7 +1071,8 @@ export async function fetchOrdersForProfitAggregate(dateKey) {
     return [];
   try {
     const { rows } = await pool.query(
-      `SELECT user_id, money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT id, user_id, player_id, order_id, money, bet_money, status, provider, raw
+       FROM orders WHERE create_at >= $1 AND create_at < $2`,
       [dayStart, dayEnd],
     );
     return rows || [];

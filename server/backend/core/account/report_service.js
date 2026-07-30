@@ -3,6 +3,7 @@ import { toDateKey } from "./order_store.js";
 import { isPredictionSellForCount } from "./order/kinds.js";
 import {
   betMoneyForProfitAggregate,
+  dedupeOrdersByUserOrderId,
   moneyForProfitAggregate,
 } from "./order/profit_cny.js";
 
@@ -56,7 +57,7 @@ export async function getMonthReport(month, userId, userIds) {
   }
 
   const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
-  for (const o of orders || []) {
+  for (const o of dedupeOrdersByUserOrderId(orders)) {
     if (String(o.status || "") === "Reject")
       continue;
     const key = toDateKey(o.create_at);

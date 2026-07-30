@@ -47,6 +47,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/maintenance",
+      name: "admin-maintenance",
+      component: () => import("@/views/AdminMaintenanceView.vue"),
+      meta: { requiresAdmin: true, requiresFullAdmin: true },
+    },
+    {
       path: "/admin/orders-matrix",
       redirect: to => ({ name: "admin-orders", query: to.query }),
     },

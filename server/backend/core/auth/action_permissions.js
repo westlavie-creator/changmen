@@ -23,6 +23,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminPredictFunRecharge",
   "Client_AdminPredictFunMoneyLogs",
   "Client_AdminUpdateAccountFields",
+  "Client_AdminMaintenance",
 ]);
 
 const LEADER_ALLOWED_ACTIONS = new Set([

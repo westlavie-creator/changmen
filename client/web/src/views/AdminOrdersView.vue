@@ -9,7 +9,7 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
-import { adminOrderDisplayProvider, countAdminPrimaryOrders } from "@/shared/adminOrderDisplay";
+import { adminAccountStubFromOrder, adminOrderDisplayProvider, countAdminPrimaryOrders } from "@/shared/adminOrderDisplay";
 import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
@@ -174,15 +174,21 @@ const accountColumns = computed<AccountColumn[]>(() => {
     const playerId = Number(row.playerId) || 0;
     if (!byAccount.has(playerId)) {
       const hit = accountById.value.get(playerId);
-      const provider = adminOrderDisplayProvider(row, hit ? [hit.account] : allAccounts.value);
+      const stub = hit ? null : adminAccountStubFromOrder(row);
+      const account = hit?.account || stub;
+      const accounts = account ? [account] : [];
+      const provider = adminOrderDisplayProvider(row, accounts.length ? accounts : allAccounts.value);
+      const userName = hit?.user.userName
+        || users.value.find(u => u.id === row.userId)?.userName
+        || "";
       byAccount.set(playerId, {
         key: String(playerId),
         provider,
         playerId,
-        playerName: hit?.account.playerName || "",
-        userName: hit?.user.userName || "",
+        playerName: account?.playerName || row.playerName || "",
+        userName,
         orders: [],
-        accounts: hit ? [hit.account] : [],
+        accounts,
       });
     }
     byAccount.get(playerId)!.orders.push(row);

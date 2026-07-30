@@ -109,16 +109,117 @@ export function adminOrderToOrderRow(
   };
 }
 
-export function adminPlayerLabel(row: OrderRow, accounts: AdminAccountDetail[]): string {
+export function adminPlayerLabel(
+  row: OrderRow,
+  accounts: AdminAccountDetail[],
+  historical?: {
+    platformName?: string | null;
+    playerName?: string | null;
+    venueAccountName?: string | null;
+    playerDeleted?: boolean | null;
+  } | null,
+): string {
   const pid = Number(row.PlayerID) || 0;
-  const acc = accounts.find(a => a.accountId === pid);
+  const acc = accounts.find(a => Number(a.accountId) === pid);
+  const deleted = Boolean(historical?.playerDeleted)
+    || Boolean(acc && acc.active === false && acc.description === "已删除");
+
   if (acc) {
     const platform = acc.platformName || acc.platform || row.Type || "";
-    return `${platform} / ${accountOrderDisplayName(acc)}`;
+    const base = `${platform} / ${accountOrderDisplayName(acc)}`;
+    return deleted ? `${base}（已删）` : base;
+  }
+  const histName = accountOrderDisplayName({
+    venueAccountName: historical?.venueAccountName || undefined,
+    playerName: historical?.playerName || undefined,
+    accountId: pid,
+  });
+  if (histName) {
+    const platform = String(historical?.platformName || row.Type || "").trim();
+    const base = platform ? `${platform} / ${histName}` : histName;
+    return deleted ? `${base}（已删）` : base;
   }
   if (row.Type)
     return String(row.Type);
   return pid ? `#${pid}` : "";
+}
+
+/** 已删/不在活跃列表时的展示用账号 stub（仅管理端订单归属） */
+export function adminAccountStubFromOrder(row: AdminOrderRow): AdminAccountDetail | null {
+  const accountId = Number(row.playerId) || 0;
+  if (!accountId)
+    return null;
+  const playerName = String(row.playerName || "").trim();
+  const platformName = String(row.platformName || "").trim();
+  const venueAccountName = String(row.venueAccountName || "").trim();
+  if (!playerName && !platformName && !venueAccountName)
+    return null;
+  return {
+    accountId,
+    platform: String(row.provider || platformName || ""),
+    platformId: 0,
+    platformName: platformName || String(row.provider || ""),
+    playerName: playerName || venueAccountName || `#${accountId}`,
+    balance: 0,
+    credit: 0,
+    currency: "CNY",
+    winBalance: 0,
+    unsettle: 0,
+    proxyId: 0,
+    pause: false,
+    markupOnly: false,
+    noMarkup: false,
+    active: false,
+    minOdds: 0,
+    maxOdds: 0,
+    minDefault: 0,
+    maxDefault: 0,
+    profit: 0,
+    maxProfit: 0,
+    maxBetCount: 0,
+    maxOrder: 0,
+    todayOrder: 0,
+    today: 0,
+    orderCount: 0,
+    totalProfit: 0,
+    maxBalance: 0,
+    maxWinBalance: 0,
+    description: row.playerDeleted ? "已删除" : "",
+    realName: "",
+    mobile: "",
+    city: "",
+    multiply: 1,
+    maxBalanceOdds: 2,
+    lastOdds: false,
+    workTimes: [],
+    rateConfig: [],
+    game: {},
+    gatewayHost: "",
+    hasCredentials: false,
+    updateTime: 0,
+    ...(venueAccountName ? { venueAccountName } : {}),
+  };
+}
+
+export function mergeAdminAccountsWithOrderHistory(
+  accounts: AdminAccountDetail[],
+  orders: AdminOrderRow[],
+): AdminAccountDetail[] {
+  const byId = new Map<number, AdminAccountDetail>();
+  for (const acc of accounts || []) {
+    const id = Number(acc.accountId) || 0;
+    if (id)
+      byId.set(id, acc);
+  }
+  for (const row of orders || []) {
+    const id = Number(row.playerId) || 0;
+    if (!id || byId.has(id))
+      continue;
+    const stub = adminAccountStubFromOrder(row);
+    if (stub)
+      byId.set(id, stub);
+  }
+  return [...byId.values()];
 }
 
 export function orderLegendClass(rows: OrderRow[]) {

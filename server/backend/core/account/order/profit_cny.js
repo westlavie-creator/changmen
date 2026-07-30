@@ -20,3 +20,34 @@ export function betMoneyForProfitAggregate(o) {
     return bet * getExchange(Currency.USDT);
   return bet;
 }
+
+/**
+ * 排行/月报：同 user 同 order_id 只计一次。
+ * 唯一键是 (user_id, order_id, player_id)，删号重加会插出重复行。
+ * 保留策略：非 Reject 优先，再取较大 id（较新写入）。
+ */
+export function dedupeOrdersByUserOrderId(orders) {
+  const best = new Map();
+  let anon = 0;
+  for (const o of orders || []) {
+    const uid = String(o?.user_id || "").trim();
+    const oid = String(o?.order_id || "").trim().toLowerCase();
+    const key = uid && oid ? `${uid}|${oid}` : `__anon:${anon++}`;
+    const prev = best.get(key);
+    if (!prev) {
+      best.set(key, o);
+      continue;
+    }
+    const prevReject = String(prev.status || "") === "Reject";
+    const curReject = String(o.status || "") === "Reject";
+    if (prevReject && !curReject) {
+      best.set(key, o);
+      continue;
+    }
+    if (!prevReject && curReject)
+      continue;
+    if ((Number(o.id) || 0) >= (Number(prev.id) || 0))
+      best.set(key, o);
+  }
+  return [...best.values()];
+}

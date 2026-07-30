@@ -35,6 +35,11 @@ export {
   listAdminOrdersMatrix,
   listAdminOrderLogs,
 } from "./admin_orders.js";
+export {
+  getAdminMaintenanceReport,
+  listDuplicateOrderIds,
+  listSharedVenueAccounts,
+} from "./admin_maintenance.js";
 
 function accountCount(accounts) {
   return Array.isArray(accounts) ? accounts.length : 0;

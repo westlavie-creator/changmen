@@ -108,6 +108,7 @@ export {
   fetchPlayerByProviderAndVenueMemberId,
   fetchPlayerById,
   fetchPlayersByIds,
+  fetchPlayersByIdsIncludingDeleted,
   fetchTagPlatforms,
   fetchUserLogsInRange,
   insertPlayerRow,

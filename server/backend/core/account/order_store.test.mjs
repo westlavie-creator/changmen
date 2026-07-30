@@ -125,6 +125,71 @@ describe("listUserProfitRank", () => {
     expect(rows[0].Count).toBe(2);
     expect(rows[0].BetMoney).toBeCloseTo(200 + 27.21 * 6.8, 4);
   });
+
+  it("dedupes same order_id across player_id (deleted+readded account)", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchProfiles).mockResolvedValue([
+      { id: "u1", user_name: "GB17", is_admin: false, role: "user" },
+    ]);
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([
+      {
+        id: 1,
+        user_id: "u1",
+        player_id: 200,
+        order_id: "1837201350013222349",
+        provider: "OB",
+        status: "Lose",
+        money: -100,
+        bet_money: 100,
+      },
+      {
+        id: 2,
+        user_id: "u1",
+        player_id: 255,
+        order_id: "1837201350013222349",
+        provider: "OB",
+        status: "Lose",
+        money: -100,
+        bet_money: 100,
+      },
+      {
+        id: 3,
+        user_id: "u1",
+        player_id: 200,
+        order_id: "1845490493399475642",
+        provider: "OB",
+        status: "Win",
+        money: 55.7,
+        bet_money: 100,
+      },
+      {
+        id: 4,
+        user_id: "u1",
+        player_id: 255,
+        order_id: "1845490493399475642",
+        provider: "OB",
+        status: "Win",
+        money: 55.7,
+        bet_money: 100,
+      },
+      {
+        id: 5,
+        user_id: "u1",
+        player_id: 255,
+        order_id: "other",
+        provider: "OB",
+        status: "Win",
+        money: 200,
+        bet_money: 100,
+      },
+    ]);
+
+    const rows = await listUserProfitRank("2026-07-29");
+    expect(rows).toHaveLength(1);
+    // -100 + 55.7 + 200??? order_id ?????
+    expect(rows[0].Money).toBeCloseTo(155.7, 4);
+    expect(rows[0].Count).toBe(3);
+  });
 });
 
 describe("mergeOrderLogicalSave buy stake after manual sell", () => {

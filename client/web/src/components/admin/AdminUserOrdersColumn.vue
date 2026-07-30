@@ -4,7 +4,7 @@ import type { OrderRow } from "@/types/order";
 import { computed, ref, watch } from "vue";
 import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import OrderList from "@/components/order/OrderList.vue";
-import { adminPlayerLabel, countAdminPrimaryOrders, groupAdminOrderEntries } from "@/shared/adminOrderDisplay";
+import { adminPlayerLabel, countAdminPrimaryOrders, groupAdminOrderEntries, mergeAdminAccountsWithOrderHistory } from "@/shared/adminOrderDisplay";
 import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
@@ -21,14 +21,18 @@ const emit = defineEmits<{
 const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 const filterPlayerId = ref<number | null>(null);
 
+const displayAccounts = computed(() =>
+  mergeAdminAccountsWithOrderHistory(props.accounts, props.orders),
+);
+
 const accountOptions = computed(() =>
-  [...props.accounts]
+  [...displayAccounts.value]
     .map(acc => {
       const platform = acc.platformName || acc.platform || "—";
       const name = accountOrderDisplayName(acc) || `#${acc.accountId}`;
       return {
         value: Number(acc.accountId),
-        label: `${platform} / ${name}`,
+        label: `${platform} / ${name}${acc.active === false && acc.description === "已删除" ? "（已删）" : ""}`,
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
@@ -40,7 +44,7 @@ const visibleOrders = computed(() => {
   return props.orders.filter(r => Number(r.playerId) === Number(filterPlayerId.value));
 });
 
-const grouped = computed(() => groupAdminOrderEntries(visibleOrders.value, props.accounts));
+const grouped = computed(() => groupAdminOrderEntries(visibleOrders.value, displayAccounts.value));
 
 const orderEntries = computed(() =>
   grouped.value.map(({ link, orderRows }) => [link, orderRows] as const),
@@ -51,15 +55,15 @@ const dayProfit = computed(() =>
 );
 
 const primaryOrderCount = computed(() =>
-  countAdminPrimaryOrders(visibleOrders.value, props.accounts),
+  countAdminPrimaryOrders(visibleOrders.value, displayAccounts.value),
 );
 
 watch(
-  () => props.accounts.map(a => a.accountId).join(","),
+  () => displayAccounts.value.map(a => a.accountId).join(","),
   () => {
     if (
       filterPlayerId.value
-      && !props.accounts.some(a => Number(a.accountId) === Number(filterPlayerId.value))
+      && !displayAccounts.value.some(a => Number(a.accountId) === Number(filterPlayerId.value))
     ) {
       filterPlayerId.value = null;
     }
@@ -71,11 +75,12 @@ function fmtMoney(n: number) {
 }
 
 function playerLabel(row: OrderRow) {
-  return adminPlayerLabel(row, props.accounts);
+  const admin = adminRowForOrder(row);
+  return adminPlayerLabel(row, displayAccounts.value, admin);
 }
 
 function platformClass(row: OrderRow) {
-  const acc = props.accounts.find(a => a.accountId === row.PlayerID);
+  const acc = displayAccounts.value.find(a => a.accountId === row.PlayerID);
   if (acc?.active)
     return "Stop";
   return undefined;

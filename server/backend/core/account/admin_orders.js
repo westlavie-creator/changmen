@@ -138,6 +138,34 @@ function mapAdminOrderRow(r, startIndex = null) {
   };
 }
 
+/** 历史订单：回填 player 展示字段（含已删账号） */
+async function attachPlayerDisplayToAdminOrders(list) {
+  const ids = [...new Set(
+    (list || []).map(r => Number(r.playerId) || 0).filter(id => id > 0),
+  )];
+  if (!ids.length)
+    return list || [];
+  const players = await sb.fetchPlayersByIdsIncludingDeleted(ids);
+  const byId = new Map(players.map(p => [Number(p.id ?? p.playerId), p]));
+  return (list || []).map((row) => {
+    const p = byId.get(Number(row.playerId) || 0);
+    if (!p)
+      return row;
+    const data
+      = p.accountData && typeof p.accountData === "object" && !Array.isArray(p.accountData)
+        ? p.accountData
+        : {};
+    const venueAccountName = String(data.venueAccountName || "").trim();
+    return {
+      ...row,
+      playerName: String(p.playerName || "").trim() || undefined,
+      platformName: String(p.platformName || "").trim() || undefined,
+      venueAccountName: venueAccountName || undefined,
+      playerDeleted: p.deletedAt != null,
+    };
+  });
+}
+
 export async function listAdminOrders(body = {}, caller = null) {
   const dateKey = body.date ? String(body.date) : toDateKey(Date.now());
   const pageIndex = Math.max(1, Number(body.pageIndex) || 1);
@@ -176,7 +204,7 @@ export async function listAdminOrders(body = {}, caller = null) {
   const scoped = provider
     ? enriched.filter(r => String(r?.provider || "").trim() === provider)
     : enriched;
-  const list = scoped.map(r => mapAdminOrderRow(r));
+  const list = await attachPlayerDisplayToAdminOrders(scoped.map(r => mapAdminOrderRow(r)));
   const sqlTotal = Number(total) || 0;
   // total/hasMore 按 SQL create_at 当日分页；list 经 enrich 后可含跨日 sibling / 整页被滤空
   return {
@@ -250,7 +278,9 @@ export async function listAdminOrdersMatrix(body = {}, caller = null) {
   ]);
   const enriched = await enrichOrdersBelongingToDate(rows || [], dateKey, { userIds });
   const startIndex = buildClientMatchStartIndex(clientMatches);
-  const list = enriched.map(r => mapAdminOrderRow(r, startIndex));
+  const list = await attachPlayerDisplayToAdminOrders(
+    enriched.map(r => mapAdminOrderRow(r, startIndex)),
+  );
   return { date: dateKey, list, total: list.length };
 }
 
