@@ -126,6 +126,8 @@ export {
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
   findVenueAccountKeyConflict,
+  fetchPlayerByVenueAccountKey,
+  resurrectPlayerRow,
   upsertTagPlatformByName,
 } from "./rds/player_store.js";
 

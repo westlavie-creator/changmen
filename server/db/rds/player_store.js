@@ -11,6 +11,7 @@ import {
   VenueAccountKeyConflictError,
   buildVenueAccountKey,
   isVenueAccountKeyUniqueViolation,
+  ownSoftDeletedVenueAccountMessage,
   venueAccountKeyConflictMessage,
 } from "../venue_account_key.js";
 import { getPgPool, _jsonb } from "./common.js";
@@ -110,6 +111,15 @@ export async function insertPlayerRow({
   const venueKey = buildVenueAccountKey({ provider, venueMemberId });
   if (!Number.isFinite(pid) || pid <= 0 || !uid)
     return null;
+  if (venueKey) {
+    const conflict = await findVenueAccountKeyConflict(venueKey);
+    if (conflict) {
+      const sameOwner = conflict.ownerUserId && conflict.ownerUserId === uid;
+      if (sameOwner && conflict.deleted)
+        throw new VenueAccountKeyConflictError(ownSoftDeletedVenueAccountMessage(conflict), conflict);
+      throw new VenueAccountKeyConflictError(venueAccountKeyConflictMessage(conflict), conflict);
+    }
+  }
   try {
     const { rows } = await pool.query(
       `INSERT INTO players (
@@ -138,7 +148,12 @@ export async function insertPlayerRow({
   }
 }
 
-export async function fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, ownerUserId) {
+export async function fetchPlayerByProviderAndVenueMemberId(
+  provider,
+  venueMemberId,
+  ownerUserId,
+  { includeDeleted = false } = {},
+) {
   const prov = String(provider || "").trim();
   const memberId = String(venueMemberId || "").trim();
   const uid = String(ownerUserId || "").trim();
@@ -148,11 +163,12 @@ export async function fetchPlayerByProviderAndVenueMemberId(provider, venueMembe
   if (!pool)
     return null;
   try {
+    const deletedClause = includeDeleted ? "" : " AND deleted_at IS NULL";
     const { rows } = await pool.query(
       `SELECT ${PLAYER_SELECT}
        FROM players
-       WHERE provider = $1 AND venue_member_id = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
-       ORDER BY id ASC
+       WHERE provider = $1 AND venue_member_id = $2 AND owner_user_id = $3::uuid${deletedClause}
+       ORDER BY (deleted_at IS NULL) DESC, id ASC
        LIMIT 1`,
       [prov, memberId, uid],
     );
@@ -164,8 +180,11 @@ export async function fetchPlayerByProviderAndVenueMemberId(provider, venueMembe
   }
 }
 
-/** 全库场馆账号互斥：查找占用同一 venue_account_key 的其他 player */
-export async function findVenueAccountKeyConflict(venueAccountKey, { playerId, ownerUserId } = {}) {
+/**
+ * 全库场馆账号互斥（含软删）：查找占用同一 venue_account_key 的其他 player。
+ * 软删行仍占坑，防止删号后被他人抢加。
+ */
+export async function findVenueAccountKeyConflict(venueAccountKey, { playerId } = {}) {
   const key = String(venueAccountKey || "").trim();
   if (!key)
     return null;
@@ -175,12 +194,12 @@ export async function findVenueAccountKeyConflict(venueAccountKey, { playerId, o
   const id = Number(playerId) || 0;
   try {
     const { rows } = await pool.query(
-      `SELECT p.id, p.owner_user_id, u.user_name
+      `SELECT p.id, p.owner_user_id, p.deleted_at, u.user_name
        FROM players p
        LEFT JOIN users u ON u.id = p.owner_user_id
-       WHERE p.deleted_at IS NULL
-         AND p.venue_account_key = $1
+       WHERE p.venue_account_key = $1
          AND ($2::bigint = 0 OR p.id <> $2)
+       ORDER BY (p.deleted_at IS NULL) DESC, p.updated_at DESC NULLS LAST, p.id DESC
        LIMIT 1`,
       [key, id],
     );
@@ -191,6 +210,8 @@ export async function findVenueAccountKeyConflict(venueAccountKey, { playerId, o
       id: Number(row.id),
       ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
       userName: String(row.user_name || ""),
+      deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
+      deleted: row.deleted_at != null,
     };
   }
   catch (err) {
@@ -199,7 +220,105 @@ export async function findVenueAccountKeyConflict(venueAccountKey, { playerId, o
   }
 }
 
-export async function fetchPlayerByPlatformAndName(platformId, playerName, ownerUserId) {
+/** 按 venue_account_key 取占用人（含软删；优先活跃） */
+export async function fetchPlayerByVenueAccountKey(venueAccountKey) {
+  const key = String(venueAccountKey || "").trim();
+  if (!key)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE venue_account_key = $1
+       ORDER BY (deleted_at IS NULL) DESC, updated_at DESC NULLS LAST, id DESC
+       LIMIT 1`,
+      [key],
+    );
+    return _mapPlayerRow(rows?.[0]);
+  }
+  catch (err) {
+    console.warn("[rds] fetchPlayerByVenueAccountKey:", err.message);
+    return null;
+  }
+}
+
+/**
+ * 本人软删账号复活：清 deleted_at，刷新展示字段与 venue_account_key。
+ * 供 CreateTagPlatform「添加账号」路径复用同一 playerId。
+ */
+export async function resurrectPlayerRow(playerId, ownerUserId, {
+  platformId,
+  platformName,
+  playerName,
+  provider = "",
+  venueMemberId = "",
+} = {}) {
+  const id = Number(playerId);
+  const uid = String(ownerUserId || "").trim();
+  if (!Number.isFinite(id) || id <= 0 || !uid)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  const now = Date.now();
+  const prov = String(provider || "").trim();
+  const memberId = String(venueMemberId || "").trim();
+  const venueKey = buildVenueAccountKey({ provider: prov, venueMemberId: memberId });
+  const pid = Number(platformId);
+  try {
+    const params = [
+      id,
+      uid,
+      String(platformName || ""),
+      String(playerName || ""),
+      prov,
+      memberId,
+      String(venueKey || ""),
+      now,
+    ];
+    let platformClause = "";
+    if (Number.isFinite(pid) && pid > 0) {
+      params.push(pid);
+      platformClause = `, platform_id = $${params.length}`;
+    }
+    const { rows } = await pool.query(
+      `UPDATE players SET
+         deleted_at = NULL,
+         delete_description = '',
+         platform_name = $3,
+         player_name = $4,
+         provider = CASE WHEN $5 <> '' THEN $5 ELSE provider END,
+         venue_member_id = CASE WHEN $6 <> '' THEN $6 ELSE venue_member_id END,
+         venue_account_key = CASE
+           WHEN $7 <> '' THEN $7
+           ELSE venue_account_key
+         END,
+         updated_at = $8${platformClause}
+       WHERE id = $1
+         AND owner_user_id = $2::uuid
+         AND deleted_at IS NOT NULL
+       RETURNING ${PLAYER_SELECT}`,
+      params,
+    );
+    return _mapPlayerRow(rows?.[0]);
+  }
+  catch (err) {
+    if (isVenueAccountKeyUniqueViolation(err))
+      throw new VenueAccountKeyConflictError("该场馆操盘账号已被其他用户使用");
+    console.warn("[rds] resurrectPlayerRow:", err.message);
+    return null;
+  }
+}
+
+export async function fetchPlayerByPlatformAndName(
+  platformId,
+  playerName,
+  ownerUserId,
+  { includeDeleted = false } = {},
+) {
   const pid = Number(platformId);
   const name = String(playerName || "").trim();
   const uid = String(ownerUserId || "").trim();
@@ -209,11 +328,12 @@ export async function fetchPlayerByPlatformAndName(platformId, playerName, owner
   if (!pool)
     return null;
   try {
+    const deletedClause = includeDeleted ? "" : " AND deleted_at IS NULL";
     const { rows } = await pool.query(
       `SELECT ${PLAYER_SELECT}
        FROM players
-       WHERE platform_id = $1 AND player_name = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
-       ORDER BY id ASC
+       WHERE platform_id = $1 AND player_name = $2 AND owner_user_id = $3::uuid${deletedClause}
+       ORDER BY (deleted_at IS NULL) DESC, id ASC
        LIMIT 1`,
       [pid, name, uid],
     );
@@ -226,7 +346,12 @@ export async function fetchPlayerByPlatformAndName(platformId, playerName, owner
 }
 
 /** CreateTagPlatform 回退：历史数据 platform_id 可能与 tag_platforms 不一致 */
-export async function fetchPlayerByPlatformNameAndPlayerName(platformName, playerName, ownerUserId) {
+export async function fetchPlayerByPlatformNameAndPlayerName(
+  platformName,
+  playerName,
+  ownerUserId,
+  { includeDeleted = false } = {},
+) {
   const label = String(platformName || "").trim();
   const name = String(playerName || "").trim();
   const uid = String(ownerUserId || "").trim();
@@ -236,11 +361,12 @@ export async function fetchPlayerByPlatformNameAndPlayerName(platformName, playe
   if (!pool)
     return null;
   try {
+    const deletedClause = includeDeleted ? "" : " AND deleted_at IS NULL";
     const { rows } = await pool.query(
       `SELECT ${PLAYER_SELECT}
        FROM players
-       WHERE platform_name = $1 AND player_name = $2 AND owner_user_id = $3::uuid AND deleted_at IS NULL
-       ORDER BY id ASC
+       WHERE platform_name = $1 AND player_name = $2 AND owner_user_id = $3::uuid${deletedClause}
+       ORDER BY (deleted_at IS NULL) DESC, id ASC
        LIMIT 1`,
       [label, name, uid],
     );
@@ -877,9 +1003,17 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
     const key = String(patch.venueAccountKey || "").trim();
     if (!key)
       continue;
-    const conflict = await findVenueAccountKeyConflict(key, { playerId: patch.playerId, ownerUserId: uid });
-    if (conflict)
-      throw new VenueAccountKeyConflictError(venueAccountKeyConflictMessage(conflict), conflict);
+    const conflict = await findVenueAccountKeyConflict(key, { playerId: patch.playerId });
+    if (!conflict)
+      continue;
+    const sameOwner = conflict.ownerUserId && conflict.ownerUserId === uid;
+    if (sameOwner && conflict.deleted) {
+      throw new VenueAccountKeyConflictError(
+        ownSoftDeletedVenueAccountMessage(conflict),
+        conflict,
+      );
+    }
+    throw new VenueAccountKeyConflictError(venueAccountKeyConflictMessage(conflict), conflict);
   }
   try {
     // PredictFun：只认库内 p.provider（勿 OR u.provider，否则伪造 PredictFun 会把 OB credit 清 0）；

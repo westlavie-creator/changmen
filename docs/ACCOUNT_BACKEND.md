@@ -38,6 +38,8 @@ players (每用户隔离，唯一真相)
   account_data    凭证 + 投注配置
   UNIQUE (owner_user_id, platform_id, player_name) WHERE deleted_at IS NULL
   UNIQUE (owner_user_id, provider, venue_member_id) WHERE deleted_at IS NULL AND venue_member_id <> '' AND provider <> ''
+  UNIQUE (venue_account_key) WHERE venue_account_key <> ''
+    ← 含软删：A 删号后他人不可抢加；仅 A 通过「添加账号」复活同一 playerId
 
 orders / money_logs
   user_id + player_id
@@ -47,7 +49,7 @@ orders / money_logs
 
 | API | changmen 后端职责 |
 |-----|-------------------|
-| `Client_CreateTagPlatform` | 当前用户下创建/复用 player，返回 `{ playerId, ... }` |
+| `Client_CreateTagPlatform` | 当前用户下创建/复用/复活（本人软删）player，返回 `{ playerId, ... }`；他人占用（含已删）拒绝 |
 | `Client_GetData` / `SaveData` key=`ACCOUNT` | 读/写 **players**（组装/拆解线协议 JSON）；禁止空列表覆盖 |
 | `Client_UpdateBalance` | 仅本人 player |
 | `Client_DeletePlayer` | 软删 player + 从内存账号列表移除 |

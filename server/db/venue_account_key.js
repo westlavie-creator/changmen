@@ -1,5 +1,6 @@
 /**
  * 全库场馆操盘账号指纹：禁止跨用户共用同一 venue_member_id 或 gateway+token。
+ * 含软删互斥：删号后他人不可抢加；仅原主人可通过「添加账号」复活同一 player。
  * [changmen 扩展] A8 无此约束；changmen 按运营需求全局互斥。
  */
 
@@ -54,5 +55,15 @@ export function venueAccountKeyConflictMessage(conflict) {
   if (!conflict)
     return "该场馆操盘账号已被其他用户使用";
   const who = conflict.userName || conflict.ownerUserId || "其他用户";
+  const deleted = conflict.deletedAt != null || conflict.deleted === true;
+  if (deleted) {
+    return `该场馆操盘账号已被用户 ${who} 占用（已删除，仅原主人可通过添加账号复活；player ${conflict.id}）`;
+  }
   return `该场馆操盘账号已被用户 ${who} 占用（player ${conflict.id}）`;
+}
+
+/** 本人软删行仍占 fingerprint 时的提示（应走 CreateTagPlatform 复活，勿新建） */
+export function ownSoftDeletedVenueAccountMessage(conflict) {
+  const id = conflict?.id != null ? `player ${conflict.id}` : "原账号";
+  return `你有已删除的同场馆账号（${id}），请用添加账号复活，勿新建`;
 }

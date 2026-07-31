@@ -26,7 +26,7 @@ function suggestSharedVenue(group) {
     const others = users.filter(u => u !== owner);
     return `现仅 ${owner} 活跃。建议：确认归属归 ${owner}；${others.join("、") || "其他用户"} 侧已删账号不要再加回；若有跨用户同 order_id 订单，删非 ${owner} 侧副本。`;
   }
-  return `当前无活跃占用（均已软删）。建议：确定唯一主人后再由该用户复活/重加；在实现「含已删互斥+本人复活」前，避免另一用户抢加同一场馆账号。`;
+  return `当前无活跃占用（均已软删）。venue_account_key 含已删互斥：仅原主人可通过「添加账号」复活；他人抢加会被拒绝。`;
 }
 
 function suggestOrderDup(group) {
@@ -280,7 +280,7 @@ export async function getAdminMaintenanceReport() {
   if (!duplicateOrderIds.crossUserTotal && !duplicateOrderIds.sameUserTotal) {
     tips.push("未发现 order_id 重复。");
   }
-  tips.push("长期方案：含已删 venue_account_key 互斥 + 本人已删则复活，避免删号后被他人抢加。");
+  tips.push("含已删 venue_account_key 互斥：删号后他人不可抢加；原主人通过「添加账号」复活同一 player。");
 
   return {
     generatedAt: Date.now(),

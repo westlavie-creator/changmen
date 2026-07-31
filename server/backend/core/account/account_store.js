@@ -1,4 +1,9 @@
 import * as sb from "@changmen/db";
+import {
+  VenueAccountKeyConflictError,
+  buildVenueAccountKey,
+  venueAccountKeyConflictMessage,
+} from "@changmen/db/venue_account_key.js";
 import store from "../esport-api/store.js";
 
 async function listTagPlatforms() {
@@ -29,26 +34,93 @@ async function createTagPlatform(platformName, playerName, ownerUserId, opts = {
   }
 
   const displayName = name || venueMemberId;
+  const venueKey = venueMemberId && provider
+    ? buildVenueAccountKey({ provider, venueMemberId })
+    : "";
 
-  // [changmen 扩展] 接线场馆优先按 provider + venueMemberId 复用
-  let existing = null;
-  if (venueMemberId && provider)
-    existing = await sb.fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, uid);
-  if (!existing && name) {
-    existing = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid);
-    if (!existing)
-      existing = await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid);
-  }
-  if (existing) {
+  function toCreated(player) {
     return {
-      playerId: existing.playerId,
-      playerName: existing.playerName,
-      platformId: existing.platformId,
+      playerId: player.playerId ?? player.id,
+      playerName: player.playerName,
+      platformId: player.platformId ?? platform.id,
       platformName: platform.name,
-      venueMemberId: existing.venueMemberId || venueMemberId || undefined,
-      provider: existing.provider || provider || undefined,
+      venueMemberId: player.venueMemberId || venueMemberId || undefined,
+      provider: player.provider || provider || undefined,
     };
   }
+
+  async function resurrectIfNeeded(row) {
+    if (!row)
+      return null;
+    if (!row.deletedAt)
+      return toCreated(row);
+    const revived = await sb.resurrectPlayerRow(row.playerId ?? row.id, uid, {
+      platformId: platform.id,
+      platformName: platform.name,
+      playerName: displayName,
+      provider,
+      venueMemberId,
+    });
+    if (!revived)
+      throw new Error("CreateTagPlatform 复活已删账号失败");
+    return toCreated(revived);
+  }
+
+  /** 按名命中的软删行若场馆会员 ID 不同，禁止误复活成另一场馆号 */
+  function canReuseByIdentity(row) {
+    if (!row)
+      return false;
+    if (!venueMemberId)
+      return true;
+    const existingMember = String(row.venueMemberId || "").trim();
+    if (!existingMember)
+      return true;
+    return existingMember === venueMemberId;
+  }
+
+  // 含软删指纹占坑：他人占用（含已删）→ 拒绝；本人已删 → 复活
+  if (venueKey) {
+    const holder = await sb.fetchPlayerByVenueAccountKey(venueKey);
+    if (holder) {
+      if (String(holder.ownerUserId) !== uid) {
+        const detailed = await sb.findVenueAccountKeyConflict(venueKey);
+        const conflict = detailed || {
+          id: holder.playerId ?? holder.id,
+          ownerUserId: holder.ownerUserId,
+          deletedAt: holder.deletedAt,
+          deleted: holder.deletedAt != null,
+        };
+        throw new VenueAccountKeyConflictError(
+          venueAccountKeyConflictMessage(conflict),
+          conflict,
+        );
+      }
+      return resurrectIfNeeded(holder);
+    }
+  }
+
+  // [changmen 扩展] 接线场馆优先按 provider + venueMemberId（含本人软删）
+  let existing = null;
+  if (venueMemberId && provider) {
+    existing = await sb.fetchPlayerByProviderAndVenueMemberId(
+      provider,
+      venueMemberId,
+      uid,
+      { includeDeleted: true },
+    );
+  }
+  if (!existing && name) {
+    const byName = await sb.fetchPlayerByPlatformAndName(platform.id, name, uid, {
+      includeDeleted: true,
+    })
+      || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid, {
+        includeDeleted: true,
+      });
+    if (canReuseByIdentity(byName))
+      existing = byName;
+  }
+  if (existing)
+    return resurrectIfNeeded(existing);
 
   const player = await sb.insertPlayerRow({
     platformId: platform.id,
@@ -60,33 +132,22 @@ async function createTagPlatform(platformName, playerName, ownerUserId, opts = {
   });
   if (!player) {
     const raced = (venueMemberId && provider
-      ? await sb.fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, uid)
+      ? await sb.fetchPlayerByProviderAndVenueMemberId(provider, venueMemberId, uid, {
+        includeDeleted: true,
+      })
       : null)
       || (name
-        ? await sb.fetchPlayerByPlatformAndName(platform.id, name, uid)
-          || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid)
+        ? await sb.fetchPlayerByPlatformAndName(platform.id, name, uid, { includeDeleted: true })
+          || await sb.fetchPlayerByPlatformNameAndPlayerName(label, name, uid, {
+            includeDeleted: true,
+          })
         : null);
-    if (raced) {
-      return {
-        playerId: raced.playerId,
-        playerName: raced.playerName,
-        platformId: raced.platformId,
-        platformName: platform.name,
-        venueMemberId: raced.venueMemberId || venueMemberId || undefined,
-        provider: raced.provider || provider || undefined,
-      };
-    }
+    if (raced && canReuseByIdentity(raced))
+      return resurrectIfNeeded(raced);
     throw new Error("CreateTagPlatform 写入 players 失败");
   }
 
-  return {
-    playerId: player.id,
-    playerName: player.playerName,
-    platformId: player.platformId,
-    platformName: player.platformName,
-    venueMemberId: player.venueMemberId || venueMemberId || undefined,
-    provider: player.provider || provider || undefined,
-  };
+  return toCreated(player);
 }
 
 async function getPlayer(playerId) {

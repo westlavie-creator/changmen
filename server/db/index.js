@@ -155,6 +155,8 @@ export const {
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
   findVenueAccountKeyConflict,
+  fetchPlayerByVenueAccountKey,
+  resurrectPlayerRow,
   updatePlayerBalanceRow,
   debitPlayerBalanceRow,
   creditPlayerBalanceRow,
