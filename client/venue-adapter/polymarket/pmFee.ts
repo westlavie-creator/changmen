@@ -1,4 +1,8 @@
 import { POLYMARKET_CLOB_API } from "./api";
+import {
+  resolvePolymarketBuyCostFromActivity,
+  type PolymarketActivityBuyCost,
+} from "./pmActivity";
 import { polymarketPluginGet } from "./transport";
 
 /** CLOB `/clob-markets/{id}` 的 fee 曲线参数 */
@@ -79,7 +83,7 @@ export function computePolymarketBuilderFeeUsdc(notionalUsdc: number, takerBps: 
 
 /**
  * 买单全成本：名义 G + 平台 fee（+ 可选 builder）。
- * 买入价仍用 G/C；本函数只动金额。
+ * fillPrice = 撮合均价 G/C；allInAvgPrice = (G+fee)/C（对齐官网 ¢）。
  */
 export function computePolymarketBuyAllInStakeUsdc(params: {
   grossStakeUsdc: number;
@@ -91,7 +95,14 @@ export function computePolymarketBuyAllInStakeUsdc(params: {
   builderTakerBps?: number;
   /** 若已算好 fee，直接用 */
   feeUsdc?: number;
-}): { feeUsdc: number; allInStakeUsdc: number; fillPrice: number } {
+}): {
+  feeUsdc: number;
+  allInStakeUsdc: number;
+  /** 撮合均价（不含费） */
+  fillPrice: number;
+  /** 含费均价（官网历史徽章口径） */
+  allInAvgPrice: number;
+} {
   const gross = round4(Number(params.grossStakeUsdc) || 0);
   const shares = Number(params.shares) || 0;
   const fillPrice = shares > 0 && gross > 0 ? gross / shares : 0;
@@ -112,10 +123,15 @@ export function computePolymarketBuyAllInStakeUsdc(params: {
   else {
     feeUsdc = round4(feeUsdc);
   }
+  const allInStakeUsdc = round4(gross + feeUsdc);
+  const allInAvgPrice = shares > 0 && allInStakeUsdc > 0
+    ? allInStakeUsdc / shares
+    : fillPrice;
   return {
     feeUsdc,
-    allInStakeUsdc: round4(gross + feeUsdc),
+    allInStakeUsdc,
     fillPrice,
+    allInAvgPrice,
   };
 }
 
@@ -156,15 +172,69 @@ export function clearPolymarketMarketFeeCache(): void {
   feeCache.clear();
 }
 
+function applyOfficialBuyCostToOrder<T extends {
+  pmFeeUsdc?: number;
+  pmShares?: number;
+  pmFillPrice?: number;
+  pmStakeUsdc?: number;
+  betMoney?: number;
+  odds?: number;
+  reward?: number;
+}>(
+  order: T,
+  allIn: {
+    feeUsdc: number;
+    allInStakeUsdc: number;
+    matchPrice: number;
+    shares: number;
+  },
+): T {
+  const shares = allIn.shares > 0 ? allIn.shares : Number(order.pmShares) || 0;
+  const matchPrice = allIn.matchPrice > 0 ? allIn.matchPrice : Number(order.pmFillPrice) || 0;
+  const odds = Number(order.odds) > 0
+    ? Number(order.odds)
+    : (matchPrice > 0 ? round4(1 / matchPrice) : 0);
+  const gross = shares > 0 && matchPrice > 0 ? round4(shares * matchPrice) : 0;
+  return {
+    ...order,
+    pmShares: shares > 0 ? shares : order.pmShares,
+    // 直接用官网 activity.price / 撮合均价，不摊费用
+    pmFillPrice: round4(matchPrice),
+    pmFeeUsdc: allIn.feeUsdc > 0 ? allIn.feeUsdc : undefined,
+    // 金额直接用官网 usdcSize（含费）
+    pmStakeUsdc: allIn.allInStakeUsdc,
+    betMoney: allIn.allInStakeUsdc,
+    reward: odds > 0 && gross > 0 ? round4(gross * odds) : round4(shares),
+    odds: odds > 0 ? odds : order.odds,
+  };
+}
+
+function activityToOfficialCost(
+  cost: PolymarketActivityBuyCost,
+): {
+  feeUsdc: number;
+  allInStakeUsdc: number;
+  matchPrice: number;
+  shares: number;
+} {
+  return {
+    feeUsdc: cost.feeUsdc,
+    allInStakeUsdc: cost.usdcSize,
+    matchPrice: cost.matchPrice,
+    shares: cost.shares,
+  };
+}
+
 /**
- * 给尚未写入 pmFeeUsdc 的买单补手续费（USDC 口径，须在 scale→CNY 之前调用）。
- * 名义成本始终用 份额×买入价，避免把已含费的 pmStakeUsdc 再加一遍 fee。
- * 已开始卖出/已结清的单不再改 stake（否则会冲掉剩余敞口）。
+ * 未卖出买单：优先用 Data API `/activity` 的 price / size / usdcSize（官网字段，不自算均价）。
+ * activity 未索引时回退费率公式；已卖出/结算单不改 stake。
  */
 export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
+  orderId?: string;
   pmSide?: string;
   pmFeeUsdc?: number;
   pmConditionId?: string;
+  pmTokenId?: string;
   pmShares?: number;
   pmFillPrice?: number;
   pmStakeUsdc?: number;
@@ -173,14 +243,25 @@ export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
   betMoney?: number;
   odds?: number;
   reward?: number;
-}>(order: T): Promise<T> {
+  createAt?: number;
+}>(
+  order: T,
+  options?: {
+    proxyWallet?: string;
+    /** 批量 enrich 时预拉取的 activity，避免每单打一次 HTTP */
+    activityRows?: import("./pmActivity").PolymarketActivityTradeRow[];
+    /**
+     * CLOB orderId → transaction_hash[]（与 activity.transactionHash 1:1）。
+     * getOrders 合并路径传入，避免仅靠份额/时间近似匹配。
+     */
+    txHashesByOrderId?: Map<string, string[]>;
+  },
+): Promise<T> {
   if (String(order.pmSide ?? "buy").toLowerCase() === "sell")
     return order;
-  if (Number(order.pmFeeUsdc) > 0)
-    return order;
+
   const sellState = String(order.pmSellState ?? "").toLowerCase();
   const attributed = Number(order.pmAttributedSellShares) || 0;
-  // 部分卖/已卖光/已结算：剩余 pmStakeUsdc 已被扣减，禁止用「满仓 all-in」覆盖
   if (
     attributed > 0.0001
     || sellState === "partial"
@@ -189,56 +270,123 @@ export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
   ) {
     return order;
   }
+
+  const shares = Number(order.pmShares) || 0;
+  const fillPrice = Number(order.pmFillPrice) || 0;
+  const stakeNow = round4(Number(order.pmStakeUsdc) || Number(order.betMoney) || 0);
+  const product = (shares > 0.0001 && fillPrice > 0 && fillPrice < 1)
+    ? round4(shares * fillPrice)
+    : 0;
+
+  // 未卖出：有 proxy / 预拉取 activity 就尽量用官网覆盖
+  const proxy = String(options?.proxyWallet ?? "").trim().toLowerCase();
+  const orderIdKey = String(order.orderId ?? "").trim().toLowerCase();
+  const txHashes = orderIdKey && options?.txHashesByOrderId
+    ? options.txHashesByOrderId.get(orderIdKey)
+    : undefined;
+  const matchParams = {
+    conditionId: String(order.pmConditionId ?? "").trim() || undefined,
+    tokenId: String(order.pmTokenId ?? "").trim() || undefined,
+    shares: shares > 0 ? shares : undefined,
+    createAtMs: Number(order.createAt) || undefined,
+    transactionHashes: txHashes?.length ? txHashes : undefined,
+  };
+  if (Array.isArray(options?.activityRows)) {
+    const { matchPolymarketActivityBuyCost } = await import("./pmActivity");
+    const fromActivity = matchPolymarketActivityBuyCost(options.activityRows, matchParams);
+    if (fromActivity && fromActivity.usdcSize > 0) {
+      return applyOfficialBuyCostToOrder(order, activityToOfficialCost(fromActivity));
+    }
+  }
+  else if (
+    /^0x[0-9a-f]{40}$/.test(proxy)
+    && (matchParams.conditionId || matchParams.tokenId || matchParams.transactionHashes?.length)
+  ) {
+    const fromActivity = await resolvePolymarketBuyCostFromActivity(proxy, matchParams);
+    if (fromActivity && fromActivity.usdcSize > 0) {
+      return applyOfficialBuyCostToOrder(order, activityToOfficialCost(fromActivity));
+    }
+  }
+
+  // 已有 fee 且 activity 未到：保持
+  if (Number(order.pmFeeUsdc) > 0)
+    return order;
+
+  if (!(shares > 0) || !(product > 0) || !(fillPrice > 0 && fillPrice < 1))
+    return order;
+
+  // stake 已明显高于名义 → 多半已是含费全成本，勿再叠公式 fee
+  if (stakeNow > product + 0.0001) {
+    const impliedFee = round4(stakeNow - product);
+    return applyOfficialBuyCostToOrder(order, {
+      feeUsdc: impliedFee,
+      allInStakeUsdc: stakeNow,
+      matchPrice: fillPrice,
+      shares,
+    });
+  }
+
   const conditionId = String(order.pmConditionId ?? "").trim();
   if (!conditionId)
     return order;
 
-  const shares = Number(order.pmShares) || 0;
-  const fillPrice = Number(order.pmFillPrice) || 0;
-  const gross = (shares > 0.0001 && fillPrice > 0 && fillPrice < 1)
-    ? round4(shares * fillPrice)
-    : round4(Number(order.pmStakeUsdc) || Number(order.betMoney) || 0);
-  if (!(gross > 0) || !(shares > 0))
-    return order;
-
   const fd = await fetchPolymarketMarketFeeDetails(conditionId);
   const allIn = computePolymarketBuyAllInStakeUsdc({
-    grossStakeUsdc: gross,
+    grossStakeUsdc: product,
     shares,
     feeRate: fd.feeRate,
     exponent: fd.exponent,
     takerOnly: fd.takerOnly,
     isTaker: true,
   });
-  if (!(allIn.feeUsdc > 0))
+  if (!(allIn.allInStakeUsdc > 0))
     return order;
 
-  const odds = Number(order.odds) > 0
-    ? Number(order.odds)
-    : (fillPrice > 0 ? round4(1 / fillPrice) : 0);
-  return {
-    ...order,
-    pmFeeUsdc: allIn.feeUsdc,
-    pmStakeUsdc: allIn.allInStakeUsdc,
-    betMoney: allIn.allInStakeUsdc,
-    // 可得仍按名义
-    reward: odds > 0 ? round4(gross * odds) : round4(shares),
-  };
+  return applyOfficialBuyCostToOrder(order, {
+    feeUsdc: allIn.feeUsdc,
+    allInStakeUsdc: allIn.allInStakeUsdc,
+    matchPrice: allIn.fillPrice,
+    shares,
+  });
 }
 
-/** 批量补费；同 conditionId 走 fetch 缓存 */
+/** 批量补费；同账号只拉一次 /activity */
 export async function enrichPolymarketBuyOrdersWithFees<T extends {
+  orderId?: string;
   pmSide?: string;
   pmFeeUsdc?: number;
   pmConditionId?: string;
+  pmTokenId?: string;
   pmShares?: number;
   pmFillPrice?: number;
   pmStakeUsdc?: number;
   betMoney?: number;
   odds?: number;
   reward?: number;
-}>(orders: T[]): Promise<T[]> {
+  createAt?: number;
+}>(
+  orders: T[],
+  options?: {
+    proxyWallet?: string;
+    /** CLOB orderId → txHash；与 activity 精确对齐 */
+    txHashesByOrderId?: Map<string, string[]>;
+  },
+): Promise<T[]> {
   if (!orders.length)
     return orders;
-  return Promise.all(orders.map(o => enrichPolymarketBuyVenueOrderWithFee(o)));
+  const proxy = String(options?.proxyWallet ?? "").trim().toLowerCase();
+  let activityRows: import("./pmActivity").PolymarketActivityTradeRow[] | undefined;
+  if (/^0x[0-9a-f]{40}$/.test(proxy)) {
+    const { fetchPolymarketUserActivityTrades } = await import("./pmActivity");
+    // 覆盖近几天买单；limit 拉高一点减少漏匹配
+    activityRows = await fetchPolymarketUserActivityTrades(proxy, {
+      limit: 200,
+      side: "BUY",
+    });
+  }
+  return Promise.all(orders.map(o => enrichPolymarketBuyVenueOrderWithFee(o, {
+    proxyWallet: proxy,
+    activityRows,
+    txHashesByOrderId: options?.txHashesByOrderId,
+  })));
 }

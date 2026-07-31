@@ -50,7 +50,29 @@ export interface PolymarketTradeRow {
   type?: string;
   owner?: string;
   maker_address?: string;
+  /** 链上成交 tx；与 Data API `/activity.transactionHash` 1:1 对齐 */
+  transaction_hash?: string;
   maker_orders?: PolymarketMakerOrderRow[];
+}
+
+/** 按 CLOB orderId 收集 transaction_hash（多 bucket 可多笔） */
+export function collectPolymarketOrderTxHashes(
+  trades: PolymarketTradeRow[] | null | undefined,
+): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  if (!Array.isArray(trades))
+    return map;
+  for (const trade of trades) {
+    const orderId = String(trade.taker_order_id ?? "").trim().toLowerCase();
+    const tx = String(trade.transaction_hash ?? "").trim().toLowerCase();
+    if (!orderId || !/^0x[0-9a-f]{64}$/.test(tx))
+      continue;
+    const list = map.get(orderId) ?? [];
+    if (!list.includes(tx))
+      list.push(tx);
+    map.set(orderId, list);
+  }
+  return map;
 }
 
 export interface PolymarketMakerOrderRow {
@@ -1256,11 +1278,21 @@ export async function fetchPolymarketVenueOrdersMerged(
   const stored = await loadPolymarketStoredVenueOrders(account);
   const hasOpenStored = stored.some(o => hasOpenPolymarketPosition(o));
   const lookbackMs = resolvePolymarketTradeLookbackMs(account.accountId, hasOpenStored);
-  const { orders } = await fetchPolymarketVenueOrdersBundle(account, lookbackMs);
+  const { orders, flattenedTrades } = await fetchPolymarketVenueOrdersBundle(account, lookbackMs);
   markPolymarketOrdersSynced(account.accountId, lookbackMs);
   const finalized = finalizePolymarketVenueOrders(orders, account.accountId, stored);
-  // delayed / trades 同步：补手续费后再 scale 成 CNY 入库
-  const withFees = await enrichPolymarketBuyOrdersWithFees(finalized);
+  // delayed / trades 同步：CLOB orderId→txHash→activity.usdcSize（1:1）；再公式回退；再 scale 成 CNY
+  const { parseTokenConfig, resolveFunder, normalizeEthAddress, collectPolymarketUserAddresses } =
+    await import("./l2Auth");
+  const cfg = parseTokenConfig(account.token);
+  const funder = normalizeEthAddress(resolveFunder(cfg));
+  const addrs = collectPolymarketUserAddresses(cfg);
+  const proxyWallet = funder || [...addrs][0] || "";
+  const txHashesByOrderId = collectPolymarketOrderTxHashes(flattenedTrades);
+  const withFees = await enrichPolymarketBuyOrdersWithFees(finalized, {
+    proxyWallet,
+    txHashesByOrderId,
+  });
   return scalePolymarketVenueOrdersForDisplay(withFees);
 }
 

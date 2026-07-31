@@ -58,7 +58,7 @@ describe("computePolymarketPlatformFeeUsdc", () => {
 });
 
 describe("computePolymarketBuyAllInStakeUsdc", () => {
-  it("keeps fill price as gross and adds fee to all-in stake", () => {
+  it("returns match fillPrice and all-in avg separately", () => {
     const r = computePolymarketBuyAllInStakeUsdc({
       grossStakeUsdc: 10,
       shares: 25,
@@ -67,6 +67,7 @@ describe("computePolymarketBuyAllInStakeUsdc", () => {
     expect(r.fillPrice).toBeCloseTo(0.4, 6);
     expect(r.feeUsdc).toBe(0.3);
     expect(r.allInStakeUsdc).toBe(10.3);
+    expect(r.allInAvgPrice).toBeCloseTo(10.3 / 25, 6);
   });
 
   it("uses explicit feeUsdc when provided", () => {
@@ -78,6 +79,7 @@ describe("computePolymarketBuyAllInStakeUsdc", () => {
     expect(r.feeUsdc).toBe(0.5);
     expect(r.allInStakeUsdc).toBe(10.5);
     expect(r.fillPrice).toBe(0.5);
+    expect(r.allInAvgPrice).toBeCloseTo(10.5 / 20, 6);
   });
 });
 
@@ -96,7 +98,7 @@ describe("enrichPolymarketBuyVenueOrderWithFee", () => {
     expect(enriched.pmFeeUsdc).toBeUndefined();
   });
 
-  it("adds fee using fill×price as gross (does not double-count stake)", async () => {
+  it("adds fee using fill×price as gross; keeps match price as pmFillPrice", async () => {
     const enriched = await enrichPolymarketBuyVenueOrderWithFee({
       pmSide: "buy",
       pmShares: 25,
@@ -110,10 +112,11 @@ describe("enrichPolymarketBuyVenueOrderWithFee", () => {
     expect(enriched.pmFeeUsdc).toBe(0.3);
     expect(enriched.pmStakeUsdc).toBe(10.3);
     expect(enriched.betMoney).toBe(10.3);
+    expect(enriched.pmFillPrice).toBe(0.4);
     expect(enriched.reward).toBe(25);
   });
 
-  it("skips when pmFeeUsdc already set", async () => {
+  it("keeps existing fee and match price when activity unavailable", async () => {
     const enriched = await enrichPolymarketBuyVenueOrderWithFee({
       pmSide: "buy",
       pmShares: 25,
@@ -125,6 +128,7 @@ describe("enrichPolymarketBuyVenueOrderWithFee", () => {
     });
     expect(enriched.pmFeeUsdc).toBe(0.3);
     expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.pmFillPrice).toBe(0.4);
   });
 
   it("does not overwrite remaining stake after partial sell", async () => {
@@ -140,6 +144,20 @@ describe("enrichPolymarketBuyVenueOrderWithFee", () => {
     });
     expect(enriched.pmStakeUsdc).toBe(5.15);
     expect(enriched.pmFeeUsdc).toBeUndefined();
+  });
+
+  it("does not double-count when stake already above match notional", async () => {
+    const enriched = await enrichPolymarketBuyVenueOrderWithFee({
+      pmSide: "buy",
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmStakeUsdc: 10.3,
+      betMoney: 10.3,
+      pmConditionId: "0xcond-already-allin",
+    });
+    expect(enriched.pmFeeUsdc).toBeCloseTo(0.3, 4);
+    expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.pmFillPrice).toBe(0.4);
   });
 });
 

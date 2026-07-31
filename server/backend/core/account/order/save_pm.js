@@ -26,15 +26,18 @@ function preservePmFillPrice(prevRaw, o, merged) {
   return undefined;
 }
 
-/** pmFeeUsdc：首次写入或更大值保留，避免 sync 用 0 覆盖 */
+/** pmFeeUsdc：优先本次入参（activity/公式刷新），避免 Math.max 粘住偏高估 */
 function preservePmFeeUsdc(prevRaw, o, merged) {
   const incoming = parseNum(o.pmFeeUsdc ?? o.PmFeeUsdc, NaN);
+  if (Number.isFinite(incoming) && incoming > 0)
+    return incoming;
   const fromMerged = parseNum(merged.pmFeeUsdc, NaN);
+  if (Number.isFinite(fromMerged) && fromMerged > 0)
+    return fromMerged;
   const prev = parseNum(prevRaw.pmFeeUsdc, NaN);
-  const candidates = [incoming, fromMerged, prev].filter(n => Number.isFinite(n) && n > 0);
-  if (!candidates.length)
-    return undefined;
-  return Math.max(...candidates);
+  if (Number.isFinite(prev) && prev > 0)
+    return prev;
+  return undefined;
 }
 
 /**
@@ -107,7 +110,7 @@ export function mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merge
   let betMoneyForMerge = originalBet;
   if (!prevBet && hasBetMoneyField && incomingBet > 0)
     betMoneyForMerge = incomingBet;
-  // 首次补上手续费：允许从名义本金上调到含费全成本（未开始卖出时）
+  // 未卖出：允许用官网/同步刷新含费全成本（含 activity 校正、首次补 fee）
   const prevFee = parseNum(prevRaw.pmFeeUsdc, 0);
   const incomingFee = parseNum(o.pmFeeUsdc ?? o.PmFeeUsdc ?? merged.pmFeeUsdc, 0);
   const sellStarted = prevState === "partial"
@@ -115,10 +118,12 @@ export function mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merge
     || (prevAttr > 0 && prevState === "settled");
   if (
     !sellStarted
-    && prevFee <= 0
-    && incomingFee > 0
     && hasBetMoneyField
-    && incomingBet > prevBet + 1e-9
+    && incomingBet > 0
+    && (
+      (prevFee <= 0 && incomingFee > 0 && incomingBet > prevBet + 1e-9)
+      || (incomingFee > 0 && Math.abs(incomingBet - prevBet) > 1e-6)
+    )
   ) {
     betMoneyForMerge = incomingBet;
   }

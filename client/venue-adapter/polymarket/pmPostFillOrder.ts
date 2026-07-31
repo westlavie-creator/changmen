@@ -41,8 +41,8 @@ export interface PolymarketMatchedBuyDisplayCtx {
  * 不必等 `/data/trades` 索引。返回 CLOB 口径 USDC（save 前再 scale 一次）。
  * makingAmount 缺失时用 fallbackStakeUsdc + takingAmount/price 补齐。
  *
- * 买入价 pmFillPrice = 名义 G/C（不含费）；
- * betMoney / pmStakeUsdc = G + fee（含费全成本）。
+ * 买入价 pmFillPrice = 官网/CLOB 撮合均价（activity.price / making÷taking，不含费）；
+ * betMoney / pmStakeUsdc = 官网 usdcSize 或 名义+fee（含费全成本）。
  */
 export function buildPolymarketMatchedBuyVenueOrderUsdc(
   orderId: string,
@@ -71,8 +71,8 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
 
   if (!(stake > 0) || !(shares > 0))
     return null;
-  const fillPrice = stake / shares;
-  if (!(fillPrice > 0 && fillPrice < 1))
+  const matchPrice = stake / shares;
+  if (!(matchPrice > 0 && matchPrice < 1))
     return null;
 
   const allIn = computePolymarketBuyAllInStakeUsdc({
@@ -86,8 +86,8 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
     builderTakerBps: ctx.builderTakerBps,
   });
 
-  const oddsFromFill = round4(1 / fillPrice);
-  const odds = oddsHint > 0 ? oddsHint : oddsFromFill;
+  const oddsFromMatch = round4(1 / matchPrice);
+  const odds = oddsHint > 0 ? oddsHint : oddsFromMatch;
   const stakeAllIn = allIn.allInStakeUsdc;
   // 可得/兑付按名义成本×赔率（≈份额×$1），勿用含费全成本抬高 reward
   const reward = round4(stake * odds);
@@ -106,7 +106,7 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
     item: String(ctx.item ?? ""),
     pmTokenId: String(ctx.pmTokenId ?? "").trim() || undefined,
     pmShares: shares,
-    pmFillPrice: round4(fillPrice),
+    pmFillPrice: round4(matchPrice),
     pmStakeUsdc: stakeAllIn,
     pmFeeUsdc: allIn.feeUsdc > 0 ? allIn.feeUsdc : undefined,
     pmConditionId: String(ctx.pmConditionId ?? "").trim() || undefined,

@@ -27,14 +27,16 @@ export type PolymarketOrderSide = "buy" | "sell";
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
-  /** CLOB trade.price / POST 成交概率价（0–1）；不含手续费 */
+  /**
+   * 买单展示均价（0–1）：官网 activity.price / CLOB 撮合均价（不含手续费）。
+   */
   pmFillPrice?: number;
   /**
-   * 买单成本 USDC：含平台/builder taker fee 的全成本（名义 makingAmount + fee）。
-   * 剩余敞口随卖出扣减；买入价仍看 pmFillPrice（名义均价）。
+   * 买单成本 USDC：优先官网 activity.usdcSize（含费）；否则名义+公式 fee。
+   * 剩余敞口随卖出扣减。
    */
   pmStakeUsdc?: number;
-  /** [changmen 扩展] 买单撮合手续费 USDC（名义成本之外另扣） */
+  /** [changmen 扩展] 手续费 USDC：优先 usdcSize−price×size；否则公式回退 */
   pmFeeUsdc?: number;
   /** CLOB condition_id，User WS 订阅与卖出 delayed 检测 */
   pmConditionId?: string;

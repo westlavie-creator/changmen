@@ -125,7 +125,7 @@ export function pmOrderSharesText(row: OrderRow): string | null {
 /**
  * 买单原始本金（CNY）：订单记录口径。
  * - 优先库内 BetMoney（含费全成本；卖出后不再改写原始本金）
- * - 旧数据 closed 且 bet_money=0：用 fill×买入价(+fee) 还原
+ * - 旧数据 closed 且 bet_money=0：份额×撮合价(+fee) 还原
  */
 export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
   const stored = Number(row.BetMoney) || 0;
@@ -182,11 +182,20 @@ export function pmCnyToUsdc(cny: number): number {
 
 /**
  * 买单原始本金（USDC）。
- * - 优先：名义 fill×买入价 + pmFeeUsdc（含费全成本）
- * - 其次未卖出时的 pmStakeUsdc（已是含费口径）
- * - 再回退 BetMoney(CNY)/汇率
+ * - 优先未卖出时的 pmStakeUsdc（官网 usdcSize / 含费全成本）
+ * - 其次 BetMoney(CNY)/汇率
+ * - 再：份额×撮合价 + fee（仅无库内成本时的兜底）
  */
 export function pmOrderOriginalStakeDisplayUsdc(row: OrderRow): number {
+  const attr = Number(row.PmAttributedSellShares) || 0;
+  const stakeUsdc = Number(row.PmStakeUsdc);
+  if (attr <= 0 && Number.isFinite(stakeUsdc) && stakeUsdc > 0)
+    return Math.round(stakeUsdc * 10000) / 10000;
+
+  const fromCny = pmCnyToUsdc(Number(row.BetMoney) || 0);
+  if (fromCny > 0)
+    return fromCny;
+
   const fill = resolvePmFillShares(row);
   const price = resolvePmFillPrice(row);
   const fee = Number(row.PmFeeUsdc);
@@ -196,12 +205,7 @@ export function pmOrderOriginalStakeDisplayUsdc(row: OrderRow): number {
     return Math.round(allIn * 10000) / 10000;
   }
 
-  const attr = Number(row.PmAttributedSellShares) || 0;
-  const stakeUsdc = Number(row.PmStakeUsdc);
-  if (attr <= 0 && Number.isFinite(stakeUsdc) && stakeUsdc > 0)
-    return Math.round(stakeUsdc * 10000) / 10000;
-
-  return pmCnyToUsdc(Number(row.BetMoney) || 0);
+  return 0;
 }
 
 /** 买单展示本金（USDC）；卖单回款优先 PmStakeUsdc / PmSellProceeds */
@@ -303,15 +307,19 @@ export function pmOrderSideTagText(row: OrderRow): string | null {
   return isPmSellOrderListRow(row) ? "卖单" : "买单";
 }
 
-/** CLOB trade.price；可用 stake/shares 推算；不再用赔率反推价格 */
+/**
+ * 买入价：优先存库 pmFillPrice（撮合价，不含费）。
+ * 无存库时用 (stake−fee)/shares；再不行才 stake/shares（可能含费，仅兜底）。
+ */
 export function resolvePmFillPrice(row: OrderRow): number | null {
   const stored = Number(row.PmFillPrice);
   if (Number.isFinite(stored) && stored > 0 && stored < 1)
     return stored;
 
-  const attr = Number(row.PmAttributedSellShares) || 0;
   const shares = Number(row.PmShares);
+  const attr = Number(row.PmAttributedSellShares) || 0;
   const stakeUsdc = Number(row.PmStakeUsdc);
+  const feeUsdc = Number(row.PmFeeUsdc);
   // 仅无卖出归因时 stake 才是满仓成本；partial/closed 的 pmStakeUsdc 是剩余
   if (
     attr <= 0
@@ -320,7 +328,10 @@ export function resolvePmFillPrice(row: OrderRow): number | null {
     && Number.isFinite(stakeUsdc)
     && stakeUsdc > 0
   ) {
-    const price = stakeUsdc / shares;
+    const gross = Number.isFinite(feeUsdc) && feeUsdc > 0
+      ? stakeUsdc - feeUsdc
+      : stakeUsdc;
+    const price = gross / shares;
     if (price > 0 && price < 1)
       return price;
   }
@@ -391,12 +402,15 @@ export function pmOrderDisplayPriceText(
   return formatPolymarketApiDecimal(price);
 }
 
-/** 赔率按买入成交价（与「买入价」一致） */
+/** 赔率：优先订单 Odds（盘口/撮合）；否则 1/买入价 */
 export function pmOrderOddsText(row: OrderRow): string {
+  const storedOdds = Number(row.Odds);
+  if (Number.isFinite(storedOdds) && storedOdds > 1)
+    return toFixed(truncateOddsTo3(storedOdds), 3);
   const price = resolvePmFillPrice(row);
   const odds = price != null
     ? truncateOddsTo3(1 / price)
-    : truncateOddsTo3(Number(row.Odds) || 0);
+    : truncateOddsTo3(0);
   return toFixed(odds, 3);
 }
 

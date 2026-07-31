@@ -60,7 +60,7 @@ describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
     expect(order?.pmFeeUsdc).toBeUndefined();
   });
 
-  it("adds fee to stake/betMoney but keeps fill price and reward on gross", () => {
+  it("adds fee to stake/betMoney; fill price stays match VWAP", () => {
     const order = buildPolymarketMatchedBuyVenueOrderUsdc(
       "0xfee",
       {
@@ -80,7 +80,8 @@ describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
       pmFeeUsdc: 0.3,
       pmStakeUsdc: 10.3,
       betMoney: 10.3,
-      reward: 25, // 名义 10 × 2.5，不是 10.3 × 2.5
+      reward: 25,
+      odds: 2.5,
     });
   });
 
@@ -149,7 +150,7 @@ describe("buildPolymarketMatchedBuyVenueOrderFromBet", () => {
     matched.beginTime = 1_700_000_000_000;
     const order = await buildPolymarketMatchedBuyVenueOrderFromBet(option, matched);
     const fx = getExchange(Currency.USDT);
-    // 10U 名义 + 0.3 fee（mock feeRate 0.05）→ 10.3 × fx
+    // 10U 名义 + 0.3 fee（mock feeRate 0.05）→ 10.3 × fx；买入价=撮合价
     expect(order?.pmFillPrice).toBe(0.4);
     expect(order?.pmFeeUsdc).toBe(0.3);
     expect(order?.pmStakeUsdc).toBe(10.3);

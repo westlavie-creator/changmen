@@ -8,6 +8,8 @@
 
 export const POLYMARKET_GAMMA_API = "https://gamma-api.polymarket.com";
 export const POLYMARKET_CLOB_API = "https://clob.polymarket.com";
+/** 官网历史 / 持仓同源（公开） */
+export const POLYMARKET_DATA_API = "https://data-api.polymarket.com";
 export const POLYMARKET_MARKET_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 export const POLYMARKET_USER_WS = "wss://ws-subscriptions-clob.polymarket.com/ws/user";
 export const POLYMARKET_SPORTS_WS = "wss://sports-api.polymarket.com/ws";
