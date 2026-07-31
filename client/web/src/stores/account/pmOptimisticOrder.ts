@@ -17,7 +17,7 @@ export async function persistPolymarketMatchedBuyOrder(
 ): Promise<VenueOrder | null> {
   if (String(account.provider ?? "") !== "Polymarket")
     return null;
-  const order = buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
+  const order = await buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
   if (!order)
     return null;
   await saveOrders(account, [order]);

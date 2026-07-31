@@ -12,7 +12,7 @@ import {
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import { awaitPolymarketSettlementJob } from "./settlementJob";
 import type { PolymarketOrderResponseLike, PolymarketPollOutcome } from "./orderTypes";
-import { buildPolymarketMatchedBuyVenueOrderForSave } from "./pmPostFillOrder";
+import { buildPolymarketMatchedBuyVenueOrderForSaveAsync } from "./pmPostFillOrder";
 
 export interface PolymarketLegOutcomeDeps {
   fetchVenueOrders: () => Promise<VenueOrder[]>;
@@ -72,10 +72,26 @@ async function resolvePolymarketPostAcceptedOutcome(
       };
     }
     // trades / RDS 仍滞后：用 POST 成交金额合成，供绑单（placeBet 通常已乐观 save）
-    const synthetic = buildPolymarketMatchedBuyVenueOrderForSave(
+    let conditionId = "";
+    try {
+      const trade = await fetchPolymarketConfirmedTradeForOrder(
+        account,
+        orderId,
+        10 * 60 * 1000,
+        "BUY",
+      );
+      conditionId = String(trade?.market ?? "").trim();
+    }
+    catch {
+      /* 合成单缺 conditionId 时后续 getOrders enrich 仍可补 fee */
+    }
+    const synthetic = await buildPolymarketMatchedBuyVenueOrderForSaveAsync(
       orderId,
       result.response as PolymarketOrderResponseLike | undefined,
-      { createAt: Number(result.beginTime) > 0 ? Number(result.beginTime) : Date.now() },
+      {
+        createAt: Number(result.beginTime) > 0 ? Number(result.beginTime) : Date.now(),
+        pmConditionId: conditionId || undefined,
+      },
     );
     return {
       orders: synthetic

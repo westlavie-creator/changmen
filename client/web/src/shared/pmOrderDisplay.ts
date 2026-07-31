@@ -124,8 +124,8 @@ export function pmOrderSharesText(row: OrderRow): string | null {
 
 /**
  * 买单原始本金（CNY）：订单记录口径。
- * - 优先库内 BetMoney（卖出后不再改写原始本金）
- * - 旧数据 closed 且 bet_money=0：用 fill×买入价还原
+ * - 优先库内 BetMoney（含费全成本；卖出后不再改写原始本金）
+ * - 旧数据 closed 且 bet_money=0：用 fill×买入价(+fee) 还原
  */
 export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
   const stored = Number(row.BetMoney) || 0;
@@ -142,8 +142,12 @@ export function pmOrderOriginalStakeDisplayCny(row: OrderRow): number {
 
   const fill = resolvePmFillShares(row);
   const price = resolvePmFillPrice(row);
-  if (fill > 0.0001 && price != null && price > 0)
-    return Math.round(fill * price * getExchange(Currency.USDT));
+  const fee = Number(row.PmFeeUsdc);
+  if (fill > 0.0001 && price != null && price > 0) {
+    const gross = fill * price;
+    const allIn = Number.isFinite(fee) && fee > 0 ? gross + fee : gross;
+    return Math.round(allIn * getExchange(Currency.USDT));
+  }
   return 0;
 }
 
@@ -178,15 +182,19 @@ export function pmCnyToUsdc(cny: number): number {
 
 /**
  * 买单原始本金（USDC）。
- * - 优先 fill×买入价（链上真实名义）
- * - 其次未卖出时的 pmStakeUsdc
+ * - 优先：名义 fill×买入价 + pmFeeUsdc（含费全成本）
+ * - 其次未卖出时的 pmStakeUsdc（已是含费口径）
  * - 再回退 BetMoney(CNY)/汇率
  */
 export function pmOrderOriginalStakeDisplayUsdc(row: OrderRow): number {
   const fill = resolvePmFillShares(row);
   const price = resolvePmFillPrice(row);
-  if (fill > 0.0001 && price != null && price > 0)
-    return Math.round(fill * price * 10000) / 10000;
+  const fee = Number(row.PmFeeUsdc);
+  if (fill > 0.0001 && price != null && price > 0) {
+    const gross = fill * price;
+    const allIn = Number.isFinite(fee) && fee > 0 ? gross + fee : gross;
+    return Math.round(allIn * 10000) / 10000;
+  }
 
   const attr = Number(row.PmAttributedSellShares) || 0;
   const stakeUsdc = Number(row.PmStakeUsdc);

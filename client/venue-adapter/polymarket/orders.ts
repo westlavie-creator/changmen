@@ -16,6 +16,7 @@ import {
   resolvePolymarketTradeLookbackMs,
 } from "./pmOrderSync";
 import { applyPolymarketOrderOrigins, isPolymarketChangmenOrder } from "./pmOrigin";
+import { enrichPolymarketBuyOrdersWithFees } from "./pmFee";
 import { polymarketPluginGet } from "./transport";
 import { pmGetTrades } from "./pmClientApi";
 
@@ -975,6 +976,13 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     })(),
     pmFillPrice: clob.pmFillPrice ?? base.pmFillPrice,
     pmStakeUsdc: base.pmStakeUsdc ?? clob.pmStakeUsdc,
+    pmFeeUsdc: (() => {
+      const storedFee = Number(base.pmFeeUsdc);
+      if (Number.isFinite(storedFee) && storedFee > 0)
+        return storedFee;
+      const clobFee = Number(clob.pmFeeUsdc);
+      return Number.isFinite(clobFee) && clobFee > 0 ? clobFee : undefined;
+    })(),
     pmSellState: nextSellState,
     pmAttributedSellShares: base.pmAttributedSellShares ?? clob.pmAttributedSellShares,
     pmMatchResult: nextMatchResult,
@@ -1251,7 +1259,9 @@ export async function fetchPolymarketVenueOrdersMerged(
   const { orders } = await fetchPolymarketVenueOrdersBundle(account, lookbackMs);
   markPolymarketOrdersSynced(account.accountId, lookbackMs);
   const finalized = finalizePolymarketVenueOrders(orders, account.accountId, stored);
-  return scalePolymarketVenueOrdersForDisplay(finalized);
+  // delayed / trades 同步：补手续费后再 scale 成 CNY 入库
+  const withFees = await enrichPolymarketBuyOrdersWithFees(finalized);
+  return scalePolymarketVenueOrdersForDisplay(withFees);
 }
 
 /** 纯映射（单测 / 调试）：CLOB trades → VenueOrder（买 + 卖） */

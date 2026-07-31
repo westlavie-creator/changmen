@@ -5,6 +5,10 @@ import { PLATFORMS } from "../shared/platforms";
 import { isPolymarketBetResultFillConfirmed } from "./orderStatus";
 import { parsePolymarketBuyOrderFill, scalePolymarketVenueOrdersForDisplay } from "./orders";
 import type { PolymarketOrderResponseLike } from "./orderTypes";
+import {
+  computePolymarketBuyAllInStakeUsdc,
+  fetchPolymarketMarketFeeDetails,
+} from "./pmFee";
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
@@ -22,12 +26,23 @@ export interface PolymarketMatchedBuyDisplayCtx {
   /** POST 缺 makingAmount 时用预检 USDC / bookPrice 兜底 */
   fallbackStakeUsdc?: number;
   fallbackPrice?: number;
+  /** 已算好的手续费 USDC；优先于 feeRate */
+  feeUsdc?: number;
+  /** 平台 feeRate（无 feeUsdc 时现场算） */
+  feeRate?: number;
+  feeExponent?: number;
+  feeTakerOnly?: boolean;
+  isTaker?: boolean;
+  builderTakerBps?: number;
 }
 
 /**
  * 官方 Place Order：FOK BUY `matched` + takingAmount 即为成交真相，
  * 不必等 `/data/trades` 索引。返回 CLOB 口径 USDC（save 前再 scale 一次）。
  * makingAmount 缺失时用 fallbackStakeUsdc + takingAmount/price 补齐。
+ *
+ * 买入价 pmFillPrice = 名义 G/C（不含费）；
+ * betMoney / pmStakeUsdc = G + fee（含费全成本）。
  */
 export function buildPolymarketMatchedBuyVenueOrderUsdc(
   orderId: string,
@@ -59,15 +74,30 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
   const fillPrice = stake / shares;
   if (!(fillPrice > 0 && fillPrice < 1))
     return null;
+
+  const allIn = computePolymarketBuyAllInStakeUsdc({
+    grossStakeUsdc: stake,
+    shares,
+    feeUsdc: ctx.feeUsdc,
+    feeRate: ctx.feeRate,
+    exponent: ctx.feeExponent,
+    takerOnly: ctx.feeTakerOnly,
+    isTaker: ctx.isTaker !== false,
+    builderTakerBps: ctx.builderTakerBps,
+  });
+
   const oddsFromFill = round4(1 / fillPrice);
   const odds = oddsHint > 0 ? oddsHint : oddsFromFill;
+  const stakeAllIn = allIn.allInStakeUsdc;
+  // 可得/兑付按名义成本×赔率（≈份额×$1），勿用含费全成本抬高 reward
+  const reward = round4(stake * odds);
   return {
     provider: PLATFORMS.Polymarket,
     orderId: id,
     odds,
     createAt: Number(ctx.createAt) > 0 ? Number(ctx.createAt) : Date.now(),
-    betMoney: stake,
-    reward: round4(stake * odds),
+    betMoney: stakeAllIn,
+    reward,
     money: 0,
     status: "none",
     game: String(ctx.game ?? ""),
@@ -77,7 +107,8 @@ export function buildPolymarketMatchedBuyVenueOrderUsdc(
     pmTokenId: String(ctx.pmTokenId ?? "").trim() || undefined,
     pmShares: shares,
     pmFillPrice: round4(fillPrice),
-    pmStakeUsdc: stake,
+    pmStakeUsdc: stakeAllIn,
+    pmFeeUsdc: allIn.feeUsdc > 0 ? allIn.feeUsdc : undefined,
     pmConditionId: String(ctx.pmConditionId ?? "").trim() || undefined,
     pmSide: "buy",
     pmSellState: "open",
@@ -97,14 +128,39 @@ export function buildPolymarketMatchedBuyVenueOrderForSave(
   return scalePolymarketVenueOrdersForDisplay([usdc])[0] ?? null;
 }
 
+/** 查市场费率后合成 matched 买单（CNY） */
+export async function buildPolymarketMatchedBuyVenueOrderForSaveAsync(
+  orderId: string,
+  response: PolymarketOrderResponseLike | null | undefined,
+  ctx: PolymarketMatchedBuyDisplayCtx = {},
+): Promise<VenueOrder | null> {
+  const conditionId = String(ctx.pmConditionId ?? "").trim();
+  let next = { ...ctx };
+  if (
+    conditionId
+    && !(Number(ctx.feeUsdc) >= 0 && Number.isFinite(Number(ctx.feeUsdc)))
+    && !(Number(ctx.feeRate) > 0)
+  ) {
+    const fd = await fetchPolymarketMarketFeeDetails(conditionId);
+    next = {
+      ...next,
+      feeRate: fd.feeRate,
+      feeExponent: fd.exponent,
+      feeTakerOnly: fd.takerOnly,
+      isTaker: ctx.isTaker !== false,
+    };
+  }
+  return buildPolymarketMatchedBuyVenueOrderForSave(orderId, response, next);
+}
+
 /**
  * 从 BetOption + BetResult 拼 matched 买单。
  * delayed / 未成交返回 null（仍走 settlement / trades）。
  */
-export function buildPolymarketMatchedBuyVenueOrderFromBet(
+export async function buildPolymarketMatchedBuyVenueOrderFromBet(
   option: BetOption,
   result: BetResult,
-): VenueOrder | null {
+): Promise<VenueOrder | null> {
   if (!isPolymarketBetResultFillConfirmed(result))
     return null;
   const orderId = String(result.orderId ?? "").trim();
@@ -120,7 +176,7 @@ export function buildPolymarketMatchedBuyVenueOrderFromBet(
   const fallbackStake = Number(data.apiBetMoney) > 0
     ? Number(data.apiBetMoney)
     : Number(option.betMoney);
-  return buildPolymarketMatchedBuyVenueOrderForSave(
+  return buildPolymarketMatchedBuyVenueOrderForSaveAsync(
     orderId,
     result.response as PolymarketOrderResponseLike | undefined,
     {

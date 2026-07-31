@@ -151,6 +151,7 @@ export interface AdminOrderRow {
   pmShares?: number;
   pmFillPrice?: number;
   pmStakeUsdc?: number;
+  pmFeeUsdc?: number;
   pmConditionId?: string;
   pmOrigin?: "changmen" | "external";
   pmAttributedSellShares?: number;

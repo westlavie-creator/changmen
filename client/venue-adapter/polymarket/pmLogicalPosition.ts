@@ -18,6 +18,7 @@ export interface OrderRowLike {
   PmShares?: number;
   PmFillPrice?: number;
   PmStakeUsdc?: number;
+  PmFeeUsdc?: number;
   PmConditionId?: string;
   PmOrigin?: "changmen" | "external";
   PmAttributedSellShares?: number;
@@ -120,6 +121,7 @@ export function venueOrderFromOrderRow(row: OrderRowLike): VenueOrder {
     pmShares: row.PmShares,
     pmFillPrice: row.PmFillPrice,
     pmStakeUsdc: row.PmStakeUsdc,
+    pmFeeUsdc: row.PmFeeUsdc,
     pmConditionId: row.PmConditionId,
     pmOrigin: row.PmOrigin,
     pmAttributedSellShares: row.PmAttributedSellShares,

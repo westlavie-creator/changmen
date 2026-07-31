@@ -77,6 +77,7 @@ export function adminOrderToOrderRow(
     PmShares: row.pmShares,
     PmFillPrice: row.pmFillPrice,
     PmStakeUsdc: row.pmStakeUsdc,
+    PmFeeUsdc: row.pmFeeUsdc,
     PmConditionId: row.pmConditionId,
     PmOrigin: row.pmOrigin,
     PmAttributedSellShares: row.pmAttributedSellShares,

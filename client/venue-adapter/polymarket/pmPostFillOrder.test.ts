@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import { getExchange, Currency } from "@changmen/shared/currency";
@@ -7,8 +7,20 @@ import {
   buildPolymarketMatchedBuyVenueOrderUsdc,
 } from "./pmPostFillOrder";
 
+vi.mock("./pmFee", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./pmFee")>();
+  return {
+    ...actual,
+    fetchPolymarketMarketFeeDetails: vi.fn(async () => ({
+      feeRate: 0.05,
+      exponent: 1,
+      takerOnly: true,
+    })),
+  };
+});
+
 describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
-  it("builds from matched POST making/taking amounts", () => {
+  it("builds from matched POST making/taking amounts (no fee when rate omitted)", () => {
     const order = buildPolymarketMatchedBuyVenueOrderUsdc(
       "0xabc",
       {
@@ -45,6 +57,31 @@ describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
       item: "A",
     });
     expect(order?.reward).toBe(20);
+    expect(order?.pmFeeUsdc).toBeUndefined();
+  });
+
+  it("adds fee to stake/betMoney but keeps fill price and reward on gross", () => {
+    const order = buildPolymarketMatchedBuyVenueOrderUsdc(
+      "0xfee",
+      {
+        success: true,
+        status: "matched",
+        makingAmount: "10000000",
+        takingAmount: "25000000",
+      },
+      {
+        odds: 2.5,
+        feeRate: 0.05,
+      },
+    );
+    expect(order).toMatchObject({
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmFeeUsdc: 0.3,
+      pmStakeUsdc: 10.3,
+      betMoney: 10.3,
+      reward: 25, // 名义 10 × 2.5，不是 10.3 × 2.5
+    });
   });
 
   it("falls back to stake/price when makingAmount missing", () => {
@@ -79,7 +116,7 @@ describe("buildPolymarketMatchedBuyVenueOrderUsdc", () => {
 });
 
 describe("buildPolymarketMatchedBuyVenueOrderFromBet", () => {
-  it("scales USDC to CNY display and skips delayed", () => {
+  it("scales USDC to CNY display and skips delayed", async () => {
     const option = new BetOption("Polymarket", "cond", "tok", "Home", 10, "Home", 2);
     option.match = { game: "CS", title: "A vs B" } as never;
     option.bet = {
@@ -99,21 +136,24 @@ describe("buildPolymarketMatchedBuyVenueOrderFromBet", () => {
     });
     delayed.orderId = "0xd";
     delayed.pending = true;
-    expect(buildPolymarketMatchedBuyVenueOrderFromBet(option, delayed)).toBeNull();
+    expect(await buildPolymarketMatchedBuyVenueOrderFromBet(option, delayed)).toBeNull();
 
     const matched = new BetResult("Polymarket", true, "ok", {}, {
       success: true,
       status: "matched",
       orderID: "0xm",
       makingAmount: "10000000",
-      takingAmount: "20000000",
+      takingAmount: "25000000",
     });
     matched.orderId = "0xm";
     matched.beginTime = 1_700_000_000_000;
-    const order = buildPolymarketMatchedBuyVenueOrderFromBet(option, matched);
+    const order = await buildPolymarketMatchedBuyVenueOrderFromBet(option, matched);
     const fx = getExchange(Currency.USDT);
-    expect(order?.betMoney).toBeCloseTo(10 * fx, 4);
-    expect(order?.pmStakeUsdc).toBe(10);
+    // 10U 名义 + 0.3 fee（mock feeRate 0.05）→ 10.3 × fx
+    expect(order?.pmFillPrice).toBe(0.4);
+    expect(order?.pmFeeUsdc).toBe(0.3);
+    expect(order?.pmStakeUsdc).toBe(10.3);
+    expect(order?.betMoney).toBeCloseTo(10.3 * fx, 4);
     expect(order?.item).toBe("A");
     expect(order?.match).toBe("A vs B");
     expect(order?.createAt).toBe(1_700_000_000_000);

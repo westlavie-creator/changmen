@@ -127,7 +127,8 @@ describe("resolvePolymarketLegOutcome", () => {
     expect(out.settlement).toBe("filled");
     expect(out.orders[0]?.orderId).toBe("0xnew");
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
-    expect(fetchPolymarketConfirmedTradeForOrder).not.toHaveBeenCalled();
+    // 合成单补 fee：可查 trades 取 conditionId，但不走 delayed settle
+    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalled();
     expect(fetchVenueOrders).toHaveBeenCalledTimes(1);
   });
 

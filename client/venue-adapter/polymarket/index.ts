@@ -30,6 +30,7 @@ export * from "./pmHeartbeat";
 export * from "./pmStoredOrders";
 export * from "./pmOrderSync";
 export * from "./pmPostFillOrder";
+export * from "./pmFee";
 export * from "./pmAutoTransport";
 export * from "./pmOfficialReachability";
 export * from "./ws";

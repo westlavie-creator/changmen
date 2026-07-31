@@ -27,9 +27,15 @@ export type PolymarketOrderSide = "buy" | "sell";
 export interface PolymarketVenueOrderExtras {
   pmTokenId?: string;
   pmShares?: number;
-  /** CLOB trade.price / POST 成交概率价（0–1） */
+  /** CLOB trade.price / POST 成交概率价（0–1）；不含手续费 */
   pmFillPrice?: number;
+  /**
+   * 买单成本 USDC：含平台/builder taker fee 的全成本（名义 makingAmount + fee）。
+   * 剩余敞口随卖出扣减；买入价仍看 pmFillPrice（名义均价）。
+   */
   pmStakeUsdc?: number;
+  /** [changmen 扩展] 买单撮合手续费 USDC（名义成本之外另扣） */
+  pmFeeUsdc?: number;
   /** CLOB condition_id，User WS 订阅与卖出 delayed 检测 */
   pmConditionId?: string;
   /** changmen 站内下单 vs 官网同步 */

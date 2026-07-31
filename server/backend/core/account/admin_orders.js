@@ -106,6 +106,7 @@ function mapAdminOrderRow(r, startIndex = null) {
     pmShares: o.PmShares,
     pmFillPrice: o.PmFillPrice,
     pmStakeUsdc: o.PmStakeUsdc,
+    pmFeeUsdc: o.PmFeeUsdc,
     pmConditionId: o.PmConditionId,
     pmOrigin: o.PmOrigin,
     pmAttributedSellShares: o.PmAttributedSellShares,

@@ -87,6 +87,10 @@ export function rowToOrder(r) {
       return price > 0 && price < 1 ? price : undefined;
     })(),
     PmStakeUsdc: parseNum(raw.pmStakeUsdc, 0) || undefined,
+    PmFeeUsdc: (() => {
+      const n = parseNum(raw.pmFeeUsdc ?? raw.PmFeeUsdc, NaN);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    })(),
     PmConditionId: raw.pmConditionId ? String(raw.pmConditionId) : undefined,
     PmOrigin: raw.pmOrigin === "changmen" || raw.pmOrigin === "external"
       ? raw.pmOrigin

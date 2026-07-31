@@ -209,7 +209,7 @@ export async function runValueBetConfirm(
         orders = (await accountStore.updateVenueOrders(account)) ?? [];
         const oid = String(result.orderId ?? "").trim();
         if (oid && !orders.some(o => String(o.orderId ?? "").trim() === oid)) {
-          const synthetic = buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
+          const synthetic = await buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
           if (synthetic)
             orders = [synthetic, ...orders];
         }
