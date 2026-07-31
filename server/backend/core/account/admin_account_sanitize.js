@@ -101,5 +101,8 @@ export function sanitizeAccountForAdmin(raw) {
     venueAccountName: a.venueAccountName != null && String(a.venueAccountName).trim()
       ? String(a.venueAccountName).trim()
       : undefined,
+    /** [changmen 扩展] players.deleted_at；有值即软删 */
+    deletedAt: a.deletedAt != null ? Number(a.deletedAt) || null : null,
+    deleted: Boolean(a.deleted) || a.deletedAt != null,
   };
 }

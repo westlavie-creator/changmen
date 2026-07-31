@@ -5,7 +5,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getAdminAccounts, updateAdminAccountFields } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import PlatformIcon from "@/components/platform/PlatformIcon.vue";
+import AdminUserAccountsColumn from "@/components/admin/AdminUserAccountsColumn.vue";
 import { useUserStore } from "@/stores/userStore";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
@@ -22,6 +22,11 @@ const keyword = ref(String(route.query.q || ""));
 const filterUserId = ref(String(route.query.userId || ""));
 const filterProvider = ref(String(route.query.provider || ""));
 const filterPause = ref<"all" | "active" | "paused">("all");
+
+const hScrollRef = ref<HTMLElement | null>(null);
+const hScrollDragging = ref(false);
+let dragStartX = 0;
+let dragStartScroll = 0;
 
 const editOpen = ref(false);
 const editTarget = ref<AdminAccountListRow | null>(null);
@@ -65,10 +70,14 @@ const filtered = computed(() => {
       return false;
     if (filterProvider.value && r.platform !== filterProvider.value)
       return false;
-    if (filterPause.value === "active" && r.pause)
-      return false;
-    if (filterPause.value === "paused" && !r.pause)
-      return false;
+    const deleted = Boolean(r.deleted) || r.deletedAt != null;
+    // 暂停筛选只作用于活跃账号；软删始终保留（单独区块展示）
+    if (!deleted) {
+      if (filterPause.value === "active" && r.pause)
+        return false;
+      if (filterPause.value === "paused" && !r.pause)
+        return false;
+    }
     if (!q)
       return true;
     const hay = [
@@ -88,6 +97,47 @@ const filtered = computed(() => {
   });
 });
 
+/** 用户横向分列：每位用户一列，列内为该用户的子账号（软删排后） */
+const userColumns = computed(() => {
+  const map = new Map<string, {
+    userId: string;
+    userName: string;
+    accounts: AdminAccountListRow[];
+  }>();
+  for (const r of filtered.value) {
+    let col = map.get(r.userId);
+    if (!col) {
+      col = { userId: r.userId, userName: r.userName, accounts: [] };
+      map.set(r.userId, col);
+    }
+    col.accounts.push(r);
+  }
+  for (const col of map.values()) {
+    col.accounts.sort((a, b) => {
+      const ad = (Boolean(a.deleted) || a.deletedAt != null) ? 1 : 0;
+      const bd = (Boolean(b.deleted) || b.deletedAt != null) ? 1 : 0;
+      if (ad !== bd)
+        return ad - bd;
+      return String(a.platform || "").localeCompare(String(b.platform || ""))
+        || String(a.venueAccountName || a.playerName || "").localeCompare(
+          String(b.venueAccountName || b.playerName || ""),
+          "zh",
+        )
+        || a.accountId - b.accountId;
+    });
+  }
+  return [...map.values()].sort((a, b) =>
+    a.userName.localeCompare(b.userName, "zh"),
+  );
+});
+
+const activeAccountCount = computed(() =>
+  filtered.value.filter(r => !(Boolean(r.deleted) || r.deletedAt != null)).length,
+);
+const deletedAccountCount = computed(() =>
+  filtered.value.filter(r => Boolean(r.deleted) || r.deletedAt != null).length,
+);
+
 function memberLabel(row: AdminAccountListRow) {
   if (row.platform === "PredictFun")
     return row.playerName || row.userName || "—";
@@ -100,15 +150,6 @@ function fmtMoney(n: number | undefined) {
   return Math.floor(Number(n)).toLocaleString();
 }
 
-function moneyClass(n: number | undefined) {
-  const v = Number(n) || 0;
-  if (v > 0)
-    return "pos";
-  if (v < 0)
-    return "neg";
-  return "";
-}
-
 function syncQuery() {
   const q: Record<string, string> = {};
   if (keyword.value.trim())
@@ -118,6 +159,46 @@ function syncQuery() {
   if (filterProvider.value)
     q.provider = filterProvider.value;
   void router.replace({ name: "admin-accounts", query: q });
+}
+
+function scrollAccountsBy(dx: number) {
+  const el = hScrollRef.value;
+  if (!el)
+    return;
+  el.scrollLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + dx));
+}
+
+function onHScrollPointerDown(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el || e.button !== 0)
+    return;
+  const t = e.target;
+  if (t instanceof Element && t.closest("button, a, input, textarea, select, .el-button, .el-tag"))
+    return;
+  hScrollDragging.value = true;
+  dragStartX = e.clientX;
+  dragStartScroll = el.scrollLeft;
+  el.setPointerCapture(e.pointerId);
+}
+
+function onHScrollPointerMove(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el || !hScrollDragging.value)
+    return;
+  el.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+}
+
+function onHScrollPointerUp(e: PointerEvent) {
+  const el = hScrollRef.value;
+  if (!el)
+    return;
+  hScrollDragging.value = false;
+  try {
+    el.releasePointerCapture(e.pointerId);
+  }
+  catch {
+    /* ignore */
+  }
 }
 
 async function load() {
@@ -223,8 +304,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="子账号管理" subtitle="按用户查看操盘子账号：暂停、乘网与今日战绩">
-    <section v-loading="loading" class="admin-card">
+  <AdminLayout title="子账号管理" subtitle="按用户横向查看操盘子账号：暂停、乘网与今日战绩">
+    <section v-loading="loading" class="admin-card admin-card--accounts">
       <div class="admin-card__toolbar admin-accounts-toolbar">
         <el-input
           v-model="keyword"
@@ -275,8 +356,23 @@ onMounted(async () => {
         <el-button size="small" @click="load">
           刷新
         </el-button>
+        <span
+          v-if="userColumns.length"
+          class="admin-orders-hscroll-btns"
+        >
+          <el-button size="small" @click="scrollAccountsBy(-320)">
+            ←
+          </el-button>
+          <el-button size="small" @click="scrollAccountsBy(320)">
+            →
+          </el-button>
+        </span>
         <span class="admin-accounts-count">
-          {{ filtered.length }} / {{ rows.length }} 个账号
+          {{ userColumns.length }} 位用户 · {{ activeAccountCount }} 活跃
+          <template v-if="deletedAccountCount">
+            · {{ deletedAccountCount }} 已删
+          </template>
+          / {{ rows.length }}
         </span>
       </div>
 
@@ -284,73 +380,36 @@ onMounted(async () => {
         {{ loadError }}
       </p>
 
-      <div v-else class="admin-card__body">
-        <el-table :data="filtered" size="small" stripe class="admin-accounts-table">
-          <el-table-column label="用户" width="110" fixed>
-            <template #default="{ row }">
-              <button type="button" class="admin-link-btn" @click="goUser(row)">
-                {{ row.userName }}
-              </button>
-            </template>
-          </el-table-column>
-          <el-table-column label="场馆" width="100">
-            <template #default="{ row }">
-              <div class="admin-accounts-provider">
-                <PlatformIcon :platform="row.platform" />
-                <span>{{ row.platform || "—" }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="会员名" min-width="120">
-            <template #default="{ row }">
-              <div class="admin-accounts-member">
-                <span>{{ memberLabel(row) }}</span>
-                <span class="admin-accounts-member__id">#{{ row.accountId }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="余额" width="100" align="right">
-            <template #default="{ row }">
-              {{ fmtMoney(isPredictFunRow(row) ? row.balance : row.credit) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="上限" width="100" align="right">
-            <template #default="{ row }">
-              {{ fmtMoney(row.maxBalance) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="乘网" width="72" align="center" prop="multiply" />
-          <el-table-column label="今日" width="100" align="right">
-            <template #default="{ row }">
-              <span :class="moneyClass(row.today)">{{ fmtMoney(row.today) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="累计盈亏" width="110" align="right">
-            <template #default="{ row }">
-              <span :class="moneyClass(row.totalProfit)">{{ fmtMoney(row.totalProfit) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="88" align="center">
-            <template #default="{ row }">
-              <el-tag v-if="row.pause" type="danger" size="small">
-                暂停
-              </el-tag>
-              <el-tag v-else type="success" size="small">
-                使用中
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right" align="center">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="openEdit(row)">
-                编辑
-              </el-button>
-              <el-button size="small" link @click="goOrders(row)">
-                订单
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+      <div v-else class="admin-card__body admin-accounts-page__body">
+        <div
+          v-if="userColumns.length"
+          ref="hScrollRef"
+          class="admin-orders-hscroll"
+          :class="{ 'is-dragging': hScrollDragging }"
+          @pointerdown="onHScrollPointerDown"
+          @pointermove="onHScrollPointerMove"
+          @pointerup="onHScrollPointerUp"
+          @pointercancel="onHScrollPointerUp"
+        >
+          <div class="admin-accounts-by-user">
+            <AdminUserAccountsColumn
+              v-for="col in userColumns"
+              :key="col.userId"
+              :user-name="col.userName"
+              :accounts="col.accounts"
+              @edit="openEdit"
+              @orders="goOrders"
+              @user="goUser"
+            />
+          </div>
+        </div>
+
+        <p
+          v-else-if="!loading"
+          class="admin-card__empty"
+        >
+          {{ rows.length ? "当前筛选无匹配账号" : "暂无子账号" }}
+        </p>
       </div>
     </section>
 
@@ -409,38 +468,14 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--adm-text-muted, #94a3b8);
 }
-.admin-accounts-provider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.admin-accounts-member {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.3;
+.admin-accounts-edit-meta {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--adm-text-muted, #94a3b8);
 }
 .admin-accounts-member__id {
   font-size: 11px;
   color: var(--adm-text-muted, #94a3b8);
   font-family: ui-monospace, monospace;
 }
-.admin-accounts-edit-meta {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: var(--adm-text-muted, #94a3b8);
-}
-.admin-link-btn {
-  border: 0;
-  background: transparent;
-  color: var(--el-color-primary);
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
-}
-.admin-link-btn:hover {
-  text-decoration: underline;
-}
-.pos { color: #67c23a; }
-.neg { color: #f56c6c; }
 </style>

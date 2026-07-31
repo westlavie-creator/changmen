@@ -249,7 +249,8 @@ html.admin-route #app > * {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-.admin-shell__content:has(.admin-card--orders) {
+.admin-shell__content:has(.admin-card--orders),
+.admin-shell__content:has(.admin-card--accounts) {
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -337,13 +338,15 @@ html.admin-route #app > * {
 .admin-card--grow {
   min-height: 280px;
 }
-.admin-card--orders {
+.admin-card--orders,
+.admin-card--accounts {
   overflow: hidden;
   width: 100%;
   max-width: 100%;
   min-width: 0;
 }
-.admin-card--orders .admin-card__body {
+.admin-card--orders .admin-card__body,
+.admin-card--accounts .admin-card__body {
   overflow: visible;
   max-width: 100%;
   min-width: 0;
@@ -869,6 +872,209 @@ html.admin-route #app > * {
   width: 340px;
   min-width: 340px;
   max-width: 340px;
+}
+/* 子账号页：用户横排、列内账号卡片纵排 */
+.admin-accounts-page__body {
+  overflow: visible;
+  max-width: 100%;
+  min-width: 0;
+}
+.admin-accounts-by-user {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 8px;
+}
+.admin-accounts-user-col {
+  flex: 0 0 300px;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--adm-surface-2, rgba(255, 255, 255, 0.02));
+  overflow: hidden;
+}
+.admin-accounts-user-col__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--adm-border);
+  background: var(--adm-surface-3, rgba(255, 255, 255, 0.04));
+}
+.admin-accounts-user-col__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-accounts-user-col__today {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.admin-accounts-user-col__today.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-accounts-user-col__today.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-accounts-user-col__meta {
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  margin-left: auto;
+}
+.admin-accounts-user-col__empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-accounts-user-col__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.admin-accounts-user-col__list--deleted {
+  padding-top: 0;
+}
+.admin-accounts-user-col__deleted {
+  border-top: 1px dashed var(--adm-border);
+  margin-top: 2px;
+}
+.admin-accounts-user-col__deleted-head {
+  padding: 6px 8px 2px;
+  font-size: 11px;
+  color: var(--adm-text-muted);
+  font-weight: 600;
+}
+.admin-accounts-card {
+  border: 1px solid var(--adm-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--adm-surface, rgba(255, 255, 255, 0.03));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+.admin-accounts-card.is-paused {
+  opacity: 0.72;
+}
+.admin-accounts-card.is-deleted {
+  opacity: 0.78;
+  border-style: dashed;
+  background: rgba(148, 163, 184, 0.06);
+}
+.admin-accounts-card__desc {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+.admin-accounts-card__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--adm-text-muted);
+}
+.admin-accounts-card__row--title {
+  gap: 4px;
+}
+.admin-accounts-card__row--title .provider-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.admin-accounts-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-accounts-card__id {
+  flex-shrink: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--adm-text-muted);
+}
+.admin-accounts-card__row--title .el-tag {
+  flex-shrink: 0;
+  height: 16px;
+  line-height: 14px;
+  padding: 0 4px;
+  border: 0;
+}
+.admin-accounts-card__link {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+}
+.admin-accounts-card__link:hover {
+  text-decoration: underline;
+}
+.admin-accounts-card__row--nums {
+  justify-content: space-between;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-accounts-card__row--nums > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-accounts-card__row--nums b {
+  font-weight: 600;
+  color: var(--adm-text);
+}
+.admin-accounts-card__row--nums b.pos {
+  color: var(--adm-success, #67c23a);
+}
+.admin-accounts-card__row--nums b.neg {
+  color: var(--adm-danger, #f56c6c);
+}
+.admin-accounts-user-col .admin-link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+}
+.admin-accounts-user-col .admin-link-btn:hover {
+  text-decoration: underline;
 }
 .admin-orders-page__body {
   overflow: visible;

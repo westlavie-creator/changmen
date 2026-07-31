@@ -858,6 +858,46 @@ export async function fetchAccountRecordsByOwner(ownerUserId) {
   }
 }
 
+/**
+ * 用户软删账号（管理端展示用）。
+ * 附带 deletedAt / deleted / deleteDescription，不进内存 ACCOUNT 缓存。
+ */
+export async function fetchDeletedAccountRecordsByOwner(ownerUserId) {
+  const uid = String(ownerUserId || "").trim();
+  if (!uid)
+    return [];
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT ${PLAYER_SELECT}
+       FROM players
+       WHERE owner_user_id = $1::uuid AND deleted_at IS NOT NULL
+       ORDER BY deleted_at DESC, id ASC`,
+      [uid],
+    );
+    return (rows || []).map((r) => {
+      const mapped = _mapPlayerRow(r);
+      const rec = playerRowToAccountRecord(mapped);
+      if (!rec)
+        return null;
+      rec.deletedAt = mapped.deletedAt;
+      rec.deleted = true;
+      rec.active = false;
+      if (mapped.deleteDescription)
+        rec.description = mapped.deleteDescription;
+      else if (!rec.description)
+        rec.description = "已删除";
+      return rec;
+    }).filter(Boolean);
+  }
+  catch (err) {
+    console.warn("[rds] fetchDeletedAccountRecordsByOwner:", err.message);
+    return [];
+  }
+}
+
 export async function countActivePlayersByOwner(ownerUserId) {
   const uid = String(ownerUserId || "").trim();
   if (!uid)

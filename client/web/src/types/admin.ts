@@ -81,6 +81,10 @@ export interface AdminAccountDetail {
   venueMemberId?: string;
   /** [changmen 扩展] 场馆登录名 */
   venueAccountName?: string;
+  /** [changmen 扩展] players.deleted_at；有值即软删 */
+  deletedAt?: number | null;
+  /** [changmen 扩展] 是否软删 */
+  deleted?: boolean;
 }
 
 /** 管理端子账号扁平行（含归属用户） */

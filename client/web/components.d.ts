@@ -21,6 +21,7 @@ declare module 'vue' {
     AdminOrdersGroupedTable: typeof import('./src/components/admin/AdminOrdersGroupedTable.vue')['default']
     AdminPanel: typeof import('./src/components/admin/AdminPanel.vue')['default']
     AdminPmOrderAnalyticsSection: typeof import('./src/components/admin/AdminPmOrderAnalyticsSection.vue')['default']
+    AdminUserAccountsColumn: typeof import('./src/components/admin/AdminUserAccountsColumn.vue')['default']
     AdminUserDetail: typeof import('./src/components/admin/AdminUserDetail.vue')['default']
     AdminUserOrdersColumn: typeof import('./src/components/admin/AdminUserOrdersColumn.vue')['default']
     AppDialog: typeof import('./src/components/ui/AppDialog.vue')['default']

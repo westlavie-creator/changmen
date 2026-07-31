@@ -464,7 +464,7 @@ export async function getAdminUserTradeAccounts(userId, provider, caller = null)
     .filter(row => !platform || row.provider === platform);
 }
 
-/** 管理端子账号列表（按可见用户从 RDS 回源） */
+/** 管理端子账号列表（按可见用户从 RDS 回源；含软删账号） */
 export async function listAdminAccounts(caller = null) {
   const allProfiles = await sb.fetchProfilesAdmin();
   const visibleIds = resolveVisibleUserIds(caller, allProfiles);
@@ -474,11 +474,18 @@ export async function listAdminAccounts(caller = null) {
     const id = String(p.id);
     await loadAccountsForUser(id);
     const accounts = store.getAccountsForUser(id);
-    for (const raw of accounts) {
+    let deletedAccounts = [];
+    try {
+      deletedAccounts = await sb.fetchDeletedAccountRecordsByOwner(id);
+    }
+    catch (err) {
+      console.warn("[admin] fetchDeletedAccountRecordsByOwner:", err?.message || err);
+    }
+    const pushRow = async (raw) => {
       const detail = sanitizeAccountForAdmin(raw);
       if (!detail)
-        continue;
-      if (String(detail.platform || detail.provider || "") === "PredictFun" && detail.accountId) {
+        return;
+      if (String(detail.platform || detail.provider || "") === "PredictFun" && detail.accountId && !detail.deleted) {
         try {
           const orders = await orderStore.listByPlayer(detail.accountId, id);
           const stats = summarizePfOrders(orders);
@@ -497,12 +504,20 @@ export async function listAdminAccounts(caller = null) {
         teamId: p.team_id || null,
         ...detail,
       });
-    }
+    };
+    for (const raw of accounts)
+      await pushRow(raw);
+    for (const raw of deletedAccounts)
+      await pushRow(raw);
   }));
   out.sort((a, b) => {
     const u = String(a.userName).localeCompare(String(b.userName), "zh");
     if (u)
       return u;
+    const ad = a.deleted ? 1 : 0;
+    const bd = b.deleted ? 1 : 0;
+    if (ad !== bd)
+      return ad - bd;
     const p = String(a.platform).localeCompare(String(b.platform));
     if (p)
       return p;
