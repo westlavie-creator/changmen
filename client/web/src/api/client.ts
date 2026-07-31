@@ -1,7 +1,7 @@
 import type { ApiEnvelope } from "@changmen/api-contract";
 import { buildEsportUrl } from "@changmen/api-contract/urls";
 import { ElMessage } from "element-plus";
-import { armEsportPostDelaySample, finalizeEsportPostDelaySample, shouldSampleEsportUiDelay } from "@/api/apiDelay";
+import { armEsportPostDelaySample, finalizeEsportPostDelaySample } from "@/api/apiDelay";
 import { getApiBase } from "@/config/apiBase";
 import { a8Axios, responseBodyText } from "@changmen/client-core/shared/a8Axios";
 
@@ -77,17 +77,6 @@ export interface PostOptions {
   errorTip?: boolean;
   /** 对齐 A8 `_r.post(..., { successTip })`：成功时提示服务端 msg */
   successTip?: boolean;
-  /**
-   * 是否写入左上角 UI 延迟采样（默认 true）。
-   * Telegram 出站等慢请求应关，避免把 Bot API RTT 当成业务延迟。
-   */
-  sampleDelay?: boolean;
-}
-
-function shouldSampleUiDelay(action: string, opts?: PostOptions): boolean {
-  if (opts?.sampleDelay === false)
-    return false;
-  return shouldSampleEsportUiDelay(action);
 }
 
 function toA8PostBody(body: Record<string, unknown>): Record<string, unknown> {
@@ -105,9 +94,7 @@ async function executePost<T>(
   opts?: PostOptions,
 ): Promise<ApiEnvelope<T>> {
   const started = Date.now();
-  const sampleUiDelay = shouldSampleUiDelay(action, opts);
-  if (sampleUiDelay)
-    armEsportPostDelaySample(started);
+  armEsportPostDelaySample(started);
   try {
     const res = await a8Axios.post<ApiEnvelope<T>>(
       buildEsportUrl(action, query, getApiBase()),
@@ -135,8 +122,7 @@ async function executePost<T>(
     );
   }
   finally {
-    if (sampleUiDelay)
-      finalizeEsportPostDelaySample(started);
+    finalizeEsportPostDelaySample(started);
   }
 }
 

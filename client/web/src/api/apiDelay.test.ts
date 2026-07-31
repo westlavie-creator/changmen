@@ -5,7 +5,6 @@ import {
   delay,
   finalizeEsportPostDelaySample,
   resetEsportPostDelayStateForTest,
-  shouldSampleEsportUiDelay,
 } from "@/api/apiDelay";
 
 describe("apiDelay A8 Ar.post parity", () => {
@@ -38,11 +37,5 @@ describe("apiDelay A8 Ar.post parity", () => {
     armEsportPostDelaySample(300);
     finalizeEsportPostDelaySample(300, 600);
     expect(delay.value).toBe(300);
-  });
-
-  it("excludes Telegram outbound actions from UI delay sampling", () => {
-    expect(shouldSampleEsportUiDelay("Client_SaveOrder")).toBe(true);
-    expect(shouldSampleEsportUiDelay("SendMessage")).toBe(false);
-    expect(shouldSampleEsportUiDelay("Client_NotifyAdminTelegram")).toBe(false);
   });
 });
