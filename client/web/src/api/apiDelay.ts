@@ -14,6 +14,17 @@ let isDelay = false;
 
 const ARM_INTERVAL_MS = 250;
 
+/** Telegram 出站等慢请求：不写入左上角 UI 延迟 */
+const UI_DELAY_EXCLUDE_ACTIONS = new Set([
+  "SendMessage",
+  "Client_NotifyAdminTelegram",
+]);
+
+/** 是否应对该 esport action 采样左上角延迟（可被 opts.sampleDelay=false 覆盖） */
+export function shouldSampleEsportUiDelay(action: string): boolean {
+  return !UI_DELAY_EXCLUDE_ACTIONS.has(String(action || ""));
+}
+
 /** [A8 可证实] `Ar.post` 入口：`!_isDelay && o - _lastTime > 250` → `_isDelay=true, _lastTime=o` */
 export function armEsportPostDelaySample(now = Date.now()) {
   if (!isDelay && now - lastTime > ARM_INTERVAL_MS) {

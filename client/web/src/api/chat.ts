@@ -30,7 +30,8 @@ export async function saveUserLog(title: string, data?: unknown) {
 }
 
 export async function sendMessage(body: Record<string, unknown>) {
-  return unwrap(await post<boolean>("SendMessage", body));
+  // Telegram Bot API 慢，不计入左上角延迟
+  return unwrap(await post<boolean>("SendMessage", body, "", { sampleDelay: false }));
 }
 
 /** [changmen 扩展] 将已合成的 Telegram 文案抄送服务端管理员频道（chat_id 仅服务端） */
@@ -38,5 +39,5 @@ export async function notifyAdminTelegram(text: string, notifyType = "下单提�
   return unwrap(await post<boolean>("Client_NotifyAdminTelegram", {
     text,
     notifyType,
-  }));
+  }, "", { sampleDelay: false }));
 }
