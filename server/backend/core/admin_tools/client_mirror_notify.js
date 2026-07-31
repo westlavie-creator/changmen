@@ -1,6 +1,7 @@
 /**
  * 登录用户将客户端已合成的 Telegram 文案抄送管理员频道。
  * chat_id 仅服务端 TELEGRAM_ADMIN_CHAT_ID，禁止客户端指定。
+ * 校验通过后立即返回，Telegram 出站异步发送，避免拖慢 esport post / 左上角延迟。
  */
 import { isAdminNotifyEnabled, sendAdminNotify } from "./telegram.js";
 
@@ -41,7 +42,7 @@ function allowRate(userId) {
 /**
  * @param {Record<string, unknown>} body
  * @param {{ id?: string, userName?: string } | null | undefined} user
- * @returns {Promise<{ ok: true, skipped?: boolean } | { ok: false, msg: string }>}
+ * @returns {Promise<{ ok: true, skipped?: boolean, queued?: boolean } | { ok: false, msg: string }>}
  */
 export async function handleClientNotifyAdminTelegram(body, user) {
   if (!user?.id)
@@ -61,5 +62,14 @@ export async function handleClientNotifyAdminTelegram(body, user) {
   const notifyType = String(body?.notifyType || body?.notify_type || "下单提醒").trim() || "下单提醒";
   const userName = String(user.userName || user.id || "用户").trim() || "用户";
   const payload = `<b>用户：${escapeHtml(userName)}</b>\n${text}`;
-  return sendAdminNotify(payload, "HTML", notifyType);
+
+  // 不 await Bot API：HTTP 立刻返回，出站失败只打日志
+  void sendAdminNotify(payload, "HTML", notifyType).then((res) => {
+    if (!res?.ok)
+      console.warn("[admin-tools:mirror]", res?.msg || "send failed");
+  }).catch((err) => {
+    console.warn("[admin-tools:mirror]", err instanceof Error ? err.message : String(err));
+  });
+
+  return { ok: true, queued: true };
 }

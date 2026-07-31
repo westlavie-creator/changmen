@@ -29,25 +29,32 @@ describe("admin_tools/client_mirror_notify", () => {
     expect(sendAdminNotify).not.toHaveBeenCalled();
   });
 
-  it("forwards to admin chat with user label", async () => {
+  it("queues admin notify without awaiting Bot API", async () => {
+    let resolveSend;
+    sendAdminNotify.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveSend = resolve; }),
+    );
     const r = await handleClientNotifyAdminTelegram(
       { text: "<b>下单提醒</b>", notifyType: "下单提醒" },
       { id: "u1", userName: "alice" },
     );
     expect(r.ok).toBe(true);
+    expect(r.queued).toBe(true);
     expect(sendAdminNotify).toHaveBeenCalledTimes(1);
     const [payload, parseMode, notifyType] = sendAdminNotify.mock.calls[0];
     expect(parseMode).toBe("HTML");
     expect(notifyType).toBe("下单提醒");
     expect(payload).toContain("用户：alice");
     expect(payload).toContain("<b>下单提醒</b>");
+    resolveSend({ ok: true });
   });
 
   it("rejects client chat_id by ignoring it (no chat_id arg to sendAdminNotify)", async () => {
-    await handleClientNotifyAdminTelegram(
+    const r = await handleClientNotifyAdminTelegram(
       { text: "x", chat_id: "-999" },
       { id: "u1", userName: "bob" },
     );
+    expect(r.ok).toBe(true);
     expect(sendAdminNotify.mock.calls[0].length).toBe(3);
   });
 });
