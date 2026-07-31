@@ -9,7 +9,8 @@ const DEFAULT_MAX_AGE_MIN = 120;
 function isOrderNotifyEnabled() {
   if (!isAdminNotifyEnabled())
     return false;
-  if (String(process.env.TELEGRAM_ORDER_NOTIFY ?? "1").trim() === "0")
+  // 默认关：下单提醒已由客户端 Client_NotifyAdminTelegram 抄送；显式 =1 才开落库兜底
+  if (String(process.env.TELEGRAM_ORDER_NOTIFY ?? "0").trim() === "0")
     return false;
   return true;
 }

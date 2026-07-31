@@ -93,6 +93,7 @@ export const ESPORT_ACTIONS = [
     "Client_GetUsers",
     "Client_GetChatHistory",
     "Client_SaveUserLog",
+    "Client_NotifyAdminTelegram",
     "SendMessage",
 ];
 /** 采集上报与列表拉取 — 团队边界文档中的核心契约面 */

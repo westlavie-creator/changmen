@@ -93,6 +93,7 @@ export const ESPORT_ACTIONS = [
   "Client_GetUsers",
   "Client_GetChatHistory",
   "Client_SaveUserLog",
+  "Client_NotifyAdminTelegram",
   "SendMessage",
 ] as const;
 

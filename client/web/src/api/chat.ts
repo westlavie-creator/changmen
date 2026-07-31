@@ -32,3 +32,11 @@ export async function saveUserLog(title: string, data?: unknown) {
 export async function sendMessage(body: Record<string, unknown>) {
   return unwrap(await post<boolean>("SendMessage", body));
 }
+
+/** [changmen 扩展] 将已合成的 Telegram 文案抄送服务端管理员频道（chat_id 仅服务端） */
+export async function notifyAdminTelegram(text: string, notifyType = "下单提醒") {
+  return unwrap(await post<boolean>("Client_NotifyAdminTelegram", {
+    text,
+    notifyType,
+  }));
+}

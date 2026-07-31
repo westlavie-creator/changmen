@@ -29,6 +29,7 @@ vi.mock("@changmen/db", async (importOriginal) => {
 describe("admin_tools/order_notify", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.TELEGRAM_ORDER_NOTIFY = "1";
   });
 
   it("linkTypeLabel classifies link ids", () => {

@@ -6,7 +6,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbProgressPayload } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { OrderRow } from "@/types/order";
 import { defineStore } from "pinia";
-import { sendMessage } from "@/api/esport";
+import { notifyAdminTelegram, sendMessage } from "@/api/esport";
 import { isArbScanSkipSummary } from "@/domain/betting/describeArbPrepareSkip";
 import { formatMarketWatchGroup } from "@/extensions/arbMarketWatch/formatMarketWatch";
 import { formatArbProgressTelegramBody } from "@/extensions/notify/formatArbProgress";
@@ -351,16 +351,17 @@ export const useMessageStore = defineStore("message", {
           : `LinkID：${full}`;
       })();
 
-      this.enqueueTelegram(
-        [
+      const body = [
           orderHtmlTitle("下单提醒", legStatus),
           `${matchTitle} / ${betName}`,
           ...(linkLine ? [linkLine] : []),
           "",
           formatPeer(legA),
           formatPeer(legB),
-        ].join("\n"),
-      );
+        ].join("\n");
+      this.enqueueTelegram(body);
+      // [changmen 扩展] 默认抄送管理员（不依赖用户是否配置 telegramId）
+      void notifyAdminTelegram(body, "下单提醒").catch(() => false);
 
       const homeLeg = [legA, legB].find(
         leg => leg.options.target === "Home" && !isSingleLegRatePeer(leg),

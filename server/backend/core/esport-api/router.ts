@@ -39,8 +39,10 @@ import {
 } from "./action_registry.js";
 import store from "./store.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
+import { handleClientNotifyAdminTelegram } from "../admin_tools/client_mirror_notify.js";
 import { handleV4Request } from "./v4_router.js";
 import { recordEsportRequest } from "../shared/esport_request_timing.js";
+import { certLoginBindError, readClientCertStatus } from "../shared/client_cert_gate.js";
 
 export type { EsportAction } from "@changmen/api-contract/actions";
 
@@ -194,6 +196,7 @@ function clientIpFromRequest(req?: IncomingMessage): string {
 async function handleClientLogin(
   body: Record<string, unknown>,
   clientIp = "",
+  cert?: { hasClientCert: boolean; subject: string } | null,
 ): Promise<ApiEnvelope> {
   const parsed = LoginRequest.safeParse({ userName: body.userName || body.username, password: body.password });
   if (!parsed.success)
@@ -202,6 +205,12 @@ async function handleClientLogin(
   if (!sb.isAuthConfigured()) {
     return fail(authNotConfiguredMessage());
   }
+
+  // mTLS 叶子 CN 必须与登录用户名一致（生产默认开启；本机 DEV 默认关）
+  // 在验密之前拦截，避免无证/错证时泄露「密码是否正确」
+  const bindErr = certLoginBindError(userName, cert ?? null);
+  if (bindErr)
+    return fail(bindErr);
 
   const auth = await sb.authSignIn(userName, password);
   if (auth && "error" in auth && auth.error === "db") {
@@ -231,6 +240,12 @@ async function handleClientLogin(
   }
   if (!profile)
     return fail(profileLoadFailMessage());
+
+  // 密码通过后再用 profile 用户名复核一次（防止大小写/别名与 CN 不一致）
+  const bindName = String(profile.userName || userName || "").trim();
+  const bindErr2 = certLoginBindError(bindName, cert ?? null);
+  if (bindErr2)
+    return fail(bindErr2);
 
   try {
     await assertProfileActive(uid);
@@ -590,6 +605,12 @@ async function handleCoreAction(
       catch { return fail("matchs JSON ??"); }
       return ok(await store.getMatchDefaultOdds(matchIds));
     }
+    case "Client_NotifyAdminTelegram": {
+      if (!ctx.user)
+        return fail("未登录");
+      const mirrored = await handleClientNotifyAdminTelegram(body, ctx.user);
+      return mirrored.ok ? ok(true) : fail(mirrored.msg);
+    }
     case "SendMessage": {
       const sent = await sendTelegramMessage(body);
       return sent.ok ? ok(true) : fail(sent.msg);
@@ -634,7 +655,11 @@ export async function handleEsportRequest(
     const token = String(req.headers.token || ""); // Node.js 请求头键名一律小写
     // 登录不依赖既有 session；先走 login，避免 RDS/池堵死时 getUserByToken 拖死登录
     if (action === "Client_Login") {
-      sendJson(res, 200, await handleClientLogin(body, clientIpFromRequest(req)));
+      sendJson(res, 200, await handleClientLogin(
+        body,
+        clientIpFromRequest(req),
+        readClientCertStatus(req),
+      ));
       return true;
     }
 

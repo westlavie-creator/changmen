@@ -18,6 +18,7 @@ export {
   getChatHistory,
   getPlayerOrder,
   getUsers,
+  notifyAdminTelegram,
   saveUserLog,
   sendMessage,
 } from "@/api/chat";
