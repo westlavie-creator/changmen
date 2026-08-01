@@ -68,18 +68,28 @@ export function summarizeBuilderTrades(trades) {
   let sellCount = 0;
   let buyVolumeUsdc = 0;
   let sellVolumeUsdc = 0;
+  let buyFeeUsdc = 0;
+  let sellFeeUsdc = 0;
+  let buyBuilderFeeUsdc = 0;
+  let sellBuilderFeeUsdc = 0;
   for (const t of trades) {
     const size = Number(t.sizeUsdc) || 0;
+    const fee = Number(t.feeUsdc) || 0;
+    const builderFee = Number(t.builderFeeUsdc) || 0;
     volumeUsdc += size;
-    feeUsdc += Number(t.feeUsdc) || 0;
-    builderFeeUsdc += Number(t.builderFeeUsdc) || 0;
+    feeUsdc += fee;
+    builderFeeUsdc += builderFee;
     if (t.side === "BUY") {
       buyCount += 1;
       buyVolumeUsdc += size;
+      buyFeeUsdc += fee;
+      buyBuilderFeeUsdc += builderFee;
     }
     else if (t.side === "SELL") {
       sellCount += 1;
       sellVolumeUsdc += size;
+      sellFeeUsdc += fee;
+      sellBuilderFeeUsdc += builderFee;
     }
   }
   return {
@@ -91,6 +101,10 @@ export function summarizeBuilderTrades(trades) {
     sellCount,
     buyVolumeUsdc,
     sellVolumeUsdc,
+    buyFeeUsdc,
+    sellFeeUsdc,
+    buyBuilderFeeUsdc,
+    sellBuilderFeeUsdc,
   };
 }
 

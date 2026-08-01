@@ -103,18 +103,28 @@ function summarizePolyTrades(trades: PolymarketBuilderTradeRow[]) {
   let sellCount = 0;
   let buyVolumeUsdc = 0;
   let sellVolumeUsdc = 0;
+  let buyFeeUsdc = 0;
+  let sellFeeUsdc = 0;
+  let buyBuilderFeeUsdc = 0;
+  let sellBuilderFeeUsdc = 0;
   for (const t of trades) {
     const size = Number(t.sizeUsdc) || 0;
+    const fee = Number(t.feeUsdc) || 0;
+    const builderFee = Number(t.builderFeeUsdc) || 0;
     volumeUsdc += size;
-    feeUsdc += Number(t.feeUsdc) || 0;
-    builderFeeUsdc += Number(t.builderFeeUsdc) || 0;
+    feeUsdc += fee;
+    builderFeeUsdc += builderFee;
     if (t.side === "BUY") {
       buyCount += 1;
       buyVolumeUsdc += size;
+      buyFeeUsdc += fee;
+      buyBuilderFeeUsdc += builderFee;
     }
     else if (t.side === "SELL") {
       sellCount += 1;
       sellVolumeUsdc += size;
+      sellFeeUsdc += fee;
+      sellBuilderFeeUsdc += builderFee;
     }
   }
   return {
@@ -126,11 +136,62 @@ function summarizePolyTrades(trades: PolymarketBuilderTradeRow[]) {
     sellCount,
     buyVolumeUsdc,
     sellVolumeUsdc,
+    buyFeeUsdc,
+    sellFeeUsdc,
+    buyBuilderFeeUsdc,
+    sellBuilderFeeUsdc,
   };
 }
 
 /** 卡片 / 表格上方：随用户筛选变化 */
 const polyViewSummary = computed(() => summarizePolyTrades(filteredPolyTrades.value));
+
+/** 归因成交汇总表：合计 / BUY / SELL */
+const polySummaryTableRows = computed(() => {
+  const s = polyViewSummary.value;
+  return [
+    {
+      side: "合计",
+      count: s.tradeCount,
+      volumeUsdc: s.volumeUsdc,
+      feeUsdc: s.feeUsdc,
+      builderFeeUsdc: s.builderFeeUsdc,
+    },
+    {
+      side: "BUY",
+      count: s.buyCount,
+      volumeUsdc: s.buyVolumeUsdc,
+      feeUsdc: s.buyFeeUsdc,
+      builderFeeUsdc: s.buyBuilderFeeUsdc,
+    },
+    {
+      side: "SELL",
+      count: s.sellCount,
+      volumeUsdc: s.sellVolumeUsdc,
+      feeUsdc: s.sellFeeUsdc,
+      builderFeeUsdc: s.sellBuilderFeeUsdc,
+    },
+  ];
+});
+
+const cmSummaryTableRows = computed(() => {
+  const s = cmSummary.value;
+  if (!s)
+    return [];
+  return [
+    { label: "订单数", value: String(s.orderCount) },
+    { label: "下注 U", value: fmtUsdc(pmCnyToUsdc(s.totalBet)) },
+    { label: "盈亏 U", value: fmtUsdc(pmCnyToUsdc(s.totalProfit)) },
+    {
+      label: "Win / Lose / Reject / Pending",
+      value: `${s.wins} / ${s.losses} / ${s.rejects} / ${s.pending}`,
+    },
+  ];
+});
+
+function polySummaryRowClassName({ row }: { row: { side: string } }): string {
+  return row.side === "合计" ? "summary-table-row--total" : "";
+}
 
 const polyTradesPage = computed(() => {
   const start = (polyPage.value - 1) * PAGE_SIZE;
@@ -432,32 +493,48 @@ onMounted(async () => {
       <section v-if="polySummary && cmSummary" class="summary-grid">
         <article class="admin-card summary-card">
           <h3>Polymarket 归因成交{{ polyUserFilter ? ` · ${polyUserLabel(polyUserFilter)}` : "" }}</h3>
-          <p class="summary-num">
-            {{ polyViewSummary.tradeCount }}
-          </p>
-          <p>成交笔数</p>
-          <ul>
-            <li>成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} U</li>
-            <li>feeUsdc {{ fmtUsdc(polyViewSummary.feeUsdc) }} U</li>
-            <li>builderFee {{ fmtUsdc(polyViewSummary.builderFeeUsdc) }} U</li>
-            <li>
-              BUY {{ polyViewSummary.buyCount }} 笔 / {{ fmtUsdc(polyViewSummary.buyVolumeUsdc) }} U
-            </li>
-            <li>
-              SELL {{ polyViewSummary.sellCount }} 笔 / {{ fmtUsdc(polyViewSummary.sellVolumeUsdc) }} U
-            </li>
-          </ul>
+          <el-table
+            :data="polySummaryTableRows"
+            size="small"
+            stripe
+            class="summary-table"
+            :row-class-name="polySummaryRowClassName"
+          >
+            <el-table-column prop="side" label="方向" width="72" />
+            <el-table-column label="笔数" min-width="72" align="right">
+              <template #default="{ row }">
+                {{ row.count }}
+              </template>
+            </el-table-column>
+            <el-table-column label="成交量 U" min-width="100" align="right">
+              <template #default="{ row }">
+                {{ fmtUsdc(row.volumeUsdc) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="feeUsdc" min-width="90" align="right">
+              <template #default="{ row }">
+                {{ fmtUsdc(row.feeUsdc) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="builderFee" min-width="96" align="right">
+              <template #default="{ row }">
+                {{ fmtUsdc(row.builderFeeUsdc) }}
+              </template>
+            </el-table-column>
+          </el-table>
         </article>
         <article class="admin-card summary-card">
           <h3>changmen Polymarket 订单</h3>
-          <p class="summary-num">
-            {{ cmSummary.orderCount }}
-          </p>
-          <p>订单数</p>
-          <ul>
-            <li>下注 {{ fmtUsdc(pmCnyToUsdc(cmSummary.totalBet)) }} U · 盈亏 {{ fmtUsdc(pmCnyToUsdc(cmSummary.totalProfit)) }} U</li>
-            <li>Win / Lose / Reject / Pending：{{ cmSummary.wins }} / {{ cmSummary.losses }} / {{ cmSummary.rejects }} / {{ cmSummary.pending }}</li>
-          </ul>
+          <el-table
+            :data="cmSummaryTableRows"
+            size="small"
+            stripe
+            class="summary-table"
+            :show-header="false"
+          >
+            <el-table-column prop="label" min-width="160" />
+            <el-table-column prop="value" min-width="120" align="right" />
+          </el-table>
         </article>
       </section>
 
@@ -487,8 +564,8 @@ onMounted(async () => {
           · 成交量 {{ fmtUsdc(polyViewSummary.volumeUsdc) }} U
           · BUY {{ polyViewSummary.buyCount }}/{{ fmtUsdc(polyViewSummary.buyVolumeUsdc) }}
           · SELL {{ polyViewSummary.sellCount }}/{{ fmtUsdc(polyViewSummary.sellVolumeUsdc) }}
-          · fee {{ fmtUsdc(polyViewSummary.feeUsdc) }}
-          · builderFee {{ fmtUsdc(polyViewSummary.builderFeeUsdc) }}
+          · fee 买{{ fmtUsdc(polyViewSummary.buyFeeUsdc) }}/卖{{ fmtUsdc(polyViewSummary.sellFeeUsdc) }}
+          · builderFee 买{{ fmtUsdc(polyViewSummary.buyBuilderFeeUsdc) }}/卖{{ fmtUsdc(polyViewSummary.sellBuilderFeeUsdc) }}
         </p>
         <el-table :data="polyTradesPage" size="small" stripe empty-text="该时段无 Builder 归因成交">
           <el-table-column label="时间" :width="rangeMode === 'utcDay' || rangeMode === 'utcWeek' ? 190 : 170">
@@ -721,20 +798,16 @@ onMounted(async () => {
 }
 
 .summary-card h3 {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 14px;
 }
 
-.summary-num {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 700;
+.summary-table {
+  width: 100%;
 }
 
-.summary-card ul {
-  margin: 12px 0 0;
-  padding-left: 18px;
-  font-size: 13px;
+:deep(.summary-table-row--total) {
+  font-weight: 600;
 }
 
 .table-section {

@@ -569,6 +569,10 @@ export interface PolymarketBuilderDashboardPayload {
       sellCount: number;
       buyVolumeUsdc: number;
       sellVolumeUsdc: number;
+      buyFeeUsdc: number;
+      sellFeeUsdc: number;
+      buyBuilderFeeUsdc: number;
+      sellBuilderFeeUsdc: number;
     };
     pagesFetched: number;
     nextCursor: string | null;
