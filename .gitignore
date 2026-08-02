@@ -82,6 +82,11 @@ arch-scan-report-*.json
 /_tmp_health_*.html
 /_tmp_mem_probe.mjs
 /_patch_diag.py
+/tmp_*
+/_mk_*
+/_b64enc.js
+/下载.png
+/tmp_pf_diag/
 
 # Multi-sport read-only list cache (Gamma snapshots; local only)
 server/backend/storage/sport/**
