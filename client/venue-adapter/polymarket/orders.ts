@@ -966,23 +966,38 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
     ?? ((clob.status === "win" || clob.status === "lose") ? clob.status : undefined)
     ?? base.pmMatchResult;
 
-  // 部分卖出后赛果结算：剩余仓位兑付累加到已有卖出盈亏上
+  // 赛果结算盈亏：用含费全成本（bet/pmStake），勿用 CLOB 名义 money（否则侧栏买入金额与盈亏差手续费）
   if (!blockGammaSettlement && gammaSettled && (clob.status === "win" || clob.status === "lose")) {
     const remaining = resolvePmRemainingShares(base);
     const fill = Math.max(resolvePmFillShares(base), Number(clob.pmShares) || 0);
+    const stakeRaw = Number(base.pmStakeUsdc) || 0;
+    const betUsdc = Number(base.betMoney) || 0;
+    // bet（含费）通常 ≥ 剩余/名义 stake；优先较大者作为全成本
+    const allInStake = betUsdc > stakeRaw + 0.0001 ? betUsdc : (stakeRaw > 0 ? stakeRaw : betUsdc);
     if (remaining > 0.0001 && fill > remaining + 0.0001) {
-      const stakeUsdc = Number(base.pmStakeUsdc) > 0 ? Number(base.pmStakeUsdc) : 0;
       const priorMoney = Number(base.money) || 0;
+      const remStake = stakeRaw > 0 ? stakeRaw : allInStake * (remaining / fill);
       let residualPnl = 0;
       if (clob.status === "win") {
         nextReward = round4(remaining);
-        residualPnl = round4(nextReward - stakeUsdc);
+        residualPnl = round4(nextReward - remStake);
       }
       else {
         nextReward = 0;
-        residualPnl = round4(-stakeUsdc);
+        residualPnl = round4(-remStake);
       }
       nextMoney = round4(priorMoney + residualPnl);
+      nextStatus = clob.status;
+    }
+    else if (fill > 0.0001 && allInStake > 0) {
+      if (clob.status === "win") {
+        nextReward = round4(fill);
+        nextMoney = round4(nextReward - allInStake);
+      }
+      else {
+        nextReward = 0;
+        nextMoney = round4(-allInStake);
+      }
       nextStatus = clob.status;
     }
   }

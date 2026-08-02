@@ -180,6 +180,11 @@ function applyOfficialBuyCostToOrder<T extends {
   betMoney?: number;
   odds?: number;
   reward?: number;
+  money?: number;
+  status?: string;
+  pmSellState?: string;
+  pmAttributedSellShares?: number;
+  pmSide?: string;
 }>(
   order: T,
   allIn: {
@@ -195,7 +200,7 @@ function applyOfficialBuyCostToOrder<T extends {
     ? Number(order.odds)
     : (matchPrice > 0 ? round4(1 / matchPrice) : 0);
   const gross = shares > 0 && matchPrice > 0 ? round4(shares * matchPrice) : 0;
-  return {
+  const next: T = {
     ...order,
     pmShares: shares > 0 ? shares : order.pmShares,
     // 直接用官网 activity.price / 撮合均价，不摊费用
@@ -207,6 +212,31 @@ function applyOfficialBuyCostToOrder<T extends {
     reward: odds > 0 && gross > 0 ? round4(gross * odds) : round4(shares),
     odds: odds > 0 ? odds : order.odds,
   };
+
+  // 已结算且无卖出进度：盈亏按含费全成本重算，避免侧栏买入金额与盈亏差手续费
+  const st = String(order.status ?? "").toLowerCase();
+  const sellState = String(order.pmSellState ?? "").toLowerCase();
+  const attr = Number(order.pmAttributedSellShares) || 0;
+  const isBuy = String(order.pmSide ?? "buy").toLowerCase() !== "sell";
+  if (
+    isBuy
+    && (st === "win" || st === "lose" || st === "lost")
+    && attr <= 0.0001
+    && sellState !== "partial"
+    && sellState !== "closed"
+    && allIn.allInStakeUsdc > 0
+    && shares > 0
+  ) {
+    if (st === "win") {
+      next.reward = round4(shares);
+      next.money = round4(shares - allIn.allInStakeUsdc);
+    }
+    else {
+      next.reward = 0;
+      next.money = round4(-allIn.allInStakeUsdc);
+    }
+  }
+  return next;
 }
 
 function activityToOfficialCost(
@@ -227,7 +257,8 @@ function activityToOfficialCost(
 
 /**
  * 未卖出买单：优先用 Data API `/activity` 的 price / size / usdcSize（官网字段，不自算均价）。
- * activity 未索引时回退费率公式；已卖出/结算单不改 stake。
+ * activity 未索引时回退费率公式。
+ * 部分卖出 / closed 不改 stake；持有到期（settled）仍可补费，并按买入金额校准 win/lose 盈亏。
  */
 export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
   orderId?: string;
@@ -243,6 +274,8 @@ export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
   betMoney?: number;
   odds?: number;
   reward?: number;
+  money?: number;
+  status?: string;
   createAt?: number;
 }>(
   order: T,
@@ -262,11 +295,11 @@ export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
 
   const sellState = String(order.pmSellState ?? "").toLowerCase();
   const attributed = Number(order.pmAttributedSellShares) || 0;
+  // 仅跳过已有卖出进度；settled（持有到期）仍补费并校准盈亏
   if (
     attributed > 0.0001
     || sellState === "partial"
     || sellState === "closed"
-    || sellState === "settled"
   ) {
     return order;
   }
@@ -308,9 +341,24 @@ export async function enrichPolymarketBuyVenueOrderWithFee<T extends {
     }
   }
 
-  // 已有 fee 且 activity 未到：保持
-  if (Number(order.pmFeeUsdc) > 0)
+  const feeUsdc = Number(order.pmFeeUsdc);
+  // 已有 fee 且 activity 未到：未结算保持；已结算则按含费买入金额校准 money
+  if (Number.isFinite(feeUsdc) && feeUsdc > 0) {
+    const st = String(order.status ?? "").toLowerCase();
+    if ((st === "win" || st === "lose" || st === "lost") && shares > 0 && stakeNow > 0) {
+      // fee 已记但 stake 仍贴名义时，补上 fee，避免 money 仍按名义
+      const allInStake = (product > 0 && stakeNow <= product + 0.0001)
+        ? round4(stakeNow + feeUsdc)
+        : stakeNow;
+      return applyOfficialBuyCostToOrder(order, {
+        feeUsdc,
+        allInStakeUsdc: allInStake,
+        matchPrice: fillPrice,
+        shares,
+      });
+    }
     return order;
+  }
 
   if (!(shares > 0) || !(product > 0) || !(fillPrice > 0 && fillPrice < 1))
     return order;
@@ -360,9 +408,13 @@ export async function enrichPolymarketBuyOrdersWithFees<T extends {
   pmShares?: number;
   pmFillPrice?: number;
   pmStakeUsdc?: number;
+  pmAttributedSellShares?: number;
+  pmSellState?: string;
   betMoney?: number;
   odds?: number;
   reward?: number;
+  money?: number;
+  status?: string;
   createAt?: number;
 }>(
   orders: T[],

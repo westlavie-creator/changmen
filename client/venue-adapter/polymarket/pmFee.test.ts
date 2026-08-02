@@ -159,6 +159,80 @@ describe("enrichPolymarketBuyVenueOrderWithFee", () => {
     expect(enriched.pmStakeUsdc).toBe(10.3);
     expect(enriched.pmFillPrice).toBe(0.4);
   });
+
+  it("settled lose: still adds fee and sets money = -买入金额", async () => {
+    const enriched = await enrichPolymarketBuyVenueOrderWithFee({
+      pmSide: "buy",
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmStakeUsdc: 10,
+      betMoney: 10,
+      money: -10,
+      status: "lose",
+      pmSellState: "settled",
+      pmConditionId: "0xcond-settled-lose",
+    });
+    expect(enriched.pmFeeUsdc).toBe(0.3);
+    expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.betMoney).toBe(10.3);
+    expect(enriched.money).toBe(-10.3);
+    expect(enriched.reward).toBe(0);
+  });
+
+  it("settled win: money = 回款 − 买入金额", async () => {
+    const enriched = await enrichPolymarketBuyVenueOrderWithFee({
+      pmSide: "buy",
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmStakeUsdc: 10,
+      betMoney: 10,
+      money: 15,
+      status: "win",
+      pmSellState: "settled",
+      pmConditionId: "0xcond-settled-win",
+    });
+    expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.betMoney).toBe(10.3);
+    expect(enriched.reward).toBe(25);
+    expect(enriched.money).toBeCloseTo(14.7, 4);
+  });
+
+  it("settled lose with existing fee: realigns money to -买入金额", async () => {
+    const enriched = await enrichPolymarketBuyVenueOrderWithFee({
+      pmSide: "buy",
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmStakeUsdc: 10.3,
+      betMoney: 10.3,
+      pmFeeUsdc: 0.3,
+      money: -10,
+      status: "lose",
+      pmSellState: "settled",
+      pmConditionId: "0xcond-settled-fee-lose",
+    });
+    expect(enriched.pmFeeUsdc).toBe(0.3);
+    expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.betMoney).toBe(10.3);
+    expect(enriched.money).toBe(-10.3);
+  });
+
+  it("settled lose: fee field present but stake still nominal → add fee into cost", async () => {
+    const enriched = await enrichPolymarketBuyVenueOrderWithFee({
+      pmSide: "buy",
+      pmShares: 25,
+      pmFillPrice: 0.4,
+      pmStakeUsdc: 10,
+      betMoney: 10,
+      pmFeeUsdc: 0.3,
+      money: -10,
+      status: "lose",
+      pmSellState: "settled",
+      pmConditionId: "0xcond-fee-nominal-stake",
+    });
+    expect(enriched.pmStakeUsdc).toBe(10.3);
+    expect(enriched.betMoney).toBe(10.3);
+    expect(enriched.money).toBe(-10.3);
+  });
 });
 
 describe("parsePolymarketMarketFeeDetails", () => {

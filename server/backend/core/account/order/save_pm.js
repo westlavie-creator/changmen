@@ -1,6 +1,7 @@
 /**
  * Polymarket save 合并（买/卖状态机）。由 mergeOrderLogicalSave 分发。
  */
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { normalizePmMatchResult, parseNum } from "./dto.js";
 
 /** pmShares = 官方 fill，取 RDS/CLOB/入参 最大值，避免 0 覆盖有效值 */
@@ -282,6 +283,32 @@ export function mergePolymarketProviderSave(prevRow, prevRaw, o, pmOrigin, merge
       delete merged.pmSellProceeds;
     if (!String(merged.pmLastSellOrderId ?? "").trim() && String(prevRaw.pmLastSellOrderId ?? "").trim())
       merged.pmLastSellOrderId = prevRaw.pmLastSellOrderId;
+  }
+
+  /**
+   * 已结算且无卖出进度：Money 与含费 bet_money 对齐。
+   * 防止旧客户端用「名义本金」盈亏回写，侧栏再次出现买入金额≠|盈亏|。
+   */
+  if (!isSell) {
+    const st = String(merged.status ?? o.status ?? prevRow?.status ?? "").toLowerCase();
+    const sellState = String(merged.pmSellState ?? prevRaw.pmSellState ?? "").toLowerCase();
+    const attr = parseNum(merged.pmAttributedSellShares ?? prevRaw.pmAttributedSellShares, 0);
+    const shares = parseNum(merged.pmShares ?? prevRaw.pmShares, 0);
+    const bet = bet_money > 0 ? bet_money : parseNum(merged.betMoney, 0);
+    const noSellProgress = attr <= 0.0001
+      && sellState !== "partial"
+      && sellState !== "closed";
+    if (noSellProgress && bet > 0 && shares > 0 && (st === "win" || st === "lose" || st === "lost")) {
+      const fx = getExchange(Currency.USDT);
+      const fair = st === "win" ? shares * fx - bet : -bet;
+      const fairRounded = Math.round(fair * 10000) / 10000;
+      if (Math.round(Number(money) || 0) !== Math.round(fairRounded)) {
+        money = fairRounded;
+        merged.money = fairRounded;
+        if (st === "win")
+          merged.reward = Math.round(shares * fx * 10000) / 10000;
+      }
+    }
   }
 
   return { raw: merged, money, bet_money };
