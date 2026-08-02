@@ -78,7 +78,8 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST_HONGKONG }}
+      # Production HK — fixed; do not use DEPLOY_HOST_HONGKONG (was test 166)
+      DEPLOY_HOST: "47.57.10.202"
       DEPLOY_FULL: ${{ github.event.inputs.full_deploy == 'true' && '1' || '0' }}
       DIST_ARCHIVE: /tmp/changmen-dist.tgz
       REPO_ARCHIVE: /tmp/changmen-repo.tgz
@@ -87,17 +88,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Resolve deploy host (hongkong)
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Resolve deploy host (hongkong production)
         run: |
-          if [ -z "${DEPLOY_HOST}" ]; then
-            echo "Missing secret DEPLOY_HOST_HONGKONG." >&2
-            exit 1
-          fi
           test -n "${DEPLOY_SSH_KEY}" || (echo "Missing secret DEPLOY_SSH_KEY" && exit 1)
           echo "DEPLOY_USER=${DEPLOY_USER:-root}" >> "$GITHUB_ENV"
           echo "DEPLOY_PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
           echo "DEPLOY_REPO=${DEPLOY_REPO:-/root/changmen}" >> "$GITHUB_ENV"
-          echo "Deploying to 香港 (${DEPLOY_HOST})"
+          echo "Deploying to production HK-202 (${DEPLOY_HOST})"
 
       - name: Download dist artifact
         uses: actions/download-artifact@v4
@@ -105,17 +106,13 @@ jobs:
           name: frontend-dist-${{ github.sha }}
           path: /tmp
 
-      - name: Pack app archive
+      - name: Pack app archive (git HEAD only)
         run: |
           test -f package.json
-          tar -czf "${REPO_ARCHIVE}" \
-            --exclude=node_modules \
-            --exclude=client/web/dist \
-            --exclude=client/web/node_modules \
-            --exclude=.git \
-            .
-          ls -lh "${REPO_ARCHIVE}"
+          test -f scripts/deploy/pack-git-repo.mjs
+          node --input-type=module -e "import { packGitRepoArchive } from './scripts/deploy/pack-git-repo.mjs'; packGitRepoArchive(process.cwd(), process.env.REPO_ARCHIVE)"
           tar -tzf "${REPO_ARCHIVE}" >/dev/null
+          ls -lh "${REPO_ARCHIVE}"
 
       - name: Configure SSH
         run: |

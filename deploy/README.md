@@ -23,16 +23,14 @@
 
 | 角色 | IP | 说明 |
 |------|-----|------|
-| **生产（HK）** | `47.57.10.202` | 本机 `scripts\deploy\deploy202.bat` 或 `deploy-hk-remaining.mjs 47.57.10.202` |
-| **测试（HK）** | `47.82.100.166` | `node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 [--build]` |
+| **生产（HK）** | `47.57.10.202` | **push `master` → GHA**（[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)）；本机 `deploy202.bat` 仅紧急备用 |
+| **测试（HK）** | `47.82.100.166` | 本机 `node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 [--build]`（不进 GHA） |
 | 上海 | `106.14.82.50` | 本机 `BAT\deploy-shanghai.bat`（不进 GitHub） |
-
-GHA：`push master` 默认更新测试机；生产 202 以本机 deploy 或运维流程为准。
 
 | 区域 | 方式 |
 |------|------|
-| 测试 166 | **push `master` → GHA**（推荐日常验证） |
-| 生产 202 | `scripts\deploy\deploy202.bat`；`BAT\deploy-hongkong.bat` 仅紧急备用 |
+| 生产 202 | **push `master` → GHA**（推荐）；`scripts\deploy\deploy202.bat` 紧急备用 |
+| 测试 166 | 本机 `deploy-hk-remaining.mjs` |
 
 VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
