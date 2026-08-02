@@ -1,6 +1,6 @@
 # 启动与运维脚本
 
-Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_DEV.md)）。`npm run` 在**本仓库根**执行。
+Windows 批处理在本地 `BAT\`（不进 GitHub）；Ubuntu/Linux 用仓库内 [`sh/`](../sh/README.md)（见 [LOCAL_DEV.md](../LOCAL_DEV.md)）。`npm run` 在**本仓库根**执行。
 
 文档总索引：[docs/README.md](../docs/README.md)。
 
@@ -8,8 +8,8 @@ Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_
 
 | 组件 | 入口 | 职责 |
 |------|------|------|
-| **Web 后端** | `BAT\backend.bat` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/` |
-| **Vite 前端** | `npm run app:dev` 或 `BAT\dev.bat` | 开发 Vite（Win `5274` / 其它 `5174`），API proxy → 后端 |
+| **Web 后端** | `BAT\backend.bat` / `sh/backend.sh` → `npm run web` → `server.js` | HTTP `/esport/*`、静态 `/` |
+| **Vite 前端** | `npm run app:dev` 或 `BAT\dev.bat` / `sh/dev.sh` | 开发 Vite（Win `5274` / Linux `5174`），API proxy → 后端 |
 | **Chrome 插件** | `chrome-extension` | PB/Stake 代发、凭证采集、v4 桥接 |
 | **Matcher** | `npm run web`（内嵌）/ `npm run matcher:ui` | 合并 `client_matches` / 人工 UI |
 
@@ -21,10 +21,10 @@ Windows 批处理在本地 `BAT\`（不进 GitHub，见 [LOCAL_DEV.md](../LOCAL_
 
 | 入口 | 作用 |
 |------|------|
-| **`BAT\dev.bat`** | backend + Vite（推荐） |
-| **`BAT\dev.bat parity`** | 同上（A8 parity 验收，matchMerge 随 web 内嵌） |
-| **`BAT\setup-dev-env.bat`** | 首次：从 `.env.example` 复制 `server/backend/.env` |
-| **`BAT\backend.bat`** | 仅 Web 后端（`npm run web`） |
+| **`BAT\dev.bat`** / **`sh/dev.sh`** | backend + Vite（推荐） |
+| **`BAT\dev.bat parity`** / **`sh/dev-esport.sh parity`** | 同上（A8 parity 验收，matchMerge 随 web 内嵌） |
+| **`BAT\setup-dev-env.bat`** / **`sh/setup-dev-env.sh`** | 首次：从 `.env.example` 复制 `server/backend/.env` |
+| **`BAT\backend.bat`** / **`sh/backend.sh`** | 仅 Web 后端（`npm run web`） |
 | `npm run matcher:ui` | Matcher 面板 `:4567` |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |
 

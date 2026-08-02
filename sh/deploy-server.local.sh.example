@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Copy to sh/deploy-server.local.sh and edit
+DEPLOY_USER=root
+DEPLOY_HOST=106.14.82.50
+DEPLOY_REPO=/root/changmen
+DEPLOY_LOCAL_BUILD=1
+SSH_IDENTITY="${HOME}/.ssh/id_ed25519_gamebet"
+# DEPLOY_FULL=1

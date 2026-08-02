@@ -16,6 +16,7 @@ dist/
 .turbo/
 deploy-server.env
 deploy-server.local.bat
+sh/deploy-server.local.sh
 .vite/
 **/.vite/
 *.tsbuildinfo
