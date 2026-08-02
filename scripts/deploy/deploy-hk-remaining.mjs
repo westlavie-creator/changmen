@@ -8,6 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { packGitRepoArchive } from "./pack-git-repo.mjs";
 
 const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
@@ -97,22 +98,14 @@ if (args.has("--build")) {
 console.log("=== Pack dist ===");
 packLocalDist();
 
-console.log("=== Pack repo ===");
+console.log("=== Pack repo (git HEAD only) ===");
 try {
   if (fs.existsSync(repoArchive)) fs.unlinkSync(repoArchive);
 }
 catch {
   /* ignore locked temp from previous run */
 }
-run("tar", [
-  "-czf", repoArchive,
-  "--exclude=node_modules",
-  "--exclude=client/web/dist",
-  "--exclude=client/web/node_modules",
-  "--exclude=.git",
-  ".",
-], { cwd: changmen });
-
+packGitRepoArchive(changmen, repoArchive);
 const scriptPaths = deployScripts.map(name => path.join(changmen, "deploy/scripts", name));
 
 const results = [];

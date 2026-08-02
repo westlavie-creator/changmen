@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { packGitRepoArchive } from "./pack-git-repo.mjs";
 
 const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
@@ -45,17 +46,8 @@ if (!fs.existsSync(distArchive)) {
   process.exit(1);
 }
 
-console.log("[1/4] pack repo");
-if (fs.existsSync(repoArchive)) fs.unlinkSync(repoArchive);
-run("tar", [
-  "-czf", repoArchive,
-  "--exclude=node_modules",
-  "--exclude=client/web/dist",
-  "--exclude=client/web/node_modules",
-  "--exclude=.git",
-  ".",
-], { cwd: changmen });
-
+console.log("[1/4] pack repo (git HEAD only)");
+packGitRepoArchive(changmen, repoArchive);
 console.log("[2/4] upload");
 scp(repoArchive, "/tmp/changmen-repo.upload.tgz");
 ssh(`mkdir -p ${remoteScripts}`);
