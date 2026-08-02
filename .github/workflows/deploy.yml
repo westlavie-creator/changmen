@@ -124,13 +124,38 @@ jobs:
 
       - name: Upload app archive and deploy scripts (hongkong)
         run: |
-          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${REPO_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-repo.upload.tgz"
+          # Stream via ssh (more reliable than scp on some VPS paths); verify sha256
+          LOCAL_SHA="$(sha256sum "${REPO_ARCHIVE}" | awk '{print $1}')"
+          LOCAL_SIZE="$(stat -c%s "${REPO_ARCHIVE}")"
+          echo "local repo archive: ${LOCAL_SIZE} bytes sha256=${LOCAL_SHA}"
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "mv /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz && gzip -t /tmp/changmen-repo.tgz && tar -tzf /tmp/changmen-repo.tgz >/dev/null && mkdir -p ${REMOTE_DEPLOY_SCRIPTS}"
+            "rm -f /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz"
+          # retries: prior scp to this host occasionally produced size-matched corrupt gzip
+          ok=0
+          for attempt in 1 2 3; do
+            echo "upload attempt ${attempt}"
+            ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cat > /tmp/changmen-repo.upload.tgz" < "${REPO_ARCHIVE}"
+            if ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "set -euo pipefail
+               test \"\$(stat -c%s /tmp/changmen-repo.upload.tgz)\" -eq ${LOCAL_SIZE}
+               echo ${LOCAL_SHA}  /tmp/changmen-repo.upload.tgz | sha256sum -c -
+               tar -tzf /tmp/changmen-repo.upload.tgz >/dev/null
+               mv /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz
+               mkdir -p ${REMOTE_DEPLOY_SCRIPTS}"; then
+              ok=1
+              break
+            fi
+            echo "upload attempt ${attempt} failed; retrying..."
+            sleep 2
+          done
+          test "$ok" = "1"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             deploy/scripts/apply-repo-archive.sh deploy/scripts/deploy-server-remote.sh \
@@ -154,9 +179,29 @@ jobs:
 
       - name: Upload frontend dist archive (hongkong)
         run: |
-          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DIST_ARCHIVE}" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/changmen-dist-${GITHUB_SHA}.tgz"
+          LOCAL_SHA="$(sha256sum "${DIST_ARCHIVE}" | awk '{print $1}')"
+          LOCAL_SIZE="$(stat -c%s "${DIST_ARCHIVE}")"
+          echo "local dist archive: ${LOCAL_SIZE} bytes sha256=${LOCAL_SHA}"
+          ok=0
+          for attempt in 1 2 3; do
+            echo "dist upload attempt ${attempt}"
+            ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cat > /tmp/changmen-dist-${GITHUB_SHA}.tgz" < "${DIST_ARCHIVE}"
+            if ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "set -euo pipefail
+               test \"\$(stat -c%s /tmp/changmen-dist-${GITHUB_SHA}.tgz)\" -eq ${LOCAL_SIZE}
+               echo ${LOCAL_SHA}  /tmp/changmen-dist-${GITHUB_SHA}.tgz | sha256sum -c -
+               tar -tzf /tmp/changmen-dist-${GITHUB_SHA}.tgz >/dev/null"; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ok" = "1"
 
       - name: Atomically replace remote frontend dist (hongkong)
         run: |
