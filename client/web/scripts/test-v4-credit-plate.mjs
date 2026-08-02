@@ -3,7 +3,7 @@
  * v4 信用盘已停用 — 断言 /v4.0/ 返回 V4Disabled，不再打 api.a8.to。
  * 用法：先启动 backend，再 node scripts/test-v4-credit-plate.mjs
  */
-const BASE = process.env.V4_TEST_BASE || "http://127.0.0.1:3560/v4.0/";
+const BASE = process.env.V4_TEST_BASE || "http://127.0.0.1:3700/v4.0/";
 
 async function v4Post(path, body = {}) {
   const res = await fetch(`${BASE}${path}`, {

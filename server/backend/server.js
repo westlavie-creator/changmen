@@ -38,7 +38,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 
 const PORT = Number(
-  process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
+  process.env.PORT || (process.platform === "win32" ? 3700 : 3456),
 );
 const PUBLIC_DIR = path.join(__dirname, "public");
 const WEB_DIR
@@ -134,7 +134,7 @@ server.on("error", (err) => {
   }
   else if (err.code === "EACCES") {
     console.error(
-      `[server] 端口 ${PORT} 无法监听（EACCES）。Windows Hyper-V 常保留 3426-3525；请设 PORT=3560 或运行 backend.bat`,
+      `[server] 端口 ${PORT} 无法监听（EACCES）。Windows Hyper-V/WSL 会动态保留端口段（netsh interface ipv4 show excludedportrange）；请换未保留的 PORT 或运行 BAT\\backend.bat`,
     );
     process.exit(1);
   }

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(
-  process.env.PORT || (process.platform === "win32" ? 3560 : 3456),
+  process.env.PORT || (process.platform === "win32" ? 3700 : 3456),
 );
 const START = path.join(__dirname, "scripts", "start-db.mjs");
 const background

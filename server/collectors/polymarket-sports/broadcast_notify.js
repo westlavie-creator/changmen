@@ -5,7 +5,8 @@
 function broadcastUrl() {
   if (process.env.CHANGMEN_PM_SPORT_BROADCAST_URL)
     return String(process.env.CHANGMEN_PM_SPORT_BROADCAST_URL).trim();
-  const port = Number(process.env.CHANGMEN_WEB_PORT || process.env.PORT) || 3560;
+  const port = Number(process.env.CHANGMEN_WEB_PORT || process.env.PORT)
+    || (process.platform === "win32" ? 3700 : 3456);
   return `http://127.0.0.1:${port}/esport/internal/broadcast/pm-sport`;
 }
 

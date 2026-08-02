@@ -4,7 +4,7 @@ export function changmenDevBackendOrigin(): string {
     typeof navigator !== "undefined"
       ? /win/i.test(navigator.platform || navigator.userAgent)
       : typeof process !== "undefined" && process.platform === "win32";
-  const port = isWin ? 3560 : 3456;
+  const port = isWin ? 3700 : 3456;
   return `http://127.0.0.1:${port}`;
 }
 

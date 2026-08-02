@@ -197,7 +197,7 @@ describe("createIaRealtimeClient", () => {
     expect(ioMock).toHaveBeenCalledTimes(2);
 
     expect(ioMock).toHaveBeenLastCalledWith(
-      "http://127.0.0.1:3560",
+      "http://127.0.0.1:3700",
       expect.objectContaining({
         path: IA_WS_FORWARD_PATH,
         extraHeaders: {

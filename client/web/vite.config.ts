@@ -27,8 +27,8 @@ const clientCoreVitestGlob = path
   .split(path.sep)
   .join("/");
 
-// Windows Hyper-V 常保留 3426-3525，本地后端默认 3560；Linux/VPS 仍用 3456
-const DEV_API_PORT = process.platform === "win32" ? 3560 : 3456;
+// Windows：避开 Hyper-V/WSL 动态保留段（3560 曾落入 3513-3612 → EACCES）；Linux/VPS 仍用 3456
+const DEV_API_PORT = process.platform === "win32" ? 3700 : 3456;
 const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_PORT}`;
 // Hyper-V/WSL 常保留 5123-5222（含 Vite 默认 5173/5174）
 const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;

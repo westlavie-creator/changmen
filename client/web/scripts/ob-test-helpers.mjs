@@ -12,7 +12,7 @@ export function resolveEsportBase() {
   const base =
     process.env.ESPORT_TEST_BASE ||
     process.env.V4_TEST_BASE?.replace(/\/v4\.0\/?$/, "") ||
-    "http://127.0.0.1:3560";
+    "http://127.0.0.1:3700";
   return base.replace(/\/$/, "");
 }
 

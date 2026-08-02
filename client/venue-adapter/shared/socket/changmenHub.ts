@@ -15,7 +15,8 @@ const serverSubscribed = new Set<string>();
 function hubOrigin(): string {
   if (typeof window !== "undefined" && window.location?.origin)
     return window.location.origin;
-  return "http://127.0.0.1:3560";
+  const isWin = typeof process !== "undefined" && process.platform === "win32";
+  return `http://127.0.0.1:${isWin ? 3700 : 3456}`;
 }
 
 function socketToken(): string {
