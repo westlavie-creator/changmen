@@ -74,7 +74,7 @@ describe("resolveMakeUpSuccessReference", () => {
       false,
       pmAccount,
     );
-    expect(ref).toEqual({ betMoney: 95.2, betOdds: 1.695 });
+    expect(ref).toEqual({ betMoney: 93.8, betOdds: 1.695 });
   });
 
   it("converts PF leg betMoney from USDT to CNY on fallback (same as PM)", () => {
@@ -83,12 +83,12 @@ describe("resolveMakeUpSuccessReference", () => {
       currency: "USDT",
     } as never;
     const ref = resolveMakeUpSuccessReference(
-      { betMoney: 1.47, odds: 1.6, type: "PredictFun" } as BetOption,
+      { betMoney: 1.49, odds: 1.6, type: "PredictFun" } as BetOption,
       [],
       false,
       pfAccount,
     );
-    expect(ref).toEqual({ betMoney: 10, betOdds: 1.6 });
+    expect(ref).toEqual({ betMoney: 9.98, betOdds: 1.6 });
   });
 
   it("converts unscaled PM venue order USDC to CNY", () => {
@@ -102,7 +102,7 @@ describe("resolveMakeUpSuccessReference", () => {
       false,
       pmAccount,
     );
-    expect(ref).toEqual({ betMoney: 95.2, betOdds: 1.695 });
+    expect(ref).toEqual({ betMoney: 93.8, betOdds: 1.695 });
   });
 
   it("keeps scaled PM venue order CNY betMoney", () => {

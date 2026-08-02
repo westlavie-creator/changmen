@@ -1293,7 +1293,7 @@ describe("polymarketProvider.getOrders", () => {
       provider: "Polymarket",
       orderId: "0xtrade-order",
       status: "none",
-      betMoney: 6.8,
+      betMoney: 6.7,
       odds: 2,
     });
 
@@ -1338,8 +1338,8 @@ describe("polymarketProvider.getOrders", () => {
       },
     }), { accountId: 47 as unknown as PlatformAccount["accountId"], multiply: 10 }));
 
-    expect(orders[0]?.betMoney).toBe(6.8);
-    expect(orders[0]?.reward).toBe(13.6);
+    expect(orders[0]?.betMoney).toBe(6.7);
+    expect(orders[0]?.reward).toBe(13.4);
   });
 
   test("returns empty array when credentials are missing", async () => {

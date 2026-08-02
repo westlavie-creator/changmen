@@ -80,7 +80,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend joins unsettled OB + PM preview without double-dash", () => {
-    const fx = 6.8;
+    const fx = 6.7;
     const text = orderLinkLegend([
       { Status: "None", BetMoney: 100, Odds: 3.0, Money: 0, Type: "OB", Item: "Alpha", OrderID: "a" },
       {
@@ -103,7 +103,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend does not merge venue order into PM by team/Item name", () => {
-    const fx = 6.8;
+    const fx = 6.7;
     const text = orderLinkLegend([
       {
         OrderID: "pm-geng",
@@ -143,7 +143,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend keeps venue orders per-order; only PM same-token merges", () => {
-    const fx = 6.8;
+    const fx = 6.7;
     const text = orderLinkLegend([
       {
         OrderID: "pm-trace",
@@ -215,7 +215,7 @@ describe("orderLink A8 parity", () => {
   });
 
   it("legend merges PM same-token buys even when Item text differs slightly", () => {
-    const fx = 6.8;
+    const fx = 6.7;
     const text = orderLinkLegend([
       {
         OrderID: "a",
@@ -259,11 +259,11 @@ describe("orderLink A8 parity", () => {
   });
 
   it("PM unsettled uses shares×$1 − stake (price path, no odds)", () => {
-    // 50 份 × $1 − 25U 成本 → 25U × 6.8 = 170
+    // 50 份 × $1 − 25U 成本 → 25U × 6.7 = 167.5 → "168"
     const text = orderLinkLegend([
       {
         Status: "None",
-        BetMoney: 170,
+        BetMoney: 168,
         Odds: 2.0,
         Money: 0,
         Type: "Polymarket",
@@ -273,11 +273,11 @@ describe("orderLink A8 parity", () => {
         PmFillPrice: 0.5,
       },
     ]);
-    expect(text).toBe("170");
+    expect(text).toBe("168");
   });
 
   it("PF unsettled legend uses shares×$1 − notional (price path)", () => {
-    // 名义 14.12、价 0.32 → 44.125 份；若赢回款 44.125U，盈利 30.005×6.8≈204
+    // 名义 14.12、价 0.32 → 44.125 份；若赢回款 44.125U，盈利 30.005×6.7≈201
     const text = orderLinkLegend([
       {
         Status: "None",
@@ -292,11 +292,11 @@ describe("orderLink A8 parity", () => {
         OrderID: "pf1",
       },
     ]);
-    expect(text).toBe("204");
+    expect(text).toBe("201");
   });
 
   it("PF unsettled legend uses truncated hold × $1 for win payout", () => {
-    // 持仓展示/回款截断 43.33 − 名义 14.12 = 29.21U → ×6.8 ≈ 199
+    // 持仓展示/回款截断 43.33 − 名义 14.12 = 29.21U → ×6.7 ≈ 196
     const text = orderLinkLegend([
       {
         Status: "None",
@@ -311,7 +311,7 @@ describe("orderLink A8 parity", () => {
         OrderID: "pf1",
       },
     ]);
-    expect(text).toBe("199");
+    expect(text).toBe("196");
   });
 
   it("9999 单边 link 在 legend 前缀展示 🏆", () => {
@@ -377,8 +377,8 @@ describe("orderLink A8 parity", () => {
         Status: "None",
       },
     ]);
-    // Money 为 USDT，图例 × 汇率 6.8
-    expect(profit).toBe(3.75 * 6.8);
+    // Money 为 USDT，图例 × 汇率 6.7
+    expect(profit).toBe(3.75 * 6.7);
   });
 
   it("orderListDisplayBlocks nests PM/PF sells under matching buys", () => {

@@ -120,10 +120,10 @@ describe("listUserProfitRank", () => {
     const rows = await listUserProfitRank("2026-07-24");
 
     expect(rows).toHaveLength(1);
-    // 43.3752 + 29.71 * 6.8??? money ????????????
-    expect(rows[0].Money).toBeCloseTo(245.4032, 4);
+    // 43.3752 + 29.71 * 6.7
+    expect(rows[0].Money).toBeCloseTo(242.4322, 4);
     expect(rows[0].Count).toBe(2);
-    expect(rows[0].BetMoney).toBeCloseTo(200 + 27.21 * 6.8, 4);
+    expect(rows[0].BetMoney).toBeCloseTo(200 + 27.21 * 6.7, 4);
   });
 
   it("dedupes same order_id across player_id (deleted+readded account)", async () => {

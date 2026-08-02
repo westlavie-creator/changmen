@@ -64,7 +64,7 @@ for (const r of rows) {
   console.log({
     id: r.id,
     bet_money_usdt: r.bet_money,
-    cny_after_deploy: Number(r.bet_money) * 6.8,
+    cny_after_deploy: Number(r.bet_money) * 6.7,
     before: { match: r.match, bet: r.bet, item: String(r.item).slice(0, 24) },
     after: { match, bet, item },
   });

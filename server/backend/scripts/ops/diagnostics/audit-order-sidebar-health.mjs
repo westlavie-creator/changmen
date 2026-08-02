@@ -276,7 +276,7 @@ async function main() {
     const sellMoneySum = sells.reduce((s, x) => s + num(x.money), 0);
     const bet = num(buy.bet_money);
 
-    // 库内应为 USDT；若 money 很大且像已×6.8（相对 bet），标可疑
+    // 库内应为 USDT；若 money 很大且像已×6.7（相对 bet），标可疑
     if (Math.abs(buyMoney) > 50 && Math.abs(bet) > 0 && Math.abs(buyMoney / bet) > 4)
       push("pf_money_looks_already_cny", buy, { ratio: Math.round((buyMoney / bet) * 100) / 100, state });
 

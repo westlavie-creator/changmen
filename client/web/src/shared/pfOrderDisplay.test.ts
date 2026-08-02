@@ -130,7 +130,7 @@ describe("pfOrderDisplay", () => {
       PfNotionalUsdt: 14.12,
       PfBookPrice: 0.32,
     };
-    // 43.33075*0.4 - 14.12 ≈ 3.21U → ×6.8 ≈ 22
+    // 43.33075*0.4 - 14.12 ≈ 3.21U → ×6.7 ≈ 22
     expect(pfUnrealizedPnlAtLiveCny(row, 0.4)).toBe(22);
     expect(pfUnrealizedPnlAtLiveCny(row, 0.2)).toBe(-37);
     expect(formatLiveUnrealizedPnlText(22)).toBe("浮盈：+22");
@@ -149,26 +149,26 @@ describe("pfOrderDisplay", () => {
   });
 
   it("scales notional USDT for sidebar stake when PfNotionalUsdt present", () => {
-    // 14.12 USDT × 6.8 = 95.999… → scale
+    // 14.12 USDT × 6.7 = 95.999… → scale
     expect(pfOrderStakeDisplayCny({
       Type: "PredictFun",
       PfSide: "buy",
       BetMoney: 13.68,
       PfNotionalUsdt: 14.12,
-    })).toBeCloseTo(14.12 * 6.8, 5);
+    })).toBeCloseTo(14.12 * 6.7, 5);
   });
 
   it("scales USDT BetMoney to CNY for sidebar (same as PM)", () => {
-    // 1 USDT × 6.8 = 6.8 CNY
+    // 1 USDT × 6.7 = 6.7 CNY
     expect(pfOrderStakeDisplayCny({
       Type: "PredictFun",
       BetMoney: 1,
-    })).toBe(6.8);
+    })).toBe(6.7);
     expect(pfOrderProfitDisplayCny({
       Type: "PredictFun",
       PfSide: "buy",
       Money: 0.5,
-    })).toBe(3.4);
+    })).toBe(3.35);
   });
 
   it("sell row stake display uses BetMoney mirror; sell profit display is null", () => {
@@ -179,7 +179,7 @@ describe("pfOrderDisplay", () => {
       Money: 99,
       Status: "None",
     };
-    expect(pfOrderStakeDisplayCny(sell)).toBe(13.75 * 6.8);
+    expect(pfOrderStakeDisplayCny(sell)).toBe(13.75 * 6.7);
     expect(pfOrderProfitDisplayCny(sell)).toBeNull();
     expect(resolvePfOrderListStatusClass(sell)).toBe("PfSell");
   });
@@ -191,7 +191,7 @@ describe("pfOrderDisplay", () => {
       BetMoney: 13.75,
       PfSellProceeds: 4.2,
       Status: "None",
-    })).toBeCloseTo(4.2 * 6.8, 5);
+    })).toBeCloseTo(4.2 * 6.7, 5);
   });
 
   it("treats 市场 N as bare and enriches from MarketIndex", () => {

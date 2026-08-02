@@ -26,8 +26,8 @@ describe("a8VenueMoney (A8 adaptation)", () => {
       playerName: "u",
       currency: "USDT",
     });
-    expect(resolveVenueStakeFromPlanCny(acc, 68, 2)).toBe(10);
-    expect(resolvePlanCnyFromVenueStake(acc, 10)).toBe(68);
+    expect(resolveVenueStakeFromPlanCny(acc, 67, 2)).toBe(10);
+    expect(resolvePlanCnyFromVenueStake(acc, 10)).toBe(67);
   });
 
   it("Polymarket: plan CNY ↔ USDC via pmStake", () => {
@@ -37,8 +37,8 @@ describe("a8VenueMoney (A8 adaptation)", () => {
       playerName: "pm",
       currency: "USDT",
     });
-    expect(resolveVenueStakeFromPlanCny(acc, 98, 1.695)).toBe(14.41);
-    expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(95.2);
+    expect(resolveVenueStakeFromPlanCny(acc, 98, 1.695)).toBe(14.63);
+    expect(resolvePlanCnyFromVenueStake(acc, 14)).toBe(93.8);
   });
 
   it("PredictFun: same USDT 2-decimal path as Polymarket (not getBetMoney int)", () => {
@@ -48,12 +48,12 @@ describe("a8VenueMoney (A8 adaptation)", () => {
       playerName: "pf",
       currency: "USDT",
     });
-    // 10 CNY / 6.8 → 1.47（非整 U 的 Math.round→1）
-    expect(resolveVenueStakeFromPlanCny(acc, 10, 1.6)).toBe(1.47);
-    expect(resolvePlanCnyFromVenueStake(acc, 1.47)).toBe(10);
+    // 10 CNY / 6.7 → 1.49（非整 U 的 Math.round→1）
+    expect(resolveVenueStakeFromPlanCny(acc, 10, 1.6)).toBe(1.49);
+    expect(resolvePlanCnyFromVenueStake(acc, 1.49)).toBe(9.98);
     expect(
-      resolvePlanCnyFromVenueOrder(acc, { betMoney: 1.47 } as never),
-    ).toBe(10);
+      resolvePlanCnyFromVenueOrder(acc, { betMoney: 1.49 } as never),
+    ).toBe(9.98);
   });
 
   it("skipAccountRate: 9999 预检不按比例放大", () => {
@@ -80,7 +80,7 @@ describe("a8VenueMoney (A8 adaptation)", () => {
         betMoney: 14,
         pmStakeUsdc: 14,
       } as never),
-    ).toBe(95.2);
+    ).toBe(93.8);
     expect(
       resolvePlanCnyFromVenueOrder(acc, {
         betMoney: 98,
@@ -90,6 +90,6 @@ describe("a8VenueMoney (A8 adaptation)", () => {
   });
 
   it("resolveDisplayCnyFromVenueUsdc uses shared exchange", () => {
-    expect(resolveDisplayCnyFromVenueUsdc(14)).toBe(95.2);
+    expect(resolveDisplayCnyFromVenueUsdc(14)).toBe(93.8);
   });
 });

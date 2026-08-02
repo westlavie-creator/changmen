@@ -8,7 +8,7 @@ export type CurrencyCode = (typeof Currency)[keyof typeof Currency];
 
 const EXCHANGE = new Map<string, number>([
   [Currency.CNY, 1],
-  [Currency.USDT, 6.8],
+  [Currency.USDT, 6.7],
 ]);
 
 /** 场馆默认结算币：未回写 currency 时按 provider 判定 */
