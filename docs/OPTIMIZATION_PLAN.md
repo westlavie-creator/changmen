@@ -1,0 +1,209 @@
+# changmen 优化计划（活文档）
+
+本文件是 changmen **代码优化的唯一跟踪入口**：记录待办、风险、执行规约与进度。
+AI 助手每次执行优化任务都**按本文档进行**，用户可据此查看与验收。
+
+- 最近更新：2026-08-03
+- 关联：[ARCHITECTURE.md](./ARCHITECTURE.md)、[DATA_STORAGE.md](./DATA_STORAGE.md)、[ACCOUNT_BACKEND.md](./ACCOUNT_BACKEND.md)
+
+---
+
+## 一、审计范围与边界（诚实说明）
+
+本计划基于一次 **中等深度（medium）走查**，不是穷尽式全量审计。
+
+| 已覆盖 | 未覆盖（后续可补） |
+|--------|--------------------|
+| 全仓规模统计（大文件 / `@deprecated` / `any` / `console` / 依赖过期） | `chrome-extension/`（`content.js` 4315 行、`background.js` 3398 行）未深入 |
+| `server/`（backend、db、match-engine、matcher link）中等深度 | `match-projector` / `match-composer` / `ws_forward` / `collectors/*` 仅扫过 |
+| `client/web/src` 前端（stores、大组件、打包）中等深度 | 测试有效性 / 覆盖率未评估 |
+| eslint / turbo / test 脚本链路 | 未跑 profiler 做真实性能量化；未做安全审计 |
+
+结论：下表是**高价值线索清单**，不是完整体检。新发现随时追加到 backlog。
+
+---
+
+## 二、执行规约（AI 每次按此执行）
+
+每处理一个条目，严格走以下流程：
+
+1. **认领**：把该条目状态从 `TODO` 改为 `进行中`，只允许同时一个 `进行中`。
+2. **先设计**：涉及"改返回约定 / 并发时序 / 热路径"的条目，先在本文档该条目下补一段落地设计（改哪些函数、影响哪些调用方、兼容性），再动代码。
+3. **小步改**：优先 `兼容 → 迁移 → 内部重构`，保留旧入口（薄 re-export）不破坏现有调用。
+4. **必带验证**：
+   - 新增/修改逻辑要有单测（vitest）；
+   - 跑受影响的既有测试确认无回归；
+   - `git stash` 对比确认**未新增 eslint 错误**（既有 lint 不强制修，除非顺手且安全）；
+   - 前端改动跑 `npm run typecheck:frontend`。
+5. **不擅自扩大范围**：只改本条目相关文件；发现新问题→追加到 backlog，不顺手改。
+6. **记录**：完成后更新条目状态为 `已完成`，在「四、进度日志」追加一行（日期 + 改了什么 + 验证结果 + 与设计的偏差）。
+7. **提交**：默认**不自动 commit**；用户明确要求时才提交，提交信息说明 why。
+
+风险分级：`低` = 改动面小、边界清晰、易回滚；`中` = 波及多调用方或需逐一核对；`高` = 触及账号/余额/资金/下注等敏感数据，需灰度。
+
+---
+
+## 三、Backlog（按优先级）
+
+### P0 — 数据正确性 / 一致性（优先）
+
+| ID | 条目 | 位置 | 风险 | 状态 |
+|----|------|------|------|------|
+| P0-2 | 用户设置写：await + 失败回滚 + `ok:false` | `core/db/store.js`、`profile_store.js` 等 | 低 | ✅ 已完成 |
+| P0-1 | RDS 写队列 drop 可观测 + 告警（先只加监控） | `server/db/rds/common.js` | 低（纯监控）/ 中（若改背压） | 🔶 第一步完成（可观测）；补 key / 背压待后续 |
+| P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | 🔶 D1+D2 已完成（数据丢失项，范围 a）；D3~D5 未做 |
+| P0-3 | 账号读路径 `listAccountsForUser` 写副作用竞态 | `core/db/store.js:117-127` | 中→偏高 | TODO |
+
+**执行顺序建议**：P0-2（已完成）→ P0-1（先只加告警）→ P0-4 → P0-3（最敏感，放最后）。
+
+> **当前采用「混合排序」**（2026-08-03 决定）：先清 P2 里零行为变更的低风险快收益（P2-4 → P2-3 → P2-5 → P2-2），P0-1 尽早穿插（低成本"体检仪表"）；**P2-1 大文件拆分不单独提前**，并入对应 P0/P1 任务作为其第一步（改哪个文件顺手按 re-export 拆），避免同一文件返工。整体顺序：**P2-4 → P2-3 → P2-5 → P2-2 → P0-1 → P0-4 →（含 P2-1 的）P1/P0-3**。
+
+条目细节：
+
+- **P0-1**：`_offerWrite` 队列满且无同 key coalesce 时静默 drop。
+  - ✅ **第一步（已做）**：加**按 label 的 drop 计数**（`getRdsWriteQueueStats().droppedByLabel`，自动进 `/health/diag`），drop 日志提到 `console.error` 级便于日志聚合告警。纯可观测、零写语义改动。
+  - 🔶 **`_writeRds` key 审计结论**（供第二步）：高频采集写 `platform_matches`/`platform_bets`/`live_timers` **均已带 `key`**（coalesce，不丢，热路径安全）；**无 key** 的有 `client_matches`、`sport_client_matches:${sport}`（单写者 / 全量替换，**可安全补常量/按 sport 的 key**）与 `sport_venue_matches`/`sport_venue_bets`/`sport_team_venue_maps`（**increment upsert，补常量 key 会误 coalesce 丢数据，不可裸补**）。补 key 属写语义改动，留第二步逐一评估。
+  - ⏳ **第二步（可选、需压测）**：给可安全的写补 key；对采集热路径做背压或调大队列。
+- **P0-4**：catch 后统一 `return []`/`null`，调用方无法区分空/错。`client_matches` 链路已用 `null=失败/[]=空`（可参考）。**实测 42 个读函数全部混淆，但只有一小撮"读驱动写/结算"才是真 P0**——详见下「P0-4 落地设计」，只精修危险子集，不做 42 函数大扫除。
+- **P0-3**：读函数里 `sb.saveAccountRecordsForOwner(...)` 无 await，与 `replaceAccountsForUser` 竞态。方案：读路径不做写副作用，规范化改 dirty 标记由单一写路径 flush；账号数据敏感，必须配足单测 + 灰度。
+
+#### P0-4 落地设计（区分「空」与「查询失败」）— 待批范围
+
+**调查结论（2026-08-03，两轮子代理审计）**：`orders_store`(24) + `player_store`(14) + `profile_store`(4) 共 **42 个导出读函数，成功空结果与查询失败/无 pool 返回值完全相同**（catch 里 `console.warn` 后返回 `[]`/`null`/`0`，从不 rethrow）。
+
+**关键判断：不做 42 函数大扫除。** 逐一改签名 + 改所有调用方风险极高、收益低。按"读结果是否驱动写/删/结算/放行"分级后，**真正 P0（读失败当空 → 数据损坏/资金错误）只有下面几处**；其余 ~37 个读只用于展示/分析，或已 fail-closed（失败=更严），失败顶多显示空列表/0，**属显示层，不在本条目改**。
+
+**危险子集（按严重度）**：
+
+| # | 调用点 | 读函数 | 失败当空的后果 | 严重度 |
+|---|--------|--------|----------------|--------|
+| D1 | `account_service.handleSaveAccounts` → `prepareAccountsForSave`（`core/db/store.js`） | `fetchAccountRecordsByOwner` | 读失败→`existing=[]`→合并丢服务端字段 / `prunePlayersNotInList` 软删账号 | **data-loss** |
+| D2 | `account/order_store.saveOrder`（PF/PM 全经此） | `fetchOrdersByPlayerOrderIds` | 读失败→当新单→覆盖 `pfLedgerState`/`pmOrigin`/卖单 proceeds | **data-loss / 资金** |
+| D3 | `admin_pf.ensurePredictFunHouseAccount` | `fetchAccountRecordsByOwner` | 读失败→`!existing`→重复 insert 第二条 PF 账号 | **data-loss** |
+| D4 | `account_store.createTagPlatform` / `findVenueAccountKeyConflict` | `fetchPlayerByVenueAccountKey`/`findVenueAccountKeyConflict` | 冲突检测失败→当"无冲突"→继续 insert（DB unique 兜底） | **security（已被约束缓解）** |
+| D5 | PF 结算/入账 `loadPfOrders`（`pf_player_account`/`pf_exec_settle`） | `fetchOrdersByPlayer` | 读失败→跳过结算/`pending_credit` 不入账（fail-safe 方向，重试可恢复） | **资金（可恢复）** |
+
+**技术方案（兼容 → 迁移，零回归优先）**：
+
+- **不改现有 lenient 读函数**（37 个 cosmetic 调用方继续依赖 `[]`/`null`，零影响）。
+- 对危险子集用到的读，新增 **strict 变体**：不吞异常（去掉 try/catch 或 rethrow），DB 出错则 **throw**，真正无行才返回 `[]`/`null`。命名如 `fetchAccountRecordsByOwnerOrThrow`（或内部 `_strict`）。
+- **只把危险调用方**切到 strict 变体，并在其外层 `try/catch`：读失败即 **中止该次写/删/结算**（返回 `ok:false` / 向上抛 / 保持旧值），绝不用失败结果驱动 mutation。
+- happy-path（读成功）行为**完全不变**；唯一新增行为 = "DB 读失败时不再拿错数据去写，而是中止"，方向严格更安全。
+
+**分步与风险**（账号/订单路径 = 项目定义高风险，逐个小步 + 各自单测 + 建议灰度）：
+
+- 建议顺序 **D1 → D2 → D3 → D4 → D5**（数据丢失优先；D5 fail-safe 可最后）。
+- 每步：加 strict 变体 + 改单一调用点 + 单测（模拟读 throw → 断言 mutation 被中止 / 不软删 / 不覆盖）+ 既有测试无回归 + lint 对比。
+- **验证难点**：需能注入"读失败"。strict 变体让错误可抛出即可用 mock/stub 触发；`core/db/store.js` 缓存层要确认 strict 读失败不污染 `_cache`。
+
+**待你定的范围选项**：
+- (a) 只做 D1+D2 两个 data-loss（最高价值，收敛范围）；
+- (b) D1~D3（含重复账号）；
+- (c) 全部 D1~D5。
+
+> 现状：仅设计，未动代码。等你选 a/b/c 再逐个小步实现。
+
+### P1 — 性能热点
+
+后端：
+
+| ID | 条目 | 位置 | 风险 | 状态 |
+|----|------|------|------|------|
+| P1-1 | matchMerge 写库表锁 + 全表 id 扫描 | `client_matches_store.js:148-150` | 中 | TODO |
+| P1-2 | `Client_GetMatchs` 缓存 miss 全量 `SELECT *` | `client_matches_store.js:198-202` | 中 | TODO |
+| P1-3 | 批量存账号 venue key 冲突 N+1 | `player_store.js:1042-1057` | 低 | TODO |
+| P1-4 | canonical team 批量 upsert 逐条 query | `team_store.js:414-429` | 低 | TODO |
+| P1-5 | 订单套利分析 `ABS(link)` 自连接无索引 | `orders_store.js:1278-1314` 等 | 中 | TODO |
+
+前端：
+
+| ID | 条目 | 位置 | 风险 | 状态 |
+|----|------|------|------|------|
+| P1-6 | 主循环每 100ms 全量扫盘读 fo | `stores/match/mainBetLoop.ts:48`、`matchStore.ts:153-174` | 中 | TODO |
+| P1-7 | `matchStore.matchs` class 树被深度代理 | `matchStore.ts:32` + `client-core/models/match.ts` | 中 | TODO |
+| P1-8 | 赛事列表无虚拟化，全量渲染 MatchCard | `HomeView.vue:156`、`SportMatchBoard.vue:79` | 中 | TODO |
+| P1-9 | 订单展示函数模板内重复调用 | `OrderList.vue:664,681`、`OrderView.vue:31-38` | 低 | TODO |
+| P1-10 | `oddsStore.clean()` 不清 `betIndex` 孤儿 | `stores/oddsStore.ts:246-259` | 低 | TODO |
+
+### P2 — 可维护性 / 工程链路
+
+| ID | 条目 | 位置 | 风险 | 状态 |
+|----|------|------|------|------|
+| P2-1 | 超大文件拆分（薄 re-export 保兼容） | `orders_store.js`、`match_merge.js`、`matcher/link/index.js`、`orderLink.ts`、`AccountEditDialog.vue`、`AdminPredictFunMembersView.vue` | 中 | TODO |
+| P2-2 | 消除重复逻辑 | `parseTitleTeams`、`buildPlatformRows*`、`providerStartTimeListAllowed`（match_merge / link / store 各一份） | 低 | TODO |
+| P2-3 | `test:catalog-smoke` 超长命令收敛为 runner | `package.json`、`scripts/catalog-smoke.mjs` | 低 | ✅ 已完成 |
+| P2-4 | `turbo.json` test/typecheck 补 `inputs` 提升缓存 | `turbo.json` | 低 | ✅ 已完成 |
+| P2-5 | 拆 Polymarket 密码学依赖（2.4MB chunk 瘦身） | `venue-adapter/polymarket/*`、`views/HomeView.vue`、`client/web/vite.config.ts` | ①中→偏高 / ②低 | ⏸️ 搁置（2026-08-03 用户决定，诊断+方案已存档，见下） |
+
+### P2-5 落地设计（Polymarket 密码学依赖拆分）— 暂缓待批
+
+**调查结论（2026-08-03 实测构建产物）**：
+
+- `venue-polymarket` chunk = **2,446 KB（gzip 690 KB）**，全仓最大；`@polymarket` SDK + viem + PM 全部代码都在内。
+- 它被 `HomeView.js` **静态 import**（`from"./venue-polymarket…"`）→ 在主交易路径**急加载**。
+- 试过最小改动「异步化 `AccountEditDialog`」（候选 B）：重建后 HomeView 仍静态依赖该 chunk，2.4MB 照旧急加载。**B 单独无效，已回退。**
+- **根因（急加载侧）**：`venue-adapter/polymarket/index.ts` 是大 barrel，`export *` 把轻量 helper（`resolvePmRemainingShares` 等，被 MatchCard/orderStore/BetRow/orderLink 等 ~18 个急加载模块静态引用）与重密码学模块（`depositWallet`/`relayer`/`polygonRpc`/`credentials`）汇到一起；`vite.config.ts` 的 `manualChunks`（`venueChunkName`）又把 `polymarket/` 下所有文件锁进同一个 `venue-polymarket` chunk。任一轻量消费者都会把整包 2.4MB 拽成急加载。
+
+**深层诊断（2026-08-03 补测 `stats.html` 按包聚合 chunk 组成，绝对值 visualizer 会重复计数偏大，占比准确）**：
+
+| 依赖 | raw | 说明 |
+|------|-----|------|
+| **viem** | ~2.5MB | 绝对主凶，约占一半 |
+| ox / @noble/curves / @noble/hashes | ~1.1MB | viem 的底层密码学原语 |
+| **@ethersproject/\*（ethers v5 全家桶）** | ~0.5MB | providers/abi/signing-key/hash/contracts… |
+| axios / @polymarket SDK 本体 | ~0.3MB | SDK 自身其实很小 |
+
+- **我们自己的 viem 引用是干净的**：`polygonRpc.ts` / `relayer.ts` / `depositWallet.ts` 全用精确子路径（`createPublicClient`、`encodeFunctionData`、`viem/chains` 的 `polygon`），可 tree-shake，占比很小。
+- **真正元凶 = `@polymarket/builder-relayer-client`**：① 它一个包**同时依赖 `ethers 5.8` + `viem 2.31`**（两套 EVM 密码学栈都由它拖入）；② 它是**纯 CJS 包**（`package.json` 无 `type`/`module`/`exports`/`sideEffects`，`main: dist/index.js`）→ **打包器无法 tree-shake**，只能把它内部 `require("viem")`、`require("ethers")` 的**整份**塞进 chunk。viem 因此从"我们用的一小撮"膨胀成 2.5MB。
+
+**方案对比（结论：懒加载只推迟不减量；治本要动依赖）**：
+
+- **① 治本（最优，推荐立为独立任务）**：绕过 `@polymarket/builder-relayer-client` + `builder-signing-sdk`，用我们**已精确引入的 viem** 自实现 relayer 调用（`relayer.ts` 实际只用到其 `RelayerTxType` 枚举 + `Transaction` 类型 + 「构造 EIP-712 → 签名 → POST relayer」这一段）。删掉这两个 CJS SDK 即可连带甩掉它锁的**整套 ethers v5（~500KB raw）**与它 CJS 拉进的**整份 viem**，chunk 有望从 2.4MB 降到几百 KB。
+  - 代价/风险：签名必须严格**对拍**（已有 `relayer.test.ts` 的 decode 测试可扩为对拍基线，比对旧 SDK 与新实现产出的 typed data / signature 字节一致）；触及资金签名路径，风险 `中→偏高`，需灰度。
+  - 前置验证：先确认 `relayer.ts` / `depositWallet.ts` 到底依赖 SDK 哪些导出、能否用 viem `signTypedData` 等平替（可行性 spike）。
+- **② 止血（低风险，可与①叠加）**：懒加载 defer——把 2.4MB 从主交易路径的**急加载**改为**按需/异步**加载。**不减总量**，但首屏与主界面初次渲染立即受益；用户进入 Polymarket 相关流程时才付这份下载。落地设计见下「② 落地设计」。
+- **③ 服务端签名（不建议）**：浏览器彻底不打包 viem/ethers，收益最大，但违反 A8 parity（浏览器本地签名、直连场馆）且私钥上服务端，安全模型改变。
+- **④ patch-package / externals+CDN（不推荐）**：前者对 CJS 包无效（根因是 CJS 而非缺 `sideEffects`）；后者总字节不减。
+
+**建议节奏**：先做 ②（止血首屏，低风险快落地）→ 再把 ① 立为独立任务（自实现 relayer + 签名对拍 + 灰度）真正把 2.4MB 打下来。
+
+> **⏸️ 现状决定（2026-08-03，用户拍板 A：暂不动）**：Polymarket 相关流程当前线上稳定、用户未反馈问题；① 触及资金签名路径，"大只是慢、不是 bug"，不值得为体积去冒签名出错（下注失败/被拒）的风险。**② 也一并暂不做**，避免打包层面误配置引入白屏风险。本条目整体搁置，诊断与方案原样留档；将来若有明确收益诉求或用户放心，再从 ①的只读可行性 spike 起步。
+
+**② 落地设计（懒加载 defer，需两处配合，缺一不可）**：
+
+1. **断开静态边**：`AccountEditDialog.vue`（唯一急加载的重密码学消费者）改为在 call site **动态 `await import(...)`** 加密函数（`normalizePolymarketPrivateKey` / `resolvePolymarketSignerAddress` / `resolvePolymarketDepositWalletFromPrivateKey` / `createOrDerivePolymarketApiCreds` / `preparePolymarketWallet` / `fetchPolymarketRelayerStatus`），不再经 barrel 静态引入。涉及保存 / 派生 / 探测 / watch 输入私钥多个用户流，逐个改。
+2. **vite `manualChunks` 拆桶**：把 `depositWallet`/`relayer`/`polygonRpc`/`credentials`/`walletPrepUnified`/`pmWalletPrepSdk` + `@polymarket`/viem 路由到独立 `venue-polymarket-crypto` chunk（`venueChunkName` 加规则）。
+
+**风险与验证要求**：
+
+- 触及 canonical `venue-adapter`：`fetchPolymarketRelayerStatus` 等纯 fetch 函数建议拆到无 viem 的独立文件（`relayerStatus.ts` / `depositWalletPure.ts`），避免 watch 输入私钥也拉 viem；需过 `check:exports` / `check:web-imports`（`exports` 字段已支持 `./polymarket/orders` 等深路径，加新深路径同理）。
+- `vite.config.ts` 注释**明确警告**：乱动 `manualChunks` 可能触发循环依赖 → **白屏**。改后**必须实机验证**：登录进主界面无白屏、账号编辑保存/派生正常、下注/卖出正常（建议浏览器子代理走一遍）。
+- 完成判定：重建后 `HomeView.js` 不再 `from"./venue-polymarket…"`；venue-polymarket-crypto 仅被动态/异步 chunk 引用。
+
+**参考**：详见探索报告 [PM 密码学依赖链路](77a5c7e8-beb2-40d4-9eaa-019d585ba360)（候选 A/B/C/D/E）。
+
+### 待补充审计（覆盖盲区）
+
+| ID | 范围 | 状态 |
+|----|------|------|
+| A-1 | chrome-extension（content.js / background.js） | 未审计 |
+| A-2 | match-projector / match-composer / ws_forward / collectors | 未审计 |
+| A-3 | 测试覆盖率与有效性评估 | 未审计 |
+| A-4 | 真实性能 profiling 量化 | 未做 |
+
+---
+
+## 四、进度日志
+
+| 日期 | 条目 | 改动摘要 | 验证 | 偏差 |
+|------|------|----------|------|------|
+| 2026-08-03 | P0-2 | 用户设置写改 `await writeProfileAsync` + 失败回滚内存并返回 `ok:false`；新增 `writeProfileAsync`；3 个调用点（`Client_UpdateSetting`/`Client_SaveData`/`BetTarget`）await + 捕获失败 | 新增 `store.settings.test.mjs` 5 测全过；既有测试无回归；`git stash` 对比零新增 lint | 取消原设计的 dirty 后台重试队列（与"失败回滚"语义矛盾、有覆盖新值风险），改为回滚 + `ok:false` |
+| 2026-08-03 | P2-4 | `turbo.json` 为 `test`/`typecheck`/`lint` 补 `inputs: ["$TURBO_DEFAULT$","!**/*.md","!**/docs/**"]`（不动 `build`） | web typecheck 输入 512→476；dry-run 验证改 markdown 后 hash 不变（`2e8ccd37`）；确认无测试读取 `.md` fixture | 无 |
+| 2026-08-03 | P2-3 | 新增 `scripts/catalog-smoke.mjs`（数据驱动 STEPS 数组，顺序 + fail-fast，保持原 `&&` 语义）；`package.json` `test:catalog-smoke` 收敛为 `node scripts/catalog-smoke.mjs` | 全 15 步运行通过 exit 0；lint 仅 2 处 `no-console` 警告（CLI 打印，符合预期） | 无 |
+| 2026-08-03 | P2-5（调查） | 实测基线构建 + 试候选 B（异步 AccountEditDialog）后**回退**；查明 2.4MB `venue-polymarket` 急加载的根因（barrel + manualChunk 耦合）；详细落地设计写入本文档「P2-5 落地设计」 | 构建产物 grep 证明 B 无效已回退；`HomeView.vue` 已 `git checkout` 还原干净 | 按用户决定：本条目暂缓，先存档设计待批 |
+| 2026-08-03 | P0-1（第一步） | `common.js` 加 `droppedByLabel` 按 label 归因（自动进 `/health/diag`）+ drop 日志提到 `error` 级；纯可观测、不动写语义 | `write_queue.test.mjs` 新增归因测试，6/6 通过；`git stash` 对比零新增 lint | 缩小范围为「只加可观测」；补 key/背压（含审计结论）留第二步 |
+| 2026-08-03 | P2-5（深层诊断） | `build:analyze` 生成 `stats.html` 后按包聚合 `venue-polymarket` 组成：查明 2.4MB 主凶是 **viem（~2.5MB）+ 双密码学栈（viem/ox/@noble + ethers v5）**，根因是 `@polymarket/builder-relayer-client` 为**纯 CJS 包**（无 ESM/exports/sideEffects）整份拉入 viem+ethers 无法 tree-shake；确认我方 viem 引用已精确。方案①（自实现 relayer 去 SDK 治本）②（懒加载止血）写入本文档 P2-5 段 | 仅诊断+文档，无代码改动；`stats.html` 数据经 nodeParts/nodeMetas 聚合复核 | 修正早期"SDK 本身很大"的判断；元凶为 CJS SDK 传递依赖 |
+| 2026-08-03 | P2-5（决定） | 用户拍板 A：**整体搁置，不动代码**（PM 线上稳定、① 触及资金签名风险不划算、② 也暂不做）；P2-5 状态改 ⏸️ 搁置，诊断与方案原样留档 | 无代码改动 | 与"先②后①"建议节奏不同：按用户风险偏好整体暂停 |
+| 2026-08-04 | P0-4 D1 | 新增 `fetchAccountRecordsByOwnerStrict`（查询失败抛、无 pool/无 uid/无行返回 `[]`）+ facade 导出；`prepareAccountsForSave` 改用 strict 回源；`handleSaveAccounts` 包 try/catch，读失败返回 `ok:false` 中止（不合并/不 prune）。保留 lenient 版给只读/刷新路径 | `store.settings.test.mjs` 新增 D1 3 测（成功回源/失败抛不污染缓存/内存有值不回源）全过；facade 运行时校验 4 导出均在、strict 早退不查库、真查询失败会抛 | 范围 a：只做 D1+D2 |
+| 2026-08-04 | P0-4 D2 | 新增 `fetchOrdersByPlayerOrderIdsStrict`（同上语义）+ facade 导出；`saveOrder` 合并基线改用 strict，读失败 `return false` 中止（不 upsert 覆盖账本）；`order_store_link.test.mjs` mock 把 strict 与 lenient 指向同一 fn 让既有 29 用例继续驱动 | 新增 D2 abort 用例通过；`git stash` 对比 8 个 tracked 文件 lint 63=63 零新增 | pf_exec_buy 对 `false` 已有重试+清晰报错，读写共池"RDS 挂"两者同样失败，无实际回归 |
+| 2026-08-04 | 顺手修（非 P0-4） | 修 `order_store_link.test.mjs > PM settled open buy...` 预存在失败：`money` 断言由写死 `50` 改为按结算公式 `shares*fx-bet` 动态算（`57b93bf8` 改结算 PnL、`3d6c6fff` 改汇率 6.8→6.7 后测试未同步）。34 是正确的 fee-inclusive 结算值 | 该文件 30/30 全绿；deploy 门 `npm run app:build` 通过；后端测试门 42/42；`check:boundaries` OK；两个 `user_*` node-assert 文件用 `node` 跑各自 ok（非 vitest 用例、`npm test` 不 glob 到） | 因编辑过该文件顺手清红，非 P0-4 范围；34≠50 本就不在 deploy/CI 门内 |
