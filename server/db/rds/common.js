@@ -16,6 +16,8 @@ let _activeWrites = 0;
 const _activeWriteKeys = new Set();
 let _droppedWrites = 0;
 let _coalescedWrites = 0;
+/** @type {Map<string, number>} 按 label 统计 drop 次数，供 /health/diag 归因「在丢哪类写」 */
+const _droppedByLabel = new Map();
 
 /** @type {number|null} */
 let _queueMaxOverride = null;
@@ -51,11 +53,13 @@ export function jsonb(val, fallback) {
 /** impl_rds 内部沿用旧名 */
 export const _jsonb = jsonb;
 
-function _logDrop({ label, key, reason }) {
+function _logDrop({ label, key, reason, labelDropped }) {
   const tag = label ? `:${label}` : "";
   const keyNote = key ? ` key=${key}` : "";
-  console.warn(
-    `[rds${tag}] write queue full (${reason}), dropped=${_droppedWrites}`
+  const labelNote = labelDropped != null ? ` label_dropped=${labelDropped}` : "";
+  // error 级：写丢失是数据风险，须在日志聚合中可被告警，而非淹没在 warn 里
+  console.error(
+    `[rds${tag}] write queue full (${reason}), dropped=${_droppedWrites}${labelNote}`
     + `${keyNote}, pending=${_writeQueue.length}, max=${writeQueueMax()}`
     + " — 同 key 会 coalesce；持续 dropped 请扩 RDS_WRITE_QUEUE_MAX 或查慢写",
   );
@@ -80,11 +84,15 @@ function _offerWrite(item) {
 
   if (_writeQueue.length >= writeQueueMax()) {
     _droppedWrites += 1;
+    const labelKey = item.label || "(no-label)";
+    const labelDropped = (_droppedByLabel.get(labelKey) || 0) + 1;
+    _droppedByLabel.set(labelKey, labelDropped);
     if (_droppedWrites === 1 || _droppedWrites % 50 === 0) {
       _logDrop({
         label: item.label,
         key,
         reason: key ? "no pending twin to coalesce" : "no key",
+        labelDropped,
       });
     }
     return;
@@ -152,6 +160,7 @@ export function getRdsWriteQueueStats() {
     active: _activeWrites,
     activeKeys: _activeWriteKeys.size,
     dropped: _droppedWrites,
+    droppedByLabel: Object.fromEntries(_droppedByLabel),
     coalesced: _coalescedWrites,
     max: writeQueueMax(),
     concurrency: writeConcurrency(),
@@ -168,6 +177,7 @@ export function __resetRdsWriteQueueForTests(opts = {}) {
   _activeWriteKeys.clear();
   _droppedWrites = 0;
   _coalescedWrites = 0;
+  _droppedByLabel.clear();
   _queueMaxOverride = opts.queueMax != null ? opts.queueMax : null;
   _concurrencyOverride = opts.concurrency != null ? opts.concurrency : null;
 }

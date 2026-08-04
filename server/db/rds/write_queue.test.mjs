@@ -95,4 +95,19 @@ describe("RDS write queue coalesce (W1)", () => {
     assert.equal(st.pending, 1);
     assert.equal(st.dropped, 1);
   });
+
+  it("attributes drops per label in droppedByLabel (P0-1 可观测)", () => {
+    __resetRdsWriteQueueForTests({ queueMax: 1, concurrency: 0 });
+    __offerRdsWriteForTests({ fn: () => {}, label: "client_matches" }); // 占满队列
+    __offerRdsWriteForTests({ fn: () => {}, label: "client_matches" }); // drop
+    __offerRdsWriteForTests({ fn: () => {}, label: "platform_bets" }); // drop
+    __offerRdsWriteForTests({ fn: () => {} }); // drop → (no-label)
+    const st = getRdsWriteQueueStats();
+    assert.equal(st.dropped, 3);
+    assert.deepEqual(st.droppedByLabel, {
+      "client_matches": 1,
+      "platform_bets": 1,
+      "(no-label)": 1,
+    });
+  });
 });
