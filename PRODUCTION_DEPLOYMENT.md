@@ -21,7 +21,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
 │  server/backend    — esport-api、HTTP 代理、静态 /          │
-│  server/matcher    — 循环写 client_matches                 │
+│  server/matcher    — 内嵌 30s 循环，经 composer 写 client_matches │
 │  polymarket-esports — Gamma+/prices → platform_* + index   │
 │  polymarket-sports — Sports WS → client_matches.pm_sport   │
 │  predictfun-collector — Predict.fun REST → platform_*      │

@@ -138,7 +138,7 @@ Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配�
 | 路径 | 职责 |
 |------|------|
 | `server/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
-| `server/matcher` | 30s matchMerge、matcher UI、`/matcher/*`；写路径唯一权威 |
+| `server/matcher` | 30s matchMerge 调度壳、matcher UI、`/matcher/*`、archive；合场写算法默认外包给 `match-composer`（`MATCHER_WRITER=composer`），`legacy` 才回退自带 match-engine 全链路 |
 | `client/web` | Vue 3 + Vite；开发端口 Win `5274` / 其它 `5174`（`vite.config.ts`） |
 | `chrome-extension` | MV3 跨域代理与凭证捕获 |
 
@@ -146,10 +146,12 @@ Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配�
 
 ```
 浏览器/插件 (venue-adapter) → API_SaveMatch/SaveBet/SaveLiveTimer → backend → RDS platform_*
-matcher matchMerge（finalize 写库）→ client_matches
+matcher 30s 循环（内嵌 esport）→ matchMergeOnce → match-composer composeOnce（生产默认）写库 → client_matches
 Client_GetMatchs 只读 client_matches → web（不做 Round/promote overlay）
 embedded：SaveLiveTimer debounce ~3s 触发 matchMerge（`MATCHER_TIMER_DEBOUNCE_MS`）
 ```
+
+> 写路径：生产默认 `MATCHER_WRITER=composer`（`@changmen/match-composer` 从零合场，内嵌 esport，不占独立 PM2 槽）；`legacy` 显式回滚到 matcher 自带的 match-engine finalize，可叠加 `MATCHER_SIDE_ENGINE=projector` 覆写主客。`match-projector` 生产不独立写库，仅留 diff/回滚。详见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) §3.4 与 `server/match-composer/docs/REPLACE.md`。
 
 巡检：`node server/matcher/scripts/audit-client-sources.mjs`（静态 + rebuild diff；`--strict` 有问题 exit 1）。
 

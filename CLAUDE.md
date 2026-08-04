@@ -125,7 +125,7 @@ changmen/
 | `server/backend` | `packages/shared/*`、`client/venue-adapter`（`adapter_paths` / `reqS`） |
 | `server/matcher` | `server/match-engine`、`packages/shared/*`、`@changmen/team-resolver` |
 
-`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`（由 `server/matcher` **matchMerge** 写入）。
+`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`。写入方是 `server/matcher` 内嵌 30s 循环 **matchMerge**，其合场写算法生产默认外包给 `@changmen/match-composer`（`MATCHER_WRITER=composer`）；`legacy` 才回退 matcher 自带 match-engine finalize。`match-projector` 为过渡层，生产不独立写库。
 
 ### Backend (`server/backend/`)
 
@@ -189,7 +189,7 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 
 ```
 客户端采集器 → API_SaveMatch / API_SaveBet → 服务端 store → RDS
-matcher（服务端进程）→ client_matches → Client_GetMatchs → 客户端 UI
+matcher 内嵌循环 → match-composer 合场（生产默认）→ client_matches → Client_GetMatchs → 客户端 UI
 ```
 
 启动开发栈：`BAT\dev.bat` / `BAT\backend.bat`。
