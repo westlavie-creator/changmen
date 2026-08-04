@@ -260,7 +260,7 @@ describe("mergeOrderLogicalSave buy stake after manual sell", () => {
     expect(first.raw.pmSellProceeds).toBe(11.5);
     expect(first.raw.pmLastSellOrderId).toBe("0xsell");
 
-    // sync ????????�?
+    // sync 省略卖单字段时，保留既有卖单账本（proceeds / lastSellOrderId / money 不被清零）
     const wiped = mergeOrderLogicalSave(
       { bet_money: 100, money: 10 },
       first.raw,
