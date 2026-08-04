@@ -1,0 +1,644 @@
+﻿{
+  "asOf": "2026-07-25T04:46:36.914Z",
+  "pm": {
+    "leaguesQueried": [
+      "epl",
+      "lal",
+      "bun",
+      "fl1",
+      "sea",
+      "ucl",
+      "afc",
+      "fif",
+      "ere",
+      "arg",
+      "mex",
+      "uef",
+      "caf",
+      "uel",
+      "mls",
+      "bra",
+      "jap",
+      "por",
+      "copa"
+    ],
+    "eventsTotal": 443,
+    "eventCountByLeague": {
+      "epl": 0,
+      "lal": 0,
+      "bun": 0,
+      "fl1": 0,
+      "sea": 0,
+      "ucl": 91,
+      "afc": 0,
+      "fif": 0,
+      "ere": 0,
+      "arg": 0,
+      "mex": 70,
+      "uef": 0,
+      "caf": 0,
+      "uel": 63,
+      "mls": 107,
+      "bra": 112,
+      "jap": 0,
+      "por": 0,
+      "copa": 0
+    },
+    "marketCountsByType": {
+      "soccer_exact_score": 1088,
+      "total_corners": 420,
+      "soccer_team_total_corners": 384,
+      "totals": 378,
+      "soccer_team_totals": 378,
+      "spreads": 252,
+      "soccer_first_half_team_totals": 252,
+      "soccer_second_half_team_totals": 252,
+      "moneyline": 192,
+      "soccer_halftime_result": 192,
+      "soccer_second_half_result": 192,
+      "soccer_first_to_score": 192,
+      "first_half_totals": 189,
+      "second_half_totals": 189,
+      "soccer_first_half_total_corners": 144,
+      "soccer_second_half_total_corners": 144,
+      "both_teams_to_score": 63,
+      "both_teams_to_score_first_half": 63,
+      "both_teams_to_score_second_half": 63,
+      "soccer_game_corners_odd_even": 48,
+      "soccer_first_corner": 48,
+      "soccer_team_to_advance": 21
+    },
+    "eventsHavingType": {
+      "moneyline": 64,
+      "soccer_halftime_result": 64,
+      "soccer_second_half_result": 64,
+      "soccer_exact_score": 64,
+      "soccer_first_to_score": 64,
+      "spreads": 63,
+      "totals": 63,
+      "both_teams_to_score": 63,
+      "both_teams_to_score_first_half": 63,
+      "first_half_totals": 63,
+      "soccer_team_totals": 63,
+      "soccer_first_half_team_totals": 63,
+      "both_teams_to_score_second_half": 63,
+      "second_half_totals": 63,
+      "soccer_second_half_team_totals": 63,
+      "total_corners": 60,
+      "soccer_first_half_total_corners": 48,
+      "soccer_second_half_total_corners": 48,
+      "soccer_team_total_corners": 48,
+      "soccer_game_corners_odd_even": 48,
+      "soccer_first_corner": 48,
+      "soccer_team_to_advance": 21
+    },
+    "n4CandidateCoverage": {
+      "spreads": {
+        "markets": 252,
+        "events": 63,
+        "eventCoveragePct": 14.2
+      },
+      "totals": {
+        "markets": 378,
+        "events": 63,
+        "eventCoveragePct": 14.2
+      },
+      "soccer_team_totals": {
+        "markets": 378,
+        "events": 63,
+        "eventCoveragePct": 14.2
+      },
+      "first_half_spreads": {
+        "markets": 0,
+        "events": 0,
+        "eventCoveragePct": 0
+      },
+      "first_half_totals": {
+        "markets": 189,
+        "events": 63,
+        "eventCoveragePct": 14.2
+      },
+      "both_teams_to_score": {
+        "markets": 63,
+        "events": 63,
+        "eventCoveragePct": 14.2
+      },
+      "double_chance": {
+        "markets": 0,
+        "events": 0,
+        "eventCoveragePct": 0
+      },
+      "moneyline": {
+        "markets": 192,
+        "events": 64,
+        "eventCoveragePct": 14.4
+      },
+      "first_half_moneyline": {
+        "markets": 0,
+        "events": 0,
+        "eventCoveragePct": 0
+      }
+    },
+    "samplesPreferredLeague": "ucl",
+    "samples": {
+      "moneyline": {
+        "event": "Kuopion PS vs. Sabah FK",
+        "market": "Will Kuopion PS win on 2026-07-29?",
+        "line": 0.02,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: O/U 7.5 Total Corners",
+        "line": 7.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_first_half_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: 1st Half O/U 3.5 Total Corners",
+        "line": 3.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_second_half_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: 2nd Half O/U 3.5 Total Corners",
+        "line": 3.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: Kuopion PS O/U 2.5 Corners",
+        "line": 2.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_game_corners_odd_even": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: Total Corners Odd or Even?",
+        "line": 0.97,
+        "outcomes": [
+          "Odd",
+          "Even"
+        ]
+      },
+      "soccer_first_corner": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "market": "Kuopion PS vs. Sabah FK: Team to Take First Corner",
+        "line": 0.98,
+        "outcomes": [
+          "Kuopion PS",
+          "Sabah FK"
+        ]
+      },
+      "soccer_halftime_result": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Halftime Result",
+        "market": "GNK Dinamo Zagreb leading at halftime?",
+        "line": 0.06,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_second_half_result": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Second Half Result",
+        "market": "GNK Dinamo Zagreb to win the second half?",
+        "line": 0.41,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_exact_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Exact Score",
+        "market": "Exact Score: GNK Dinamo Zagreb 0 - 0 FC Thun?",
+        "line": 0.06,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_first_to_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - First Team to Score",
+        "market": "GNK Dinamo Zagreb to score first vs. FC Thun?",
+        "line": 0.79,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "spreads": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "Spread: GNK Dinamo Zagreb (-1.5)",
+        "line": -1.5,
+        "outcomes": [
+          "GNK Dinamo Zagreb",
+          "FC Thun"
+        ]
+      },
+      "totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "both_teams_to_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score",
+        "line": 0.07,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "both_teams_to_score_first_half": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score in First Half",
+        "line": 0.8,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "first_half_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: 1st Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_first_half_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb 1st Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "both_teams_to_score_second_half": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score in Second Half",
+        "line": 0.73,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "second_half_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: 2nd Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_second_half_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb 2nd Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_to_advance": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "market": "GNK Dinamo Zagreb vs. FC Thun: Team to Advance",
+        "line": 0.19,
+        "outcomes": [
+          "GNK Dinamo Zagreb",
+          "FC Thun"
+        ]
+      }
+    },
+    "lineSamples": {
+      "moneyline": {
+        "event": "Kuopion PS vs. Sabah FK",
+        "groupItemTitle": "Kuopion PS",
+        "question": "Will Kuopion PS win on 2026-07-29?",
+        "line": 0.02,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "Total Corners: O/U 7.5",
+        "question": "Kuopion PS vs. Sabah FK: O/U 7.5 Total Corners",
+        "line": 7.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_first_half_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "1st Half Total Corners: O/U 3.5",
+        "question": "Kuopion PS vs. Sabah FK: 1st Half O/U 3.5 Total Corners",
+        "line": 3.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_second_half_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "2nd Half Total Corners: O/U 3.5",
+        "question": "Kuopion PS vs. Sabah FK: 2nd Half O/U 3.5 Total Corners",
+        "line": 3.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_total_corners": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "Kuopion PS Corners: O/U 2.5",
+        "question": "Kuopion PS vs. Sabah FK: Kuopion PS O/U 2.5 Corners",
+        "line": 2.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_game_corners_odd_even": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "Total Corners: Odd or Even",
+        "question": "Kuopion PS vs. Sabah FK: Total Corners Odd or Even?",
+        "line": 0.97,
+        "outcomes": [
+          "Odd",
+          "Even"
+        ]
+      },
+      "soccer_first_corner": {
+        "event": "Kuopion PS vs. Sabah FK - Total Corners",
+        "groupItemTitle": "Team to Take First Corner",
+        "question": "Kuopion PS vs. Sabah FK: Team to Take First Corner",
+        "line": 0.98,
+        "outcomes": [
+          "Kuopion PS",
+          "Sabah FK"
+        ]
+      },
+      "soccer_halftime_result": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Halftime Result",
+        "groupItemTitle": "GNK Dinamo Zagreb",
+        "question": "GNK Dinamo Zagreb leading at halftime?",
+        "line": 0.06,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_second_half_result": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Second Half Result",
+        "groupItemTitle": "GNK Dinamo Zagreb",
+        "question": "GNK Dinamo Zagreb to win the second half?",
+        "line": 0.41,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_exact_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - Exact Score",
+        "groupItemTitle": "GNK Dinamo Zagreb 0 - 0 FC Thun",
+        "question": "Exact Score: GNK Dinamo Zagreb 0 - 0 FC Thun?",
+        "line": 0.06,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "soccer_first_to_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - First Team to Score",
+        "groupItemTitle": "GNK Dinamo Zagreb",
+        "question": "GNK Dinamo Zagreb to score first vs. FC Thun?",
+        "line": 0.79,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "spreads": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "GNK Dinamo Zagreb (-1.5)",
+        "question": "Spread: GNK Dinamo Zagreb (-1.5)",
+        "line": -1.5,
+        "outcomes": [
+          "GNK Dinamo Zagreb",
+          "FC Thun"
+        ]
+      },
+      "totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "both_teams_to_score": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "Both Teams to Score",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score",
+        "line": 0.07,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "both_teams_to_score_first_half": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "Both Teams to Score in First Half",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score in First Half",
+        "line": 0.8,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "first_half_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "1st Half O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: 1st Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "GNK Dinamo Zagreb O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_first_half_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "GNK Dinamo Zagreb 1st Half O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb 1st Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "both_teams_to_score_second_half": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "Both Teams to Score in Second Half",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: Both Teams to Score in Second Half",
+        "line": 0.73,
+        "outcomes": [
+          "Yes",
+          "No"
+        ]
+      },
+      "second_half_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "2nd Half O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: 2nd Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_second_half_team_totals": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "GNK Dinamo Zagreb 2nd Half O/U 0.5",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: GNK Dinamo Zagreb 2nd Half O/U 0.5",
+        "line": 0.5,
+        "outcomes": [
+          "Over",
+          "Under"
+        ]
+      },
+      "soccer_team_to_advance": {
+        "event": "GNK Dinamo Zagreb vs. FC Thun - More Markets",
+        "groupItemTitle": "Team to Advance",
+        "question": "GNK Dinamo Zagreb vs. FC Thun: Team to Advance",
+        "line": 0.19,
+        "outcomes": [
+          "GNK Dinamo Zagreb",
+          "FC Thun"
+        ]
+      }
+    }
+  },
+  "pf": {
+    "keyPresent": true,
+    "categories": 95,
+    "marketsTotal": 285,
+    "multiMarketCategories": 95,
+    "marketTypes": {
+      "SPORTS_MONEYLINE": 285
+    },
+    "outcomeShapes": {
+      "2 outcomes": 285
+    },
+    "titleBuckets": {
+      "team_or_other": 190,
+      "draw": 95
+    },
+    "byVariant": {
+      "SPORTS_MATCH": {
+        "categories": 95,
+        "markets": 285,
+        "multiMarketCategories": 95,
+        "marketTypes": {
+          "SPORTS_MONEYLINE": 285
+        },
+        "titleBuckets": {
+          "team_or_other": 190,
+          "draw": 95
+        }
+      },
+      "SPORTS_TEAM_MATCH": {
+        "categories": 0,
+        "markets": 0,
+        "multiMarketCategories": 0,
+        "marketTypes": {},
+        "titleBuckets": {}
+      },
+      "SPORTS_FIFA_WORLD_CUP": {
+        "categories": 0,
+        "markets": 0,
+        "multiMarketCategories": 0,
+        "marketTypes": {},
+        "titleBuckets": {}
+      },
+      "SPORTS_FIFA_FRIENDLIES": {
+        "categories": 0,
+        "markets": 0,
+        "multiMarketCategories": 0,
+        "marketTypes": {},
+        "titleBuckets": {}
+      }
+    },
+    "samples": {
+      "SPORTS_MATCH::SPORTS_MONEYLINE": {
+        "cat": "New York City FC vs. Toronto FC",
+        "marketTitle": "New York City FC",
+        "nMarketsInCat": 3,
+        "outcomes": [
+          {
+            "name": "Yes"
+          },
+          {
+            "name": "No"
+          }
+        ]
+      },
+      "bucket::team_or_other": {
+        "variant": "SPORTS_MATCH",
+        "marketType": "SPORTS_MONEYLINE",
+        "cat": "New York City FC vs. Toronto FC",
+        "marketTitle": "New York City FC"
+      },
+      "bucket::draw": {
+        "variant": "SPORTS_MATCH",
+        "marketType": "SPORTS_MONEYLINE",
+        "cat": "New York City FC vs. Toronto FC",
+        "marketTitle": "Draw"
+      }
+    }
+  }
+}

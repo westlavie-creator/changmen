@@ -1,0 +1,465 @@
+{
+  "fetchedAt": "2026-07-21T01:28:10.803Z",
+  "window": {
+    "pastHours": 24,
+    "futureDays": 7
+  },
+  "pmMeta": {
+    "mlb": {
+      "series": "3",
+      "tags": "1,100639,100381",
+      "id": 8
+    },
+    "kbo": {
+      "series": "10370",
+      "tags": "1,100639,678,102668",
+      "id": 80
+    },
+    "npb": {
+      "series": "11968",
+      "tags": "1,100639,678,105452",
+      "id": 421
+    },
+    "cpbl": {
+      "series": "11972",
+      "tags": "1,100639,678,105454",
+      "id": 423
+    },
+    "cuba": {
+      "series": "11971",
+      "tags": "1,100639,678,105453",
+      "id": 422
+    }
+  },
+  "pmCountsByLeague": {
+    "mlb": 95,
+    "kbo": 30,
+    "npb": 30,
+    "cpbl": 15
+  },
+  "pmTotal": 170,
+  "pfRawCategories": 102,
+  "pfBaseballEvents": 102,
+  "pfCountsByInferredLeague": {
+    "mlb": 102
+  },
+  "pfTagHistogram": {
+    "Sports": 102,
+    "MLB": 102,
+    "Baseball": 102
+  },
+  "pfVariantHistogram": {
+    "SPORTS_TEAM_MATCH": 102
+  },
+  "overlap": {
+    "matched": 95,
+    "matchedPctOfPm": 55.9,
+    "matchedPctOfPf": 93.1,
+    "matchedByPmLeague": {
+      "mlb": 95
+    },
+    "matchedCrossLeague": 0,
+    "pmOnly": 75,
+    "pfOnly": 7,
+    "pmOnlyByLeague": {
+      "kbo": 30,
+      "npb": 30,
+      "cpbl": 15
+    },
+    "pfOnlyByLeague": {
+      "mlb": 7
+    }
+  },
+  "samples": {
+    "matched": [
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Minnesota Twins vs. Cleveland Guardians",
+        "pfTitle": "Minnesota Twins vs. Cleveland Guardians",
+        "pmStart": "2026-07-20T22:40:00.000Z",
+        "pfStart": "2026-07-20T22:40:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Pittsburgh Pirates vs. New York Yankees",
+        "pfTitle": "Pittsburgh Pirates vs. New York Yankees",
+        "pmStart": "2026-07-20T23:05:00.000Z",
+        "pfStart": "2026-07-20T23:05:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Tampa Bay Rays vs. Toronto Blue Jays",
+        "pfTitle": "Tampa Bay Rays vs. Toronto Blue Jays",
+        "pmStart": "2026-07-20T23:07:00.000Z",
+        "pfStart": "2026-07-20T23:07:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Baltimore Orioles vs. Boston Red Sox",
+        "pfTitle": "Baltimore Orioles vs. Boston Red Sox",
+        "pmStart": "2026-07-20T23:10:00.000Z",
+        "pfStart": "2026-07-20T23:10:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Los Angeles Dodgers vs. Philadelphia Phillies",
+        "pfTitle": "Los Angeles Dodgers vs. Philadelphia Phillies",
+        "pmStart": "2026-07-20T23:10:00.000Z",
+        "pfStart": "2026-07-20T23:10:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "San Diego Padres vs. Atlanta Braves",
+        "pfTitle": "San Diego Padres vs. Atlanta Braves",
+        "pmStart": "2026-07-20T23:15:00.000Z",
+        "pfStart": "2026-07-20T23:15:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "San Francisco Giants vs. Kansas City Royals",
+        "pfTitle": "San Francisco Giants vs. Kansas City Royals",
+        "pmStart": "2026-07-20T23:40:00.000Z",
+        "pfStart": "2026-07-20T23:40:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "New York Mets vs. Milwaukee Brewers",
+        "pfTitle": "New York Mets vs. Milwaukee Brewers",
+        "pmStart": "2026-07-20T23:40:00.000Z",
+        "pfStart": "2026-07-20T23:40:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Detroit Tigers vs. Chicago Cubs",
+        "pfTitle": "Detroit Tigers vs. Chicago Cubs",
+        "pmStart": "2026-07-21T00:05:00.000Z",
+        "pfStart": "2026-07-21T00:05:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Chicago White Sox vs. Texas Rangers",
+        "pfTitle": "Chicago White Sox vs. Texas Rangers",
+        "pmStart": "2026-07-21T00:05:00.000Z",
+        "pfStart": "2026-07-21T00:05:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Miami Marlins vs. Houston Astros",
+        "pfTitle": "Miami Marlins vs. Houston Astros",
+        "pmStart": "2026-07-21T00:10:00.000Z",
+        "pfStart": "2026-07-21T00:10:00.000Z",
+        "hourDelta": 0
+      },
+      {
+        "pmLeague": "mlb",
+        "pfLeague": "mlb",
+        "pmTitle": "Washington Nationals vs. Colorado Rockies",
+        "pfTitle": "Washington Nationals vs. Colorado Rockies",
+        "pmStart": "2026-07-21T00:40:00.000Z",
+        "pfStart": "2026-07-21T00:40:00.000Z",
+        "hourDelta": 0
+      }
+    ],
+    "pmOnlyMlb": [],
+    "pmOnlyNonMlb": [
+      {
+        "title": "KBO: NC Dinos vs. LG Twins",
+        "start": "2026-07-21T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: SSG Landers vs. Lotte Giants",
+        "start": "2026-07-21T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Doosan Bears vs. KT Wiz",
+        "start": "2026-07-21T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Hanwha Eagles vs. Kia Tigers",
+        "start": "2026-07-21T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Samsung Lions vs. Kiwoom Heroes",
+        "start": "2026-07-21T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: NC Dinos vs. LG Twins",
+        "start": "2026-07-22T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: SSG Landers vs. Lotte Giants",
+        "start": "2026-07-22T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Doosan Bears vs. KT Wiz",
+        "start": "2026-07-22T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Hanwha Eagles vs. Kia Tigers",
+        "start": "2026-07-22T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: Samsung Lions vs. Kiwoom Heroes",
+        "start": "2026-07-22T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: NC Dinos vs. LG Twins",
+        "start": "2026-07-23T09:30:00.000Z",
+        "league": "kbo"
+      },
+      {
+        "title": "KBO: SSG Landers vs. Lotte Giants",
+        "start": "2026-07-23T09:30:00.000Z",
+        "league": "kbo"
+      }
+    ],
+    "pfOnly": [
+      {
+        "title": "Toronto Blue Jays vs. Chicago Cubs",
+        "start": "2026-08-06T18:20:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "San Francisco Giants vs. Atlanta Braves",
+        "start": "2026-08-31T23:15:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "Detroit Tigers vs. Cleveland Guardians",
+        "start": "2026-09-04T17:40:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "Atlanta Braves vs. Chicago White Sox",
+        "start": "2026-08-20T18:10:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "Boston Red Sox vs. New York Yankees",
+        "start": "2026-08-29T17:05:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "St. Louis Cardinals vs. Cincinnati Reds",
+        "start": "2026-08-18T00:00:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      },
+      {
+        "title": "Tampa Bay Rays vs. New York Yankees",
+        "start": "2026-09-22T17:05:00.000Z",
+        "league": "mlb",
+        "tags": [
+          "Sports",
+          "MLB",
+          "Baseball"
+        ],
+        "teamLeagues": [
+          "mlb"
+        ]
+      }
+    ],
+    "pmTopTeams": [
+      [
+        "minnesota twins",
+        7
+      ],
+      [
+        "cleveland guardians",
+        7
+      ],
+      [
+        "tampa bay rays",
+        7
+      ],
+      [
+        "toronto blue jays",
+        7
+      ],
+      [
+        "san diego padres",
+        7
+      ],
+      [
+        "atlanta braves",
+        7
+      ],
+      [
+        "kansas city royals",
+        7
+      ],
+      [
+        "detroit tigers",
+        7
+      ],
+      [
+        "arizona diamondbacks",
+        7
+      ],
+      [
+        "st louis cardinals",
+        7
+      ],
+      [
+        "pittsburgh pirates",
+        6
+      ],
+      [
+        "new york yankees",
+        6
+      ],
+      [
+        "baltimore orioles",
+        6
+      ],
+      [
+        "boston red sox",
+        6
+      ],
+      [
+        "los angeles dodgers",
+        6
+      ]
+    ],
+    "pfTopTeams": [
+      [
+        "atlanta braves",
+        9
+      ],
+      [
+        "detroit tigers",
+        8
+      ],
+      [
+        "toronto blue jays",
+        8
+      ],
+      [
+        "cleveland guardians",
+        8
+      ],
+      [
+        "tampa bay rays",
+        8
+      ],
+      [
+        "st louis cardinals",
+        8
+      ],
+      [
+        "new york yankees",
+        8
+      ],
+      [
+        "arizona diamondbacks",
+        7
+      ],
+      [
+        "chicago white sox",
+        7
+      ],
+      [
+        "kansas city royals",
+        7
+      ],
+      [
+        "chicago cubs",
+        7
+      ],
+      [
+        "boston red sox",
+        7
+      ],
+      [
+        "san diego padres",
+        7
+      ],
+      [
+        "cincinnati reds",
+        7
+      ],
+      [
+        "minnesota twins",
+        7
+      ]
+    ]
+  }
+}
