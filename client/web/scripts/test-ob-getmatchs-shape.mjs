@@ -2,7 +2,7 @@
 /**
  * OB saveMatch/saveBets → Client_GetMatchs 形态校验（对照 TJ01 Sources.OB 字段）
  *
- * 离线：用 buildMatchListAccumulate 合成一条 OB 行，不依赖 live OB。
+ * 离线：用 composer 原生盘口投影合成一条 OB 行，不依赖 live OB。
  * 可选：ESPORT_TEST_BASE=http://127.0.0.1:3456 登录后拉 Client_GetMatchs 抽样 OB 行。
  *
  * 用法：node scripts/test-ob-getmatchs-shape.mjs
@@ -10,27 +10,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const changmenRoot = path.resolve(__dirname, "../../..");
-const require = createRequire(path.join(changmenRoot, "package.json"));
-const { buildMatchListAccumulate } = await import("@changmen/match-engine");
-const { formatOdds } = require("@changmen/shared/odds_format");
-
-const TJ01_PATH = path.resolve(__dirname, "../../../TJ01.JSON");
-
-function sourceFromBet(provider, b) {
-  return {
-    Type: provider,
-    BetID: String(b.SourceBetID),
-    HomeID: String(b.SourceHomeID),
-    AwayID: String(b.SourceAwayID),
-    HomeOdds: formatOdds(b.HomeOdds),
-    AwayOdds: formatOdds(b.AwayOdds),
-    Status: b.Status || "Normal",
-  };
-}
 
 import {
   assert,
@@ -38,6 +17,11 @@ import {
   loginEsport,
   resolveEsportBase,
 } from "./ob-test-helpers.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { nativeSourcesByMap } = await import("../../../server/match-composer/src/normalize/native_bets.js");
+
+const TJ01_PATH = path.resolve(__dirname, "../../../TJ01.JSON");
 
 const OB_SOURCE_KEYS = ["Type", "BetID", "HomeID", "HomeOdds", "AwayID", "AwayOdds"];
 const BET_ROW_KEYS = ["ID", "MatchID", "Map", "Name", "HomeID", "HomeName", "AwayID", "AwayName", "Status", "Sources"];
@@ -62,7 +46,7 @@ function validateBetRow(bet, label) {
 }
 
 function validateMatchRow(row, label, { requireId = true } = {}) {
-  const keys = requireId ? MATCH_ROW_KEYS : MATCH_ROW_KEYS.filter((k) => k !== "ID");
+  const keys = requireId ? MATCH_ROW_KEYS : MATCH_ROW_KEYS.filter(k => k !== "ID");
   for (const k of keys) {
     assert(k in row, `${label}: 赛事行缺字段 ${k}`);
   }
@@ -118,16 +102,34 @@ function buildSyntheticObPipeline() {
       Status: "Normal",
     },
   ];
-  const matches = { OB: { [sourceMatchId]: match } };
   const betsStore = { [`OB:${sourceMatchId}`]: { provider: "OB", matchId: sourceMatchId, bets } };
-  // 单平台形态用 accumulate；buildClientMatchList 会过滤为 ≥2 平台（client_matches 口径）
-  const list = buildMatchListAccumulate(matches, betsStore, {}, sourceFromBet);
-  const obRow = list.find((r) => r.Matchs?.OB === sourceMatchId);
-  assert(obRow, "合成列表中未找到 OB 赛事行");
+  const sourcesByMap = nativeSourcesByMap("OB", sourceMatchId, betsStore, "valorant");
+  const obRow = {
+    Title: `${match.Home} vs ${match.Away}`,
+    StartTime: match.StartTime,
+    Game: { code: "valorant" },
+    GameID: match.SourceGameID,
+    Matchs: { OB: sourceMatchId },
+    Bets: [...sourcesByMap.entries()].map(([map, source]) => {
+      const raw = bets.find(b => Number(b.Map) === map);
+      return {
+        ID: 0,
+        MatchID: 0,
+        Map: map,
+        Name: raw?.BetName || "",
+        HomeID: source.HomeID,
+        HomeName: match.Home,
+        AwayID: source.AwayID,
+        AwayName: match.Away,
+        Status: source.Status,
+        Sources: { OB: source },
+      };
+    }),
+  };
   validateMatchRow(obRow, "synthetic", { requireId: false });
 
   for (const inp of bets) {
-    const row = obRow.Bets.find((b) => b.Map === inp.Map);
+    const row = obRow.Bets.find(b => b.Map === inp.Map);
     assert(row, `Map ${inp.Map} 未出现在 Bets`);
     const ob = row.Sources.OB;
     assert(ob.BetID === String(inp.SourceBetID), `Map${inp.Map} BetID 不一致`);
@@ -137,7 +139,7 @@ function buildSyntheticObPipeline() {
   console.log("[ob-getmatchs] 离线合成 PASS", {
     title: obRow.Title,
     matchsOb: obRow.Matchs.OB,
-    betMaps: obRow.Bets.map((b) => b.Map),
+    betMaps: obRow.Bets.map(b => b.Map),
   });
   return { match, bets, obRow };
 }
@@ -151,7 +153,7 @@ function validateTj01Sample() {
   const row = tj.info?.[0];
   assert(row, "TJ01 info[0] 缺失");
   validateMatchRow(row, "TJ01[0]");
-  const obBet = row.Bets.find((b) => b.Sources?.OB);
+  const obBet = row.Bets.find(b => b.Sources?.OB);
   assert(obBet, "TJ01 无 Sources.OB 样例");
   console.log("[ob-getmatchs] TJ01 样例行 PASS", {
     title: row.Title,
@@ -170,7 +172,8 @@ async function validateLiveGetMatchs() {
   let userName;
   try {
     ({ token, userName } = await loginEsport(base));
-  } catch (e) {
+  }
+  catch (e) {
     console.log("[ob-getmatchs] 跳过 live Client_GetMatchs（登录失败，需 RDS 有效账号）:", e.message);
     return;
   }
@@ -182,7 +185,7 @@ async function validateLiveGetMatchs() {
     { token, query: `?user=${encodeURIComponent(userName)}` },
   );
   assert(data.success === 1 && Array.isArray(data.info), "GetMatchs 失败");
-  const obRows = data.info.filter((r) => r.Matchs?.OB);
+  const obRows = data.info.filter(r => r.Matchs?.OB);
   if (!obRows.length) {
     console.log("[ob-getmatchs] live: 无 OB 行（需 CollectConfig 开 OB 且已采集）");
     return;

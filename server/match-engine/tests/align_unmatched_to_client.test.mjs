@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { normalizeMatchesShape } from "../../match-composer/src/io/snapshot.js";
 import {
   alignUnmatchedToClientMatches,
   MERGE_START_TIME_TOLERANCE_MS,
 } from "../../matcher/ops/align_unmatched_to_client.js";
-import { normalizeMatchesShape, setTeamPlugin } from "../merge/match_merge.js";
+import { setTeamPlugin } from "../teams/team_key.js";
 
 const START = 1_700_000_000_000;
 

@@ -193,13 +193,13 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 
 ---
 
-## 五、Legacy 合场路径下线计划（P3）
+## 五、Legacy 合场路径下线（P3，✅ 2026-08-04 完成）
 
 **目标**：下线旧写路径 `MATCHER_WRITER=legacy`（`match-engine/merge/` 旧管线 + `match-projector` 覆写），生产已由 `match-composer` 独占。
 
 **取舍（阶段 0 决策，动代码前须确认）**：
-- [ ] 确认放弃 `MATCHER_WRITER=legacy` 应急回滚窗口（下线后回滚只能靠 git revert composer，而非切旧引擎）。
-- [ ] 确认 `audit:client-sources`、`composer:diff` 可替代 legacy 的 `previewMatchMergeOnce` 对照能力。
+- [x] 确认放弃 `MATCHER_WRITER=legacy` 应急回滚窗口（下线后回滚靠 git revert / 版本回退）。
+- [x] `audit:client-sources` 已迁移到 composer dry-run；`composer:diff` 保留。
 
 **关键事实（来自耦合面盘点）**：composer **不** import `match-engine/merge`（有 CI 闸 `check-no-merge-import`），只共享 `match-engine` 的 `teams/` + `ids/` 与 matcher 的 `align_unmatched_to_client.js`。删 merge/projector **不波及 composer 编译与测试**。但有几处**共享边缘引用**必须先迁移，否则删 merge 会连带炸：
 - `matcher/ui/matcher_data.js` 的 `normalizeMatchesShape`（composer 有自有副本 `src/io/snapshot.js`）
@@ -212,33 +212,33 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 ### 分阶段（每阶段独立可部署、可回退）
 
 **阶段 1 [改] 断 legacy 写分支（不删包，先固定走 composer）**
-- [ ] `matcher/ops/match_merge_once.js`：删 `matchMergeOnceImpl` 的 legacy else 分支（281–364）、`applyProjectorSideEngine`、顶部 merge import；`matchMergeOnce` 恒走 composer。
-- [ ] 迁移 `audit-client-sources.mjs:150` 的 `previewMatchMergeOnce` → `composeOnce({ write:false })` 或 `composer:diff`。
-- [ ] `matcher/ui/matcher_data.js` + `ui/public/index.html`：写路径 chip 固定 `composer`，删 legacy/projector 文案（70–78、591、3065–3128）。
-- [ ] `.env.example:45–48` 删 legacy/SIDE 说明。
+- [x] `matcher/ops/match_merge_once.js`：删除 legacy 分支与 projector side engine，`matchMergeOnce` 恒走 composer。
+- [x] `audit-client-sources.mjs` 迁移到 `composeOnce({ write:false, registerTeams:false })`。
+- [x] matcher UI 写路径固定显示 composer，删 legacy/projector 文案。
+- [x] `.env.example` 删 legacy/SIDE 开关。
 - 验证：`composer:test`、`test --prefix server/matcher`、`app:build`、`check:boundaries` 全绿；matcher UI 手测合并/连线正常。
 
 **阶段 2 [删] 整包 `match-projector`**（前置：阶段 1）
-- [ ] 删 `server/match-projector/**`（含 tests/docs）。
-- [ ] `package.json`：删 `projector:*` scripts（50–54）+ workspace 条目（15）；`npm install` 更新 lockfile。
-- [ ] `scripts/check-team-boundaries.mjs`：删 `server-match-projector` 规则块（89–95）。
-- [ ] `match-composer/lib/write_guard.js`：删 `PROJECTOR_HB`（24）、`isProjectorWriteHeartbeatActive`（47–49）、`assertComposerMayWrite` 内 projector 检查（93–99）；**保留** matcher HB + composer peer HB 防双写。同步改 `write_guard.test.mjs`。
+- [x] 删除 `server/match-projector/**`（含 tests/docs）。
+- [x] 删除 workspace 与 `projector:*` scripts，更新 lockfile。
+- [x] 删除 projector 边界规则。
+- [x] composer write guard 删除 projector HB 检查，保留 matcher/composer 双写防护。
 - 验证：`composer:test`、`check:boundaries`、`app:build` 全绿。
 
 **阶段 3 [删] `match-engine/merge/`**（前置：阶段 1、2 + 边缘引用已迁移）
-- [ ] 迁移 `normalizeMatchesShape`（UI）、`swapBetSource`（audit）、`buildMatchListAccumulate`（OB 离线测试）、`verify_save_bets.js` 的消费者到 composer 副本 / 公共 util，或改测法。
-- [ ] 删 `merge/**`（5 文件）+ 对应 20 个 merge 测试；修剪 `match-engine/index.js` 的 merge re-export（保留 teams/ids）。
-- [ ] 删 `matcher/ops/match_merge_once.js` 的 `computeMatchMergeList` / `previewMatchMergeOnce`（111–204）。
-- 验证：`test --prefix server/match-engine` 只剩 5 个 teams/ids 测试且全绿；`composer:test`；`app:build`。**顺带清掉 `sync_platform_links.test.mjs` 这个既有失败**（随 merge 删除）。
+- [x] UI/audit/OB 离线测试/RAY 探针迁移到 composer 对应工具。
+- [x] 删除 `merge/**` + 19 个 merge 专属测试；修剪根导出，保留 teams/ids/time windows。
+- [x] 删除 `computeMatchMergeList` / `previewMatchMergeOnce`。
+- 验证：match-engine 保留 **6 个** teams/ids/align 测试（31/31）；composer 78/78；matcher 27/27。`align_unmatched` 是 composer 共享行为，纠正原计划后保留其测试。`sync_platform_links` 既有失败随旧 merge 删除。
 
 **阶段 4 [删] 开关层简化**（前置：阶段 1–3）
-- [ ] 删 `matcher/lib/side_engine.js` 整文件。
-- [ ] `matcher/lib/matcher_writer.js`：若不再需要 env 开关，简化为常量 composer（保留 write_guard 的 FORCE 旁路 / 独立 loop 防护）。
-- [ ] 删/改 `matcher/tests/matcher_writer.test.mjs`。
-- [ ] 文档统一为"单写路径 composer"：`matcher/README.md`、`match-composer/docs/REPLACE.md`（删回滚 §）、`docs/ARCHITECTURE.md`、`PRODUCTION_DEPLOYMENT.md`、`CLAUDE.md`、`server/README.md`、`docs/TEAM_BOUNDARIES.md`。
+- [x] 删除 `matcher/lib/side_engine.js`。
+- [x] 删除 `matcher_writer.js`；write guard 固定拒绝独立 WRITE，保留 FORCE 应急旁路。
+- [x] 删除 `matcher_writer.test.mjs`，同步更新 write guard 测试。
+- [x] 文档统一为“单写路径 composer”。
 
 ### [保留] 不可动（composer/matcher 仍依赖）
-`match-engine/teams/**`、`ids/client_match_ids.js`、`matcher/ops/align_unmatched_to_client.js`、`match-composer/**`、`matcher/loop.js`+link+UI 主体、composer write_guard 的 matcher/composer HB 防护、teams/ids 的 5 个测试。
+`match-engine/teams/**`、`ids/client_match_ids.js`、`time_windows.js`、`matcher/ops/align_unmatched_to_client.js`、`match-composer/**`、`matcher/loop.js`+link+UI 主体、composer write_guard 的 matcher/composer HB 防护、teams/ids/align 的 6 个测试。
 
 ---
 

@@ -4,9 +4,11 @@ import {
   fetchLatestClientMatchBuiltAt,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
-import { normalizeMatchesShape, normalizeTeam } from "@changmen/match-engine";
+import { normalizeTeam } from "@changmen/match-engine/teams/team_key.js";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
-import { MATCHER_INTERVAL_MS, isMatcherProduction } from "../lib/config.js";
+import { isComposerStickyOrientation } from "../../match-composer/lib/config.js";
+import { normalizeMatchesShape } from "../../match-composer/src/io/snapshot.js";
+import { isMatcherProduction, MATCHER_INTERVAL_MS } from "../lib/config.js";
 import { resolveUiGame } from "../lib/game_ui.js";
 import {
   isMatcherRunning,
@@ -14,14 +16,12 @@ import {
   sanitizeMatcherHeartbeat,
   STALE_FACTOR,
 } from "../lib/heartbeat.js";
-import { getMatcherWriter } from "../lib/matcher_writer.js";
-import { getMatcherSideEngine } from "../lib/side_engine.js";
+import { fetchMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 import {
   getEmbeddedMatcherState,
   isManagedByServer,
 } from "./matcher_process.js";
 import { enrichClientMatchesMergeMode } from "./merge_mode.js";
-import { fetchMatcherRdsSnapshot } from "../ops/rds_snapshot_cache.js";
 
 function recommendationGroupKey(m) {
   const game = resolveUiGame(m.platform, m.source_game_id);
@@ -163,11 +163,6 @@ async function getMatcherStatus() {
   const dataAgeMs = lastBuilt ? now - lastBuilt : null;
   const dataFresh = !!(lastBuilt && dataAgeMs <= thresholdMs);
 
-  const writer = getMatcherWriter();
-  const sideEngine = writer === "composer" ? "composer" : getMatcherSideEngine();
-
-  const sticky = process.env.MATCH_PROJECTOR_STICKY_ORIENTATION === "1";
-
   return {
     processRunning,
     processSource,
@@ -184,9 +179,9 @@ async function getMatcherStatus() {
     canStop: embeddedState.running && !isMatcherProduction(),
     canStart: !processRunning,
     running: processRunning,
-    writer,
-    sideEngine,
-    stickyOrientation: sticky,
+    writer: "composer",
+    sideEngine: "composer",
+    stickyOrientation: isComposerStickyOrientation(),
     composerUiPort: Number(process.env.COMPOSER_UI_PORT || 4568) || 4568,
     source: processRunning
       ? processSource

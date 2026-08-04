@@ -2,21 +2,19 @@
 
 ## 目标
 
-`@changmen/match-composer` 从零实现：**聚类 + ID/绑定 + 主客锁/投影 + live 形状 + 写库**，**不**调用 `match-engine/merge` 的 `buildClientMatchList` / `finalize*` / `reconcile*`。
+`@changmen/match-composer` 从零实现：**聚类 + ID/绑定 + 主客锁/投影 + live 形状 + 写库**。旧 `match-engine/merge` 与 `match-projector` 已下线。
 
 浏览器继续零校验；`Client_GetMatchs` 仍只读 `client_matches`。
 
 ## 生产姿态（已切流）
 
-生产唯一 writer = **`changmen-esport` 内嵌** `matchMergeOnce` → `composeOnce`（`MATCHER_WRITER=composer`，代码默认亦为 composer）。
+生产唯一 writer = **`changmen-esport` 内嵌** `matchMergeOnce` → `composeOnce`。
 
 | 开关 | 生产 | 含义 |
 |------|------|------|
-| `MATCHER_WRITER` | `composer`（默认） | embedded 写路径整段交给 composer |
-| `MATCH_COMPOSER_WRITE` | 关 | 独立 `composer:start` 写库；**composer 默认下被 write_guard 拒绝**（防双写） |
-| `MATCHER_SIDE_ENGINE` | 勿开 | 仅 `MATCHER_WRITER=legacy` 时有效；composer 下忽略 |
+| `MATCH_COMPOSER_WRITE` | 关 | 独立 `composer:start` 写库会被 write_guard 拒绝（防双写） |
 
-独立 `match-composer` / `match-projector` **不进**默认 PM2。回滚：显式 `MATCHER_WRITER=legacy` 并重启 esport。
+独立 `match-composer` WRITE **不进**默认 PM2。代码回滚走 git revert / 版本回退，不再保留 legacy 写引擎。
 
 ## 管线完备性（相对 legacy）
 
@@ -30,7 +28,7 @@
 | InitialOdds + 决胜局 promote + OB gate | ✅ |
 | backfill platform_matches.match_id | ✅ |
 | 人工绑定同队对校验 | ✅ |
-| 写互斥（挡独立 projector / 独立 composer；viaMatcherWriter 仅跳过本进程 matcher HB） | ✅ |
+| 写互斥（挡独立 composer；viaMatcherWriter 仅跳过本进程 matcher HB） | ✅ |
 | 空合场：仅当本拍覆盖全部 previous active 且全 ended | ✅ |
 | 同队时间拆桶 MergeKey 加 `@startMs` | ✅ |
 | insert stub 仅对存活行（滤后） | ✅ |
@@ -52,9 +50,9 @@ npm run composer:once
 ## 运维要点
 
 - 日志应持续出现 `[matchMerge] writer=composer …`（随 esport，无独立 composer PM2）。
-- `MATCHER_WRITER=composer`（viaMatcherWriter）跳过**本进程** matcher 心跳，仍拒绝**其它 pid** matcher / projector WRITE / 其它 composer WRITE。
-- 独立 `MATCH_COMPOSER_WRITE=1` 循环在默认 composer 下会被拒；dry-run 保持 `MATCH_COMPOSER_WRITE=0`。
-- 危险旁路：`MATCH_COMPOSER_FORCE_WRITE=1` / `MATCH_PROJECTOR_FORCE_WRITE=1` 仅应急。
+- viaMatcherWriter 跳过**本进程** matcher 心跳，仍拒绝**其它 pid** matcher / 其它 composer WRITE。
+- 独立 `MATCH_COMPOSER_WRITE=1` 循环会被拒；dry-run 保持 `MATCH_COMPOSER_WRITE=0`。
+- 危险旁路：`MATCH_COMPOSER_FORCE_WRITE=1` 仅在停掉 esport 后应急使用。
 - 若生产曾开主客 sticky，设 `MATCH_COMPOSER_STICKY_ORIENTATION=1`（兼容 `MATCH_PROJECTOR_STICKY_ORIENTATION=1`）。
 
 ## 红线回顾
@@ -63,7 +61,3 @@ npm run composer:once
 - `force_aligned`：自动为 `reversed` 时忽略；`ambiguous` 仍 omit。
 - 不信任脏 `row.HomeGbTeamId`；锁来自锚点 / RDS sticky（规则内 upgrade）。
 - CI：`npm run check:no-merge-import --prefix server/match-composer`（`composer:test` 已含）。
-
-## 与 match-projector 关系
-
-`match-projector` 是过渡层（旧 merge + 覆写）。生产已 composer 后，projector **不得**独立 WRITE；包保留供 diff / 文档 / 显式 legacy 回滚。

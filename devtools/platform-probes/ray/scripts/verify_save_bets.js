@@ -5,13 +5,11 @@
  * Usage: node verify_save_bets.js [matchId]
  */
 
-import { login, fetchOdds } from "../session.js";
+import { nativeSourcesByMap } from "../../../../server/match-composer/src/normalize/native_bets.js";
+import { fetchOdds, login } from "../session.js";
 import { groupRayOddsToSaveBets } from "../shared/save_bets.js";
 
 async function main() {
-  const { buildBetsForMatch } = await import(
-    "../../../../match-engine/merge/bet_builder.js"
-  );
   const matchId = process.argv[2];
   if (!matchId) {
     console.error("Usage: node verify_save_bets.js <matchId>");
@@ -23,23 +21,17 @@ async function main() {
   const stored = {
     [`RAY:${matchId}`]: { provider: "RAY", matchId, bets },
   };
-  const src = (p, b) => ({
-    Type: p,
-    BetID: String(b.SourceBetID),
-    HomeID: String(b.SourceHomeID),
-    AwayID: String(b.SourceAwayID),
-    HomeOdds: b.HomeOdds,
-    AwayOdds: b.AwayOdds,
-    Status: b.Status,
-  });
-  const clientBets = buildBetsForMatch("RAY", matchId, 0, stored, src, "cs2");
+  const clientSources = nativeSourcesByMap("RAY", matchId, stored, "cs2");
 
   console.log(
     JSON.stringify(
       {
         matchId,
-        saveBetRows: bets.map((b) => ({ Map: b.Map, BetName: b.BetName, SourceBetID: b.SourceBetID })),
-        clientMatchBets: clientBets.map((b) => ({ Map: b.Map, Name: b.Name })),
+        saveBetRows: bets.map(b => ({ Map: b.Map, BetName: b.BetName, SourceBetID: b.SourceBetID })),
+        composerSources: [...clientSources.entries()].map(([map, source]) => ({
+          Map: map,
+          BetID: source.BetID,
+        })),
       },
       null,
       2,

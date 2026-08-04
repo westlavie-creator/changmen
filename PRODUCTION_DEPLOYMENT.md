@@ -166,7 +166,7 @@ cd changmen
 pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
 ```
 
-`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。合场写路径 **`MATCHER_WRITER=composer`（默认）**：`matchMergeOnce` → `@changmen/match-composer`。**勿**另起独立 match-composer / match-projector WRITE 进程（防双写 `client_matches`）；回滚显式 `MATCHER_WRITER=legacy`。
+`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。唯一合场写路径：`matchMergeOnce` → `@changmen/match-composer`。**勿**另起独立 match-composer WRITE 进程（防双写 `client_matches`）；回滚走 git revert / 版本回退。
 
 `changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`，写 `platform_*` + MarketIndex。浏览器电竞侧**不再** Gamma/`Save*`，只同步 Index → Market WS → `fo`。设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow（仅 index）。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
 

@@ -81,8 +81,8 @@ export async function startComposerLoop() {
     + ` reanchor=${isComposerForceReanchor() ? "ON" : "OFF"}`,
   );
   console.log(
-    "[match-composer] 生产写路径已是 esport 内嵌 composer（MATCHER_WRITER=composer）；"
-    + "独立 loop 保持 MATCH_COMPOSER_WRITE=0。勿与 projector 双写。",
+    "[match-composer] 生产唯一写路径是 esport 内嵌 composer；"
+    + "独立 loop 保持 MATCH_COMPOSER_WRITE=0。",
   );
 
   const tick = async () => {

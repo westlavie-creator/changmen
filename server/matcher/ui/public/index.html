@@ -74,8 +74,6 @@
       white-space: nowrap;
     }
     .writer-chip.composer { color: var(--ok); border-color: #2a6a4a; }
-    .writer-chip.legacy { color: var(--text); }
-    .writer-chip.projector { color: var(--warn); border-color: #6a5a2a; }
 
     a.composer-link {
       font-size: 12px; color: #9ec5ff; text-decoration: none;
@@ -588,7 +586,7 @@
     <div class="header-sub">本页：队伍映射 / 手动合场 / 归档 · 自动合场写库看顶栏「写路径」· 只读对照见 Composer</div>
   </div>
   <div class="header-right">
-    <span class="writer-chip legacy" id="writer-chip" title="MATCHER_WRITER">写路径 …</span>
+    <span class="writer-chip composer" id="writer-chip" title="唯一写路径：match-composer">写路径 composer</span>
     <span class="matcher-status off" id="matcher-status">
       <span class="matcher-dot"></span>
       <span class="matcher-label">检测中…</span>
@@ -597,7 +595,7 @@
     <a class="composer-link" id="composer-ui-link" href="http://127.0.0.1:4568/" target="_blank" rel="noopener" title="match-composer 只读对照页（默认 4568）">Composer 对照</a>
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
-    <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次赛事合并（matchMerge → client_matches；写路径由 MATCHER_WRITER 决定）">立即执行赛事合并</button>
+    <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次 composeOnce 写库">立即执行赛事合并</button>
     <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
@@ -3062,23 +3060,18 @@ function matcherStatusClass(s) {
   return 'off';
 }
 
-function writerChipLabel(s) {
-  if (!s?.writer) return { text: '写路径 …', cls: 'legacy' };
-  if (s.writer === 'composer') return { text: '写路径 composer', cls: 'composer' };
-  if (s.sideEngine === 'projector') return { text: '写路径 legacy+projector', cls: 'projector' };
-  return { text: '写路径 legacy', cls: 'legacy' };
+function writerChipLabel() {
+  return { text: '写路径 composer', cls: 'composer' };
 }
 
 function applyWriterChip(s) {
   const chip = document.getElementById('writer-chip');
   if (!chip) return;
-  const { text, cls } = writerChipLabel(s);
+  const { text, cls } = writerChipLabel();
   chip.className = `writer-chip ${cls}`;
   chip.textContent = text;
   const sticky = s?.stickyOrientation ? ' · sticky 开' : '';
-  chip.title = s?.writer === 'composer'
-    ? 'MATCHER_WRITER=composer：matchMerge 整段由 match-composer 写库'
-    : `MATCHER_WRITER=legacy · SIDE=${s?.sideEngine || 'legacy'}${sticky}`;
+  chip.title = `唯一写路径：matchMerge 整段由 match-composer 写库${sticky}`;
   const link = document.getElementById('composer-ui-link');
   if (link && s?.composerUiPort) {
     const host = location.hostname || '127.0.0.1';
@@ -3123,10 +3116,7 @@ function setMatcherButtons(s) {
   btnStop.disabled = _matcherBusy || _matchMergeBusy;
   if (btnMatchMerge) {
     btnMatchMerge.disabled = _matchMergeBusy || _matcherBusy;
-    const w = s?.writer || 'legacy';
-    btnMatchMerge.title = w === 'composer'
-      ? '立即执行一次 composeOnce 写库（MATCHER_WRITER=composer）'
-      : '立即执行一次赛事合并（legacy matchMerge → client_matches）';
+    btnMatchMerge.title = '立即执行一次 composeOnce 写库';
   }
 }
 

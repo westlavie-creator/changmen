@@ -1,6 +1,6 @@
 # @changmen/match-composer
 
-从零合场 + 主客投影。**生产写路径**经 `MATCHER_WRITER=composer`（默认）挂在 esport 内嵌 `matchMergeOnce`；独立 `composer:start` 默认 dry-run，且在 composer 写者下禁止 WRITE。
+从零合场 + 主客投影，是 esport 内嵌 `matchMergeOnce` 的**唯一生产写路径**；独立 `composer:start` 默认 dry-run，WRITE 会被互斥守卫拒绝。
 
 ## 管线
 
@@ -11,7 +11,7 @@ platform_matches / bets / timers / client_matches / overrides
     → orientationLock（PM→OB→RAY）
     → projectSources（I1 / force_aligned）
     → liveShape（Round / promote / trim / gate / strip）
-    → writeClientMatches（仅 embedded viaMatcherWriter，或 FORCE / 显式 legacy 独立 WRITE）
+    → writeClientMatches（仅 embedded viaMatcherWriter，或 FORCE 应急写）
 ```
 
 ## 命令
@@ -20,7 +20,7 @@ platform_matches / bets / timers / client_matches / overrides
 |------|------|
 | `npm run composer:test` | 单测 + 禁止 merge import |
 | `npm run composer:once` | 干跑一次（默认不写库） |
-| `npm run composer:once -- --write` | 独立写库：默认 `MATCHER_WRITER=composer` 下会被拒；须 `MATCH_COMPOSER_FORCE_WRITE=1` 或显式 `MATCHER_WRITER=legacy` |
+| `npm run composer:once -- --write` | 独立写库默认被拒；停掉 esport 后仅可用 `MATCH_COMPOSER_FORCE_WRITE=1` 应急 |
 | `npm run composer:diff` | vs 当前 RDS |
 | `npm run composer:start` | 循环（默认不写库） |
 | `npm run composer:ui` | 对照页 http://localhost:4568 ：左 RDS / 右纯场馆模拟 |
@@ -34,4 +34,4 @@ platform_matches / bets / timers / client_matches / overrides
 
 ## 环境变量
 
-见 [docs/REPLACE.md](./docs/REPLACE.md)。关键：`MATCHER_WRITER=composer`（生产默认，embedded）；`MATCH_COMPOSER_WRITE`（独立 loop，默认关且与 embedded 互斥）。
+见 [docs/REPLACE.md](./docs/REPLACE.md)。关键：composer 为 embedded 唯一写者；`MATCH_COMPOSER_WRITE` 独立 loop 默认关闭并与 embedded 互斥。

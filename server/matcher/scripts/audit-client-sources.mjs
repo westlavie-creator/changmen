@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensurePgPoolReady, fetchClientMatches, fetchPlatformBets } from "@changmen/db";
 /**
  * 巡检 client_matches 与 platform_bets / matchMerge 预览是否一致。
  *
@@ -7,9 +8,8 @@
  *   node server/matcher/scripts/audit-client-sources.mjs --strict # 有问题 exit 1
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { fetchClientMatches, fetchPlatformBets, ensurePgPoolReady } from "@changmen/db";
-import { swapBetSource } from "@changmen/match-engine";
-import { previewMatchMergeOnce } from "../ops/match_merge_once.js";
+import { composeOnce } from "../../match-composer/ops/compose_once.js";
+import { swapBetSource } from "../../match-composer/src/util/swap.js";
 
 loadChangmenEnv();
 process.env.CHANGMEN_DB_SCRIPT = process.env.CHANGMEN_DB_SCRIPT || "rds";
@@ -122,8 +122,8 @@ for (const row of storedRows) {
           title: row.title,
           platform,
           map,
-          detail: `stored H/A=${src.HomeOdds}/${src.AwayOdds} expected ${expected.HomeOdds}/${expected.AwayOdds}`
-            + (reverse.has(platform) ? " (Reverse)" : ""),
+          detail: `stored H/A=${src.HomeOdds}/${src.AwayOdds} expected ${expected.HomeOdds}/${expected.AwayOdds}${
+            reverse.has(platform) ? " (Reverse)" : ""}`,
         });
       }
     }
@@ -145,9 +145,9 @@ for (const row of storedRows) {
   }
 }
 
-// ── rebuild diff：matchMerge 预览 vs RDS ─────────────────────────────────────
+// ── rebuild diff：composer 预览 vs RDS ───────────────────────────────────────
 if (!quick) {
-  const { info: preview } = await previewMatchMergeOnce();
+  const { info: preview } = await composeOnce({ write: false, registerTeams: false });
   const previewById = new Map(preview.map(m => [Number(m.ID), m]));
   const storedById = new Map(storedRows.map(r => [Number(r.id), r]));
 

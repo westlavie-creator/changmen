@@ -1,6 +1,5 @@
 /**
- * 跨平台赛事合并引擎（@changmen/match-engine）。
- * 依赖：@changmen/shared、@changmen/team-resolver（队伍映射插件，由 matcher 动态注入）。
+ * 合场共享工具（@changmen/match-engine）：client_match ID、队伍键与时间窗。
  */
 
 export {
@@ -14,18 +13,11 @@ export {
   matchsSignature,
   resolveClientMatchIds,
 } from "./ids/client_match_ids.js";
-export * from "./merge/match_lifecycle.js";
-export * from "./merge/match_merge.js";
-export {
-  MERGE_ID_START_TIME_TOLERANCE_MS,
-  MERGE_START_TIME_TOLERANCE_MS,
-  startTimesCompatible,
-  startTimesCompatibleStrict,
-} from "./merge/merge_constants.js";
 export { resolveCanonicalTeamName } from "./teams/canonical_ob_name.js";
 export * from "./teams/match_utils.js";
 export {
   pickCanonicalPlatformRow,
+  PROVIDER_PRIORITY,
   providerPriority,
   resolveCanonicalSideNames,
   sortByProviderPriority,
@@ -33,3 +25,9 @@ export {
   titleFromPlatformRow,
 } from "./teams/provider_priority.js";
 export * from "./teams/team_key.js";
+export {
+  MERGE_ID_START_TIME_TOLERANCE_MS,
+  MERGE_START_TIME_TOLERANCE_MS,
+  startTimesCompatible,
+  startTimesCompatibleStrict,
+} from "./time_windows.js";

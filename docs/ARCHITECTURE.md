@@ -84,7 +84,8 @@ chrome-extension ─（代理/凭证）─► 各平台源站
 
 client/venue-adapter ──采集上报──► server/backend (API_SaveMatch/SaveBet)
 server/backend ──读写────► server/db (@changmen/db)
-server/matcher ──matchMerge──► @changmen/match-engine + @changmen/shared
+server/matcher ──matchMerge──► @changmen/match-composer
+server/match-composer ──共享工具──► @changmen/match-engine (teams / ids / time windows)
 server/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 server/team-resolver ──requirePlatform──► @changmen/venue-adapter/loader
 
@@ -121,8 +122,8 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
 ### `server/match-engine` (`@changmen/match-engine`)
 
-`match_merge`、`bet_builder`、`im_enrich`、队名工具、`client_match_ids` 与 vitest/node:test 套件。  
-`server/matcher` 通过 `@changmen/match-engine` workspace 依赖引用；测试：`npm run test --prefix server/match-engine`。
+队名工具、开赛时间窗、`client_match_ids` 与对应测试；旧 `merge/` 合并管线已下线。
+`server/match-composer` 与 `server/matcher` 通过 workspace 依赖复用；测试：`npm run test --prefix server/match-engine`。
 
 ## client / server 说明
 
@@ -138,7 +139,7 @@ Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配�
 | 路径 | 职责 |
 |------|------|
 | `server/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
-| `server/matcher` | 30s matchMerge 调度壳、matcher UI、`/matcher/*`、archive；合场写算法默认外包给 `match-composer`（`MATCHER_WRITER=composer`），`legacy` 才回退自带 match-engine 全链路 |
+| `server/matcher` | 30s matchMerge 调度壳、matcher UI、`/matcher/*`、archive；唯一合场写算法为 `match-composer` |
 | `client/web` | Vue 3 + Vite；开发端口 Win `5274` / 其它 `5174`（`vite.config.ts`） |
 | `chrome-extension` | MV3 跨域代理与凭证捕获 |
 
@@ -151,7 +152,7 @@ Client_GetMatchs 只读 client_matches → web（不做 Round/promote overlay）
 embedded：SaveLiveTimer debounce ~3s 触发 matchMerge（`MATCHER_TIMER_DEBOUNCE_MS`）
 ```
 
-> 写路径：生产默认 `MATCHER_WRITER=composer`（`@changmen/match-composer` 从零合场，内嵌 esport，不占独立 PM2 槽）；`legacy` 显式回滚到 matcher 自带的 match-engine finalize，可叠加 `MATCHER_SIDE_ENGINE=projector` 覆写主客。`match-projector` 生产不独立写库，仅留 diff/回滚。详见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) §3.4 与 `server/match-composer/docs/REPLACE.md`。
+> 写路径：`@changmen/match-composer` 从零合场，内嵌 esport，不占独立 PM2 槽；旧 legacy merge/projector 路径已下线。详见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) §3.4 与 `server/match-composer/docs/REPLACE.md`。
 
 巡检：`node server/matcher/scripts/audit-client-sources.mjs`（静态 + rebuild diff；`--strict` 有问题 exit 1）。
 

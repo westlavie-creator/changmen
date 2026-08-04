@@ -12,19 +12,11 @@ matchMerge 循环**内嵌在 `changmen-esport`**（`npm run web` / PM2 `changmen
 
 Matcher 间隔/端口等环境变量由 `lib/config.js` 统一读取（勿在多处写 `process.env.MATCHER_*`）。
 
-写路径选型（**生产标准 = `composer`**，内嵌于 `changmen-esport`）：
-
-| 变量 | 值 | 行为 |
-|------|-----|------|
-| `MATCHER_WRITER` | `composer`（默认） | 整段交给 [`@changmen/match-composer`](../match-composer/docs/REPLACE.md) |
-| `MATCHER_WRITER` | `legacy` | 旧 `computeMatchMergeList` + finalize（仅显式回滚） |
-| `MATCHER_SIDE_ENGINE` | `projector` | 仅 `MATCHER_WRITER=legacy` 时生效；composer 下忽略并打 warn |
-
-PM2（`deploy/ecosystem.config.cjs`）**不**注册独立 match-composer / match-projector 写进程；合场随 `changmen-esport` 内嵌启动。
+唯一写路径是 [`@changmen/match-composer`](../match-composer/docs/REPLACE.md)，内嵌于 `changmen-esport`。PM2 不注册独立 composer 写进程。
 
 ## 依赖
 
-- `server/match-engine` — 合并算法
+- `server/match-engine` — 队名、时间窗与 client_match ID 共享工具
 - `server/db` — 读写 `platform_matches` / `client_matches` 等（`@changmen/db`）
 - `server/team-resolver` — 可选队名 canonical 插件
 
@@ -44,10 +36,10 @@ npm run matcher:ui      # 独立 UI http://localhost:4567
 
 | 路径 | 职责 | 允许的操作 |
 |------|------|------------|
-| **matchMerge**（本目录 + `match-engine`） | 读 `platform_matches` / `platform_bets` / `live_timers` → 写 `client_matches` | 合并、Reverse/reconcile、决胜局 promote、Map=0 trim、Round、gb 锁 |
+| **matchMerge**（本目录调度 + `match-composer`） | 读 `platform_matches` / `platform_bets` / `live_timers` → 写 `client_matches` | 聚类、Reverse/主客投影、决胜局 promote、Map=0 trim、Round、gb 锁 |
 | **Client_GetMatchs**（`server/backend`） | 读 `client_matches` 返回前端 | **只消费**，不做 Bets/Sources/Reverse/Round 二次变换 |
 
-写库前统一走 `finalizeClientMatchListAfterLinks`（`match-engine` 导出）。
+写库统一走 `matchMergeOnce` → `match-composer.composeOnce`。
 
 ### 主客朝向（gb 锁）
 

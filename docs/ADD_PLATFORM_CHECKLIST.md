@@ -13,7 +13,7 @@
 - `isVpsOwnedPlatformCollect(id)` / `browserSaveMatchPlatformIds()` — [`registry/meta.ts`](../client/venue-adapter/registry/meta.ts)（前端）与 [`registry/feeds.js`](../client/venue-adapter/registry/feeds.js)（后端）
 - `pluginOnly: true` — UI/采集偏扩展；**不等于** VPS 写库（PM/PF 同时 `pluginOnly` + `vps_http_ws`）
 
-合场写路径已冻结为 esport 内嵌 composer（`MATCHER_WRITER=composer`）；新馆只要进 `platform_*`，不必改 matcher writer。
+合场唯一写路径已冻结为 esport 内嵌 composer；新馆只要进 `platform_*`，不必改 matcher writer。
 
 ---
 

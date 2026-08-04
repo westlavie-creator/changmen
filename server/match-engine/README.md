@@ -1,12 +1,13 @@
 # @changmen/match-engine
 
-跨平台 **赛事合并算法**（`matchMerge` 核心）：`client_match` id 分配、平台行归并、开赛时间容差、手动 merge key。
+composer / matcher 共用的轻量工具包：`client_match` ID 分配、队名键、平台优先级与开赛时间容差。旧 `merge/` 合并管线已下线。
 
 ## 使用方
 
 | 包 | 关系 |
 |----|------|
-| `server/matcher` | 30s 循环调用 `match_merge` |
+| `server/match-composer` | 合场时复用 teams / ids |
+| `server/matcher` | align、人工关联与 UI 复用 teams / ids / time windows |
 | `server/team-resolver` | 队名 canonical（matcher 动态注入） |
 | `@changmen/shared` | catalog、时间工具 |
 
@@ -14,10 +15,9 @@
 
 | 路径 | 内容 |
 |------|------|
-| `merge/match_merge.js` | 主合并逻辑 |
-| `merge/match_lifecycle.js` | 生命周期 / 过期 |
 | `ids/client_match_ids.js` | id 复用与关联 |
 | `teams/` | 队名 key、OB canonical、别名 JSON |
+| `time_windows.js` | composer / align 共用开赛时间容差 |
 | [`profiles/`](profiles/README.md) | 运动 profile 壳（`esport` / `baseball` 规划；**运行时尚未接线**） |
 
 ## 测试

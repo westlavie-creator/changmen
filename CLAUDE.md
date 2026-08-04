@@ -125,7 +125,7 @@ changmen/
 | `server/backend` | `packages/shared/*`、`client/venue-adapter`（`adapter_paths` / `reqS`） |
 | `server/matcher` | `server/match-engine`、`packages/shared/*`、`@changmen/team-resolver` |
 
-`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`。写入方是 `server/matcher` 内嵌 30s 循环 **matchMerge**，其合场写算法生产默认外包给 `@changmen/match-composer`（`MATCHER_WRITER=composer`）；`legacy` 才回退 matcher 自带 match-engine finalize。`match-projector` 为过渡层，生产不独立写库。
+`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`。写入方是 `server/matcher` 内嵌 30s 循环 **matchMerge**，唯一合场写算法为 `@changmen/match-composer`；旧 legacy merge/projector 路径已下线。
 
 ### Backend (`server/backend/`)
 

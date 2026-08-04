@@ -13,9 +13,10 @@ changmen 服务端由多个 **npm workspace** 组成：主进程 `backend` 提�
 server/backend  ──写入──►  RDS platform_* / live_timers
     │  Client_GetMatchs（只读 client_matches）
     │
-    │  matchMerge 内嵌合并循环（随 web 启动）
+    │  matchMerge 内嵌调度循环（随 web 启动）
     ▼
-server/matcher ──调用──► server/match-engine（matchMerge）
+server/matcher ──调用──► server/match-composer（唯一合场写路径）
+    │                      server/match-engine（teams / ids / time windows）
     │                      server/team-resolver（可选队名）
     └──读写──► @changmen/db ──► RDS client_matches
 
@@ -38,9 +39,8 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 |------|----------|------|------|
 | [backend/](backend/README.md) | `@changmen/backend` | **主进程** | `Client_*` / `API_*`、HTTP 代理、`/esport/ws-forward`、静态 `/`、内嵌 matcher |
 | [matcher/](matcher/README.md) | `@changmen/matcher` | 进程 / 库 | 30s matchMerge 循环；可选人工 UI `:4567` |
-| [match-composer/](match-composer/README.md) | `@changmen/match-composer` | 库（生产 embedded） | 生产唯一合场 writer（`MATCHER_WRITER=composer`）；独立 loop 默认 dry-run |
-| [match-projector/](match-projector/README.md) | `@changmen/match-projector` | 过渡 | 旧 merge + 投影覆写；生产不写库，保留 diff/回滚 |
-| [match-engine/](match-engine/README.md) | `@changmen/match-engine` | 库 | 合并算法（`match_merge`、`bet_builder`、队名工具） |
+| [match-composer/](match-composer/README.md) | `@changmen/match-composer` | 库（生产 embedded） | 生产唯一合场 writer；独立 loop 默认 dry-run |
+| [match-engine/](match-engine/README.md) | `@changmen/match-engine` | 库 | 队名、时间窗与 client_match ID 共享工具 |
 | [db/](db/README.md) | `@changmen/db` | 库 | PostgreSQL / RDS 唯一应用入口 |
 | [storage/](storage/README.md) | `@changmen/storage` | 库 | 本机 `storage/` 路径与 JSON 读写（非 PG） |
 | [team-resolver/](team-resolver/README.md) | `@changmen/team-resolver` | 库 | 队名 canonical；matcher 动态加载 |

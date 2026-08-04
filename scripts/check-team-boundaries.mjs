@@ -86,15 +86,6 @@ const RULES = [
     ],
   },
   {
-    id: "server-match-projector",
-    roots: ["server/match-projector"],
-    forbid: [
-      /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-    ],
-  },
-  {
     id: "server-match-composer",
     roots: ["server/match-composer"],
     forbid: [
