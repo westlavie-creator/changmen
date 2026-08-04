@@ -26,6 +26,12 @@ load_nvm() {
   if [[ -s "${NVM_DIR}/nvm.sh" ]]; then
     # shellcheck disable=SC1091
     . "${NVM_DIR}/nvm.sh"
+    return 0
+  fi
+  # Fallback: interactive bashrc often defines nvm
+  if [[ -s "${HOME}/.bashrc" ]]; then
+    # shellcheck disable=SC1091
+    . "${HOME}/.bashrc" >/dev/null 2>&1 || true
   fi
 }
 
@@ -33,8 +39,35 @@ require_npm() {
   load_nvm
   if ! command -v npm >/dev/null 2>&1; then
     echo "ERROR: npm not found. Install Node (nvm) first, then reopen the terminal." >&2
+    echo "       Try: export NVM_DIR=\"\$HOME/.nvm\"; . \"\$NVM_DIR/nvm.sh\"" >&2
     exit 1
   fi
+}
+
+# Detect Clash Verge mixed-port and export proxy for Node/backend outbound.
+load_proxy() {
+  local port candidate
+  if [[ -n "${http_proxy:-}${https_proxy:-}${HTTP_PROXY:-}${HTTPS_PROXY:-}" ]]; then
+    echo "[proxy] using existing http(s)_proxy env"
+    return 0
+  fi
+  for port in 7897 7890 7891 10809; do
+    if ss -ltn "( sport = :${port} )" 2>/dev/null | grep -q ":${port}"; then
+      candidate="http://127.0.0.1:${port}"
+      export http_proxy="${candidate}"
+      export https_proxy="${candidate}"
+      export HTTP_PROXY="${candidate}"
+      export HTTPS_PROXY="${candidate}"
+      export ALL_PROXY="${candidate}"
+      export NO_PROXY="localhost,127.0.0.1,::1"
+      export no_proxy="${NO_PROXY}"
+      echo "[proxy] Clash detected on :${port} → ${candidate}"
+      return 0
+    fi
+  done
+  echo "[proxy] WARN: Clash/proxy not listening (tried 7897/7890). RDS/外网可能失败。" >&2
+  echo "         请先打开 Clash Verge，再重新运行 ./sh/dev.sh" >&2
+  return 1
 }
 
 # Linux defaults (see server.js / vite.config.ts): backend 3456, Vite 5174
@@ -107,13 +140,19 @@ run_in_term() {
     fi
   fi
 
-  # Wrap with nvm so background jobs always find node/npm
+  # Wrap with nvm + proxy so background jobs always find node/npm and can reach RDS/CDN
   nohup bash -lc "
     export NVM_DIR=\"\${NVM_DIR:-\$HOME/.nvm}\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+    export http_proxy='${http_proxy:-}' https_proxy='${https_proxy:-}'
+    export HTTP_PROXY='${HTTP_PROXY:-}' HTTPS_PROXY='${HTTPS_PROXY:-}' ALL_PROXY='${ALL_PROXY:-}'
+    export NO_PROXY='${NO_PROXY:-localhost,127.0.0.1,::1}' no_proxy=\"\$NO_PROXY\"
     ${cmd}
   " >"${log}" 2>&1 &
-  echo "Started '${title}' pid=$!  log=${log}"
+  local pid=$!
+  echo "${pid}" >"${LOG_DIR}/${safe}.pid"
+  disown "${pid}" 2>/dev/null || true
+  echo "Started '${title}' pid=${pid}  log=${log}"
 }
 
 open_browser() {

@@ -48,6 +48,10 @@ server/backend/data/*.db-wal
 .env.*
 !.env.example
 server/matcher/.matcher-heartbeat.json
+server/match-composer/.composer-heartbeat.json
+
+# Built extension packages (only .gitkeep is tracked)
+server/backend/public/extensions/*.zip
 
 # Gamebet extension signing key
 chrome-extension/key.pem

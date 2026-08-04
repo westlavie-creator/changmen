@@ -9,6 +9,7 @@ set -euo pipefail
 . "$(cd "$(dirname "$0")" && pwd)/_common.sh"
 resolve_root
 require_npm
+load_proxy || true
 
 PORT="${PORT:-${BACKEND_PORT}}"
 VITE="${VITE_DEV_PORT:-${VITE_PORT}}"
@@ -34,15 +35,15 @@ else
 fi
 echo "========================================"
 echo "  Backend : http://localhost:${PORT}/"
-echo "  Vite    : http://localhost:${VITE}/"
+echo "  Vite    : http://localhost:${VITE}/   ← 请打开这个（不是 5274）"
 echo "  Chrome  : load chrome-extension/"
 if [[ "${PARITY}" == "1" ]]; then
   echo "  Matcher : npm run matcher:loop (auto-started)"
 fi
 echo
 echo "  Tip: ./sh/dev-esport.sh parity"
+echo "       ./sh/status-dev.sh          - check ports"
 echo "       ./sh/stop-dev.sh            - stop services"
-echo "       npm run matcher:ui          - matcher panel :4567"
 echo
 
 # Avoid stale listeners from a previous half-start
