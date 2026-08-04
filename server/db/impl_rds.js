@@ -66,6 +66,7 @@ export {
   fetchOrdersByPlayer,
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,
+  fetchOrdersByPlayerOrderIdsStrict,
   fetchOrdersForMonthAggregate,
   fetchOrdersForProfitAggregate,
   fetchPlatformAnalytics,
@@ -102,6 +103,7 @@ export {
 export {
   countActivePlayersByOwner,
   fetchAccountRecordsByOwner,
+  fetchAccountRecordsByOwnerStrict,
   fetchDeletedAccountRecordsByOwner,
   fetchPolymarketPlayersForTradeLookup,
   fetchPlayerByPlatformAndName,
@@ -146,6 +148,7 @@ export {
   upsertTeam,
   writeAccounts,
   writeProfile,
+  writeProfileAsync,
   writeUserMetadata,
 } from "./rds/profile_store.js";
 

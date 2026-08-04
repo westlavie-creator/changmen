@@ -41,27 +41,49 @@ export async function fetchProfileById(uid) {
   }
 }
 
-/** fire-and-forget：更新 profile 字段 */
-export function writeProfile(uid, patch) {
-  const now = Date.now();
-  const pool = getPgPool();
-  if (!pool)
-    return;
-  const jsonbCols = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
+const PROFILE_JSONB_COLS = new Set(["accounts", "betting_config", "collect_config", "preferences"]);
+
+/** 由 patch 构建 `UPDATE profiles` 的 SQL + 参数；无可写列时返回 null */
+function buildProfileUpdate(uid, patch) {
   const keys = Object.keys(patch).filter(k => k !== "updated_at");
   if (!keys.length)
-    return;
+    return null;
   const sets = [];
   const vals = [String(uid)];
   for (const k of keys) {
-    vals.push(jsonbCols.has(k) ? _jsonb(patch[k], patch[k]) : patch[k]);
-    sets.push(jsonbCols.has(k) ? `${k} = $${vals.length}::jsonb` : `${k} = $${vals.length}`);
+    vals.push(PROFILE_JSONB_COLS.has(k) ? _jsonb(patch[k], patch[k]) : patch[k]);
+    sets.push(PROFILE_JSONB_COLS.has(k) ? `${k} = $${vals.length}::jsonb` : `${k} = $${vals.length}`);
   }
-  vals.push(now);
+  vals.push(Date.now());
   sets.push(`updated_at = $${vals.length}`);
+  return { sql: `UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals };
+}
+
+/** fire-and-forget：更新 profile 字段 */
+export function writeProfile(uid, patch) {
+  const pool = getPgPool();
+  if (!pool)
+    return;
+  const q = buildProfileUpdate(uid, patch);
+  if (!q)
+    return;
   Promise.resolve()
-    .then(() => pool.query(`UPDATE profiles SET ${sets.join(", ")} WHERE id = $1`, vals))
+    .then(() => pool.query(q.sql, q.vals))
     .catch(err => console.warn("[rds:profiles]", err.message));
+}
+
+/**
+ * await 版：更新 profile 字段，失败向上抛（关键写路径用，供上层回滚内存 / 反馈失败）。
+ * 无 pool（未接 RDS）或无可写列时视为 no-op，正常返回。
+ */
+export async function writeProfileAsync(uid, patch) {
+  const pool = getPgPool();
+  if (!pool)
+    return;
+  const q = buildProfileUpdate(uid, patch);
+  if (!q)
+    return;
+  await pool.query(q.sql, q.vals);
 }
 
 /** 在 profiles 表中创建新用户行（首次登录触发器未执行时的兜底） */

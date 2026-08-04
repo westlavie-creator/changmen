@@ -646,7 +646,12 @@ export async function fetchOrdersByPlayerAll(playerId, userId) {
 }
 
 /** saveOrder 合并：只读本次 upsert 涉及的 order_id（及 PM/PF 关联买单；大小写不敏感） */
-export async function fetchOrdersByPlayerOrderIds(playerId, userId, orderIds) {
+/**
+ * strict 版：按 order_id 批量取该 player 既有订单（合并基线用）。
+ * 查询失败 **向上抛**（供 saveOrder 等"读既有→合并覆盖"路径中止，勿把失败当"无既有单"→当新单覆盖账本）。
+ * 无 pool / 无效入参 / ids 去重后为空 → `[]`（正常语义）；真正无行 → `[]`。
+ */
+export async function fetchOrdersByPlayerOrderIdsStrict(playerId, userId, orderIds) {
   const pool = getPgPool();
   if (!pool || !userId || !Array.isArray(orderIds) || !orderIds.length)
     return [];
@@ -655,13 +660,18 @@ export async function fetchOrdersByPlayerOrderIds(playerId, userId, orderIds) {
   )];
   if (!ids.length)
     return [];
+  const { rows } = await pool.query(
+    `SELECT * FROM orders
+     WHERE user_id = $1 AND player_id = $2 AND lower(order_id) = ANY($3::text[])`,
+    [String(userId), Number(playerId), ids],
+  );
+  return rows || [];
+}
+
+/** lenient：失败吞成 `[]`（仅运维/展示用；写合并路径请用 strict 版） */
+export async function fetchOrdersByPlayerOrderIds(playerId, userId, orderIds) {
   try {
-    const { rows } = await pool.query(
-      `SELECT * FROM orders
-       WHERE user_id = $1 AND player_id = $2 AND lower(order_id) = ANY($3::text[])`,
-      [String(userId), Number(playerId), ids],
-    );
-    return rows || [];
+    return await fetchOrdersByPlayerOrderIdsStrict(playerId, userId, orderIds);
   }
   catch (err) {
     console.warn("[rds] fetchOrdersByPlayerOrderIds:", err.message);

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Currency, getExchange } from "@changmen/shared/currency";
+
 import { alignRawPredictionSellLinksToBuys, listByDatePage, saveOrder } from "./order_store.js";
 
 const fetchOrdersByPlayerOrderIds = vi.hoisted(() => vi.fn(async () => []));
@@ -14,6 +16,8 @@ vi.mock("@changmen/db", async (importOriginal) => {
   return {
     ...actual,
     fetchOrdersByPlayerOrderIds,
+    // saveOrder 走 strict 版：与 lenient 共用同一 mock，既有用例继续驱动 existing
+    fetchOrdersByPlayerOrderIdsStrict: fetchOrdersByPlayerOrderIds,
     upsertOrders,
     fetchOrdersByDatePage,
     fetchOrdersByLinks,
@@ -36,6 +40,17 @@ describe("saveOrder backend bind link", () => {
     fetchOrdersByLinks.mockResolvedValue([]);
     fetchOrdersByUserOrderIds.mockResolvedValue([]);
     fetchPredictionSellsByBuyOrderIds.mockResolvedValue([]);
+  });
+
+  it("读既有订单失败：中止保存(返回 false)、不 upsert，防止把失败当新单覆盖账本 (P0-4 D2)", async () => {
+    fetchOrdersByPlayerOrderIds.mockRejectedValueOnce(new Error("rds down"));
+    const ok = await saveOrder(
+      7,
+      [{ orderId: "venue-x", createAt: 1_781_882_462_790, provider: "OB", status: "Pending" }],
+      "user-1",
+    );
+    expect(ok).toBe(false);
+    expect(upsertOrders).not.toHaveBeenCalled();
   });
 
   it("sets link just before create_at for new unbound order", async () => {
@@ -606,6 +621,25 @@ describe("saveOrder backend bind link", () => {
     expect(row.raw.pmMatchResult).toBe("lose");
   });
 
+  it("读既有单失败：中止保存(return false)，不 upsert 覆盖账本 (P0-4 D2)", async () => {
+    fetchOrdersByPlayerOrderIds.mockRejectedValueOnce(new Error("rds down"));
+    const result = await saveOrder(
+      47,
+      [{
+        orderId: "0xbuy-should-not-overwrite",
+        createAt: 1_784_389_000_000,
+        provider: "Polymarket",
+        pmSide: "buy",
+        pmOrigin: "changmen",
+        betMoney: 100,
+        money: 50,
+      }],
+      "user-1",
+    );
+    expect(result).toBe(false);
+    expect(upsertOrders).not.toHaveBeenCalled();
+  });
+
   it("PM settled open buy keeps prev pmMatchResult when incoming omits it", async () => {
     fetchOrdersByPlayerOrderIds.mockResolvedValue([
       {
@@ -647,7 +681,10 @@ describe("saveOrder backend bind link", () => {
 
     const row = upsertOrders.mock.calls[0][0][0];
     expect(row.status).toBe("Win");
-    expect(row.money).toBe(50);
+    // 结算重算（save_pm.js）：无卖出进度的 changmen 已结算 win 买单，
+    // money 以 fair PnL = shares*fx - fee-inclusive bet 覆盖库内值（与汇率联动，勿写死）
+    const settledFair = Math.round((20 * getExchange(Currency.USDT) - 100) * 10000) / 10000;
+    expect(row.money).toBe(settledFair);
     expect(row.raw.pmMatchResult).toBe("win");
   });
 });

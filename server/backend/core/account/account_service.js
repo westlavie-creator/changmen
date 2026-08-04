@@ -257,7 +257,15 @@ async function validateAccountRows(accounts, userId) {
 }
 
 async function handleSaveAccounts(accounts, userId) {
-  const existing = await dbStore.prepareAccountsForSave(userId);
+  let existing;
+  try {
+    existing = await dbStore.prepareAccountsForSave(userId);
+  }
+  catch (err) {
+    // RDS 读失败：绝不能用"空 existing"去合并/prune（会丢服务端字段、误软删账号）→ 中止保存
+    console.error("[account] prepareAccountsForSave 读失败，已中止保存以防误删账号:", err?.message);
+    return { ok: false, msg: "账号读取失败，请稍后重试（已阻止覆盖）" };
+  }
   if (Array.isArray(accounts) && accounts.length === 0 && existing.length > 0) {
     return { ok: false, msg: "禁止用空列表覆盖已有账号，请刷新页面后重试" };
   }
@@ -329,7 +337,12 @@ async function handleSaveData(key, content, userId) {
     return handleSaveAccounts(accounts, userId);
   }
   if (store.isUserSettingKey(key)) {
-    store.setUserSetting(userId, key, content ?? "");
+    try {
+      await store.setUserSetting(userId, key, content ?? "");
+    }
+    catch {
+      return { ok: false, msg: "设置保存失败，请重试" };
+    }
     return { ok: true, info: true };
   }
   return { ok: true, info: true };

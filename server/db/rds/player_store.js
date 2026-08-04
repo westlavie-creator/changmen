@@ -834,23 +834,32 @@ export async function fetchPolymarketPlayersForTradeLookup() {
   }
 }
 
-/** 用户全部活跃账号 → A8 AccountRecord[] */
-export async function fetchAccountRecordsByOwner(ownerUserId) {
+/**
+ * strict 版：用户全部活跃账号 → A8 AccountRecord[]。
+ * 查询失败 **向上抛**（供"读驱动写/删"的敏感路径中止操作，勿把失败当"无账号"）。
+ * 无 uid / 无 pool（未接 RDS）→ 返回 `[]`（正常语义，非失败）；真正无行 → `[]`。
+ */
+export async function fetchAccountRecordsByOwnerStrict(ownerUserId) {
   const uid = String(ownerUserId || "").trim();
   if (!uid)
     return [];
   const pool = getPgPool();
   if (!pool)
     return [];
+  const { rows } = await pool.query(
+    `SELECT ${PLAYER_SELECT}
+     FROM players
+     WHERE owner_user_id = $1::uuid AND deleted_at IS NULL
+     ORDER BY id ASC`,
+    [uid],
+  );
+  return (rows || []).map(r => playerRowToAccountRecord(_mapPlayerRow(r))).filter(Boolean);
+}
+
+/** 用户全部活跃账号 → A8 AccountRecord[]（lenient：失败吞成 `[]`，仅展示/刷新用） */
+export async function fetchAccountRecordsByOwner(ownerUserId) {
   try {
-    const { rows } = await pool.query(
-      `SELECT ${PLAYER_SELECT}
-       FROM players
-       WHERE owner_user_id = $1::uuid AND deleted_at IS NULL
-       ORDER BY id ASC`,
-      [uid],
-    );
-    return (rows || []).map(r => playerRowToAccountRecord(_mapPlayerRow(r))).filter(Boolean);
+    return await fetchAccountRecordsByOwnerStrict(ownerUserId);
   }
   catch (err) {
     console.warn("[rds] fetchAccountRecordsByOwner:", err.message);

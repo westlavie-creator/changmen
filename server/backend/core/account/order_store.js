@@ -144,7 +144,16 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
     if (buyOrderId)
       prefetchOrderIds.push(buyOrderId);
   }
-  const existing = await sb.fetchOrdersByPlayerOrderIds(playerId, userId, prefetchOrderIds);
+  // strict 回源既有单：读失败必须中止，否则会把"查询失败"当"无既有单"→当新单覆盖
+  // pfLedgerState / pmOrigin / 卖单 proceeds / link 等账本状态（P0-4 D2）
+  let existing;
+  try {
+    existing = await sb.fetchOrdersByPlayerOrderIdsStrict(playerId, userId, prefetchOrderIds);
+  }
+  catch (err) {
+    console.error("[order] saveOrder 读既有订单失败，已中止保存以防覆盖账本:", err?.message);
+    return false;
+  }
   const linkByOrderId = new Map(
     existing.map(r => [String(r.order_id), Number(r.link) || 0]),
   );

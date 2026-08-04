@@ -425,7 +425,13 @@ async function handleCoreAction(
       }
       if (!patch || typeof patch !== "object" || Array.isArray(patch))
         return fail("setting required");
-      const user = store.updateUserSetting(ctx.user.id, patch);
+      let user;
+      try {
+        user = await store.updateUserSetting(ctx.user.id, patch);
+      }
+      catch {
+        return fail("设置保存失败，请重试");
+      }
       if (!user)
         return fail("user not found");
       return ok(user.setting || {});

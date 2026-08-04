@@ -353,7 +353,7 @@ export function getUserSetting(userId, key) {
 export function setUserSetting(userId, key, content) {
   if (!isUserSettingKey(key))
     return;
-  dbStore.setUserSetting(userId, key, content ?? "");
+  return dbStore.setUserSetting(userId, key, content ?? "");
 }
 
 // ── accounts ──────────────────────────────────────────────────────────────────

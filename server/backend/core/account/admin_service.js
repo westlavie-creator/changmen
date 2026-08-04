@@ -618,7 +618,7 @@ export async function updateAdminUserBetTarget(userId, betTarget, caller = null)
   }
   await loadProfileById(uid);
   const enabled = parseFormBool(betTarget);
-  store.updateUserSetting(uid, { BetTarget: enabled });
+  await store.updateUserSetting(uid, { BetTarget: enabled });
   const row = listProfileRows().find(p => String(p.id) === uid);
   if (!row)
     throw new Error("用户不存在");

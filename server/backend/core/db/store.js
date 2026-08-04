@@ -17,6 +17,13 @@ function _set(uid, row) {
 function _get(uid) {
   return _cache.get(String(uid)) || null;
 }
+/** 写库失败时把内存恢复到写前快照（prevRow 为 null 表示写前无该行，直接删除） */
+function _restoreRow(uid, prevRow) {
+  if (prevRow)
+    _cache.set(String(uid), prevRow);
+  else
+    _cache.delete(String(uid));
+}
 
 function _toProfile(row) {
   if (!row)
@@ -80,8 +87,9 @@ export function upsertProfile(profile) {
   });
 }
 
-export function updateProfileSetting(uid, patch) {
-  const row = _get(uid) || {};
+export async function updateProfileSetting(uid, patch) {
+  const prevRow = _get(uid);
+  const row = prevRow || {};
   const bc
     = typeof row.betting_config === "object" && row.betting_config !== null
       ? { ...row.betting_config }
@@ -89,7 +97,13 @@ export function updateProfileSetting(uid, patch) {
   Object.assign(bc, patch || {});
   const now = Date.now();
   _set(uid, { ...row, betting_config: bc, updated_at: now });
-  sb.writeProfile(uid, { betting_config: bc });
+  try {
+    await sb.writeProfileAsync(uid, { betting_config: bc });
+  }
+  catch (err) {
+    _restoreRow(uid, prevRow);
+    throw err;
+  }
   return getProfileById(uid);
 }
 
@@ -144,11 +158,20 @@ export async function refreshAccountsFromRdsIfEmpty(uid) {
   return loadAccountsForUser(id);
 }
 
-/** ACCOUNT 保存前：内存为空时从 players 回源，空列表 guard 以 RDS 为准 */
+/**
+ * ACCOUNT 保存前：内存为空时从 players 回源，空列表 guard 以 RDS 为准。
+ * 用 **strict** 回源：RDS 读失败会 **抛出**（调用方须中止保存），
+ * 避免把"查询失败"当"无账号"而误覆盖/误 prune（P0-4 D1）。
+ */
 export async function prepareAccountsForSave(uid) {
   const id = String(uid);
-  await refreshAccountsFromRdsIfEmpty(id);
-  return listAccountsForUser(id);
+  const current = listAccountsForUser(id);
+  if (current.length > 0)
+    return current;
+  const records = await sb.fetchAccountRecordsByOwnerStrict(id);
+  const normalized = normalizeAccountList(records);
+  _accountsCache.set(id, normalized);
+  return normalized;
 }
 
 async function refreshAllAccountsFromPlayers() {
@@ -211,10 +234,12 @@ function _colForKey(key) {
   return "preferences";
 }
 
-export function setUserSetting(uid, key, content) {
+export async function setUserSetting(uid, key, content) {
   const col = _colForKey(key);
-  const row = _get(uid) || {};
+  const prevRow = _get(uid);
+  const row = prevRow || {};
   const now = Date.now();
+  let patch;
   if (col !== "preferences") {
     let parsed = {};
     try {
@@ -224,7 +249,7 @@ export function setUserSetting(uid, key, content) {
       /* ignore */
     }
     _set(uid, { ...row, [col]: parsed, updated_at: now });
-    sb.writeProfile(uid, { [col]: parsed });
+    patch = { [col]: parsed };
   }
   else {
     const prefs
@@ -233,7 +258,14 @@ export function setUserSetting(uid, key, content) {
         : {};
     prefs[String(key)] = String(content ?? "");
     _set(uid, { ...row, preferences: prefs, updated_at: now });
-    sb.writeProfile(uid, { preferences: prefs });
+    patch = { preferences: prefs };
+  }
+  try {
+    await sb.writeProfileAsync(uid, patch);
+  }
+  catch (err) {
+    _restoreRow(uid, prevRow);
+    throw err;
   }
 }
 
