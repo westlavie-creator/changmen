@@ -2003,10 +2003,10 @@ function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
 
   container.innerHTML = sortGameCodes([...byGame.keys()]).map(gameCode => {
     const items = byGame.get(gameCode).sort((a, b) => {
-      // 该视图按平台分组优先，同平台内再按开赛时间升序（0/无时间排后）
-      const pr = platformRank(a.platform) - platformRank(b.platform);
-      if (pr !== 0) return pr;
-      return compareStartMsAsc(epochMs(a.match.start_time), epochMs(b.match.start_time));
+      // 按开赛时间升序优先（0/无时间排后）；同一开赛时间再按平台次序
+      const t = compareStartMsAsc(epochMs(a.match.start_time), epochMs(b.match.start_time));
+      if (t !== 0) return t;
+      return platformRank(a.platform) - platformRank(b.platform);
     });
     const tableRows = items.map(({ platform: p, match: m, inRecommendation }) => {
       const tag = _unmatchedFilter === 'all' && inRecommendation
