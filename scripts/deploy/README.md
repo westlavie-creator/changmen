@@ -24,6 +24,6 @@ REM 166 测试机（需已有 dist 或加 --build）
 node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 --build
 ```
 
-SSH 密钥默认：`%USERPROFILE%\.ssh\id_ed25519_gamebet`。远程目录：`/root/changmen`。
+SSH 密钥默认：`%USERPROFILE%\.ssh\id_ed25519_changmen`。远程目录：`/root/changmen`。
 
 仓级脚本索引：[scripts/README.md](../README.md) · 生产说明：[PRODUCTION_DEPLOYMENT.md](../../PRODUCTION_DEPLOYMENT.md)

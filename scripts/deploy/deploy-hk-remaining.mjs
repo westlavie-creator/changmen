@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { packGitRepoArchive } from "./pack-git-repo.mjs";
 
 const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
+const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_changmen");
 const deployRepo = "/root/changmen";
 const remoteScripts = "/tmp/changmen-deploy";
 const repoArchive = path.join(os.tmpdir(), `changmen-repo-${process.pid}.tgz`);

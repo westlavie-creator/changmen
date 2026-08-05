@@ -19,7 +19,7 @@ function loadDeployConfig() {
   };
   const home = process.env.USERPROFILE || process.env.HOME || "";
   const defaultKey = home
-    ? path.join(home, ".ssh", "id_ed25519_gamebet")
+    ? path.join(home, ".ssh", "id_ed25519_changmen")
     : "";
   if (defaultKey && fs.existsSync(defaultKey)) {
     cfg.sshIdentity = defaultKey;

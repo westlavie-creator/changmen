@@ -4,5 +4,5 @@ DEPLOY_USER=root
 DEPLOY_HOST=106.14.82.50
 DEPLOY_REPO=/root/changmen
 DEPLOY_LOCAL_BUILD=1
-SSH_IDENTITY="${HOME}/.ssh/id_ed25519_gamebet"
+SSH_IDENTITY="${HOME}/.ssh/id_ed25519_changmen"
 # DEPLOY_FULL=1

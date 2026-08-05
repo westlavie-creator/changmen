@@ -62,7 +62,7 @@ const maxStake = readEnvValue(envPath, "PF_HOUSE_MAX_STAKE_USDT", {
   fallback: "500",
 });
 
-const sshIdentity = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
+const sshIdentity = path.join(os.homedir(), ".ssh", "id_ed25519_changmen");
 const scriptBody =
   fs
     .readFileSync(remoteSh, "utf8")

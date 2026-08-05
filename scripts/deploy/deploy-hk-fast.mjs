@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
+const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_changmen");
 const distArchive = path.join(os.tmpdir(), "changmen-gha-dist", "changmen-dist.tgz");
 const deployRepo = "/root/changmen";
 

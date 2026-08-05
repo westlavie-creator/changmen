@@ -33,7 +33,7 @@ function readPredictKey() {
 }
 
 const key = readPredictKey();
-const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
+const sshKey = path.join(os.homedir(), ".ssh", "id_ed25519_changmen");
 const sshBase = [
   "-i", sshKey,
   "-o", "IdentitiesOnly=yes",

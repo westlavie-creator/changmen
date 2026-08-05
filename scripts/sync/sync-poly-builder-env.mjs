@@ -56,7 +56,7 @@ const secret = readEnvValue(envPath, "POLY_BUILDER_SECRET");
 const passphrase = readEnvValue(envPath, "POLY_BUILDER_PASSPHRASE");
 const code = readEnvValue(envPath, "POLY_BUILDER_CODE", { optional: true }) || DEFAULT_CODE;
 
-const sshIdentity = path.join(os.homedir(), ".ssh", "id_ed25519_gamebet");
+const sshIdentity = path.join(os.homedir(), ".ssh", "id_ed25519_changmen");
 const scriptBody =
   fs
     .readFileSync(remoteSh, "utf8")
