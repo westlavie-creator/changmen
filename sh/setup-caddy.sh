@@ -6,7 +6,7 @@ set -euo pipefail
 resolve_root
 
 DEPLOY_USER="${DEPLOY_USER:-root}"
-DEPLOY_HOST="${DEPLOY_HOST:-47.82.100.166}"
+DEPLOY_HOST="${DEPLOY_HOST:-47.57.10.202}"
 CADDY_LOCAL="${ROOT}/deploy/Caddyfile"
 REMOTE_SCRIPT="${ROOT}/deploy/scripts/setup-caddy-remote.sh"
 
