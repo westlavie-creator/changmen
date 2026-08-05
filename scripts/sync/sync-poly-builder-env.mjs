@@ -13,7 +13,7 @@ const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 const DEFAULT_CODE = "0x58ec38dac8719b354dfd2a47d6ac27ab01babea9102a993c1abe4af30ec2883f";
 
 const HOSTS = [
-  { label: "HongKong", host: "47.82.100.166" },
+  { label: "HK-202", host: "47.57.10.202" }, // 202 生产机 (166 已移交 comagent)
 ];
 
 function readEnvValue(envPath, key, { optional = false } = {}) {

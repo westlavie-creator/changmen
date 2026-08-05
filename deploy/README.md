@@ -24,12 +24,12 @@
 | 角色 | IP | 说明 |
 |------|-----|------|
 | **生产（HK）** | `47.57.10.202` | **push `master` → GHA**（[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)）；本机 `deploy202.bat` 仅紧急备用 |
-| **测试（HK）** | `47.82.100.166` | 本机 `node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 [--build]`（不进 GHA） |
+
+> 注：原测试机 `47.82.100.166` 已于 2026-08-06 移交 comagent 专用，changmen 不再向 166 部署。
 
 | 区域 | 方式 |
 |------|------|
 | 生产 202 | **push `master` → GHA**（推荐）；`scripts\deploy\deploy202.bat` 紧急备用 |
-| 测试 166 | 本机 `deploy-hk-remaining.mjs` |
 
 VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
