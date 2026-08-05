@@ -100,12 +100,11 @@ Matcher 面板：http://localhost:3560/matcher/（backend 已起）或 http://lo
 | 脚本 | 作用 |
 |------|------|
 | **[`deploy/ecosystem.config.cjs`](../deploy/ecosystem.config.cjs)** | PM2：默认 `changmen-esport` 内嵌 matcher |
-| **`BAT\deploy-shanghai.bat`** | 更新上海 VPS（本机 tarball + 增量部署） |
 | **`BAT\deploy-hongkong.bat`** | 紧急手动更新香港生产（日常 GHA → 202） |
 | **`BAT\push-git.bat`** | 本机 git commit + push |
 | `npm run chromeplug:pack` | 打包 Chrome 插件 zip → `dist/` |
 
-日常顺序：`BAT\push-git.bat`（香港生产 **47.57.10.202** 随 push 由 GHA 更新）→ 需要时再 `BAT\deploy-shanghai.bat`
+日常顺序：`BAT\push-git.bat`（香港生产 **47.57.10.202** 随 push 由 GHA 更新）
 
 `BAT\deploy-server.local.bat`（首次可由根目录 `deploy-server.env` 复制生成，见 `BAT\deploy-server-core.bat`）可选加速：
 

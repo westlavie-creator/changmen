@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Apply app tarball onto DEPLOY_REPO (flat app root; preserves .env + storage), then deploy.
-# Used by BAT/deploy-shanghai.bat (PC packs changmen/ only; Shanghai VPS cannot git pull).
+# Used by tarball deploy (PC packs changmen/ only; VPS cannot git pull).
 set -euo pipefail
 
 ARCHIVE="${1:?usage: apply-repo-archive.sh /path/to/changmen-repo.tgz}"

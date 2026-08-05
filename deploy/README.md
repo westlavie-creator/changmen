@@ -25,7 +25,6 @@
 |------|-----|------|
 | **生产（HK）** | `47.57.10.202` | **push `master` → GHA**（[`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)）；本机 `deploy202.bat` 仅紧急备用 |
 | **测试（HK）** | `47.82.100.166` | 本机 `node scripts/deploy/deploy-hk-remaining.mjs 47.82.100.166 [--build]`（不进 GHA） |
-| 上海 | `106.14.82.50` | 本机 `BAT\deploy-shanghai.bat`（不进 GitHub） |
 
 | 区域 | 方式 |
 |------|------|

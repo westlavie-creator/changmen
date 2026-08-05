@@ -31,7 +31,6 @@ bash sh/dev-esport.sh
 
 | 脚本 | 作用 |
 |------|------|
-| **`deploy-shanghai.sh`** | 上海 VPS `106.14.82.50` |
 | **`deploy-hongkong.sh`** | 香港紧急备用（日常走 GHA push `master`） |
 | `deploy-server.sh` | → `deploy-hongkong.sh`（遗留别名） |
 | **`setup-caddy.sh`** | 上传 `deploy/Caddyfile` 并应用 |

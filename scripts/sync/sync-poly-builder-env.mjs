@@ -14,7 +14,6 @@ const DEFAULT_CODE = "0x58ec38dac8719b354dfd2a47d6ac27ab01babea9102a993c1abe4af3
 
 const HOSTS = [
   { label: "HongKong", host: "47.82.100.166" },
-  { label: "Shanghai", host: "106.14.82.50" },
 ];
 
 function readEnvValue(envPath, key, { optional = false } = {}) {

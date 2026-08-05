@@ -29,7 +29,7 @@ export CHANGMEN_DEPLOY_SCRIPTS="${CHANGMEN_DEPLOY_SCRIPTS:-/tmp/changmen-deploy}
 mkdir -p "$CHANGMEN_DEPLOY_SCRIPTS"
 cp -a "$SCRIPT_DIR/apply-repo-archive.sh" "$SCRIPT_DIR/deploy-server-remote.sh" "$CHANGMEN_DEPLOY_SCRIPTS/"
 
-log "flatten $APP_ROOT (same layout as Shanghai)"
+log "flatten $APP_ROOT (flattened layout)"
 bash "$CHANGMEN_DEPLOY_SCRIPTS/apply-repo-archive.sh" /dev/null
 
 if [ -f /etc/caddy/Caddyfile ]; then
@@ -49,5 +49,5 @@ if command -v pm2 >/dev/null 2>&1 && [ -f "$APP_ROOT/deploy/ecosystem.config.cjs
   pm2 save
 fi
 
-log "done — flat app at $APP_ROOT (same as Shanghai)"
+log "done — flat app at $APP_ROOT (flattened layout)"
 log "  next: BAT\\deploy-hongkong.bat  or  push master (GHA)"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Core tarball deploy (called by deploy-shanghai.sh / deploy-hongkong.sh)
+# Core tarball deploy (called by deploy-hongkong.sh / deploy-server.local.sh)
 set -euo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/_common.sh"
@@ -19,7 +19,7 @@ API_CONTRACT_PKG="${ROOT}/node_modules/@changmen/api-contract/package.json"
 load_deploy_local
 
 if [[ -z "${DEPLOY_HOST:-}" ]]; then
-  echo "ERROR: DEPLOY_HOST not set. Use deploy-shanghai.sh or deploy-hongkong.sh" >&2
+  echo "ERROR: DEPLOY_HOST not set. Use deploy-hongkong.sh or deploy-server.local.sh" >&2
   exit 1
 fi
 
