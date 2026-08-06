@@ -7,7 +7,7 @@ import {
   manualMergeKey,
   normalizeTeam,
   teamsFromPlatformRows,
-} from "@changmen/match-engine";
+} from "@changmen/match-identity";
 import { getGameCodeForPlatformId, getPlatformGameId, resolveClientGame } from "@changmen/shared/catalog/game_catalog";
 import { formatPbTeamPlatformId, resolvePlatformTeamId } from "@changmen/shared/catalog/pb_team_platform_id";
 import store from "../../backend/core/esport-api/store.js";

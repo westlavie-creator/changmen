@@ -29,8 +29,7 @@ assert.match(marketCatalog, /"code": "match_winner"/);
 assert.equal(/"code": "spreads"/.test(marketCatalog), false);
 
 for (const rel of [
-  "server/matcher",
-  "server/match-engine",
+  "server/match",
   "server/collectors",
   "client/web/src/stores/matchStore.ts",
   "client/web/src/stores/oddsStore.ts",

@@ -16,7 +16,7 @@ changmen/
 │   ├── collectors/              # VPS daemon：polymarket-sports、predictfun-collector
 │   ├── matcher/                 # 调度循环 + 人工关联 UI
 │   ├── db/                      # @changmen/db
-│   ├── match-engine/            # @changmen/match-engine
+│   ├── match-engine/            # @changmen/match-identity
 │   ├── team-resolver/           # @changmen/team-resolver
 │   ├── storage/                 # @changmen/storage（本机 JSON 路径）
 │   ├── ws_forward/              # @changmen/ws-forward（backend 挂载）
@@ -85,7 +85,7 @@ chrome-extension ─（代理/凭证）─► 各平台源站
 client/venue-adapter ──采集上报──► server/backend (API_SaveMatch/SaveBet)
 server/backend ──读写────► server/db (@changmen/db)
 server/matcher ──matchMerge──► @changmen/match-composer
-server/match-composer ──共享工具──► @changmen/match-engine (teams / ids / time windows)
+server/match-composer ──共享工具──► @changmen/match-identity (teams / ids / time windows)
 server/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 server/team-resolver ──requirePlatform──► @changmen/venue-adapter/loader
 
@@ -120,7 +120,7 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 队名规范化插件；matcher `matchMerge` 与 UI `merge_mode` 动态加载 `team_db.js`。  
 爬虫脚本在 `scrapers/`，环境变量通过 `@changmen/db` 的 `loadChangmenEnv()` 加载。
 
-### `server/match-engine` (`@changmen/match-engine`)
+### `server/match-engine` (`@changmen/match-identity`)
 
 队名工具、开赛时间窗、`client_match_ids` 与对应测试；旧 `merge/` 合并管线已下线。
 `server/match-composer` 与 `server/matcher` 通过 workspace 依赖复用；测试：`npm run test --prefix server/match-engine`。

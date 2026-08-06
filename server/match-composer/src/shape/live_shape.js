@@ -1,7 +1,7 @@
 /**
  * Round / promote / trim / gate / strip — 自研精简版（不调用 match_merge finalize）。
  */
-import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
+import { parseTitleTeams } from "@changmen/match-identity/teams/match_utils.js";
 import { findPlatformMatch } from "../sides/orientation_lock.js";
 
 const MIN_PLATFORMS = 2;

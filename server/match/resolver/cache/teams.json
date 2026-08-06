@@ -1,0 +1,130 @@
+{
+  "navi:cs2": {
+    "id": "liquipedia:counterstrike:NAVI",
+    "name": "NAVI",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052115727
+  },
+  "g2:cs2": {
+    "id": "liquipedia:counterstrike:G2_Esports",
+    "name": "G2 Esports",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052117630
+  },
+  "faze:cs2": {
+    "id": "liquipedia:counterstrike:FaZe_Clan",
+    "name": "FaZe Clan",
+    "confidence": 0.6,
+    "matchType": "opensearch_top",
+    "source": "liquipedia",
+    "resolvedAt": 1786052119731
+  },
+  "vitality:cs2": {
+    "id": "liquipedia:counterstrike:Vitality",
+    "name": "Vitality",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052121823
+  },
+  "jdg:lol": {
+    "id": "liquipedia:leagueoflegends:JDG",
+    "name": "JDG",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052126026
+  },
+  "blg:lol": {
+    "id": "liquipedia:leagueoflegends:BLG",
+    "name": "BLG",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052128122
+  },
+  "fpx:lol": {
+    "id": "liquipedia:leagueoflegends:FPX",
+    "name": "FPX",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052130224
+  },
+  "rng:lol": {
+    "id": "liquipedia:leagueoflegends:RNG",
+    "name": "RNG",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052132329
+  },
+  "t1:lol": {
+    "id": "liquipedia:leagueoflegends:T1",
+    "name": "T1",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052134441
+  },
+  "geng:lol": {
+    "id": "liquipedia:leagueoflegends:Gen.G_Esports",
+    "name": "Gen.G Esports",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052136537
+  },
+  "og:dota2": {
+    "id": "liquipedia:dota2:OG",
+    "name": "OG",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052138642
+  },
+  "liquid:dota2": {
+    "id": "liquipedia:dota2:Liquid",
+    "name": "Liquid",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052140752
+  },
+  "sentinels:valorant": {
+    "id": "liquipedia:valorant:Sentinels",
+    "name": "Sentinels",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052142838
+  },
+  "loud:valorant": {
+    "id": "liquipedia:valorant:LOUD",
+    "name": "LOUD",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052144948
+  },
+  "funplus phoenix:lol": {
+    "id": "liquipedia:leagueoflegends:FunPlus_Phoenix",
+    "name": "FunPlus Phoenix",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052147211
+  },
+  "edward:lol": {
+    "id": "liquipedia:leagueoflegends:EDward_Gaming",
+    "name": "EDward Gaming",
+    "confidence": 1,
+    "matchType": "exact",
+    "source": "liquipedia",
+    "resolvedAt": 1786052147218
+  }
+}

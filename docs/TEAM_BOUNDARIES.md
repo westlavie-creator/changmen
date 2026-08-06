@@ -75,25 +75,25 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@changmen/venue-adapter/*` | `@changmen/db`、`@changmen/match-engine`、`@changmen/platform-probes` |
+| `@changmen/venue-adapter/*` | `@changmen/db`、`@changmen/match-identity`、`@changmen/platform-probes` |
 | `@changmen/shared`（展示、时间窗、账号倍数等） | `server/backend`、`server/matcher` 任意路径 |
 | `@changmen/api-contract` | |
 | `@/` 应用内模块 | |
 
-`client/web/scripts/`：允许 `@changmen/match-engine` 做离线 parity 测试；仍禁止 `@changmen/db` 与直接引用 backend。
+`client/web/scripts/`：允许 `@changmen/match-identity` 做离线 parity 测试；仍禁止 `@changmen/db` 与直接引用 backend。
 
 ### 各平台 `client/venue-adapter/{platform}/`（根目录 ts，不含 `shared/`、`scripts/`）
 
 | 允许 | 禁止 |
 |------|------|
 | `@changmen/venue-adapter/contract`、`@changmen/venue-adapter/shared`、同平台 `shared/` | `@changmen/db`、`client/web`、`server/backend` |
-| `@changmen/shared` | `@changmen/platform-probes`、`@changmen/match-engine` |
+| `@changmen/shared` | `@changmen/platform-probes`、`@changmen/match-identity` |
 
 ### 服务端（`server/backend`、`server/matcher`、扩展守护进程）
 
 | 允许 | 禁止 |
 |------|------|
-| `@changmen/db`、`@changmen/match-engine`、`@changmen/shared`、`@changmen/storage` | `client/venue-adapter/*/`（平台根目录 ts 与 `shared/`） |
+| `@changmen/db`、`@changmen/match-identity`、`@changmen/shared`、`@changmen/storage` | `client/venue-adapter/*/`（平台根目录 ts 与 `shared/`） |
 | `@changmen/venue-adapter/loader`、`registry`、`requirePlatform` → **node** | `client/web/src/**` |
 | `@changmen/platform-probes`、`@changmen/polymarket-sports`、`@changmen/realtime-hub`、`@changmen/ws-forward`（backend 依赖） | |
 | `server/value-bet` 仅依赖 `@changmen/db` + `@changmen/shared` + `@changmen/storage` | |

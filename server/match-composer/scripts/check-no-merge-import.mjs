@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const forbid = [
-  /match-engine[/\\]merge/,
+  /match-(?:engine|identity)[/\\]merge/,
   /merge[/\\]match_merge/,
   /buildClientMatchList/,
   /buildMatchListMerged/,
