@@ -5,11 +5,11 @@
   "description": "赛事匹配管理 — composer 调度、人工 Web 面板与关联操作",
   "scripts": {
     "start": "node ui/server.js",
-    "test": "npm run test --prefix ../match-engine && vitest run"
+    "test": "npm run test --prefix ../match/identity && vitest run"
   },
   "dependencies": {
     "@changmen/db": "*",
-    "@changmen/match-engine": "*",
+    "@changmen/match-identity": "*",
     "@changmen/shared": "*",
     "@changmen/storage": "*",
     "@changmen/team-resolver": "*",

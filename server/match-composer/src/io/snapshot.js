@@ -5,7 +5,7 @@
  * alignClientRows = 瘦行（ForAlign），供挂靠索引；若取不到则回落全量
  */
 import * as db from "@changmen/db";
-import { setTeamPlugin } from "@changmen/match-engine/teams/team_key.js";
+import { setTeamPlugin } from "@changmen/match-identity/teams/team_key.js";
 
 let _pluginReady = null;
 /** @type {string|null} */

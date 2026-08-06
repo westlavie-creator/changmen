@@ -1,5 +1,5 @@
 import * as db from "@changmen/db";
-import { setTeamPlugin } from "@changmen/match-engine";
+import { setTeamPlugin } from "@changmen/match-identity";
 import { setClientMatchesFromMatchMerge } from "../../backend/core/db/store.js";
 import store from "../../backend/core/esport-api/store.js";
 import { isEmbeddedMatcher } from "../../backend/core/shared/matcher_mode.js";

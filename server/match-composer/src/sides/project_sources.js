@@ -4,7 +4,7 @@
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
  * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
  */
-import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
+import { parseTitleTeams } from "@changmen/match-identity/teams/match_utils.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { rawSourceForMap } from "../normalize/native_bets.js";
 import { resolveRowStructure } from "../structure/resolve_structure.js";

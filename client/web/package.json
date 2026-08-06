@@ -51,7 +51,6 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
-    "@changmen/match-engine": "*",
     "@types/node": "^25.9.1",
     "@types/three": "^0.185.1",
     "@vitejs/plugin-vue": "^5.2.3",

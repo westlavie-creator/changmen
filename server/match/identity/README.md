@@ -1,4 +1,4 @@
-# @changmen/match-engine
+# @changmen/match-identity
 
 composer / matcher 共用的轻量工具包：`client_match` ID 分配、队名键、平台优先级与开赛时间容差。旧 `merge/` 合并管线已下线。
 

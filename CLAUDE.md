@@ -107,7 +107,7 @@ changmen/
 │   ├── backend/            Node.js ESM，port 3560 (Win) / 3456
 │   ├── matcher/            matchMerge 循环 + 人工关联 Web
 │   ├── db/                 @changmen/db
-│   ├── match-engine/       @changmen/match-engine
+│   ├── match-engine/       @changmen/match-identity
 │   └── team-resolver/      @changmen/team-resolver
 ├── devtools/
 │   └── platform-probes/    @changmen/platform-probes（可选探针）

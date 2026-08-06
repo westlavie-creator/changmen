@@ -71,7 +71,7 @@
   "dependencies": {
     "@changmen/api-contract": "*",
     "@changmen/db": "*",
-    "@changmen/match-engine": "*",
+    "@changmen/match-identity": "*",
     "@changmen/platform-probes": "*",
     "@changmen/polymarket-sports": "*",
     "@changmen/realtime-hub": "*",

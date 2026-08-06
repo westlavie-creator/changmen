@@ -4,7 +4,7 @@ import {
   fetchLatestClientMatchBuiltAt,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
-import { normalizeTeam } from "@changmen/match-engine/teams/team_key.js";
+import { normalizeTeam } from "@changmen/match-identity/teams/team_key.js";
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { isComposerStickyOrientation } from "../../match-composer/lib/config.js";
 import { normalizeMatchesShape } from "../../match-composer/src/io/snapshot.js";
