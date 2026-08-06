@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** @deprecated 脚本名保留；逻辑为 matchMergeOnce */
 import { ensurePgPoolReady } from "@changmen/db";
-import { matchMergeOnce } from "../../matcher/ops/match_merge_once.js";
+import { matchMergeOnce } from "@changmen/matcher/ops/match_merge_once.js";
 
 const pool = await ensurePgPoolReady();
 const before = (

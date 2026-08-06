@@ -35,7 +35,8 @@ const RULES = [
       /@changmen\/db\b/,
       /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      // 合场运行时禁止；compose/ 下的纯归一化函数是既有例外
+      /(?:^|[/\\])server[/\\]match[/\\]matcher[/\\](?!compose[/\\])/,
     ],
   },
   {
@@ -59,7 +60,7 @@ const RULES = [
       /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /(?:^|[/\\])client[/\\]web[/\\]src(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      /(?:^|[/\\])server[/\\]match(?:[/\\]|$)/,
     ],
     allowFiles: [
       "server/backend/scripts/test-packaged-adapter-layout.js",
@@ -75,22 +76,13 @@ const RULES = [
     ],
   },
   {
-    id: "server-matcher",
-    roots: ["server/matcher"],
+    id: "server-match",
+    roots: ["server/match"],
     forbid: [
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
       /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-    ],
-  },
-  {
-    id: "server-match-composer",
-    roots: ["server/match-composer"],
-    forbid: [
-      /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /match-engine[/\\]merge/,
+      /match-(?:engine|identity)[/\\]merge/,
       /merge[/\\]match_merge/,
     ],
   },

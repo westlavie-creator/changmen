@@ -50,7 +50,10 @@ const WEB_DIR
 const MATCHER_DIR
   = process.env.CHANGMEN_MATCHER_DIR
     || process.env.GAMEBET_MATCHER_DIR
-    || path.join(__dirname, "../matcher/ui/public");
+    || path.join(
+      path.dirname(fileURLToPath(import.meta.resolve("@changmen/matcher/package.json"))),
+      "ui/public",
+    );
 
 const serveStatic = createStaticHandler({
   publicDir: PUBLIC_DIR,
@@ -165,7 +168,7 @@ function restoreCollectorHotSnapshot() {
 function startEmbeddedMatcherAfter(readyPromise) {
   setEmbeddedMatcher(true);
   void readyPromise
-    .finally(() => import("../matcher/loop.js")
+    .finally(() => import("@changmen/matcher/loop.js")
       .then(({ startMatcherLoop }) => startMatcherLoop())
       .then((r) => {
         if (r?.ok)
