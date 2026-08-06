@@ -136,12 +136,20 @@ frontendRule.roots = discoverPlatformBrowserRoots();
 const IMPORT_RE =
   /(?:import\s+(?:type\s+)?(?:[\w*{}\s,]+)\s+from\s+|import\s+|export\s+(?:type\s+)?(?:\*|{[^}]*})\s+from\s+|require\s*\(\s*|import\s*\(\s*)['"]([^'"]+)['"]/g;
 
+/** 生成产物（gitignore）：适配层拷贝，非源码，不参与边界判定 */
+const GENERATED_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "platform_adapter",
+  "platform_node",
+]);
+
 function listSourceFiles(dir) {
   const out = [];
   function walk(abs) {
     if (!fs.existsSync(abs)) return;
     for (const name of fs.readdirSync(abs)) {
-      if (name === "node_modules" || name === "dist") continue;
+      if (GENERATED_DIRS.has(name)) continue;
       const p = path.join(abs, name);
       const st = fs.statSync(p);
       if (st.isDirectory()) walk(p);
