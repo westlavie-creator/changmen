@@ -174,7 +174,12 @@ export function resolveOrientationLock(row, matches, existingRow, opts = {}) {
   return clearLock(row, matches);
 }
 
-export function sideModeAgainstLock(platform, pm, homeGb, awayGb) {
+/**
+ * @param {{ home?: string, away?: string }} [lockNames] 锁两侧队名的免插件来源（持久化标题）。
+ *   队名兜底不得只依赖 lookupCanonicalTeamName，否则与 gb 主路径共用 team-resolver，
+ *   插件缺失时两条通道一起断，整场源清空。
+ */
+export function sideModeAgainstLock(platform, pm, homeGb, awayGb, lockNames) {
   if (!homeGb || !awayGb || !pm)
     return "ambiguous";
   const { homeGb: ph, awayGb: pa } = teamIdsFromPm(platform, pm);
@@ -187,8 +192,8 @@ export function sideModeAgainstLock(platform, pm, homeGb, awayGb) {
   }
   const phN = normalizeTeam(pm.Home ?? pm.home);
   const paN = normalizeTeam(pm.Away ?? pm.away);
-  const ch = normalizeTeam(lookupCanonicalTeamName(homeGb) || "");
-  const ca = normalizeTeam(lookupCanonicalTeamName(awayGb) || "");
+  const ch = normalizeTeam(lookupCanonicalTeamName(homeGb) || lockNames?.home || "");
+  const ca = normalizeTeam(lookupCanonicalTeamName(awayGb) || lockNames?.away || "");
   if (!phN || !paN || !ch || !ca)
     return "ambiguous";
   if (phN === ch && paN === ca)

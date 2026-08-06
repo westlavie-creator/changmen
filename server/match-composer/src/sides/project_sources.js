@@ -4,6 +4,7 @@
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
  * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
  */
+import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
 import { rawSourceForMap } from "../normalize/native_bets.js";
 import { resolveRowStructure } from "../structure/resolve_structure.js";
@@ -55,11 +56,12 @@ export function projectPlatformSource({
   homeGb,
   awayGb,
   overrideMode,
+  lockNames,
 }) {
   if (!betHasOdds(raw) || !homeGb || !awayGb) {
     return { mode: "omit", source: null, inReverse: false, omitReason: "no_raw_or_lock" };
   }
-  const autoMode = sideModeAgainstLock(platform, pm, homeGb, awayGb);
+  const autoMode = sideModeAgainstLock(platform, pm, homeGb, awayGb, lockNames);
   const ov = normalizeOverrideMode(overrideMode);
   const mode = applyOverride(autoMode, ov);
   if (mode === "ambiguous") {
@@ -123,6 +125,8 @@ export function projectClientMatchSides(row, {
   }
 
   const { homeGb, awayGb } = lock;
+  /** 锁朝向的队名快照：team-resolver 不可用时，队名兜底的唯一免插件来源 */
+  const lockNames = parseTitleTeams(row.Title) || undefined;
   const reverse = [];
   const omitted = [];
   const ambiguous = [];
@@ -176,6 +180,7 @@ export function projectClientMatchSides(row, {
         homeGb,
         awayGb,
         overrideMode: overrides[platform],
+        lockNames,
       });
       if (!r.source) {
         if (r.mode === "ambiguous")
