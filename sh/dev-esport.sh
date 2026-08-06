@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Esport: backend + Vite (+ optional matcher with: parity|matcher)
+# Esport: backend + Vite (+ optional matcher UI with: parity|matcher)
+# matchMerge 循环内嵌在 backend，无需单独启动；parity 只多起人工关联 UI。
 # Usage:
 #   ./sh/dev-esport.sh
 #   ./sh/dev-esport.sh parity
@@ -38,7 +39,7 @@ echo "  Backend : http://localhost:${PORT}/"
 echo "  Vite    : http://localhost:${VITE}/   ← 请打开这个（不是 5274）"
 echo "  Chrome  : load chrome-extension/"
 if [[ "${PARITY}" == "1" ]]; then
-  echo "  Matcher : npm run matcher:loop (auto-started)"
+  echo "  Matcher : http://localhost:4567/  (人工关联 UI；matchMerge 已内嵌 backend)"
 fi
 echo
 echo "  Tip: ./sh/dev-esport.sh parity"
@@ -74,8 +75,8 @@ else
 fi
 
 if [[ "${PARITY}" == "1" ]]; then
-  echo "[3/3] Starting matcher loop..."
-  run_in_term "matcher" "cd \"${ROOT}\" && npm run matcher:loop"
+  echo "[3/3] Starting matcher UI..."
+  run_in_term "matcher" "cd \"${ROOT}\" && npm run matcher:ui"
 fi
 
 echo

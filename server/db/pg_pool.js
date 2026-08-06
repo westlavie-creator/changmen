@@ -25,7 +25,7 @@ function envInt(name, fallback) {
 
 function defaultApplicationName() {
   const cwd = process.cwd().replace(/\\/g, "/");
-  if (cwd.includes("/server/matcher"))
+  if (cwd.includes("/server/match/matcher"))
     return "changmen-matcher";
   if (cwd.includes("/server/backend"))
     return "changmen-esport";

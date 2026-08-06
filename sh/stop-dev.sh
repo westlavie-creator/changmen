@@ -30,7 +30,7 @@ kill_port "${VITE}"
 pkill -f "${ROOT}/server/backend/scripts/start-db.mjs" 2>/dev/null || true
 pkill -f "vite.*/client/web" 2>/dev/null || true
 pkill -f "npm run app:dev" 2>/dev/null || true
-pkill -f "npm run matcher:loop" 2>/dev/null || true
+pkill -f "npm run matcher:ui" 2>/dev/null || true
 sleep 1
 
 if port_listening "${PORT}" || port_listening "${VITE}"; then
