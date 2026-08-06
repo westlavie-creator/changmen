@@ -3,9 +3,9 @@ import { ensurePgPoolReady, fetchClientMatches, fetchPlatformBets } from "@chang
 /**
  * 巡检 client_matches 与 platform_bets / matchMerge 预览是否一致。
  *
- *   node server/matcher/scripts/audit-client-sources.mjs           # 静态 + rebuild diff
- *   node server/matcher/scripts/audit-client-sources.mjs --quick # 仅静态规则
- *   node server/matcher/scripts/audit-client-sources.mjs --strict # 有问题 exit 1
+ *   node server/match/matcher/scripts/audit-client-sources.mjs           # 静态 + rebuild diff
+ *   node server/match/matcher/scripts/audit-client-sources.mjs --quick # 仅静态规则
+ *   node server/match/matcher/scripts/audit-client-sources.mjs --strict # 有问题 exit 1
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { composeOnce } from "../compose/compose_once.js";

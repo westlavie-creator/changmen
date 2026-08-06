@@ -204,7 +204,7 @@ main() {
 
   log "wait embedded matcher heartbeat"
   for i in $(seq 1 45); do
-    if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
+    if node --input-type=module -e "import { isMatcherRunning, readMatcherHeartbeat } from './server/match/matcher/lib/heartbeat.js'; const hb = readMatcherHeartbeat(); if (hb?.mode === 'embedded' && isMatcherRunning(hb)) process.exit(0); process.exit(1);"; then
       log "embedded matcher heartbeat ok"
       break
     fi

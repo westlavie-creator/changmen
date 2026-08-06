@@ -15,7 +15,7 @@ function assertIconvLite() {
   }
   catch (err) {
     console.error(
-      "[matcher] 依赖不完整（iconv-lite），POST API 不可用。请在 changmen/server/matcher 执行: npm install",
+      "[matcher] 依赖不完整（iconv-lite），POST API 不可用。请在 changmen/server/match/matcher 执行: npm install",
     );
     console.error("[matcher]", err.message);
     throw err;

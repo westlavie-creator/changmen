@@ -17,7 +17,7 @@ export const CHANGMEN_LAYOUT = {
   platformProbes: "devtools/platform-probes",
   packages: "packages",
   serverBackend: "server/backend",
-  serverMatcher: "server/matcher",
+  serverMatcher: "server/match/matcher",
   serverDb: "server/db",
   serverCollectors: "server/collectors",
   lines: "lines",

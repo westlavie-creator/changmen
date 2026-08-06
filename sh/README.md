@@ -15,7 +15,7 @@ bash sh/dev-esport.sh
 | 脚本 | 作用 |
 |------|------|
 | **`dev-esport.sh`** | 电竞：后端 `:3456` + Vite `:5174`（Linux 默认） |
-| `dev-esport.sh parity` | 同上 + `matcher:loop` |
+| `dev-esport.sh parity` | 同上 + `matcher:ui`（matchMerge 已内嵌 backend） |
 | **`dev-football.sh`** | 足球：同级仓库 `../changmen-football` → `:3457` |
 | **`dev.sh`** | 兼容入口 → 等同 `dev-esport.sh`；`dev.sh football` → 足球 |
 | **`backend.sh`** | 仅电竞后端 |
