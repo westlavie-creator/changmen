@@ -1737,7 +1737,7 @@ function lockedGbForSide(cm, side) {
 function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName, cm) {
   const locked = lockedGbForSide(cm, side);
 
-  const ref = pickClientMatchSideRow(rows, side, gameCode);
+  const ref = pickClientMatchSideRow(rows, side, gameCode, anchorName);
   const name = String(anchorName || (side === 'home' ? ref.row.home : ref.row.away) || '').trim();
   const gc = gameCode || ref.row.game?.code;
   const counts = new Map();
@@ -1747,7 +1747,7 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorN
     if (m._platformMissing) continue;
     const mgc = gc || m.game?.code;
     for (const slot of ['home', 'away']) {
-      const slotName = (slot === 'home' ? m.home : m.away || '').trim();
+      const slotName = String((slot === 'home' ? m.home : m.away) || '').trim();
       if (name && !teamNamesLikelySame(slotName, name)) continue;
       const { id: pid } = resolveMatchTeamId(m, slot, mgc);
       if (!pid) continue;
@@ -1771,7 +1771,9 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorN
   if (counts.size) {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
   }
-  if (ref.platformId) {
+  // 参考平台主客可能与标题相反；不校验队名会把对家的 gb_team_id 顶到本侧
+  const refName = String((side === 'home' ? ref.row.home : ref.row.away) || '').trim();
+  if (ref.platformId && (!name || teamNamesLikelySame(refName, name))) {
     const { canonical, pending: isPending } = lookupCanonical(teamMaps, ref.row.platform, ref.platformId, gc);
     if (canonical != null) return canonical;
     if (isPending) return '__pending__';
@@ -1779,11 +1781,26 @@ function resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorN
   return pending ? '__pending__' : null;
 }
 
-function pickClientMatchSideRow(rows, side, gameCode) {
-  const ref = pickReferenceMatch(rows);
+/** 标题侧队伍所在的平台行：先按标题队名命中（平台主客可能与标题相反），再回落参考平台原始槽位 */
+function pickClientMatchSideRow(rows, side, gameCode, anchorName) {
+  const ordered = [...rows].sort((a, b) => platformRank(a.platform) - platformRank(b.platform));
+  const name = String(anchorName || '').trim();
+  if (name) {
+    for (const m of ordered) {
+      if (m._platformMissing) continue;
+      const mgc = gameCode || m.game?.code;
+      for (const slot of ['home', 'away']) {
+        const slotName = String((slot === 'home' ? m.home : m.away) || '').trim();
+        if (!teamNamesLikelySame(slotName, name)) continue;
+        const { id } = resolveMatchTeamId(m, slot, mgc);
+        if (id) return { row: m, platformId: id };
+      }
+    }
+  }
+  const ref = ordered[0];
   const { id: refPid } = resolveMatchTeamId(ref, side, gameCode || ref.game?.code);
   if (refPid) return { row: ref, platformId: refPid };
-  for (const m of rows) {
+  for (const m of ordered) {
     const { id: pid } = resolveMatchTeamId(m, side, gameCode || m.game?.code);
     if (pid) return { row: m, platformId: pid };
   }
@@ -1798,13 +1815,13 @@ function clientMatchSideAnchorName(cm, rows, side) {
     }
   }
   const { row } = pickClientMatchSideRow(rows, side);
-  return (side === 'home' ? row.home : row.away || '').trim();
+  return String((side === 'home' ? row?.home : row?.away) || '').trim();
 }
 
 function renderTitleTeamSlot(side, rows, teamMaps, gameCode, cmId, cm) {
   const anchorName = clientMatchSideAnchorName(cm, rows, side);
   const canonical = resolveClientMatchSideCanonical(rows, teamMaps, side, gameCode, anchorName, cm);
-  const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode);
+  const { row, platformId } = pickClientMatchSideRow(rows, side, gameCode, anchorName);
   const platform = row.platform;
   // client_matches.title 是 changmen 自有队名；平台行仅作挂载明细
   const name = anchorName || (side === 'home' ? row.home : row.away) || '';
