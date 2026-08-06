@@ -9,7 +9,7 @@ changmen 是 **客户端 + 服务端** 系统（对标 A8 的分工），不是�
 | 角色 | 组件 | 职责 |
 |------|------|------|
 | **客户端** | `client/web`、Chrome 插件（`chrome-extension`） | 连各博彩平台、采集比赛/赔率、下注；通过 `API_SaveMatch` / `API_SaveBet` 上报 |
-| **服务端** | `server/backend`、`server/matcher`、RDS（PostgreSQL） | 接收上报、合并赛事（`client_matches`）、鉴权、账号/订单、HTTP 代理 |
+| **服务端** | `server/backend`、`server/match/matcher`、RDS（PostgreSQL） | 接收上报、合并赛事（`client_matches`）、鉴权、账号/订单、HTTP 代理 |
 
 开发时后端 `localhost:3560`（Windows）/ `3456`（其它）+ Vite `5274`（Windows）/ `5174`（其它）为本机联调地址（见 `client/web/vite.config.ts`）；生产见 [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)（同源 `/` + `/esport/*`）。
 
@@ -105,10 +105,11 @@ changmen/
 ├── chrome-extension/       Chrome MV3
 ├── server/
 │   ├── backend/            Node.js ESM，port 3560 (Win) / 3456
-│   ├── matcher/            matchMerge 循环 + 人工关联 Web
-│   ├── db/                 @changmen/db
-│   ├── match-engine/       @changmen/match-engine
-│   └── team-resolver/      @changmen/team-resolver
+│   ├── match/              赛事匹配模块（三层）
+│   │   ├── identity/       @changmen/match-identity（纯库）
+│   │   ├── resolver/       @changmen/team-resolver
+│   │   └── matcher/        compose/ 合场 + matchMerge 循环 + 人工关联 Web
+│   └── db/                 @changmen/db
 ├── devtools/
 │   └── platform-probes/    @changmen/platform-probes（可选探针）
 ├── packages/
@@ -123,9 +124,10 @@ changmen/
 | 目录 | 可 require |
 |------|------------|
 | `server/backend` | `packages/shared/*`、`client/venue-adapter`（`adapter_paths` / `reqS`） |
-| `server/matcher` | `server/match-engine`、`packages/shared/*`、`@changmen/team-resolver` |
+| `server/match/matcher` | `@changmen/match-identity`、`packages/shared/*`、`@changmen/team-resolver` |
+| `server/match/identity` | `packages/shared/*`（**仅此一项**，勿加 db / express / venue-adapter） |
 
-`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`。写入方是 `server/matcher` 内嵌 30s 循环 **matchMerge**，唯一合场写算法为 `@changmen/match-composer`；旧 legacy merge/projector 路径已下线。
+`Client_GetMatchs` **不**在 backend 内合并；只读 `client_matches`。写入方是 `server/match/matcher` 内嵌 30s 循环 **matchMerge**，唯一合场写算法为该包的 `compose/`（原 `@changmen/match-composer`，已并入）；旧 legacy merge/projector 路径已下线。
 
 ### Backend (`server/backend/`)
 
@@ -189,7 +191,7 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 
 ```
 客户端采集器 → API_SaveMatch / API_SaveBet → 服务端 store → RDS
-matcher 内嵌循环 → match-composer 合场（生产默认）→ client_matches → Client_GetMatchs → 客户端 UI
+matcher 内嵌循环 → compose/ 合场（生产默认）→ client_matches → Client_GetMatchs → 客户端 UI
 ```
 
 启动开发栈：`BAT\dev.bat` / `BAT\backend.bat`。

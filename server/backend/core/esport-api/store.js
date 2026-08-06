@@ -72,7 +72,7 @@ function scheduleEmbeddedMatchMerge() {
     return;
   _embeddedMergeTimer = setTimeout(() => {
     _embeddedMergeTimer = null;
-    import("../../../matcher/ops/match_merge_once.js")
+    import("@changmen/matcher/ops/match_merge_once.js")
       .then(({ matchMergeOnce }) => matchMergeOnce())
       .catch(err => console.warn("[matchMerge] embedded saveLiveTimer trigger:", err.message));
   }, EMBEDDED_MERGE_DEBOUNCE_MS);

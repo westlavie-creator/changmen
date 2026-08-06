@@ -21,7 +21,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 ┌─────────────────────────────────────────────────────────┐
 │ 服务端（一台或多实例）                                     │
 │  server/backend    — esport-api、HTTP 代理、静态 /          │
-│  server/matcher    — 内嵌 30s 循环，经 composer 写 client_matches │
+│  server/match/matcher    — 内嵌 30s 循环，经 composer 写 client_matches │
 │  polymarket-esports — Gamma+/prices → platform_* + index   │
 │  polymarket-sports — Sports WS → client_matches.pm_sport   │
 │  predictfun-collector — Predict.fun REST → platform_*      │
@@ -113,7 +113,7 @@ Caddy 分流只是把「谁托管静态」从 Node 挪到 Caddy，职责更清�
 
 ```bash
 cd changmen
-npm install          # workspaces: server/backend、server/matcher、packages/*
+npm install          # workspaces: server/backend、server/match/matcher、packages/*
 npm install  # 首次：安装全部 workspaces（含 client/web）
 ```
 
@@ -145,7 +145,7 @@ cd changmen/server/backend
 node scripts/apply-rds-schema.mjs
 ```
 
-过期 `client_matches` 由 `server/matcher` 每小时 archive（`server/db/archive_stale.js`，1 小时 `built_at` 阈值）。平台数据由 SaveMatch 快照生命周期负责，不再定时扫表。手动兜底：`npm run db:archive-stale`（`scripts/ops/migrations/archive-stale-client-matches.mjs`）。
+过期 `client_matches` 由 `server/match/matcher` 每小时 archive（`server/db/archive_stale.js`，1 小时 `built_at` 阈值）。平台数据由 SaveMatch 快照生命周期负责，不再定时扫表。手动兜底：`npm run db:archive-stale`（`scripts/ops/migrations/archive-stale-client-matches.mjs`）。
 
 ### 3.3 构建并托管前端
 
@@ -166,7 +166,7 @@ cd changmen
 pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
 ```
 
-`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。唯一合场写路径：`matchMergeOnce` → `@changmen/match-composer`。**勿**另起独立 match-composer WRITE 进程（防双写 `client_matches`）；回滚走 git revert / 版本回退。
+`ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。唯一合场写路径：`matchMergeOnce` → `@changmen/matcher`。**勿**另起独立 match-composer WRITE 进程（防双写 `client_matches`）；回滚走 git revert / 版本回退。
 
 `changmen-polymarket-collector` 直连 Gamma + CLOB `/prices`，写 `platform_*` + MarketIndex。浏览器电竞侧**不再** Gamma/`Save*`，只同步 Index → Market WS → `fo`。设 `POLYMARKET_COLLECTOR_WRITE_PLATFORM=0` 可改 shadow（仅 index）。详见 [server/collectors/polymarket-esports/README.md](./server/collectors/polymarket-esports/README.md)。
 

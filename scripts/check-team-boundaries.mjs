@@ -20,14 +20,12 @@ const RULES = [
     roots: ["client/web/src", "chrome-extension/src"],
     forbid: [
       /@changmen\/db\b/,
-      /@changmen\/match-engine\b/,
+      /@changmen\/match-identity\b/,
       /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      /(?:^|[/\\])server[/\\]match(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]db(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]match-engine(?:[/\\]|$)/,
       /(?:^|[/\\])devtools[/\\]platform-probes(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]team-resolver(?:[/\\]|$)/,
     ],
   },
   {
@@ -37,7 +35,8 @@ const RULES = [
       /@changmen\/db\b/,
       /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      // 合场运行时禁止；compose/ 下的纯归一化函数是既有例外
+      /(?:^|[/\\])server[/\\]match[/\\]matcher[/\\](?!compose[/\\])/,
     ],
   },
   {
@@ -45,11 +44,11 @@ const RULES = [
     roots: [],
     forbid: [
       /@changmen\/db\b/,
-      /@changmen\/match-engine\b/,
+      /@changmen\/match-identity\b/,
       /@changmen\/platform-probes\b/,
       /(?:^|[/\\])server[/\\]backend(?:[/\\]|$)/,
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      /(?:^|[/\\])server[/\\]match(?:[/\\]|$)/,
       /@\/stores\//,
       /@\//,
     ],
@@ -61,7 +60,7 @@ const RULES = [
       /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /(?:^|[/\\])client[/\\]web[/\\]src(?:[/\\]|$)/,
-      /(?:^|[/\\])server[/\\]matcher(?:[/\\]|$)/,
+      /(?:^|[/\\])server[/\\]match(?:[/\\]|$)/,
     ],
     allowFiles: [
       "server/backend/scripts/test-packaged-adapter-layout.js",
@@ -77,22 +76,13 @@ const RULES = [
     ],
   },
   {
-    id: "server-matcher",
-    roots: ["server/matcher"],
+    id: "server-match",
+    roots: ["server/match"],
     forbid: [
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
       /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-    ],
-  },
-  {
-    id: "server-match-composer",
-    roots: ["server/match-composer"],
-    forbid: [
-      /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
-      /match-engine[/\\]merge/,
+      /match-(?:engine|identity)[/\\]merge/,
       /merge[/\\]match_merge/,
     ],
   },
@@ -146,12 +136,20 @@ frontendRule.roots = discoverPlatformBrowserRoots();
 const IMPORT_RE =
   /(?:import\s+(?:type\s+)?(?:[\w*{}\s,]+)\s+from\s+|import\s+|export\s+(?:type\s+)?(?:\*|{[^}]*})\s+from\s+|require\s*\(\s*|import\s*\(\s*)['"]([^'"]+)['"]/g;
 
+/** 生成产物（gitignore）：适配层拷贝，非源码，不参与边界判定 */
+const GENERATED_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "platform_adapter",
+  "platform_node",
+]);
+
 function listSourceFiles(dir) {
   const out = [];
   function walk(abs) {
     if (!fs.existsSync(abs)) return;
     for (const name of fs.readdirSync(abs)) {
-      if (name === "node_modules" || name === "dist") continue;
+      if (GENERATED_DIRS.has(name)) continue;
       const p = path.join(abs, name);
       const st = fs.statSync(p);
       if (st.isDirectory()) walk(p);

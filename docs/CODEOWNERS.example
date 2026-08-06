@@ -13,11 +13,9 @@
 
 # --- 服务端团队 ---
 /changmen/server/backend/                @CHANGMEN_SERVER_TEAM
-/changmen/server/matcher/                @CHANGMEN_SERVER_TEAM
+/changmen/server/match/                  @CHANGMEN_SERVER_TEAM
 /changmen/server/db/                     @CHANGMEN_SERVER_TEAM
 /changmen/devtools/platform-probes/     @CHANGMEN_SERVER_TEAM
-/changmen/server/match-engine/           @CHANGMEN_SERVER_TEAM
-/changmen/server/team-resolver/         @CHANGMEN_SERVER_TEAM
 
 # --- 共同维护（双方都需 review）---
 /changmen/packages/shared/               @CHANGMEN_CLIENT_TEAM @CHANGMEN_SERVER_TEAM

@@ -1,6 +1,6 @@
 /**
  * 在连接 RDS 或读写 storage 之前加载 changmen .env。
- * 默认读 server/backend/.env；matcher 可 prepend server/matcher/.env。
+ * 默认读 server/backend/.env；matcher 可 prepend server/match/matcher/.env。
  */
 import fs from "node:fs";
 import path from "node:path";

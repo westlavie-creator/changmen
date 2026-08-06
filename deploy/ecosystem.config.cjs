@@ -14,7 +14,8 @@
  * 不可多进程共享；见 PRODUCTION_DEPLOYMENT.md §2.1 / docs/DATA_STORAGE.md。
  *
  * 合场唯一写路径由 changmen-esport 内嵌 matchMergeOnce→composeOnce。
- * 勿把独立 match-composer WRITE 加进本清单（防双写 client_matches）。
+ * 勿把独立 composer WRITE 循环（server/match/matcher 的 compose:*）加进本清单，
+ * 会与内嵌 composer 双写 client_matches。
  */
 const path = require("node:path");
 

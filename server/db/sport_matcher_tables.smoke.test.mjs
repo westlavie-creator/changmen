@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rdsDir = join(__dirname, "rds");
-const teamDbPath = join(__dirname, "../team-resolver/team_db.js");
+const teamDbPath = join(__dirname, "../match/resolver/team_db.js");
 const migrationPath = join(
   __dirname,
   "../backend/db/migrations/033_sport_matcher_tables.sql",
