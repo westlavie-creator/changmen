@@ -47,14 +47,14 @@ export async function buildMemoryDiagSnapshot() {
   let matcherLoop = null;
   let matcherRdsCache = null;
   try {
-    const matcherLoopMod = await import("../../../matcher/loop.js");
+    const matcherLoopMod = await import("@changmen/matcher/loop.js");
     matcherLoop = matcherLoopMod.getMatcherLoopState();
   }
   catch {
     /* matcher not loaded */
   }
   try {
-    const matcherCacheMod = await import("../../../matcher/ops/rds_snapshot_cache.js");
+    const matcherCacheMod = await import("@changmen/matcher/ops/rds_snapshot_cache.js");
     matcherRdsCache = matcherCacheMod.getMatcherRdsSnapshotCacheStats();
   }
   catch {

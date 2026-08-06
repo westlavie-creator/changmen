@@ -46,7 +46,7 @@ let _tryHandleMatcherApi;
 async function getTryHandleMatcherApi() {
   if (!_tryHandleMatcherApi) {
     ({ tryHandleMatcherApi: _tryHandleMatcherApi } = await import(
-      "../matcher/ui/http_bridge.js",
+      "@changmen/matcher/ui/http_bridge.js",
     ));
   }
   return _tryHandleMatcherApi;
