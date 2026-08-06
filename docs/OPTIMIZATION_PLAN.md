@@ -216,7 +216,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 - [x] `audit-client-sources.mjs` 迁移到 `composeOnce({ write:false, registerTeams:false })`。
 - [x] matcher UI 写路径固定显示 composer，删 legacy/projector 文案。
 - [x] `.env.example` 删 legacy/SIDE 开关。
-- 验证：`composer:test`、`test --prefix server/matcher`、`app:build`、`check:boundaries` 全绿；matcher UI 手测合并/连线正常。
+- 验证：`composer:test`、`test --prefix server/match/matcher`、`app:build`、`check:boundaries` 全绿；matcher UI 手测合并/连线正常。
 
 **阶段 2 [删] 整包 `match-projector`**（前置：阶段 1）
 - [x] 删除 `server/match-projector/**`（含 tests/docs）。

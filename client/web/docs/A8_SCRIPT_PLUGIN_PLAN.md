@@ -13,7 +13,7 @@ changmen 实现：`client/web` + `client/venue-adapter/{platform}/` + `chrome-ex
 ├── oddsStore fo              ├── tabId / Stake content
 ├── collectStore 回传门控     ├── 11 站凭证浮�?└── *Provider 下注            └── ModifyHeader UA
          �?                             �?         └──────────┬───────────────────�?                    �?         server/backend Client_* / API_*
-                    �?         server/matcher �?client_matches
+                    �?         server/match/matcher �?client_matches
                     �?         Client_GetMatchs（前端只读列表）
 ```
 
@@ -89,7 +89,7 @@ CollectConfig：只门控 `saveMatch`/`saveBets`�?*�?*停采集器�?
 | A8 Socket | `client/venue-adapter/shared/socket/hub.ts` |
 | 平台实现 | `client/venue-adapter/{ob,im,ray,...}/` |
 | 插件源码 | `chrome-extension/src/` |
-| Matcher | `server/matcher/loop.js`???? `changmen-esport`? |
+| Matcher | `server/match/matcher/loop.js`???? `changmen-esport`? |
 
 平台明细：[A8_REPLICATE_8_PLATFORMS.md](./A8_REPLICATE_8_PLATFORMS.md)
 

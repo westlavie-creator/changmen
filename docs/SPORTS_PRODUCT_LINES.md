@@ -26,7 +26,7 @@ changmen（平台 monorepo）
 │
 ├── 能力层（共享引擎，非独立产品线）
 │   ├── client/web/src/extensions/   arbBet · valueBet · arbOpportunity…
-│   ├── server/matcher/ · match-engine/ · team-resolver/
+│   ├── server/match/matcher/ · match-engine/ · team-resolver/
 │   └── server/value-bet/
 │
 ├── 电竞产品线（默认；代码仍在根 — 锚点 lines/esport/）
@@ -79,7 +79,7 @@ changmen（平台 monorepo）
 | 前端 | `client/web/` |
 | 场馆 adapter | `client/venue-adapter/` |
 | API + 代理 | `server/backend/` |
-| 合并 | `server/matcher/`、`server/match-engine/` |
+| 合并 | `server/match/matcher/`、`server/match/identity/` |
 | PM Sports WS | `server/collectors/polymarket-sports/` |
 | 生产 PM2 | `changmen-esport`、`changmen-pm-sports`、`changmen-predictfun-collector` |
 
@@ -107,7 +107,7 @@ Canonical 方案见 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md)。**正式入口 
 
 ### 阶段 B3 — 合并 + 双边套利
 
-- `server/team-resolver` MLB 队名插件
+- `server/match/resolver` MLB 队名插件
 - 独立棒球套利管线（不进电竞主循环）
 - 复用 LinkID / 补单契约时须隔离 sport（[ARB_LINK_ID.md](./ARB_LINK_ID.md)）
 

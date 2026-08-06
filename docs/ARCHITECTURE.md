@@ -14,10 +14,11 @@ changmen/
 │   ├── backend/                 # HTTP API、代理、静态托管
 │   │   └── scripts/             # 常驻运维；ops/；archive/
 │   ├── collectors/              # VPS daemon：polymarket-sports、predictfun-collector
-│   ├── matcher/                 # 调度循环 + 人工关联 UI
+│   ├── match/                   # 赛事匹配模块（三层）
+│   │   ├── identity/            # @changmen/match-identity（纯库：队名/时间窗/ID）
+│   │   ├── resolver/            # @changmen/team-resolver（外部 provider + scraper）
+│   │   └── matcher/             # @changmen/matcher（compose/ 合场 + 调度 + 人工 UI）
 │   ├── db/                      # @changmen/db
-│   ├── match-engine/            # @changmen/match-identity
-│   ├── team-resolver/           # @changmen/team-resolver
 │   ├── storage/                 # @changmen/storage（本机 JSON 路径）
 │   ├── ws_forward/              # @changmen/ws-forward（backend 挂载）
 │   ├── realtime-hub/            # @changmen/realtime-hub（Socket.IO 推送）
@@ -84,10 +85,10 @@ chrome-extension ─（代理/凭证）─► 各平台源站
 
 client/venue-adapter ──采集上报──► server/backend (API_SaveMatch/SaveBet)
 server/backend ──读写────► server/db (@changmen/db)
-server/matcher ──matchMerge──► @changmen/match-composer
-server/match-composer ──共享工具──► @changmen/match-identity (teams / ids / time windows)
-server/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
-server/team-resolver ──requirePlatform──► @changmen/venue-adapter/loader
+server/match/matcher ──matchMerge──► 包内 compose/（合场算法）
+server/match/matcher ──共享工具──► @changmen/match-identity (teams / ids / time windows)
+server/match/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
+server/match/resolver ──requirePlatform──► @changmen/venue-adapter/loader
 
 server/backend ──requirePlatform──► client/venue-adapter（monorepo 默认）
 server/backend ──可选拷贝──► server/backend/platform_adapter（瘦包 / GAMEBET_ADAPTER_ROOT）
@@ -115,15 +116,24 @@ npm workspace 成员；通过 `@changmen/shared` 包名引用。
 2. `client/venue-adapter`（**标准 monorepo**，无需拷贝）
 3. `server/backend/platform_adapter`（`npm run sync:platform-adapter` 生成，已 gitignore）
 
-### `server/team-resolver` (`@changmen/team-resolver`)
+## `server/match` — 赛事匹配模块
+
+三个包按依赖层划分，**不合成单包**：`server/db/rds/team_store.js` 依赖 identity，而 resolver 依赖 `@changmen/db`，四合一会造成包级循环；identity 唯一依赖是 `@changmen/shared`，这份纯度是 backend / db / 诊断脚本能安全引用它的前提。
+
+### `server/match/identity` (`@changmen/match-identity`)
+
+队名工具、开赛时间窗、`client_match_ids` 与对应测试；旧 `merge/` 合并管线已下线。
+resolver 与 matcher 通过 workspace 依赖复用；测试：`npm run test --prefix server/match/identity`。
+
+### `server/match/resolver` (`@changmen/team-resolver`)
 
 队名规范化插件；matcher `matchMerge` 与 UI `merge_mode` 动态加载 `team_db.js`。  
 爬虫脚本在 `scrapers/`，环境变量通过 `@changmen/db` 的 `loadChangmenEnv()` 加载。
 
-### `server/match-engine` (`@changmen/match-identity`)
+### `server/match/matcher` (`@changmen/matcher`)
 
-队名工具、开赛时间窗、`client_match_ids` 与对应测试；旧 `merge/` 合并管线已下线。
-`server/match-composer` 与 `server/matcher` 通过 workspace 依赖复用；测试：`npm run test --prefix server/match-engine`。
+合场算法（`compose/`）、调度循环、运维动作（`ops/`）、人工关联（`link/` + `ui/`）、只读对照页（`ui/compare/`）。
+原 `match-composer` 已并入本包：两者互相用相对路径 import 构成环，且从未被以包名消费，拆包不产生隔离。
 
 ## client / server 说明
 
@@ -139,7 +149,7 @@ Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配�
 | 路径 | 职责 |
 |------|------|
 | `server/backend` | `server.js`、`/esport/*` API、HTTP 代理、静态资源 |
-| `server/matcher` | 30s matchMerge 调度壳、matcher UI、`/matcher/*`、archive；唯一合场写算法为 `match-composer` |
+| `server/match/matcher` | 30s matchMerge 调度壳、matcher UI、`/matcher/*`、archive；唯一合场写算法为包内 `compose/` |
 | `client/web` | Vue 3 + Vite；开发端口 Win `5274` / 其它 `5174`（`vite.config.ts`） |
 | `chrome-extension` | MV3 跨域代理与凭证捕获 |
 
@@ -147,14 +157,14 @@ Windows 上 Hyper-V 常保留 TCP `5123–5222`，故 Vite 不用 `5174`。配�
 
 ```
 浏览器/插件 (venue-adapter) → API_SaveMatch/SaveBet/SaveLiveTimer → backend → RDS platform_*
-matcher 30s 循环（内嵌 esport）→ matchMergeOnce → match-composer composeOnce（生产默认）写库 → client_matches
+matcher 30s 循环（内嵌 esport）→ matchMergeOnce → composeOnce（生产默认）写库 → client_matches
 Client_GetMatchs 只读 client_matches → web（不做 Round/promote overlay）
 embedded：SaveLiveTimer debounce ~3s 触发 matchMerge（`MATCHER_TIMER_DEBOUNCE_MS`）
 ```
 
-> 写路径：`@changmen/match-composer` 从零合场，内嵌 esport，不占独立 PM2 槽；旧 legacy merge/projector 路径已下线。详见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) §3.4 与 `server/match-composer/docs/REPLACE.md`。
+> 写路径：`@changmen/matcher` 的 `compose/` 从零合场，内嵌 esport，不占独立 PM2 槽；旧 legacy merge/projector 路径已下线。详见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) §3.4 与 `server/match/matcher/docs/REPLACE.md`。
 
-巡检：`node server/matcher/scripts/audit-client-sources.mjs`（静态 + rebuild diff；`--strict` 有问题 exit 1）。
+巡检：`node server/match/matcher/scripts/audit-client-sources.mjs`（静态 + rebuild diff；`--strict` 有问题 exit 1）。
 
 ## 团队边界（单仓）
 

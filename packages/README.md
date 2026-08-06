@@ -14,7 +14,7 @@
 ## 依赖方向
 
 - `client/web`、`client/venue-adapter` → `arb-core`、`client-core`、`api-contract`、`shared`
-- `server/backend`、`server/matcher` → `shared`、`api-contract`（不经 `client-core`）
+- `server/backend`、`server/match/matcher` → `shared`、`api-contract`（不经 `client-core`）
 - `packages/*` **不** import `client/*` 或 `server/*`
 
 数据层（RDS）在 [`server/db`](../server/db/)（`@changmen/db`），不在 `packages/`。

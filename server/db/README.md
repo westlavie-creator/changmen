@@ -7,7 +7,7 @@ PostgreSQL / RDS **数据层唯一入口**。业务代码只 `import` 本包，�
 | 包 | 典型用途 |
 |----|----------|
 | `server/backend` | `Client_*` / `API_*` 读写 orders、profiles、platform_* |
-| `server/matcher` | `client_matches` 合并写入 |
+| `server/match/matcher` | `client_matches` 合并写入 |
 | `server/collectors/*` | `writePlatformMatches`、PM sport 列 |
 | `server/value-bet` | 订单与赔率查询 |
 | 运维脚本 | `ensurePgPoolReady`、`getPgPool` |

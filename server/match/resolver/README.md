@@ -6,8 +6,8 @@
 
 | 包 | 关系 |
 |----|------|
-| `server/matcher` | `matchMerge` 前队名归一（`requirePlatform` 加载 `team_db.js`） |
-| `server/match-engine` | `resolveCanonicalTeamName` 等工具 |
+| `server/match/matcher` | `matchMerge` 前队名归一（`requirePlatform` 加载 `team_db.js`） |
+| `server/match/identity` | `resolveCanonicalTeamName` 等工具 |
 
 ## 目录
 
@@ -22,11 +22,11 @@
 ## 命令
 
 ```bat
-cd server/team-resolver
+cd server/match/resolver
 npm run scrape:ray:dry
 npm test
 ```
 
 环境：`PANDASCORE_TOKEN`（可选）。`.env` 经 `@changmen/storage/load_env.js` 加载。
 
-相关：[server/match-engine/README.md](../match-engine/README.md)
+相关：[server/match/identity/README.md](../identity/README.md)

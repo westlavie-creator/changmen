@@ -38,9 +38,9 @@
 | `client/web` | [README.md](../client/web/README.md) · [MIGRATION.md](../client/web/MIGRATION.md) · [src/ARCHITECTURE.md](../client/web/src/ARCHITECTURE.md) |
 | `server/db` | [README.md](../server/db/README.md) |
 | `server/storage` | [README.md](../server/storage/README.md) |
-| `server/match-engine` | [README.md](../server/match-engine/README.md) |
-| `server/team-resolver` | [README.md](../server/team-resolver/README.md) |
-| `server/matcher` | [README.md](../server/matcher/README.md) |
+| `server/match/identity` | [README.md](../server/match/identity/README.md) |
+| `server/match/resolver` | [README.md](../server/match/resolver/README.md) |
+| `server/match/matcher` | [README.md](../server/match/matcher/README.md) |
 | `server/realtime-hub` | [README.md](../server/realtime-hub/README.md) |
 | `chrome-extension` | [README.md](../chrome-extension/README.md) · `npm run chromeplug:pack` |
 | `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |

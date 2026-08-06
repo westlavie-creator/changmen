@@ -95,6 +95,4 @@ node server/match/matcher/scripts/audit-client-sources.mjs --strict
 
 matchMerge 诊断日志：`MATCHER_MERGE_DIAG=1`。
 
-赛事身份与不变量契约见 [../../../docs/MATCH_IDENTITY_MODEL.md](../../../docs/MATCH_IDENTITY_MODEL.md)。
-
 更多：[../../../docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md)、[../../../scripts/README.md](../../../scripts/README.md)。
