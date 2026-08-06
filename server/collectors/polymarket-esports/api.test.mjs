@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   fetchPolymarketEsportsMarkets,
   normalizeSportsMarketType,
+  polymarketEventForceDeletable,
   polymarketEventOpenForCollect,
   resetPolymarketEsportsApiCachesForTests,
   takeWholeMatchesUpTo,
@@ -28,6 +29,15 @@ describe("polymarket-esports api helpers", () => {
     assert.equal(polymarketEventOpenForCollect({ closed: false, ended: true }), false);
     // live 不是充分条件：ended 仍应丢弃
     assert.equal(polymarketEventOpenForCollect({ live: true, ended: true, closed: false }), false);
+  });
+
+  it("polymarketEventForceDeletable only trusts stable closed, never fluttering ended", () => {
+    assert.equal(polymarketEventForceDeletable(null), false);
+    assert.equal(polymarketEventForceDeletable({}), false);
+    assert.equal(polymarketEventForceDeletable({ closed: true }), true);
+    // ended 会抖：结算过渡期 ended=true 但 closed=false，不得强删（否则 ID 反复重建）
+    assert.equal(polymarketEventForceDeletable({ closed: false, ended: true }), false);
+    assert.equal(polymarketEventForceDeletable({ closed: true, ended: true }), true);
   });
 
   it("takeWholeMatchesUpTo keeps whole SourceMatchID groups", () => {
@@ -96,7 +106,7 @@ describe("polymarket-esports api helpers", () => {
     }
   });
 
-  it("fetchPolymarketEsportsMarkets drops ended events locally", async () => {
+  it("drops ended from collection but only closed enters force-delete exclude", async () => {
     resetPolymarketEsportsApiCachesForTests();
     const now = Date.parse("2026-07-27T07:10:00.000Z");
     const realNow = Date.now;
@@ -112,6 +122,7 @@ describe("polymarket-esports api helpers", () => {
           json: async () => ({
             events: [
               {
+                // ended 会抖：剔除采集，但不得进 exclude（否则 ID 反复重建）
                 id: "ended-1",
                 closed: false,
                 ended: true,
@@ -123,6 +134,21 @@ describe("polymarket-esports api helpers", () => {
                   clob_token_ids: '["h","a"]',
                   outcomes: '["A","B"]',
                   closed: false,
+                }],
+              },
+              {
+                // closed 是稳定终态：剔除采集且进 exclude、可立即强删
+                id: "closed-1",
+                closed: true,
+                ended: true,
+                live: false,
+                startTime: new Date(now - 3600_000).toISOString(),
+                markets: [{
+                  condition_id: "c-closed",
+                  sportsMarketType: "moneyline",
+                  clob_token_ids: '["hc","ac"]',
+                  outcomes: '["A","B"]',
+                  closed: true,
                 }],
               },
               {
@@ -151,10 +177,11 @@ describe("polymarket-esports api helpers", () => {
     };
     try {
       const out = await fetchPolymarketEsportsMarkets();
-      assert.equal(out.rawEventCount, 2);
+      assert.equal(out.rawEventCount, 3);
       assert.equal(out.rawMarketCount, 1);
       assert.equal(out.markets[0].condition_id, "c-open");
-      assert.deepEqual(out.excludeSourceMatchIds, ["ended-1"]);
+      // ended-1 不进 exclude；只有 closed-1 进
+      assert.deepEqual(out.excludeSourceMatchIds, ["closed-1"]);
     }
     finally {
       Date.now = realNow;

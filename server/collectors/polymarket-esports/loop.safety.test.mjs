@@ -155,6 +155,49 @@ describe("polymarket-esports write safety", () => {
     assert.equal(betWrites.length, 1);
   });
 
+  it("never force-deletes a match written this cycle (ended-flutter guard)", async () => {
+    // 两 pass ended 抖动：同一场既进 candidates（open pass）又进 exclude（ended pass）。
+    // 兜底须把它从 forceDeleteIds 剔除，否则「先写后删」自毁、client_match ID 反复重建。
+    const now = Date.now();
+    const pruneCalls = [];
+    const writes = [];
+    const stats = await runPolymarketEsportsDiscoveryCycle({
+      writePlatform: true,
+      nowMs: now,
+      resolveTypes: async () => MONEYLINE_TYPES,
+      fetchMarkets: async () => ({
+        markets: [{
+          condition_id: "cond-flutter",
+          sportsMarketType: "moneyline",
+          groupItemTitle: "Match Winner",
+          active: true,
+          closed: false,
+          gameStartTime: now + 600_000,
+          clob_token_ids: '["h","a"]',
+          outcomes: '["Alpha","Beta"]',
+          events: [{ id: "evt-flutter" }],
+          tags: [{ slug: "lol" }],
+        }],
+        rawEventCount: 1,
+        rawMarketCount: 1,
+        // 另一 pass 把同场当 ended 塞进 exclude
+        excludeSourceMatchIds: ["evt-flutter", "really-closed"],
+      }),
+      fetchPrices: async () => ({ h: 0.5, a: 0.5 }),
+      writeMatches: async (_p, rows) => writes.push(rows.map(r => String(r.SourceMatchID))),
+      replaceBets: async () => {},
+      pruneMatches: async (opts) => {
+        pruneCalls.push(opts);
+        return [];
+      },
+      persistIndex: () => {},
+    });
+    assert.equal(stats.matches, 1);
+    assert.deepEqual(writes[0], ["evt-flutter"]);
+    // 本轮写入的 evt-flutter 必须被剔除，仅剩真正 closed 的 really-closed
+    assert.deepEqual(pruneCalls[0]?.forceDeleteIds, ["really-closed"]);
+  });
+
   it("groups multiple bets per SourceMatchID into one replace (live)", async () => {
     const replaces = [];
     const now = Date.now() + 600_000;

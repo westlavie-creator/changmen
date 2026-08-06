@@ -55,6 +55,20 @@ export function polymarketEventOpenForCollect(event) {
   return true;
 }
 
+/**
+ * 是否可绕过 48h 软保留、立即强制删除。
+ * 只认稳定单调的 `closed`（官方：已结算/被禁用，阻止进一步交易），
+ * **不看 `ended`**——官方明示 ended「may fluctuate, have latency」，
+ * 结算过渡期会在 true/false 间抖动，据此强删会导致 client_match ID 反复重建。
+ * ended 但未 closed 的场交给软保留（48h stale）与下游 ended_filter 处理，不强删。
+ * @param {object|null|undefined} event
+ */
+export function polymarketEventForceDeletable(event) {
+  if (!event || typeof event !== "object")
+    return false;
+  return event.closed === true;
+}
+
 /** 本地二次滤只拒绝更远的未开赛；已开赛（含 live 补 pass）允许 */
 export function polymarketCollectStartTimeAllowed(startMs) {
   const ms = normalizeEpochMs(startMs);
@@ -219,7 +233,7 @@ export async function resolveCollectMarketTypes() {
  * @param {Record<string, string>} extraParams
  * @param {Set<string>} seenMarketIds
  * @param {object[]} blocks
- * @param {Set<string>} [excludeSourceMatchIds] 上游已 ended/closed 的 event.id，禁止软保留回填
+ * @param {Set<string>} [excludeSourceMatchIds] 上游已 closed（稳定终态）的 event.id，绕过软保留立即删；ended 不入此集
  * @returns {Promise<number>} rawEventCount（含本地丢弃前的上游事件数）
  */
 async function fetchEsportsKeysetPass(
@@ -252,7 +266,8 @@ async function fetchEsportsKeysetPass(
     for (const event of events) {
       const sid = String(event?.id ?? "").trim();
       if (!polymarketEventOpenForCollect(event)) {
-        if (sid && excludeSourceMatchIds)
+        // 只有稳定终态 closed 才进强删名单；ended 会抖（官方明示），仅跳过采集、不强删
+        if (sid && excludeSourceMatchIds && polymarketEventForceDeletable(event))
           excludeSourceMatchIds.add(sid);
         continue;
       }

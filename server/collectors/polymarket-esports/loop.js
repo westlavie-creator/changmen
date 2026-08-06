@@ -121,8 +121,10 @@ export async function runPolymarketEsportsDiscoveryCycle(deps = {}) {
     maxTracked,
   );
 
+  // 双保险：本轮已写入的场绝不强删（防两 pass ended 抖动导致「先写后删」同轮自毁）
+  const candidateSids = new Set(candidates.map(row => String(row.match.SourceMatchID)));
   const pruneOpts = {
-    forceDeleteIds: excludeSourceMatchIds,
+    forceDeleteIds: excludeSourceMatchIds.filter(id => !candidateSids.has(String(id))),
     staleBeforeMs: nowMs - 48 * 3600 * 1000,
   };
 
