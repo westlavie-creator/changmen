@@ -177,6 +177,8 @@ function pickPreferredRow(rows) {
   return [...rows].sort((a, b) => (a.StartTime || 0) - (b.StartTime || 0))[0];
 }
 
+/** BO 取自 META 优先级最高的成员（可能非 OB），仅供本阶段 boConflict 用；
+ *  落库值由 structure/resolve_structure 覆写成 OB-only */
 function pickMetaFromMembers(members, fallbackRow) {
   const ORDER = ["Polymarket", "OB", "RAY", "IA", "PB", "TF"];
   let best = members[0];

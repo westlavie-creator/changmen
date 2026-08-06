@@ -107,6 +107,21 @@ describe("resolve_structure", () => {
     assert.equal(rows[0].RoundStart, 0);
   });
 
+  it("row.BO is overwritten with the OB-only value", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", IsLive: 2, BO: 3 } },
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+    };
+    // reconcile 可能把非 OB 的 BO 写进 row.BO，赛制层必须纠正
+    const rows = [
+      { BO: 1, Matchs: { OB: "ob1", PB: "pb1" } },
+      { BO: 5, Matchs: { PB: "pb1" } },
+    ];
+    resolveMatchStructure(rows, { matches, timers: {}, bets: {} });
+    assert.equal(rows[0].BO, 3, "OB linked → OB.BO wins");
+    assert.equal(rows[1].BO, 0, "no OB → 0, never borrow from other venues");
+  });
+
   it("checkBetsWithinPeriods catches Bet rows added outside the structure layer", () => {
     const row = { ID: 7, _periods: [0, 1], Bets: [{ Map: 0 }, { Map: 1 }] };
     assert.equal(checkBetsWithinPeriods(row).ok, true);

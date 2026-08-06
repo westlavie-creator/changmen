@@ -142,13 +142,17 @@ export function resolveRowStructure(row, { matches, bets } = {}) {
 
 /**
  * L2 入口：必须在 projectList 之前调用。
+ *
+ * `row.BO` 的唯一权威写入点：聚类/reconcile/dedupe 推导出的 BO 只作为该阶段
+ * 内部信号（`boConflict` 合场否决），到这里一律被 OB 的值覆盖，
+ * 保证落库、UI 与决胜局判定用的是同一个数。
  */
 export function resolveMatchStructure(rows, { matches, timers, bets } = {}) {
   refreshRoundsFromTimers(rows, timers);
   applyObLiveRoundGate(rows, matches, timers);
   for (const row of rows || []) {
     const { bo, deciderMap, periods } = resolveRowStructure(row, { matches, bets });
-    row._bo = bo;
+    row.BO = bo;
     row._deciderMap = deciderMap;
     row._periods = periods;
   }

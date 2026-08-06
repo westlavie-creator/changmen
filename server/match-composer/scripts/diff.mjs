@@ -61,6 +61,8 @@ for (const m of result.info || []) {
   const lockChanged
     = String(cur.home_gb_team_id || "") !== String(m.HomeGbTeamId || "")
       || String(cur.away_gb_team_id || "") !== String(m.AwayGbTeamId || "");
+  // round 每拍推进属正常，不比；bo 应稳定
+  const boChanged = (Number(cur.bo) || 0) !== (Number(m.BO) || 0);
 
   const curBets = Array.isArray(cur.bets) ? cur.bets : [];
   const newBets = m.Bets || [];
@@ -80,11 +82,13 @@ for (const m of result.info || []) {
       break;
   }
 
-  if (titleChanged || revChanged || lockChanged || sourcesChanged) {
+  if (titleChanged || revChanged || lockChanged || boChanged || sourcesChanged) {
     diffs += 1;
     console.log(`--- #${id} ---`);
     if (titleChanged)
       console.log(`  title: ${cur.title} → ${m.Title}`);
+    if (boChanged)
+      console.log(`  bo: ${cur.bo} → ${m.BO}`);
     if (lockChanged)
       console.log(`  lock: ${cur.home_gb_team_id}/${cur.away_gb_team_id} → ${m.HomeGbTeamId}/${m.AwayGbTeamId}`);
     if (revChanged)

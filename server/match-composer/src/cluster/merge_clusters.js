@@ -21,7 +21,7 @@ export const MIN_PLATFORMS = 2;
 
 const META_PLATFORM_ORDER = ["Polymarket", "OB", "RAY", "IA", "PB", "TF"];
 
-/** BO：只信 OB；无 OB 则 0（promote 不会触发） */
+/** BO：只信 OB；无 OB 则 0。最终值由 structure/resolve_structure 覆写 */
 function pickBo(entries) {
   const ob = entries.find(e => e.platform === "OB" && Number(e.BO) > 0);
   return ob ? Number(ob.BO) : 0;
