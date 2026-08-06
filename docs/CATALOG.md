@@ -206,7 +206,7 @@ OB（未配置的游戏） / RAY
 | 组件 | 改动 |
 |------|------|
 | `match-engine` | `matcherProfile` 分支：跳过 Map/promote（baseball） |
-| `server/matcher` | merge 输入按 sport 过滤 `platform_*` |
+| `server/match/matcher` | merge 输入按 sport 过滤 `platform_*` |
 | `router.ts` `Client_GetMatchs` | 请求体可选 `sport` |
 
 ---

@@ -15,9 +15,9 @@ server/backend  ──写入──►  RDS platform_* / live_timers
     │
     │  matchMerge 内嵌调度循环（随 web 启动）
     ▼
-server/matcher ──调用──► server/match-composer（唯一合场写路径）
-    │                      server/match-engine（teams / ids / time windows）
-    │                      server/team-resolver（可选队名）
+server/match/matcher ──compose/──► 唯一合场写路径
+    │                      server/match/identity（teams / ids / time windows）
+    │                      server/match/resolver（可选队名）
     └──读写──► @changmen/db ──► RDS client_matches
 
 本机 JSON（凭证/初赔等）── @changmen/storage ──► server/backend/storage/
@@ -39,7 +39,7 @@ polymarket-sports ──WS──► 写 client_matches.pm_sport
 |------|----------|------|------|
 | [backend/](backend/README.md) | `@changmen/backend` | **主进程** | `Client_*` / `API_*`、HTTP 代理、`/esport/ws-forward`、静态 `/`、内嵌 matcher |
 | [matcher/](matcher/README.md) | `@changmen/matcher` | 进程 / 库 | 30s matchMerge 循环；可选人工 UI `:4567` |
-| [match-composer/](match-composer/README.md) | `@changmen/match-composer` | 库（生产 embedded） | 生产唯一合场 writer；独立 loop 默认 dry-run |
+| [match-composer/](match-composer/README.md) | `@changmen/matcher` | 库（生产 embedded） | 生产唯一合场 writer；独立 loop 默认 dry-run |
 | [match-engine/](match-engine/README.md) | `@changmen/match-identity` | 库 | 队名、时间窗与 client_match ID 共享工具 |
 | [db/](db/README.md) | `@changmen/db` | 库 | PostgreSQL / RDS 唯一应用入口 |
 | [storage/](storage/README.md) | `@changmen/storage` | 库 | 本机 `storage/` 路径与 JSON 读写（非 PG） |
@@ -91,7 +91,7 @@ Windows 一键：`BAT\dev.bat`（backend + Vite，内嵌 matchMerge）。生产 
 | 需求 | 先改 |
 |------|------|
 | API 形状 / 鉴权 / 代理 | `server/backend` |
-| 合并规则 / 新平台入 client_matches | `server/match-engine` + `server/matcher` |
+| 合并规则 / 新平台入 client_matches | `server/match/identity` + `server/match/matcher` |
 | 表结构 / 查询 | `server/db` + `backend/db/migrations/` |
 | 本地 platforms.json / 路径 | `@changmen/storage` |
 | 浏览器采集 | **`client/venue-adapter`**（不在 server 内实现采集） |

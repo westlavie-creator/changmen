@@ -174,5 +174,5 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `core/esport-api/store.js` | 采集内存 `_matches` / `_bets` / `_timers` |
 | `core/db/store.js` | profile / client_matches 内存与 built_at 缓存 |
 | `server/db/rds/common.js` | `_writeRds` 写队列 |
-| `server/matcher/ops/rds_snapshot_cache.js` | matchMerge 读路径（内嵌优先内存） |
+| `server/match/matcher/ops/rds_snapshot_cache.js` | matchMerge 读路径（内嵌优先内存） |
 | `server/storage/platform_storage.js` | `platforms.json` |

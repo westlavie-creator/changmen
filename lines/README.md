@@ -5,7 +5,7 @@ changmen 按 **平台层 → 能力层 → 产品线层** 组织；本目录是�
 | 层 | 位置 | 说明 |
 |----|------|------|
 | 平台层 | 仓库根 `packages/`、`client/venue-adapter/`、`server/backend/`… | 所有业务线共用 |
-| 能力层 | `client/web/src/extensions/`、`server/value-bet/`、`server/matcher/`… | 可复用引擎，被多条线引用 |
+| 能力层 | `client/web/src/extensions/`、`server/value-bet/`、`server/match/matcher/`… | 可复用引擎，被多条线引用 |
 | 产品线层 | `lines/{code}/`（manifest） | `line.json` 指主控台挂载点；新运动不另起平行站 |
 
 **完整说明** → [docs/SPORTS_PRODUCT_LINES.md](../docs/SPORTS_PRODUCT_LINES.md)  

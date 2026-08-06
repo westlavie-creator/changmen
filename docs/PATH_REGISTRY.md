@@ -38,7 +38,7 @@
 | `platformProbes` | `devtools/platform-probes` | Node 探针 CLI |
 | `packages` | `packages` | 跨端 TS 包 |
 | `serverBackend` | `server/backend` | HTTP API |
-| `serverMatcher` | `server/matcher` | matchMerge UI + 循环 |
+| `serverMatcher` | `server/match/matcher` | 合场算法 + matchMerge 循环 + 人工关联 UI |
 | `serverDb` | `server/db` | RDS 入口 |
 | `serverCollectors` | `server/collectors` | VPS daemon |
 | `lines` | `lines` | 产品线 manifest |

@@ -9,9 +9,9 @@
 | 控制台 | `web` | `client/web/` |
 | 场馆 adapter | `venueAdapter` | `client/venue-adapter/` |
 | API + 代理 + ws-forward 挂载 | `api` | `server/backend/` |
-| 合并调度 | `matcher` | `server/matcher/` |
-| 合并算法 | `matchEngine` | `server/match-engine/` |
-| 队名解析 | `teamResolver` | `server/team-resolver/` |
+| 合并调度 | `matcher` | `server/match/matcher/` |
+| 合并算法 | `matchEngine` | `server/match/identity/` |
+| 队名解析 | `teamResolver` | `server/match/resolver/` |
 | 正 EV 扫描 | `valueBet` | `server/value-bet/` |
 | Socket.IO 推送 | `realtimeHub` | `server/realtime-hub/` |
 | WebSocket 转发库 | `wsForward` | `server/ws_forward/` |

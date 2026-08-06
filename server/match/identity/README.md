@@ -1,15 +1,17 @@
 # @changmen/match-identity
 
-composer / matcher 共用的轻量工具包：`client_match` ID 分配、队名键、平台优先级与开赛时间容差。旧 `merge/` 合并管线已下线。
+赛事匹配模块的**纯函数层**：`client_match` ID 分配、队名键、平台优先级与开赛时间容差。旧 `merge/` 合并管线已下线。
+
+唯一依赖是 `@changmen/shared`。这份纯度是刻意维持的——`server/db`、`server/backend` 与诊断脚本都直接引用本包，一旦掺入 express / axios / 平台适配层，这些消费方就会被迫拖上整条运行时依赖链。
 
 ## 使用方
 
 | 包 | 关系 |
 |----|------|
-| `server/match-composer` | 合场时复用 teams / ids |
-| `server/matcher` | align、人工关联与 UI 复用 teams / ids / time windows |
-| `server/team-resolver` | 队名 canonical（matcher 动态注入） |
-| `@changmen/shared` | catalog、时间工具 |
+| `server/match/matcher` | 合场（`compose/`）、align、人工关联与 UI 复用 teams / ids / time windows |
+| `server/match/resolver` | 队名 canonical（matcher 动态注入） |
+| `server/db` | `rds/team_store.js` 的队名归一 |
+| `@changmen/shared` | catalog、时间工具（本包唯一依赖） |
 
 ## 目录
 
@@ -23,7 +25,7 @@ composer / matcher 共用的轻量工具包：`client_match` ID 分配、队名�
 ## 测试
 
 ```bat
-npm test --prefix server/match-engine
+npm test --prefix server/match/identity
 ```
 
-相关：[server/matcher/README.md](../matcher/README.md) · [docs/CATALOG.md](../../docs/CATALOG.md)（`matcherProfile`）
+相关：[server/match/matcher/README.md](../matcher/README.md) · [docs/CATALOG.md](../../../docs/CATALOG.md)（`matcherProfile`）

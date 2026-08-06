@@ -19,7 +19,7 @@
 | 包 | 典型用途 |
 |----|----------|
 | `client/web` | UI 标签、过滤、catalog 下拉 |
-| `server/matcher` | 合并规则、队名归一 |
+| `server/match/matcher` | 合并规则、队名归一 |
 | `server/backend` | 平台同步、校验 |
 
 ## 扩展规则

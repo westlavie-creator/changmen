@@ -52,4 +52,4 @@ Socket 常无 `sportId`，采集侧 `SourceGameID` 多为 `"unknown"`。
 ## 后端对齐
 
 - `packages/shared/im_parse.mjs` — 与前端 parse 同步
-- `server/match-composer/` — 统一聚类、去重、主客投影与列表过滤
+- `server/match/matcher/` — 统一聚类、去重、主客投影与列表过滤

@@ -1,8 +1,11 @@
 # 用 match-composer 接替旧 Matcher 写路径
 
+> 历史记录。原独立包 `@changmen/match-composer` 已并入 `@changmen/matcher`，
+> 算法代码现在位于本包 `compose/`；下文的「composer」指的就是这一层。
+
 ## 目标
 
-`@changmen/match-composer` 从零实现：**聚类 + ID/绑定 + 主客锁/投影 + live 形状 + 写库**。旧 `match-engine/merge` 与 `match-projector` 已下线。
+`@changmen/matcher` 从零实现：**聚类 + ID/绑定 + 主客锁/投影 + live 形状 + 写库**。旧 `match-engine/merge` 与 `match-projector` 已下线。
 
 浏览器继续零校验；`Client_GetMatchs` 仍只读 `client_matches`。
 
@@ -60,4 +63,4 @@ npm run composer:once
 - 锁锚点仅 `Polymarket → OB → RAY`；禁止 min/max 建锁。
 - `force_aligned`：自动为 `reversed` 时忽略；`ambiguous` 仍 omit。
 - 不信任脏 `row.HomeGbTeamId`；锁来自锚点 / RDS sticky（规则内 upgrade）。
-- CI：`npm run check:no-merge-import --prefix server/match-composer`（`composer:test` 已含）。
+- CI：`npm run check:no-merge-import --prefix server/match/matcher`（`composer:test` 已含）。
