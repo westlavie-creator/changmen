@@ -1,10 +1,9 @@
 /**
- * Map0 → 局盘：禁止投影回填；仅 Round===BO 时 promote 拷贝到决胜局。
+ * Map0 → 局盘：禁止投影回填；仅 Round===BO 时决胜局用 Map0 作投影输入。
  */
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { projectClientMatchSides } from "../src/sides/project_sources.js";
-import { promoteMap0ToDecider } from "../src/shape/live_shape.js";
 import {
   GB_K27,
   GB_NIP,
@@ -64,31 +63,32 @@ describe("map0 fallback vs map lines", () => {
     assert.deepEqual(Object.keys(map3.Sources || {}), [], "Map3 must not inherit Map0 before decider");
   });
 
-  it("decider Round===OB.BO: promote copies Map0 onto Map=BO", () => {
+  it("decider Round===OB.BO: Map=BO projects from Map0 native", () => {
     installPlugin();
     const matches = {
       OB: { ob1: { ...pmOb, BO: 3 } },
       RAY: { ray1: { ...pmRay, BO: 0 } },
     };
+    const bets = makeBets({ OB: { 0: rawOb }, RAY: { 0: rawRay } });
     const row = {
       ID: 2,
       Title: "NIP vs K27",
       Round: 3,
+      HomeGbTeamId: GB_NIP,
+      AwayGbTeamId: GB_K27,
       Matchs: { OB: "ob1", RAY: "ray1" },
       Reverse: [],
-      Bets: [{
-        Map: 0,
-        Sources: {
-          OB: { BetID: "ob-full", HomeID: "h", AwayID: "a", HomeOdds: 1.9, AwayOdds: 2.0 },
-          RAY: { BetID: "ray-full", HomeID: "rh", AwayID: "ra", HomeOdds: 1.85, AwayOdds: 2.05 },
-        },
-      }],
+      Bets: [],
     };
-    promoteMap0ToDecider([row], matches);
+    const existing = { id: 2, home_gb_team_id: GB_NIP, away_gb_team_id: GB_K27 };
+    projectClientMatchSides(row, { matches, bets, existingRow: existing });
+
     const live = row.Bets.find(b => b.Map === 3);
-    assert.ok(live);
-    assert.equal(live.Sources.OB.BetID, "ob-full");
-    assert.equal(live.Sources.RAY.BetID, "ray-full");
+    assert.ok(live, "decider shell must exist in periods");
+    assert.equal(live.Sources.OB.BetID, rawOb.BetID);
+    assert.equal(live.Sources.RAY.BetID, rawRay.BetID);
+    const map0 = row.Bets.find(b => b.Map === 0);
+    assert.equal(live.Sources.OB.HomeID, map0.Sources.OB.HomeID, "no second swap");
   });
 
   it("mid maps must NOT fallback Map0 when native missing (PB-only-full case)", () => {

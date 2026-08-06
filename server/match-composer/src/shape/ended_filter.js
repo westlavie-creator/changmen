@@ -7,7 +7,7 @@
  */
 import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import { findPlatformMatch } from "../sides/orientation_lock.js";
-import { liveRound } from "./live_shape.js";
+import { liveRound } from "../structure/resolve_structure.js";
 
 const PAST_START_FALLBACK_MS = 30 * 60 * 1000;
 export const ALL_SOURCES_GONE_MS = 3 * 60 * 1000;

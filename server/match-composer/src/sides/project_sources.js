@@ -2,11 +2,12 @@
  * Sources / Reverse 投影。不经 accumulate；直接从 platform_bets 取 native。
  *
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
- * 仅当 Round===BO 时由 promoteMap0ToDecider 拷贝全场到决胜局行。
+ * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
  */
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
-import { swapBetSource } from "../util/swap.js";
 import { rawSourceForMap } from "../normalize/native_bets.js";
+import { resolveRowStructure } from "../structure/resolve_structure.js";
+import { swapBetSource } from "../util/swap.js";
 import {
   findPlatformMatch,
   resolveOrientationLock,
@@ -84,32 +85,10 @@ export function projectPlatformSource({
   return { mode, source: projected, inReverse: needSwap };
 }
 
-/**
- * 确保 Bets 覆盖所有有 native 的 Map + Map0。
- */
-function ensureBetShells(row, matches, bets) {
-  const mapSet = new Set([0]);
-  for (const [platform, sid] of Object.entries(row.Matchs || {})) {
-    const pm = findPlatformMatch(matches, platform, sid);
-    const gameCode = pm
-      ? getGameCodeForPlatformId(platform, pm.SourceGameID ?? pm.GameID)
-      : null;
-    const byMap = rawSourceForMap(platform, sid, 0, bets, gameCode);
-    // collect all maps via scanning bets bucket
-    const key = `${platform}:${sid}`;
-    const block = bets?.[key];
-    const list = Array.isArray(block) ? block : (block?.bets || []);
-    for (const b of list)
-      mapSet.add(Number(b.Map) || 0);
-    if (byMap)
-      mapSet.add(0);
-  }
+/** 按赛制层给出的 periods 铺 Bets 行，保留同 Map 的既有行 */
+function ensureBetShells(row, periods) {
   const existing = new Map((row.Bets || []).map(b => [Number(b.Map) || 0, b]));
-  const next = [];
-  for (const mapNum of [...mapSet].sort((a, b) => a - b)) {
-    next.push(existing.get(mapNum) || { Map: mapNum, Sources: {} });
-  }
-  row.Bets = next;
+  row.Bets = periods.map(mapNum => existing.get(mapNum) || { Map: mapNum, Sources: {} });
 }
 
 export function projectClientMatchSides(row, {
@@ -120,7 +99,11 @@ export function projectClientMatchSides(row, {
   forceReanchorOrientation = false,
   stickyOrientation,
 } = {}) {
-  ensureBetShells(row, matches, bets);
+  const structure = row._periods
+    ? { deciderMap: Number(row._deciderMap) || 0, periods: row._periods }
+    : resolveRowStructure(row, { matches, bets });
+  const deciderMap = structure.deciderMap;
+  ensureBetShells(row, structure.periods);
 
   const lock = resolveOrientationLock(row, matches, existingRow, {
     forceReanchorOrientation,
@@ -143,7 +126,7 @@ export function projectClientMatchSides(row, {
   const reverse = [];
   const omitted = [];
   const ambiguous = [];
-  /** 已投影 Map0（仅用于 omit 诊断，不再回填局盘） */
+  /** 已投影的 Map0 Source：决胜局复用它，中间局仅用于区分 omit 原因 */
   const map0Projected = {};
 
   const orderedBets = [...(row.Bets || [])].sort(
@@ -154,6 +137,17 @@ export function projectClientMatchSides(row, {
     const mapNum = Number(bet.Map) || 0;
     const nextSources = {};
     for (const [platform, sourceMatchId] of Object.entries(row.Matchs || {})) {
+      /** 决胜局：全场盘语义上即该局盘。Map0 已投影过，直接复用，不再二次 swap */
+      const useMap0AsDecider = () => {
+        if (mapNum === 0 || mapNum !== deciderMap)
+          return false;
+        const src = map0Projected[platform];
+        if (!betHasOdds(src))
+          return false;
+        nextSources[platform] = { ...src };
+        return true;
+      };
+
       const pm = findPlatformMatch(matches, platform, sourceMatchId);
       if (!pm) {
         omitted.push({ platform, map: mapNum, reason: "no_pm" });
@@ -162,8 +156,10 @@ export function projectClientMatchSides(row, {
       const gameCode = getGameCodeForPlatformId(platform, pm.SourceGameID ?? pm.GameID);
       const raw = rawSourceForMap(platform, sourceMatchId, mapNum, bets, gameCode);
 
-      // 局盘无原生赔率：禁止用 Map0 全场冒充（含中间地图与决胜局；决胜局仅 promote）
+      // 局盘无原生赔率：禁止用 Map0 全场冒充（决胜局除外）
       if (!betHasOdds(raw) && mapNum !== 0) {
+        if (useMap0AsDecider())
+          continue;
         if (betHasOdds(map0Projected[platform])) {
           omitted.push({ platform, map: mapNum, reason: "no_map0_fallback_on_map_line" });
         }
@@ -182,9 +178,11 @@ export function projectClientMatchSides(row, {
         overrideMode: overrides[platform],
       });
       if (!r.source) {
-        omitted.push({ platform, map: mapNum, reason: r.omitReason || r.mode });
         if (r.mode === "ambiguous")
           ambiguous.push(platform);
+        if (useMap0AsDecider())
+          continue;
+        omitted.push({ platform, map: mapNum, reason: r.omitReason || r.mode });
         continue;
       }
       nextSources[platform] = r.source;

@@ -1,71 +1,12 @@
 /**
- * Round / promote / trim / gate / strip — 自研精简版（不调用 match_merge finalize）。
+ * 展示成形：trim / strip / 命名 / 排序。
+ *
+ * Round / BO / periods 由 structure/resolve_structure.js 在投影前定型，此处只读。
  */
 import { parseTitleTeams } from "@changmen/match-engine/teams/match_utils.js";
 import { findPlatformMatch } from "../sides/orientation_lock.js";
 
 const MIN_PLATFORMS = 2;
-
-const TIMER_PRIORITY = {
-  Polymarket: 100,
-  OB: 90,
-  RAY: 80,
-  IA: 70,
-  PB: 60,
-  TF: 50,
-};
-
-export function liveRound(timers, provider, sourceMatchId) {
-  const block = timers?.[provider];
-  const arr = block?.timer;
-  if (!Array.isArray(arr))
-    return { round: 0, roundStart: 0 };
-  const sid = String(sourceMatchId);
-  const hit = arr.find(x => String(x.matchId ?? x.SourceMatchID ?? x.MatchID ?? "") === sid);
-  if (!hit)
-    return { round: 0, roundStart: 0 };
-  return {
-    round: Number(hit.round ?? hit.Round ?? hit.Map ?? hit.roundId ?? 0) || 0,
-    roundStart: Number(hit.startTime ?? hit.StartTime ?? hit.RoundStart ?? 0) || 0,
-  };
-}
-
-export function refreshRoundsFromTimers(rows, timersByProvider) {
-  const timers = timersByProvider || {};
-  for (const m of rows || []) {
-    const linked = Object.entries(m.Matchs || {})
-      .map(([provider, sourceId]) => ({
-        provider,
-        sourceId: String(sourceId),
-        pri: TIMER_PRIORITY[provider] || 0,
-      }))
-      .filter(({ provider }) => Array.isArray(timers?.[provider]?.timer))
-      .sort((a, b) => b.pri - a.pri);
-    if (!linked.length)
-      continue;
-    for (const { provider, sourceId } of linked) {
-      const hit = liveRound(timers, provider, sourceId);
-      if (hit.round > 0) {
-        m.Round = hit.round;
-        if (hit.roundStart > 0)
-          m.RoundStart = hit.roundStart;
-        break;
-      }
-    }
-  }
-}
-
-/**
- * 决胜局 BO：完全依赖 OB。
- * 无 OB 关联、或 OB.BO≤0 → 返回 0 → promote 不触发。
- */
-export function resolveRowBo(row, matches) {
-  const obSid = row?.Matchs?.OB;
-  if (obSid == null || obSid === "" || !matches)
-    return 0;
-  const pm = findPlatformMatch(matches, "OB", obSid);
-  return Number(pm?.BO) || 0;
-}
 
 export function preserveInitialOddsFromSources(bet) {
   if (!bet)
@@ -82,41 +23,6 @@ export function preserveInitialOddsFromSources(bet) {
     bet.InitialHomeOdds = home;
   if (away > 0)
     bet.InitialAwayOdds = away;
-}
-
-/**
- * 决胜局：Map0 → Map=R；仅 Round===OB.BO 且无原生不同盘口时复制；禁止二次 swap。
- * 无 OB 或 OB.BO≤0 时不 promote。
- */
-export function promoteMap0ToDecider(rows, matches = {}) {
-  for (const row of rows || []) {
-    const liveMap = Number(row.Round) || 0;
-    const bo = resolveRowBo(row, matches);
-    if (liveMap <= 0 || bo <= 0 || liveMap !== bo)
-      continue;
-    const fullBet = (row.Bets || []).find(b => (Number(b.Map) || 0) === 0);
-    if (!fullBet?.Sources)
-      continue;
-    let liveBet = (row.Bets || []).find(b => (Number(b.Map) || 0) === liveMap);
-    if (!liveBet) {
-      liveBet = {
-        Map: liveMap,
-        Name: `[地图${liveMap}]-单局-获胜`,
-        MatchID: row.ID,
-        Sources: {},
-      };
-      row.Bets = row.Bets || [];
-      row.Bets.push(liveBet);
-    }
-    for (const [platform, fullSrc] of Object.entries(fullBet.Sources)) {
-      const liveSrc = liveBet.Sources?.[platform];
-      // 已有原生 Map=R 且 BetID 不同 → 保留原生，不覆盖
-      if (liveSrc && String(liveSrc.BetID || "") && String(liveSrc.BetID || "") !== String(fullSrc.BetID || ""))
-        continue;
-      liveBet.Sources = liveBet.Sources || {};
-      liveBet.Sources[platform] = { ...fullSrc };
-    }
-  }
 }
 
 /**
@@ -143,51 +49,6 @@ export function trimMapZeroLive(rows) {
     if (fullBet.Sources?.Limitless)
       kept.Limitless = fullBet.Sources.Limitless;
     fullBet.Sources = kept;
-  }
-}
-
-function obTimerMatchIds(timersByProvider) {
-  const arr = timersByProvider?.OB?.timer;
-  if (!Array.isArray(arr))
-    return null;
-  return new Set(
-    arr.map(t => String(t.matchId ?? t.SourceMatchID ?? t.MatchID ?? "")).filter(Boolean),
-  );
-}
-
-/** OB 非 live / 无 timer → 清 Round */
-export function applyObLiveRoundGate(rows, platformMatches, timersByProvider) {
-  if (!Array.isArray(rows))
-    return;
-  const obById = platformMatches?.OB;
-  if (!obById || typeof obById !== "object")
-    return;
-  const timerIds = obTimerMatchIds(timersByProvider);
-  for (const m of rows) {
-    const obId = m.Matchs?.OB;
-    if (obId == null || obId === "")
-      continue;
-    const sid = String(obId);
-    const round = Number(m.Round) || 0;
-    const roundStart = Number(m.RoundStart) || 0;
-    if (!round && !roundStart)
-      continue;
-    const row = obById[sid];
-    const raw = row?.IsLive ?? row?.is_live;
-    if (row == null) {
-      m.Round = 0;
-      m.RoundStart = 0;
-      continue;
-    }
-    if (raw != null && raw !== "" && Number(raw) !== 2) {
-      m.Round = 0;
-      m.RoundStart = 0;
-      continue;
-    }
-    if (timerIds != null && !timerIds.has(sid)) {
-      m.Round = 0;
-      m.RoundStart = 0;
-    }
   }
 }
 
@@ -271,14 +132,8 @@ export function filterMultiPlatform(rows, minPlatforms = MIN_PLATFORMS) {
   });
 }
 
-/**
- * 投影后：gate → promote/trim → strip → 多馆门槛的顺序更稳：
- * 先 gate 清伪 Round，再 promote/trim，避免短暂闪空。
- */
-export function applyLiveShape(rows, { matches, timers } = {}) {
-  refreshRoundsFromTimers(rows, timers);
-  applyObLiveRoundGate(rows, matches, timers);
-  promoteMap0ToDecider(rows, matches);
+/** 投影后：trim → strip → 命名 → 排序 */
+export function applyLiveShape(rows, { matches } = {}) {
   trimMapZeroLive(rows);
   stripOrphanPlatforms(rows, matches);
   refreshBetNames(rows);

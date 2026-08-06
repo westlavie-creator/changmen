@@ -1,16 +1,17 @@
 #!/usr/bin/env node
+import * as db from "@changmen/db";
+import { composeOnce } from "../ops/compose_once.js";
+import {
+  checkBetsWithinPeriods,
+  checkHomeSlotConsistency,
+  checkReverseSubsetOfSources,
+} from "../src/invariants.js";
 /**
  * 对比：composer 结果 vs 当前 RDS client_matches（不写库）。
  *   node scripts/diff.mjs
  *   node scripts/diff.mjs --id=1189
  */
 import "../lib/env.js";
-import * as db from "@changmen/db";
-import { composeOnce } from "../ops/compose_once.js";
-import {
-  checkHomeSlotConsistency,
-  checkReverseSubsetOfSources,
-} from "../src/invariants.js";
 
 const idArg = process.argv.find(a => a.startsWith("--id="));
 const onlyId = idArg ? Number(idArg.slice(5)) : null;
@@ -30,6 +31,12 @@ for (const m of result.info || []) {
   if (!revOk.ok) {
     invariantFails += 1;
     console.log(`#${id} INVARIANT reverse: ${revOk.violations.join("; ")}`);
+  }
+
+  const periodsOk = checkBetsWithinPeriods(m);
+  if (!periodsOk.ok) {
+    invariantFails += 1;
+    console.log(`#${id} INVARIANT periods: ${periodsOk.violations.join("; ")}`);
   }
 
   // 对冲抽样：若有 OB+RAY Map0，检查 Home slot I1（native 缺失时跳过）
@@ -53,7 +60,7 @@ for (const m of result.info || []) {
   const revChanged = JSON.stringify([...curRev].sort()) !== JSON.stringify([...newRev].sort());
   const lockChanged
     = String(cur.home_gb_team_id || "") !== String(m.HomeGbTeamId || "")
-    || String(cur.away_gb_team_id || "") !== String(m.AwayGbTeamId || "");
+      || String(cur.away_gb_team_id || "") !== String(m.AwayGbTeamId || "");
 
   const curBets = Array.isArray(cur.bets) ? cur.bets : [];
   const newBets = m.Bets || [];

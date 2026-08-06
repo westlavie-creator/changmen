@@ -12,14 +12,15 @@ import {
   clusterByGbThenName,
   MIN_PLATFORMS,
 } from "./cluster/merge_clusters.js";
-import { resolveIdsDryRun, resolveIdsForWrite } from "./ids/resolve_ids.js";
 import { dedupeRowsById } from "./ids/dedupe_rows.js";
-import { projectList } from "./sides/project_sources.js";
-import { applyLiveShape, filterMultiPlatform } from "./shape/live_shape.js";
+import { resolveIdsDryRun, resolveIdsForWrite } from "./ids/resolve_ids.js";
 import {
   buildPmSportByClientId,
   filterActiveClientMatches,
 } from "./shape/ended_filter.js";
+import { applyLiveShape, filterMultiPlatform } from "./shape/live_shape.js";
+import { projectList } from "./sides/project_sources.js";
+import { resolveMatchStructure } from "./structure/resolve_structure.js";
 
 export function composeFromSnapshot(snapshot, opts = {}) {
   const fromVenuesOnly = !!opts.fromVenuesOnly || !!snapshot._fromVenuesOnly;
@@ -97,6 +98,8 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
   info = deduped.list;
   info = info.filter(r => Object.keys(r.Matchs || {}).length >= MIN_PLATFORMS);
 
+  resolveMatchStructure(info, { matches, timers, bets });
+
   const projectStats = projectList(info, {
     matches,
     bets,
@@ -107,7 +110,7 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
     stickyOrientation: fromVenuesOnly ? false : stickyOrientation,
   });
 
-  applyLiveShape(info, { matches, timers });
+  applyLiveShape(info, { matches });
   info = filterMultiPlatform(info, MIN_PLATFORMS);
 
   /** ended 过滤前：本拍已纳入活跃集的正 ID（用于空写安全判定） */

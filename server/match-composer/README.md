@@ -8,11 +8,14 @@
 platform_matches / bets / timers / client_matches / overrides
   → clusterByGbThenName（自研）
     → resolveIds（match-engine/ids，非 merge）
-    → orientationLock（PM→OB→RAY）
-    → projectSources（I1 / force_aligned）
-    → liveShape（Round / promote / trim / gate / strip）
-    → writeClientMatches（仅 embedded viaMatcherWriter，或 FORCE 应急写）
+    → resolveMatchStructure（Round / gate / BO / periods / decider）
+      → orientationLock（PM→OB→RAY）
+      → projectSources（I1 / force_aligned / 决胜局用 Map0 作输入）
+        → liveShape（trim / strip / 命名 / 排序）
+          → writeClientMatches（仅 embedded viaMatcherWriter，或 FORCE 应急写）
 ```
+
+赛制层（`src/structure/`）必须跑在投影之前：`Round`、`BO`、该场的局段集合 `periods` 在此定型，投影与 shape 只读。决胜局（`Round === OB.BO`）缺原生局盘时，用 Map0 的 native 作为投影**输入**，因此只 swap 一次；shape 层不得回头改已投影的 `Sources`。不变式 `checkBetsWithinPeriods` 守这条。
 
 ## 命令
 

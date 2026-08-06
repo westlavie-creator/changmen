@@ -50,6 +50,24 @@ export function checkReverseSubsetOfSources(row) {
   return { ok: violations.length === 0, violations };
 }
 
+/**
+ * Bets 的局段必须来自赛制层。shape 只会删行不会加行，故用子集而非相等。
+ * 触发即说明有人绕开 resolveMatchStructure 造了 Bet 行。
+ */
+export function checkBetsWithinPeriods(row) {
+  const periods = row?._periods;
+  if (!Array.isArray(periods))
+    return { ok: true, violations: [], skipped: true };
+  const allowed = new Set(periods.map(p => Number(p) || 0));
+  const violations = [];
+  for (const bet of row.Bets || []) {
+    const mapNum = Number(bet.Map) || 0;
+    if (!allowed.has(mapNum))
+      violations.push(`#${row.ID}: Map=${mapNum} not in periods [${periods.join(",")}]`);
+  }
+  return { ok: violations.length === 0, violations };
+}
+
 export function resolveOidToGb(platform, oid, raw, pm) {
   if (!oid || !raw || !pm)
     return null;

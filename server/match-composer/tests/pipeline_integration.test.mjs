@@ -5,10 +5,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import { clusterByGbThenName } from "../src/cluster/merge_clusters.js";
 import { resolveIdsDryRun } from "../src/ids/resolve_ids.js";
-import { projectList } from "../src/sides/project_sources.js";
-import { applyLiveShape, filterMultiPlatform } from "../src/shape/live_shape.js";
-import { filterActiveClientMatches } from "../src/shape/ended_filter.js";
 import { checkNotSamePhysicalSide } from "../src/invariants.js";
+import { filterActiveClientMatches } from "../src/shape/ended_filter.js";
+import { applyLiveShape, filterMultiPlatform } from "../src/shape/live_shape.js";
+import { projectList } from "../src/sides/project_sources.js";
+import { resolveMatchStructure } from "../src/structure/resolve_structure.js";
 import {
   GB_K27,
   GB_NIP,
@@ -36,8 +37,9 @@ describe("pipeline integration", () => {
     let list = clusterByGbThenName(matches, []);
     assert.equal(list.length, 1);
     let info = resolveIdsDryRun(list, { matches, existingClientRows: [] });
+    resolveMatchStructure(info, { matches, timers: {}, bets });
     projectList(info, { matches, bets, existingClientRows: [] });
-    applyLiveShape(info, { matches, timers: {} });
+    applyLiveShape(info, { matches });
     info = filterMultiPlatform(info);
     assert.equal(info.length, 1);
     assert.equal(info[0].HomeGbTeamId, GB_NIP);
@@ -60,10 +62,11 @@ describe("pipeline integration", () => {
     const bets = makeBets({ OB: { 0: rawOb }, RAY: { 0: rawRay } });
     let list = clusterByGbThenName(matches, []);
     let info = resolveIdsDryRun(list, { matches });
+    resolveMatchStructure(info, { matches, timers: {}, bets });
     projectList(info, { matches, bets });
     // 模拟 RAY 闪断：matches 只剩 OB
     const matchesObOnly = { OB: { ob1: pmOb } };
-    applyLiveShape(info, { matches: matchesObOnly, timers: {} });
+    applyLiveShape(info, { matches: matchesObOnly });
     info = filterMultiPlatform(info);
     assert.equal(info.length, 0);
   });
@@ -78,10 +81,11 @@ describe("pipeline integration", () => {
     const bets = makeBets({ OB: { 0: rawOb }, RAY: { 0: rawRay } });
     let list = clusterByGbThenName(matches, []);
     let info = resolveIdsDryRun(list, { matches });
-    projectList(info, { matches, bets });
     info[0].StartTime = now - 60 * 60 * 1000;
-    info[0].Round = 0;
-    applyLiveShape(info, { matches, timers: {} });
+    resolveMatchStructure(info, { matches, timers: {}, bets });
+    assert.equal(info[0].Round, 0);
+    projectList(info, { matches, bets });
+    applyLiveShape(info, { matches });
     info = filterMultiPlatform(info);
     const ended = filterActiveClientMatches(info, {
       platformMatches: matches,

@@ -1,42 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
+import { checkBetsWithinPeriods } from "../src/invariants.js";
+import { applyLiveShape, trimMapZeroLive } from "../src/shape/live_shape.js";
 import {
-  applyLiveShape,
-  promoteMap0ToDecider,
+  collectPeriods,
+  resolveMatchStructure,
   resolveRowBo,
-  trimMapZeroLive,
-} from "../src/shape/live_shape.js";
+  resolveRowStructure,
+} from "../src/structure/resolve_structure.js";
 
-const obMatches = (bo = 3) => ({
-  OB: { ob1: { SourceMatchID: "ob1", BO: bo } },
-});
+function obMatches(bo = 3) {
+  return {
+    OB: { ob1: { SourceMatchID: "ob1", BO: bo } },
+  };
+}
 
 describe("live_shape", () => {
-  it("promote Map0 Sources to decider map without second swap", () => {
-    const matches = {
-      ...obMatches(3),
-      RAY: { ray1: { SourceMatchID: "ray1", BO: 0 } },
-    };
-    const row = {
-      ID: 1,
-      Round: 3,
-      Matchs: { OB: "ob1", RAY: "ray1" },
-      Reverse: ["RAY"],
-      Bets: [{
-        Map: 0,
-        Sources: {
-          OB: { BetID: "m0", HomeID: "h", AwayID: "a" },
-          RAY: { BetID: "r0", HomeID: "rh", AwayID: "ra" },
-        },
-      }],
-    };
-    promoteMap0ToDecider([row], matches);
-    const live = row.Bets.find(b => b.Map === 3);
-    assert.ok(live);
-    assert.equal(live.Sources.RAY.HomeID, "rh");
-    assert.equal(live.Sources.OB.HomeID, "h");
-  });
-
   it("trim Map0 to OB/Polymarket/PredictFun/Limitless when live and preserve InitialOdds", () => {
     const row = {
       Round: 1,
@@ -61,109 +40,6 @@ describe("live_shape", () => {
     assert.equal(row.Bets[0].InitialAwayOdds, 2.4);
   });
 
-  it("non-decider Round does not promote Map0 onto last map", () => {
-    const row = {
-      ID: 2,
-      Round: 1,
-      Matchs: { OB: "ob1" },
-      Bets: [{
-        Map: 0,
-        Sources: { OB: { BetID: "m0", HomeID: "h", AwayID: "a" } },
-      }, {
-        Map: 3,
-        Sources: {},
-      }],
-    };
-    promoteMap0ToDecider([row], obMatches(3));
-    const last = row.Bets.find(b => b.Map === 3);
-    assert.ok(last);
-    assert.equal(Object.keys(last.Sources || {}).length, 0);
-  });
-
-  it("decider Round promotes Map0 onto last map when OB.BO matches", () => {
-    const row = {
-      ID: 3,
-      Round: 3,
-      Matchs: { OB: "ob1" },
-      Bets: [{
-        Map: 0,
-        Sources: { OB: { BetID: "m0", HomeID: "h", AwayID: "a" } },
-      }, {
-        Map: 3,
-        Sources: {},
-      }],
-    };
-    promoteMap0ToDecider([row], obMatches(3));
-    const last = row.Bets.find(b => b.Map === 3);
-    assert.equal(last.Sources.OB.BetID, "m0");
-  });
-
-  it("Round=2 with OB BO=3 does not promote (Falcons mid-series)", () => {
-    const matches = {
-      OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
-      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
-      Polymarket: { pm1: { SourceMatchID: "pm1", BO: 0 } },
-    };
-    const row = {
-      ID: 4,
-      Round: 2,
-      Matchs: { OB: "ob1", PB: "pb1", Polymarket: "pm1" },
-      Bets: [{
-        Map: 0,
-        Sources: {
-          OB: { BetID: "ob-full", HomeID: "h", AwayID: "a" },
-          PB: { BetID: "pb-full", HomeID: "ph", AwayID: "pa" },
-        },
-      }, {
-        Map: 2,
-        Sources: {
-          Polymarket: { BetID: "pm-m2", HomeID: "mh", AwayID: "ma" },
-        },
-      }],
-    };
-    assert.equal(resolveRowBo(row, matches), 3);
-    promoteMap0ToDecider([row], matches);
-    const map2 = row.Bets.find(b => b.Map === 2);
-    assert.equal(map2.Sources.PB, undefined, "PB full must not enter Map2 mid BO3");
-    assert.equal(map2.Sources.Polymarket.BetID, "pm-m2");
-  });
-
-  it("no OB linked → BO=0 → no promote", () => {
-    const matches = {
-      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
-      Polymarket: { pm1: { SourceMatchID: "pm1", BO: 0 } },
-      RAY: { ray1: { SourceMatchID: "ray1", BO: 3 } },
-    };
-    const row = {
-      ID: 5,
-      BO: 3,
-      Round: 3,
-      Matchs: { PB: "pb1", Polymarket: "pm1", RAY: "ray1" },
-      Bets: [{
-        Map: 0,
-        Sources: {
-          PB: { BetID: "pb-full", HomeID: "h", AwayID: "a" },
-          RAY: { BetID: "ray-full", HomeID: "rh", AwayID: "ra" },
-        },
-      }, {
-        Map: 3,
-        Sources: {},
-      }],
-    };
-    assert.equal(resolveRowBo(row, matches), 0);
-    promoteMap0ToDecider([row], matches);
-    assert.deepEqual(Object.keys(row.Bets.find(b => b.Map === 3).Sources || {}), []);
-  });
-
-  it("resolveRowBo ignores row.BO and non-OB platforms", () => {
-    const matches = {
-      OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
-      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
-    };
-    assert.equal(resolveRowBo({ Matchs: { OB: "ob1", PB: "pb1" }, BO: 1 }, matches), 3);
-    assert.equal(resolveRowBo({ Matchs: { PB: "pb1" }, BO: 5 }, matches), 0);
-  });
-
   it("applyLiveShape strips orphan platforms", () => {
     const matches = { OB: { ob1: { SourceMatchID: "ob1" } } };
     const row = {
@@ -178,9 +54,78 @@ describe("live_shape", () => {
         },
       }],
     };
-    applyLiveShape([row], { matches, timers: {} });
+    applyLiveShape([row], { matches });
     assert.equal(row.Matchs.RAY, undefined);
     assert.equal(row.Bets[0].Sources.RAY, undefined);
     assert.deepEqual(row.Reverse, []);
+  });
+});
+
+describe("resolve_structure", () => {
+  it("resolveRowBo ignores row.BO and non-OB platforms", () => {
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", BO: 3 } },
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+    };
+    assert.equal(resolveRowBo({ Matchs: { OB: "ob1", PB: "pb1" }, BO: 1 }, matches), 3);
+    assert.equal(resolveRowBo({ Matchs: { PB: "pb1" }, BO: 5 }, matches), 0);
+  });
+
+  it("deciderMap set only when Round === OB.BO", () => {
+    const row = { Round: 3, Matchs: { OB: "ob1" } };
+    assert.equal(resolveRowStructure(row, { matches: obMatches(3) }).deciderMap, 3);
+    assert.equal(
+      resolveRowStructure({ ...row, Round: 2 }, { matches: obMatches(3) }).deciderMap,
+      0,
+      "mid-series must not mark decider",
+    );
+  });
+
+  it("no OB linked → BO=0 → no decider", () => {
+    const matches = {
+      PB: { pb1: { SourceMatchID: "pb1", BO: 1 } },
+      RAY: { ray1: { SourceMatchID: "ray1", BO: 3 } },
+    };
+    const row = { BO: 3, Round: 3, Matchs: { PB: "pb1", RAY: "ray1" } };
+    const s = resolveRowStructure(row, { matches });
+    assert.equal(s.bo, 0);
+    assert.equal(s.deciderMap, 0);
+  });
+
+  it("periods = bets maps ∪ {0} ∪ decider", () => {
+    const row = { Matchs: { OB: "ob1" } };
+    const bets = { "OB:ob1": [{ Map: 2 }, { Map: 1 }, { Map: 1 }] };
+    assert.deepEqual(collectPeriods(row, bets), [0, 1, 2]);
+    assert.deepEqual(collectPeriods(row, bets, 3), [0, 1, 2, 3]);
+  });
+
+  it("clears Round before projection when OB is not live", () => {
+    const matches = { OB: { ob1: { SourceMatchID: "ob1", IsLive: 1, BO: 3 } } };
+    const rows = [{ Round: 2, RoundStart: 123, Matchs: { OB: "ob1" } }];
+    resolveMatchStructure(rows, { matches, timers: {}, bets: {} });
+    assert.equal(rows[0].Round, 0);
+    assert.equal(rows[0].RoundStart, 0);
+  });
+
+  it("checkBetsWithinPeriods catches Bet rows added outside the structure layer", () => {
+    const row = { ID: 7, _periods: [0, 1], Bets: [{ Map: 0 }, { Map: 1 }] };
+    assert.equal(checkBetsWithinPeriods(row).ok, true);
+    row.Bets.push({ Map: 3 });
+    const bad = checkBetsWithinPeriods(row);
+    assert.equal(bad.ok, false);
+    assert.match(bad.violations[0], /Map=3 not in periods/);
+    assert.equal(checkBetsWithinPeriods({ ID: 8, Bets: [{ Map: 9 }] }).skipped, true);
+  });
+
+  it("timer round wins by provider priority", () => {
+    const matches = { OB: { ob1: { SourceMatchID: "ob1", IsLive: 2, BO: 3 } } };
+    const timers = {
+      OB: { timer: [{ matchId: "ob1", round: 2, startTime: 555 }] },
+      RAY: { timer: [{ matchId: "ray1", round: 1 }] },
+    };
+    const rows = [{ Matchs: { OB: "ob1", RAY: "ray1" } }];
+    resolveMatchStructure(rows, { matches, timers, bets: {} });
+    assert.equal(rows[0].Round, 2);
+    assert.equal(rows[0].RoundStart, 555);
   });
 });
