@@ -138,7 +138,8 @@ export async function fetchPlatformMatchesDashboard() {
 
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at,
+            home_gb_team_id, away_gb_team_id
      FROM client_matches
      ORDER BY start_time ASC NULLS LAST`,
   );
