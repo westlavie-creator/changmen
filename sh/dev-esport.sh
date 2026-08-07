@@ -16,12 +16,14 @@ PORT="${PORT:-${BACKEND_PORT}}"
 VITE="${VITE_DEV_PORT:-${VITE_PORT}}"
 PARITY=0
 OPEN_BROWSER=1
+RESTART=0
 ARGS=()
 for arg in "$@"; do
   case "${arg}" in
     parity|matcher) PARITY=1 ;;
     --no-open) OPEN_BROWSER=0 ;;
     --term) CHANGMEN_USE_TERM=1 ;;
+    --restart) RESTART=1 ;;
     *) ARGS+=("${arg}") ;;
   esac
 done
@@ -43,36 +45,46 @@ if [[ "${PARITY}" == "1" ]]; then
 fi
 echo
 echo "  Tip: ./sh/dev-esport.sh parity"
+echo "       ./sh/dev-esport.sh --restart   # 强制重启（端口被残留进程占用时用）"
 echo "       ./sh/status-dev.sh          - check ports"
 echo "       ./sh/stop-dev.sh            - stop services"
 echo
 
-# Avoid stale listeners from a previous half-start
-if port_listening "${PORT}"; then
-  echo "Port ${PORT} already in use — reusing existing backend"
-else
-  echo "[1/2] Starting backend..."
-  run_in_term "backend" \
-    "export PORT=${PORT} A8_AUTH=0 SKIP_APP_BUILD=1; cd \"${ROOT}\" && \"${SH_DIR}/backend.sh\""
-  wait_port "${PORT}" "Backend" 60 || {
-    echo "ERROR: backend failed to listen. See ${LOG_DIR}/backend.log" >&2
-    tail -30 "${LOG_DIR}/backend.log" 2>/dev/null || true
-    exit 1
-  }
-fi
+# 启动一个服务：端口空闲直接起；被占用时按 --restart 决定复用还是强制重启。
+start_service() {
+  local title="$1" port="$2"
+  shift 2
+  local start_cmd="$*"
 
-if port_listening "${VITE}"; then
-  echo "Port ${VITE} already in use — reusing existing Vite"
-else
-  echo "[2/2] Starting Vite..."
-  run_in_term "vite" \
-    "export VITE_DEV_PORT=${VITE}; cd \"${ROOT}\" && npm run app:dev"
-  wait_port "${VITE}" "Vite" 90 || {
-    echo "ERROR: Vite failed to listen. See ${LOG_DIR}/vite.log" >&2
-    tail -40 "${LOG_DIR}/vite.log" 2>/dev/null || true
+  if port_listening "${port}"; then
+    if [[ "${RESTART}" == "1" ]]; then
+      echo "[!] Port ${port} 被占用，--restart 强制重启："
+      port_owner "${port}" || true
+      kill_port "${port}"
+      sleep 1
+    else
+      echo "Port ${port} already in use — reusing existing ${title}"
+      port_owner "${port}" || true
+      echo "  (若这是残留进程，先 ./sh/stop-dev.sh 或用 ./sh/dev-esport.sh --restart)"
+      return 0
+    fi
+  fi
+
+  echo "Starting ${title}..."
+  run_in_term "${title}" "${start_cmd}"
+  wait_port "${port}" "${title}" 90 || {
+    echo "ERROR: ${title} failed to listen. See ${LOG_DIR}/${title}.log" >&2
+    tail -30 "${LOG_DIR}/${title}.log" 2>/dev/null || true
     exit 1
   }
-fi
+}
+
+# Avoid stale listeners from a previous half-start
+start_service "backend" "${PORT}" \
+  "export PORT=${PORT} A8_AUTH=0 SKIP_APP_BUILD=1; cd \"${ROOT}\" && \"${SH_DIR}/backend.sh\""
+
+start_service "vite" "${VITE}" \
+  "export VITE_DEV_PORT=${VITE}; cd \"${ROOT}\" && npm run app:dev"
 
 if [[ "${PARITY}" == "1" ]]; then
   echo "[3/3] Starting matcher UI..."

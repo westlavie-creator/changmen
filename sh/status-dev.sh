@@ -10,7 +10,13 @@ LOG_DIR="${LOG_DIR:-/tmp/changmen-dev}"
 
 echo "changmen local status"
 echo "  Backend :${PORT}  $(port_listening "${PORT}" && echo UP || echo DOWN)"
+if port_listening "${PORT}"; then
+  port_owner "${PORT}" | sed 's/^/    /'
+fi
 echo "  Vite    :${VITE}  $(port_listening "${VITE}" && echo UP || echo DOWN)"
+if port_listening "${VITE}"; then
+  port_owner "${VITE}" | sed 's/^/    /'
+fi
 if ss -ltn "( sport = :7897 )" 2>/dev/null | grep -q ':7897'; then
   echo "  Proxy   :7897 UP (Clash)"
 else

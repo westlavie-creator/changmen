@@ -80,6 +80,28 @@ port_listening() {
   ss -ltn "( sport = :${port} )" 2>/dev/null | grep -q ":${port}"
 }
 
+# 端口占用详情：pid + cmdline。占用返回 0，空闲返回 1。
+# 配合 --restart：能看出端口上是残留进程还是正常 dev 服务。
+port_owner() {
+  local port="$1"
+  local line pid cmd
+  line="$(ss -ltnp "( sport = :${port} )" 2>/dev/null | grep ":${port}" || true)"
+  if [[ -z "${line}" ]]; then
+    return 1
+  fi
+  pid="$(sed -n 's/.*pid=\([0-9]\+\).*/\1/p' <<<"${line}" | head -1)"
+  if [[ -z "${pid}" ]] && command -v fuser >/dev/null 2>&1; then
+    # fuser 输出格式因发行版而异：纯数字 / "port/proto:pid"，只提取数字部分
+    pid="$(fuser "${port}/tcp" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)"
+  fi
+  echo "  :${port}  pid=${pid:-unknown}"
+  if [[ -n "${pid}" && -r "/proc/${pid}/cmdline" ]]; then
+    cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
+    echo "      ${cmd}"
+  fi
+  return 0
+}
+
 kill_port() {
   local port="$1"
   if command -v fuser >/dev/null 2>&1; then
@@ -99,16 +121,37 @@ wait_port() {
   local label="${2:-service}"
   local seconds="${3:-60}"
   local i=0
+  local logfile="${LOG_DIR}/${label}.log"
+  local last_line_count=0
   echo "Waiting for ${label} on port ${port} ..."
+  echo "  (首次启动需加载 RDS/队伍表，约 5~40s，请勿 Ctrl+C 或关闭本终端)"
   while (( i < seconds )); do
     if port_listening "${port}"; then
       echo "${label} is listening on ${port}."
       return 0
     fi
+    # 每 5 秒显示一次日志增量，方便看到卡点而不是黑盒等待
+    if (( i % 5 == 0 )) && [[ -f "${logfile}" ]]; then
+      local line_count
+      line_count="$(wc -l <"${logfile}" 2>/dev/null || echo 0)"
+      if (( line_count > last_line_count )); then
+        echo "--- ${label} 日志增量 ---"
+        tail -n $((line_count - last_line_count)) "${logfile}" 2>/dev/null | tail -8 | sed 's/^/  | /'
+        last_line_count="${line_count}"
+      fi
+    fi
     i=$((i + 1))
     sleep 1
   done
   echo "WARN: ${label} not listening after ~${seconds}s" >&2
+  if [[ -f "${logfile}" ]]; then
+    echo "--- ${label} 日志尾部 ---" >&2
+    tail -30 "${logfile}" 2>/dev/null | sed 's/^/  | /' >&2
+  fi
+  if port_listening "${port}"; then
+    echo "NOTE: ${label} 虽已监听但超过预期时间，当前占用者：" >&2
+    port_owner "${port}" >&2 || true
+  fi
   return 1
 }
 
@@ -123,6 +166,11 @@ run_in_term() {
   local safe="${title//[^A-Za-z0-9_-]/_}"
   local log="${LOG_DIR}/${safe}.log"
   mkdir -p "${LOG_DIR}"
+  if [[ ! -w "${LOG_DIR}" ]]; then
+    echo "ERROR: 日志目录不可写: ${LOG_DIR}" >&2
+    echo "       它可能是 root 用户创建的残留目录。执行: sudo rm -rf ${LOG_DIR}" >&2
+    exit 1
+  fi
 
   if [[ "${CHANGMEN_USE_TERM:-0}" == "1" && -n "${DISPLAY:-}" ]]; then
     if command -v gnome-terminal >/dev/null 2>&1; then
@@ -141,14 +189,22 @@ run_in_term() {
   fi
 
   # Wrap with nvm + proxy so background jobs always find node/npm and can reach RDS/CDN
-  nohup bash -lc "
+  # setsid：完全脱离当前终端会话，dev.sh 退出 / Ctrl+C / 关闭终端都不会 SIGHUP 到后台服务。
+  # 内层 bash 写 pid：setsid 在交互终端下会 fork，外层 $! 是立刻退出的父进程，写 pidfile 会落空。
+  local wrapper="
     export NVM_DIR=\"\${NVM_DIR:-\$HOME/.nvm}\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
     export http_proxy='${http_proxy:-}' https_proxy='${https_proxy:-}'
     export HTTP_PROXY='${HTTP_PROXY:-}' HTTPS_PROXY='${HTTPS_PROXY:-}' ALL_PROXY='${ALL_PROXY:-}'
     export NO_PROXY='${NO_PROXY:-localhost,127.0.0.1,::1}' no_proxy=\"\$NO_PROXY\"
+    echo \$\$ > '${LOG_DIR}/${safe}.pid'
     ${cmd}
-  " >"${log}" 2>&1 &
+  "
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash -lc "${wrapper}" >"${log}" 2>&1 &
+  else
+    nohup bash -lc "${wrapper}" >"${log}" 2>&1 &
+  fi
   local pid=$!
   echo "${pid}" >"${LOG_DIR}/${safe}.pid"
   disown "${pid}" 2>/dev/null || true
