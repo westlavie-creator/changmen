@@ -30,7 +30,8 @@
 
 A8 无 Polymarket。电竞 **discovery 时间窗**只认 VPS collector（主 pass 过去 6h + 未来 1h，另补 `live=true`）：
 
-- **VPS 写库**：`changmen-polymarket-collector` 写 `platform_*` + `polymarket_market_index.json`；浏览器**不**再列表 Gamma/`Save*`，只 `GetCollectPlatform.MarketIndex` → Market WS → `fo`
+- **VPS 写库**：`changmen-polymarket-collector` 写 `platform_*` + **全量** `polymarket_market_index.json`；浏览器**不**再列表 Gamma/`Save*`，只 `GetCollectPlatform.MarketIndex` → Market WS → `fo`
+- **下发 Index**：`GetCollectPlatform` 对 PM/PF 返回 **磁盘全量 ∩ 当前 `client_matches.Matchs[provider]`**（空合场 → 空 Index）；订阅集随合场收缩，不另加字段
 - 采集窗 / 扫盘 API 权威：`server/collectors/polymarket-esports/api.js`（浏览器 `venue-adapter/polymarket/api.ts` 仅端点与 WS 报文）
 - 关 VPS 写库：`POLYMARKET_COLLECTOR_WRITE_PLATFORM=0`
 - 赛程状态另见：`server/collectors/polymarket-sports`（`pm_sport`）

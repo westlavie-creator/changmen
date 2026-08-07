@@ -182,10 +182,8 @@ export function startPolymarketCollector(): () => void {
       syncEsportAssets();
       return;
     }
-    if (index.updatedAt === lastIndexUpdatedAt) {
-      syncEsportAssets(true);
+    if (index.updatedAt === lastIndexUpdatedAt)
       return;
-    }
     lastIndexUpdatedAt = index.updatedAt;
 
     applyPolymarketMarketIndex(index, { marketsById, assetToMarket });
@@ -200,7 +198,8 @@ export function startPolymarketCollector(): () => void {
       });
     }
     matchStore.refreshOddsOnBets();
-    syncEsportAssets(true);
+    // 集合变了才重订；同集短路。transport 重建靠 onPolymarketMarketHubReady(force)。
+    syncEsportAssets();
   }
 
   const loop = async () => {

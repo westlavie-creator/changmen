@@ -38,11 +38,27 @@ import {
   type ActionBucket,
 } from "./action_registry.js";
 import store from "./store.js";
+import { filterMarketIndexByClientMatches } from "./filter_market_index_by_matches.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
 import { handleClientNotifyAdminTelegram } from "../admin_tools/client_mirror_notify.js";
 import { handleV4Request } from "./v4_router.js";
 import { recordEsportRequest } from "../shared/esport_request_timing.js";
 import { certLoginBindError, readClientCertStatus } from "../shared/client_cert_gate.js";
+
+/** 磁盘全量 Index ∩ client_matches；空合场 → 空 Index（不 fail-open） */
+async function attachFilteredVpsMarketIndex(provider: string, target: Record<string, unknown>) {
+  if (provider !== "Polymarket" && provider !== "PredictFun")
+    return;
+  const matches = await dbStore.loadClientMatchesFromDb();
+  const rows = Array.isArray(matches) ? matches : [];
+  if (provider === "Polymarket") {
+    const { readPolymarketMarketIndex } = await import("@changmen/storage/polymarket_market_index.js");
+    target.MarketIndex = filterMarketIndexByClientMatches("Polymarket", readPolymarketMarketIndex(), rows);
+    return;
+  }
+  const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
+  target.MarketIndex = filterMarketIndexByClientMatches("PredictFun", readPredictFunMarketIndex(), rows);
+}
 
 export type { EsportAction } from "@changmen/api-contract/actions";
 
@@ -443,15 +459,8 @@ async function handleCoreAction(
       const catalogBetName = getPlatformRules(provider, getDefaultMarketCode())?.betName || ".*";
       if (!row) {
         const empty: Record<string, unknown> = { Gateway: "", Token: "", BetName: catalogBetName };
-        // VPS 采集索引不依赖 platforms.json 行；无行也要下发，否则浏览器永远订不到盘
-        if (provider === "PredictFun") {
-          const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
-          empty.MarketIndex = readPredictFunMarketIndex();
-        }
-        if (provider === "Polymarket") {
-          const { readPolymarketMarketIndex } = await import("@changmen/storage/polymarket_market_index.js");
-          empty.MarketIndex = readPolymarketMarketIndex();
-        }
+        // VPS 采集索引不依赖 platforms.json 行；无行也要下发（按合场筛后）订阅集
+        await attachFilteredVpsMarketIndex(provider, empty);
         return ok(empty);
       }
       const betName = row.betName && row.betName !== ".*" ? row.betName : catalogBetName;
@@ -496,14 +505,7 @@ async function handleCoreAction(
       if (provider.toUpperCase() === "OB" && row?.gameOddTypes) {
         out.GameOddTypes = row.gameOddTypes;
       }
-      if (provider === "PredictFun") {
-        const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
-        out.MarketIndex = readPredictFunMarketIndex();
-      }
-      if (provider === "Polymarket") {
-        const { readPolymarketMarketIndex } = await import("@changmen/storage/polymarket_market_index.js");
-        out.MarketIndex = readPolymarketMarketIndex();
-      }
+      await attachFilteredVpsMarketIndex(provider, out);
       return ok(out);
     }
     case "Client_GetGames": {

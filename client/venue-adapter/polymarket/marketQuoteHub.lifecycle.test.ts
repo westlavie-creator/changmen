@@ -31,7 +31,7 @@ async function mockPmWs() {
 }
 
 describe("PM marketQuoteHub lifecycle contracts", () => {
-  test("force=true resubscribes even when asset set unchanged (discovery heartbeat)", async () => {
+  test("force=true resubscribes even when asset set unchanged (hub ready / transport rebuild)", async () => {
     const { send } = await mockPmWs();
     registerPolymarketQuoteAssets("esport", ["a", "b"]);
     expect(send).toHaveBeenCalledTimes(1);
@@ -39,6 +39,14 @@ describe("PM marketQuoteHub lifecycle contracts", () => {
     expect(send).toHaveBeenCalledTimes(2);
     const last = JSON.parse(String(send.mock.calls.at(-1)?.[0]));
     expect(last.initial_dump).toBe(false);
+  });
+
+  test("same asset set without force does not resubscribe", async () => {
+    const { send } = await mockPmWs();
+    registerPolymarketQuoteAssets("esport", ["a", "b"]);
+    expect(send).toHaveBeenCalledTimes(1);
+    registerPolymarketQuoteAssets("esport", ["b", "a"]);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   test("unregister esport keeps transport when sport still registered", async () => {
@@ -118,11 +126,13 @@ describe("PM marketQuoteHub lifecycle contracts", () => {
 });
 
 describe("PM collect / hub source contracts", () => {
-  test("collect stop only unregister esport; discovers with force; rebuilds maps; no sport re-export", () => {
+  test("collect stop only unregister esport; hub-ready force only; no unchanged-index resub; no sport re-export", () => {
     const src = readFileSync(join(root, "collect.ts"), "utf8");
     expect(src).toMatch(/unregisterPolymarketQuoteConsumer\(QUOTE_CONSUMER\)/);
     expect(src).not.toMatch(/clearPolymarketSportHub/);
-    expect(src).toMatch(/syncEsportAssets\(true\)/);
+    expect(src).toMatch(/onPolymarketMarketHubReady\(\(\) => \{\s*syncEsportAssets\(true\);/);
+    expect(src).toMatch(/if \(index\.updatedAt === lastIndexUpdatedAt\)\s*return;/);
+    expect(src).not.toMatch(/updatedAt === lastIndexUpdatedAt\)[\s\S]{0,80}syncEsportAssets\(true\)/);
     expect(src).toMatch(/marketsById\.clear\(\)/);
     expect(src).toMatch(/assetToMarket\.clear\(\)/);
     expect(src).toMatch(/onPolymarketMarketQuote/);
