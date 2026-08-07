@@ -18,6 +18,12 @@ const PREDICTFUN_LIST_FUTURE_MS = Number(
   || process.env.PREDICTFUN_COLLECTOR_FUTURE_MS
   || 3600 * 1000,
 );
+/** 与 Polymarket / PredictFun collector 主窗 past=6h 对齐 */
+const PREDICTFUN_LIST_PAST_MS = Number(
+  process.env.PREDICTFUN_LIST_PAST_MS
+  || process.env.PREDICTFUN_COLLECTOR_PAST_MS
+  || 6 * 3600 * 1000,
+);
 
 function providerStartTimeListAllowed(provider, start) {
   if (provider === "PredictFun") {
@@ -27,8 +33,7 @@ function providerStartTimeListAllowed(provider, start) {
     const now = Date.now();
     if (ms > now + PREDICTFUN_LIST_FUTURE_MS)
       return false;
-    // 与 collector past prune 对齐：开赛已过 2 天不再进列表
-    if (ms < now - 2 * 24 * 60 * 60 * 1000)
+    if (ms < now - PREDICTFUN_LIST_PAST_MS)
       return false;
     return true;
   }

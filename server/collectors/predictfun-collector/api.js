@@ -12,18 +12,24 @@ export const PREDICT_FUN_API = String(
 export const PREDICT_FUN_TAG_ESPORTS = "83";
 
 /**
- * 采集窗：OPEN 且 now-past ≤ 开赛 ≤ now+future。
- * 未来默认 1h；过去默认 2d（与 PLATFORM_MATCH_PAST_PRUNE_MS 对齐，可用 env 覆盖）。
+ * 采集窗：与 Polymarket 主 pass 一致 — start ∈ [now-6h, now+1h]。
+ * 可用 PREDICTFUN_COLLECTOR_PAST_MS / PREDICTFUN_COLLECTOR_FUTURE_MS 覆盖。
  */
+const DEFAULT_COLLECT_PAST_MS = 6 * 3600 * 1000;
+const DEFAULT_COLLECT_FUTURE_MS = 3600 * 1000;
+
 function collectFutureMs() {
   const n = Number(process.env.PREDICTFUN_COLLECTOR_FUTURE_MS);
-  return Number.isFinite(n) && n > 0 ? n : 3600 * 1000;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_COLLECT_FUTURE_MS;
 }
 
 function collectPastMs() {
   const n = Number(process.env.PREDICTFUN_COLLECTOR_PAST_MS);
-  return Number.isFinite(n) && n > 0 ? n : 2 * 24 * 60 * 60 * 1000;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_COLLECT_PAST_MS;
 }
+
+export const PREDICTFUN_COLLECT_PAST_MS = DEFAULT_COLLECT_PAST_MS;
+export const PREDICTFUN_COLLECT_FUTURE_MS = DEFAULT_COLLECT_FUTURE_MS;
 
 export function predictCollectStartTimeAllowed(startMs) {
   const ms = normalizeEpochMs(startMs);
