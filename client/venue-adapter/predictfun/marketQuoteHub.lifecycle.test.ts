@@ -41,12 +41,20 @@ async function mockPfWs() {
 }
 
 describe("PF marketQuoteHub lifecycle contracts", () => {
-  test("force=true resubscribes even when market set unchanged (index heartbeat)", async () => {
+  test("force=true resubscribes even when market set unchanged (hub ready / transport rebuild)", async () => {
     const { subscribeMarketIds } = await mockPfWs();
     registerPredictFunQuoteMarkets("esport", ["m1", "m2"]);
     expect(subscribeMarketIds).toHaveBeenCalledTimes(1);
     registerPredictFunQuoteMarkets("esport", ["m2", "m1"], true);
     expect(subscribeMarketIds).toHaveBeenCalledTimes(2);
+  });
+
+  test("same market set without force does not resubscribe", async () => {
+    const { subscribeMarketIds } = await mockPfWs();
+    registerPredictFunQuoteMarkets("esport", ["m1", "m2"]);
+    expect(subscribeMarketIds).toHaveBeenCalledTimes(1);
+    registerPredictFunQuoteMarkets("esport", ["m2", "m1"]);
+    expect(subscribeMarketIds).toHaveBeenCalledTimes(1);
   });
 
   test("unregister esport keeps transport when sport still registered", async () => {
@@ -206,11 +214,13 @@ describe("PF collect / hub source contracts", () => {
     expect(src).not.toMatch(/API_SaveMatch/);
   });
 
-  test("collect stop only unregister esport; index heartbeat force; no own WS; no sport re-export", () => {
+  test("collect stop only unregister esport; hub-ready force only; no unchanged-index resub; no sport re-export", () => {
     const src = readFileSync(join(root, "collect.ts"), "utf8");
     expect(src).toMatch(/unregisterPredictFunQuoteConsumer\(QUOTE_CONSUMER\)/);
     expect(src).not.toMatch(/clearPredictFunSportHub/);
-    expect(src).toMatch(/syncEsportMarkets\(true\)/);
+    expect(src).toMatch(/onPredictFunMarketHubReady\(\(\) => \{\s*syncEsportMarkets\(true\);/);
+    expect(src).toMatch(/if \(index\.updatedAt === lastIndexUpdatedAt\)\s*return;/);
+    expect(src).not.toMatch(/updatedAt === lastIndexUpdatedAt\)[\s\S]{0,80}syncEsportMarkets\(true\)/);
     expect(src).toMatch(/onPredictFunTokenQuote/);
     expect(src).not.toMatch(/startPredictMarketWs/);
     expect(src).not.toMatch(/export \{[\s\S]*setPredictFunSportMarketIds/);

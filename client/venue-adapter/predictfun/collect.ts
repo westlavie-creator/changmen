@@ -258,11 +258,8 @@ export function startPredictFunCollector(): () => void {
       syncEsportMarkets();
       return;
     }
-    if (index.updatedAt === lastIndexUpdatedAt) {
-      // index 未变也周期 force 重订（对齐 PM discovery；修半开丢订）
-      syncEsportMarkets(true);
+    if (index.updatedAt === lastIndexUpdatedAt)
       return;
-    }
     lastIndexUpdatedAt = index.updatedAt;
 
     applyPredictFunMarketIndex(index, {
@@ -300,7 +297,8 @@ export function startPredictFunCollector(): () => void {
       });
     }
     matchStore.refreshOddsOnBets();
-    syncEsportMarkets(true);
+    // 集合变了才重订；同集短路。transport 重建靠 onPredictFunMarketHubReady(force)。
+    syncEsportMarkets();
   }
 
   const loop = async () => {
