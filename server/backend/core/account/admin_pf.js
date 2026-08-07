@@ -318,7 +318,7 @@ export async function listAdminPredictFunMoneyLogs(userId, accountId, body = {},
     throw new Error("仅支持 PredictFun 会员");
 
   const pageIndex = Number(body.pageIndex) || 1;
-  const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
+  const pageSize = Math.min(200, Math.max(1, Number(body.pageSize) || 20));
   return accountStore.listMoneyLogs(aid, pageIndex, pageSize, uid);
 }
 

@@ -73,13 +73,17 @@ const rechargeForm = reactive({
 const rechargeLogs = ref<Array<Record<string, unknown>>>([]);
 const rechargeLogsTotal = ref(0);
 
-/** 可同时展开多个会员；每个会员独立全量订单列表 */
+/** 可同时展开多个会员；订单 + 充值/调整流水 */
 interface MemberOrdersPanel {
   userId: string;
   accountId: number;
   loading: boolean;
   error: string;
   orders: AdminOrderRow[];
+  moneyLogsLoading: boolean;
+  moneyLogsError: string;
+  moneyLogs: Array<Record<string, unknown>>;
+  moneyLogsTotal: number;
 }
 
 const expandRowKeys = ref<string[]>([]);
@@ -137,6 +141,26 @@ function panelProfitUsdt(panel: MemberOrdersPanel) {
   return panelCycles(panel).reduce((sum, c) => {
     return sum + (c.profitUsdt != null ? c.profitUsdt : 0);
   }, 0);
+}
+
+function panelMoneyLogsSummaryText(panel: MemberOrdersPanel) {
+  const logs = panel.moneyLogs || [];
+  let recharge = 0;
+  let adjust = 0;
+  for (const row of logs) {
+    const t = String(row.Type ?? row.type ?? "");
+    const m = Number(row.Money ?? row.money) || 0;
+    if (t === "Recharge")
+      recharge += m;
+    else if (t === "Adjust")
+      adjust += m;
+  }
+  const parts = [`${logs.length} 笔`];
+  if (recharge)
+    parts.push(`充值 ${fmtUsdt(recharge)} U`);
+  if (adjust)
+    parts.push(`调整 ${fmtUsdt(adjust)} U`);
+  return parts.join(" · ");
 }
 
 function pfOrderRowClassName({ row }: { row: PfAdminDisplayRow }) {
@@ -506,6 +530,8 @@ async function saveRecharge() {
     if (refreshed)
       rechargeTarget.value = refreshed;
     await loadRechargeLogs();
+    if (panelsByUserId[target.userId])
+      void loadMemberMoneyLogs(target.userId);
   }
   catch (e) {
     ElMessage.error((e as Error).message || "充值失败");
@@ -519,6 +545,8 @@ function moneyLogTypeLabel(row: Record<string, unknown>) {
   const t = String(row.Type ?? row.type ?? "");
   if (t === "Recharge")
     return "充值";
+  if (t === "Adjust")
+    return "调整";
   if (t === "Withdraw")
     return "提现";
   if (t === "Lose")
@@ -563,6 +591,40 @@ async function loadMemberOrders(userId: string) {
   }
 }
 
+async function loadMemberMoneyLogs(userId: string) {
+  const panel = panelsByUserId[userId];
+  if (!panel?.accountId || !panel.userId) {
+    return;
+  }
+  panel.moneyLogsLoading = true;
+  panel.moneyLogsError = "";
+  try {
+    const page = await getAdminPredictFunMoneyLogs({
+      userId: panel.userId,
+      accountId: panel.accountId,
+      pageIndex: 1,
+      pageSize: 200,
+    });
+    const list = (page?.list ?? page?.data ?? []) as Array<Record<string, unknown>>;
+    // 充值/调整优先展示；其余类型也保留便于核对
+    panel.moneyLogs = list;
+    panel.moneyLogsTotal = Number(page?.total ?? page?.RecordCount ?? list.length) || 0;
+  }
+  catch (e) {
+    panel.moneyLogs = [];
+    panel.moneyLogsTotal = 0;
+    panel.moneyLogsError = (e as Error).message || "加载充值记录失败";
+  }
+  finally {
+    panel.moneyLogsLoading = false;
+  }
+}
+
+function refreshMemberPanel(userId: string) {
+  void loadMemberOrders(userId);
+  void loadMemberMoneyLogs(userId);
+}
+
 function toggleOrders(row: AdminPredictFunMemberRow) {
   if (!row.accountId) {
     ElMessage.warning("尚未开通会员");
@@ -581,8 +643,12 @@ function toggleOrders(row: AdminPredictFunMemberRow) {
     loading: false,
     error: "",
     orders: [],
+    moneyLogsLoading: false,
+    moneyLogsError: "",
+    moneyLogs: [],
+    moneyLogsTotal: 0,
   };
-  void loadMemberOrders(uid);
+  refreshMemberPanel(uid);
 }
 
 async function onDeleteOrders(userId: string, rowsToDelete: AdminOrderRow[]) {
@@ -729,7 +795,7 @@ onMounted(async () => {
       </div>
 
       <p class="admin-pf-hint">
-        会员名固定为 changmen 登录名；下单走 VPS 运营主号。点「订单」在该会员行下方展开全部 PredictFun 历史订单。
+        会员名固定为 changmen 登录名；下单走 VPS 运营主号。点「明细」展开该会员的全部历史订单与充值/调整流水。
       </p>
 
       <p v-if="loadError" class="admin-card__empty admin-card__empty--error">
@@ -750,8 +816,8 @@ onMounted(async () => {
                 <div class="admin-pf-orders-toolbar">
                   <el-button
                     size="small"
-                    :loading="getPanel(row.userId)!.loading"
-                    @click="loadMemberOrders(row.userId)"
+                    :loading="getPanel(row.userId)!.loading || getPanel(row.userId)!.moneyLogsLoading"
+                    @click="refreshMemberPanel(row.userId)"
                   >
                     刷新
                   </el-button>
@@ -975,6 +1041,57 @@ onMounted(async () => {
                     </el-table-column>
                   </el-table>
                 </div>
+
+                <div class="admin-pf-money-logs">
+                  <div class="admin-pf-money-logs__title">
+                    充值 / 调整流水
+                    <span class="admin-pf-money-logs__summary">
+                      {{ panelMoneyLogsSummaryText(getPanel(row.userId)!) }}
+                    </span>
+                  </div>
+                  <p v-if="getPanel(row.userId)!.moneyLogsError" class="admin-pf-orders-error">
+                    {{ getPanel(row.userId)!.moneyLogsError }}
+                  </p>
+                  <div
+                    v-loading="getPanel(row.userId)!.moneyLogsLoading"
+                    class="admin-pf-money-logs__body"
+                  >
+                    <el-table
+                      :data="getPanel(row.userId)!.moneyLogs"
+                      size="small"
+                      stripe
+                      empty-text="暂无充值/调整记录"
+                    >
+                      <el-table-column label="时间" width="168" show-overflow-tooltip>
+                        <template #default="{ row: log }">
+                          {{ moneyLogTime(log) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="类型" width="80" align="center">
+                        <template #default="{ row: log }">
+                          {{ moneyLogTypeLabel(log) }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="金额" width="110" align="right">
+                        <template #default="{ row: log }">
+                          <span :class="moneyClass(moneyLogAmount(log))">
+                            {{ fmtUsdt(moneyLogAmount(log)) }}
+                          </span>
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="币种" width="64" align="center">
+                        <template #default="{ row: log }">
+                          {{ String(log.Currency ?? log.currency ?? "USDT") }}
+                        </template>
+                      </el-table-column>
+                      <el-table-column label="说明" min-width="220" show-overflow-tooltip>
+                        <template #default="{ row: log }">
+                          {{ moneyLogDesc(log) }}
+                        </template>
+                      </el-table-column>
+                    </el-table>
+                  </div>
+                </div>
               </div>
             </template>
           </el-table-column>
@@ -1046,7 +1163,7 @@ onMounted(async () => {
                   link
                   @click="toggleOrders(row)"
                 >
-                  {{ isOrdersExpanded(row) ? "收起" : "订单" }}
+                  {{ isOrdersExpanded(row) ? "收起" : "明细" }}
                 </el-button>
               </template>
             </template>
@@ -1274,6 +1391,28 @@ onMounted(async () => {
 }
 .admin-pf-orders-body {
   min-height: 72px;
+}
+.admin-pf-money-logs {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--adm-border);
+}
+.admin-pf-money-logs__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.admin-pf-money-logs__summary {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-pf-money-logs__body {
+  min-height: 56px;
 }
 .admin-pf-sell-attach-label {
   color: var(--adm-text-muted);
