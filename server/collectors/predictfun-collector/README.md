@@ -23,7 +23,8 @@ VPS 守护进程：Predict.fun **REST discovery（唯一权威）** → `platfor
 | 变量 | 说明 |
 |------|------|
 | `PREDICTFUN_COLLECTOR_INTERVAL_MS` | 默认 **15s**（加快列表赔率；可用环境变量覆盖） |
-| `PREDICTFUN_COLLECTOR_FUTURE_MS` | 采集未来窗；**默认 1h**（`3600000`）；进行中不设过去下限 |
+| `PREDICTFUN_COLLECTOR_FUTURE_MS` | 采集未来窗；**默认 1h** |
+| `PREDICTFUN_COLLECTOR_PAST_MS` | 采集过去窗；**默认 2d**；更早的 OPEN 不写入，并由 past prune 清理 |
 
 Discovery 按 `tagIds=83`（Esports）拉取 `ESPORTS_LOL` / `ESPORTS_CS2` 等；**不再**默认 `SPORTS_TEAM_MATCH`（那是 MLB）。过滤后 0 条时**不 clear** `platform_*`。
 

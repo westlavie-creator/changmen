@@ -24,7 +24,13 @@ function providerStartTimeListAllowed(provider, start) {
     const ms = normalizeEpochMs(start);
     if (!ms)
       return true;
-    return ms <= Date.now() + PREDICTFUN_LIST_FUTURE_MS;
+    const now = Date.now();
+    if (ms > now + PREDICTFUN_LIST_FUTURE_MS)
+      return false;
+    // 与 collector past prune 对齐：开赛已过 2 天不再进列表
+    if (ms < now - 2 * 24 * 60 * 60 * 1000)
+      return false;
+    return true;
   }
   return a8StartTimeListAllowed(start);
 }

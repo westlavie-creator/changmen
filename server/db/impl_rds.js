@@ -99,6 +99,10 @@ export {
   writePlatformMatches,
   writePlatformMatchesAsync,
   prunePolymarketPlatformMatches,
+  prunePlatformMatchesByStartBefore,
+  markClientMatchesEndedByStartBefore,
+  pruneMatchesOlderThanTwoDays,
+  PLATFORM_MATCH_PAST_PRUNE_MS,
 } from "./rds/platform_collector_store.js";
 
 export {

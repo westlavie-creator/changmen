@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   formatArchiveCounts,
   archiveStaleClientMatchRows,
+  pruneMatchesOlderThanTwoDays,
 } from "@changmen/db";
 import {
   COMPOSER_INTERVAL_MS,
@@ -30,6 +31,18 @@ async function maybeArchiveStaleClientMatches() {
   if (archiveInFlight)
     return archiveInFlight;
   archiveInFlight = (async () => {
+    try {
+      const past = await pruneMatchesOlderThanTwoDays();
+      if (past?.platform?.deleted || past?.client?.ended) {
+        console.log(
+          `[match-composer] past prune (>2d): platform=${past.platform?.deleted || 0}`
+          + ` clientEnded=${past.client?.ended || 0}`,
+        );
+      }
+    }
+    catch (err) {
+      console.warn("[match-composer] past prune failed:", err?.message || err);
+    }
     const ar = await archiveStaleClientMatchRows();
     lastArchiveAt = Date.now();
     if (ar.rds) {

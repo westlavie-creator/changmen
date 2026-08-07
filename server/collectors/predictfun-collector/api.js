@@ -12,13 +12,31 @@ export const PREDICT_FUN_API = String(
 export const PREDICT_FUN_TAG_ESPORTS = "83";
 
 /**
- * 采集窗：OPEN 且开赛 ≤ now+future（进行中不设过去下限；未来默认 1h）。
- * 可用 PREDICTFUN_COLLECTOR_FUTURE_MS 覆盖未来窗。
+ * 采集窗：OPEN 且 now-past ≤ 开赛 ≤ now+future。
+ * 未来默认 1h；过去默认 2d（与 PLATFORM_MATCH_PAST_PRUNE_MS 对齐，可用 env 覆盖）。
  */
 function collectFutureMs() {
   const n = Number(process.env.PREDICTFUN_COLLECTOR_FUTURE_MS);
   return Number.isFinite(n) && n > 0 ? n : 3600 * 1000;
 }
+
+function collectPastMs() {
+  const n = Number(process.env.PREDICTFUN_COLLECTOR_PAST_MS);
+  return Number.isFinite(n) && n > 0 ? n : 2 * 24 * 60 * 60 * 1000;
+}
+
+export function predictCollectStartTimeAllowed(startMs) {
+  const ms = normalizeEpochMs(startMs);
+  if (!ms)
+    return true;
+  const now = Date.now();
+  if (ms > now + collectFutureMs())
+    return false;
+  if (ms < now - collectPastMs())
+    return false;
+  return true;
+}
+
 const PAGE_SIZE = 50;
 const MAX_PAGES = 8;
 
@@ -36,13 +54,6 @@ function predictHeaders() {
   if (apiKey)
     headers["x-api-key"] = apiKey;
   return headers;
-}
-
-export function predictCollectStartTimeAllowed(startMs) {
-  const ms = normalizeEpochMs(startMs);
-  if (!ms)
-    return true;
-  return ms <= Date.now() + collectFutureMs();
 }
 
 async function predictHttpGet(url) {

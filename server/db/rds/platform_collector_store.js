@@ -598,6 +598,132 @@ export async function prunePolymarketPlatformMatches(opts = {}) {
   }
 }
 
+/** 开赛早于该阈值的平台赛一律 prune（默认 2 天） */
+export const PLATFORM_MATCH_PAST_PRUNE_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * 全平台：start_time < cutoff 的 platform_matches → history，并清 bets/timers。
+ * @param {{ cutoffMs?: number, nowMs?: number }} [opts]
+ * @returns {Promise<{ cutoff: number, deleted: number, byPlatform: Record<string, number> }>}
+ */
+async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
+  const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
+  const cutoff = Number.isFinite(Number(opts.cutoffMs))
+    ? Number(opts.cutoffMs)
+    : now - PLATFORM_MATCH_PAST_PRUNE_MS;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const moved = await client.query(
+      `WITH moved AS (
+         DELETE FROM platform_matches
+         WHERE start_time IS NOT NULL AND start_time < $1::bigint
+         RETURNING *
+       )
+       INSERT INTO platform_matches_history (
+         platform, source_match_id, source_game_id, start_time, home_id, home,
+         away_id, away, bo, is_live, teams, synced_at, match_id
+       )
+       SELECT platform, source_match_id, source_game_id, start_time, home_id, home,
+              away_id, away, bo, is_live, teams, synced_at, match_id
+       FROM moved
+       RETURNING platform, source_match_id`,
+      [cutoff],
+    );
+    const deletedRows = moved.rows || [];
+    const byPlatform = {};
+    const idsByPlatform = new Map();
+    for (const r of deletedRows) {
+      const plat = String(r.platform || "");
+      byPlatform[plat] = (byPlatform[plat] || 0) + 1;
+      if (!idsByPlatform.has(plat))
+        idsByPlatform.set(plat, []);
+      idsByPlatform.get(plat).push(String(r.source_match_id));
+    }
+    for (const [plat, ids] of idsByPlatform) {
+      if (!ids.length)
+        continue;
+      await client.query(
+        `DELETE FROM platform_bets
+         WHERE platform = $1 AND source_match_id = ANY($2::text[])`,
+        [plat, ids],
+      );
+      await client.query(
+        `DELETE FROM live_timers
+         WHERE platform = $1 AND source_match_id = ANY($2::text[])`,
+        [plat, ids],
+      );
+    }
+    await client.query("COMMIT");
+    return { cutoff, deleted: deletedRows.length, byPlatform };
+  }
+  catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+  finally {
+    client.release();
+  }
+}
+
+export async function prunePlatformMatchesByStartBefore(opts = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return { cutoff: 0, deleted: 0, byPlatform: {} };
+  try {
+    return await _rdsPrunePlatformMatchesByStartBefore(pool, opts);
+  }
+  catch (err) {
+    console.warn("[rds:platform_matches_past_prune]", err.message);
+    throw err;
+  }
+}
+
+/**
+ * 活跃 client_matches：开赛早于 cutoff → 写 ended_at（不搬 history）。
+ * @param {{ cutoffMs?: number, nowMs?: number, endedAt?: number }} [opts]
+ */
+export async function markClientMatchesEndedByStartBefore(opts = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return { cutoff: 0, ended: 0 };
+  const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
+  const cutoff = Number.isFinite(Number(opts.cutoffMs))
+    ? Number(opts.cutoffMs)
+    : now - PLATFORM_MATCH_PAST_PRUNE_MS;
+  const endedAt = Number.isFinite(Number(opts.endedAt)) ? Number(opts.endedAt) : now;
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE client_matches
+       SET ended_at = COALESCE(ended_at, $2)
+       WHERE ended_at IS NULL
+         AND start_time IS NOT NULL
+         AND start_time < $1::bigint`,
+      [cutoff, endedAt],
+    );
+    return { cutoff, ended: rowCount ?? 0 };
+  }
+  catch (err) {
+    console.warn("[rds:client_matches_past_end]", err.message);
+    throw err;
+  }
+}
+
+/** 两天前比赛：平台行 prune + 合场行标 ended */
+export async function pruneMatchesOlderThanTwoDays(opts = {}) {
+  const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
+  const cutoff = Number.isFinite(Number(opts.cutoffMs))
+    ? Number(opts.cutoffMs)
+    : now - PLATFORM_MATCH_PAST_PRUNE_MS;
+  const platform = await prunePlatformMatchesByStartBefore({ cutoffMs: cutoff, nowMs: now });
+  const client = await markClientMatchesEndedByStartBefore({
+    cutoffMs: cutoff,
+    nowMs: now,
+    endedAt: now,
+  });
+  return { cutoff, platform, client };
+}
+
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */
 export async function fetchPlatformMatches() {
   const pool = getPgPool();

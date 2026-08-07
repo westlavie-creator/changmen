@@ -1,6 +1,7 @@
 import {
   formatArchiveCounts,
   archiveStaleClientMatchRows,
+  pruneMatchesOlderThanTwoDays,
 } from "@changmen/db";
 import { MATCHER_CLIENT_MATCH_ARCHIVE_INTERVAL_MS, MATCHER_INTERVAL_MS } from "./lib/config.js";
 import { writeMatcherHeartbeat } from "./lib/heartbeat.js";
@@ -22,6 +23,18 @@ async function maybeArchiveStaleClientMatches() {
   if (archiveInFlight)
     return archiveInFlight;
   archiveInFlight = (async () => {
+    try {
+      const past = await pruneMatchesOlderThanTwoDays();
+      if (past?.platform?.deleted || past?.client?.ended) {
+        console.log(
+          `[matcher] past prune (>2d): platform=${past.platform?.deleted || 0}`
+          + ` clientEnded=${past.client?.ended || 0}`,
+        );
+      }
+    }
+    catch (err) {
+      console.warn("[matcher] past prune failed:", err?.message || err);
+    }
     const ar = await archiveStaleClientMatchRows();
     lastArchiveAt = Date.now();
     if (ar.rds) {

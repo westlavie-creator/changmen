@@ -93,6 +93,22 @@ export async function runPredictFunDiscoveryCycle() {
   }
   await deleteOrphanPlatformBetsAsync(PLATFORM, keepIds);
 
+  // 开赛已过 2 天：全平台 prune（含本拍未写入的僵尸 OPEN）
+  let pastPruned = 0;
+  try {
+    const { pruneMatchesOlderThanTwoDays } = await import("@changmen/db");
+    const past = await pruneMatchesOlderThanTwoDays();
+    pastPruned = Number(past?.platform?.deleted) || 0;
+    if (pastPruned || past?.client?.ended) {
+      console.log(
+        `[predictfun-collector] past prune platform=${pastPruned} clientEnded=${past?.client?.ended || 0}`,
+      );
+    }
+  }
+  catch (err) {
+    console.warn("[predictfun-collector] past prune failed:", err?.message || err);
+  }
+
   persistPredictFunMarketIndex(candidates, books);
 
   const betCount = candidates.reduce((n, mapped) => {
