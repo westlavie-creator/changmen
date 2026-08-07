@@ -48,7 +48,10 @@ interface PmMarketHubClient {
   lastBufferedAmount: number;
   droppedToClient: number;
   coalescedToClient?: number;
+  softSkipToClient?: number;
+  hardSkipToClient?: number;
   pendingAssets?: number;
+  pendingAgeMs?: number;
   sentToClient: number;
   remoteAddress: string;
   xForwardedFor?: string;
@@ -58,6 +61,12 @@ interface PmMarketHubStatus {
   activeClients: number;
   subscribedAssets: number;
   upstreamConnected: boolean;
+  pendingFlushMs?: number;
+  softBufferedBytes?: number;
+  thinFrames?: boolean;
+  softSkipTotal?: number;
+  hardSkipTotal?: number;
+  pendingMaxAgeMs?: number;
   slowClients: PmMarketHubClient[];
 }
 interface HealthData {
@@ -136,6 +145,16 @@ function agoStr(ts: number): string {
   if (sec > 60)
     return `${Math.floor(sec / 60)}m ago`;
   return `${sec}s ago`;
+}
+
+function formatBytes(n: number | undefined): string {
+  if (n == null || !Number.isFinite(n))
+    return "—";
+  if (n >= 1024 * 1024)
+    return `${(n / (1024 * 1024)).toFixed(1)}MiB`;
+  if (n >= 1024)
+    return `${Math.round(n / 1024)}KiB`;
+  return `${n}B`;
 }
 
 function heapPct(d: HealthData): number {
@@ -396,6 +415,30 @@ onUnmounted(() => {
             </span>
           </span>
         </div>
+        <div class="health-row">
+          <span>合批 / 软阈</span>
+          <span class="health-val health-sub">
+            flush {{ health.wsForward.hubs.pmMarket.pendingFlushMs ?? '—' }}ms
+            · soft {{ formatBytes(health.wsForward.hubs.pmMarket.softBufferedBytes) }}
+            · thin {{ health.wsForward.hubs.pmMarket.thinFrames === false ? 'off' : 'on' }}
+          </span>
+        </div>
+        <div class="health-row">
+          <span>背压</span>
+          <span
+            class="health-val"
+            :class="{
+              'health-val--warn': (health.wsForward.hubs.pmMarket.softSkipTotal ?? 0) > 0
+                || (health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0) > 500,
+              'health-val--bad': (health.wsForward.hubs.pmMarket.hardSkipTotal ?? 0) > 0
+                || (health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0) > 2000,
+            }"
+          >
+            soft-skip {{ health.wsForward.hubs.pmMarket.softSkipTotal ?? 0 }}
+            · hard-skip {{ health.wsForward.hubs.pmMarket.hardSkipTotal ?? 0 }}
+            · pendingAge {{ health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0 }}ms
+          </span>
+        </div>
         <div
           v-if="health.wsForward.hubs.pmMarket.slowClients?.length"
           class="health-api-table-wrap"
@@ -407,8 +450,10 @@ onUnmounted(() => {
                 <th>IP</th>
                 <th>assets</th>
                 <th>drop</th>
+                <th>soft</th>
                 <th>coalesced</th>
                 <th>pending</th>
+                <th>age</th>
                 <th>buf</th>
                 <th>时长</th>
                 <th>UA</th>
@@ -427,9 +472,15 @@ onUnmounted(() => {
                 <td :class="{ 'health-val--bad': row.droppedToClient > 0 }">
                   {{ row.droppedToClient }}
                 </td>
+                <td :class="{ 'health-val--warn': (row.softSkipToClient ?? 0) > 0 }">
+                  {{ row.softSkipToClient ?? 0 }}
+                </td>
                 <td>{{ row.coalescedToClient ?? 0 }}</td>
                 <td :class="{ 'health-val--warn': (row.pendingAssets ?? 0) > 0 }">
                   {{ row.pendingAssets ?? 0 }}
+                </td>
+                <td :class="{ 'health-val--warn': (row.pendingAgeMs ?? 0) > 500 }">
+                  {{ row.pendingAgeMs ?? 0 }}ms
                 </td>
                 <td>{{ row.lastBufferedAmount }}</td>
                 <td>{{ row.connectedForSec }}s</td>

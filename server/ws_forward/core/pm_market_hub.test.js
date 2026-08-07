@@ -164,4 +164,17 @@ describe("pm_market_hub", () => {
     else
       process.env.PM_HUB_SOFT_BUFFERED_BYTES = prev;
   });
+
+  test("getPmMarketHubStatus exposes lag knobs and zero counters when idle", async () => {
+    const { getPmMarketHubStatus, resetPmMarketHubForTests } = await import("./pm_market_hub.js");
+    resetPmMarketHubForTests();
+    const st = getPmMarketHubStatus();
+    expect(st.pendingFlushMs).toBe(resolvePendingFlushMs());
+    expect(st.softBufferedBytes).toBe(resolveSoftBufferedBytes());
+    expect(typeof st.thinFrames).toBe("boolean");
+    expect(st.softSkipTotal).toBe(0);
+    expect(st.hardSkipTotal).toBe(0);
+    expect(st.pendingMaxAgeMs).toBe(0);
+    expect(st.slowClients).toEqual([]);
+  });
 });

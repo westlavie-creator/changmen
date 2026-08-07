@@ -13,7 +13,7 @@
 | PM-USER | raw WebSocket | `/esport/ws-forward/PM-USER` | `wss://ws-subscriptions-clob.polymarket.com/ws/user`（仍在 esport） |
 | PREDICTFUN-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PREDICTFUN-MARKET` | 独立进程 `changmen-predictfun-market-hub` `:3458` → `wss://ws.predict.fun/ws`（`PREDICT_FUN_API_KEY` 握手） |
 
-**PM-MARKET hub**：所有浏览器仍连 changmen 同一路径；服务端维护 **一条** 上游 MARKET WS，合并全站 `asset_id` 订阅后再 fan-out。客户端协议不变（`polymarketMarketSubscribeMessage` + `PING`）。无在线客户端 60s 后关闭上游。
+**PM-MARKET hub**：所有浏览器仍连 changmen 同一路径；服务端维护 **一条** 上游 MARKET WS，合并全站 `asset_id` 订阅后再 fan-out。客户端协议不变（`polymarketMarketSubscribeMessage` + `PING`）。无在线客户端 60s 后关闭上游。Health 暴露 `softSkipTotal` / `pendingMaxAgeMs` / `pendingFlushMs` / `softBufferedBytes`（`PM_HUB_*` 可调），用于判断合批背压是否拖慢实时价。
 
 **PREDICTFUN-MARKET hub**：浏览器仍发 `{ method: "subscribe", params: ["predictOrderbook/{marketId}"] }`；服务端合并全站 marketId，单条上游连 Predict.fun，上游 heartbeat 由 hub 代答。无在线客户端 60s 后关闭上游。
 

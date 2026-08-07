@@ -36,6 +36,9 @@ const UPSTREAM_IDLE_MS = 60_000;
  *   droppedToClient: number,
  *   coalescedToClient: number,
  *   sentToClient: number,
+ *   softSkipToClient: number,
+ *   hardSkipToClient: number,
+ *   pendingOldestAt: number,
  *   pendingByAsset: Map<string, string>,
  *   remoteAddress: string,
  *   xForwardedFor: string,
@@ -117,6 +120,10 @@ const toClientGuard = createWsRelayGuard(HUB_ID, "to-client");
 let pendingFlushTimer = null;
 /** @type {(() => void) | null} */
 let stopHubBackpressure = null;
+/** 软背压跳过 flush 累计（全 hub） */
+let softSkipTotal = 0;
+/** 硬背压（toClientGuard）跳过 flush 累计 */
+let hardSkipTotal = 0;
 
 function summarizeText(value, max = 120) {
   const s = String(value || "").trim();
@@ -297,20 +304,26 @@ function flushClientPending(clientWs, row) {
     return;
   if (clientWs.readyState !== WebSocket.OPEN) {
     row.pendingByAsset.clear();
+    row.pendingOldestAt = 0;
     return;
   }
   const buffered = Number(clientWs.bufferedAmount) || 0;
   row.lastBufferedAmount = buffered;
   // 软背压：管线未排空则本轮跳过，pending 继续 coalesce（不 take）
   if (buffered > resolveSoftBufferedBytes()) {
+    row.softSkipToClient += 1;
+    softSkipTotal += 1;
     ensurePendingFlushTimer();
     return;
   }
   if (!toClientGuard.isSendAllowed(clientWs)) {
+    row.hardSkipToClient += 1;
+    hardSkipTotal += 1;
     ensurePendingFlushTimer();
     return;
   }
   const raws = takePendingRawsDeduped(row.pendingByAsset);
+  row.pendingOldestAt = 0;
   if (!raws.length)
     return;
   const payload = buildBatchedPendingPayload(raws);
@@ -325,8 +338,11 @@ function flushClientPending(clientWs, row) {
   catch {
     for (const stuck of raws) {
       const ids = extractAssetIdsFromPmMarketMessage(stuck);
-      if (ids.size)
+      if (ids.size) {
         enqueueLatestByAsset(row.pendingByAsset, ids, stuck);
+        if (!row.pendingOldestAt)
+          row.pendingOldestAt = Date.now();
+      }
       else
         row.droppedToClient += 1;
     }
@@ -379,6 +395,8 @@ function fanoutRawToClient(clientWs, row, raw, msgAssetIds, broadcastAll) {
 
   // 行情：一律进 pending；仅定时器合批下发（禁止上游每 tick flush，否则 CN↔VPS 仍按消息率灌管）
   row.coalescedToClient += enqueueLatestByAsset(row.pendingByAsset, keys, raw);
+  if (!row.pendingOldestAt)
+    row.pendingOldestAt = Date.now();
   ensurePendingFlushTimer();
 }
 
@@ -650,6 +668,9 @@ function attachClient(clientWs, request, meta = {}) {
     droppedToClient: 0,
     coalescedToClient: 0,
     sentToClient: 0,
+    softSkipToClient: 0,
+    hardSkipToClient: 0,
+    pendingOldestAt: 0,
     pendingByAsset: new Map(),
     remoteAddress: detectRemoteAddress(request),
     xForwardedFor: summarizeText(request?.headers?.["x-forwarded-for"] || "", 80),
@@ -755,26 +776,40 @@ export function isPmMarketHubAttached() {
 }
 
 export function getPmMarketHubStatus() {
-  const rows = [...clients.values()].map(row => ({
-    id: row.id,
-    userId: row.userId || "",
-    userName: row.userName || "",
-    assetCount: row.assetIds.size,
-    connectedForSec: Math.max(0, Math.round((Date.now() - row.connectedAt) / 1000)),
-    idleSubscribeSec: row.lastSubscribeAt
-      ? Math.max(0, Math.round((Date.now() - row.lastSubscribeAt) / 1000))
-      : null,
-    lastBufferedAmount: row.lastBufferedAmount,
-    droppedToClient: row.droppedToClient,
-    coalescedToClient: row.coalescedToClient,
-    pendingAssets: row.pendingByAsset.size,
-    sentToClient: row.sentToClient,
-    remoteAddress: row.remoteAddress,
-    xForwardedFor: row.xForwardedFor,
-    userAgent: row.userAgent,
-  }));
+  const now = Date.now();
+  let pendingMaxAgeMs = 0;
+  const rows = [...clients.values()].map((row) => {
+    const pendingAgeMs = row.pendingOldestAt && row.pendingByAsset.size
+      ? Math.max(0, now - row.pendingOldestAt)
+      : 0;
+    if (pendingAgeMs > pendingMaxAgeMs)
+      pendingMaxAgeMs = pendingAgeMs;
+    return {
+      id: row.id,
+      userId: row.userId || "",
+      userName: row.userName || "",
+      assetCount: row.assetIds.size,
+      connectedForSec: Math.max(0, Math.round((now - row.connectedAt) / 1000)),
+      idleSubscribeSec: row.lastSubscribeAt
+        ? Math.max(0, Math.round((now - row.lastSubscribeAt) / 1000))
+        : null,
+      lastBufferedAmount: row.lastBufferedAmount,
+      droppedToClient: row.droppedToClient,
+      coalescedToClient: row.coalescedToClient,
+      softSkipToClient: row.softSkipToClient,
+      hardSkipToClient: row.hardSkipToClient,
+      pendingAssets: row.pendingByAsset.size,
+      pendingAgeMs,
+      sentToClient: row.sentToClient,
+      remoteAddress: row.remoteAddress,
+      xForwardedFor: row.xForwardedFor,
+      userAgent: row.userAgent,
+    };
+  });
   rows.sort((a, b) =>
-    (b.droppedToClient - a.droppedToClient)
+    (b.softSkipToClient - a.softSkipToClient)
+    || (b.pendingAgeMs - a.pendingAgeMs)
+    || (b.droppedToClient - a.droppedToClient)
     || (b.pendingAssets - a.pendingAssets)
     || (b.lastBufferedAmount - a.lastBufferedAmount)
     || (b.assetCount - a.assetCount),
@@ -783,6 +818,12 @@ export function getPmMarketHubStatus() {
     activeClients: rows.length,
     subscribedAssets: upstreamSubscribed.size,
     upstreamConnected: upstream?.readyState === WebSocket.OPEN,
+    pendingFlushMs: resolvePendingFlushMs(),
+    softBufferedBytes: resolveSoftBufferedBytes(),
+    thinFrames: isPmHubThinFramesEnabled(),
+    softSkipTotal,
+    hardSkipTotal,
+    pendingMaxAgeMs,
     slowClients: rows.slice(0, 10),
   };
 }
@@ -801,6 +842,8 @@ export function closePmMarketHub() {
     catch { /* ignore */ }
   }
   clients.clear();
+  softSkipTotal = 0;
+  hardSkipTotal = 0;
   closeUpstream("shutdown");
   clearUpstreamIdleTimer();
   if (wss) {
