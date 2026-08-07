@@ -2,7 +2,7 @@
 
 changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check-team-boundaries` 让**客户端团队**与**服务端团队**可各自维护，减少跨团队改坏对方代码。
 
-**目录层级**（详见 [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md)）：**平台层**（`packages/`、`client/venue-adapter/`、`server/backend/`…共用）→ **能力层**（`match-engine`、`ws_forward`、`value-bet`…可复用引擎）→ **产品线层**（`lines/{code}/` 仅 manifest + `line.json`，电竞代码仍在根目录）。整理目录时改 manifest/文档即可，不必为产品线复制平台包。
+**目录层级**（详见 [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md)）：**平台层**（`packages/`、`client/venue-adapter/`、`server/backend/`…共用）→ **能力层**（`server/match/identity`、`ws_forward`、`value-bet`…可复用引擎）→ **产品线层**（`lines/{code}/` 仅 manifest + `line.json`，电竞代码仍在根目录）。整理目录时改 manifest/文档即可，不必为产品线复制平台包。
 
 完整两仓 / 契约包路线见本文末尾「后续阶段」。
 
@@ -127,7 +127,7 @@ copy changmen\docs\CODEOWNERS.example .github\CODEOWNERS
 ## 开发习惯
 
 1. **客户端**改采集/下注 → 只动 `venue-adapter` + `client/web`；用 Save* API 验证，不直连 RDS。
-2. **服务端**改合并/表结构 → `matcher` + `match-engine` + `db` + `backend/db/migrations`；用 `Client_GetMatchs` 契约测试或 web 冒烟验证。
+2. **服务端**改合并/表结构 → `server/match/matcher` + `server/match/identity` + `db` + `backend/db/migrations`；用 `Client_GetMatchs` 契约测试或 web 冒烟验证。
 3. **`packages/shared`** 变更：谁改谁提 PR，另一方扫一眼受影响 API 字段/展示。
 4. 生产发版解耦：前端 `app:build` 更新 `dist`、后端 `pm2 restart` 互不影响；单机单 IP 用 Caddy 即可，**不必**双域名。见 [PRODUCTION_DEPLOYMENT.md §2.1](../PRODUCTION_DEPLOYMENT.md#21-两团队独立发版单-ip--caddy)。
 

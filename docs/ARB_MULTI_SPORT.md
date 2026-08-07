@@ -14,7 +14,7 @@
 | 允许 | 禁止 |
 |------|------|
 | 新 API（`Client_GetFootballMatchs` 等）、`sport_*` 表/缓存、足球 Tab / store | 改 `Client_GetMatchs` / `buildMatchList` / `client_matches` |
-| 体育专用 fetch / merge / catalog 的 `football` 段 | 改 matcher、`match-engine`、电竞 collector、`mainBetLoop` |
+| 体育专用 fetch / merge / catalog 的 `football` 段 | 改 matcher、`server/match/identity`、电竞 collector、`mainBetLoop` |
 | 可选 DTO 字段（电竞不填则行为不变） | 为足球改电竞 `getBetName` / 下单门控 / fo 语义 |
 | 共用 UI 壳（`MatchCard`/`BetRow`）且电竞分支保持原样 | 体育写 `oddsStore`(fo)；体育套利塞进电竞主循环 |
 | `sportOddsStore` + hub 只读体育板 | 「顺手」改 `manualBet` / 账号过滤等电竞路径 |

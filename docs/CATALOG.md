@@ -49,7 +49,7 @@ sport_catalog（运动）
 | `nameEn` | string | | 英文名 |
 | `status` | enum | ✅ | `active` \| `planned` \| `deprecated` |
 | `defaultGameCodes` | string[] | | 默认启用的 `game_catalog.code` 列表 |
-| `matcherProfile` | string | | 合并配置名，对应 `match-engine/profiles/{name}.js`（规划） |
+| `matcherProfile` | string | | 合并配置名，对应 `server/match/identity/profiles/{name}.js`（规划） |
 | `linePath` | string | | 产品线锚点目录，如 `lines/baseball`；与 `lines/{code}/line.json` 对应 |
 | `apiSportFilter` | string | | `Client_GetMatchs` 过滤值，通常与 `code` 相同 |
 | `pm2Apps` | string[] | | 关联 PM2 进程名 |
@@ -205,7 +205,7 @@ OB（未配置的游戏） / RAY
 
 | 组件 | 改动 |
 |------|------|
-| `match-engine` | `matcherProfile` 分支：跳过 Map/promote（baseball） |
+| `server/match/identity` | `matcherProfile` 分支：跳过 Map/promote（baseball） |
 | `server/match/matcher` | merge 输入按 sport 过滤 `platform_*` |
 | `router.ts` `Client_GetMatchs` | 请求体可选 `sport` |
 

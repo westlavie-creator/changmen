@@ -10,7 +10,7 @@
 | 场馆 adapter | `venueAdapter` | `client/venue-adapter/` |
 | API + 代理 + ws-forward 挂载 | `api` | `server/backend/` |
 | 合并调度 | `matcher` | `server/match/matcher/` |
-| 合并算法 | `matchEngine` | `server/match/identity/` |
+| 合并算法 | `matchIdentity` | `server/match/identity/` |
 | 队名解析 | `teamResolver` | `server/match/resolver/` |
 | 正 EV 扫描 | `valueBet` | `server/value-bet/` |
 | Socket.IO 推送 | `realtimeHub` | `server/realtime-hub/` |

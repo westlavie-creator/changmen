@@ -26,7 +26,7 @@ changmen（平台 monorepo）
 │
 ├── 能力层（共享引擎，非独立产品线）
 │   ├── client/web/src/extensions/   arbBet · valueBet · arbOpportunity…
-│   ├── server/match/matcher/ · match-engine/ · team-resolver/
+│   ├── server/match/（matcher · identity · resolver） 合场引擎
 │   └── server/value-bet/
 │
 ├── 电竞产品线（默认；代码仍在根 — 锚点 lines/esport/）

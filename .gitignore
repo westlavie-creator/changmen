@@ -64,8 +64,8 @@ client/chrome-extension/scripts/_extracted/
 gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache
-server/team-resolver/cache/*.json
-!server/team-resolver/cache/.gitkeep
+server/match/resolver/cache/*.json
+!server/match/resolver/cache/.gitkeep
 # AI/session scratch (not product code)
 memory/
 server/backend/platform_adapter/

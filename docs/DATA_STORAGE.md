@@ -9,8 +9,8 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `platform_matches` | 客户端 `API_SaveMatch` → backend | embedded matcher matchMerge | 各平台原始比赛 |
 | `platform_bets` | `API_SaveBet` | embedded matcher | 各平台赔率快照 |
 | `live_timers` | `API_SaveLiveTimer` → backend | embedded matcher matchMerge | 局数/计时；GetMatchs 不再 overlay |
-| `client_matches` | embedded matcher 30s 循环 → `match-composer` composeOnce（唯一写路径） | 浏览器 `Client_GetMatchs`（只读，不改写） | 合并后的**电竞**比赛列表 |
-| `canonical_teams` / `team_venue_maps` | team-resolver、matcher | matcher 队名插件 | **电竞**队伍 canonical 映射 |
+| `client_matches` | embedded matcher 30s 循环 → `@changmen/matcher` `compose/`（唯一写路径） | 浏览器 `Client_GetMatchs`（只读，不改写） | 合并后的**电竞**比赛列表 |
+| `canonical_teams` / `team_venue_maps` | `server/match/resolver`、`server/match/matcher` | matcher 队名插件 | **电竞**队伍 canonical 映射 |
 | `sport_client_matches`（+ history） | `sport_merge` 异步落库（N3） | `GetBaseball/FootballMatchs`（双场馆合并成功时） | 体育合并输出；**禁止**混入电竞 `client_matches` |
 | `sport_venue_matches` / `sport_venue_bets` | `sport_venue_ingest` | `sport_merge` | 场馆原始赛程/盘口（列名 `venue`，非 `platform`） |
 | `sport_canonical_teams` / `sport_team_venue_maps` | 预留；热路径用 JSON plugin | `sport_team_plugin`（当前） | 体育队名；与电竞队名表物理隔离 |

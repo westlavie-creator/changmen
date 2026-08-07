@@ -5,6 +5,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 
 - 最近更新：2026-08-03
 - 关联：[ARCHITECTURE.md](./ARCHITECTURE.md)、[DATA_STORAGE.md](./DATA_STORAGE.md)、[ACCOUNT_BACKEND.md](./ACCOUNT_BACKEND.md)
+- **目录注记（2026-08-07）**：match 模块已整合——`match-engine/` → `server/match/identity`、`team-resolver/` → `server/match/resolver`、`matcher/`+`match-composer/` → `server/match/matcher`。下文旧目录名为当时命名；现路径以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准。
 
 ---
 
@@ -15,7 +16,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | 已覆盖 | 未覆盖（后续可补） |
 |--------|--------------------|
 | 全仓规模统计（大文件 / `@deprecated` / `any` / `console` / 依赖过期） | `chrome-extension/`（`content.js` 4315 行、`background.js` 3398 行）未深入 |
-| `server/`（backend、db、match-engine、matcher link）中等深度 | `match-projector` / `match-composer` / `ws_forward` / `collectors/*` 仅扫过 |
+| `server/`（backend、db、match/identity、match/matcher link）中等深度 | `match-projector`（已删）/ `match-composer`（已并入 matcher）/ `ws_forward` / `collectors/*` 仅扫过 |
 | `client/web/src` 前端（stores、大组件、打包）中等深度 | 测试有效性 / 覆盖率未评估 |
 | eslint / turbo / test 脚本链路 | 未跑 profiler 做真实性能量化；未做安全审计 |
 
@@ -187,7 +188,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | ID | 范围 | 状态 |
 |----|------|------|
 | A-1 | chrome-extension（content.js / background.js） | 未审计 |
-| A-2 | match-projector / match-composer / ws_forward / collectors | 未审计 |
+| A-2 | server/match/matcher（compose）/ ws_forward / collectors | 未审计 |
 | A-3 | 测试覆盖率与有效性评估 | 未审计 |
 | A-4 | 真实性能 profiling 量化 | 未做 |
 
