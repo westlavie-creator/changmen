@@ -15,8 +15,21 @@ function hasDatabaseUrl() {
   );
 }
 
+/**
+ * pm2 restart --update-env 可能把 `PREDICT_FUN_API_KEY=`（空串）写进进程环境；
+ * dotenv 默认不覆盖「已存在」的 key，空串会挡住 .env 里的真值 → PF house 误报未配置。
+ * 在读文件前清掉空串占位，让 .env 能灌进来。
+ */
+function clearEmptyEnvPlaceholders() {
+  for (const key of Object.keys(process.env)) {
+    if (process.env[key] === "")
+      delete process.env[key];
+  }
+}
+
 /** @param {{ prepend?: string[] }} [options] */
 export function loadChangmenEnv(options = {}) {
+  clearEmptyEnvPlaceholders();
   const rels = [...(options.prepend ?? []), "server/backend/.env"];
   for (const rel of rels) {
     const envPath = path.join(CHANGMEN_ROOT_FROM_PKG, rel);

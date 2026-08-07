@@ -79,6 +79,7 @@ export const {
   writeClientMatches,
   writeClientMatchesAsync,
   fetchClientMatches,
+  fetchClientMatchesAll,
   fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,
@@ -276,6 +277,8 @@ export {
 
 export {
   archiveClientMatch,
+  forceEndClientMatch,
+  clearClientMatchEndedAt,
   deleteClientMatchRow,
   deletePlatformMatchRow,
   fetchClientMatchesDashboard,

@@ -115,7 +115,9 @@ export async function loadSnapshot({ registerTeams = true } = {}) {
     matchesRaw = (await db.fetchPlatformMatches()) || {};
     bets = (await db.fetchPlatformBets()) || {};
     timers = (await db.fetchLiveTimers()) || {};
-    clientRows = (await db.fetchClientMatches()) || [];
+    clientRows = typeof db.fetchClientMatchesAll === "function"
+      ? (await db.fetchClientMatchesAll()) || []
+      : (await db.fetchClientMatches()) || [];
     alignClientRows = typeof db.fetchClientMatchesForAlign === "function"
       ? (await db.fetchClientMatchesForAlign()) || []
       : [];
@@ -124,7 +126,7 @@ export async function loadSnapshot({ registerTeams = true } = {}) {
       alignClientRows = clientRows;
     if (!clientRows.length && alignClientRows.length) {
       console.warn(
-        "[match-composer] fetchClientMatches 空但 ForAlign 有数据；"
+        "[match-composer] fetchClientMatchesAll 空但 ForAlign 有数据；"
         + "sticky/pm_sport 将退化，请检查全量查询",
       );
       clientRows = alignClientRows;

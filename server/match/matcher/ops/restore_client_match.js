@@ -4,7 +4,8 @@ import { invalidateMatcherRdsSnapshot } from "./rds_snapshot_cache.js";
 import "../lib/env.js";
 
 /**
- * 恢复已归档的 client_matches：从 history 表移回主表，并 matchMerge。
+ * 恢复已结束的 client_matches：清除 ended_at，再 matchMerge。
+ * 若合场仍判定已结束，会再次写入 ended_at，并在返回中标记 reEnded。
  */
 
 async function restoreClientMatch(clientMatchId) {
@@ -12,8 +13,11 @@ async function restoreClientMatch(clientMatchId) {
   if (!Number.isFinite(cmId))
     throw new Error("无效的赛事 ID");
 
-  const cm = await db.fetchClientMatchRow(cmId, "id, title");
-  if (cm) {
+  const cm = await db.fetchClientMatchRow(cmId, "id, title, ended_at");
+  if (!cm)
+    throw new Error("赛事不存在");
+
+  if (cm.ended_at == null) {
     return {
       ok: true,
       id: cmId,
@@ -23,15 +27,20 @@ async function restoreClientMatch(clientMatchId) {
     };
   }
 
-  // matchMerge 会重新合并，不需要从 history 恢复行
+  await db.clearClientMatchEndedAt(cmId);
+
   invalidateMatcherRdsSnapshot(["clientMatches", "platformMatches"]);
   const matchMerge = await matchMergeOnce({ afterInFlight: true });
+
+  const after = await db.fetchClientMatchRow(cmId, "id, title, ended_at");
+  const reEnded = after?.ended_at != null;
 
   return {
     ok: true,
     id: cmId,
-    title: "",
+    title: (after?.title || cm.title || ""),
     restored: true,
+    reEnded,
     matchMerge,
   };
 }

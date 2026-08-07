@@ -15,6 +15,7 @@ import {
 import { dedupeRowsById } from "./ids/dedupe_rows.js";
 import { resolveIdsDryRun, resolveIdsForWrite } from "./ids/resolve_ids.js";
 import {
+  buildEndedAtByClientId,
   buildPmSportByClientId,
   filterActiveClientMatches,
 } from "./shape/ended_filter.js";
@@ -122,12 +123,17 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
   const pmSportByClientId = fromVenuesOnly
     ? new Map()
     : buildPmSportByClientId(clientRows);
+  const endedAtByClientId = fromVenuesOnly
+    ? new Map()
+    : buildEndedAtByClientId(clientRows);
   const ended = filterActiveClientMatches(info, {
     platformMatches: matches,
     timersByProvider: timers,
     pmSportByClientId,
+    endedAtByClientId,
   });
   info = ended.list;
+  const endedRows = ended.endedList || [];
 
   if (allowInsert && adapter && info.length) {
     if (fromVenuesOnly) {
@@ -141,6 +147,7 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
 
   return {
     info,
+    endedRows,
     projectStats,
     endedCount: ended.endedCount,
     mergedDuplicateIds: deduped.mergedCount,

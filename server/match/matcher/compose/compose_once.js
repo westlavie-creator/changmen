@@ -13,10 +13,10 @@ import { writeClientMatches } from "./io/write.js";
 import { composeFromSnapshot, resolveAndProject } from "./pipeline.js";
 
 /**
- * 空写策略（防误清表）：
+ * 空写策略（防误清活跃集）：
  * - info 非空 → 放行
  * - ALLOW_EMPTY_WRITE=1 → 强制放行
- * - endedCount>0 且本拍处理过的正 ID 覆盖 RDS 全部 active → 允许全量归档
+ * - endedCount>0 且本拍处理过的正 ID 覆盖 RDS 全部 active → 允许全部标 ended
  * - 其余（含 ended>0 但未覆盖全部 active）→ 拒写
  */
 export function shouldAllowEmptyWrite({
@@ -87,6 +87,7 @@ export async function composeOnce({
 
   const {
     info,
+    endedRows = [],
     projectStats,
     endedCount,
     mergedDuplicateIds,
@@ -102,6 +103,7 @@ export async function composeOnce({
   const previousActiveIds = fromVenuesOnly
     ? []
     : (snapshot.clientRows || [])
+      .filter(r => r.ended_at == null && r.endedAt == null)
       .map(r => Number(r.id ?? r.ID))
       .filter(id => Number.isFinite(id) && id > 0);
 
@@ -130,7 +132,21 @@ export async function composeOnce({
       );
     }
 
-    await writeClientMatches(info, now);
+    const activeIds = new Set(
+      (info || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
+    );
+    const endedIds = new Set(
+      (endedRows || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
+    );
+    const markEndedIds = previousActiveIds.filter(
+      id => !activeIds.has(id) && !endedIds.has(id),
+    );
+    const stickyEndedIds = (snapshot.clientRows || [])
+      .filter(r => r.ended_at != null || r.endedAt != null)
+      .map(r => Number(r.id ?? r.ID))
+      .filter(id => Number.isFinite(id) && id > 0);
+
+    await writeClientMatches(info, now, { endedRows, markEndedIds, stickyEndedIds });
     wrote = true;
     writeComposerHeartbeat({
       matchCount: info.length,

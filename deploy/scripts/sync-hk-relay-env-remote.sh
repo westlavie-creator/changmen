@@ -45,6 +45,10 @@ echo "HTTP_RELAY_REQUIRE_TOKEN=$HTTP_RELAY_REQUIRE_TOKEN"
 echo "HTTP_RELAY_ALLOWED_HOSTS=$HTTP_RELAY_ALLOWED_HOSTS"
 
 if command -v pm2 >/dev/null 2>&1; then
+  # 空串若 export 进 pm2，会挡住 dotenv 读 .env（见 load_env clearEmptyEnvPlaceholders）
+  if [ -z "${PREDICT_FUN_API_KEY}" ]; then
+    unset PREDICT_FUN_API_KEY
+  fi
   pm2 restart changmen-esport --update-env
   pm2 status changmen-esport || true
   echo ""

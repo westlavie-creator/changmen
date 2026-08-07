@@ -170,7 +170,8 @@ export async function saveOrder(playerId, orders, userId, typeFallback = "") {
       ? String(prevRow.order_id).trim()
       : orderId;
     const prevAt = Number(prevRow?.create_at) || 0;
-    const createAt = parsed > 0 ? parsed : prevAt > 0 ? prevAt : fallbackAt;
+    // 已落库的 create_at 保持不变（SaveOrder 同步 / 场馆拉单不得覆盖），便于运维按日归账后不被写回
+    const createAt = prevAt > 0 ? prevAt : (parsed > 0 ? parsed : fallbackAt);
     const prevRaw = prevRow?.raw && typeof prevRow.raw === "object" && !Array.isArray(prevRow.raw)
       ? prevRow.raw
       : {};

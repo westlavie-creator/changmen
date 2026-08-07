@@ -18,6 +18,7 @@ export {
 
 export {
   fetchClientMatches,
+  fetchClientMatchesAll,
   fetchClientMatchesForAlign,
   fetchClientMatchesMeta,
   initLastWrittenIds,

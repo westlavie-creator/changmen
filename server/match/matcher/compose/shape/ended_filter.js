@@ -217,21 +217,49 @@ export function filterActiveClientMatches(list, ctx = {}) {
     platformMatches = {},
     timersByProvider = {},
     pmSportByClientId,
+    endedAtByClientId,
     now = Date.now(),
   } = ctx;
   const kept = [];
+  const endedList = [];
   let endedCount = 0;
   for (const row of list || []) {
     const id = Number(row?.ID ?? row?.id);
+    const stickyEnded = Number.isFinite(id)
+      && endedAtByClientId?.has(id)
+      && endedAtByClientId.get(id) != null;
     const pmSport = (Number.isFinite(id) && pmSportByClientId?.get(id))
       || row?.PmSport
       || row?.pm_sport
       || null;
-    if (isClientMatchEnded(row, platformMatches, timersByProvider, now, pmSport)) {
+    if (stickyEnded || isClientMatchEnded(row, platformMatches, timersByProvider, now, pmSport)) {
       endedCount++;
+      endedList.push(row);
       continue;
     }
     kept.push(row);
   }
-  return { list: kept, endedCount };
+  return { list: kept, endedList, endedCount };
+}
+
+/** 从 RDS client 行构建 id → ended_at（仅已结束） */
+export function buildEndedAtByClientId(clientRowsOrMap) {
+  const out = new Map();
+  if (clientRowsOrMap instanceof Map) {
+    for (const [id, row] of clientRowsOrMap) {
+      const ended = row?.ended_at ?? row?.endedAt;
+      if (ended != null && ended !== "")
+        out.set(Number(id), Number(ended) || ended);
+    }
+    return out;
+  }
+  for (const row of clientRowsOrMap || []) {
+    const id = Number(row?.id ?? row?.ID);
+    if (!Number.isFinite(id))
+      continue;
+    const ended = row?.ended_at ?? row?.endedAt;
+    if (ended != null && ended !== "")
+      out.set(id, Number(ended) || ended);
+  }
+  return out;
 }

@@ -36,7 +36,7 @@ describe("ended_filter + multi platform", () => {
 
   it("filterActiveClientMatches removes ended only", () => {
     const now = Date.now();
-    const { list, endedCount } = filterActiveClientMatches([
+    const { list, endedList, endedCount } = filterActiveClientMatches([
       {
         ID: 1,
         StartTime: now - 10 * 60 * 1000,
@@ -55,6 +55,31 @@ describe("ended_filter + multi platform", () => {
     assert.equal(endedCount, 1);
     assert.equal(list.length, 1);
     assert.equal(list[0].ID, 2);
+    assert.equal(endedList.length, 1);
+    assert.equal(endedList[0].ID, 1);
+  });
+
+  it("sticky ended_at keeps row ended even if still looks live", () => {
+    const now = Date.now();
+    const row = {
+      ID: 9,
+      StartTime: now + 60_000,
+      Round: 1,
+      Matchs: { OB: "ob1", RAY: "ray1" },
+      Bets: [{ Map: 0, Sources: { OB: { Status: "Normal" } } }],
+    };
+    const matches = {
+      OB: { ob1: { SourceMatchID: "ob1", IsLive: 2 } },
+      RAY: { ray1: { SourceMatchID: "ray1" } },
+    };
+    const { list, endedList, endedCount } = filterActiveClientMatches([row], {
+      platformMatches: matches,
+      endedAtByClientId: new Map([[9, now - 1000]]),
+      now,
+    });
+    assert.equal(endedCount, 1);
+    assert.equal(list.length, 0);
+    assert.equal(endedList[0].ID, 9);
   });
 
   it("filterMultiPlatform after strip", () => {

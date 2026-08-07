@@ -583,7 +583,7 @@
 <div class="header">
   <div>
     <h1>Matcher · 人工关联</h1>
-    <div class="header-sub">本页：队伍映射 / 手动合场 / 归档 · 自动合场写库看顶栏「写路径」· 只读对照见 Composer</div>
+    <div class="header-sub">本页：队伍映射 / 手动合场 / 强制结束 · 自动合场写库看顶栏「写路径」· 只读对照见 Composer</div>
   </div>
   <div class="header-right">
     <span class="writer-chip composer" id="writer-chip" title="唯一写路径：match-composer">写路径 composer</span>
@@ -596,7 +596,7 @@
     <button class="btn btn-sm btn-success" id="btn-matcher-start" type="button">启动匹配循环</button>
     <button class="btn btn-sm btn-danger" id="btn-matcher-stop" type="button" style="display:none">停止匹配循环</button>
     <button class="btn btn-sm btn-ghost" id="btn-match-merge-now" type="button" title="立即执行一次 composeOnce 写库">立即执行赛事合并</button>
-    <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已归档的历史赛事">历史赛事 <span class="badge" id="hidden-count-badge">0</span></button>
+    <button class="btn btn-sm btn-ghost btn-hidden-toggle" id="btn-hidden-toggle" type="button" title="查看已结束的赛事">已结束 <span class="badge" id="hidden-count-badge">0</span></button>
     <span class="updated-at" id="updated-at">—</span>
     <button class="btn btn-sm" type="button" onclick="load()">刷新</button>
   </div>
@@ -605,7 +605,7 @@
 <div class="workflow-hint">
   <strong>工作流：</strong>圆点关联队伍；<strong>黄色方点</strong>关联赛事（拖到左/中栏<strong>绿色方点</strong>或<strong>比赛 ID 绿底</strong>合并）。
   右栏<strong>推荐组</strong>确认跨平台候选；搜索旁可切「仅看待补全」缩小到缺 ID / 队名阶段场次。
-  翻锁、归档前会二次确认。合场依据细节请开 <strong>Composer 对照</strong>。
+  翻锁、强制结束前会二次确认。合场依据细节请开 <strong>Composer 对照</strong>。
 </div>
 
 <div class="stats" id="stats-bar"></div>
@@ -613,8 +613,8 @@
 <div class="hidden-panel-wrap" id="hidden-panel-wrap" style="display:none">
   <div class="hidden-panel">
     <div class="hidden-panel-header">
-      <div class="hidden-panel-title">历史赛事 <span class="badge" id="hidden-panel-count">0</span></div>
-      <span class="queue-search-hint">已归档到历史表 · 不在浏览器列表中</span>
+      <div class="hidden-panel-title">已结束赛事 <span class="badge" id="hidden-panel-count">0</span></div>
+      <span class="queue-search-hint">ended_at 已设置 · 不在 Client_GetMatchs 列表中 · 身份与 matchs 保留</span>
     </div>
     <div class="hidden-panel-body" id="hidden-panel-body"><div class="empty" style="padding:20px">加载中…</div></div>
   </div>
@@ -697,11 +697,11 @@
 
 <div class="link-modal-backdrop hidden" id="archive-modal">
   <div class="link-modal" role="dialog" aria-modal="true" style="max-width:520px">
-    <h3 id="archive-modal-title">归档比赛</h3>
+    <h3 id="archive-modal-title">强制结束比赛</h3>
     <div class="link-modal-body" id="archive-modal-body"></div>
     <div class="link-modal-actions">
       <button type="button" class="btn btn-sm btn-ghost" id="archive-modal-cancel">取消</button>
-      <button type="button" class="btn btn-sm btn-danger" id="archive-modal-confirm">确认归档</button>
+      <button type="button" class="btn btn-sm btn-danger" id="archive-modal-confirm">确认结束</button>
     </div>
   </div>
 </div>
@@ -1280,7 +1280,7 @@ function renderHiddenPanel(list) {
   const body = document.getElementById('hidden-panel-body');
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = '<div class="empty" style="padding:20px">暂无历史赛事</div>';
+    body.innerHTML = '<div class="empty" style="padding:20px">暂无已结束赛事</div>';
     return;
   }
   const rows = items.map(cm => {
@@ -1293,13 +1293,13 @@ function renderHiddenPanel(list) {
       <td>${esc(cm.title || '—')}</td>
       <td>${gbadge(gameCode)}</td>
       <td>${fmtTime(cm.start_time)}</td>
-      <td>${fmtTime(cm.built_at)}</td>
+      <td>${fmtTime(cm.ended_at || cm.built_at)}</td>
       <td>${plats}</td>
       <td><button type="button" class="btn btn-sm btn-success" data-restore-cm="${cm.id}">恢复展示</button></td>
     </tr>`;
   }).join('');
   body.innerHTML = `<table class="hidden-table"><thead><tr>
-    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>归档于</th><th>平台 matchs</th><th></th>
+    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>结束于</th><th>平台 matchs</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table>`;
   body.querySelectorAll('[data-restore-cm]').forEach(btn => {
     btn.addEventListener('click', () => restoreClientMatch(Number(btn.dataset.restoreCm)));
@@ -1310,7 +1310,7 @@ async function loadHiddenClientMatches() {
   if (_hiddenClientMatchesLoading) return;
   _hiddenClientMatchesLoading = true;
   const body = document.getElementById('hidden-panel-body');
-  if (body) body.innerHTML = '<div class="empty" style="padding:20px">加载历史赛事…</div>';
+  if (body) body.innerHTML = '<div class="empty" style="padding:20px">加载已结束赛事…</div>';
   try {
     const { data } = await fetchJson('/api/hidden-client-matches');
     if (data.error) throw new Error(data.error);
@@ -1320,7 +1320,7 @@ async function loadHiddenClientMatches() {
     _hiddenClientMatchesLoaded = true;
     renderHiddenPanel(_lastData.hiddenClientMatches);
   } catch (err) {
-    if (body) body.innerHTML = `<div class="empty" style="color:#f87171;padding:20px">历史赛事加载失败: ${esc(err.message)}</div>`;
+    if (body) body.innerHTML = `<div class="empty" style="color:#f87171;padding:20px">已结束赛事加载失败: ${esc(err.message)}</div>`;
   } finally {
     _hiddenClientMatchesLoading = false;
   }
@@ -1957,7 +1957,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
       <div class="team-card-hint">${footerHint}</div>
       <button type="button" class="btn btn-sm btn-ghost" data-swap-gb-cm="${cm.id}"
         title="交换 home/away gb 锁与 Title 主客；下轮 merge 重算各平台 Reverse">主客对调（翻锁）</button>
-      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="归档到历史表，浏览器不再返回；并归档各平台 platform_matches 行">比赛已结束</button>
+      <button type="button" class="btn btn-sm btn-ghost" data-end-cm="${cm.id}" title="强制结束：写 ended_at，保留 matchs 与平台关联；Client_GetMatchs 不再返回">强制结束</button>
     </div>
   </article>`;
 }
@@ -3001,14 +3001,14 @@ async function endClientMatch(cmId) {
       <table style="width:100%;font-size:13px">${platRows || '<tr><td style="color:#64748b">无</td></tr>'}</table>
     </div>
     <div style="font-size:13px;color:#94a3b8;line-height:1.6">
-      <div>· 比赛从 <b>client_matches</b> 移入历史表</div>
-      <div>· 各平台 <b>platform_matches</b> 对应行移入历史表</div>
-      <div style="margin-top:6px;color:#64748b">若采集器仍在上报同场比赛，会自动重新创建。</div>
+      <div>· 写入 <b>ended_at</b>，从 Client_GetMatchs 消失</div>
+      <div>· 保留 <b>matchs</b> 与各平台 <b>platform_matches</b> 关联</div>
+      <div style="margin-top:6px;color:#64748b">若采集器仍在上报同场比赛，会复用同一赛事 ID，不会新建。</div>
     </div>
   `;
 
   const modal = document.getElementById('archive-modal');
-  document.getElementById('archive-modal-title').textContent = '确认归档比赛';
+  document.getElementById('archive-modal-title').textContent = '确认强制结束';
   document.getElementById('archive-modal-body').innerHTML = html;
   modal.classList.remove('hidden');
 
@@ -3031,15 +3031,14 @@ async function endClientMatch(cmId) {
   try {
     const { res, data } = await fetchJson('/api/client-match/' + cmId, { method: 'DELETE' });
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
-    const n = data.platformMatchesDeleted ?? 0;
     showActionToast(
-      [`比赛已归档`, `#${cmId} ${data.title || cm?.title || ''}`, `${n} 条平台数据已归档`].join('\n'),
+      [`比赛已强制结束`, `#${cmId} ${data.title || cm?.title || ''}`, '身份与平台关联已保留'].join('\n'),
       'ok',
       5200,
     );
     await load();
   } catch (err) {
-    showActionToast(`归档失败\n#${cmId}\n${err.message}`, 'err', 6000);
+    showActionToast(`强制结束失败\n#${cmId}\n${err.message}`, 'err', 6000);
   }
 }
 
@@ -3049,8 +3048,8 @@ async function restoreClientMatch(cmId) {
     `恢复展示？`,
     `#${cmId} ${cm?.title || ''}`,
     '',
-    '执行一次 matchMerge 尝试恢复。',
-    '若无平台数据，赛事不会出现在列表中。',
+    '清除 ended_at 并执行 matchMerge。',
+    '赛事会重新出现在 Client_GetMatchs（若仍满足合场条件）。',
   ].join('\n');
   if (!confirm(msg)) return;
   try {
@@ -3058,6 +3057,12 @@ async function restoreClientMatch(cmId) {
     if (!res.ok || data.error) throw new Error(data.error || '操作失败');
     if (data.alreadyVisible) {
       showActionToast(`赛事已在主列表\n#${cmId}`, 'warn', 4000);
+    } else if (data.reEnded) {
+      showActionToast(
+        [`已清除 ended_at，但合场仍判定结束`, `#${cmId} ${data.title || cm?.title || ''}`, '仍留在已结束列表'].join('\n'),
+        'warn',
+        6000,
+      );
     } else {
       const mm = data.matchMerge ?? data.rebuild;
       const rb = mm?.matchCount != null ? ` · matchMerge ${mm.matchCount} 场` : '';
@@ -3319,7 +3324,7 @@ async function load(opts = {}) {
     if (!_hiddenPanelOpen) {
       _hiddenClientMatchesLoaded = false;
       const body = document.getElementById('hidden-panel-body');
-      if (body) body.innerHTML = '<div class="empty" style="padding:20px">点击“历史赛事”后加载</div>';
+      if (body) body.innerHTML = '<div class="empty" style="padding:20px">点击“已结束”后加载</div>';
     } else if (!_hiddenClientMatchesLoaded) {
       await loadHiddenClientMatches();
       if (seq !== _loadSeq) return;

@@ -409,12 +409,13 @@ export function setClientMatchesFromMatchMerge(info, builtAt = Date.now()) {
   _invalidateClientMatchesCache();
 }
 
-/** 人工归档后从内存移除，避免 embedded matchMerge 仍读到已归档行 */
+/** 人工强制结束后从内存移除，避免 embedded 仍读到已结束行 */
 export function removeClientMatchFromMemory(clientMatchId) {
   const id = Number(clientMatchId);
   if (!Number.isFinite(id))
     return;
   _clientMatches.delete(id);
+  _invalidateClientMatchesCache();
 }
 
 /** 人工主客反转后同步内存，避免 embedded 快照 / matchMerge 仍用旧 Reverse */

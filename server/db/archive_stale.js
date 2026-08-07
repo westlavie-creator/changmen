@@ -1,6 +1,8 @@
 /**
- * client_matches 时间归档 — matcher 每小时兜底（platform_* 由 SaveMatch 快照生命周期负责）。
- * archive-stale-client-matches.mjs（ops/migrations/）为手动/运维 CLI（默认 client；--legacy-platform 含旧版 platform_* 时间清理）。
+ * client_matches 时间归档 — matcher 每小时兜底。
+ * v1 ended_at 生命周期：不对 client_matches 做 built_at 搬家（避免毁掉身份锚点）。
+ * platform_* 仍可由 --legacy-platform / ALL scope 清理。
+ * archive-stale-client-matches.mjs（ops/migrations/）为手动/运维 CLI。
  */
 
 import { getPgPool } from "./pg_pool.js";
@@ -9,11 +11,11 @@ export const ARCHIVE_STALE_MS = 60 * 60 * 1000;
 /** 默认每小时整点等效 */
 export const DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
 
-/** matcher 循环默认：仅 client_matches */
+/** matcher 循环默认：不再搬 client_matches（no-op） */
 export const ARCHIVE_SCOPE_CLIENT = "client";
 /** 运维兜底：含 platform_* / live_timers 时间清理（SaveMatch 快照上线前行为） */
 export const ARCHIVE_SCOPE_LEGACY_PLATFORM = "legacy-platform";
-/** 全部表 */
+/** 全部表（含 client — 仅运维显式 ALL；仍不推荐） */
 export const ARCHIVE_SCOPE_ALL = "all";
 
 export function getArchiveCutoffMs(now = Date.now()) {
@@ -35,6 +37,7 @@ const PLATFORM_ARCHIVE_SPECS = [
   },
 ];
 
+/** 仅 ARCHIVE_SCOPE_ALL 显式启用；matcher 默认 client scope 为空 */
 const CLIENT_ARCHIVE_SPECS = [
   {
     table: "client_matches",
@@ -42,6 +45,8 @@ const CLIENT_ARCHIVE_SPECS = [
     column: "built_at",
     key: "client_matches",
     cols: "id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id",
+    /** 仅冷搬已结束且 built_at 过期的行（ALL scope） */
+    whereExtra: "ended_at IS NOT NULL",
   },
 ];
 
@@ -57,7 +62,8 @@ function emptyCounts() {
 /** @returns {{ deleteSpecs: typeof PLATFORM_DELETE_SPECS, archiveSpecs: Array }} */
 export function resolveArchiveSpecs(scope = ARCHIVE_SCOPE_CLIENT) {
   const wantPlatform = scope === ARCHIVE_SCOPE_ALL || scope === ARCHIVE_SCOPE_LEGACY_PLATFORM;
-  const wantClient = scope === ARCHIVE_SCOPE_ALL || scope === ARCHIVE_SCOPE_CLIENT;
+  // matcher 默认 client：不搬表。仅 ALL 才允许冷搬已 ended 行。
+  const wantClient = scope === ARCHIVE_SCOPE_ALL;
   return {
     deleteSpecs: wantPlatform ? PLATFORM_DELETE_SPECS : [],
     archiveSpecs: [
@@ -80,10 +86,11 @@ async function archiveRds(cutoff, scope) {
     );
     counts[key] = rowCount ?? 0;
   }
-  for (const { table, history, column, key, cols } of archiveSpecs) {
+  for (const { table, history, column, key, cols, whereExtra } of archiveSpecs) {
+    const extra = whereExtra ? ` AND (${whereExtra})` : "";
     const { rowCount } = await pool.query(
       `WITH moved AS (
-         DELETE FROM ${table} WHERE ${column} < $1
+         DELETE FROM ${table} WHERE ${column} < $1${extra}
          RETURNING *
        )
        INSERT INTO ${history} (${cols})
@@ -106,7 +113,7 @@ export async function archiveStaleRows(opts = {}) {
   return { cutoff, scope, rds };
 }
 
-/** matcher 循环：仅 client_matches 时间兜底归档 */
+/** matcher 循环：client scope 现为 no-op（保留调用点与日志） */
 export async function archiveStaleClientMatchRows(opts = {}) {
   return archiveStaleRows({ ...opts, scope: ARCHIVE_SCOPE_CLIENT });
 }

@@ -110,7 +110,7 @@ export async function fetchClientMatchRow(id, columns = "*") {
     return null;
   const cols
     = columns === "*"
-      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at, home_gb_team_id, away_gb_team_id"
+      ? "id, merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, reverse, built_at, home_gb_team_id, away_gb_team_id, ended_at, pm_sport"
       : columns;
   const { rows } = await rdsQuery(`SELECT ${cols} FROM client_matches WHERE id = $1`, [cmId]);
   return rows[0] || null;
@@ -139,8 +139,9 @@ export async function fetchPlatformMatchesDashboard() {
 export async function fetchClientMatchesDashboard() {
   const { rows } = await rdsQuery(
     `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at,
-            home_gb_team_id, away_gb_team_id
+            home_gb_team_id, away_gb_team_id, ended_at
      FROM client_matches
+     WHERE ended_at IS NULL
      ORDER BY start_time ASC NULLS LAST`,
   );
   return rows;
@@ -318,9 +319,10 @@ export async function swapClientMatchGbOrientation(clientMatchId) {
 
 export async function fetchClientMatchesHidden() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at
-     FROM client_matches_history
-     ORDER BY archived_at DESC NULLS LAST
+    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at, ended_at
+     FROM client_matches
+     WHERE ended_at IS NOT NULL
+     ORDER BY ended_at DESC NULLS LAST
      LIMIT 100`,
   );
   return rows;
@@ -329,7 +331,8 @@ export async function fetchClientMatchesHidden() {
 export async function fetchClientMatchesHiddenCount() {
   const { rows } = await rdsQuery(
     `SELECT COUNT(*)::int AS count
-     FROM client_matches_history`,
+     FROM client_matches
+     WHERE ended_at IS NOT NULL`,
   );
   return rows[0]?.count ?? 0;
 }
@@ -337,27 +340,50 @@ export async function fetchClientMatchesHiddenCount() {
 export async function fetchLatestClientMatchBuiltAt() {
   const { rows } = await rdsQuery(
     `SELECT built_at FROM client_matches
+     WHERE ended_at IS NULL
      ORDER BY built_at DESC NULLS LAST LIMIT 1`,
   );
   return rows[0]?.built_at ? Number(rows[0].built_at) : 0;
 }
 
-export async function archiveClientMatch(id) {
+/** 强制结束：保留行与 matchs，写 ended_at；不搬 history、不删 platform_* */
+export async function forceEndClientMatch(id, endedAt = Date.now()) {
+  const cmId = Number(id);
+  if (!Number.isFinite(cmId))
+    throw new Error("无效的赛事 ID");
+  const ts = Number(endedAt) || Date.now();
+  const { rowCount } = await rdsQuery(
+    `UPDATE client_matches
+     SET ended_at = COALESCE(ended_at, $2)
+     WHERE id = $1 AND ended_at IS NULL`,
+    [cmId, ts],
+  );
+  if (!rowCount) {
+    const existing = await fetchClientMatchRow(cmId, "id, ended_at");
+    if (!existing)
+      throw new Error("赛事不存在");
+    return { id: cmId, ended: true, alreadyEnded: true, ended_at: existing.ended_at };
+  }
+  return { id: cmId, ended: true, alreadyEnded: false, ended_at: ts };
+}
+
+/** 清除 ended_at，重新进入 Client_GetMatchs */
+export async function clearClientMatchEndedAt(id) {
   const cmId = Number(id);
   if (!Number.isFinite(cmId))
     throw new Error("无效的赛事 ID");
   const { rowCount } = await rdsQuery(
-    `WITH moved AS (
-       DELETE FROM client_matches WHERE id = $1
-       RETURNING *
-     )
-     INSERT INTO client_matches_history (id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id)
-     SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id FROM moved`,
+    `UPDATE client_matches SET ended_at = NULL WHERE id = $1`,
     [cmId],
   );
   if (!rowCount)
     throw new Error("赛事不存在");
-  return { id: cmId, archived: true };
+  return { id: cmId, ended_at: null };
+}
+
+/** @deprecated 使用 forceEndClientMatch；保留别名兼容旧调用 */
+export async function archiveClientMatch(id) {
+  return forceEndClientMatch(id);
 }
 
 export async function fetchPlatformMatchesDebugRows() {

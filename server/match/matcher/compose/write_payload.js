@@ -9,7 +9,7 @@ export function gbTeamIdForWrite(row, side) {
   return v ?? null;
 }
 
-export function clientMatchWriteRow(m, builtAt) {
+export function clientMatchWriteRow(m, builtAt, { endedAt = null } = {}) {
   return {
     id: Number(m.ID),
     merge_key: m.MergeKey ? String(m.MergeKey) : null,
@@ -26,5 +26,6 @@ export function clientMatchWriteRow(m, builtAt) {
     home_gb_team_id: gbTeamIdForWrite(m, "home"),
     away_gb_team_id: gbTeamIdForWrite(m, "away"),
     built_at: builtAt,
+    ended_at: endedAt == null || endedAt === "" ? null : Number(endedAt) || builtAt,
   };
 }
