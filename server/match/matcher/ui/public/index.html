@@ -1457,6 +1457,9 @@ function filterDisplayClientMatches(cms, platforms) {
 }
 
 function isPlatformMatchLinked(m, plat, cms, platforms) {
+  // platform_matches 已挂 client_match（含 ended_at 归档）→ 不算未匹配/推荐待确认
+  const bound = m?.bound_client_match_id ?? m?.match_id;
+  if (bound != null && bound !== '' && Number.isFinite(Number(bound))) return true;
   return resolvePlatformClientMatchId(m, plat, cms || [], platforms || _lastData?.platforms) != null;
 }
 

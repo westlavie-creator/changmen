@@ -37,15 +37,19 @@ function recommendationGroupKey(m) {
   return { key: `${game.code}:${bucket}:${t1}:${t2}`, game, t1, t2 };
 }
 
+function boundClientMatchId(m) {
+  const raw = m?.bound_client_match_id ?? m?.match_id;
+  if (raw == null || raw === "")
+    return null;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
+}
+
+/** 已挂到任意 client_match（含 ended_at）则不算推荐候选 */
 function isPlatformMatchLinkedForRec(m, clientMatches, platforms = null) {
-  const visibleClientMatches = filterVisibleClientMatches(clientMatches, platforms);
-  if (
-    m?.match_id != null
-    && m.match_id !== ""
-    && visibleClientMatches.some(cm => Number(cm.id) === Number(m.match_id))
-  ) {
+  if (boundClientMatchId(m) != null)
     return true;
-  }
+  const visibleClientMatches = filterVisibleClientMatches(clientMatches, platforms);
   return visibleClientMatches.some(
     cm => String(cm.matchs?.[m.platform] ?? "") === String(m.source_match_id),
   );
@@ -228,8 +232,13 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
       if (sourceMatchId == null)
         continue;
       const rawMatchId = firstValue(m.ClientMatchId, m.client_match_id, m.match_id);
-      const matchId = rawMatchId != null && activeClientIds.has(Number(rawMatchId))
+      const boundId = rawMatchId != null && rawMatchId !== ""
         ? Number(rawMatchId)
+        : null;
+      const boundCmId = Number.isFinite(boundId) ? boundId : null;
+      // 左/中栏只认活跃多馆场；bound 保留已结束挂载，避免推荐组/未匹配幽灵
+      const matchId = boundCmId != null && activeClientIds.has(boundCmId)
+        ? boundCmId
         : null;
       rows.push({
         platform,
@@ -242,6 +251,7 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
         away_id: firstValue(m.AwayID, m.away_id, ""),
         bo: Number(firstValue(m.BO, m.bo, 0)) || 0,
         match_id: matchId,
+        bound_client_match_id: boundCmId,
         synced_at: Number(firstValue(m.savedAt, m.synced_at, 0)) || 0,
         teams: Array.isArray(m.Teams) ? m.Teams : (Array.isArray(m.teams) ? m.teams : []),
       });
@@ -433,9 +443,12 @@ async function fetchMatcherHiddenClientMatches() {
 }
 
 export {
+  boundClientMatchId,
   computeRecommendations,
+  dashboardRowsFromSnapshot,
   fetchMatcherDashboard,
   fetchMatcherHiddenClientMatches,
   getMatcherStatus,
+  isPlatformMatchLinkedForRec,
   summarizeMatcherDashboard,
 };
