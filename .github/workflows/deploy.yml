@@ -62,7 +62,7 @@ jobs:
           ls -lh "${DIST_ARCHIVE}"
 
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-dist-${{ github.sha }}
           path: /tmp/changmen-dist.tgz
@@ -101,7 +101,7 @@ jobs:
           echo "Deploying to production HK-202 (${DEPLOY_HOST})"
 
       - name: Download dist artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: frontend-dist-${{ github.sha }}
           path: /tmp
