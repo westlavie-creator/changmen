@@ -134,6 +134,9 @@ async function main() {
     console.log("[rds] 执行 035_players_venue_account_key_including_deleted.sql …");
     await client.query(readSql("035_players_venue_account_key_including_deleted.sql"));
 
+    console.log("[rds] 执行 036_team_provider_ids.sql …");
+    await client.query(readSql("036_team_provider_ids.sql"));
+
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
       WHERE schemaname = 'public'

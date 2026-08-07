@@ -71,6 +71,55 @@ export async function fetchAllTeamPlatformMaps() {
   );
 }
 
+/**
+ * 全量读取 team_provider_ids（多数据源 provider 索引）。
+ * 供 team-resolver 插件加载 / /health 巡检等使用。
+ */
+export async function fetchAllTeamProviderIds() {
+  return rdsLoadAll(
+    `SELECT team_id, provider, provider_id, game, source, confidence
+     FROM team_provider_ids ORDER BY team_id, provider`,
+    r => ({
+      team_id: r.team_id,
+      provider: r.provider,
+      provider_id: r.provider_id,
+      game: r.game,
+      source: r.source,
+      confidence: Number(r.confidence),
+    }),
+  );
+}
+
+/**
+ * 单条查询：某 canonical 队伍在某 provider 下的 ID。
+ * @returns {Promise<object|null>}
+ */
+export async function fetchTeamProviderId(teamId, provider) {
+  const id = Number(teamId);
+  const p = String(provider || "").trim();
+  if (!Number.isFinite(id) || !p)
+    return null;
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  const { rows } = await pool.query(
+    `SELECT team_id, provider, provider_id, game, source, confidence
+     FROM team_provider_ids WHERE team_id = $1 AND provider = $2 LIMIT 1`,
+    [id, p],
+  );
+  if (!rows.length)
+    return null;
+  const r = rows[0];
+  return {
+    team_id: r.team_id,
+    provider: r.provider,
+    provider_id: r.provider_id,
+    game: r.game,
+    source: r.source,
+    confidence: Number(r.confidence),
+  };
+}
+
 /** @returns {Set<string>} venue:venue_team_id */
 export async function fetchExistingTeamMapKeys(candidates) {
   const existing = new Set();

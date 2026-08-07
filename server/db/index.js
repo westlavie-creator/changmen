@@ -207,6 +207,8 @@ export const {
 export const {
   fetchAllCanonicalTeams,
   fetchAllTeamPlatformMaps,
+  fetchAllTeamProviderIds,
+  fetchTeamProviderId,
   fetchTeamMapsRevision,
   fetchExistingTeamMapKeys,
   loadTeamMapsForMatcher,

@@ -70,6 +70,21 @@ export async function loadAndCreatePlugin() {
     }
   }
 
+  // team_provider_ids（多数据源 provider 索引）：team_id → [{provider, provider_id, game}]
+  const providerIdMap = new Map();
+  try {
+    const allProviderIds = await teamDb.fetchAllTeamProviderIds();
+    for (const row of allProviderIds || []) {
+      const tid = String(row.team_id);
+      if (!providerIdMap.has(tid))
+        providerIdMap.set(tid, []);
+      providerIdMap.get(tid).push(row);
+    }
+  }
+  catch (err) {
+    console.warn("[team-resolver] fetchAllTeamProviderIds 失败:", err.message);
+  }
+
   const allMaps = await teamDb.fetchAllTeamPlatformMaps();
 
   const idMap = new Map();
@@ -174,6 +189,19 @@ export async function loadAndCreatePlugin() {
     return gbTeamGameMap.get(String(gbTeamId)) || null;
   }
 
+  /** 查询某 canonical team 在某数据源（pandascore/liquipedia/reep…）下的 ID */
+  function lookupProviderId(teamId, provider) {
+    const tid = String(teamId);
+    const p = String(provider || "").trim();
+    if (!p)
+      return null;
+    for (const row of providerIdMap.get(tid) || []) {
+      if (row.provider === p)
+        return row.provider_id ?? null;
+    }
+    return null;
+  }
+
   return {
     lookupByName,
     lookupById,
@@ -181,6 +209,7 @@ export async function loadAndCreatePlugin() {
     lookupGbTeamIdByNormalizedName,
     lookupGbTeamIdByNormalizedNameForGame,
     lookupGameForGbTeamId,
+    lookupProviderId,
     saveMapping,
   };
 }
