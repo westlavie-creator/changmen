@@ -319,13 +319,88 @@ export async function swapClientMatchGbOrientation(clientMatchId) {
 
 export async function fetchClientMatchesHidden() {
   const { rows } = await rdsQuery(
-    `SELECT id, title, game, game_id, start_time, bo, round, matchs, bets, built_at, ended_at
+    `SELECT id, merge_key, title, game, game_id, start_time, bo, round, matchs, bets, reverse,
+            built_at, ended_at, home_gb_team_id, away_gb_team_id
      FROM client_matches
      WHERE ended_at IS NOT NULL
      ORDER BY ended_at DESC NULLS LAST
      LIMIT 100`,
   );
   return rows;
+}
+
+/**
+ * 已结束场馆明细：优先活跃 platform_matches，缺失时回落 history（队名/平台 id）。
+ * @param {Array<{ id: number, matchs?: Record<string, string> }>} clientRows
+ */
+export async function fetchPlatformMatchesForHiddenClientMatches(clientRows) {
+  const cms = Array.isArray(clientRows) ? clientRows : [];
+  if (!cms.length) return [];
+
+  const cmIds = cms.map(r => Number(r.id)).filter(id => Number.isFinite(id) && id > 0);
+  const pairKeys = new Set();
+  for (const cm of cms) {
+    for (const [plat, srcId] of Object.entries(cm.matchs || {})) {
+      const p = String(plat || "").trim();
+      const s = String(srcId ?? "").trim();
+      if (p && s) pairKeys.add(`${p}\0${s}`);
+    }
+  }
+
+  const byPair = new Map();
+  const mergeRow = (r) => {
+    const key = `${String(r.platform)}\0${String(r.source_match_id)}`;
+    if (!byPair.has(key)) byPair.set(key, r);
+  };
+
+  if (cmIds.length) {
+    const { rows } = await rdsQuery(
+      `SELECT platform, source_match_id, source_game_id, start_time,
+              home, home_id, away, away_id, bo, teams, match_id, synced_at
+       FROM platform_matches
+       WHERE match_id = ANY($1::bigint[])`,
+      [cmIds],
+    );
+    for (const r of rows) mergeRow(r);
+  }
+
+  const missing = [...pairKeys].filter(k => !byPair.has(k));
+  if (missing.length) {
+    const plats = missing.map(k => k.split("\0")[0]);
+    const srcs = missing.map(k => k.split("\0")[1]);
+    const { rows } = await rdsQuery(
+      `SELECT DISTINCT ON (platform, source_match_id)
+              platform, source_match_id, source_game_id, start_time,
+              home, home_id, away, away_id, bo, teams, match_id, synced_at
+       FROM platform_matches
+       WHERE (platform, source_match_id) IN (
+         SELECT * FROM UNNEST($1::text[], $2::text[]) AS t(platform, source_match_id)
+       )
+       ORDER BY platform, source_match_id, synced_at DESC NULLS LAST`,
+      [plats, srcs],
+    );
+    for (const r of rows) mergeRow(r);
+  }
+
+  const stillMissing = [...pairKeys].filter(k => !byPair.has(k));
+  if (stillMissing.length) {
+    const plats = stillMissing.map(k => k.split("\0")[0]);
+    const srcs = stillMissing.map(k => k.split("\0")[1]);
+    const { rows } = await rdsQuery(
+      `SELECT DISTINCT ON (platform, source_match_id)
+              platform, source_match_id, source_game_id, start_time,
+              home, home_id, away, away_id, bo, teams, match_id, synced_at
+       FROM platform_matches_history
+       WHERE (platform, source_match_id) IN (
+         SELECT * FROM UNNEST($1::text[], $2::text[]) AS t(platform, source_match_id)
+       )
+       ORDER BY platform, source_match_id, archived_at DESC NULLS LAST`,
+      [plats, srcs],
+    );
+    for (const r of rows) mergeRow(r);
+  }
+
+  return [...byPair.values()];
 }
 
 export async function fetchClientMatchesHiddenCount() {

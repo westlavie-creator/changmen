@@ -548,13 +548,12 @@
       padding: 10px 14px; background: #15202b; border-bottom: 1px solid var(--line);
     }
     .hidden-panel-title { font-size: 13px; font-weight: 650; color: var(--muted); }
-    .hidden-panel-body { padding: 12px 14px; max-height: 280px; overflow-y: auto; }
-    .hidden-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .hidden-table th, .hidden-table td {
-      padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top;
-    }
-    .hidden-table th { color: var(--muted); font-weight: 500; font-size: 11px; }
-    .hidden-table tr:last-child td { border-bottom: none; }
+    .hidden-panel-body { padding: 12px 14px; max-height: min(70vh, 720px); overflow-y: auto; }
+    .hidden-cards { display: flex; flex-direction: column; gap: 12px; }
+    .hidden-cards .team-card { margin: 0; }
+    .hidden-cards .team-card.ended { opacity: 0.96; border-color: #2a3a4a; }
+    .hidden-cards .team-link-handle { display: none; }
+    .hidden-ended-meta { color: var(--muted); font-size: 11px; display: flex; flex-wrap: wrap; gap: 10px; }
     .btn-hidden-toggle.active { border-color: #3a5a8a; color: #9ec5ff; background: #1a2a3f; }
     .reverse-tag {
       font-size: 10px; font-weight: 650; color: var(--warn); background: var(--chip);
@@ -614,7 +613,7 @@
   <div class="hidden-panel">
     <div class="hidden-panel-header">
       <div class="hidden-panel-title">已结束赛事 <span class="badge" id="hidden-panel-count">0</span></div>
-      <span class="queue-search-hint">ended_at 已设置 · 不在 Client_GetMatchs 列表中 · 身份与 matchs 保留</span>
+      <span class="queue-search-hint">ended_at 已设置 · 不在 Client_GetMatchs 列表中 · 下方展示完整 matchs / 主客 gb / 各馆映射</span>
     </div>
     <div class="hidden-panel-body" id="hidden-panel-body"><div class="empty" style="padding:20px">加载中…</div></div>
   </div>
@@ -1274,6 +1273,110 @@ function setHiddenMatchCount(count) {
   if (panelCount) panelCount.textContent = n;
 }
 
+function renderEndedTeamCell(m, side, gameCode, teamMaps) {
+  const platform = String(m.platform || '').trim();
+  const isHome = side === 'home';
+  const name = isHome ? m.home : m.away;
+  const resolved = resolveMatchTeamId(m, side, gameCode);
+  const pid = resolved.id;
+  const { canonical, pending, updatedBy } = lookupCanonical(teamMaps, platform, pid, gameCode);
+  let canonHtml;
+  if (canonical != null) {
+    const manualTag = updatedBy === '手动' ? ' · 手动' : '';
+    canonHtml = `<div class="team-canonical">gb_team_id: ${canonical}${manualTag}</div>`;
+  } else if (pending) {
+    canonHtml = `<div class="team-canonical pending">gb_team_id: 待识别</div>`;
+  } else {
+    canonHtml = `<div class="team-canonical missing">gb_team_id: —</div>`;
+  }
+  return `<div class="team-cell"><div class="team-cell-body">
+    <div class="team-name">${esc(name || '?')}</div>
+    ${pid
+      ? `<div class="team-id">平台 id ${esc(pid)}</div>`
+      : `<div class="team-id missing">平台 id —</div>`}
+    ${canonHtml}
+  </div></div>`;
+}
+
+function renderEndedMatchTable(cm, platforms, teamMaps) {
+  const rows = resolveClientMatchRows(cm, platforms);
+  if (!rows.length) return '<div class="empty" style="padding:12px">无 matchs 映射</div>';
+  const gameCode = clientMatchGameCode(cm, rows);
+  const reverseSet = new Set(Array.isArray(cm?.reverse) ? cm.reverse : []);
+  const rowsHtml = rows.map(m => {
+    const isReversed = reverseSet.has(m.platform);
+    const status = m._platformMissing
+      ? '<span class="team-status ts-warn" title="平台场次已不在活跃/历史快照">已失效</span>'
+      : '<span class="team-status ts-done">已映射</span>';
+    const dir = isReversed
+      ? '<span class="reverse-tag">反</span>'
+      : '<span class="aligned-tag">正</span>';
+    return `<tr>
+      <td class="col-platform">${pbadge(m.platform)} ${status}</td>
+      <td>${renderEndedTeamCell(m, 'home', gameCode, teamMaps)}</td>
+      <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
+      <td>${renderEndedTeamCell(m, 'away', gameCode, teamMaps)}</td>
+      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+      <td>${dir}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="team-table">
+    <thead><tr><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID</th><th>方向</th></tr></thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>`;
+}
+
+function renderEndedMatchCard(cm, platforms, teamMaps) {
+  const rows = resolveClientMatchRows(cm, platforms);
+  const liveRows = rows.filter(r => !r._platformMissing);
+  const gameCode = clientMatchGameCode(cm, liveRows.length ? liveRows : rows);
+  const slotRows = liveRows.length ? liveRows : rows;
+  const homeSlot = slotRows.length
+    ? renderTitleTeamSlot('home', slotRows, teamMaps, gameCode, cm.id, cm)
+    : `<span class="title-team-slot title-team-home"><span class="title-id-row"><span class="title-gb-id missing">—</span></span></span>`;
+  const awaySlot = slotRows.length
+    ? renderTitleTeamSlot('away', slotRows, teamMaps, gameCode, cm.id, cm)
+    : `<span class="title-team-slot title-team-away"><span class="title-id-row"><span class="title-gb-id missing">—</span></span></span>`;
+  const mergeKey = String(cm.merge_key || '').trim();
+  const platCount = Object.keys(cm.matchs || {}).length;
+  const missingCount = rows.length - liveRows.length;
+  const tableHtml = renderEndedMatchTable(cm, platforms, teamMaps);
+  const titleFallback = cm.title
+    ? `<div class="meta-line">${formatVsTitle(cm.title)}</div>`
+    : '';
+  return `<article class="team-card matched ended" data-cm-id="${cm.id}">
+    <div class="team-card-header">
+      <div class="matched-header-layout">
+        <div class="matched-header-home">${homeSlot}</div>
+        <div class="matched-header-center">
+          ${gbadge(gameCode)}
+          <div class="client-match-id-banner">
+            <div>
+              <span class="match-id-label">比赛 ID</span>
+              <span class="match-id-value">#${cm.id}</span>
+            </div>
+          </div>
+          <div class="matched-header-meta">
+            ${titleFallback}
+            <div class="meta-line">开赛 ${fmtTime(cm.start_time)} · 结束 ${fmtTime(cm.ended_at || cm.built_at)}</div>
+            <div class="meta-line">
+              <span class="platform-badges">${platCount}馆 ${Object.keys(cm.matchs || {}).map(pbadge).join('')}</span>
+              ${missingCount ? `<span>${missingCount} 馆场次已失效</span>` : ''}
+            </div>
+            ${mergeKey ? `<div class="meta-line merge-key" title="MergeKey">MK ${esc(mergeKey)}</div>` : ''}
+          </div>
+        </div>
+        <div class="matched-header-away">${awaySlot}</div>
+      </div>
+    </div>
+    ${tableHtml}
+    <div class="team-card-footer">
+      <div class="team-card-hint hidden-ended-meta">完整 matchs 映射 · 只读 · 恢复后可再参与合场</div>
+      <button type="button" class="btn btn-sm btn-success" data-restore-cm="${cm.id}">恢复展示</button>
+    </div>
+  </article>`;
+}
+
 function renderHiddenPanel(list) {
   const items = list || [];
   setHiddenMatchCount(_lastData?.hiddenClientMatchCount ?? items.length);
@@ -1283,24 +1386,18 @@ function renderHiddenPanel(list) {
     body.innerHTML = '<div class="empty" style="padding:20px">暂无已结束赛事</div>';
     return;
   }
-  const rows = items.map(cm => {
-    const gameCode = typeof cm.game === 'string' ? cm.game : (cm.game?.code || cm.game_id || 'unknown');
-    const plats = Object.entries(cm.matchs || {})
-      .map(([p, id]) => `${pbadge(p)} <span class="team-id">${esc(id)}</span>`)
-      .join(' ') || '—';
-    return `<tr>
-      <td>#${cm.id}</td>
-      <td>${esc(cm.title || '—')}</td>
-      <td>${gbadge(gameCode)}</td>
-      <td>${fmtTime(cm.start_time)}</td>
-      <td>${fmtTime(cm.ended_at || cm.built_at)}</td>
-      <td>${plats}</td>
-      <td><button type="button" class="btn btn-sm btn-success" data-restore-cm="${cm.id}">恢复展示</button></td>
-    </tr>`;
-  }).join('');
-  body.innerHTML = `<table class="hidden-table"><thead><tr>
-    <th>ID</th><th>标题</th><th>游戏</th><th>开赛</th><th>结束于</th><th>平台 matchs</th><th></th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+  const merged = { ...(_lastData?.platforms || {}) };
+  for (const [plat, rows] of Object.entries(_lastData?.hiddenPlatforms || {})) {
+    const byId = new Map((merged[plat] || []).map(r => [String(r.source_match_id), r]));
+    for (const r of rows || []) byId.set(String(r.source_match_id), r);
+    merged[plat] = [...byId.values()];
+  }
+  const teamMaps = {
+    ...(_lastData?.teamMaps || {}),
+    ...(_lastData?.hiddenTeamMaps || {}),
+  };
+  const cards = items.map(cm => renderEndedMatchCard(cm, merged, teamMaps)).join('');
+  body.innerHTML = `<div class="hidden-cards">${cards}</div>`;
   body.querySelectorAll('[data-restore-cm]').forEach(btn => {
     btn.addEventListener('click', () => restoreClientMatch(Number(btn.dataset.restoreCm)));
   });
@@ -1317,6 +1414,8 @@ async function loadHiddenClientMatches() {
     if (!_lastData) _lastData = {};
     _lastData.hiddenClientMatches = data.hiddenClientMatches || [];
     _lastData.hiddenClientMatchCount = data.hiddenClientMatchCount ?? _lastData.hiddenClientMatches.length;
+    _lastData.hiddenPlatforms = data.hiddenPlatforms || {};
+    _lastData.hiddenTeamMaps = data.teamMaps || {};
     _hiddenClientMatchesLoaded = true;
     renderHiddenPanel(_lastData.hiddenClientMatches);
   } catch (err) {

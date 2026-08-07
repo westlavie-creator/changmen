@@ -2,6 +2,7 @@ import {
   fetchClientMatchesHidden,
   fetchClientMatchesHiddenCount,
   fetchLatestClientMatchBuiltAt,
+  fetchPlatformMatchesForHiddenClientMatches,
   loadTeamMapsForMatcher,
 } from "@changmen/db";
 import { normalizeTeam } from "@changmen/match-identity/teams/team_key.js";
@@ -396,9 +397,37 @@ async function fetchMatcherHiddenClientMatches() {
     fetchClientMatchesHidden(),
     fetchClientMatchesHiddenCount(),
   ]);
+  const clientRows = (rows || []).map(normalizeDashboardStartTime);
+  const venueRows = await fetchPlatformMatchesForHiddenClientMatches(clientRows);
+  const byPlatform = {};
+  for (const raw of venueRows || []) {
+    const normalized = normalizeDashboardStartTime({
+      ...raw,
+      platform: String(raw.platform || ""),
+      source_match_id: String(raw.source_match_id ?? ""),
+      source_game_id: firstValue(raw.source_game_id, ""),
+      home: firstValue(raw.home, ""),
+      home_id: firstValue(raw.home_id, ""),
+      away: firstValue(raw.away, ""),
+      away_id: firstValue(raw.away_id, ""),
+      bo: Number(raw.bo) || 0,
+      match_id: raw.match_id != null ? Number(raw.match_id) : null,
+      teams: Array.isArray(raw.teams) ? raw.teams : [],
+    });
+    const game = resolveUiGame(normalized.platform, normalized.source_game_id);
+    const enriched = { ...normalized, game: game || null };
+    if (!byPlatform[enriched.platform])
+      byPlatform[enriched.platform] = [];
+    byPlatform[enriched.platform].push(enriched);
+  }
+  const teamMaps = await loadTeamMapsForMatcher(
+    Object.values(byPlatform).flat(),
+  );
   return {
-    hiddenClientMatches: (rows || []).map(normalizeDashboardStartTime),
+    hiddenClientMatches: clientRows,
     hiddenClientMatchCount: count,
+    hiddenPlatforms: byPlatform,
+    teamMaps,
     updatedAt: Date.now(),
   };
 }

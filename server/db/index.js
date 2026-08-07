@@ -294,6 +294,7 @@ export {
   fetchLatestClientMatchBuiltAt,
   fetchAllPlatformMatchBindings,
   fetchPlatformMatchesByClientMatchId,
+  fetchPlatformMatchesForHiddenClientMatches,
   fetchPlatformMatchesDashboard,
   fetchPlatformMatchesDebugRows,
   fetchPlatformMatchesHomeAway,
