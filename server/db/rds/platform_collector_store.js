@@ -598,8 +598,8 @@ export async function prunePolymarketPlatformMatches(opts = {}) {
   }
 }
 
-/** 开赛早于该阈值的平台赛一律 prune（默认 2 天） */
-export const PLATFORM_MATCH_PAST_PRUNE_MS = 2 * 24 * 60 * 60 * 1000;
+/** 开赛早于该阈值的平台赛一律 prune（默认 6h，与 PM/PF 采集主窗 past 一致） */
+export const PLATFORM_MATCH_PAST_PRUNE_MS = 6 * 60 * 60 * 1000;
 
 /**
  * 全平台：start_time < cutoff 的 platform_matches → history，并清 bets/timers。
@@ -709,8 +709,8 @@ export async function markClientMatchesEndedByStartBefore(opts = {}) {
   }
 }
 
-/** 两天前比赛：平台行 prune + 合场行标 ended */
-export async function pruneMatchesOlderThanTwoDays(opts = {}) {
+/** 开赛早于采集 past 窗的比赛：平台行 prune + 合场行标 ended（默认 6h） */
+export async function pruneMatchesOlderThanCollectPast(opts = {}) {
   const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
   const cutoff = Number.isFinite(Number(opts.cutoffMs))
     ? Number(opts.cutoffMs)
@@ -722,6 +722,11 @@ export async function pruneMatchesOlderThanTwoDays(opts = {}) {
     endedAt: now,
   });
   return { cutoff, platform, client };
+}
+
+/** @deprecated 使用 pruneMatchesOlderThanCollectPast */
+export async function pruneMatchesOlderThanTwoDays(opts = {}) {
+  return pruneMatchesOlderThanCollectPast(opts);
 }
 
 /** 启动时读取 platform_matches，按平台分组，返回可直接传给 store.saveMatches 的格式 */

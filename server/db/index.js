@@ -97,6 +97,7 @@ export const {
   prunePlatformMatchesByStartBefore,
   markClientMatchesEndedByStartBefore,
   pruneMatchesOlderThanTwoDays,
+  pruneMatchesOlderThanCollectPast,
   PLATFORM_MATCH_PAST_PRUNE_MS,
   writePlatformBets,
   replacePlatformBetsForMatch,

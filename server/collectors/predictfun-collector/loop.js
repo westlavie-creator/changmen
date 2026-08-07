@@ -93,11 +93,11 @@ export async function runPredictFunDiscoveryCycle() {
   }
   await deleteOrphanPlatformBetsAsync(PLATFORM, keepIds);
 
-  // 开赛已过 2 天：全平台 prune（含本拍未写入的僵尸 OPEN）
+  // 开赛早于采集 past 窗（默认 6h）：全平台 prune
   let pastPruned = 0;
   try {
-    const { pruneMatchesOlderThanTwoDays } = await import("@changmen/db");
-    const past = await pruneMatchesOlderThanTwoDays();
+    const { pruneMatchesOlderThanCollectPast } = await import("@changmen/db");
+    const past = await pruneMatchesOlderThanCollectPast();
     pastPruned = Number(past?.platform?.deleted) || 0;
     if (pastPruned || past?.client?.ended) {
       console.log(

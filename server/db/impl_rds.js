@@ -102,6 +102,7 @@ export {
   prunePlatformMatchesByStartBefore,
   markClientMatchesEndedByStartBefore,
   pruneMatchesOlderThanTwoDays,
+  pruneMatchesOlderThanCollectPast,
   PLATFORM_MATCH_PAST_PRUNE_MS,
 } from "./rds/platform_collector_store.js";
 
