@@ -82,6 +82,7 @@ export const ESPORT_ACTIONS = [
     "Client_AdminEnsurePredictFunHouseAccount",
     "Client_AdminPredictFunRecharge",
     "Client_AdminPredictFunMoneyLogs",
+    "Client_AdminPredictFunMemberOrders",
     "Client_AdminUpdateAccountFields",
     "Client_AdminUpdateUserBetTarget",
     "Client_AdminUserTradeAccounts",

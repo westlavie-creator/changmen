@@ -246,6 +246,19 @@ export async function getAdminPredictFunMoneyLogs(body: {
   );
 }
 
+/** PF 会员全部历史订单（不分日） */
+export async function getAdminPredictFunMemberOrders(body: {
+  userId: string;
+  accountId: number;
+}) {
+  return unwrap(
+    await post<{ list?: AdminOrderRow[]; total?: number }>(
+      "Client_AdminPredictFunMemberOrders",
+      body,
+    ),
+  );
+}
+
 export async function updateAdminAccountFields(body: {
   userId: string;
   accountId: number;

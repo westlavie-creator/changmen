@@ -7,8 +7,8 @@ import { useRoute, useRouter } from "vue-router";
 import {
   deleteAdminOrders,
   ensureAdminPredictFunHouseAccount,
-  getAdminOrdersAll,
   getAdminPredictFunFeeConfig,
+  getAdminPredictFunMemberOrders,
   getAdminPredictFunMembers,
   getAdminPredictFunMoneyLogs,
   rechargeAdminPredictFunMember,
@@ -17,9 +17,7 @@ import {
 } from "@/api/admin";
 import type { AdminPredictFunFeeConfig } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { adminOrderToOrderRow } from "@/shared/adminOrderDisplay";
-import { todayKey } from "@/shared/dateKey";
 import {
   pfOrderBetText,
   pfOrderFillPriceText,
@@ -75,11 +73,10 @@ const rechargeForm = reactive({
 const rechargeLogs = ref<Array<Record<string, unknown>>>([]);
 const rechargeLogsTotal = ref(0);
 
-/** 可同时展开多个会员；每个会员独立日期 / 列表 */
+/** 可同时展开多个会员；每个会员独立全量订单列表 */
 interface MemberOrdersPanel {
   userId: string;
   accountId: number;
-  date: string;
   loading: boolean;
   error: string;
   orders: AdminOrderRow[];
@@ -136,7 +133,7 @@ function panelOrdersSummaryText(panel: MemberOrdersPanel) {
   return `${buys} 买单 · ${sells} 卖单`;
 }
 
-function panelDayProfitUsdt(panel: MemberOrdersPanel) {
+function panelProfitUsdt(panel: MemberOrdersPanel) {
   return panelCycles(panel).reduce((sum, c) => {
     return sum + (c.profitUsdt != null ? c.profitUsdt : 0);
   }, 0);
@@ -549,11 +546,9 @@ async function loadMemberOrders(userId: string) {
   panel.loading = true;
   panel.error = "";
   try {
-    const page = await getAdminOrdersAll({
-      date: panel.date,
+    const page = await getAdminPredictFunMemberOrders({
       userId: panel.userId,
-      provider: "PredictFun",
-      playerId: panel.accountId,
+      accountId: panel.accountId,
     });
     panel.orders = (page.list ?? []).filter(
       (o) => String(o.provider || "").trim() === "PredictFun",
@@ -566,14 +561,6 @@ async function loadMemberOrders(userId: string) {
   finally {
     panel.loading = false;
   }
-}
-
-function onPanelDateChange(userId: string, date: string) {
-  const panel = panelsByUserId[userId];
-  if (!panel)
-    return;
-  panel.date = date;
-  void loadMemberOrders(userId);
 }
 
 function toggleOrders(row: AdminPredictFunMemberRow) {
@@ -591,7 +578,6 @@ function toggleOrders(row: AdminPredictFunMemberRow) {
   panelsByUserId[uid] = {
     userId: uid,
     accountId: row.accountId,
-    date: todayKey(),
     loading: false,
     error: "",
     orders: [],
@@ -743,7 +729,7 @@ onMounted(async () => {
       </div>
 
       <p class="admin-pf-hint">
-        会员名固定为 changmen 登录名；下单走 VPS 运营主号。点「订单」在该会员行下方展开当日 PredictFun 订单。
+        会员名固定为 changmen 登录名；下单走 VPS 运营主号。点「订单」在该会员行下方展开全部 PredictFun 历史订单。
       </p>
 
       <p v-if="loadError" class="admin-card__empty admin-card__empty--error">
@@ -762,11 +748,6 @@ onMounted(async () => {
             <template #default="{ row }">
               <div v-if="isOrdersExpanded(row) && getPanel(row.userId)" class="admin-pf-orders-panel">
                 <div class="admin-pf-orders-toolbar">
-                  <OrderDateNav
-                    :model-value="getPanel(row.userId)!.date"
-                    placeholder="订单日期"
-                    @update:model-value="(d) => onPanelDateChange(row.userId, d)"
-                  />
                   <el-button
                     size="small"
                     :loading="getPanel(row.userId)!.loading"
@@ -776,9 +757,9 @@ onMounted(async () => {
                   </el-button>
                   <span class="admin-pf-orders-summary">
                     {{ panelOrdersSummaryText(getPanel(row.userId)!) }}
-                    · 当日盈亏
-                    <span :class="moneyClass(panelDayProfitUsdt(getPanel(row.userId)!))">
-                      {{ fmtUsdt(panelDayProfitUsdt(getPanel(row.userId)!)) }} U
+                    · 累计盈亏
+                    <span :class="moneyClass(panelProfitUsdt(getPanel(row.userId)!))">
+                      {{ fmtUsdt(panelProfitUsdt(getPanel(row.userId)!)) }} U
                     </span>
                   </span>
                 </div>
@@ -791,7 +772,7 @@ onMounted(async () => {
                     size="small"
                     stripe
                     class="admin-orders-el-table"
-                    empty-text="当日暂无 PF 订单"
+                    empty-text="暂无 PF 订单"
                     :row-class-name="pfOrderRowClassName"
                   >
                     <el-table-column label="时间" width="156" show-overflow-tooltip>

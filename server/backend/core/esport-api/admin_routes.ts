@@ -307,6 +307,20 @@ export async function handleAdminAction(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminPredictFunMemberOrders": {
+      try {
+        return ok(
+          await adminService.listAdminPredictFunMemberOrders(
+            (body.userId ?? body.id) as string,
+            Number(body.accountId ?? body.playerId),
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_AdminUpdateAccountFields": {
       try {
         return ok(

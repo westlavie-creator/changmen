@@ -10,6 +10,10 @@ import store from "../esport-api/store.js";
 import { summarizePfOrders } from "../integrations/predictfun/pf_ledger.js";
 import * as accountStore from "./account_store.js";
 import { sanitizeAccountForAdmin } from "./admin_account_sanitize.js";
+import {
+  attachPlayerDisplayToAdminOrders,
+  mapAdminOrderRow,
+} from "./admin_orders.js";
 import * as orderStore from "./order_store.js";
 
 function findPredictFunAccount(accounts) {
@@ -316,4 +320,40 @@ export async function listAdminPredictFunMoneyLogs(userId, accountId, body = {},
   const pageIndex = Number(body.pageIndex) || 1;
   const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
   return accountStore.listMoneyLogs(aid, pageIndex, pageSize, uid);
+}
+
+/**
+ * PF 管理端：该会员全部历史订单（不分日；与会员列表 totalProfit 同源 listByPlayer）。
+ */
+export async function listAdminPredictFunMemberOrders(userId, accountId, caller = null) {
+  const uid = String(userId || "").trim();
+  const aid = Number(accountId);
+  if (!uid)
+    throw new Error("用户 ID 无效");
+  if (!aid)
+    throw new Error("accountId 无效");
+  if (!caller || !isAdminUser(caller))
+    throw new Error("无管理员权限");
+  const visibleIds = await getVisibleUserIds(caller);
+  if (visibleIds && !visibleIds.has(uid))
+    throw new Error("无权操作该用户");
+
+  await loadAccountsForUser(uid);
+  const accounts = store.getAccountsForUser(uid);
+  const row = accounts.find(a => Number(a.accountId ?? a.AccountId) === aid);
+  if (!row)
+    throw new Error("账号不存在");
+  if (String(row.provider || row.Provider || "") !== "PredictFun")
+    throw new Error("仅支持 PredictFun 会员");
+
+  const player = await accountStore.getPlayer(aid);
+  if (!player || String(player.ownerUserId || "") !== uid)
+    throw new Error("会员归属不匹配");
+
+  const rows = await sb.fetchOrdersByPlayer(aid, uid);
+  const scoped = (rows || []).filter(
+    r => String(r?.provider || "").trim() === "PredictFun",
+  );
+  const list = await attachPlayerDisplayToAdminOrders(scoped.map(r => mapAdminOrderRow(r)));
+  return { list, total: list.length };
 }

@@ -72,7 +72,7 @@ function resolveMatchStartTime(col, startIndex) {
   return 0;
 }
 
-function mapAdminOrderRow(r, startIndex = null) {
+export function mapAdminOrderRow(r, startIndex = null) {
   const col = orderMatchColumn(r);
   const safeStartIndex
     = startIndex
@@ -140,7 +140,7 @@ function mapAdminOrderRow(r, startIndex = null) {
 }
 
 /** 历史订单：回填 player 展示字段（含已删账号） */
-async function attachPlayerDisplayToAdminOrders(list) {
+export async function attachPlayerDisplayToAdminOrders(list) {
   const ids = [...new Set(
     (list || []).map(r => Number(r.playerId) || 0).filter(id => id > 0),
   )];
