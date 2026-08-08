@@ -27,6 +27,8 @@ A8 参考：仅有 minified bundle（`../A8/A8frontendscipts/2.0.1/index.js`）�
 
 ### Install
 
+**Node ≥ 22.18.0**（见 `.nvmrc`）。`@changmen/shared` 的 `exports` 直接指向 `.ts` 源文件，靠 Node 22.18 起默认开启的类型剥离加载；22.17 及更早会在 import 时抛 `ERR_UNKNOWN_FILE_EXTENSION ".ts"`，backend 起不来、大量测试挂掉。用 nvm 的话 `nvm install`（读 `.nvmrc`）即可。
+
 ```bat
 npm install                            # workspaces：shared、backend、matcher、web、chrome-extension、packages
 BAT\setup-dev-env.bat                  # 首次：从 .env.example 复制 server/backend/.env
