@@ -16,6 +16,22 @@
   color:#fff;font-size:12px;text-align:center;padding-bottom:6px;
 }
 
+/* [changmen 扩展] 地图4+ 折叠禁下（与 live 互斥，不同时渲染） */
+.matchs .bet .map-mute-toggle {
+  position:absolute;right:4px;top:4px;z-index:2;
+  min-width:22px;height:18px;padding:0 4px;margin:0;border:1px solid hsla(0,0%,100%,.35);
+  border-radius:3px;background:#000a;color:#fff;font-size:11px;line-height:16px;cursor:pointer;
+}
+.matchs .bet .map-mute-toggle:hover {
+  border-color:hsla(0,0%,100%,.7);background:#000c;
+}
+.matchs .bet:has(.map-mute-toggle) .bet-title {
+  padding-right:28px;
+}
+.matchs .bet.is-map-muted {
+  opacity:.72;
+}
+
 /* WIN 浮在胜方赔率格上方，不增加行高 */
 .matchs .bet .item .item-odds.pm-map-won {
   border-color:var(--cm-color-success);

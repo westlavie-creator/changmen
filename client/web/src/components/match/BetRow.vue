@@ -6,6 +6,13 @@ import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
+import {
+  canFoldMap,
+  clearMapMute,
+  isMapMuteActive,
+  mapBetMuteKeys,
+  toggleMapMute,
+} from "@/extensions/mapBetMute";
 import { useEvMarker } from "@/extensions/valueBet";
 import { arbPercent, formatSecond, percent, toFixed } from "@changmen/client-core/shared/format";
 import {
@@ -37,7 +44,8 @@ const props = withDefaults(
 );
 
 const BET_SIDES: BetSide[] = ["Home", "Away"];
-const bettingEnabled = computed(() => props.allowBetting);
+
+const muteKeysRef = mapBetMuteKeys();
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
@@ -49,6 +57,27 @@ const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
 const betRowUiEnabled = useBetRowExtensionUiEnabled();
+
+const showLiveTimer = computed(() => {
+  const lr = props.match.liveRound;
+  return lr !== 0 && lr === props.bet.round;
+});
+
+/** [changmen 扩展] 仅 map>=4 且非 live 可折叠；live 与折叠按钮互斥 */
+const canFold = computed(() => canFoldMap(props.bet.round) && !showLiveTimer.value);
+const mapMuted = computed(() => {
+  void muteKeysRef.value;
+  return isMapMuteActive(props.match.id, props.bet.round, props.match.liveRound);
+});
+const bettingEnabled = computed(() => props.allowBetting && !mapMuted.value);
+
+function onToggleMapMute(e: MouseEvent) {
+  e.stopPropagation();
+  if (!canFold.value)
+    return;
+  toggleMapMute(props.match.id, props.bet.round);
+}
+
 /** 体育只读板关掉扩展交互暗示（红线/EV），避免看起来能下单 */
 const extensionsEnabled = computed(() => betRowUiEnabled.value && bettingEnabled.value);
 
@@ -116,11 +145,6 @@ const arb = computed(() => {
   return arbPercent(bestHome, bestAway);
 });
 
-const showLiveTimer = computed(() => {
-  const lr = props.match.liveRound;
-  return lr !== 0 && lr === props.bet.round;
-});
-
 /**
  * [changmen 扩展] 直播秒数只在本行 tick，避免全表订阅全局计时代际。
  * A8 Home 无全局 Vue tick，计时靠主循环顺带重绘。
@@ -144,10 +168,14 @@ function startLocalLiveClock() {
 }
 
 watch(showLiveTimer, (on) => {
-  if (on)
+  if (on) {
     startLocalLiveClock();
-  else
+    // live 与折叠互斥：进入 live 时清掉该局 mute
+    clearMapMute(props.match.id, props.bet.round);
+  }
+  else {
     stopLocalLiveClock();
+  }
 }, { immediate: true });
 
 onUnmounted(stopLocalLiveClock);
@@ -262,7 +290,7 @@ function onBetTitleDblClick() {
 </script>
 
 <template>
-  <div class="bet">
+  <div class="bet" :class="{ 'is-map-muted': mapMuted }">
     <el-tag
       v-if="showLiveTimer"
       class="live"
@@ -274,10 +302,20 @@ function onBetTitleDblClick() {
     >
       {{ formatSecond(liveSeconds) }}
     </el-tag>
+    <button
+      v-if="canFold"
+      type="button"
+      class="map-mute-toggle"
+      :title="mapMuted ? '展开并允许下注' : '折叠并禁止下注'"
+      :aria-pressed="mapMuted"
+      @click="onToggleMapMute"
+    >
+      {{ mapMuted ? "开" : "关" }}
+    </button>
     <div class="bet-title" @dblclick="onBetTitleDblClick">
       {{ bet.getBetName() }} - {{ arb }}
     </div>
-    <div ref="itemsContainerRef" class="bet-items">
+    <div v-show="!mapMuted" ref="itemsContainerRef" class="bet-items">
       <div v-if="showDefaultOdds" class="item flex defaultOdds">
         <div class="item-type default" />
         <div

@@ -2,6 +2,7 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { ArbAttemptPhase } from "@/stores/betting/autoBet/arbAttemptMetrics";
 import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
 import type { UserConfig } from "@/types/userConfig";
+import { isMapMuteActive } from "@/extensions/mapBetMute";
 import {
   recordArbAttemptMetric,
 } from "@/stores/betting/autoBet/arbAttemptMetrics";
@@ -23,6 +24,10 @@ export async function executeArbBet(params: {
   config: UserConfig;
   setMessage: (msg: string) => void;
 }): Promise<void> {
+  // [changmen 扩展] 用户折叠的地图4+：跳过本盘（live 局互斥，不跳过）
+  if (isMapMuteActive(params.match.id, params.bet.round, params.match.liveRound))
+    return;
+
   const attempt: ArbBetAttemptParams = { ...params };
 
   const phaseMsMap: Partial<Record<ArbAttemptPhase, number>> = {};
