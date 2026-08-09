@@ -104,6 +104,8 @@ export {
   pruneMatchesOlderThanTwoDays,
   pruneMatchesOlderThanCollectPast,
   PLATFORM_MATCH_PAST_PRUNE_MS,
+  PLATFORM_MATCH_START_TIME_PRUNE_PLATFORMS,
+  resolvePlatformStartTimePruneOpts,
 } from "./rds/platform_collector_store.js";
 
 export {

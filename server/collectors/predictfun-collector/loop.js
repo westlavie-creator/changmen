@@ -93,16 +93,14 @@ export async function runPredictFunDiscoveryCycle() {
   }
   await deleteOrphanPlatformBetsAsync(PLATFORM, keepIds);
 
-  // 开赛早于采集 past 窗（默认 6h）：全平台 prune
+  // PredictFun 硬 past 窗：清本馆开赛过旧僵尸行（不碰 PM/A8，不写 client ended_at）
   let pastPruned = 0;
   try {
     const { pruneMatchesOlderThanCollectPast } = await import("@changmen/db");
     const past = await pruneMatchesOlderThanCollectPast();
     pastPruned = Number(past?.platform?.deleted) || 0;
-    if (pastPruned || past?.client?.ended) {
-      console.log(
-        `[predictfun-collector] past prune platform=${pastPruned} clientEnded=${past?.client?.ended || 0}`,
-      );
+    if (pastPruned) {
+      console.log(`[predictfun-collector] past prune platform=${pastPruned}`);
     }
   }
   catch (err) {

@@ -598,26 +598,53 @@ export async function prunePolymarketPlatformMatches(opts = {}) {
   }
 }
 
-/** 开赛早于该阈值的平台赛一律 prune（默认 6h，与 PM/PF 采集主窗 past 一致） */
+/** 开赛早于该阈值可 prune（默认 6h，与 PredictFun 采集 past 窗一致） */
 export const PLATFORM_MATCH_PAST_PRUNE_MS = 6 * 60 * 60 * 1000;
 
 /**
- * 全平台：start_time < cutoff 的 platform_matches → history，并清 bets/timers。
- * @param {{ cutoffMs?: number, nowMs?: number }} [opts]
- * @returns {Promise<{ cutoff: number, deleted: number, byPlatform: Record<string, number> }>}
+ * 仅这些馆可按 start_time past 窗 prune。
+ * 勿扩到 Polymarket（live 补 pass，见 prunePolymarketPlatformMatches）或 A8 浏览器馆
+ * （无过去下限，长局仍由 SaveMatch 快照保留）。
  */
-async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
+export const PLATFORM_MATCH_START_TIME_PRUNE_PLATFORMS = Object.freeze(["PredictFun"]);
+
+/**
+ * @param {{ cutoffMs?: number, nowMs?: number, platforms?: string[] }} [opts]
+ * @returns {{ cutoff: number, platforms: string[] }}
+ */
+export function resolvePlatformStartTimePruneOpts(opts = {}) {
   const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
   const cutoff = Number.isFinite(Number(opts.cutoffMs))
     ? Number(opts.cutoffMs)
     : now - PLATFORM_MATCH_PAST_PRUNE_MS;
+  const raw = Array.isArray(opts.platforms)
+    ? opts.platforms
+    : PLATFORM_MATCH_START_TIME_PRUNE_PLATFORMS;
+  const platforms = [...new Set(raw.map(p => String(p || "").trim()).filter(Boolean))];
+  return { cutoff, platforms };
+}
+
+/**
+ * 指定馆：start_time < cutoff 的 platform_matches → history，并清 bets/timers。
+ * 默认仅 PredictFun（硬 past 窗）；禁止无 platforms 时扫全表。
+ * @param {{ cutoffMs?: number, nowMs?: number, platforms?: string[] }} [opts]
+ * @returns {Promise<{ cutoff: number, deleted: number, byPlatform: Record<string, number>, platforms: string[] }>}
+ */
+async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
+  const { cutoff, platforms } = resolvePlatformStartTimePruneOpts(opts);
+  if (!platforms.length)
+    return { cutoff, deleted: 0, byPlatform: {}, platforms };
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const moved = await client.query(
       `WITH moved AS (
          DELETE FROM platform_matches
-         WHERE start_time IS NOT NULL AND start_time < $1::bigint
+         WHERE platform = ANY($2::text[])
+           AND start_time IS NOT NULL
+           AND start_time < $1::bigint
+           -- 仍标 live 的行不按开赛时间砍（防长局误删）
+           AND (is_live IS NULL OR is_live NOT IN (1, 2))
          RETURNING *
        )
        INSERT INTO platform_matches_history (
@@ -628,7 +655,7 @@ async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
               away_id, away, bo, is_live, teams, synced_at, match_id
        FROM moved
        RETURNING platform, source_match_id`,
-      [cutoff],
+      [cutoff, platforms],
     );
     const deletedRows = moved.rows || [];
     const byPlatform = {};
@@ -655,7 +682,7 @@ async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
       );
     }
     await client.query("COMMIT");
-    return { cutoff, deleted: deletedRows.length, byPlatform };
+    return { cutoff, deleted: deletedRows.length, byPlatform, platforms };
   }
   catch (err) {
     await client.query("ROLLBACK");
@@ -669,7 +696,7 @@ async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
 export async function prunePlatformMatchesByStartBefore(opts = {}) {
   const pool = getPgPool();
   if (!pool)
-    return { cutoff: 0, deleted: 0, byPlatform: {} };
+    return { cutoff: 0, deleted: 0, byPlatform: {}, platforms: [] };
   try {
     return await _rdsPrunePlatformMatchesByStartBefore(pool, opts);
   }
@@ -680,7 +707,9 @@ export async function prunePlatformMatchesByStartBefore(opts = {}) {
 }
 
 /**
- * 活跃 client_matches：开赛早于 cutoff → 写 ended_at（不搬 history）。
+ * @deprecated 勿在自动循环调用。按 start_time 写 sticky ended_at 会绕过 ended_filter
+ * （PM∧OB 双确认 / live Round），误杀长局后 Client_GetMatchs 永久消失且 restore 会被再标 ended。
+ * 合场结束只走 compose ended_filter → writeClientMatchesLifecycle。
  * @param {{ cutoffMs?: number, nowMs?: number, endedAt?: number }} [opts]
  */
 export async function markClientMatchesEndedByStartBefore(opts = {}) {
@@ -709,19 +738,19 @@ export async function markClientMatchesEndedByStartBefore(opts = {}) {
   }
 }
 
-/** 开赛早于采集 past 窗的比赛：平台行 prune + 合场行标 ended（默认 6h） */
+/**
+ * PredictFun 等硬 past 窗馆：开赛早于采集 past 的平台行 → history。
+ * 不写 client_matches.ended_at（留给 compose ended_filter / 人工 forceEnd）。
+ */
 export async function pruneMatchesOlderThanCollectPast(opts = {}) {
-  const now = Number.isFinite(Number(opts.nowMs)) ? Number(opts.nowMs) : Date.now();
-  const cutoff = Number.isFinite(Number(opts.cutoffMs))
-    ? Number(opts.cutoffMs)
-    : now - PLATFORM_MATCH_PAST_PRUNE_MS;
-  const platform = await prunePlatformMatchesByStartBefore({ cutoffMs: cutoff, nowMs: now });
-  const client = await markClientMatchesEndedByStartBefore({
+  const { cutoff, platforms } = resolvePlatformStartTimePruneOpts(opts);
+  const platform = await prunePlatformMatchesByStartBefore({
     cutoffMs: cutoff,
-    nowMs: now,
-    endedAt: now,
+    nowMs: opts.nowMs,
+    platforms,
   });
-  return { cutoff, platform, client };
+  // 兼容旧日志字段；自动路径不再标 client ended
+  return { cutoff, platform, client: { cutoff, ended: 0 } };
 }
 
 /** @deprecated 使用 pruneMatchesOlderThanCollectPast */

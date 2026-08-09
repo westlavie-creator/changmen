@@ -18,6 +18,7 @@ function contextFromBetOption(
   if (!option) {
     return link ? { link } : {};
   }
+  // option.betMoney 已是场馆 USDC（checkBetting）；builder 内 scale→CNY + pmStakeUsdc
   return {
     betMoney: Number(option.betMoney) || 0,
     odds: Number(option.odds) || 0,

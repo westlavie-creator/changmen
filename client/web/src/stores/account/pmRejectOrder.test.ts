@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import { BetOption } from "@changmen/client-core/models/betOption";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { persistPolymarketExecutionReject } from "./pmRejectOrder";
 
 const saveOrders = vi.fn();
@@ -48,12 +49,15 @@ describe("persistPolymarketExecutionReject", () => {
     });
     expect(out?.status).toBe("reject");
     expect(out?.orderId).toBe("pm-rej-9-1700000000000-api_failed");
-    expect(out?.betMoney).toBe(10);
+    expect(out?.pmStakeUsdc).toBe(10);
+    expect(out?.betMoney).toBeCloseTo(10 * getExchange(Currency.USDT), 4);
     expect(out?.link).toBe(55);
     expect(out?.pmRejectReason).toBe("api_failed");
     expect(saveOrders).toHaveBeenCalledTimes(1);
     expect(saveOrders.mock.calls[0][0]).toBe(account);
     expect(saveOrders.mock.calls[0][1][0].orderId).toBe(out!.orderId);
+    expect(saveOrders.mock.calls[0][1][0].betMoney).toBeCloseTo(10 * getExchange(Currency.USDT), 4);
+    expect(saveOrders.mock.calls[0][1][0].pmStakeUsdc).toBe(10);
   });
 
   it("saves unfilled with official orderId without requiring pmPosted", async () => {
