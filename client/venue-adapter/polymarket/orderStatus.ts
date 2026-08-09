@@ -1,5 +1,6 @@
 import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
 import type { VenueOrder } from "../contract";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import { pmGetOrder } from "./pmClientApi";
@@ -220,6 +221,10 @@ export function applyPolymarketSettlementToResult(
 export type PolymarketExecutionRejectReason = "unfilled" | "api_failed";
 
 export interface PolymarketRejectOrderContext {
+  /**
+   * 场馆口径 USDC（checkBetting 后的 option.betMoney）。
+   * 落库时写入 pmStakeUsdc，并把 betMoney scale 成 Display CNY（对齐 matched 乐观单）。
+   */
   betMoney?: number;
   odds?: number;
   game?: string;
@@ -228,6 +233,20 @@ export interface PolymarketRejectOrderContext {
   item?: string;
   link?: number;
   createAt?: number;
+}
+
+/** ctx.betMoney = USDC → RDS/侧栏 CNY + pmStakeUsdc */
+function rejectStakeFields(ctx: PolymarketRejectOrderContext): {
+  betMoney: number;
+  pmStakeUsdc?: number;
+} {
+  const usdc = Number(ctx.betMoney);
+  if (!(usdc > 0))
+    return { betMoney: 0 };
+  return {
+    betMoney: scaleUsdtToCnyDisplay(usdc),
+    pmStakeUsdc: usdc,
+  };
 }
 
 /** 官方 orderId（含失败 POST 的 response.orderID）；无则合成稳定主键 */
@@ -273,12 +292,13 @@ export function buildPolymarketRejectVenueOrder(
   const orderId = outcome === "timeout"
     ? String(result.orderId ?? "").trim()
     : resolvePolymarketRejectOrderId(account, result, "unfilled");
+  const stake = rejectStakeFields(ctx);
   return {
     provider: account.provider,
     orderId,
     odds: Number(ctx.odds) > 0 ? Number(ctx.odds) : 0,
     createAt,
-    betMoney: Number(ctx.betMoney) > 0 ? Number(ctx.betMoney) : 0,
+    betMoney: stake.betMoney,
     reward: 0,
     money: 0,
     status: "reject",
@@ -290,6 +310,7 @@ export function buildPolymarketRejectVenueOrder(
     item: String(ctx.item ?? ""),
     pmSide: "buy",
     pmOrigin: "changmen",
+    ...(stake.pmStakeUsdc != null ? { pmStakeUsdc: stake.pmStakeUsdc } : {}),
     ...(outcome === "unfilled" ? { pmRejectReason: "unfilled" as const } : {}),
     ...(Number(ctx.link) ? { link: Number(ctx.link) } : {}),
   };
@@ -308,12 +329,13 @@ export function buildPolymarketExecutionRejectVenueOrder(
   const betLabel = reason === "api_failed"
     ? (String(ctx.bet ?? "").trim() || "下单未成交")
     : (String(ctx.bet ?? "").trim() || "FOK未成交");
+  const stake = rejectStakeFields(ctx);
   return {
     provider: account.provider,
     orderId: resolvePolymarketRejectOrderId(account, result, reason),
     odds: Number(ctx.odds) > 0 ? Number(ctx.odds) : 0,
     createAt,
-    betMoney: Number(ctx.betMoney) > 0 ? Number(ctx.betMoney) : 0,
+    betMoney: stake.betMoney,
     reward: 0,
     money: 0,
     status: "reject",
@@ -324,6 +346,7 @@ export function buildPolymarketExecutionRejectVenueOrder(
     pmSide: "buy",
     pmOrigin: "changmen",
     pmRejectReason: reason,
+    ...(stake.pmStakeUsdc != null ? { pmStakeUsdc: stake.pmStakeUsdc } : {}),
     ...(Number(ctx.link) ? { link: Number(ctx.link) } : {}),
   };
 }

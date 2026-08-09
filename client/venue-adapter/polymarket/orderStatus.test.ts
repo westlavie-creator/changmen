@@ -13,6 +13,7 @@ import {
 } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import { BetResult } from "@changmen/client-core/models/betResult";
+import { Currency, getExchange } from "@changmen/shared/currency";
 
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 const awaitPolymarketOrderWatch = vi.fn();
@@ -178,7 +179,9 @@ describe("buildPolymarketExecutionRejectVenueOrder", () => {
     });
     expect(order.status).toBe("reject");
     expect(order.orderId).toBe("pm-rej-42-1700000000123-api_failed");
-    expect(order.betMoney).toBe(12.5);
+    // ctx.betMoney 为 USDC；落库 betMoney 为 Display CNY，pmStakeUsdc 保留 USDC
+    expect(order.pmStakeUsdc).toBe(12.5);
+    expect(order.betMoney).toBeCloseTo(12.5 * getExchange(Currency.USDT), 4);
     expect(order.money).toBe(0);
     expect(order.link).toBe(99);
     expect(order.pmRejectReason).toBe("api_failed");
@@ -196,6 +199,8 @@ describe("buildPolymarketExecutionRejectVenueOrder", () => {
     });
     expect(order.orderId).toBe("0xabc");
     expect(order.pmRejectReason).toBe("unfilled");
+    expect(order.pmStakeUsdc).toBe(5);
+    expect(order.betMoney).toBeCloseTo(5 * getExchange(Currency.USDT), 4);
   });
 
   it("prefers response.orderID when result.orderId missing", () => {
