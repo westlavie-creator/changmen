@@ -25,10 +25,9 @@ async function maybeArchiveStaleClientMatches() {
   archiveInFlight = (async () => {
     try {
       const past = await pruneMatchesOlderThanCollectPast();
-      if (past?.platform?.deleted || past?.client?.ended) {
+      if (past?.platform?.deleted) {
         console.log(
-          `[matcher] past prune (>collect past): platform=${past.platform?.deleted || 0}`
-          + ` clientEnded=${past.client?.ended || 0}`,
+          `[matcher] past prune (PF collect past): platform=${past.platform?.deleted || 0}`,
         );
       }
     }
