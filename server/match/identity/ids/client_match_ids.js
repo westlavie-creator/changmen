@@ -7,6 +7,29 @@ function matchsSignature(matchs) {
     .join("|");
 }
 
+/** sticky ended_at 行：仅平台源 id 重叠时才允许 merge_key 复用（同场回灌）；重赛必须新 id */
+function isEndedClientRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
+function matchsHavePlatformOverlap(a, b) {
+  for (const [plat, srcId] of Object.entries(b || {})) {
+    if (String(a?.[plat] ?? "") === String(srcId))
+      return true;
+  }
+  return false;
+}
+
+/** ended 且无平台重叠 → 禁止走 merge_key / id-key 复用（否则重赛撞上 sticky 永久消失） */
+function mayReuseByMergeKey(existingRow, builtMatchs) {
+  if (!existingRow)
+    return false;
+  if (!isEndedClientRow(existingRow))
+    return true;
+  return matchsHavePlatformOverlap(existingRow.matchs || existingRow.Matchs, builtMatchs);
+}
+
 /** existing ⊆ built（平台与 source id 一致）时视为同场升级，复用旧 client_matches.id */
 function matchsIsSubset(subMatchs, superMatchs) {
   const sub = Object.entries(subMatchs || {});
@@ -121,7 +144,26 @@ async function insertClientMatchRow(adapter, mergeKey, stub) {
 /**
  * 为 buildClientMatchList 产出的行分配 id。
  * 优先复用已有 client_matches.id（含对齐链接、平台重叠）；仅全新场次才 insert。
+ *
+ * ended 行：merge_key / id-key 仅在平台源 id 重叠时复用（同场回灌）。
+ * 同队对重赛（新 SourceMatchID、同 bare merge_key）必须新 id，否则 sticky ended 会让
+ * Client_GetMatchs 永久看不到新场。
  */
+function lookupMergeKeyId(byMergeKey, existingById, mergeKey, builtMatchs, batchAssigned) {
+  if (!mergeKey)
+    return 0;
+  if (batchAssigned?.has(mergeKey))
+    return Number(batchAssigned.get(mergeKey)) || 0;
+  const id = Number(byMergeKey.get(mergeKey)) || 0;
+  if (!id)
+    return 0;
+  const row = existingById.get(id);
+  if (row && !mayReuseByMergeKey(row, builtMatchs))
+    return 0;
+  // idKeyIndex 可能指向不在 existing 里的 id：无 ended 信息时允许复用
+  return id;
+}
+
 async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKeyIndex } = {}) {
   if (!adapter)
     throw new Error("client match adapter required");
@@ -130,20 +172,23 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
 
   const existing = await adapter.fetchClientMatchIndex();
   const idKeyIndex = existingIdKeyIndex || new Map();
+  const existingById = new Map(
+    (existing || []).map(row => [Number(row.id), row]),
+  );
 
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
   for (const row of existing || []) {
     const id = Number(row.id);
     if (row.merge_key)
-      byMergeKey.set(row.merge_key, id);
+      byMergeKey.set(String(row.merge_key), id);
     const sig = matchsSignature(row.matchs);
     if (sig && !byMatchsSig.has(sig))
       byMatchsSig.set(sig, id);
   }
   for (const [key, id] of idKeyIndex) {
     if (!byMergeKey.has(key))
-      byMergeKey.set(key, id);
+      byMergeKey.set(key, Number(id));
   }
 
   const batchAssigned = new Map();
@@ -154,13 +199,13 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
     let id = Number(row.ID) || 0;
 
     if (!id && mergeKey?.startsWith("match:id:")) {
-      id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || idKeyIndex.get(mergeKey) || 0;
+      id = lookupMergeKeyId(byMergeKey, existingById, mergeKey, row.Matchs, batchAssigned);
     }
     if (!id && matches) {
       id = findLinkedClientIdFromMatchs(row.Matchs, matches, { mergeKey, existingIdKeyIndex: idKeyIndex });
     }
     if (!id && mergeKey) {
-      id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || 0;
+      id = lookupMergeKeyId(byMergeKey, existingById, mergeKey, row.Matchs, batchAssigned);
     }
     if (!id) {
       const sig = matchsSignature(row.Matchs);
@@ -222,8 +267,11 @@ export {
   findLinkedClientIdFromMatchs,
   findReuseIdByMatchsSuperset,
   findReuseIdByPlatformOverlap,
+  isEndedClientRow,
   manualMergeKey,
+  matchsHavePlatformOverlap,
   matchsIsSubset,
   matchsSignature,
+  mayReuseByMergeKey,
   resolveClientMatchIds,
 };
