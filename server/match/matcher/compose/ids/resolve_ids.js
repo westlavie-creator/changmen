@@ -7,24 +7,39 @@ import {
   findLinkedClientIdFromMatchs,
   findReuseIdByMatchsSuperset,
   findReuseIdByPlatformOverlap,
+  mayReuseByMergeKey,
   matchsSignature,
   resolveClientMatchIds,
 } from "@changmen/match-identity/ids/client_match_ids.js";
 
-function reuseIdSync(row, existing, matches, byMergeKey, byMatchsSig, batchAssigned, existingIdKeyIndex) {
+function lookupMergeKeyId(byMergeKey, existingById, mergeKey, builtMatchs, batchAssigned) {
+  if (!mergeKey)
+    return 0;
+  if (batchAssigned?.has(mergeKey))
+    return Number(batchAssigned.get(mergeKey)) || 0;
+  const id = Number(byMergeKey.get(mergeKey)) || 0;
+  if (!id)
+    return 0;
+  const row = existingById.get(id);
+  if (row && !mayReuseByMergeKey(row, builtMatchs))
+    return 0;
+  return id;
+}
+
+function reuseIdSync(row, existing, existingById, matches, byMergeKey, byMatchsSig, batchAssigned, existingIdKeyIndex) {
   const mergeKey = row.MergeKey ? String(row.MergeKey) : null;
   let id = Number(row.ID) || 0;
 
-  if (!id && mergeKey?.startsWith("match:id:") && existingIdKeyIndex?.has(mergeKey))
-    id = existingIdKeyIndex.get(mergeKey) || 0;
-  if (!id && mergeKey)
-    id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || 0;
+  if (!id && mergeKey?.startsWith("match:id:"))
+    id = lookupMergeKeyId(byMergeKey, existingById, mergeKey, row.Matchs, batchAssigned);
   if (!id && matches) {
     id = findLinkedClientIdFromMatchs(row.Matchs, matches, {
       mergeKey,
       existingIdKeyIndex,
     }) || 0;
   }
+  if (!id && mergeKey)
+    id = lookupMergeKeyId(byMergeKey, existingById, mergeKey, row.Matchs, batchAssigned);
   if (!id) {
     const sig = matchsSignature(row.Matchs);
     if (sig)
@@ -45,6 +60,9 @@ export function resolveIdsDryRun(builtRows, {
   existingClientRows = [],
   existingIdKeyIndex,
 } = {}) {
+  const existingById = new Map(
+    (existingClientRows || []).map(row => [Number(row.id), row]),
+  );
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
   for (const row of existingClientRows || []) {
@@ -58,7 +76,7 @@ export function resolveIdsDryRun(builtRows, {
   if (existingIdKeyIndex) {
     for (const [key, id] of existingIdKeyIndex) {
       if (!byMergeKey.has(key))
-        byMergeKey.set(key, id);
+        byMergeKey.set(key, Number(id));
     }
   }
   const batchAssigned = new Map();
@@ -68,6 +86,7 @@ export function resolveIdsDryRun(builtRows, {
     const { id: reuse, mergeKey } = reuseIdSync(
       row,
       existingClientRows,
+      existingById,
       matches,
       byMergeKey,
       byMatchsSig,

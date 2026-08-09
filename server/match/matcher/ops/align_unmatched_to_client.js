@@ -146,12 +146,20 @@ function buildClientMatchIndexes(clientRows, matches) {
   return { byIdKey, byNameKey };
 }
 
+function clientRowEnded(cm) {
+  const ended = cm?.ended_at ?? cm?.endedAt;
+  return ended != null && ended !== "";
+}
+
 /** match:id 键 → client_matches.id（供 resolveClientMatchIds 在合并后复用） */
 function buildExistingClientIdKeyIndex(clientRows, matches) {
   const map = new Map();
   for (const cm of clientRows || []) {
     const id = Number(cm.id);
     if (!Number.isFinite(id))
+      continue;
+    // ended 不进 id-key 索引：重赛会撞 bare merge_key；同场回灌改走平台重叠复用
+    if (clientRowEnded(cm))
       continue;
 
     const stored = String(cm.merge_key || "");

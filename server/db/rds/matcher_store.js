@@ -21,12 +21,13 @@ export function isMatcherStoreReady() {
 
 export async function fetchClientMatchIdIndex() {
   const { rows } = await rdsQuery(
-    "SELECT id, merge_key, matchs FROM client_matches",
+    "SELECT id, merge_key, matchs, ended_at FROM client_matches",
   );
   return rows.map(r => ({
     id: Number(r.id),
     merge_key: r.merge_key,
     matchs: r.matchs || {},
+    ended_at: r.ended_at ?? null,
   }));
 }
 
@@ -41,7 +42,15 @@ export async function findClientMatchIdByMergeKey(mergeKey) {
   return rows[0] ? Number(rows[0].id) : null;
 }
 
-async function insertClientMatchStubRds(mergeKey, stub) {
+function stubMatchsOverlap(existingMatchs, stubMatchs) {
+  for (const [plat, srcId] of Object.entries(stubMatchs || {})) {
+    if (String(existingMatchs?.[plat] ?? "") === String(srcId))
+      return true;
+  }
+  return false;
+}
+
+async function insertClientMatchStubRds(mergeKey, stub, { retried = false } = {}) {
   const builtAt = Date.now();
   try {
     const { rows } = await rdsQuery(
@@ -67,10 +76,27 @@ async function insertClientMatchStubRds(mergeKey, stub) {
   }
   catch (err) {
     if (err.code === "23505") {
-      const { rows } = await rdsQuery("SELECT id FROM client_matches WHERE merge_key = $1", [mergeKey]);
+      const { rows } = await rdsQuery(
+        "SELECT id, ended_at, matchs FROM client_matches WHERE merge_key = $1",
+        [mergeKey],
+      );
       if (!rows.length)
         throw err;
-      return Number(rows[0].id);
+      const existing = rows[0];
+      const ended = existing.ended_at != null;
+      const overlap = stubMatchsOverlap(existing.matchs || {}, stub.matchs || {});
+      // 重赛：ended 占着 bare merge_key 且平台源不同 → 让出键再 insert，避免 sticky 吞掉新场
+      if (ended && !overlap && !retried) {
+        const retiredKey = `${mergeKey}@ended:${Number(existing.id)}:${Number(existing.ended_at) || builtAt}`;
+        await rdsQuery(
+          `UPDATE client_matches
+           SET merge_key = $2
+           WHERE id = $1 AND merge_key = $3 AND ended_at IS NOT NULL`,
+          [Number(existing.id), retiredKey, mergeKey],
+        );
+        return insertClientMatchStubRds(mergeKey, stub, { retried: true });
+      }
+      return Number(existing.id);
     }
     throw err;
   }

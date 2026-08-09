@@ -110,6 +110,42 @@ describe("client_match_ids", () => {
     expect(out[0].ID).toBe(501);
   });
 
+  it("resolveClientMatchIds skips sticky-ended merge_key without platform overlap", async () => {
+    const mergeKey = "match:id:3:100301:100302";
+    let insertedKey = null;
+    const adapter = {
+      async fetchClientMatchIndex() {
+        return [
+          {
+            id: 501,
+            merge_key: mergeKey,
+            matchs: { OB: "ob-old", RAY: "ray-old" },
+            ended_at: 1_700_000_000_000,
+          },
+        ];
+      },
+      async insertClientMatchStub(key) {
+        insertedKey = key;
+        return 777;
+      },
+      findClientMatchIdByMergeKey: async () => null,
+    };
+    const out = await resolveClientMatchIds(adapter, [
+      {
+        MergeKey: mergeKey,
+        Title: "A vs B rematch",
+        Game: "CS2",
+        GameID: "3",
+        StartTime: 2,
+        BO: 3,
+        Matchs: { OB: "ob-new", RAY: "ray-new" },
+        Bets: [],
+      },
+    ]);
+    expect(out[0].ID).toBe(777);
+    expect(insertedKey).toBe(mergeKey);
+  });
+
   it("findLinkedClientIdFromMatchs returns 0 on conflict without resolvable index", () => {
     const matches = {
       OB: { ob1: { SourceMatchID: "ob1", ClientMatchId: 100 } },
