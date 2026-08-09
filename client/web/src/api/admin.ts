@@ -351,14 +351,27 @@ export interface PlatformAnalyticsRow {
 export interface ArbPairRow {
   provider_a: string;
   provider_b: string;
+  /** 去重后的买×买配对数（已排除 PM/PF 卖单双计） */
   pair_count: number;
+  /** 一胜一负 */
+  hedge_ok: number;
+  /** 两腿均为 Win/Lose */
+  settled_pairs: number;
   both_win: number;
-  both_settled: number;
+  both_lose: number;
   has_reject: number;
   rejects_a: number;
   rejects_b: number;
+  pending_pairs: number;
+  /** @deprecated 非拒单组（含未结算）；请用 hedge_ok / settled_pairs */
+  both_settled: number;
   net_profit: number;
   total_bet: number;
+  profit_hedge: number;
+  profit_reject: number;
+  profit_both_lose: number;
+  profit_both_win: number;
+  profit_pending: number;
   wins_a: number;
   losses_a: number;
   profit_a: number;

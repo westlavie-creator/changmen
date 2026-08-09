@@ -53,7 +53,8 @@ export async function placeArbLegs(
 ): Promise<ArbBetPlaced> {
   const { match, bet, config, trace } = params;
   const accountStore = useAccountStore();
-  let { legA, legB, accountA, accountB, betBothLegs, waitSec } = checked;
+  let { legA, legB, accountA, accountB, betBothLegs, waitSec, linkId } = checked;
+  const placeOpts = { linkId };
 
   if (isPendingConfirmVenueProvider(legA.type))
     legA.deferPostAcceptSettlement = true;
@@ -75,12 +76,12 @@ export async function placeArbLegs(
     if (accountA) {
       trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
       attemptedA = true;
-      resultA = await accountStore.betting(accountA, legA, waitSec);
+      resultA = await accountStore.betting(accountA, legA, waitSec, placeOpts);
     }
     else {
       trace?.event("下单", `开始 ${legB.type} ${legB.target}`);
       attemptedB = true;
-      resultB = await accountStore.betting(accountB!, legB, waitSec);
+      resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
   }
   else if (config.betSorting === "Parallel") {
@@ -88,8 +89,8 @@ export async function placeArbLegs(
     attemptedA = true;
     attemptedB = true;
     const pair = await Promise.all([
-      accountStore.betting(accountA!, legA, waitSec),
-      accountStore.betting(accountB!, legB, waitSec),
+      accountStore.betting(accountA!, legA, waitSec, placeOpts),
+      accountStore.betting(accountB!, legB, waitSec, placeOpts),
     ]);
     resultA = pair[0];
     resultB = pair[1];
@@ -106,10 +107,10 @@ export async function placeArbLegs(
   else {
     trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
     attemptedA = true;
-    resultA = await accountStore.betting(accountA!, legA, waitSec);
+    resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
     if (resultA.success) {
       attemptedB = true;
-      resultB = await accountStore.betting(accountB!, legB, waitSec);
+      resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
     // A 失败：B 保持 not_attempted，仍回传编排层
   }
@@ -139,6 +140,7 @@ export async function placeArbLegs(
       config,
       waitSec,
       trace,
+      linkId,
     );
     if (retry) {
       resultB = retry.result;

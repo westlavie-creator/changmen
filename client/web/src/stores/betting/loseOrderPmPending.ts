@@ -6,7 +6,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { BetOption as BetOptionCtor } from "@changmen/client-core/models/betOption";
 import { BetResult as BetResultCtor } from "@changmen/client-core/models/betResult";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
-import { isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
+import { isVenueLegConfirmedUnfilled, isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
 import {
   bindArbLegOrder,
   refreshOrderListAfterBind,
@@ -17,6 +17,7 @@ import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome"
 import type { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useMessageStore } from "@/stores/messageStore";
+import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import {
   syncActiveBetMakeupDone,
   syncActiveBetMakeupPendingConfirm,
@@ -109,6 +110,20 @@ export async function applyVenueJbSettlementOutcome(
   }
 
   loseStore.clearPendingVenueOrder(betId);
+  if (
+    isVenueLegConfirmedUnfilled(legOutcome)
+    && String(account.provider ?? "").trim() === "Polymarket"
+  ) {
+    try {
+      await persistPolymarketExecutionReject(account, result, "unfilled", {
+        betOption: checked,
+        linkId: order.linkId,
+      });
+    }
+    catch {
+      /* 拒单落库失败不阻断补单收尾 */
+    }
+  }
   const orderId = resolveArbBindOrderId(venueOrders, result, true);
   if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, true)) && orderId) {
     enqueuePendingOrderBind({

@@ -63,6 +63,12 @@ export interface PolymarketVenueOrderExtras {
    */
   pmMatchResult?: "win" | "lose";
   /**
+   * [changmen 扩展] 执行下单后未成交落库用：
+   * - unfilled：已受理后 FOK/取消
+   * - api_failed：已调 betting 但未成交（常无官方 orderId）
+   */
+  pmRejectReason?: "unfilled" | "api_failed";
+  /**
    * [changmen 扩展] Phase 1 仓位卖出事件（写在买单上；服务端按 id 幂等合并）。
    * 盈亏权威仍为 pmSellProceeds / money 等聚合字段。
    */

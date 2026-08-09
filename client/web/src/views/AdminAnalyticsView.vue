@@ -65,8 +65,19 @@ function rejectRate(p: PlatformAnalyticsRow): string {
   return p.total_orders ? `${toFixed((p.rejects / p.total_orders) * 100, 1)}%` : "-";
 }
 
-function pairSuccessRate(p: ArbPairRow): string {
-  return p.pair_count ? `${toFixed((p.both_settled / p.pair_count) * 100, 1)}%` : "-";
+/** 已结算里一胜一负占比 */
+function pairHedgeRate(p: ArbPairRow): string {
+  const settled = p.settled_pairs ?? 0;
+  return settled ? `${toFixed(((p.hedge_ok ?? 0) / settled) * 100, 1)}%` : "-";
+}
+
+function pairRejectRate(p: ArbPairRow): string {
+  return p.pair_count ? `${toFixed(((p.has_reject ?? 0) / p.pair_count) * 100, 1)}%` : "-";
+}
+
+function signedMoney(n: number | undefined): string {
+  const v = n ?? 0;
+  return `${v >= 0 ? "+" : ""}${toFixed(v, 0)}`;
 }
 
 function profitBarWidth(val: number): string {
@@ -235,6 +246,9 @@ onMounted(async () => {
       <h3 class="analytics-section__title">
         套利配对
       </h3>
+      <p class="analytics-section__hint">
+        口径：同 link 两馆<strong>买单</strong>一对一（已排除 PM/PF 卖单双计）。对冲率 = 一胜一负 / 两腿均已 Win·Lose。分项盈亏用于区分「锁利质量 / 拒单单边 / 双输」。
+      </p>
       <el-table v-if="pairs.length" :data="pairs" stripe size="small">
         <el-table-column label="平台组合" width="140" fixed>
           <template #default="{ row }">
@@ -242,12 +256,42 @@ onMounted(async () => {
           </template>
         </el-table-column>
         <el-table-column prop="pair_count" label="配对数" width="70" align="right" />
-        <el-table-column label="成功率" width="70" align="right">
+        <el-table-column label="对冲率" width="72" align="right">
           <template #default="{ row }">
-            {{ pairSuccessRate(row) }}
+            <span :title="`一胜一负 ${row.hedge_ok ?? 0} / 已结算 ${row.settled_pairs ?? 0}`">
+              {{ pairHedgeRate(row) }}
+            </span>
           </template>
         </el-table-column>
-        <el-table-column label="场馆拒单" min-width="180">
+        <el-table-column label="结构" min-width="200">
+          <template #default="{ row }">
+            <div class="venue-cmp">
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">对冲</span>
+                <span>{{ row.hedge_ok ?? 0 }}</span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">拒单组</span>
+                <span :class="{ 'text-warn': (row.has_reject ?? 0) > 0 }">
+                  {{ row.has_reject ?? 0 }}（{{ pairRejectRate(row) }}）
+                </span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">双输/双赢</span>
+                <span>
+                  <span class="text-red">{{ row.both_lose ?? 0 }}</span>
+                  /
+                  <span :class="{ 'text-warn': (row.both_win ?? 0) > 0 }">{{ row.both_win ?? 0 }}</span>
+                </span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">未结算</span>
+                <span>{{ row.pending_pairs ?? 0 }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="场馆拒单" min-width="160">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
@@ -261,33 +305,49 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="场馆胜负对比" min-width="220">
+        <el-table-column label="分项盈亏" min-width="220">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }}</span>
-                <span><span class="text-green">{{ row.wins_a ?? 0 }}胜</span> / <span class="text-red">{{ row.losses_a ?? 0 }}负</span></span>
+                <span class="venue-cmp__name">对冲</span>
+                <span :class="(row.profit_hedge ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_hedge) }}
+                </span>
               </div>
               <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_b }}</span>
-                <span><span class="text-green">{{ row.wins_b ?? 0 }}胜</span> / <span class="text-red">{{ row.losses_b ?? 0 }}负</span></span>
+                <span class="venue-cmp__name">拒单组</span>
+                <span :class="(row.profit_reject ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_reject) }}
+                </span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">双输</span>
+                <span :class="(row.profit_both_lose ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_both_lose) }}
+                </span>
+              </div>
+              <div v-if="(row.both_win ?? 0) > 0" class="venue-cmp__row">
+                <span class="venue-cmp__name">双赢</span>
+                <span :class="(row.profit_both_win ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_both_win) }}
+                </span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="场馆盈亏对比" min-width="200">
+        <el-table-column label="场馆盈亏" min-width="180">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
                 <span class="venue-cmp__name">{{ row.provider_a }}</span>
                 <span :class="(row.profit_a ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ (row.profit_a ?? 0) >= 0 ? "+" : "" }}{{ toFixed(row.profit_a ?? 0, 0) }}
+                  {{ signedMoney(row.profit_a) }}
                 </span>
               </div>
               <div class="venue-cmp__row">
                 <span class="venue-cmp__name">{{ row.provider_b }}</span>
                 <span :class="(row.profit_b ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ (row.profit_b ?? 0) >= 0 ? "+" : "" }}{{ toFixed(row.profit_b ?? 0, 0) }}
+                  {{ signedMoney(row.profit_b) }}
                 </span>
               </div>
             </div>
@@ -301,7 +361,7 @@ onMounted(async () => {
         <el-table-column label="净利润" min-width="100">
           <template #default="{ row }">
             <span :class="row.net_profit >= 0 ? 'text-green' : 'text-red'">
-              {{ row.net_profit >= 0 ? "+" : "" }}{{ toFixed(row.net_profit, 0) }}
+              {{ signedMoney(row.net_profit) }}
             </span>
           </template>
         </el-table-column>
@@ -439,6 +499,12 @@ onMounted(async () => {
   font-weight: 600;
   margin-bottom: 10px;
   color: var(--el-text-color-primary);
+}
+.analytics-section__hint {
+  margin: -4px 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
 }
 .profit-cell { display: flex; align-items: center; gap: 8px; }
 .profit-num { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 70px; }

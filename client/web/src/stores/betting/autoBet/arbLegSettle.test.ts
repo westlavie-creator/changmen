@@ -9,9 +9,14 @@ const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 const settlePolymarketDelayedOrder = vi.fn();
 const awaitPolymarketSettlementJob = vi.fn();
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
+const persistPolymarketExecutionReject = vi.fn();
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
+}));
+
+vi.mock("@/stores/account/pmRejectOrder", () => ({
+  persistPolymarketExecutionReject: (...args: unknown[]) => persistPolymarketExecutionReject(...args),
 }));
 
 vi.mock("@changmen/venue-adapter/polymarket/orderSettlement", () => ({
@@ -58,6 +63,8 @@ describe("settleArbLeg (Polymarket)", () => {
     awaitPolymarketSettlementJob.mockReset();
     awaitPolymarketSettlementJob.mockResolvedValue(null);
     fetchPolymarketConfirmedTradeForOrder.mockReset();
+    persistPolymarketExecutionReject.mockReset();
+    persistPolymarketExecutionReject.mockResolvedValue(null);
   });
 
   it("prefers POST SettlementJob over settle when job exists", async () => {
@@ -79,6 +86,7 @@ describe("settleArbLeg (Polymarket)", () => {
     expect(awaitPolymarketSettlementJob).toHaveBeenCalledWith(acc, "0xjob");
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
     expect(out.rejected).toBe(false);
+    expect(persistPolymarketExecutionReject).not.toHaveBeenCalled();
   });
 
   it("delayed pending unfilled → synthetic reject", async () => {
@@ -97,6 +105,27 @@ describe("settleArbLeg (Polymarket)", () => {
     expect(out.orders[0]?.orderId).toBe("0xdelayed");
     expect(result.pending).toBe(false);
     expect(updateVenueOrders).not.toHaveBeenCalled();
+    expect(persistPolymarketExecutionReject).toHaveBeenCalledWith(
+      acc,
+      result,
+      "unfilled",
+      expect.objectContaining({}),
+    );
+  });
+
+  it("timeout does not persist execution reject", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xtimeout",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "timeout", row: null });
+
+    const out = await settleArbLeg(acc, result);
+
+    expect(out.rejected).toBe(false);
+    expect(out.pendingConfirm).toBe(true);
+    expect(persistPolymarketExecutionReject).not.toHaveBeenCalled();
   });
 
   it("delayed pending matched → refresh venue orders", async () => {

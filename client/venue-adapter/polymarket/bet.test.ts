@@ -813,6 +813,9 @@ describe("polymarketProvider.betting", () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain("status: unmatched");
     expect(result.message).toContain("未成交");
+    expect(result.orderId).toBe("order-unmatched");
+    expect(result.tip).toEqual({ pmPosted: true });
+    expect(result.beginTime).toBe(1_700_000_000_000);
   });
 
   test("succeeds when API returns delayed with orderID (chain pending)", async () => {

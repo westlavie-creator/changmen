@@ -1272,7 +1272,12 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   }
 }
 
-/** 数据分析：套利配对统计（按 link 配对两腿，含 9999 单边负 link） */
+/**
+ * 数据分析：套利配对统计（按 abs(link) 配两馆买单）。
+ * - 排除 PM/PF 卖单，避免同一 link 与对馆笛卡尔双计
+ * - 每 (user, abs(link), provider) 只取一笔：优先非 Reject，再取最新买单
+ * - 分项：对冲成功 / 双赢 / 双输 / 拒单组 / 未结算，便于调策略
+ */
 export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool)
@@ -1285,30 +1290,74 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
     const moneyB = sqlOrderMoneyCny("b", "$3");
     const betA = sqlOrderBetCny("a", "$3");
     const betB = sqlOrderBetCny("b", "$3");
+    const settled = `(status_a IN ('Win','Lose') AND status_b IN ('Win','Lose'))`;
+    const hedgeOk = `((status_a = 'Win' AND status_b = 'Lose') OR (status_a = 'Lose' AND status_b = 'Win'))`;
+    const hasReject = `(status_a = 'Reject' OR status_b = 'Reject')`;
+    const pending = `(NOT ${hasReject} AND (status_a = 'None' OR status_b = 'None'
+      OR status_a = 'Pending' OR status_b = 'Pending'
+      OR status_a = 'Return' OR status_b = 'Return'))`;
     const { rows } = await pool.query(
-      `WITH pairs AS (
+      `WITH legs AS (
+        SELECT o.*
+        FROM orders o
+        WHERE ABS(o.link) >= 1000000000000
+          AND o.create_at >= $1 AND o.create_at < $2
+          AND o.provider IS NOT NULL AND o.provider != ''
+          AND NOT (
+            o.provider = 'Polymarket'
+            AND LOWER(COALESCE(o.raw->>'pmSide', '')) = 'sell'
+          )
+          AND NOT (
+            o.provider = 'PredictFun'
+            AND LOWER(COALESCE(o.raw->>'pfSide', '')) = 'sell'
+          )
+          ${uf ? uf.replace("user_id", "o.user_id") : ""}
+      ),
+      ranked AS (
+        SELECT legs.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY legs.user_id, ABS(legs.link), legs.provider
+            ORDER BY
+              CASE WHEN legs.status = 'Reject' THEN 1 ELSE 0 END ASC,
+              legs.create_at DESC,
+              legs.id DESC
+          ) AS rn
+        FROM legs
+      ),
+      uniq AS (
+        SELECT * FROM ranked WHERE rn = 1
+      ),
+      pairs AS (
         SELECT
           a.provider AS provider_a, b.provider AS provider_b,
           a.status AS status_a, b.status AS status_b,
           (${moneyA}) AS money_a, (${moneyB}) AS money_b,
           (${betA}) AS bet_a, (${betB}) AS bet_b
-        FROM orders a
-        JOIN orders b ON ABS(a.link) = ABS(b.link)
+        FROM uniq a
+        JOIN uniq b ON ABS(a.link) = ABS(b.link)
           AND a.provider < b.provider
           AND a.user_id = b.user_id
-        WHERE ABS(a.link) >= 1000000000000
-          AND a.create_at >= $1 AND a.create_at < $2${uf ? uf.replace("user_id", "a.user_id") : ""}
       )
       SELECT
         provider_a, provider_b,
         COUNT(*)::int AS pair_count,
+        COUNT(*) FILTER (WHERE ${hedgeOk})::int AS hedge_ok,
+        COUNT(*) FILTER (WHERE ${settled})::int AS settled_pairs,
         COUNT(*) FILTER (WHERE status_a = 'Win' AND status_b = 'Win')::int AS both_win,
-        COUNT(*) FILTER (WHERE status_a != 'Reject' AND status_b != 'Reject')::int AS both_settled,
-        COUNT(*) FILTER (WHERE status_a = 'Reject' OR status_b = 'Reject')::int AS has_reject,
+        COUNT(*) FILTER (WHERE status_a = 'Lose' AND status_b = 'Lose')::int AS both_lose,
+        COUNT(*) FILTER (WHERE ${hasReject})::int AS has_reject,
         COUNT(*) FILTER (WHERE status_a = 'Reject')::int AS rejects_a,
         COUNT(*) FILTER (WHERE status_b = 'Reject')::int AS rejects_b,
+        COUNT(*) FILTER (WHERE ${pending})::int AS pending_pairs,
+        -- 兼容旧字段：非拒单组（含未结算）；UI 改用 hedge_ok/settled_pairs
+        COUNT(*) FILTER (WHERE status_a != 'Reject' AND status_b != 'Reject')::int AS both_settled,
         COALESCE(SUM(money_a + money_b), 0)::float AS net_profit,
         COALESCE(SUM(bet_a + bet_b), 0)::float AS total_bet,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE ${hedgeOk}), 0)::float AS profit_hedge,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE ${hasReject}), 0)::float AS profit_reject,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE status_a = 'Lose' AND status_b = 'Lose'), 0)::float AS profit_both_lose,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE status_a = 'Win' AND status_b = 'Win'), 0)::float AS profit_both_win,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE ${pending}), 0)::float AS profit_pending,
         COUNT(*) FILTER (WHERE status_a = 'Win')::int AS wins_a,
         COUNT(*) FILTER (WHERE status_a = 'Lose')::int AS losses_a,
         COALESCE(SUM(money_a), 0)::float AS profit_a,

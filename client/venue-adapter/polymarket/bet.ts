@@ -663,11 +663,16 @@ export const polymarketProvider: PlatformProvider = {
         const fallback = result?.success
           ? "订单已受理但未成交（status 非 matched/delayed 或 takingAmount 为空）"
           : "FOK 订单未成交（无足够流动性）";
-        return new BetResult(
+        const failed = new BetResult(
           "Polymarket", false,
           `${polymarketOrderFailureMessage(result, fallback)}\n${diagnostic}`,
           orderBody, result,
         );
+        // 已 POST：落库拒单用官方 orderID；标记 pmPosted 供编排区分预检/盘口失败
+        failed.orderId = String(result?.orderID ?? "").trim() || null;
+        failed.beginTime = beginTime;
+        failed.tip = { pmPosted: true };
+        return failed;
       }
 
       const filled = isPolymarketFokBuyFilled(result);

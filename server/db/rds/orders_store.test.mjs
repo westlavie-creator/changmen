@@ -495,3 +495,25 @@ describe("rebindOrderLink", () => {
     expect(result.toLinkId).toBe(older);
   });
 });
+
+describe("fetchArbPairAnalytics SQL", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("excludes prediction sells and dedupes per link/provider", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchArbPairAnalytics } = await import("./orders_store.js");
+    await fetchArbPairAnalytics(1, 2, null);
+    expect(queryMock).toHaveBeenCalledOnce();
+    const [sql] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/pmSide/);
+    expect(sql).toMatch(/pfSide/);
+    expect(sql).toMatch(/ROW_NUMBER\(\)/);
+    expect(sql).toMatch(/profit_hedge/);
+    expect(sql).toMatch(/profit_reject/);
+    expect(sql).toMatch(/hedge_ok/);
+    expect(sql).toMatch(/settled_pairs/);
+    expect(sql).toMatch(/FROM uniq a/);
+  });
+});

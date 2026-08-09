@@ -26,6 +26,7 @@ export async function retryFailedLeg(
   config: UserConfig,
   waitSec: number,
   trace?: ArbExecutionTrace,
+  linkId?: number,
 ): Promise<{ leg: BetOption; account: PlatformAccount; result: BetResult } | null> {
   const accountStore = useAccountStore();
   const matchStore = useMatchStore();
@@ -102,7 +103,12 @@ export async function retryFailedLeg(
     if (!retryLeg.data)
       continue;
 
-    const result = await accountStore.betting(pickedAccount, retryLeg, waitSec);
+    const result = await accountStore.betting(
+      pickedAccount,
+      retryLeg,
+      waitSec,
+      linkId ? { linkId } : undefined,
+    );
     if (result?.success) {
       return { leg: retryLeg, account: pickedAccount, result };
     }

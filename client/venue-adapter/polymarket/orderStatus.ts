@@ -216,24 +216,114 @@ export function applyPolymarketSettlementToResult(
     result.reject = outcome;
 }
 
-/** PM FOK 未成交：合成 reject 订单供 isVenueReject 统一判定 */
+/** 执行下单后未成交（统计拒单率）；timeout 不落库 */
+export type PolymarketExecutionRejectReason = "unfilled" | "api_failed";
+
+export interface PolymarketRejectOrderContext {
+  betMoney?: number;
+  odds?: number;
+  game?: string;
+  match?: string;
+  bet?: string;
+  item?: string;
+  link?: number;
+  createAt?: number;
+}
+
+/** 官方 orderId（含失败 POST 的 response.orderID）；无则合成稳定主键 */
+export function resolvePolymarketRejectOrderId(
+  account: PlatformAccount,
+  result: BetResult,
+  reason: PolymarketExecutionRejectReason,
+): string {
+  const fromResult = String(result.orderId ?? "").trim();
+  if (fromResult)
+    return fromResult;
+  const fromResponse = String(
+    (result.response as { orderID?: string } | undefined)?.orderID ?? "",
+  ).trim();
+  if (fromResponse)
+    return fromResponse;
+  const begin = Number(result.beginTime);
+  const ts = Number.isFinite(begin) && begin > 0 ? begin : Date.now();
+  const player = Number(account.accountId) || 0;
+  return `pm-rej-${player}-${ts}-${reason}`;
+}
+
+/** 已调用 CLOB POST 后的失败（非预检/凭证/盘口挡单） */
+export function isPolymarketPostedApiFailure(result: BetResult): boolean {
+  const tip = result.tip;
+  if (tip && typeof tip === "object" && (tip as { pmPosted?: boolean }).pmPosted === true)
+    return true;
+  const orderId = String(result.orderId ?? "").trim()
+    || String((result.response as { orderID?: string } | undefined)?.orderID ?? "").trim();
+  return Boolean(orderId) && result.success === false;
+}
+
+/** PM FOK 未成交 / 内存判定：合成 reject 订单供 isVenueReject 统一判定 */
 export function buildPolymarketRejectVenueOrder(
   account: PlatformAccount,
   result: BetResult,
   outcome: "unfilled" | "timeout",
+  ctx: PolymarketRejectOrderContext = {},
 ): VenueOrder {
+  const createAt = Number(ctx.createAt) > 0
+    ? Number(ctx.createAt)
+    : (Number(result.beginTime) > 0 ? Number(result.beginTime) : Date.now());
+  const orderId = outcome === "timeout"
+    ? String(result.orderId ?? "").trim()
+    : resolvePolymarketRejectOrderId(account, result, "unfilled");
   return {
     provider: account.provider,
-    orderId: String(result.orderId ?? ""),
-    odds: 0,
-    createAt: Date.now(),
-    betMoney: 0,
+    orderId,
+    odds: Number(ctx.odds) > 0 ? Number(ctx.odds) : 0,
+    createAt,
+    betMoney: Number(ctx.betMoney) > 0 ? Number(ctx.betMoney) : 0,
     reward: 0,
     money: 0,
     status: "reject",
-    game: "",
-    match: "",
-    bet: outcome === "timeout" ? "待确认超时" : "FOK未成交",
-    item: "",
+    game: String(ctx.game ?? ""),
+    match: String(ctx.match ?? ""),
+    bet: outcome === "timeout"
+      ? "待确认超时"
+      : (String(ctx.bet ?? "").trim() || "FOK未成交"),
+    item: String(ctx.item ?? ""),
+    pmSide: "buy",
+    pmOrigin: "changmen",
+    ...(outcome === "unfilled" ? { pmRejectReason: "unfilled" as const } : {}),
+    ...(Number(ctx.link) ? { link: Number(ctx.link) } : {}),
+  };
+}
+
+/** 已执行下单但未成交 → 落库用 Reject（timeout 勿调用） */
+export function buildPolymarketExecutionRejectVenueOrder(
+  account: PlatformAccount,
+  result: BetResult,
+  reason: PolymarketExecutionRejectReason,
+  ctx: PolymarketRejectOrderContext = {},
+): VenueOrder {
+  const createAt = Number(ctx.createAt) > 0
+    ? Number(ctx.createAt)
+    : (Number(result.beginTime) > 0 ? Number(result.beginTime) : Date.now());
+  const betLabel = reason === "api_failed"
+    ? (String(ctx.bet ?? "").trim() || "下单未成交")
+    : (String(ctx.bet ?? "").trim() || "FOK未成交");
+  return {
+    provider: account.provider,
+    orderId: resolvePolymarketRejectOrderId(account, result, reason),
+    odds: Number(ctx.odds) > 0 ? Number(ctx.odds) : 0,
+    createAt,
+    betMoney: Number(ctx.betMoney) > 0 ? Number(ctx.betMoney) : 0,
+    reward: 0,
+    money: 0,
+    status: "reject",
+    game: String(ctx.game ?? ""),
+    match: String(ctx.match ?? ""),
+    bet: betLabel,
+    item: String(ctx.item ?? ""),
+    pmSide: "buy",
+    pmOrigin: "changmen",
+    pmRejectReason: reason,
+    ...(Number(ctx.link) ? { link: Number(ctx.link) } : {}),
   };
 }

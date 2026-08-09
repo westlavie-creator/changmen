@@ -121,6 +121,7 @@ export async function settleBothArbLegs(
       const synced = await settleArbLeg(accountA, resultA, {
         rejectWaitSec: legRejectWaitSec(config, accountA.provider),
         pendingBindLinkId: linkId,
+        betOption: legA,
       });
       snapshot.ordersA = synced.orders;
       snapshot.rejectA = synced.rejected;
@@ -157,6 +158,7 @@ export async function settleBothArbLegs(
       const synced = await settleArbLeg(accountB, resultB, {
         rejectWaitSec: legRejectWaitSec(config, accountB.provider),
         pendingBindLinkId: linkId,
+        betOption: legB,
       });
       snapshot.ordersB = synced.orders;
       snapshot.rejectB = synced.rejected;

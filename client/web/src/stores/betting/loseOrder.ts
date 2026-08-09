@@ -124,7 +124,12 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const makeupSide = useActiveBetRunStore().runs.get(betId)?.legs
         .find(l => l.target === order.target && l.status !== "skipped")?.side;
       syncActiveBetMakeupAttempt(betId, item.type, `尝试补单 @${sideOdds}`, makeupSide);
-      const result = await accountStore.betting(account, checked, waitSec);
+      const result = await accountStore.betting(
+        account,
+        checked,
+        waitSec,
+        order.linkId ? { linkId: order.linkId } : undefined,
+      );
 
       if (!result?.success) {
         // [A8 可证实] `else le||Z.push(z)`：null/undefined 出队；`{success:false}` 保留

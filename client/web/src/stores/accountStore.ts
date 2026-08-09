@@ -167,8 +167,13 @@ export const useAccountStore = defineStore("account", {
       return checkBetting(this, account, option, opts);
     },
 
-    betting(account: PlatformAccount | undefined, option: BetOption, toastSeconds = 10) {
-      return placeBet(this, account, option, toastSeconds);
+    betting(
+      account: PlatformAccount | undefined,
+      option: BetOption,
+      toastSeconds = 10,
+      opts?: import("@/stores/account/betGateway").PlaceBetOpts,
+    ) {
+      return placeBet(this, account, option, toastSeconds, opts);
     },
   },
 });

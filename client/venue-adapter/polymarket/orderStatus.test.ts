@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyPolymarketSettlementToResult,
+  buildPolymarketExecutionRejectVenueOrder,
   buildPolymarketRejectVenueOrder,
   formatPolymarketSettlementMessage,
   interpretPolymarketOrderRow,
   isPolymarketBetResultFillConfirmed,
   isPolymarketDelayedPending,
   isPolymarketOrderIdRejected,
+  isPolymarketPostedApiFailure,
   isPolymarketPostFillConfirmed,
 } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
@@ -141,11 +143,82 @@ describe("applyPolymarketSettlementToResult", () => {
 
 describe("buildPolymarketRejectVenueOrder", () => {
   it("builds reject status order", () => {
-    const acc = { provider: "Polymarket" } as never;
-    const result = Object.assign(new BetResult("Polymarket", true), { orderId: "0x1" });
+    const acc = { provider: "Polymarket", accountId: 1 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0x1",
+      beginTime: 1_700_000_000_000,
+    });
     const order = buildPolymarketRejectVenueOrder(acc, result, "unfilled");
     expect(order.status).toBe("reject");
     expect(order.orderId).toBe("0x1");
+    expect(order.pmSide).toBe("buy");
+    expect(order.pmRejectReason).toBe("unfilled");
+  });
+
+  it("timeout keeps official id and does not set pmRejectReason", () => {
+    const acc = { provider: "Polymarket", accountId: 1 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), { orderId: "0xt" });
+    const order = buildPolymarketRejectVenueOrder(acc, result, "timeout");
+    expect(order.orderId).toBe("0xt");
+    expect(order.bet).toBe("待确认超时");
+    expect(order.pmRejectReason).toBeUndefined();
+  });
+});
+
+describe("buildPolymarketExecutionRejectVenueOrder", () => {
+  it("uses synthetic id when api_failed has no orderId", () => {
+    const acc = { provider: "Polymarket", accountId: 42 } as never;
+    const result = Object.assign(new BetResult("Polymarket", false, "fail"), {
+      beginTime: 1_700_000_000_123,
+    });
+    const order = buildPolymarketExecutionRejectVenueOrder(acc, result, "api_failed", {
+      betMoney: 12.5,
+      odds: 1.8,
+      link: 99,
+    });
+    expect(order.status).toBe("reject");
+    expect(order.orderId).toBe("pm-rej-42-1700000000123-api_failed");
+    expect(order.betMoney).toBe(12.5);
+    expect(order.money).toBe(0);
+    expect(order.link).toBe(99);
+    expect(order.pmRejectReason).toBe("api_failed");
+    expect(order.pmSide).toBe("buy");
+  });
+
+  it("keeps official orderId for unfilled", () => {
+    const acc = { provider: "Polymarket", accountId: 7 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xabc",
+      beginTime: 100,
+    });
+    const order = buildPolymarketExecutionRejectVenueOrder(acc, result, "unfilled", {
+      betMoney: 5,
+    });
+    expect(order.orderId).toBe("0xabc");
+    expect(order.pmRejectReason).toBe("unfilled");
+  });
+
+  it("prefers response.orderID when result.orderId missing", () => {
+    const acc = { provider: "Polymarket", accountId: 7 } as never;
+    const result = Object.assign(new BetResult("Polymarket", false, "x"), {
+      beginTime: 100,
+      response: { orderID: "0xfrom-resp" },
+    });
+    const order = buildPolymarketExecutionRejectVenueOrder(acc, result, "api_failed");
+    expect(order.orderId).toBe("0xfrom-resp");
+  });
+});
+
+describe("isPolymarketPostedApiFailure", () => {
+  it("true when tip.pmPosted", () => {
+    const result = Object.assign(new BetResult("Polymarket", false, "x"), {
+      tip: { pmPosted: true },
+    });
+    expect(isPolymarketPostedApiFailure(result)).toBe(true);
+  });
+
+  it("false for pre-POST credential failure", () => {
+    expect(isPolymarketPostedApiFailure(new BetResult("Polymarket", false, "凭证缺少"))).toBe(false);
   });
 });
 

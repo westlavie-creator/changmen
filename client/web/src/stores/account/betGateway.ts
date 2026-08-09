@@ -19,9 +19,15 @@ import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@chang
 import { isPendingConfirmVenueProvider, isPredictFunProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
 import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
+import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts;
+
+export interface PlaceBetOpts {
+  /** [changmen 扩展] 套利/补单最终 Link；PM api_failed 落库用 */
+  linkId?: number;
+}
 
 function notifyPendingVenueConfirm(
   store: AccountStoreContext,
@@ -33,7 +39,10 @@ function notifyPendingVenueConfirm(
   toastSeconds: number,
 ) {
   void (async () => {
-    const { rejected, pendingConfirm } = await settleArbLeg(account, result, 0);
+    const { rejected, pendingConfirm } = await settleArbLeg(account, result, {
+      rejectWaitSec: 0,
+      betOption: option,
+    });
     // PM：保持原语义（timeout 仍显示「已成交」）；PF：区分待确认
     const isPf = account.provider === "PredictFun";
     const stillPending = isPf && pendingConfirm;
@@ -116,6 +125,7 @@ export async function placeBet(
   account: PlatformAccount | undefined,
   option: BetOption,
   toastSeconds = 10,
+  opts?: PlaceBetOpts,
 ) {
   if (!account)
     return new BetResult(option.type, false, "无可用账号");
@@ -166,6 +176,20 @@ export async function placeBet(
           /* 乐观落库失败不阻断下单成功；后续 Io.f / updateVenueOrders 仍可补 */
         }
       }
+      // PM 已 POST 未成交（含无官方 orderId）：落库 Reject，供拒单率统计
+      else if (!result.success && account.provider === "Polymarket") {
+        try {
+          if (Number(beginTime) > 0)
+            result.beginTime = beginTime;
+          await persistPolymarketExecutionReject(account, result, "api_failed", {
+            betOption: option,
+            linkId: opts?.linkId,
+          });
+        }
+        catch {
+          /* 拒单落库失败不阻断下单结果回传 */
+        }
+      }
     }
   }
   catch (e) {
@@ -179,6 +203,7 @@ export async function placeBet(
       message,
       option.data,
     );
+    // POST 前抛错 / 页面过期：不落拒单（无 pmPosted）
   }
   finally {
     loading.close();
