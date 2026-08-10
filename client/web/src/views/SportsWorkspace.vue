@@ -77,7 +77,7 @@ function onSportTab(v: string | number | boolean | undefined) {
       <el-header>
         <AccountBar />
         <div class="home-header-trailing">
-          <DirectRealtimeBadge />
+          <DirectRealtimeBadge workspace="sports" />
         </div>
         <p v-if="extensionChecked && !extensionReady" class="extension-banner">
           扩展未连通，部分场馆能力不可用。

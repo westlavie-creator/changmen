@@ -42,6 +42,13 @@ import {
 } from "@changmen/venue-adapter/predictfun";
 import { ElMessage } from "element-plus";
 
+const props = withDefaults(defineProps<{
+  /** esport：显示 PM-M；sports：显示 PM-S（体育独立 MARKET hub） */
+  workspace?: "esport" | "sports";
+}>(), {
+  workspace: "esport",
+});
+
 const { statuses } = useDirectRealtimeStatus();
 
 const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
@@ -57,6 +64,7 @@ let pfTransportUnsub: (() => void) | undefined;
 /** 第二行：Polymarket / Predict.fun / DEX / Limitless / SXBet WS */
 const VENUE_WS_SECOND_ROW_IDS = new Set([
   "pm-market",
+  "pm-sport-market",
   "pm-user",
   "predictfun-market",
   "dex",
@@ -68,7 +76,16 @@ const venueWsFirstRow = computed(() =>
   venueWsStatuses.value.filter(entry => !VENUE_WS_SECOND_ROW_IDS.has(entry.id)),
 );
 const venueWsSecondRow = computed(() =>
-  venueWsStatuses.value.filter(entry => VENUE_WS_SECOND_ROW_IDS.has(entry.id)),
+  venueWsStatuses.value.filter((entry) => {
+    if (!VENUE_WS_SECOND_ROW_IDS.has(entry.id))
+      return false;
+    // 电竞页只看 PM-M；体育页只看 PM-S（避免闲置电竞角标误导）
+    if (props.workspace === "sports" && entry.id === "pm-market")
+      return false;
+    if (props.workspace !== "sports" && entry.id === "pm-sport-market")
+      return false;
+    return true;
+  }),
 );
 
 onMounted(() => {
@@ -103,6 +120,15 @@ function dotClass(status: DirectRealtimeStatus): string {
 }
 
 function venueWsDotClass(entry: VenueWsStatusEntry): string {
+  if (entry.id === "pm-sport-market") {
+    // 体育固定走 CHANGMEN PM-SPORT-MARKET hub
+    switch (entry.status) {
+      case "connected": return "ok-changmen";
+      case "connecting": return "connecting";
+      case "error": return "err";
+      default: return "idle";
+    }
+  }
   if (entry.id === "pm-market" || entry.id === "pm-user") {
     const mode = entry.id === "pm-market" ? pmMarketWsSourceMode.value : pmUserWsSourceMode.value;
     switch (entry.status) {
@@ -143,7 +169,8 @@ function formatAgo(ms: number): string {
 
 function venueWsTooltip(entry: VenueWsStatusEntry): string {
   const names: Record<string, string> = {
-    "pm-market": "Polymarket Market WS（赔率采集）",
+    "pm-market": "Polymarket Market WS（电竞赔率采集）",
+    "pm-sport-market": "Polymarket Sport Market WS（体育赔率 · PM-SPORT-MARKET）",
     "pm-user": "Polymarket User WS（订单/拒单检测；登录后预连）",
     "lm-market": "Limitless Market WS（orderbook 推送）",
     "predictfun-market": "Predict.fun Market WS（orderbook 推送）",
@@ -162,6 +189,9 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   if (entry.id === "pm-market") {
     lines.push(`当前选择：${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}`);
     lines.push("点击切换 CHANGMEN / 官方");
+  }
+  if (entry.id === "pm-sport-market") {
+    lines.push("固定 CHANGMEN 体育 hub（:3459）");
   }
   if (entry.id === "pm-user") {
     lines.push(`当前选择：${pmUserWsSourceModeLabel(pmUserWsSourceMode.value)}`);
@@ -282,7 +312,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 IA OB RAY HUB；第二行 PM PF DEX LM"
+    aria-label="直连推送状态 IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S）"
   >
     <div class="direct-realtime-row direct-realtime-row--primary">
       <span
