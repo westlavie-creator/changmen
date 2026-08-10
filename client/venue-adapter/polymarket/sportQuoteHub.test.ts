@@ -26,7 +26,7 @@ describe("polymarket sportQuoteHub (isolated)", () => {
     sportHub.clearPolymarketSportHub();
   });
 
-  test("hubRebound fires on ensure; uses sportMarketWs, not esport ws.ts", async () => {
+  test("hubBound fires on ensure; uses sportMarketWs, not esport ws.ts", async () => {
     const startSpy = vi.spyOn(sportWs, "startPolymarketSportMarketWs").mockReturnValue({
       send: vi.fn(),
       stop: vi.fn(),
@@ -34,7 +34,7 @@ describe("polymarket sportQuoteHub (isolated)", () => {
     const esportStart = vi.spyOn(esportWs, "startPolymarketMarketWs");
 
     let hits = 0;
-    const un = sportHub.onPolymarketSportHubRebound(() => {
+    const un = sportHub.onPolymarketSportHubBound(() => {
       hits += 1;
     });
     sportHub.setPolymarketSportAssetIds(["e"]);

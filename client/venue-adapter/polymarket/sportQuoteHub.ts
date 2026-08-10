@@ -143,7 +143,7 @@ export function setPolymarketSportAssetIds(assetIds: string[], force = false): v
 }
 
 /** 板子会话：hub (re)start 后 force sync */
-export function onPolymarketSportHubRebound(fn: () => void): () => void {
+export function onPolymarketSportHubBound(fn: () => void): () => void {
   readyListeners.add(fn);
   return () => {
     readyListeners.delete(fn);
