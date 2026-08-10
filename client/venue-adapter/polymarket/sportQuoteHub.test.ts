@@ -2,39 +2,31 @@
  * sportQuoteHub 独立总线：过滤 + ready；lifecycle 与电竞 marketQuoteHub / ws.ts 隔离。
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
-import {
-  __testPushPolymarketSportQuote,
-  __testResetPolymarketSportQuoteHub,
-  clearPolymarketSportHub,
-  getPolymarketSportAssetIds,
-  onPolymarketSportHubBound,
-  onPolymarketSportQuote,
-  setPolymarketSportAssetIds,
-} from "./sportQuoteHub";
+import * as sportHub from "./sportQuoteHub";
+import * as sportWs from "./sportMarketWs";
+import * as esportWs from "./ws";
 
 afterEach(() => {
-  __testResetPolymarketSportQuoteHub();
+  sportHub.__testResetPolymarketSportQuoteHub();
   vi.restoreAllMocks();
 });
 
 describe("polymarket sportQuoteHub (isolated)", () => {
   test("only registered sport assets; skips invalid price", () => {
-    setPolymarketSportAssetIds(["a1", "a2"]);
-    expect(getPolymarketSportAssetIds().sort()).toEqual(["a1", "a2"]);
+    sportHub.setPolymarketSportAssetIds(["a1", "a2"]);
+    expect(sportHub.getPolymarketSportAssetIds().sort()).toEqual(["a1", "a2"]);
 
     const seen: string[] = [];
-    const un = onPolymarketSportQuote(q => seen.push(q.assetId));
-    __testPushPolymarketSportQuote("a1", 0.4);
-    __testPushPolymarketSportQuote("other", 0.5);
-    __testPushPolymarketSportQuote("a2", 0);
+    const un = sportHub.onPolymarketSportQuote(q => seen.push(q.assetId));
+    sportHub.__testPushPolymarketSportQuote("a1", 0.4);
+    sportHub.__testPushPolymarketSportQuote("other", 0.5);
+    sportHub.__testPushPolymarketSportQuote("a2", 0);
     expect(seen).toEqual(["a1"]);
     un();
-    clearPolymarketSportHub();
+    sportHub.clearPolymarketSportHub();
   });
 
-  test("hubBound fires on ensure; uses sportMarketWs, not esport ws.ts", async () => {
-    const sportWs = await import("./sportMarketWs");
-    const esportWs = await import("./ws");
+  test("hubRebound fires on ensure; uses sportMarketWs, not esport ws.ts", async () => {
     const startSpy = vi.spyOn(sportWs, "startPolymarketSportMarketWs").mockReturnValue({
       send: vi.fn(),
       stop: vi.fn(),
@@ -42,24 +34,37 @@ describe("polymarket sportQuoteHub (isolated)", () => {
     const esportStart = vi.spyOn(esportWs, "startPolymarketMarketWs");
 
     let hits = 0;
-    const un = onPolymarketSportHubBound(() => {
+    const un = sportHub.onPolymarketSportHubRebound(() => {
       hits += 1;
     });
-    setPolymarketSportAssetIds(["e"]);
+    sportHub.setPolymarketSportAssetIds(["e"]);
     await Promise.resolve();
     expect(hits).toBe(1);
     expect(startSpy).toHaveBeenCalled();
     expect(esportStart).not.toHaveBeenCalled();
     un();
-    clearPolymarketSportHub();
+    sportHub.clearPolymarketSportHub();
   });
 
-  test("clear stops sport transport only", async () => {
-    const sportWs = await import("./sportMarketWs");
+  test("clear stops sport transport only", () => {
     const stop = vi.fn();
     vi.spyOn(sportWs, "startPolymarketSportMarketWs").mockReturnValue({ send: vi.fn(), stop } as any);
-    setPolymarketSportAssetIds(["x"]);
-    clearPolymarketSportHub();
+    sportHub.setPolymarketSportAssetIds(["x"]);
+    sportHub.clearPolymarketSportHub();
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  test("ensure connection keeps transport without assets", () => {
+    const stop = vi.fn();
+    const startSpy = vi.spyOn(sportWs, "startPolymarketSportMarketWs").mockReturnValue({
+      send: vi.fn(),
+      stop,
+    } as any);
+    sportHub.ensurePolymarketSportMarketConnection();
+    expect(startSpy).toHaveBeenCalled();
+    sportHub.setPolymarketSportAssetIds([]);
+    expect(stop).not.toHaveBeenCalled();
+    sportHub.clearPolymarketSportHub();
     expect(stop).toHaveBeenCalledTimes(1);
   });
 });

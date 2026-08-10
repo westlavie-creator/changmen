@@ -3,6 +3,8 @@ import {
   onPolymarketSportHubBound,
   onPolymarketSportQuote,
   setPolymarketSportAssetIds,
+  ensurePolymarketSportMarketConnection,
+  clearPolymarketSportHub,
 } from "@changmen/venue-adapter/polymarket";
 import {
   onPredictFunSportHubBound,
@@ -139,6 +141,9 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
   const sportOdds = useSportOddsStore();
   let stopped = false;
 
+  // 先连体育 hub，避免无 token 时 PM-S 一直灰；有列表后再 set asset
+  ensurePolymarketSportMarketConnection();
+
   const sync = (force = false) => {
     if (stopped)
       return;
@@ -213,7 +218,7 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
       unPmBound();
       unPfBound();
       sportOdds.clear();
-      setPolymarketSportAssetIds([]);
+      clearPolymarketSportHub();
       setPredictFunSportMarketIds([]);
     },
   };

@@ -22,6 +22,8 @@ const readyListeners = new Set<ReadyListener>();
 
 let wsHandle: PolymarketSportMarketWsHandle | null = null;
 let readyEpoch = 0;
+/** 体育板会话保活：无 token 时仍连 hub，供 PM-S 角标反映真实连通 */
+let sessionKeepAlive = false;
 
 function sameIdSet(prev: Set<string>, next: string[]): boolean {
   const cleaned = [...new Set(next.map(id => String(id || "").trim()).filter(Boolean))];
@@ -72,7 +74,7 @@ function notifyReady(): void {
 }
 
 function maybeStopTransport(): void {
-  if (subscribed.size > 0)
+  if (subscribed.size > 0 || sessionKeepAlive)
     return;
   if (!wsHandle)
     return;
@@ -101,6 +103,12 @@ function ensureSportMarketQuoteHub(): void {
       return;
     notifyReady();
   });
+}
+
+/** 体育板挂载：立刻建连（哪怕暂无 token），角标才能反映 hub 通断 */
+export function ensurePolymarketSportMarketConnection(): void {
+  sessionKeepAlive = true;
+  ensureSportMarketQuoteHub();
 }
 
 export function getPolymarketSportAssetIds(): string[] {
@@ -135,7 +143,7 @@ export function setPolymarketSportAssetIds(assetIds: string[], force = false): v
 }
 
 /** 板子会话：hub (re)start 后 force sync */
-export function onPolymarketSportHubBound(fn: () => void): () => void {
+export function onPolymarketSportHubRebound(fn: () => void): () => void {
   readyListeners.add(fn);
   return () => {
     readyListeners.delete(fn);
@@ -151,6 +159,7 @@ export function onPolymarketSportQuote(fn: (quote: PolymarketSportQuote) => void
 
 /** 关 Tab / 测例：停体育 transport（不影响电竞 marketQuoteHub） */
 export function clearPolymarketSportHub(): void {
+  sessionKeepAlive = false;
   subscribed.clear();
   maybeStopTransport();
 }
@@ -162,6 +171,7 @@ export function __testPushPolymarketSportQuote(assetId: string, bestAsk: number)
 
 /** @internal vitest */
 export function __testResetPolymarketSportQuoteHub(): void {
+  sessionKeepAlive = false;
   subscribed.clear();
   quoteListeners.clear();
   readyListeners.clear();

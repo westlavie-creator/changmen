@@ -53,6 +53,8 @@ describe("sport / esport UI isolation", () => {
   test("sportLiveOdds clears sportOdds and listens for hub rebound", () => {
     const src = readFileSync(join(root, "runtime/sportLiveOdds.ts"), "utf8");
     expect(src).toMatch(/sportOdds\.clear\(\)/);
+    expect(src).toMatch(/ensurePolymarketSportMarketConnection/);
+    expect(src).toMatch(/clearPolymarketSportHub/);
     expect(src).toMatch(/onPolymarketSportHubBound/);
     expect(src).toMatch(/onPredictFunSportHubBound/);
   });

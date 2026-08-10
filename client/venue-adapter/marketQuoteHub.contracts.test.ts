@@ -17,6 +17,8 @@ describe("esport/sport odds path isolation (source contracts)", () => {
     expect(src).not.toMatch(/saveVenueOdds\s*\(/);
     expect(src).not.toMatch(/useOddsStore/);
     expect(src).toMatch(/setPolymarketSportAssetIds/);
+    expect(src).toMatch(/ensurePolymarketSportMarketConnection/);
+    expect(src).toMatch(/clearPolymarketSportHub/);
     expect(src).toMatch(/setPredictFunSportMarketIds/);
     expect(src).toMatch(/sportOdds\.clear\(\)/);
   });
