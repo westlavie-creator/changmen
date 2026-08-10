@@ -2,6 +2,11 @@
 
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { POLYMARKET_CLOB_API } from "./api";
+import {
+  enrichPolymarketOrderTradeHashes,
+  type PolymarketOrderHashFields,
+  type PolymarketTradeHashRow,
+} from "./pmTradeHashes";
 import { pmEsportCall } from "./pmTransport";
 
 function requirePlayerId(account: PlatformAccount): number {
@@ -25,10 +30,21 @@ export async function pmSubmitOrder<T = unknown>(
   account: PlatformAccount,
   order: unknown,
 ): Promise<T> {
-  return pmEsportCall<T>("Pm_SubmitOrder", esportBody(account, {
+  const result = await pmEsportCall<T>("Pm_SubmitOrder", esportBody(account, {
     playerId: requirePlayerId(account),
     order,
   }));
+  if (!result || typeof result !== "object")
+    return result;
+  return enrichPolymarketOrderTradeHashes(result as T & PolymarketOrderHashFields, {
+    // 官方 clob-client-v2：getTrades({ id }, onlyFirstPage)
+    fetchTradesById: async (tradeId) => {
+      const rows = await pmGetTradesById(account, tradeId);
+      return Array.isArray(rows) ? rows as PolymarketTradeHashRow[] : [];
+    },
+    intervalMs: 250,
+    timeoutMs: 3_000,
+  }) as Promise<T>;
 }
 
 export async function pmCancelOrder<T = unknown>(
@@ -51,6 +67,21 @@ export async function pmGetTrades<T = unknown>(
     after: Math.floor(afterSec),
     maxPages,
   }));
+}
+
+/** 官方 resolveTransactionsHashes：`GET /data/trades?id=<tradeID>` */
+export async function pmGetTradesById(
+  account: PlatformAccount,
+  tradeId: string,
+): Promise<PolymarketTradeHashRow[]> {
+  const id = String(tradeId ?? "").trim();
+  if (!id)
+    return [];
+  const rows = await pmEsportCall<unknown>("Pm_GetTrades", esportBody(account, {
+    playerId: requirePlayerId(account),
+    id,
+  }));
+  return Array.isArray(rows) ? rows as PolymarketTradeHashRow[] : [];
 }
 
 export async function pmGetOrder<T = unknown>(

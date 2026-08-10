@@ -12,6 +12,7 @@ VPS 守护进程：Polymarket **Gamma + CLOB /prices discovery（唯一权威）
 - [POST /prices](https://docs.polymarket.com/api-reference/market-data/get-market-prices-request-body)（`side: SELL` = 买入 ask）
 - [Fetching markets](https://docs.polymarket.com/market-data/fetching-markets)（列盘主路径 `closed=false`）
 - 实时顶价仍走 Market WS（浏览器 / hub），**不**用本进程 HTTP 当实时源
+- 手续费：以官方 `feeSchedule` / CLOB `getClobMarketInfo().fd` 为准（Sports taker feeRate 现为 **0.05**；见 [Fees](https://docs.polymarket.com/trading/fees)）
 
 ## 采集逻辑（一轮）
 

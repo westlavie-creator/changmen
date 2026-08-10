@@ -322,6 +322,24 @@ async function fetchPolymarketTradesSinceLocal(
   return all;
 }
 
+/** 官方 getTrades({ id }, onlyFirstPage)：单页按 tradeID 查 */
+async function fetchPolymarketTradesByIdLocal(
+  mode: LocalHttpMode,
+  account: PlatformAccount,
+  gateway: string,
+  tradeId: string,
+): Promise<unknown[]> {
+  const host = String(gateway || POLYMARKET_CLOB_API).replace(/\/+$/, "");
+  const params = new URLSearchParams({ id: String(tradeId).trim() });
+  const url = `${host}${TRADES_PATH}?${params.toString()}`;
+  const data = await localHttpGet<{ data?: unknown[] }>(
+    mode,
+    url,
+    { account, l2Path: TRADES_PATH },
+  );
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
 async function pmEsportCallLocal<T>(
   mode: LocalHttpMode,
   action: string,
@@ -360,9 +378,18 @@ async function pmEsportCallLocal<T>(
     }
     case "Pm_GetTrades": {
       const account = requireEsportAccount(body);
+      const tradeId = String(body.id ?? body.tradeId ?? body.tradeID ?? "").trim();
+      if (tradeId) {
+        return fetchPolymarketTradesByIdLocal(
+          mode,
+          account,
+          clobGatewayFromAccount(account),
+          tradeId,
+        ) as Promise<T>;
+      }
       const afterSec = Number(body.after);
       if (!Number.isFinite(afterSec) || afterSec <= 0)
-        throw new Error("after 必填（unix 秒）");
+        throw new Error("after 或 id 必填");
       const maxPages = Math.min(Math.max(Number(body.maxPages) || 30, 1), 30);
       return fetchPolymarketTradesSinceLocal(
         mode,

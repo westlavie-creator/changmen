@@ -258,6 +258,31 @@ export async function fetchPolymarketTradesSince({
   return all;
 }
 
+/** 官方 getTrades({ id }, onlyFirstPage) */
+export async function fetchPolymarketTradesById({
+  token,
+  gateway = DEFAULT_CLOB,
+  tradeId,
+}) {
+  const id = String(tradeId ?? "").trim();
+  if (!id)
+    return [];
+  const headers = buildPolymarketL2HeadersFromToken(token, "GET", TRADES_PATH);
+  if (!headers)
+    throw new Error("缺少 Polymarket L2 凭据（walletAddress + apiCreds）");
+
+  const host = String(gateway || DEFAULT_CLOB).replace(/\/+$/, "");
+  const params = new URLSearchParams({ id });
+  const res = await fetch(`${host}${TRADES_PATH}?${params.toString()}`, {
+    headers,
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok)
+    throw new Error(`CLOB ${res.status} ${host}${TRADES_PATH}`);
+  const data = await res.json();
+  return Array.isArray(data?.data) ? data.data : [];
+}
+
 /** 公开接口：Gamma 缺失时 CLOB 仍保留 tokens[].winner */
 export async function fetchClobMarketByConditionId(conditionId, gateway = DEFAULT_CLOB) {
   const id = String(conditionId ?? "").trim();

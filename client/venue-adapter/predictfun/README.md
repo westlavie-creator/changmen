@@ -1,6 +1,6 @@
 # Predict.fun 场馆适配器
 
-
+House 下单依赖 `@predictdotfun/sdk`（workspace 现为 **^1.3.8**；见 [dev.predict.fun](https://dev.predict.fun/)）。
 
 ## 模式 A（已定：运营主号 / house）
 

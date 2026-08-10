@@ -9,7 +9,7 @@ import * as dbStore from "../../db/store.js";
 import store from "../../esport-api/store.js";
 import { fetchPolymarketCollateralBalance } from "./balance.js";
 import { executePolymarketHttpRequest, pickPolymarketPolyHeaders } from "./clob_proxy.js";
-import { fetchPolymarketTradesSince } from "./clob_l2.js";
+import { fetchPolymarketTradesSince, fetchPolymarketTradesById } from "./clob_l2.js";
 
 const DEFAULT_CLOB = "https://clob.polymarket.com";
 const ORDER_PATH = "/order";
@@ -228,16 +228,25 @@ export async function handlePmSubmitOrder(body, userId) {
   }
 }
 
-/** Pm_GetTrades */
+/** Pm_GetTrades — after 时间窗，或 id=tradeID（官方 resolveTransactionsHashes） */
 export async function handlePmGetTrades(body, userId) {
   const resolved = await resolveOwnedPmAccount(body.playerId, userId);
   if (!resolved.ok)
     return resolved;
-  const afterSec = Number(body.after);
-  if (!Number.isFinite(afterSec) || afterSec <= 0)
-    return { ok: false, msg: "after 必填（unix 秒）" };
-  const maxPages = Math.min(Math.max(Number(body.maxPages) || 30, 1), 30);
+  const tradeId = String(body.id ?? body.tradeId ?? body.tradeID ?? "").trim();
   try {
+    if (tradeId) {
+      const trades = await fetchPolymarketTradesById({
+        token: resolved.account.token,
+        gateway: clobGateway(resolved.account),
+        tradeId,
+      });
+      return { ok: true, info: trades };
+    }
+    const afterSec = Number(body.after);
+    if (!Number.isFinite(afterSec) || afterSec <= 0)
+      return { ok: false, msg: "after 或 id 必填" };
+    const maxPages = Math.min(Math.max(Number(body.maxPages) || 30, 1), 30);
     const trades = await fetchPolymarketTradesSince({
       token: resolved.account.token,
       gateway: clobGateway(resolved.account),

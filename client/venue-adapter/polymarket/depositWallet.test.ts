@@ -78,9 +78,15 @@ describe("buildDepositWalletApprovalCalls", () => {
       expect(pusdApproves.has(spender)).toBe(true);
       expect(ctfApprovals.has(spender)).toBe(true);
     }
-    // Deposit Wallet allowlist 不含 V1 Exchange
+    expect(ctfApprovals.has(POLYGON_POLYMARKET.CTF_EXCHANGE.toLowerCase())).toBe(true);
+    expect(ctfApprovals.has(POLYGON_POLYMARKET.NEG_RISK_EXCHANGE.toLowerCase())).toBe(true);
+    expect(ctfApprovals.has(POLYGON_POLYMARKET.CTF_COLLATERAL_ADAPTER.toLowerCase())).toBe(true);
+    expect(ctfApprovals.has(POLYGON_POLYMARKET.NEG_RISK_CTF_COLLATERAL_ADAPTER.toLowerCase())).toBe(true);
+    // Deposit Wallet allowlist 不含 V1 Exchange / V1 Neg Risk Adapter
     expect(usdcApproves.has(POLYGON_POLYMARKET.CTF_EXCHANGE_V1.toLowerCase())).toBe(false);
     expect(usdcApproves.has(POLYGON_POLYMARKET.NEG_RISK_EXCHANGE_V1.toLowerCase())).toBe(false);
+    expect(usdcApproves.has(POLYGON_POLYMARKET.NEG_RISK_ADAPTER_V1.toLowerCase())).toBe(false);
+    expect(ctfApprovals.has(POLYGON_POLYMARKET.NEG_RISK_ADAPTER_V1.toLowerCase())).toBe(false);
   });
 
   test("matches legacy Safe/Proxy approval calldata targets", () => {

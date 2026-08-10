@@ -25,6 +25,7 @@ vi.mock("./clob_proxy.js", () => ({
 
 vi.mock("./clob_l2.js", () => ({
   fetchPolymarketTradesSince: vi.fn(async () => [{ taker_order_id: "t1", side: "BUY" }]),
+  fetchPolymarketTradesById: vi.fn(async () => [{ id: "trade-1", transaction_hash: "0xabc" }]),
 }));
 
 vi.mock("./balance.js", () => ({
@@ -111,6 +112,12 @@ describe("pm_client_handlers", () => {
     const res = await handlePmGetTrades({ playerId: 47, after: 1700000000 }, "user-1");
     expect(res.ok).toBe(true);
     expect(Array.isArray(res.info)).toBe(true);
+  });
+
+  test("Pm_GetTrades 支持 id=tradeID", async () => {
+    const res = await handlePmGetTrades({ playerId: 47, id: "trade-1" }, "user-1");
+    expect(res.ok).toBe(true);
+    expect(res.info).toEqual([{ id: "trade-1", transaction_hash: "0xabc" }]);
   });
 
   test("Pm_Heartbeat 返回 heartbeat_id", async () => {

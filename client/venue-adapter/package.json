@@ -43,7 +43,8 @@
     "@changmen/shared": "*",
     "@changmen/storage": "*",
     "@polymarket/client": "^0.2.0",
-    "@predictdotfun/sdk": "^1.3.6",
+    "@polymarket/clob-client-v2": "^1.1.0",
+    "@predictdotfun/sdk": "^1.3.8",
     "centrifuge": "^5.7.0",
     "ethers": "^6.15.0",
     "viem": "^2.47.4"
