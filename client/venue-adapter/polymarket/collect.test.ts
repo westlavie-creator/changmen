@@ -1,5 +1,38 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { extractPolymarketWsBestAsks } from "./wsQuotes";
+
+const root = dirname(fileURLToPath(import.meta.url));
+
+describe("Polymarket collect fo lock contracts", () => {
+  test("WS quote path writes locked:false (do not zero getOdds when other side missing)", () => {
+    const src = readFileSync(join(root, "collect.ts"), "utf8");
+    const start = src.indexOf("function updateBetFromAsset");
+    const end = src.indexOf("const unQuote", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = src.slice(start, end);
+    expect(body).toMatch(/locked:\s*false/);
+    expect(body).not.toMatch(/locked:\s*next\.Status/);
+    expect(body).not.toMatch(/locked:\s*next\.Status === "Locked"/);
+  });
+
+  test("Index http seed skips overwrite when fo already has mqtt clob", () => {
+    const src = readFileSync(join(root, "collect.ts"), "utf8");
+    const start = src.indexOf("function saveBetOddsToFo");
+    const end = src.indexOf("export function startPolymarketCollector");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = src.slice(start, end);
+    expect(body).toMatch(/prev\?\.source === "mqtt"/);
+    expect(body).toMatch(/locked:\s*false/);
+    // 禁止再用市场级 Status Locked 把有价一侧打成 isLock
+    expect(body).not.toMatch(/locked:\s*locked\s*\|\|/);
+    expect(body).not.toMatch(/isLock:\s*locked\s*\|\|/);
+  });
+});
 
 describe("Polymarket WS quote parsing", () => {
   test("best_bid_ask event", () => {

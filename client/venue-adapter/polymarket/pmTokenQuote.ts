@@ -79,7 +79,7 @@ export function syncPolymarketFoOnPriceAboveDetection(
     clobPrice: bestAsk,
     betId,
     side,
-    // 保留原锁盘；无条目时按未锁写入（book 有 ask 说明仍可成交）
-    locked: Boolean(prev?.isLock),
+    // 本侧已有有效 book ask：必须解锁，否则 getOdds 仍为 0（与 collect WS 路径一致）
+    locked: false,
   }, "http");
 }

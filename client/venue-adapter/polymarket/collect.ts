@@ -40,53 +40,64 @@ function saveBetOddsToFo(
   source: "http" | "mqtt",
   clobPrices?: { home?: number; away?: number },
 ) {
-  const locked = bet.Status === "Locked";
   const betId = String(bet.SourceBetID);
   const homeId = String(bet.SourceHomeID);
   const awayId = String(bet.SourceAwayID);
   const homePrice = clobPrices?.home;
-  if (Number.isFinite(homePrice) && homePrice! > 0) {
-    saveTokenQuote({
-      tokenId: homeId,
-      clobPrice: homePrice!,
-      betId,
-      side: "home",
-      locked: locked || !bet.HomeOdds,
-    }, source);
+  // Index 种子：有 clob 的一侧按本侧可买解锁；勿用「对侧无价 → Status Locked」把本侧 fo 打成 isLock
+  // （否则 getOdds 恒为 0，盘口空白，而 OrderList 仍可读 clobPrice）。对齐 PF：http 勿盖 mqtt。
+  if (Number.isFinite(homePrice) && isValidClobPrice(homePrice!)) {
+    const prev = source === "http" ? getVenueOddsEntry(PLATFORM, homeId) : null;
+    if (!(prev?.source === "mqtt" && isValidClobPrice(Number(prev.clobPrice)))) {
+      saveTokenQuote({
+        tokenId: homeId,
+        clobPrice: homePrice!,
+        betId,
+        side: "home",
+        locked: false,
+      }, source);
+    }
   }
   else {
     const prev = getVenueOddsEntry(PLATFORM, homeId);
-    saveVenueOdds(PLATFORM, {
-      id: homeId,
-      odds: bet.HomeOdds,
-      ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
-      isLock: locked || !bet.HomeOdds,
-      betId,
-      side: "home",
-      time: Date.now(),
-    }, source);
+    if (!(source === "http" && prev?.source === "mqtt" && isValidClobPrice(Number(prev.clobPrice)))) {
+      saveVenueOdds(PLATFORM, {
+        id: homeId,
+        odds: bet.HomeOdds,
+        ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
+        isLock: !bet.HomeOdds,
+        betId,
+        side: "home",
+        time: Date.now(),
+      }, source);
+    }
   }
   const awayPrice = clobPrices?.away;
-  if (Number.isFinite(awayPrice) && awayPrice! > 0) {
-    saveTokenQuote({
-      tokenId: awayId,
-      clobPrice: awayPrice!,
-      betId,
-      side: "away",
-      locked: locked || !bet.AwayOdds,
-    }, source);
+  if (Number.isFinite(awayPrice) && isValidClobPrice(awayPrice!)) {
+    const prev = source === "http" ? getVenueOddsEntry(PLATFORM, awayId) : null;
+    if (!(prev?.source === "mqtt" && isValidClobPrice(Number(prev.clobPrice)))) {
+      saveTokenQuote({
+        tokenId: awayId,
+        clobPrice: awayPrice!,
+        betId,
+        side: "away",
+        locked: false,
+      }, source);
+    }
   }
   else {
     const prev = getVenueOddsEntry(PLATFORM, awayId);
-    saveVenueOdds(PLATFORM, {
-      id: awayId,
-      odds: bet.AwayOdds,
-      ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
-      isLock: locked || !bet.AwayOdds,
-      betId,
-      side: "away",
-      time: Date.now(),
-    }, source);
+    if (!(source === "http" && prev?.source === "mqtt" && isValidClobPrice(Number(prev.clobPrice)))) {
+      saveVenueOdds(PLATFORM, {
+        id: awayId,
+        odds: bet.AwayOdds,
+        ...(prev?.clobPrice != null && isValidClobPrice(prev.clobPrice) ? { clobPrice: prev.clobPrice } : {}),
+        isLock: !bet.AwayOdds,
+        betId,
+        side: "away",
+        time: Date.now(),
+      }, source);
+    }
   }
 }
 
@@ -128,15 +139,19 @@ export function startPolymarketCollector(): () => void {
       return;
 
     const price = Number(bestAsk);
-    if (!Number.isFinite(price) || price <= 0)
+    // 与 emitQuote / decimalOddsFromProbability 一致：无有效买价不写 fo
+    if (!Number.isFinite(price) || price <= 0 || price >= 1)
       return;
 
     const next: CollectBetDto = { ...mapped.bet };
     const decimalOdds = decimalOddsFromProbability(price);
+    if (!(decimalOdds > 0))
+      return;
     if (assetId === String(next.SourceHomeID))
       next.HomeOdds = decimalOdds;
     if (assetId === String(next.SourceAwayID))
       next.AwayOdds = decimalOdds;
+    // mapped.bet 仍跟踪双边，供内部状态；fo 锁盘只看本侧是否有有效 ask（对齐 PF）
     next.Status = next.HomeOdds > 0 && next.AwayOdds > 0 ? "Normal" : "Locked";
     mapped.bet = next;
     const betId = String(next.SourceBetID);
@@ -146,7 +161,7 @@ export function startPolymarketCollector(): () => void {
       clobPrice: price,
       betId,
       side,
-      locked: next.Status === "Locked" || (side === "home" ? !next.HomeOdds : !next.AwayOdds),
+      locked: false,
     }, "mqtt");
   }
 

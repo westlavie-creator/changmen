@@ -48,6 +48,8 @@ module.exports = {
         DATABASE_APPLICATION_NAME: "changmen-pm-market-hub",
         PM_MARKET_HUB_PORT: "3457",
         WS_FORWARD_MAX_BUFFERED_BYTES: "524288",
+        // 套利跟手：合批从 100ms 降到 20ms；若 Health soft/age 抬头再调回 50
+        PM_HUB_PENDING_FLUSH_MS: "20",
       },
     },
     {

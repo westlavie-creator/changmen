@@ -1115,7 +1115,7 @@ describe("polymarketProvider.checkBet", () => {
     );
   });
 
-  test("price-above fo sync preserves existing lock and betId from fo", async () => {
+  test("price-above fo sync unlocks and keeps betId from fo", async () => {
     vi.mocked(pmGetBook).mockResolvedValue({
       tick_size: "0.01",
       min_order_size: "5",
@@ -1146,7 +1146,8 @@ describe("polymarketProvider.checkBet", () => {
         clobPrice: 0.32,
         betId: "fo-cond",
         side: "away",
-        isLock: true,
+        // 有效 ask 必须解锁，否则 getOdds 仍为 0
+        isLock: false,
       }),
       "http",
     );
