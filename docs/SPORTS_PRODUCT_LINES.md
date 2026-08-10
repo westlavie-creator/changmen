@@ -68,10 +68,10 @@ changmen（平台 monorepo）
 | sport code | 产品名 | 锚点 | 代码位置 | PM2 | 阶段 |
 |------------|--------|------|----------|-----|------|
 | `esport` | 电竞 | `lines/esport/` | 仓库根（见 `line.json`） | `changmen-esport` `changmen-pm-sports` `changmen-predictfun-collector` | **全栈** |
-| `baseball` | 棒球 | `lines/baseball/` | `/sports/baseball` + GetBaseballMatchs（首页 Tab 共存至 Wave B） | （只读共用 esport PM2） | **B1 只读** → 采集 → 套利 |
+| `baseball` | 棒球 | `lines/baseball/` | `/sports/baseball` + GetBaseballMatchs | （只读共用 esport PM2） | **B1 只读** → 采集 → 套利 |
 | `football` | 足球 | `lines/football/` | `/sports/football` + GetFootballMatchs | （只读共用） | **只读 MVP** |
 | `tennis` | 网球 | `lines/tennis/` | `/sports/tennis` + GetTennisMatchs | （只读共用） | **只读 MVP** |
-| `basketball` | 篮球 | `lines/basketball/` | `/sports/basketball` + GetBasketballMatchs（仅体育页） | （只读共用） | **只读 MVP** |
+| `basketball` | 篮球 | `lines/basketball/` | `/sports/basketball` + GetBasketballMatchs | （只读共用） | **只读 MVP** |
 
 ### 电竞组件路径（`esport`，代码在仓库根）
 

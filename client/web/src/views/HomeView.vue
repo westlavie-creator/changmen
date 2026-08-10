@@ -7,9 +7,6 @@ import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import CreateLoseDialog from "@/components/match/CreateLoseDialog.vue";
 import MatchCard from "@/components/match/MatchCard.vue";
-import BaseballBoard from "@/components/match/BaseballBoard.vue";
-import FootballBoard from "@/components/match/FootballBoard.vue";
-import TennisBoard from "@/components/match/TennisBoard.vue";
 import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import MakeupCalcBar from "@/components/user/MakeupCalcBar.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
@@ -35,8 +32,6 @@ const {
 } = storeToRefs(createLoseDialog);
 
 const searchQuery = ref("");
-/** 电竞 / 棒球 / 足球 / 网球：仅切换列表面板；不影响 matchStore 套利主循环 */
-const sportTab = ref<"esport" | "baseball" | "football" | "tennis">("esport");
 const { extensionReady, extensionChecked, refreshExtension } = useExtensionGate();
 
 const filteredMatchs = computed(() => {
@@ -113,6 +108,9 @@ async function logout() {
         <AccountBar />
         <div class="home-header-trailing">
           <DirectRealtimeBadge />
+          <RouterLink class="sports-nav-link" :to="{ name: 'sports-board', params: { sport: 'football' } }">
+            体育
+          </RouterLink>
         </div>
         <p v-if="extensionChecked && !extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。
@@ -123,48 +121,26 @@ async function logout() {
       </el-header>
       <el-main class="home-main">
         <ActiveBetRunView />
-        <div class="sport-tab-row">
-          <el-radio-group v-model="sportTab" size="small" class="sport-tab">
-            <el-radio-button value="esport">
-              电竞
-            </el-radio-button>
-            <el-radio-button value="baseball">
-              棒球
-            </el-radio-button>
-            <el-radio-button value="football">
-              足球
-            </el-radio-button>
-            <el-radio-button value="tennis">
-              网球
-            </el-radio-button>
-          </el-radio-group>
-        </div>
-        <template v-if="sportTab === 'esport'">
-          <div class="sport-board">
-            <div class="match-search-row">
-              <el-input
-                v-model="searchQuery"
-                placeholder="搜索队名 / 比赛ID / 游戏..."
-                clearable
-                class="match-search"
-              />
-              <span class="match-count" :title="`当前列表 ${filteredMatchs.length} 场`">
-                {{ matchCountLabel }}
-              </span>
-              <MakeupCalcBar />
-            </div>
-            <div v-if="filteredMatchs.length" class="matchs">
-              <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
-            </div>
-            <div v-else-if="searchQuery" class="match-empty">
-              无匹配比赛
-            </div>
+        <div class="sport-board">
+          <div class="match-search-row">
+            <el-input
+              v-model="searchQuery"
+              placeholder="搜索队名 / 比赛ID / 游戏..."
+              clearable
+              class="match-search"
+            />
+            <span class="match-count" :title="`当前列表 ${filteredMatchs.length} 场`">
+              {{ matchCountLabel }}
+            </span>
+            <MakeupCalcBar />
           </div>
-        </template>
-        <!-- v-if：切走即卸载板子并 stopPolling，避免多运动 Tab 同时狂拉 Gamma -->
-        <BaseballBoard v-else-if="sportTab === 'baseball'" />
-        <FootballBoard v-else-if="sportTab === 'football'" />
-        <TennisBoard v-else-if="sportTab === 'tennis'" />
+          <div v-if="filteredMatchs.length" class="matchs">
+            <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />
+          </div>
+          <div v-else-if="searchQuery" class="match-empty">
+            无匹配比赛
+          </div>
+        </div>
       </el-main>
     </el-container>
   </el-container>
