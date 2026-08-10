@@ -11,11 +11,12 @@ describe("obForwardDefinition", () => {
     assert.equal(obForwardDefinition.transport, "raw-ws");
   });
 
-  it("requires upstream wss url in query u", () => {
+  it("requires upstream wss url in query u and mqtt subprotocol", () => {
     const upstream = obForwardDefinition.resolveUpstream({
       url: "http://localhost/esport/ws-forward/OB?u=wss%3A%2F%2Fmqtt.example%2Fws",
     });
     assert.equal(upstream.url, "wss://mqtt.example/ws");
+    assert.deepEqual(upstream.protocols, ["mqtt"]);
   });
 
   it("rejects missing u query", () => {

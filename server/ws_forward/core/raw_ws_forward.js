@@ -88,10 +88,15 @@ export function attachRawWsForwards(httpServer, defs) {
 
       let upstreamWs;
       try {
-        upstreamWs = new WebSocket(upstreamSpec.url, {
+        const protocols = upstreamSpec.protocols;
+        const options = {
           headers: upstreamSpec.headers,
           rejectUnauthorized: true,
-        });
+        };
+        // mqtt.js 等客户端会带子协议；裸连时部分上游（如 OB MQTT）直接 HTTP 500
+        upstreamWs = protocols
+          ? new WebSocket(upstreamSpec.url, protocols, options)
+          : new WebSocket(upstreamSpec.url, options);
       } catch (err) {
         clientWs.off("message", onEarlyClientMessage);
         console.warn(`[ws_forward/${definition.id}] upstream open failed:`, err.message);

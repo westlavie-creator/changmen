@@ -11,7 +11,7 @@
  * @property {'raw-ws'} transport
  * @property {string} id
  * @property {string} browserPath
- * @property {(req: import('node:http').IncomingMessage) => { url: string, headers?: Record<string, string> }} resolveUpstream
+ * @property {(req: import('node:http').IncomingMessage) => { url: string, headers?: Record<string, string>, protocols?: string | string[] }} resolveUpstream
  */
 
 /** @typedef {SocketIoForwardDefinition | RawWsForwardDefinition} PlatformForwardDefinition */
