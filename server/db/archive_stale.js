@@ -1,7 +1,8 @@
 /**
  * client_matches 时间归档 — matcher 每小时兜底。
- * v1 ended_at 生命周期：不对 client_matches 做 built_at 搬家（避免毁掉身份锚点）。
- * platform_* 仍可由 --legacy-platform / ALL scope 清理。
+ * v1 ended_at 生命周期：任何 scope 都不得对 client_matches 做 built_at 搬家
+ * （ended 行是身份/强制结束锚点；history 表也无 ended_at，搬出会导致复活）。
+ * platform_* 仍可由 --legacy-platform / --all 清理。
  * archive-stale-client-matches.mjs（ops/migrations/）为手动/运维 CLI。
  */
 
@@ -15,7 +16,7 @@ export const DEFAULT_CLIENT_MATCH_ARCHIVE_INTERVAL_MS = 60 * 60 * 1000;
 export const ARCHIVE_SCOPE_CLIENT = "client";
 /** 运维兜底：含 platform_* / live_timers 时间清理（SaveMatch 快照上线前行为） */
 export const ARCHIVE_SCOPE_LEGACY_PLATFORM = "legacy-platform";
-/** 全部表（含 client — 仅运维显式 ALL；仍不推荐） */
+/** 与 legacy-platform 相同：仅 platform_* / live_timers（不再搬 client_matches） */
 export const ARCHIVE_SCOPE_ALL = "all";
 
 export function getArchiveCutoffMs(now = Date.now()) {
@@ -37,19 +38,6 @@ const PLATFORM_ARCHIVE_SPECS = [
   },
 ];
 
-/** 仅 ARCHIVE_SCOPE_ALL 显式启用；matcher 默认 client scope 为空 */
-const CLIENT_ARCHIVE_SPECS = [
-  {
-    table: "client_matches",
-    history: "client_matches_history",
-    column: "built_at",
-    key: "client_matches",
-    cols: "id, title, game, game_id, start_time, bo, round, matchs, bets, reverse, built_at, pm_sport, home_gb_team_id, away_gb_team_id",
-    /** 仅冷搬已结束且 built_at 过期的行（ALL scope） */
-    whereExtra: "ended_at IS NOT NULL",
-  },
-];
-
 function emptyCounts() {
   return {
     platform_matches: 0,
@@ -62,14 +50,10 @@ function emptyCounts() {
 /** @returns {{ deleteSpecs: typeof PLATFORM_DELETE_SPECS, archiveSpecs: Array }} */
 export function resolveArchiveSpecs(scope = ARCHIVE_SCOPE_CLIENT) {
   const wantPlatform = scope === ARCHIVE_SCOPE_ALL || scope === ARCHIVE_SCOPE_LEGACY_PLATFORM;
-  // matcher 默认 client：不搬表。仅 ALL 才允许冷搬已 ended 行。
-  const wantClient = scope === ARCHIVE_SCOPE_ALL;
+  // ended_at 生命周期：任何 scope 都不搬 client_matches（含历史 ALL）
   return {
     deleteSpecs: wantPlatform ? PLATFORM_DELETE_SPECS : [],
-    archiveSpecs: [
-      ...(wantPlatform ? PLATFORM_ARCHIVE_SPECS : []),
-      ...(wantClient ? CLIENT_ARCHIVE_SPECS : []),
-    ],
+    archiveSpecs: wantPlatform ? [...PLATFORM_ARCHIVE_SPECS] : [],
   };
 }
 
