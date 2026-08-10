@@ -62,7 +62,8 @@ Nginx / Caddy 反代示例要点：
 |------|----------|-------------|
 | 前端（`client/web`） | **静态文件** `client/web/dist/`（不是常驻 Node 进程） | `npm run app:build` 后覆盖 `dist`；**一般不必** `pm2 restart` |
 | API + 合并（`server/backend` 内嵌 matcher） | PM2：`changmen-esport`（`:3456`）**单实例** | `pm2 restart changmen-esport --update-env` |
-| Polymarket Market WS hub | PM2：`changmen-pm-market-hub`（`:3457`） | `pm2 restart changmen-pm-market-hub --update-env` |
+| Polymarket Market WS hub | PM2：`changmen-pm-market-hub`（`:3457`，电竞） | `pm2 restart changmen-pm-market-hub --update-env` |
+| Polymarket Sport Market WS hub | PM2：`changmen-pm-sport-market-hub`（`:3459`，体育） | `pm2 restart changmen-pm-sport-market-hub --update-env` |
 | Predict.fun Market WS hub | PM2：`changmen-predictfun-market-hub`（`:3458`） | `pm2 restart changmen-predictfun-market-hub --update-env` |
 | Polymarket 电竞 HTTP 采集 | PM2：`changmen-polymarket-collector`（Gamma+/prices → `platform_*` + index） | `pm2 restart changmen-polymarket-collector --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
@@ -158,12 +159,12 @@ npm run app:build
 
 ### 3.4 进程
 
-**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-market-hub` + `changmen-predictfun-market-hub` + `changmen-pm-sports` + `changmen-polymarket-collector` + `changmen-predictfun-collector`。
+**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-market-hub` + `changmen-pm-sport-market-hub` + `changmen-predictfun-market-hub` + `changmen-pm-sports` + `changmen-polymarket-collector` + `changmen-predictfun-collector`。
 
 ```bash
 cd changmen
-# 推荐主栈（含 PM/PF Market WS hub + PM/PF 电竞 discovery）
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
+# 推荐主栈（含 PM 电竞/体育 + PF Market WS hub + PM/PF 电竞 discovery）
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
 ```
 
 `ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。唯一合场写路径：`matchMergeOnce` → `@changmen/matcher`。**勿**另起独立 match-composer WRITE 进程（防双写 `client_matches`）；回滚走 git revert / 版本回退。

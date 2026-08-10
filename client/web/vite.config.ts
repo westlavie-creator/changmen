@@ -90,6 +90,7 @@ export default defineConfig(({ mode }) => {
     // 场馆 HK 出海 relay：dev 同源走 Vite 代理到香港 VPS，避免浏览器跨域 OPTIONS 到 3560 / 外网 IP
     proxy["/esport/http-relay"] = { target: hkRelayTarget, changeOrigin: true };
     proxy["/esport/ws-forward/PM-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
   }
@@ -99,6 +100,11 @@ export default defineConfig(({ mode }) => {
     const pmHubTarget = String(env.VITE_PM_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(pmHubPort) && pmHubPort > 0 ? pmHubPort : 3457}`;
     proxy["/esport/ws-forward/PM-MARKET"] = { target: pmHubTarget, changeOrigin: true, ws: true };
+
+    const pmSportHubPort = Number(env.VITE_PM_SPORT_MARKET_HUB_PORT || process.env.PM_SPORT_MARKET_HUB_PORT || 3459);
+    const pmSportHubTarget = String(env.VITE_PM_SPORT_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
+      || `http://127.0.0.1:${Number.isFinite(pmSportHubPort) && pmSportHubPort > 0 ? pmSportHubPort : 3459}`;
+    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = { target: pmSportHubTarget, changeOrigin: true, ws: true };
 
     const pfHubPort = Number(env.VITE_PREDICTFUN_MARKET_HUB_PORT || process.env.PREDICTFUN_MARKET_HUB_PORT || 3458);
     const pfHubTarget = String(env.VITE_PREDICTFUN_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")

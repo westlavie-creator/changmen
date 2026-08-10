@@ -16,6 +16,12 @@ sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
 	handle /esport/ws-forward/PM-MARKET* {
 		reverse_proxy 127.0.0.1:3457
 	}
+	handle /esport/ws-forward/PREDICTFUN-MARKET* {
+		reverse_proxy 127.0.0.1:3458
+	}
+	handle /esport/ws-forward/PM-SPORT-MARKET* {
+		reverse_proxy 127.0.0.1:3459
+	}
 	handle /esport/* {
 		reverse_proxy 127.0.0.1:3456
 	}

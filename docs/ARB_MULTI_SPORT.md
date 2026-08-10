@@ -263,21 +263,24 @@ Store：`server/db/rds/sport_{client_matches,venue,team}_store.js`；隔离 smok
 
 隔离：`sport_merge` / `sport_*_store` / plugin 不得写 `client_matches`、不得 import 电竞 `team_db`；体育板不 seed fo。
 
-### N3.5 体育赔率实时显示（已做 · marketQuoteHub · 仍禁 N4）
+### N3.5 体育赔率实时显示（已做 · 独立 sportQuoteHub · 仍禁 N4）
 
-棒/足 Tab 打开时，与电竞 **共用** PM/PF `marketQuoteHub`（单条盘口 WS、多消费者），只刷体育板数字：
+棒/足等体育页打开时，PM 走 **独立** `sportQuoteHub` + `changmen-pm-sport-market-hub`（`:3459` / `PM-SPORT-MARKET`），与电竞 `marketQuoteHub` / `:3457` **分进程、分上游、分浏览器 WS**：
 
 | 做 | 不做 |
 |----|------|
-| PM CLOB + PF orderbook → `sportOddsStore` → `fallback*Odds` | 写电竞 `oddsStore`(fo) / `saveVenueOdds` |
-| 订阅窗 = 过去 6h + 未来 1h；体育 token 硬顶 **100** | 第二条 PM WS（会 `stop` 电竞 singleton） |
-| `SportMatchBoard` 挂载登记 / 卸载清空体育消费者 | sportBetLoop / `PredictFun.bet` / N4 |
+| PM CLOB（体育 hub）+ PF orderbook → `sportOddsStore` → `fallback*Odds` | 写电竞 `oddsStore`(fo) / `saveVenueOdds` |
+| 订阅窗 = 过去 6h + 未来 1h；体育 token 硬顶 **100** | 往电竞 `marketQuoteHub` register `"sport"` |
+| 关体育 Tab → `clearPolymarketSportHub` 停体育 transport | 触碰电竞 `activeMarketWsHandle` |
+
+PF 仍可暂共用电竞侧 hub（后续再拆）；PM 已完全隔离。
 
 分层：
 
-- **数据源** `marketQuoteHub`：连 WS、合并订阅、广播 quote；不知电竞/体育
+- **电竞数据源** `marketQuoteHub`：连 `PM-MARKET`、合并电竞消费者、广播 quote → fo
+- **体育数据源** `sportQuoteHub`：连 `PM-SPORT-MARKET`、独立 WS → `sportOddsStore`
 - **电竞** collector：`register("esport")` → 写 fo；**stop 只 unregister esport**
-- **体育** `sportLiveOdds`：`register("sport")` → `sportOddsStore`；关 Tab 才卸体育
+- **体育** `sportLiveOdds`：`setPolymarketSportAssetIds` → `sportOddsStore`；关 Tab 才 `clearPolymarketSportHub`
 
 **生命周期契约测（合并闸门，改 hub/collect/ws 前必绿）**：
 
@@ -289,13 +292,14 @@ npm run test:quote-hub-contracts
 | 契约 | 文件 |
 |------|------|
 | stop 边界 / force 重订 / late-join / fo 过滤 | `*/marketQuoteHub.lifecycle.test.ts` |
+| PM 体育独立 WS / 不 import marketQuoteHub | `polymarket/sportQuoteHub.test.ts` + lifecycle source |
 | PF unsubscribe 差额 | `predictfun/marketQuoteHub.lifecycle.test.ts` |
 | collect 源码：`sync*(true)`、重建 maps、不 clear sport | lifecycle 内 source contracts |
 | 电竞板可下注 / 体育只读 / sportLiveOdds 不写 fo | `marketQuoteHub.contracts.test.ts` |
 
 ### 电竞业务冻结（后续体育迭代不改电竞实现）
 
-场馆 WS **共用**一条 `marketQuoteHub`；电竞 / 体育各自是消费者。为避免体育 PR 再「顺手动电竞」：
+PM 体育与电竞 **分 hub**；为避免体育 PR 再「顺手动电竞」：
 
 | 面 | 规则 |
 |----|------|
@@ -308,8 +312,8 @@ npm run test:quote-hub-contracts
 
 | 模块 | 路径 |
 |------|------|
-| Hub | `venue-adapter/{polymarket,predictfun}/marketQuoteHub.ts` |
-| 体育兼容名 | `.../sportQuoteHub.ts`（`set*Sport*` → register sport） |
+| 电竞 Hub | `venue-adapter/{polymarket,predictfun}/marketQuoteHub.ts` |
+| 体育 Hub | `.../sportQuoteHub.ts`（PM 独立 WS；PF 仍薄封装 register） |
 | 会话 | `client/web/src/runtime/sportLiveOdds.ts` |
 | Store | `stores/sportOddsStore.ts`（与 fo 隔离） |
 
