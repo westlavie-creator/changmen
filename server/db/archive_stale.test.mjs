@@ -19,11 +19,10 @@ describe("resolveArchiveSpecs", () => {
     expect(archiveSpecs.map(s => s.key)).toEqual(["platform_matches"]);
   });
 
-  it("all scope includes ended client cold-move and platform", () => {
+  it("all scope never moves client_matches (sticky ended_at anchors)", () => {
     const { deleteSpecs, archiveSpecs } = resolveArchiveSpecs(ARCHIVE_SCOPE_ALL);
     expect(deleteSpecs).toHaveLength(2);
-    expect(archiveSpecs.map(s => s.key).sort()).toEqual(["client_matches", "platform_matches"]);
-    const clientSpec = archiveSpecs.find(s => s.key === "client_matches");
-    expect(clientSpec.whereExtra).toMatch(/ended_at/);
+    expect(archiveSpecs.map(s => s.key)).toEqual(["platform_matches"]);
+    expect(archiveSpecs.some(s => s.key === "client_matches")).toBe(false);
   });
 });

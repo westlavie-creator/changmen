@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * client_matches 时间归档（手动 / crontab 兜底；生产由 gamebet-matcher 每小时执行）
+ * 时间归档（手动 / crontab 兜底；生产 matcher 每小时执行 client scope = no-op）
  *
  *   cd changmen/server/backend && node scripts/ops/migrations/archive-stale-client-matches.mjs
- *   node scripts/ops/migrations/archive-stale-client-matches.mjs --legacy-platform   # 含 platform_* / live_timers 时间清理（旧行为）
- *   node scripts/ops/migrations/archive-stale-client-matches.mjs --all                 # 全部表
+ *   node scripts/ops/migrations/archive-stale-client-matches.mjs --legacy-platform   # platform_* / live_timers
+ *   node scripts/ops/migrations/archive-stale-client-matches.mjs --all                 # 同 legacy-platform（不搬 client_matches）
+ *
+ * ended_at 生命周期：client_matches 锚点永不冷搬到 history（避免强制结束/已结束场复活）。
  */
 
 import {
