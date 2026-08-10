@@ -605,6 +605,26 @@ export async function buildTennisMatchList() {
   return list;
 }
 
+/** 篮球：NBA moneyline；不碰电竞 client_matches / mainBetLoop。 */
+export async function buildBasketballMatchList() {
+  const { fetchNbaAsClientMatchDtos } = await import("./nba_gamma_fetch.js");
+  const { fetchPredictFunNbaAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
+  const list = await concatSportReadOnlyLists(
+    [fetchNbaAsClientMatchDtos(), fetchPredictFunNbaAsClientMatchDtos()],
+    "GetBasketballMatchs",
+  );
+  try {
+    const { ingestAndMergeSportLists } = await import("./sport_merge.js");
+    const merged = await ingestAndMergeSportLists("basketball", list);
+    if (merged?.length)
+      return merged;
+  }
+  catch (err) {
+    console.warn("[GetBasketballMatchs] sport merge fallback to concat", err?.message || err);
+  }
+  return list;
+}
+
 const fetchPlatformBetsForDefaultOdds = () => sb.fetchPlatformBets();
 
 export function getMatchDefaultOdds(matchIds) {

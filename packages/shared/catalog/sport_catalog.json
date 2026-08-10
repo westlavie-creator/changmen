@@ -81,6 +81,23 @@
         "platforms": ["Polymarket"]
       },
       "markets": ["moneyline"]
+    },
+    {
+      "code": "basketball",
+      "name": "篮球",
+      "nameEn": "Basketball",
+      "status": "active",
+      "defaultGameCodes": ["nba"],
+      "matcherProfile": "basketball",
+      "linePath": "lines/basketball",
+      "apiSportFilter": "basketball",
+      "pm2Apps": [],
+      "collect": {
+        "mode": "api",
+        "daemons": [],
+        "platforms": ["Polymarket", "PredictFun"]
+      },
+      "markets": ["moneyline"]
     }
   ]
 }

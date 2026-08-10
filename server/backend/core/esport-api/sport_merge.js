@@ -36,7 +36,7 @@ const FOOTBALL_SOFT_PAIR_GAME = "_fb_soft";
 
 /** @type {ReturnType<typeof createSportTeamPlugin>} */
 const sportTeams = createSportTeamPlugin({
-  games: ["mlb", "kbo", "npb", "soccer", "tennis", FOOTBALL_SOFT_PAIR_GAME, ...FOOTBALL_LEAGUE_CODES],
+  games: ["mlb", "kbo", "npb", "soccer", "tennis", "nba", FOOTBALL_SOFT_PAIR_GAME, ...FOOTBALL_LEAGUE_CODES],
 });
 
 function gameCodeForSport(sport, legGame) {
@@ -47,6 +47,8 @@ function gameCodeForSport(sport, legGame) {
     return "uef";
   if (s === "tennis")
     return "tennis";
+  if (s === "basketball")
+    return "nba";
   if (s === "baseball")
     return "mlb";
   return "mlb";

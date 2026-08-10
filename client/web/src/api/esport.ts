@@ -38,6 +38,7 @@ export {
 
 export {
   getBaseballMatchs,
+  getBasketballMatchs,
   getFootballMatchs,
   getTennisMatchs,
   getMatchs,

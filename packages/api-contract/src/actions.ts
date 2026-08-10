@@ -18,6 +18,7 @@ export const ESPORT_ACTIONS = [
   "Client_GetBaseballMatchs",
   "Client_GetFootballMatchs",
   "Client_GetTennisMatchs",
+  "Client_GetBasketballMatchs",
   "Client_SaveData",
   "Client_GetAccounts",
   "Client_SaveAccounts",
@@ -110,5 +111,6 @@ export const CORE_INTEGRATION_ACTIONS = [
   "Client_GetBaseballMatchs",
   "Client_GetFootballMatchs",
   "Client_GetTennisMatchs",
+  "Client_GetBasketballMatchs",
   "Client_GetData",
 ] as const satisfies readonly EsportAction[];

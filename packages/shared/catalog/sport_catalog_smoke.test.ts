@@ -4,7 +4,7 @@ const sport = await import("./sport_catalog.ts");
 const gameCatalog = await import("./game_catalog.json", { with: { type: "json" } });
 
 assert.equal(sport.DEFAULT_SPORT, "esport");
-assert.equal(sport.listSports().length, 4);
+assert.equal(sport.listSports().length, 5);
 
 const esport = sport.getSport("esport");
 assert.ok(esport);
@@ -29,9 +29,15 @@ assert.ok(tennis);
 assert.equal(tennis!.status, "active");
 assert.deepEqual(tennis!.defaultGameCodes, ["tennis"]);
 
+const basketball = sport.getSport("basketball");
+assert.ok(basketball);
+assert.equal(basketball!.status, "active");
+assert.deepEqual(basketball!.defaultGameCodes, ["nba"]);
+assert.deepEqual(basketball!.markets, ["moneyline"]);
+
 assert.deepEqual(
   sport.listActiveSports().map(s => s.code).sort(),
-  ["baseball", "esport", "football", "tennis"],
+  ["baseball", "basketball", "esport", "football", "tennis"],
 );
 
 for (const game of gameCatalog.default.games) {
@@ -42,6 +48,7 @@ for (const game of gameCatalog.default.games) {
 assert.equal(sport.getSportForGameCode("cs2"), "esport");
 assert.equal(sport.getSportForGameCode("lol"), "esport");
 assert.equal(sport.getSportForGameCode("mlb"), "baseball");
+assert.equal(sport.getSportForGameCode("nba"), "basketball");
 assert.equal(sport.getSportForGameCode("chi"), "football");
 assert.equal(sport.getSportForGameCode("tennis"), "tennis");
 assert.equal(sport.getSportForGameCode("unknown"), null);

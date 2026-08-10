@@ -16,6 +16,17 @@ const router = createRouter({
       component: GateView,
       meta: { public: true },
     },
+    /** Wave A：体育独立页（GateView 按路径渲染 SportsWorkspace；不改 HomeView） */
+    {
+      path: "/sports",
+      redirect: "/sports/football",
+    },
+    {
+      path: "/sports/:sport(football|basketball|baseball|tennis)",
+      name: "sports-board",
+      component: GateView,
+      meta: { public: true },
+    },
     {
       path: "/admin",
       name: "admin",

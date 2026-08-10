@@ -113,3 +113,17 @@ export async function getTennisMatchs(userName: string) {
   return data.info;
 }
 
+/** 篮球列表（独立 action；不进电竞 GetMatchs / 套利主循环） */
+export async function getBasketballMatchs(userName: string) {
+  const data = await post<ClientMatchDto[]>(
+    "Client_GetBasketballMatchs",
+    {},
+    `?user=${encodeURIComponent(userName)}`,
+  );
+  if (data.success !== 1)
+    throw new Error(data.msg || "Client_GetBasketballMatchs failed");
+  if (!Array.isArray(data.info))
+    throw new Error("Invalid basketball match list");
+  return data.info;
+}
+

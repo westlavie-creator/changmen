@@ -133,6 +133,13 @@
       "platforms": { "Polymarket": "mlb", "PredictFun": "mlb" }
     },
     {
+      "code": "nba",
+      "sport": "basketball",
+      "name": "美职篮",
+      "nameEn": "NBA",
+      "platforms": { "Polymarket": "nba", "PredictFun": "nba" }
+    },
+    {
       "code": "kbo",
       "sport": "baseball",
       "name": "韩职棒",

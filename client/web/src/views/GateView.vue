@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { getToken } from "@/api/client";
 import LoginPanel from "@/components/auth/LoginPanel.vue";
 import SessionRestoreLoader from "@/components/layout/SessionRestoreLoader.vue";
@@ -10,13 +10,17 @@ import { useExtensionGate } from "@/composables/useExtensionGate";
 import { useUserStore } from "@/stores/userStore";
 
 const HomeView = defineAsyncComponent(() => import("@/views/HomeView.vue"));
+const SportsWorkspace = defineAsyncComponent(() => import("@/views/SportsWorkspace.vue"));
 
+const route = useRoute();
 const router = useRouter();
 const user = useUserStore();
 const { extensionReady, extensionChecked } = useExtensionGate();
 const { certReady, certChecked } = useCertGate();
 const sessionReady = computed(() => user.ready);
 const sessionChecked = computed(() => user.sessionChecked);
+/** Wave A：`/sports/*` 走体育页；`/` 仍为原 HomeView（内容不动） */
+const isSportsRoute = computed(() => route.path.startsWith("/sports"));
 /** B：客户端证书 + Chrome 插件 都具备才出登录框 */
 const accessReady = computed(() => extensionReady.value && certReady.value);
 /** 两道门都完成首次探测后再判定 Coming soon / 登录，避免误闪 */
@@ -43,9 +47,12 @@ async function onLoginSuccess() {
 </script>
 
 <template>
-  <KeepAlive v-if="sessionReady">
-    <HomeView />
-  </KeepAlive>
+  <template v-if="sessionReady">
+    <SportsWorkspace v-if="isSportsRoute" />
+    <KeepAlive v-else>
+      <HomeView />
+    </KeepAlive>
+  </template>
   <SessionRestoreLoader v-else-if="showSessionRestore" />
   <PluginIntroShell v-else-if="showLoginGate" :show-login="true">
     <LoginPanel @success="onLoginSuccess" />

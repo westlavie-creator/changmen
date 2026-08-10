@@ -61,6 +61,25 @@
   margin: 0;
 }
 
+.sports-page-badge {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--cm-color-muted);
+  letter-spacing: 0.04em;
+}
+
+.common-layout.home-view .el-header .sports-nav-link {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--cm-color-muted);
+  text-decoration: none;
+  padding: 2px 6px;
+}
+
+.common-layout.home-view .el-header .sports-nav-link:hover {
+  color: var(--cm-color-text, inherit);
+}
+
 /* 赛单列表独占剩余高度并内部滚动 */
 .home-main .matchs,
 .home-main .match-empty {

@@ -28,6 +28,7 @@ declare module 'vue' {
     AppHeader: typeof import('./src/components/layout/AppHeader.vue')['default']
     AppSidebar: typeof import('./src/components/layout/AppSidebar.vue')['default']
     BaseballBoard: typeof import('./src/components/match/BaseballBoard.vue')['default']
+    BasketballBoard: typeof import('./src/components/match/BasketballBoard.vue')['default']
     BetRow: typeof import('./src/components/match/BetRow.vue')['default']
     CollectConfigPanel: typeof import('./src/components/user/CollectConfigPanel.vue')['default']
     CreateLoseDialog: typeof import('./src/components/match/CreateLoseDialog.vue')['default']

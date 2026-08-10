@@ -597,6 +597,14 @@ async function handleCoreAction(
         console.error("[GetTennisMatchs]", err?.message || err);
         return fail(err?.message || "GetTennisMatchs failed");
       }
+    case "Client_GetBasketballMatchs":
+      try {
+        return ok(await store.buildBasketballMatchList());
+      }
+      catch (err) {
+        console.error("[GetBasketballMatchs]", err?.message || err);
+        return fail(err?.message || "GetBasketballMatchs failed");
+      }
     case "API_SaveScore":
       return ok(true);
     case "Client_GetDefaultOdds": {

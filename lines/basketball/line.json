@@ -1,0 +1,26 @@
+{
+  "code": "basketball",
+  "kind": "sport",
+  "status": "active",
+  "linePath": "lines/basketball",
+  "sportRef": "basketball",
+  "components": {
+    "web": "client/web",
+    "api": "server/backend"
+  },
+  "actions": [
+    "Client_GetBasketballMatchs"
+  ],
+  "ui": {
+    "route": "/sports/basketball",
+    "board": "client/web/src/components/match/BasketballBoard.vue",
+    "store": "client/web/src/stores/basketballStore.ts"
+  },
+  "capabilities": [],
+  "sharedPackages": [
+    "@changmen/client-core",
+    "@changmen/arb-core",
+    "@changmen/api-contract",
+    "@changmen/venue-adapter"
+  ]
+}

@@ -1,7 +1,9 @@
 # 多运动接入 — MVP 与收敛
 
-> **目标**：同一主控台按 Tab 看电竞 / 棒球 / 足球；体育列表只读即可。  
+> **目标**：电竞 `/` 与体育 `/sports` 分页；首页 Tab 仍可看体育（Wave A 共存），Wave B 再删首页体育 Tab。  
 > **电竞红线**：`Client_GetMatchs` / matcher / `client_matches` / `matchStore` 主循环 **零改动**。
+
+**Wave A 用户模型**：只打电竞开 `/`；只打体育开 `/sports`（足/篮/棒/网）；都打则双标签。体育页 `sportsSession` **不**启电竞 `mainBetLoop`/采集。
 
 ---
 
@@ -29,7 +31,7 @@
 
 | 项 | 约定 |
 |----|------|
-| 正式入口 | 主控台 `client/web` Tab + 独立 `Client_Get*Matchs` |
+| 正式入口 | `/` 电竞 HomeView（Tab 共存至 Wave B）+ `/sports/{football,basketball,baseball,tennis}` + 独立 `Client_Get*Matchs` |
 | 隔离 | 新运动 **不写** 电竞 `client_matches` |
 | 独立站 | 已弃用（`devtools/archive/baseball-web-b1`）；不再新建 `{sport}/web` 平行站 |
 | 不做（本期） | matcher profile、跨站匹配、按运动套利管线 |

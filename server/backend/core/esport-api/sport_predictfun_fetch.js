@@ -61,7 +61,7 @@ const NFL_RE = /\b(nfl|american football|ncaa football|cfb|ncaaf)\b/i;
 
 /**
  * @param {string|undefined} name
- * @returns {"mlb"|"soccer"|"tennis"|null}
+ * @returns {"mlb"|"soccer"|"tennis"|"nba"|null}
  */
 export function mapPredictSportTag(name) {
   const raw = String(name ?? "").trim().toLowerCase();
@@ -72,6 +72,8 @@ export function mapPredictSportTag(name) {
     || raw === "kbo"
     || raw === "npb")
     return "mlb";
+  if (/\b(nba|national basketball|basketball)\b/.test(raw) || raw === "nba")
+    return "nba";
   if (/\b(tennis|atp|wta|roland[- ]?garros|wimbledon|us open|australian open)\b/.test(raw) || raw === "tennis")
     return "tennis";
   // 「Football」单独不做映射（美式/欧式均用）；需 Soccer / 联赛码
@@ -86,13 +88,15 @@ export function mapPredictSportTag(name) {
 
 /**
  * @param {object} category
- * @returns {"mlb"|"soccer"|"tennis"|null}
+ * @returns {"mlb"|"soccer"|"tennis"|"nba"|null}
  */
 export function resolveSportGameCodeFromCategory(category) {
   const tagNames = (category.tags ?? []).map(t => String(t.name ?? "").trim()).filter(Boolean);
   const lower = new Set(tagNames.map(n => n.toLowerCase()));
   if (lower.has("mlb") || lower.has("baseball") || lower.has("kbo") || lower.has("npb"))
     return "mlb";
+  if (lower.has("nba") || lower.has("basketball"))
+    return "nba";
   if (lower.has("tennis") || lower.has("atp") || lower.has("wta"))
     return "tennis";
   if (lower.has("soccer") || lower.has("world cup"))
@@ -260,7 +264,7 @@ async function predictHttpGet(url) {
 }
 
 function variantsForGame(gameCode) {
-  if (gameCode === "mlb" || gameCode === "tennis")
+  if (gameCode === "mlb" || gameCode === "tennis" || gameCode === "nba")
     return ["SPORTS_TEAM_MATCH"];
   // soccer：胜负 SPORTS_MATCH；让球/大小在 SPORTS_PROPS（- More Markets）
   return [
@@ -279,6 +283,8 @@ function tagIdsForGame(gameCode) {
     return TAG_SOCCER;
   if (gameCode === "tennis")
     return TAG_TENNIS;
+  if (gameCode === "nba")
+    return "";
   return "";
 }
 
@@ -999,6 +1005,15 @@ export async function fetchPredictFunTennisAsClientMatchDtos() {
     cacheKey: "tennis_pf",
     idBase: 930_000_000,
     logTag: "tennisPredictFun",
+  });
+}
+
+export async function fetchPredictFunNbaAsClientMatchDtos() {
+  return fetchPredictFunSportAsClientMatchDtos({
+    gameCode: "nba",
+    cacheKey: "nba_pf",
+    idBase: 950_000_000,
+    logTag: "nbaPredictFun",
   });
 }
 
