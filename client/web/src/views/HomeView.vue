@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, onActivated, onMounted, onUnmounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
@@ -19,6 +20,7 @@ import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
 
+const router = useRouter();
 const user = useUserStore();
 const matchStore = useMatchStore();
 const accountStore = useAccountStore();
@@ -33,6 +35,12 @@ const {
 
 const searchQuery = ref("");
 const { extensionReady, extensionChecked, refreshExtension } = useExtensionGate();
+
+/** 新标签打开体育页，本页电竞 runtime 继续跑 */
+function openSportsInNewTab() {
+  const href = router.resolve({ name: "sports-board", params: { sport: "football" } }).href;
+  window.open(href, "_blank", "noopener,noreferrer");
+}
 
 const filteredMatchs = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -108,9 +116,6 @@ async function logout() {
         <AccountBar />
         <div class="home-header-trailing">
           <DirectRealtimeBadge />
-          <RouterLink class="sports-nav-link" :to="{ name: 'sports-board', params: { sport: 'football' } }">
-            体育
-          </RouterLink>
         </div>
         <p v-if="extensionChecked && !extensionReady" class="extension-banner">
           扩展未连通，采集/下注不可用。
@@ -133,6 +138,16 @@ async function logout() {
               {{ matchCountLabel }}
             </span>
             <MakeupCalcBar />
+            <el-button
+              class="sports-open-btn"
+              size="small"
+              type="primary"
+              plain
+              title="新标签打开体育页（本页电竞继续运行）"
+              @click="openSportsInNewTab"
+            >
+              体育
+            </el-button>
           </div>
           <div v-if="filteredMatchs.length" class="matchs">
             <MatchCard v-for="m in filteredMatchs" :key="m.id" :match="m" />

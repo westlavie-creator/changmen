@@ -26,6 +26,11 @@
   min-width: 0;
 }
 
+.home-main .match-search-row .sports-open-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .home-main .match-search-row .match-search {
   flex: 0 1 280px;
   margin: 0;

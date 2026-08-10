@@ -78,9 +78,6 @@ function onSportTab(v: string | number | boolean | undefined) {
         <AccountBar />
         <div class="home-header-trailing">
           <DirectRealtimeBadge />
-          <RouterLink class="sports-nav-link" :to="{ name: 'home' }">
-            电竞
-          </RouterLink>
         </div>
         <p v-if="extensionChecked && !extensionReady" class="extension-banner">
           扩展未连通，部分场馆能力不可用。
@@ -106,7 +103,6 @@ function onSportTab(v: string | number | boolean | undefined) {
               网球
             </el-radio-button>
           </el-radio-group>
-          <span class="sports-page-badge">体育</span>
         </div>
         <FootballBoard v-if="sport === 'football'" />
         <BasketballBoard v-else-if="sport === 'basketball'" />
