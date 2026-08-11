@@ -48,10 +48,9 @@ export async function mountSportsSession(): Promise<void> {
     if (uid && await hasVault(uid)) {
       const unlocked = await ensurePmVaultUnlocked(uid);
       if (unlocked) {
+        // 仅合并到本页内存；双标签时禁止 saveAccounts（电竞页 Io.f / 本页刷新不得用旧列表软删账号）
         mergeVaultKeysIntoAccounts(accountStore.accounts, uid);
-        const migrated = await migrateTokenPrivateKeysToVault(accountStore.accounts, uid);
-        if (migrated > 0)
-          void accountStore.saveAccounts();
+        await migrateTokenPrivateKeysToVault(accountStore.accounts, uid);
       }
     }
   }
@@ -65,7 +64,8 @@ export async function mountSportsSession(): Promise<void> {
       await accountStore.loadTagPlatforms();
       accountStore.startBalanceRefreshLoop();
       const balanceRefresh = await import("@/stores/account/balanceRefresh");
-      await balanceRefresh.refreshAllFromVenues(accountStore, true);
+      // [changmen 扩展] 与 `/` 双开时 ACCOUNT 只由电竞页 Io.f / 显式编辑写入
+      await balanceRefresh.refreshAllFromVenues(accountStore, true, { persistAccounts: false });
       const { useOrderStore } = await import("@/stores/orderStore");
       await useOrderStore().fetchOrders();
     }

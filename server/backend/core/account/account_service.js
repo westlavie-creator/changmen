@@ -269,6 +269,32 @@ async function handleSaveAccounts(accounts, userId) {
   if (Array.isArray(accounts) && accounts.length === 0 && existing.length > 0) {
     return { ok: false, msg: "禁止用空列表覆盖已有账号，请刷新页面后重试" };
   }
+  // 以 RDS 活跃 players 为准：拦多标签页旧列表 / CreateTagPlatform 未入本地缓存时的子集覆盖。
+  // 真删号走 Client_DeletePlayer（软删后不会出现在 live 列表）。
+  let liveAccounts;
+  try {
+    liveAccounts = await dbStore.loadAccountsForUser(userId);
+  }
+  catch (err) {
+    console.error("[account] loadAccountsForUser 读失败，已中止保存以防误删账号:", err?.message);
+    return { ok: false, msg: "账号读取失败，请稍后重试（已阻止覆盖）" };
+  }
+  const incomingIds = new Set(
+    (Array.isArray(accounts) ? accounts : [])
+      .map(row => Number(row?.accountId ?? row?.AccountId))
+      .filter(id => id > 0),
+  );
+  if (incomingIds.size > 0) {
+    const missing = liveAccounts
+      .map(row => Number(row?.accountId ?? row?.AccountId))
+      .filter(id => id > 0 && !incomingIds.has(id));
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        msg: "账号列表缺少已有账号（疑似多标签页旧缓存），请刷新页面后重试",
+      };
+    }
+  }
   const checked = await validateAccountRows(accounts, userId);
   if (!checked.ok)
     return checked;
@@ -318,10 +344,8 @@ async function handleSaveAccounts(accounts, userId) {
       return { ok: false, msg: err.message || "该场馆操盘账号已被其他用户使用" };
     throw err;
   }
-  const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);
-  if (keepIds.length > 0) {
-    await accountStore.prunePlayersNotInList(userId, keepIds);
-  }
+  // 不再 prunePlayersNotInList：子集 SaveAccounts 会软删他页刚 CreateTagPlatform 的号。
+  // 删除唯一入口：Client_DeletePlayer。
   return { ok: true, info: true };
 }
 

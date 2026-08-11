@@ -68,7 +68,7 @@ vi.mock("./account_store.js", () => ({
 
 vi.mock("../db/store.js", () => ({
   listProfileRows: vi.fn(() => []),
-  loadAccountsForUser: vi.fn(),
+  loadAccountsForUser: vi.fn(async () => [{ accountId: 42 }]),
   prepareAccountsForSave: vi.fn(async () => [{ accountId: 42 }]),
 }));
 
