@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
+import { resolveHkRelayHttpOrigin, resolveMarketHubHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 
 describe("resolveHkRelayHttpOrigin", () => {
   afterEach(() => {
@@ -17,8 +17,21 @@ describe("resolveHkRelayHttpOrigin", () => {
   });
 
   it("dev 浏览器用同源", () => {
-    vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:5274" } });
+    vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:5274", hostname: "127.0.0.1" } });
     vi.stubEnv("DEV", true);
     expect(resolveHkRelayHttpOrigin()).toBe("http://127.0.0.1:5274");
+  });
+
+  it("生产主站把 Market hub 拆到 ws.changmen.fun", () => {
+    vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
+    vi.stubEnv("DEV", false);
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
+    expect(resolveHkRelayHttpOrigin()).toBe("https://changmen.fun");
+  });
+
+  it("IP 入口 Market hub 仍同源", () => {
+    vi.stubGlobal("window", { location: { origin: "https://47.57.10.202", hostname: "47.57.10.202" } });
+    vi.stubEnv("DEV", false);
+    expect(resolveMarketHubHttpOrigin()).toBe("https://47.57.10.202");
   });
 });

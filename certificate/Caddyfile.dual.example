@@ -1,9 +1,10 @@
-# changmen — HTTP 仅装证引导 + HTTPS mTLS
-# :80 只服务 /setup（无客户端证）；其余 308 → https
-# :443 强制 mTLS
-# 证书：/etc/caddy/certs/{ca.crt,server.crt,server.key}
+# changmen — HTTP 装证引导 + HTTPS mTLS
+# :80 无客户端证书；:443 强制 mTLS
+# IP 入口：自签 server.crt（SAN 含 IP + 域名）
+# 域名入口：Let's Encrypt（浏览器小锁）+ 同一套客户端证
+#   /etc/caddy/certs/le/{fullchain.pem,privkey.pem}
 #
-# 登录门 B：证书 + 插件。Caddy 须向 Node 注入客户端证头：
+# 登录门 B：证书 + 插件。Caddy 须向 Node 注入（或剥离）客户端证头：
 #   X-Changmen-Client-Cert / X-Changmen-Client-Subject
 # 前端探测 GET /api/client-cert-status
 
@@ -15,6 +16,14 @@
 	}
 }
 
+# 无证入口：删掉客户端可伪造的证头
+(changmen_proxy_http) {
+	reverse_proxy 127.0.0.1:3456 {
+		header_up -X-Changmen-Client-Cert
+		header_up -X-Changmen-Client-Subject
+	}
+}
+
 # mTLS 入口：注入证头供 /api/client-cert-status
 (changmen_proxy_mtls) {
 	reverse_proxy 127.0.0.1:3456 {
@@ -23,39 +32,17 @@
 	}
 }
 
-:80 {
-	encode gzip
-
-	# 证书安装引导（无需客户端证；先下载 ca.crt）
-	handle /setup/ca.crt {
-		root * /etc/caddy/certs
-		rewrite * /ca.crt
-		header Content-Type "application/x-x509-ca-cert"
-		header Content-Disposition "attachment; filename=\"ca.crt\""
-		file_server
-	}
-	handle /setup {
-		redir * /setup/ permanent
-	}
-	handle_path /setup/* {
-		root * /root/changmen/certificate-public
-		file_server
-	}
-
-	# 其余全部跳到 HTTPS（正式站只走 :443 mTLS）
-	handle {
-		redir https://{host}{uri} permanent
+(changmen_mtls_tls) {
+	client_auth {
+		mode require_and_verify
+		trust_pool file /etc/caddy/certs/ca.crt
+		verifier leaf {
+			folder /etc/caddy/certs/clients
+		}
 	}
 }
 
-:443 {
-	tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key {
-		client_auth {
-			mode require_and_verify
-			trust_pool file /etc/caddy/certs/ca.crt
-		}
-	}
-
+(changmen_https_site) {
 	encode gzip
 
 	root * /root/changmen/client/web/dist
@@ -63,9 +50,14 @@
 	handle /health {
 		import changmen_proxy_mtls
 	}
-	# 须在 /esport/* 之前：PM-MARKET → 独立 hub :3457
 	handle /esport/ws-forward/PM-MARKET* {
 		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/ws-forward/PREDICTFUN-MARKET* {
+		reverse_proxy 127.0.0.1:3458
+	}
+	handle /esport/ws-forward/PM-SPORT-MARKET* {
+		reverse_proxy 127.0.0.1:3459
 	}
 	handle /esport/* {
 		import changmen_proxy_mtls
@@ -96,5 +88,68 @@
 	handle {
 		try_files {path} /index.html
 		file_server
+	}
+}
+
+:80 {
+	encode gzip
+
+	# Let's Encrypt HTTP-01（必须在跳转 HTTPS 之前）
+	handle /.well-known/acme-challenge/* {
+		root * /var/www/acme
+		file_server
+	}
+
+	# 证书安装引导（无需客户端证；先下载 ca.crt）
+	handle /setup/ca.crt {
+		root * /etc/caddy/certs
+		rewrite * /ca.crt
+		header Content-Type "application/x-x509-ca-cert"
+		header Content-Disposition "attachment; filename=\"ca.crt\""
+		file_server
+	}
+	handle /setup {
+		redir * /setup/ permanent
+	}
+	handle_path /setup/* {
+		root * /root/changmen/certificate-public
+		file_server
+	}
+
+	# 其余全部跳到 HTTPS（正式站只走 :443 mTLS）
+	handle {
+		redir https://{host}{uri} permanent
+	}
+}
+
+# IP / 未匹配 SNI：自签证
+:443 {
+	tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key {
+		import changmen_mtls_tls
+	}
+	import changmen_https_site
+}
+
+# 公网域名：Let's Encrypt，浏览器认
+changmen.fun, www.changmen.fun {
+	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem {
+		import changmen_mtls_tls
+	}
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	header Content-Security-Policy "upgrade-insecure-requests"
+	import changmen_https_site
+}
+
+# 行情 WS 专用：无 mTLS（跨域 WSS 带不上客户端证）
+ws.changmen.fun {
+	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem
+	handle /esport/ws-forward/PM-MARKET* {
+		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/ws-forward/PREDICTFUN-MARKET* {
+		reverse_proxy 127.0.0.1:3458
+	}
+	handle /esport/ws-forward/PM-SPORT-MARKET* {
+		reverse_proxy 127.0.0.1:3459
 	}
 }

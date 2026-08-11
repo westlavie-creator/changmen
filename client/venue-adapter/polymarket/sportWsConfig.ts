@@ -1,14 +1,14 @@
 /**
  * 体育 MARKET WS URL（独立于电竞 `wsConfig.ts`，避免改电竞文件）。
  */
-import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
+import { resolveMarketHubHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 import { getChangmenAuthToken } from "../shared/changmenAuthToken";
 import { changmenHttpBaseToWs } from "../shared/changmenWsBase";
 
 export const PM_SPORT_MARKET_WS_FORWARD_PATH = "/esport/ws-forward/PM-SPORT-MARKET";
 
 function changmenSportPmWsUrl(path: string, withAuthToken = false): string {
-  const base = changmenHttpBaseToWs(resolveHkRelayHttpOrigin());
+  const base = changmenHttpBaseToWs(resolveMarketHubHttpOrigin());
   const url = `${base}${path}`;
   if (!withAuthToken)
     return url;

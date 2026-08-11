@@ -12,6 +12,7 @@ import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 
 vi.mock("@changmen/client-core/shared/hkRelayOrigin", () => ({
   resolveHkRelayHttpOrigin: () => "http://127.0.0.1:3560",
+  resolveMarketHubHttpOrigin: () => "http://127.0.0.1:3560",
 }));
 
 vi.mock("../shared/changmenWsBase", () => ({

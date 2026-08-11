@@ -40,6 +40,38 @@ export function resolveHkRelayHttpOrigin(): string {
   return devBackendHttpOrigin();
 }
 
+/** 生产主站打开时，Market hub 单独走此 origin（无尾斜杠）。 */
+export const CHANGMEN_MARKET_HUB_ORIGIN = "https://ws.changmen.fun";
+
+function marketHubOriginFromEnv(): string {
+  if (typeof import.meta === "undefined")
+    return "";
+  const env = import.meta.env as Record<string, string | undefined>;
+  return String(env.VITE_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "");
+}
+
+/**
+ * PM / PF / PM-SPORT Market WS 的 HTTP origin。
+ * 主站 changmen.fun 时拆到 ws.changmen.fun；dev / IP / 其它域名仍同源。
+ * PM-USER、http-relay 不要用这个（仍走 resolveHkRelayHttpOrigin）。
+ */
+export function resolveMarketHubHttpOrigin(): string {
+  if (typeof window !== "undefined" && typeof import.meta !== "undefined" && import.meta.env?.DEV)
+    return resolveHkRelayHttpOrigin();
+
+  const fromEnv = marketHubOriginFromEnv();
+  if (fromEnv)
+    return fromEnv;
+
+  if (typeof window !== "undefined") {
+    const host = String(window.location?.hostname || "");
+    if (host === "changmen.fun" || host === "www.changmen.fun")
+      return CHANGMEN_MARKET_HUB_ORIGIN;
+  }
+
+  return resolveHkRelayHttpOrigin();
+}
+
 /** @deprecated 使用 resolveHkRelayHttpOrigin */
 export function resolvePmHkRelayHttpOrigin(): string {
   return resolveHkRelayHttpOrigin();

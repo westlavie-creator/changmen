@@ -1,5 +1,5 @@
 import { changmenHttpBaseToWs } from "../shared/changmenWsBase";
-import { resolveHkRelayHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
+import { resolveMarketHubHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 
 import { PREDICT_FUN_WS } from "./api";
 import { getPfMarketWsSourceMode } from "./pfMarketWsMode";
@@ -8,7 +8,7 @@ import { resolvePredictFunApiKey } from "./transport";
 export const PREDICT_FUN_WS_FORWARD_PATH = "/esport/ws-forward/PREDICTFUN-MARKET";
 
 function changmenPredictWsUrl(path: string): string {
-  const base = changmenHttpBaseToWs(resolveHkRelayHttpOrigin());
+  const base = changmenHttpBaseToWs(resolveMarketHubHttpOrigin());
   return `${base}${path}`;
 }
 

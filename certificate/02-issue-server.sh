@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# 为公网 IP 签发 HTTPS 服务端证书（无域名）
-# 用法：bash 02-issue-server.sh <公网IP> [天数=825]
+# 签发 HTTPS 服务端证书：SAN = 公网 IP + 可选域名
+# 用法：bash 02-issue-server.sh <公网IP> [天数=825] [域名...]
 # 例：  bash 02-issue-server.sh 47.57.10.202
+# 例：  bash 02-issue-server.sh 47.57.10.202 825 changmen.fun www.changmen.fun
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -12,11 +13,19 @@ CA="$OUT/ca"
 SERVER="$OUT/server"
 
 IP="${1:-}"
-DAYS="${2:-825}"
+DAYS=825
+if [[ -n "$IP" ]]; then
+  shift
+fi
+if [[ -n "${1:-}" && "$1" =~ ^[0-9]+$ ]]; then
+  DAYS="$1"
+  shift
+fi
+DNS_NAMES=("$@")
 
 if [[ -z "$IP" ]]; then
-  echo "用法: bash 02-issue-server.sh <公网IP> [天数]"
-  echo "例:   bash 02-issue-server.sh 47.57.10.202"
+  echo "用法: bash 02-issue-server.sh <公网IP> [天数] [域名...]"
+  echo "例:   bash 02-issue-server.sh 47.57.10.202 825 changmen.fun www.changmen.fun"
   exit 1
 fi
 
@@ -31,10 +40,18 @@ CSR="$SERVER/server.csr"
 CRT="$SERVER/server.crt"
 EXT="$SERVER/server.ext"
 
-if [[ -f "$CRT" ]]; then
-  echo "ERROR: 已存在 $CRT — 换 IP 或先备份删除后再签。"
-  exit 1
+if [[ -f "$CRT" || -f "$KEY" ]]; then
+  stamp="$(date +%Y%m%d%H%M%S)"
+  [[ -f "$CRT" ]] && mv "$CRT" "$CRT.bak-$stamp"
+  [[ -f "$KEY" ]] && mv "$KEY" "$KEY.bak-$stamp"
+  echo "已备份旧服务端证 → $SERVER/*.bak-$stamp"
 fi
+
+SAN="IP:$IP"
+for name in "${DNS_NAMES[@]}"; do
+  [[ -z "$name" ]] && continue
+  SAN="$SAN,DNS:$name"
+done
 
 openssl genrsa -out "$KEY" 2048
 chmod 600 "$KEY"
@@ -46,8 +63,13 @@ keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
-subjectAltName = IP:$IP
+subjectAltName = $SAN
 EOF
+
+# index.txt.attr 可能仍是 unique_subject=yes（旧 openssl 默认），重签同 CN 会失败
+if [[ -f "$CA/index.txt.attr" ]]; then
+  printf 'unique_subject = no\n' > "$CA/index.txt.attr"
+fi
 
 # 用 ca 签发并写入 index（与吊销流程一致）；-extfile 覆盖扩展（含 SAN）
 openssl ca -config "$CONF" -notext -batch \
@@ -57,7 +79,7 @@ openssl ca -config "$CONF" -notext -batch \
 rm -f "$CSR" "$EXT"
 
 echo
-echo "OK 服务端证（SAN=IP:$IP）："
+echo "OK 服务端证（SAN=$SAN）："
 echo "  $CRT"
 echo "  $KEY"
 echo
