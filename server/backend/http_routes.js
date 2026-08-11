@@ -361,12 +361,14 @@ async function buildHealthData() {
   const matches = getClientMatches();
   const ws = getWsForwardStatus();
   const hubs = { ...(ws.hubs || {}) };
-  // 独立 Market hub：软拉本地 /health，供 Admin 页展示（失败不拖垮 /health）
-  if (!hubs.pmMarket) {
-    const remote = await fetchPmMarketHubStatusRemote();
-    if (remote)
-      hubs.pmMarket = remote;
-  }
+  // 独立 Market hub：软拉本机 + 166，供 Admin 页展示（失败不拖垮 /health）
+  const [localPm, secondaryPm] = await Promise.all([
+    hubs.pmMarket ? Promise.resolve(hubs.pmMarket) : fetchPmMarketHubStatusRemote(),
+    fetchPmMarketHubStatusSecondary(),
+  ]);
+  if (localPm)
+    hubs.pmMarket = localPm;
+  hubs.pmMarketSecondary = secondaryPm;
   if (!hubs.predictFunMarket) {
     const remotePf = await fetchPredictFunMarketHubStatusRemote();
     if (remotePf)
@@ -399,14 +401,14 @@ async function buildHealthData() {
 }
 
 /** @returns {Promise<object | null>} */
-async function fetchPmMarketHubStatusRemote() {
-  const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
-  if (!Number.isFinite(port) || port <= 0)
+async function fetchHubHealthJson(url, timeoutMs) {
+  const target = String(url || "").trim();
+  if (!target)
     return null;
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 300);
+  const timer = setTimeout(() => ac.abort(), timeoutMs);
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ac.signal });
+    const res = await fetch(target, { signal: ac.signal });
     if (!res.ok)
       return null;
     const json = await res.json();
@@ -418,6 +420,29 @@ async function fetchPmMarketHubStatusRemote() {
   finally {
     clearTimeout(timer);
   }
+}
+
+/** @returns {Promise<object | null>} */
+async function fetchPmMarketHubStatusRemote() {
+  const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
+  if (!Number.isFinite(port) || port <= 0)
+    return null;
+  return fetchHubHealthJson(`http://127.0.0.1:${port}/health`, 300);
+}
+
+/** 166 / ws2 上的 PM-MARKET hub。设 MARKET_HUB_SECONDARY_HEALTH_URL=0 可关。 */
+function secondaryPmMarketHubHealthUrl() {
+  const raw = String(process.env.MARKET_HUB_SECONDARY_HEALTH_URL ?? "").trim();
+  if (raw === "0" || raw.toLowerCase() === "off")
+    return "";
+  if (raw)
+    return raw;
+  return "https://ws2.changmen.fun/health/pm-market";
+}
+
+/** @returns {Promise<object | null>} */
+async function fetchPmMarketHubStatusSecondary() {
+  return fetchHubHealthJson(secondaryPmMarketHubHealthUrl(), 800);
 }
 
 /** @returns {Promise<object | null>} */

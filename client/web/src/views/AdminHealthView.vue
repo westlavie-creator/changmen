@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
@@ -85,7 +85,10 @@ interface HealthData {
     enabled: boolean;
     platforms: string[];
     platformStats?: Record<string, PlatformStat>;
-    hubs?: { pmMarket?: PmMarketHubStatus } | null;
+    hubs?: {
+      pmMarket?: PmMarketHubStatus;
+      pmMarketSecondary?: PmMarketHubStatus | null;
+    } | null;
   };
   esportApi?: EsportApiHealth;
 }
@@ -94,6 +97,24 @@ const health = ref<HealthData | null>(null);
 const error = ref("");
 const loading = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
+
+const pmHubSites = computed(() => {
+  const hubs = health.value?.wsForward.hubs;
+  return [
+    { id: "202", label: "202 / ws", hub: hubs?.pmMarket ?? null },
+    { id: "166", label: "166 / ws2", hub: hubs?.pmMarketSecondary ?? null },
+  ];
+});
+
+const pmHubClientRows = computed(() => {
+  return pmHubSites.value.flatMap((site) =>
+    (site.hub?.slowClients ?? []).map(row => ({
+      ...row,
+      siteId: site.id,
+      siteLabel: site.label,
+    })),
+  );
+});
 
 function isFullHealthData(v: unknown): v is HealthData {
   if (!v || typeof v !== "object")
@@ -150,16 +171,6 @@ function agoStr(ts: number): string {
   if (sec > 60)
     return `${Math.floor(sec / 60)}m ago`;
   return `${sec}s ago`;
-}
-
-function formatBytes(n: number | undefined): string {
-  if (n == null || !Number.isFinite(n))
-    return "—";
-  if (n >= 1024 * 1024)
-    return `${(n / (1024 * 1024)).toFixed(1)}MiB`;
-  if (n >= 1024)
-    return `${Math.round(n / 1024)}KiB`;
-  return `${n}B`;
 }
 
 function heapPct(d: HealthData): number {
@@ -523,64 +534,54 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- PM-MARKET Hub 连接监测 -->
+      <!-- PM-MARKET Hub 连接监测（202 + 166） -->
       <div
-        v-if="health.wsForward.hubs?.pmMarket"
+        v-if="health.wsForward.hubs?.pmMarket || health.wsForward.hubs?.pmMarketSecondary !== undefined"
         class="health-card health-card--wide"
       >
         <div class="health-card__title">
           PM-MARKET Hub
         </div>
-        <div class="health-row">
-          <span>上游</span>
-          <el-tag
-            :type="health.wsForward.hubs.pmMarket.upstreamConnected ? 'success' : 'info'"
-            size="small"
-            effect="dark"
-          >
-            {{ health.wsForward.hubs.pmMarket.upstreamConnected ? '已连接' : '未连接' }}
-          </el-tag>
-        </div>
-        <div class="health-row">
-          <span>客户端</span>
-          <span class="health-val">
-            {{ health.wsForward.hubs.pmMarket.activeClients }} 连接
-            <span class="health-sub">
-              · 上游订阅 {{ health.wsForward.hubs.pmMarket.subscribedAssets }} assets
+        <div
+          v-for="site in pmHubSites"
+          :key="site.id"
+          class="health-platform"
+        >
+          <div class="health-row">
+            <span>{{ site.label }}</span>
+            <template v-if="site.hub">
+              <el-tag
+                :type="site.hub.upstreamConnected ? 'success' : 'info'"
+                size="small"
+                effect="dark"
+              >
+                {{ site.hub.upstreamConnected ? '上游已连' : '上游未连' }}
+              </el-tag>
+            </template>
+            <el-tag v-else type="info" size="small">
+              不可达
+            </el-tag>
+          </div>
+          <div v-if="site.hub" class="health-row health-row--sub">
+            <span />
+            <span class="health-val">
+              {{ site.hub.activeClients }} 连接
+              <span class="health-sub">
+                · 订阅 {{ site.hub.subscribedAssets }} assets
+                · soft-skip {{ site.hub.softSkipTotal ?? 0 }}
+                · hard-skip {{ site.hub.hardSkipTotal ?? 0 }}
+              </span>
             </span>
-          </span>
-        </div>
-        <div class="health-row">
-          <span>合批 / 软阈</span>
-          <span class="health-val health-sub">
-            flush {{ health.wsForward.hubs.pmMarket.pendingFlushMs ?? '—' }}ms
-            · soft {{ formatBytes(health.wsForward.hubs.pmMarket.softBufferedBytes) }}
-            · thin {{ health.wsForward.hubs.pmMarket.thinFrames === false ? 'off' : 'on' }}
-          </span>
-        </div>
-        <div class="health-row">
-          <span>背压</span>
-          <span
-            class="health-val"
-            :class="{
-              'health-val--warn': (health.wsForward.hubs.pmMarket.softSkipTotal ?? 0) > 0
-                || (health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0) > 500,
-              'health-val--bad': (health.wsForward.hubs.pmMarket.hardSkipTotal ?? 0) > 0
-                || (health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0) > 2000,
-            }"
-          >
-            soft-skip {{ health.wsForward.hubs.pmMarket.softSkipTotal ?? 0 }}
-            · hard-skip {{ health.wsForward.hubs.pmMarket.hardSkipTotal ?? 0 }}
-            · pendingAge {{ health.wsForward.hubs.pmMarket.pendingMaxAgeMs ?? 0 }}ms
-          </span>
+          </div>
         </div>
         <div
-          v-if="health.wsForward.hubs.pmMarket.slowClients?.length"
+          v-if="pmHubClientRows.length"
           class="health-api-table-wrap"
         >
           <table class="health-api-table">
             <thead>
               <tr>
+                <th>节点</th>
                 <th>用户</th>
                 <th>IP</th>
                 <th>assets</th>
@@ -596,9 +597,10 @@ onUnmounted(() => {
             </thead>
             <tbody>
               <tr
-                v-for="row in health.wsForward.hubs.pmMarket.slowClients"
-                :key="row.id"
+                v-for="row in pmHubClientRows"
+                :key="`${row.siteId}-${row.id}`"
               >
+                <td>{{ row.siteLabel }}</td>
                 <td :title="row.userId || undefined">
                   {{ row.userName || row.userId || '未鉴权' }}
                 </td>
