@@ -179,6 +179,14 @@ export async function refreshAccountBalance(
   }
 }
 
+export type RefreshAllFromVenuesOptions = {
+  /**
+   * [changmen 扩展] `/sports` 双标签：禁止 Io.f 写回 ACCOUNT。
+   * 默认 true，对齐 A8 Io.f finally → saveAccounts。
+   */
+  persistAccounts?: boolean;
+};
+
 /**
  * [A8 可证实] Io.f：逐账号 updateBalance → updateOrders（跳过 active）
  * finally：E() → u() → Vt.saveLog →（continuous）ModifyHeader → wait → f(_)
@@ -186,7 +194,9 @@ export async function refreshAccountBalance(
 export async function refreshAllFromVenues(
   store: AccountStoreContext,
   continuous = false,
+  opts: RefreshAllFromVenuesOptions = {},
 ): Promise<void> {
+  const persistAccounts = opts.persistAccounts !== false;
   const lines: string[] = [];
   const startedAt = Date.now();
 
@@ -223,12 +233,17 @@ export async function refreshAllFromVenues(
     }
 
     step = Date.now();
-    try {
-      await store.saveAccounts();
-      lines.push(`保存账号：${Date.now() - step}ms`);
+    if (persistAccounts) {
+      try {
+        await store.saveAccounts();
+        lines.push(`保存账号：${Date.now() - step}ms`);
+      }
+      catch {
+        lines.push(`保存账号：${Date.now() - step}ms（失败）`);
+      }
     }
-    catch {
-      lines.push(`保存账号：${Date.now() - step}ms（失败）`);
+    else {
+      lines.push(`保存账号：跳过（sports 双标签不写 ACCOUNT）`);
     }
 
     saveAccountRefreshLog(`加载账号信息，总耗时:${Date.now() - startedAt}ms`, lines);
@@ -237,7 +252,7 @@ export async function refreshAllFromVenues(
       await syncModifyHeaderRules(store.accounts);
       await a8Wait(a8RefreshDelayMs());
       if (store.balanceRefreshRunning) {
-        await refreshAllFromVenues(store, true);
+        await refreshAllFromVenues(store, true, opts);
       }
     }
   }
