@@ -1,7 +1,6 @@
-# changmen — HTTP 装证引导 + HTTPS mTLS
-# :80 无客户端证书；:443 强制 mTLS
-# IP 入口：自签 server.crt（SAN 含 IP + 域名）
-# 域名入口：Let's Encrypt（浏览器小锁）+ 同一套客户端证
+# changmen — HTTP 装证引导 + HTTPS mTLS（仅域名，无 IP :443 兜底）
+# :80 无客户端证书；正式站只认 changmen.fun / www / ws
+# 域名入口：Let's Encrypt + 客户端证
 #   /etc/caddy/certs/le/{fullchain.pem,privkey.pem}
 #
 # 登录门 B：证书 + 插件。Caddy 须向 Node 注入（或剥离）客户端证头：
@@ -10,10 +9,6 @@
 
 {
 	auto_https off
-	servers {
-		# IP + mTLS：放宽 SNI/Host 严格校验，避免浏览器/curl 421
-		strict_sni_host insecure_off
-	}
 }
 
 # 无证入口：删掉客户端可伪造的证头
@@ -116,18 +111,16 @@
 		file_server
 	}
 
-	# 其余全部跳到 HTTPS（正式站只走 :443 mTLS）
+	# 用 IP 打开 HTTP 时领到域名，避免再落到已关闭的 https://IP
+	@ip_http host 47.57.10.202
+	handle @ip_http {
+		redir https://changmen.fun{uri} permanent
+	}
+
+	# 其余全部跳到 HTTPS（正式站只走域名 mTLS）
 	handle {
 		redir https://{host}{uri} permanent
 	}
-}
-
-# IP / 未匹配 SNI：自签证
-:443 {
-	tls /etc/caddy/certs/server.crt /etc/caddy/certs/server.key {
-		import changmen_mtls_tls
-	}
-	import changmen_https_site
 }
 
 # 公网域名：Let's Encrypt，浏览器认
