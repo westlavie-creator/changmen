@@ -23,7 +23,7 @@ VPS 守护进程：SX.bet **REST discovery（唯一权威）** → `platform_mat
 |------|------|
 | `SXBET_API_BASE` | 默认 `https://api.sx.bet` |
 | `SXBET_COLLECTOR_INTERVAL_MS` | 默认 **60s** |
-| `SXBET_COLLECTOR_FUTURE_MS` | 采集未来窗；默认 **7 天**（电竞赛程） |
+| `SXBET_COLLECTOR_FUTURE_MS` | 采集未来窗；默认 **1h**（与 Polymarket / PredictFun 一致） |
 | `SXBET_COLLECTOR_PAST_MS` | 采集过去窗；默认 **6h** |
 
 只读 REST **无需** API key。浏览器实时 WS 仍用 CollectPlatform 的 apiKey。

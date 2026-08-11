@@ -12,8 +12,8 @@ export const SXBET_MONEYLINE_TYPE = 52;
 export const SXBET_USDC = "0x6629Ce1Cf35Cc1329ebB4F63202F3f197b3F050B";
 
 const DEFAULT_COLLECT_PAST_MS = 6 * 3600 * 1000;
-/** 电竞赛程常在数日后；默认未来 7 天（可用 SXBET_COLLECTOR_FUTURE_MS 覆盖） */
-const DEFAULT_COLLECT_FUTURE_MS = 7 * 24 * 3600 * 1000;
+/** 与 Polymarket / PredictFun 主 pass 一致：start ∈ [now-6h, now+1h] */
+const DEFAULT_COLLECT_FUTURE_MS = 3600 * 1000;
 const MAX_PAGES = 20;
 const PAGE_SIZE = 100;
 const BEST_ODDS_BATCH = 40;

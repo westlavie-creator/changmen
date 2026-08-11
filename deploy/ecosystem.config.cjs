@@ -136,8 +136,8 @@ module.exports = {
         NODE_ENV: "production",
         DATABASE_APPLICATION_NAME: "changmen-sxbet-collector",
         SXBET_COLLECTOR_INTERVAL_MS: "60000",
-        // 电竞赛程：未来窗默认 7 天（见 api.js）
-        SXBET_COLLECTOR_FUTURE_MS: String(7 * 24 * 3600 * 1000),
+        // 与 PM/PF 一致：未来窗 1h（见 api.js）
+        SXBET_COLLECTOR_FUTURE_MS: String(3600 * 1000),
       },
     },
   ],
