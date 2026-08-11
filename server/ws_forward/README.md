@@ -13,14 +13,17 @@
 | PM-SPORT-MARKET | **hub**（体育合并订阅） | `/esport/ws-forward/PM-SPORT-MARKET` | 独立进程 `changmen-pm-sport-market-hub` `:3459` → 同上游（实现副本：`core/pm_sport_market_hub.js`，**不修改**电竞 hub 文件） |
 | PM-USER | raw WebSocket | `/esport/ws-forward/PM-USER` | `wss://ws-subscriptions-clob.polymarket.com/ws/user`（仍在 esport） |
 | PREDICTFUN-MARKET | **hub**（合并订阅） | `/esport/ws-forward/PREDICTFUN-MARKET` | 独立进程 `changmen-predictfun-market-hub` `:3458` → `wss://ws.predict.fun/ws`（`PREDICT_FUN_API_KEY` 握手） |
+| SXBET-MARKET | **hub**（全局 best_odds） | `/esport/ws-forward/SXBET-MARKET` | 独立进程 `changmen-sxbet-market-hub` `:3460` → Centrifugo `best_odds:global`（`SXBET_API_KEY`） |
 
 **PM-MARKET hub**：电竞浏览器连此路径；服务端维护 **一条** 上游 MARKET WS，合并电竞 `asset_id` 订阅后再 fan-out。客户端协议不变（`polymarketMarketSubscribeMessage` + `PING`）。无在线客户端 60s 后关闭上游。Health 暴露 `softSkipTotal` / `pendingMaxAgeMs` / `pendingFlushMs` / `softBufferedBytes`（`PM_HUB_*` 可调），用于判断合批背压是否拖慢实时价。
 
 **PM-SPORT-MARKET hub**：体育页专用；与电竞 hub **完全独立**（进程、路径、上游连接、源码副本）。客户端 `sportQuoteHub` → `sportMarketWs` → `sportWsConfig`。
 
+**SXBET-MARKET hub**：一把 `SXBET_API_KEY` 换 Centrifugo token，订 `best_odds:global` 后扇出；浏览器不持 key。本地：`npm run sxbet-market-hub`。
+
 **PREDICTFUN-MARKET hub**：浏览器仍发 `{ method: "subscribe", params: ["predictOrderbook/{marketId}"] }`；服务端合并全站 marketId，单条上游连 Predict.fun，上游 heartbeat 由 hub 代答。无在线客户端 60s 后关闭上游。
 
-esport 默认 `WS_FORWARD_PLATFORMS` **不含** `PM-MARKET` / `PM-SPORT-MARKET` / `PREDICTFUN-MARKET`（避免扇出拖死 HTTP）。本地：`npm run pm-market-hub` / `npm run pm-sport-market-hub` / `npm run predictfun-market-hub`。
+esport 默认 `WS_FORWARD_PLATFORMS` **不含** `PM-MARKET` / `PM-SPORT-MARKET` / `PREDICTFUN-MARKET` / `SXBET-MARKET`（避免扇出拖死 HTTP）。本地：`npm run pm-market-hub` / `npm run pm-sport-market-hub` / `npm run predictfun-market-hub` / `npm run sxbet-market-hub`。
 
 Vite dev：HTTP 走 `5274/esport` 代理；**实时 WS 直连** `http://127.0.0.1:3560`（Vite 不代理 upgrade）。
 

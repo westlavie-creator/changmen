@@ -22,6 +22,9 @@ sudo tee /etc/caddy/Caddyfile >/dev/null <<'EOF'
 	handle /esport/ws-forward/PM-SPORT-MARKET* {
 		reverse_proxy 127.0.0.1:3459
 	}
+	handle /esport/ws-forward/SXBET-MARKET* {
+		reverse_proxy 127.0.0.1:3460
+	}
 	handle /esport/* {
 		reverse_proxy 127.0.0.1:3456
 	}

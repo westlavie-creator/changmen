@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2 默认：`changmen-esport`、`changmen-pm-market-hub`、`changmen-pm-sport-market-hub`、`changmen-predictfun-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`、`changmen-predictfun-collector` |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2 默认：`changmen-esport`、`changmen-pm-market-hub`、`changmen-pm-sport-market-hub`、`changmen-predictfun-market-hub`、`changmen-sxbet-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`、`changmen-predictfun-collector`、`changmen-sxbet-collector` |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/sync-git-to-flat-app.sh`](scripts/sync-git-to-flat-app.sh) | 香港：git 子目录 → 扁平 `DEPLOY_REPO` 再 deploy |
@@ -37,7 +37,7 @@ VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
 ```bash
 cd /root/changmen
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-sxbet-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector,changmen-sxbet-collector
 pm2 save
 ```
 

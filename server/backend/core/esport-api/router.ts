@@ -48,7 +48,7 @@ import { certLoginBindError, readClientCertStatus } from "../shared/client_cert_
 
 /** 磁盘全量 Index ∩ client_matches；空合场 → 空 Index（不 fail-open） */
 async function attachFilteredVpsMarketIndex(provider: string, target: Record<string, unknown>) {
-  if (provider !== "Polymarket" && provider !== "PredictFun")
+  if (provider !== "Polymarket" && provider !== "PredictFun" && provider !== "SXBet")
     return;
   const matches = await dbStore.loadClientMatchesFromDb();
   const rows = Array.isArray(matches) ? matches : [];
@@ -57,8 +57,13 @@ async function attachFilteredVpsMarketIndex(provider: string, target: Record<str
     target.MarketIndex = filterMarketIndexByClientMatches("Polymarket", readPolymarketMarketIndex(), rows);
     return;
   }
-  const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
-  target.MarketIndex = filterMarketIndexByClientMatches("PredictFun", readPredictFunMarketIndex(), rows);
+  if (provider === "PredictFun") {
+    const { readPredictFunMarketIndex } = await import("@changmen/storage/predictfun_market_index.js");
+    target.MarketIndex = filterMarketIndexByClientMatches("PredictFun", readPredictFunMarketIndex(), rows);
+    return;
+  }
+  const { readSxBetMarketIndex } = await import("@changmen/storage/sxbet_market_index.js");
+  target.MarketIndex = filterMarketIndexByClientMatches("SXBet", readSxBetMarketIndex(), rows);
 }
 
 export type { EsportAction } from "@changmen/api-contract/actions";

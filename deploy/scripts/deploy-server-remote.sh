@@ -13,7 +13,9 @@ PM2_POLYMARKET="${PM2_POLYMARKET:-changmen-polymarket-collector}"
 PM2_PM_MARKET_HUB="${PM2_PM_MARKET_HUB:-changmen-pm-market-hub}"
 PM2_PM_SPORT_MARKET_HUB="${PM2_PM_SPORT_MARKET_HUB:-changmen-pm-sport-market-hub}"
 PM2_PREDICTFUN_MARKET_HUB="${PM2_PREDICTFUN_MARKET_HUB:-changmen-predictfun-market-hub}"
+PM2_SXBET_MARKET_HUB="${PM2_SXBET_MARKET_HUB:-changmen-sxbet-market-hub}"
 PM2_PREDICTFUN="${PM2_PREDICTFUN:-changmen-predictfun-collector}"
+PM2_SXBET="${PM2_SXBET:-changmen-sxbet-collector}"
 PM2_MATCHER="${PM2_MATCHER:-changmen-matcher}"
 DEPLOY_FULL="${DEPLOY_FULL:-0}"
 DEPLOY_SKIP_APP_BUILD="${DEPLOY_SKIP_APP_BUILD:-0}"
@@ -339,16 +341,18 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
-  # 电竞 PM / PF discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*）
+  # 电竞 PM / PF / SX discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*）
   if [ "$DO_PM2_WEB" = "1" ] || [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_POLYMARKET")
     PM2_TARGETS+=("$PM2_PREDICTFUN")
+    PM2_TARGETS+=("$PM2_SXBET")
   fi
-  # PM-MARKET / PM-SPORT-MARKET / PREDICTFUN-MARKET hub 独立进程：与 esport 同启（勿挂回 esport）
+  # PM-MARKET / PM-SPORT-MARKET / PREDICTFUN-MARKET / SXBET-MARKET hub 独立进程：与 esport 同启（勿挂回 esport）
   if [ "$DO_PM2_WEB" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_MARKET_HUB")
     PM2_TARGETS+=("$PM2_PM_SPORT_MARKET_HUB")
     PM2_TARGETS+=("$PM2_PREDICTFUN_MARKET_HUB")
+    PM2_TARGETS+=("$PM2_SXBET_MARKET_HUB")
     ENV_FILE="$CHANGMEN/server/backend/.env"
     if [ -f "$ENV_FILE" ] && grep -E '^[[:space:]]*WS_FORWARD_PLATFORMS=' "$ENV_FILE" | grep -q 'PM-MARKET'; then
       log "WARN: WS_FORWARD_PLATFORMS still contains PM-MARKET — remove it so hub stays isolated (esport will re-attach fan-out and may hang HTTP)"
@@ -359,8 +363,14 @@ if command -v pm2 >/dev/null 2>&1; then
     if [ -f "$ENV_FILE" ] && grep -E '^[[:space:]]*WS_FORWARD_PLATFORMS=' "$ENV_FILE" | grep -q 'PREDICTFUN-MARKET'; then
       log "WARN: WS_FORWARD_PLATFORMS still contains PREDICTFUN-MARKET — remove it so changmen-predictfun-market-hub stays isolated"
     fi
+    if [ -f "$ENV_FILE" ] && grep -E '^[[:space:]]*WS_FORWARD_PLATFORMS=' "$ENV_FILE" | grep -q 'SXBET-MARKET'; then
+      log "WARN: WS_FORWARD_PLATFORMS still contains SXBET-MARKET — remove it so changmen-sxbet-market-hub stays isolated"
+    fi
     if [ -f "$ENV_FILE" ] && ! grep -E '^[[:space:]]*PREDICT_FUN_API_KEY=.+' "$ENV_FILE" >/dev/null 2>&1; then
       log "WARN: PREDICT_FUN_API_KEY missing in server/backend/.env — changmen-predictfun-collector / market-hub 可能无法连官方"
+    fi
+    if [ -f "$ENV_FILE" ] && ! grep -E '^[[:space:]]*SXBET_API_KEY=.+' "$ENV_FILE" >/dev/null 2>&1; then
+      log "WARN: SXBET_API_KEY missing in server/backend/.env — changmen-sxbet-market-hub 无法连 Centrifugo"
     fi
   fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
@@ -383,6 +393,9 @@ if command -v pm2 >/dev/null 2>&1; then
           "$PM2_PREDICTFUN")
             expected_cwd="$CHANGMEN/server/collectors/predictfun-collector"
             ;;
+          "$PM2_SXBET")
+            expected_cwd="$CHANGMEN/server/collectors/sxbet-collector"
+            ;;
           "$PM2_PM_MARKET_HUB")
             expected_cwd="$CHANGMEN/server/ws_forward"
             ;;
@@ -390,6 +403,9 @@ if command -v pm2 >/dev/null 2>&1; then
             expected_cwd="$CHANGMEN/server/ws_forward"
             ;;
           "$PM2_PREDICTFUN_MARKET_HUB")
+            expected_cwd="$CHANGMEN/server/ws_forward"
+            ;;
+          "$PM2_SXBET_MARKET_HUB")
             expected_cwd="$CHANGMEN/server/ws_forward"
             ;;
           *)

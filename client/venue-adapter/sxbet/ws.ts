@@ -1,16 +1,9 @@
-import { Centrifuge, type Subscription } from "centrifuge";
-import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
+/**
+ * SXBet best_odds：经 VPS hub（/esport/ws-forward/SXBET-MARKET），浏览器不持有 apiKey。
+ */
 import { reportVenueWsStatus } from "../shared/venueWsStatus";
-import { PLATFORMS } from "../shared/platforms";
-import {
-  SXBET_WS,
-  fetchSxRealtimeToken,
-  type SxBestOddsWsUpdate,
-} from "./api";
-import { parseSxBetTokenConfig, resolveSxBetApiKey } from "./credentials";
-
-const PLATFORM = PLATFORMS.SXBet;
-const BEST_ODDS_CHANNEL = "best_odds:global";
+import type { SxBestOddsWsUpdate } from "./api";
+import { resolveSxBetMarketWsUrl } from "./wsConfig";
 
 export type SxBetWsStatus = "disconnected" | "connecting" | "connected" | "error";
 type SxBetWsStatusListener = (status: SxBetWsStatus) => void;
@@ -36,102 +29,118 @@ export function onSxBetWsStatus(fn: SxBetWsStatusListener): () => void {
   return () => sxBetWsStatusListeners.delete(fn);
 }
 
-async function resolveCollectApiKey(): Promise<string> {
-  try {
-    const platform = await getCollectPlatform(PLATFORM);
-    const fromToken = resolveSxBetApiKey(parseSxBetTokenConfig(platform?.Token));
-    if (fromToken)
-      return fromToken;
-    // 兼容：Gateway 字段误填 apiKey
-    const fromGateway = String(platform?.Gateway ?? "").trim();
-    if (fromGateway && !fromGateway.startsWith("http"))
-      return fromGateway;
-  }
-  catch {
-    /* ignore */
-  }
-  return "";
-}
-
 export interface SxBetBestOddsWsHandle {
-  /** 无 API key 时保持断开；有 key 时确保已连接 */
   ensureConnected(): Promise<boolean>;
+  /** 可选：告知 hub 感兴趣的 marketHash（空=收全量） */
+  setMarketHashes(hashes: string[]): void;
   stop(): void;
 }
 
+function emitUpdates(raw: unknown, onUpdate: (update: SxBestOddsWsUpdate) => void) {
+  const rows = Array.isArray(raw) ? raw : [raw];
+  for (const row of rows) {
+    if (row && typeof row === "object")
+      onUpdate(row as SxBestOddsWsUpdate);
+  }
+}
+
 /**
- * Centrifugo `best_odds:global` — 需账号 API key。
- * @see https://docs.sx.bet/developers/real-time
+ * 连 changmen SXBET-MARKET hub → 收 `{ type:"best_odds", data }`。
  */
 export function startSxBetBestOddsWs(opts: {
   onUpdate: (update: SxBestOddsWsUpdate) => void;
 }): SxBetBestOddsWsHandle {
   let stopped = false;
-  let client: Centrifuge | null = null;
-  let sub: Subscription | null = null;
+  let ws: WebSocket | null = null;
   let connecting: Promise<boolean> | null = null;
+  let interestedHashes: string[] = [];
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearReconnect() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
 
   function detach() {
+    clearReconnect();
     try {
-      sub?.unsubscribe();
+      ws?.close();
     }
     catch { /* ignore */ }
-    sub = null;
-    try {
-      client?.disconnect();
-    }
-    catch { /* ignore */ }
-    client = null;
+    ws = null;
+  }
+
+  function sendInterest() {
+    if (!ws || ws.readyState !== WebSocket.OPEN)
+      return;
+    ws.send(JSON.stringify({
+      method: "subscribe",
+      params: { marketHashes: interestedHashes },
+    }));
+  }
+
+  function scheduleReconnect() {
+    if (stopped || reconnectTimer)
+      return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      void connect();
+    }, 3_000);
   }
 
   async function connect(): Promise<boolean> {
     if (stopped)
       return false;
-    if (client)
-      return sxBetWsStatus === "connected";
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING))
+      return sxBetWsStatus === "connected" || ws.readyState === WebSocket.CONNECTING;
 
-    const apiKey = await resolveCollectApiKey();
-    if (!apiKey) {
-      setSxBetWsStatus("disconnected");
+    setSxBetWsStatus("connecting");
+    const url = resolveSxBetMarketWsUrl();
+    let sock: WebSocket;
+    try {
+      sock = new WebSocket(url);
+    }
+    catch (err) {
+      console.warn("[SXBet WS] open failed", err);
+      setSxBetWsStatus("error");
+      scheduleReconnect();
       return false;
     }
 
-    setSxBetWsStatus("connecting");
-    const next = new Centrifuge(SXBET_WS, {
-      getToken: () => fetchSxRealtimeToken(apiKey),
-    });
-
-    next.on("connected", () => {
+    ws = sock;
+    sock.onopen = () => {
+      if (stopped || ws !== sock)
+        return;
       setSxBetWsStatus("connected");
-    });
-    next.on("disconnected", () => {
-      if (!stopped)
-        setSxBetWsStatus("error");
-    });
-    next.on("error", () => {
-      if (!stopped)
-        setSxBetWsStatus("error");
-    });
-
-    const subscription = next.newSubscription(BEST_ODDS_CHANNEL);
-    subscription.on("publication", (ctx: { data?: unknown }) => {
+      sendInterest();
+    };
+    sock.onmessage = (ev) => {
       try {
-        const raw = ctx?.data;
-        const rows = Array.isArray(raw) ? raw : [raw];
-        for (const row of rows) {
-          if (row && typeof row === "object")
-            opts.onUpdate(row as SxBestOddsWsUpdate);
-        }
+        const text = typeof ev.data === "string" ? ev.data : String(ev.data);
+        const msg = JSON.parse(text) as { type?: string; data?: unknown; message?: string };
+        if (msg.type === "best_odds")
+          emitUpdates(msg.data, opts.onUpdate);
+        else if (msg.type === "error")
+          console.warn("[SXBet WS] hub error", msg.message);
       }
       catch (err) {
-        console.warn("[SXBet WS] publication handler error", err);
+        console.warn("[SXBet WS] message handler error", err);
       }
-    });
-    subscription.subscribe();
-
-    client = next;
-    sub = subscription;
-    next.connect();
+    };
+    sock.onerror = () => {
+      if (!stopped)
+        setSxBetWsStatus("error");
+    };
+    sock.onclose = () => {
+      if (ws === sock)
+        ws = null;
+      if (!stopped) {
+        setSxBetWsStatus("error");
+        scheduleReconnect();
+      }
+    };
     return true;
   }
 
@@ -142,6 +151,10 @@ export function startSxBetBestOddsWs(opts: {
       if (!connecting)
         connecting = connect().finally(() => { connecting = null; });
       return connecting;
+    },
+    setMarketHashes(hashes) {
+      interestedHashes = [...new Set(hashes.map(h => String(h || "").trim()).filter(Boolean))];
+      sendInterest();
     },
     stop() {
       stopped = true;

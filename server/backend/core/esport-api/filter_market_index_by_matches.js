@@ -70,9 +70,9 @@ export function resolveFilteredIndexUpdatedAt(diskUpdatedAt, matches, matchedIds
 
 /**
  * @param {string} provider
- * @param {import("@changmen/api-contract").PolymarketMarketIndex | import("@changmen/api-contract").PredictFunMarketIndex | null | undefined} index
+ * @param {import("@changmen/api-contract").PolymarketMarketIndex | import("@changmen/api-contract").PredictFunMarketIndex | import("@changmen/api-contract").SxBetMarketIndex | null | undefined} index
  * @param {unknown} matches client_matches 行数组；空/缺省 = 无匹配 → 空 Index
- * @returns {import("@changmen/api-contract").PolymarketMarketIndex | import("@changmen/api-contract").PredictFunMarketIndex | null}
+ * @returns {import("@changmen/api-contract").PolymarketMarketIndex | import("@changmen/api-contract").PredictFunMarketIndex | import("@changmen/api-contract").SxBetMarketIndex | null}
  */
 export function filterMarketIndexByClientMatches(provider, index, matches = []) {
   if (!index || typeof index !== "object")
@@ -120,6 +120,19 @@ export function filterMarketIndexByClientMatches(provider, index, matches = []) 
     return {
       updatedAt,
       marketIds: [...marketIdSet],
+      entries,
+    };
+  }
+
+  if (provider === "SXBet") {
+    const marketHashSet = new Set();
+    for (const row of entries) {
+      if (row.marketHash)
+        marketHashSet.add(String(row.marketHash));
+    }
+    return {
+      updatedAt,
+      marketHashes: [...marketHashSet],
       entries,
     };
   }

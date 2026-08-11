@@ -123,13 +123,37 @@ export interface PolymarketMarketIndex {
   entries: PolymarketMarketIndexEntry[];
 }
 
+/** [changmen 扩展] VPS sxbet-collector 写入，浏览器 Centrifugo → fo */
+export interface SxBetMarketIndexEntry {
+  sourceMatchId: string;
+  marketHash: string;
+  homeOddsId: string;
+  awayOddsId: string;
+  sourceBetId: string;
+  homeName: string;
+  awayName: string;
+  homeOdds: number;
+  awayOdds: number;
+  status: string;
+  /** epoch ms */
+  startTime?: number;
+  gameId?: string;
+}
+
+/** [changmen 扩展] sxbet_market_index.json */
+export interface SxBetMarketIndex {
+  updatedAt: number;
+  marketHashes: string[];
+  entries: SxBetMarketIndexEntry[];
+}
+
 export interface CollectPlatformInfo {
   Gateway: string;
   Token: string;
   BetName: string;
   GameOddTypes?: Record<string, ObGameOddTypeSpec>;
-  /** [changmen 扩展] PredictFun / Polymarket VPS 采集索引（按 provider 区分形状） */
-  MarketIndex?: PredictFunMarketIndex | PolymarketMarketIndex | null;
+  /** [changmen 扩展] PM / PF / SXBet VPS 采集索引（按 provider 区分形状） */
+  MarketIndex?: PredictFunMarketIndex | PolymarketMarketIndex | SxBetMarketIndex | null;
 }
 
 export interface BetSourceDto {

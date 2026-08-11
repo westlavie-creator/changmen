@@ -93,6 +93,7 @@ export default defineConfig(({ mode }) => {
     proxy["/esport/ws-forward/PM-SPORT-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
     proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/SXBET-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
   }
   else {
     // 纯本机：Market WS 独立 hub（须在通用 /esport 代理之前）
@@ -110,6 +111,11 @@ export default defineConfig(({ mode }) => {
     const pfHubTarget = String(env.VITE_PREDICTFUN_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(pfHubPort) && pfHubPort > 0 ? pfHubPort : 3458}`;
     proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: pfHubTarget, changeOrigin: true, ws: true };
+
+    const sxHubPort = Number(env.VITE_SXBET_MARKET_HUB_PORT || process.env.SXBET_MARKET_HUB_PORT || 3460);
+    const sxHubTarget = String(env.VITE_SXBET_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
+      || `http://127.0.0.1:${Number.isFinite(sxHubPort) && sxHubPort > 0 ? sxHubPort : 3460}`;
+    proxy["/esport/ws-forward/SXBET-MARKET"] = { target: sxHubTarget, changeOrigin: true, ws: true };
   }
   proxy["/esport2"] = { target: API_TARGET, changeOrigin: true, ws: true };
   proxy["/esport"] = { target: API_TARGET, changeOrigin: true, ws: true };

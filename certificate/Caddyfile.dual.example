@@ -54,6 +54,9 @@
 	handle /esport/ws-forward/PM-SPORT-MARKET* {
 		reverse_proxy 127.0.0.1:3459
 	}
+	handle /esport/ws-forward/SXBET-MARKET* {
+		reverse_proxy 127.0.0.1:3460
+	}
 	handle /esport/* {
 		import changmen_proxy_mtls
 	}
@@ -144,5 +147,8 @@ ws.changmen.fun {
 	}
 	handle /esport/ws-forward/PM-SPORT-MARKET* {
 		reverse_proxy 127.0.0.1:3459
+	}
+	handle /esport/ws-forward/SXBET-MARKET* {
+		reverse_proxy 127.0.0.1:3460
 	}
 }

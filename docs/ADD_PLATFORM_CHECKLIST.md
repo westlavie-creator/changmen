@@ -6,7 +6,7 @@
 |------|--------------------------|-------------------|--------|
 | **A. browser** | `http_mqtt` / `http_ws` / `http_poll` / `parse_ws` / `aggregator_ws` | 浏览器 `SaveMatch` / `SaveBet` | OB、RAY、IA、PB、SABA… |
 | **B. plugin** | `plugin_http` / `plugin_graphql_ws` / `plugin_http_ws` | 通常仍浏览器 Save*（经扩展代发 HTTP/WS） | HG、Stake、Dex、Limitless |
-| **C. vps-house** | **`vps_http_ws`** | **仅 VPS collector**；浏览器 Save* 被门控拒绝 | Polymarket、PredictFun |
+| **C. vps-house** | **`vps_http_ws`** | **仅 VPS collector**；浏览器 Save* 被门控拒绝 | Polymarket、PredictFun、SXBet |
 
 辅助判定：
 
@@ -88,7 +88,7 @@
 | C9 | 合场字段 | 若有 MarketID 等扩展，走 Sources 投影（参见 PF MarketID）；GetMatchs 契约另见 W7 |
 | C10 | 测 | collector 单测 + 门控测（`meta.browserSave.test` / `match.vpsGate.test`） |
 
-参考：[`server/collectors/README.md`](../server/collectors/README.md)、Polymarket / PredictFun manifest 条目。
+参考：[`server/collectors/README.md`](../server/collectors/README.md)、Polymarket / PredictFun / SXBet manifest 条目。
 
 ---
 

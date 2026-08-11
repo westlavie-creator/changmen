@@ -1,10 +1,10 @@
-import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
-import type { PlatformId } from "@changmen/api-contract";
+/**
+ * SXBet 报价/下单工具（非 discovery）。
+ * Discovery `buildSxMappedMarket` 权威在 `server/collectors/sxbet-collector/parse.js`。
+ */
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
-import { PLATFORMS } from "../shared/platforms";
-import type { SxBestOddsRow, SxBestOddsWsUpdate, SxMarket, SxOrder } from "./api";
+import type { SxBestOddsRow, SxBestOddsWsUpdate, SxOrder } from "./api";
 
-const PLATFORM: PlatformId = PLATFORMS.SXBet;
 export const SX_ODDS_PRECISION = 1e20;
 const ODDS_PRECISION = SX_ODDS_PRECISION;
 
@@ -15,14 +15,6 @@ const LEAGUE_GAME_PATTERNS: Array<[RegExp, string]> = [
   [/\bvalorant\b/i, "valorant"],
   [/\b(kog|honor of kings|king of glory)\b/i, "kog"],
 ];
-
-export interface SxMappedMarket {
-  match: CollectMatchDto;
-  bet: CollectBetDto;
-  marketHash: string;
-  homeOddsId: string;
-  awayOddsId: string;
-}
 
 export function mapSxLeagueToGameCode(leagueLabel: string | undefined): string | null {
   const label = String(leagueLabel ?? "").trim();
@@ -170,96 +162,4 @@ export function sxSourceTeamId(gameId: string, name: string): string {
 
 export function sxOutcomeOddsId(marketHash: string, outcome: 1 | 2): string {
   return `${marketHash}:${outcome}`;
-}
-
-export function isSxEsportsMoneylineMarket(market: SxMarket): boolean {
-  if (String(market.status ?? "").toUpperCase() !== "ACTIVE")
-    return false;
-  if (Number(market.sportId) !== 9)
-    return false;
-  if (Number(market.type) !== 52)
-    return false;
-  if (!market.marketHash || !market.sportXeventId)
-    return false;
-  if (!market.teamOneName || !market.teamTwoName)
-    return false;
-  return Boolean(mapSxLeagueToGameCode(market.leagueLabel));
-}
-
-export function buildSxMappedMarket(
-  market: SxMarket,
-  orders: SxOrder[] = [],
-  bestRow?: SxBestOddsRow,
-): SxMappedMarket | null {
-  if (!isSxEsportsMoneylineMarket(market))
-    return null;
-
-  const gameId = mapSxLeagueToGameCode(market.leagueLabel);
-  const marketHash = String(market.marketHash);
-  const sourceMatchId = String(market.sportXeventId);
-  if (!gameId || !marketHash || !sourceMatchId)
-    return null;
-
-  const homeName = String(market.teamOneName);
-  const awayName = String(market.teamTwoName);
-  const homeId = sxSourceTeamId(gameId, homeName);
-  const awayId = sxSourceTeamId(gameId, awayName);
-  const homeOddsId = sxOutcomeOddsId(marketHash, 1);
-  const awayOddsId = sxOutcomeOddsId(marketHash, 2);
-  const startTime = Number(market.gameTime) > 0 ? Number(market.gameTime) * 1000 : Date.now();
-
-  const homeOdds = bestRow
-    ? bestSxDecimalOddsFromBestRow(bestRow, true)
-    : bestSxDecimalOdds(orders, true);
-  const awayOdds = bestRow
-    ? bestSxDecimalOddsFromBestRow(bestRow, false)
-    : bestSxDecimalOdds(orders, false);
-  const locked = !homeOdds || !awayOdds;
-
-  const homeTeam: CollectTeamDto = {
-    Type: PLATFORM,
-    TeamID: homeId,
-    Name: homeName,
-    GameID: gameId,
-    Logo: "",
-  };
-  const awayTeam: CollectTeamDto = {
-    Type: PLATFORM,
-    TeamID: awayId,
-    Name: awayName,
-    GameID: gameId,
-    Logo: "",
-  };
-
-  return {
-    marketHash,
-    homeOddsId,
-    awayOddsId,
-    match: {
-      Type: PLATFORM,
-      SourceMatchID: sourceMatchId,
-      SourceGameID: gameId,
-      StartTime: startTime,
-      HomeID: homeId,
-      Home: homeName,
-      AwayID: awayId,
-      Away: awayName,
-      Teams: [homeTeam, awayTeam],
-      IsLive: market.liveEnabled ? 2 : 1,
-    },
-    bet: {
-      Type: PLATFORM,
-      SourceMatchID: sourceMatchId,
-      SourceBetID: marketHash,
-      Map: 0,
-      BetName: "[全场] 获胜者",
-      SourceHomeID: homeOddsId,
-      HomeName: homeName,
-      HomeOdds: homeOdds,
-      SourceAwayID: awayOddsId,
-      AwayName: awayName,
-      AwayOdds: awayOdds,
-      Status: locked ? "Locked" : "Normal",
-    },
-  };
 }

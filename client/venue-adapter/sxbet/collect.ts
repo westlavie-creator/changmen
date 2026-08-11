@@ -1,39 +1,62 @@
-import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
+/**
+ * SXBet 电竞：VPS 写 platform_* + MarketIndex；浏览器 Index → Centrifugo best_odds → fo。
+ * **禁止**浏览器 SaveMatch/SaveBets（VPS collector 独占）。
+ */
+import { getCollectPlatform } from "@changmen/client-core/bridge/clientApi";
+import { saveVenueOdds, getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 import { notifyCollectError } from "../shared/collectNotify";
-import { useCollectStore } from "../shared/webBridge";
 import { useMatchStore } from "../shared/webBridge";
 
-import {
-  SXBET_ESPORTS_SPORT_ID,
-  SXBET_USDC,
-  fetchSxActiveEsportsMoneylineMarkets,
-  fetchSxBestOdds,
-  sxbetCollectStartTimeAllowed,
-  type SxBestOddsRow,
-  type SxBestOddsWsUpdate,
-} from "./api";
+import { SXBET_ESPORTS_SPORT_ID, type SxBestOddsRow, type SxBestOddsWsUpdate } from "./api";
+import { applySxBetMarketIndex, isSxBetMarketIndex, type SxTrackedMarket } from "./marketIndex";
 import {
   applySxBestOddsWsUpdate,
   bestSxDecimalOddsFromBestRow,
-  buildSxMappedMarket,
-  type SxMappedMarket,
 } from "./parse";
 import { startSxBetBestOddsWs } from "./ws";
 
 const PLATFORM = PLATFORMS.SXBet;
-const DISCOVERY_MS = 60_000;
-const SAVE_BETS_INTERVAL_MS = 5 * 60_000;
-const MAX_TRACKED_MARKETS = 200;
+const INDEX_SYNC_MS = 30_000;
 
 function saveBetOddsToFo(bet: CollectBetDto, source: "http" | "mqtt") {
   const locked = bet.Status === "Locked";
   const betId = String(bet.SourceBetID);
   const now = Date.now();
+  const homeId = String(bet.SourceHomeID);
+  const awayId = String(bet.SourceAwayID);
+
+  // Index 种子：若该 id 已有 WS(mqtt) 价，勿用慢 Index 盖掉
+  if (source === "http") {
+    const prevHome = getVenueOddsEntry(PLATFORM, homeId);
+    if (!(prevHome?.source === "mqtt")) {
+      saveVenueOdds(PLATFORM, {
+        id: homeId,
+        odds: bet.HomeOdds,
+        isLock: locked || !bet.HomeOdds,
+        betId,
+        side: "home",
+        time: now,
+      }, source);
+    }
+    const prevAway = getVenueOddsEntry(PLATFORM, awayId);
+    if (!(prevAway?.source === "mqtt")) {
+      saveVenueOdds(PLATFORM, {
+        id: awayId,
+        odds: bet.AwayOdds,
+        isLock: locked || !bet.AwayOdds,
+        betId,
+        side: "away",
+        time: now,
+      }, source);
+    }
+    return;
+  }
+
   saveVenueOdds(PLATFORM, {
-    id: String(bet.SourceHomeID),
+    id: homeId,
     odds: bet.HomeOdds,
     isLock: locked || !bet.HomeOdds,
     betId,
@@ -41,7 +64,7 @@ function saveBetOddsToFo(bet: CollectBetDto, source: "http" | "mqtt") {
     time: now,
   }, source);
   saveVenueOdds(PLATFORM, {
-    id: String(bet.SourceAwayID),
+    id: awayId,
     odds: bet.AwayOdds,
     isLock: locked || !bet.AwayOdds,
     betId,
@@ -51,7 +74,7 @@ function saveBetOddsToFo(bet: CollectBetDto, source: "http" | "mqtt") {
 }
 
 function applyBestOddsUpdate(
-  marketsByHash: Map<string, SxMappedMarket>,
+  marketsByHash: Map<string, SxTrackedMarket>,
   bestByHash: Map<string, SxBestOddsRow>,
   update: SxBestOddsWsUpdate,
   matchStore: ReturnType<typeof useMatchStore>,
@@ -83,11 +106,10 @@ function applyBestOddsUpdate(
 }
 
 export function startSxBetCollector(): () => void {
-  let lastSaveBetsAt = 0;
-  const collect = useCollectStore();
   const matchStore = useMatchStore();
-  const marketsByHash = new Map<string, SxMappedMarket>();
+  const marketsByHash = new Map<string, SxTrackedMarket>();
   const bestByHash = new Map<string, SxBestOddsRow>();
+  let lastIndexUpdatedAt = 0;
 
   const wsHandle = startSxBetBestOddsWs({
     onUpdate: (update) => {
@@ -95,75 +117,23 @@ export function startSxBetCollector(): () => void {
     },
   });
 
-  const runDiscovery = async () => {
-    while (!collect.ready) {
-      if (stopped)
-        return;
-      await wait(500);
-    }
-
-    const rawMarkets = await fetchSxActiveEsportsMoneylineMarkets();
-    const filtered = rawMarkets.filter((market) => {
-      const startMs = Number(market.gameTime) > 0 ? Number(market.gameTime) * 1000 : 0;
-      return sxbetCollectStartTimeAllowed(startMs);
-    });
-    if (!filtered.length)
+  const syncIndex = async () => {
+    const platform = await getCollectPlatform(PLATFORM);
+    const index = isSxBetMarketIndex(platform?.MarketIndex) ? platform.MarketIndex : null;
+    const updatedAt = Number(index?.updatedAt) || 0;
+    if (updatedAt && updatedAt === lastIndexUpdatedAt)
       return;
+    lastIndexUpdatedAt = updatedAt;
 
-    const hashes = filtered
-      .map(row => String(row.marketHash ?? ""))
-      .filter(Boolean)
-      .slice(0, MAX_TRACKED_MARKETS);
-    const bestOdds = await fetchSxBestOdds(hashes, SXBET_USDC);
-
-    const candidates: SxMappedMarket[] = [];
-    for (const market of filtered) {
-      const hash = String(market.marketHash ?? "");
-      const row = bestOdds[hash];
-      if (row)
-        bestByHash.set(hash, row);
-      const mapped = buildSxMappedMarket(market, [], row);
-      if (mapped)
-        candidates.push(mapped);
-      if (candidates.length >= MAX_TRACKED_MARKETS)
-        break;
-    }
-    if (!candidates.length)
-      return;
-
-    const matches = [...new Map(
-      candidates.map(row => [String(row.match.SourceMatchID), row.match]),
-    ).values()];
-    const saved = await collect.saveMatch(PLATFORM, matches);
-    const shouldSaveBets = saved && Date.now() - lastSaveBetsAt >= SAVE_BETS_INTERVAL_MS;
-
-    const betsByMatch = new Map<string, CollectBetDto[]>();
-    const keepHashes = new Set<string>();
-    for (const mapped of candidates) {
-      keepHashes.add(mapped.marketHash);
-      marketsByHash.set(mapped.marketHash, mapped);
-      saveBetOddsToFo(mapped.bet, "http");
-      if (shouldSaveBets) {
-        const sid = String(mapped.match.SourceMatchID);
-        if (!betsByMatch.has(sid))
-          betsByMatch.set(sid, []);
-        betsByMatch.get(sid)!.push(mapped.bet);
-      }
-    }
-    for (const hash of [...marketsByHash.keys()]) {
-      if (!keepHashes.has(hash))
-        marketsByHash.delete(hash);
-    }
+    applySxBetMarketIndex(index, { marketsByHash });
     for (const hash of [...bestByHash.keys()]) {
-      if (!keepHashes.has(hash))
+      if (!marketsByHash.has(hash))
         bestByHash.delete(hash);
     }
-    if (shouldSaveBets) {
-      for (const [sid, bets] of betsByMatch)
-        await collect.saveBets(PLATFORM, sid, bets);
-      lastSaveBetsAt = Date.now();
-    }
+    for (const tracked of marketsByHash.values())
+      saveBetOddsToFo(tracked.bet, "http");
     matchStore.refreshOddsOnBets();
+    wsHandle.setMarketHashes([...marketsByHash.keys()]);
     void wsHandle.ensureConnected();
   };
 
@@ -171,13 +141,13 @@ export function startSxBetCollector(): () => void {
   const loop = async () => {
     while (!stopped) {
       try {
-        await runDiscovery();
+        await syncIndex();
       }
       catch (err) {
-        console.warn("[SXBet] collect error", err);
+        console.warn("[SXBet] index sync error", err);
         notifyCollectError("SXBet", err);
       }
-      await wait(DISCOVERY_MS);
+      await wait(INDEX_SYNC_MS);
     }
   };
 

@@ -200,16 +200,23 @@ async function handleAppRoutes(req, res, serveStatic) {
       if (remotePf)
         hubs.predictFunMarket = remotePf;
     }
+    if (!hubs.sxBetMarket) {
+      const remoteSx = await fetchSxBetMarketHubStatusRemote();
+      if (remoteSx)
+        hubs.sxBetMarket = remoteSx;
+    }
     const platforms = [...(ws.platforms || [])];
     // 独立 hub 进程时本机 platforms 不含对应 id；对外状态仍应标明可用
     if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
       platforms.push("PM-MARKET");
     if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
       platforms.push("PREDICTFUN-MARKET");
+    if (hubs.sxBetMarket && !platforms.includes("SXBET-MARKET"))
+      platforms.push("SXBET-MARKET");
     jsonResponse(res, 200, {
-      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
-      wsRelay: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
-      wsForward: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket) || Boolean(hubs.sxBetMarket),
+      wsRelay: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket) || Boolean(hubs.sxBetMarket),
+      wsForward: ws.wsForward || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket) || Boolean(hubs.sxBetMarket),
       platforms,
       platformStats: ws.platformStats,
       hubs,
@@ -218,6 +225,9 @@ async function handleAppRoutes(req, res, serveStatic) {
         : null,
       predictFunMarketHub: hubs.predictFunMarket
         ? { isolated: !ws.hubs?.predictFunMarket, port: Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458) }
+        : null,
+      sxBetMarketHub: hubs.sxBetMarket
+        ? { isolated: !ws.hubs?.sxBetMarket, port: Number(process.env.SXBET_MARKET_HUB_PORT || 3460) }
         : null,
     });
     return;
@@ -374,11 +384,18 @@ async function buildHealthData() {
     if (remotePf)
       hubs.predictFunMarket = remotePf;
   }
+  if (!hubs.sxBetMarket) {
+    const remoteSx = await fetchSxBetMarketHubStatusRemote();
+    if (remoteSx)
+      hubs.sxBetMarket = remoteSx;
+  }
   const platforms = [...(ws.platforms || [])];
   if (hubs.pmMarket && !platforms.includes("PM-MARKET"))
     platforms.push("PM-MARKET");
   if (hubs.predictFunMarket && !platforms.includes("PREDICTFUN-MARKET"))
     platforms.push("PREDICTFUN-MARKET");
+  if (hubs.sxBetMarket && !platforms.includes("SXBET-MARKET"))
+    platforms.push("SXBET-MARKET");
   return {
     status: db ? "ok" : "degraded",
     uptime: Math.floor(process.uptime()),
@@ -391,7 +408,7 @@ async function buildHealthData() {
       clientMatches: matches?.length ?? 0,
     },
     wsForward: {
-      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket),
+      enabled: ws.enabled || Boolean(hubs.pmMarket) || Boolean(hubs.predictFunMarket) || Boolean(hubs.sxBetMarket),
       platforms,
       platformStats: ws.platformStats,
       hubs,
@@ -448,6 +465,28 @@ async function fetchPmMarketHubStatusSecondary() {
 /** @returns {Promise<object | null>} */
 async function fetchPredictFunMarketHubStatusRemote() {
   const port = Number(process.env.PREDICTFUN_MARKET_HUB_PORT || 3458);
+  if (!Number.isFinite(port) || port <= 0)
+    return null;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 300);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/health`, { signal: ac.signal });
+    if (!res.ok)
+      return null;
+    const json = await res.json();
+    return json?.hub && typeof json.hub === "object" ? json.hub : null;
+  }
+  catch {
+    return null;
+  }
+  finally {
+    clearTimeout(timer);
+  }
+}
+
+/** @returns {Promise<object | null>} */
+async function fetchSxBetMarketHubStatusRemote() {
+  const port = Number(process.env.SXBET_MARKET_HUB_PORT || 3460);
   if (!Number.isFinite(port) || port <= 0)
     return null;
   const ac = new AbortController();

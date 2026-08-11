@@ -20,7 +20,8 @@
     "server/value-bet",
     "server/collectors/polymarket-sports",
     "server/collectors/polymarket-esports",
-    "server/collectors/predictfun-collector"
+    "server/collectors/predictfun-collector",
+    "server/collectors/sxbet-collector"
   ],
   "scripts": {
     "install:all": "npm install",
@@ -54,7 +55,9 @@
     "pm-market-hub": "node server/ws_forward/pm_market_hub_server.js",
     "pm-sport-market-hub": "node server/ws_forward/pm_sport_market_hub_server.js",
     "predictfun-market-hub": "node server/ws_forward/predictfun_market_hub_server.js",
+    "sxbet-market-hub": "node server/ws_forward/sxbet_market_hub_server.js",
     "predictfun-collector": "npm run start --prefix server/collectors/predictfun-collector",
+    "sxbet-collector": "npm run start --prefix server/collectors/sxbet-collector",
     "chromeplug:pack": "npm run pack --workspace=@changmen/chrome-extension",
     "ob:lock-observe": "npm run ob:lock-observe --workspace=@changmen/venue-adapter",
     "value-bet": "npm run start --prefix server/value-bet",
