@@ -36,6 +36,8 @@ export interface UserInfo {
   IsAdmin?: boolean | 0 | 1;
   Role?: "admin" | "leader" | "user";
   TeamId?: string | null;
+  /** [changmen 扩展] 当前用户 Market hub HTTP origin（无尾斜杠） */
+  MarketHubOrigin?: string;
 }
 
 export interface ObGameOddTypeSpec {

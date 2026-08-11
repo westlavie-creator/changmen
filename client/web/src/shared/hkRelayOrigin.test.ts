@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveHkRelayHttpOrigin, resolveMarketHubHttpOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
+import {
+  resolveHkRelayHttpOrigin,
+  resolveMarketHubHttpOrigin,
+  setAssignedMarketHubOrigin,
+} from "@changmen/client-core/shared/hkRelayOrigin";
 
 describe("resolveHkRelayHttpOrigin", () => {
   afterEach(() => {
+    setAssignedMarketHubOrigin("");
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -22,16 +27,34 @@ describe("resolveHkRelayHttpOrigin", () => {
     expect(resolveHkRelayHttpOrigin()).toBe("http://127.0.0.1:5274");
   });
 
-  it("生产主站把 Market hub 拆到 ws.changmen.fun", () => {
+  it("生产主站：未下发 origin 走 ws2（166）", () => {
     vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
     vi.stubEnv("DEV", false);
-    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws2.changmen.fun");
     expect(resolveHkRelayHttpOrigin()).toBe("https://changmen.fun");
+  });
+
+  it("生产主站：GetUserInfo 下发 ws 则走 202", () => {
+    vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
+    vi.stubEnv("DEV", false);
+    setAssignedMarketHubOrigin("https://ws.changmen.fun/");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
+  });
+
+  it("生产主站：下发 ws2 不因本地用户名改走 202", () => {
+    vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => (key === "app:userName" ? "gb11" : null),
+    });
+    vi.stubEnv("DEV", false);
+    setAssignedMarketHubOrigin("https://ws2.changmen.fun");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws2.changmen.fun");
   });
 
   it("IP 入口 Market hub 仍同源", () => {
     vi.stubGlobal("window", { location: { origin: "https://47.57.10.202", hostname: "47.57.10.202" } });
     vi.stubEnv("DEV", false);
+    setAssignedMarketHubOrigin("https://ws.changmen.fun");
     expect(resolveMarketHubHttpOrigin()).toBe("https://47.57.10.202");
   });
 });

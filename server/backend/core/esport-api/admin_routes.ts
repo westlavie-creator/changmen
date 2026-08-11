@@ -264,6 +264,22 @@ export async function handleAdminAction(
         return fail((err as Error).message || "操作失败");
       }
     }
+    case "Client_AdminGetMarketHubRoute": {
+      try {
+        return ok(adminService.getAdminMarketHubRoute(ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
+    case "Client_AdminSaveMarketHubRoute": {
+      try {
+        return ok(adminService.saveAdminMarketHubRoute(body, ctx.user));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_AdminEnsurePredictFunHouseAccount": {
       try {
         return ok(

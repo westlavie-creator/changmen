@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import {
+  getAdminMarketHubRoute,
+  saveAdminMarketHubRoute,
+} from "@/api/admin";
 import { authHeaders } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 import { useUserStore } from "@/stores/userStore";
@@ -166,6 +171,67 @@ function poolActivePct(d: HealthData): number {
   return d.db.pool.total ? Math.round((active / d.db.pool.total) * 100) : 0;
 }
 
+const routeLoading = ref(false);
+const routeSaving = ref(false);
+const routeLoaded = ref(false);
+const routeError = ref("");
+const routeUsersText = ref("");
+const routePrimaryOrigin = ref("https://ws.changmen.fun");
+const routeSecondaryOrigin = ref("https://ws2.changmen.fun");
+const routeUpdatedAt = ref<number | null>(null);
+
+const HUB_ORIGIN_OPTIONS = [
+  { label: "ws（202）", value: "https://ws.changmen.fun" },
+  { label: "ws2（166）", value: "https://ws2.changmen.fun" },
+];
+
+async function loadMarketHubRoute() {
+  routeError.value = "";
+  routeLoaded.value = false;
+  routeLoading.value = true;
+  try {
+    const cfg = await getAdminMarketHubRoute();
+    routeUsersText.value = (cfg.primaryUsers || []).join("\n");
+    routePrimaryOrigin.value = cfg.primaryOrigin;
+    routeSecondaryOrigin.value = cfg.secondaryOrigin;
+    routeUpdatedAt.value = cfg.updatedAt ?? null;
+    routeLoaded.value = true;
+  }
+  catch (e) {
+    routeError.value = (e as Error).message || "加载分流配置失败";
+  }
+  finally {
+    routeLoading.value = false;
+  }
+}
+
+async function saveMarketHubRoute() {
+  if (routeSaving.value || !routeLoaded.value || !user.isAdmin)
+    return;
+  routeSaving.value = true;
+  routeError.value = "";
+  try {
+    const cfg = await saveAdminMarketHubRoute({
+      primaryUsers: routeUsersText.value,
+      primaryOrigin: routePrimaryOrigin.value,
+      secondaryOrigin: routeSecondaryOrigin.value,
+      defaultHub: "secondary",
+    });
+    routeUsersText.value = (cfg.primaryUsers || []).join("\n");
+    routePrimaryOrigin.value = cfg.primaryOrigin;
+    routeSecondaryOrigin.value = cfg.secondaryOrigin;
+    routeUpdatedAt.value = cfg.updatedAt ?? null;
+    ElMessage.success("已保存。已在线用户需刷新后换线");
+  }
+  catch (e) {
+    routeError.value = (e as Error).message || "保存失败";
+    ElMessage.error(routeError.value);
+  }
+  finally {
+    routeSaving.value = false;
+  }
+}
+
 function delayColor(ms: number): string {
   if (ms < 100)
     return "health-val--ok";
@@ -184,7 +250,10 @@ onMounted(async () => {
     }
   }
   if (!user.canAccessAdmin) { await router.replace({ name: "home" }); return; }
-  await fetchHealth();
+  await Promise.all([
+    fetchHealth(),
+    user.isAdmin ? loadMarketHubRoute() : Promise.resolve(),
+  ]);
   timer = setInterval(fetchHealth, 5000);
 });
 
@@ -198,6 +267,72 @@ onUnmounted(() => {
   <AdminLayout title="系统健康" subtitle="服务状态、数据库、内存与 WebSocket 实时监控">
     <div v-if="error" class="health-error">
       <el-alert type="error" :closable="false" :title="error" />
+    </div>
+    <div
+      v-if="user.isAdmin"
+      class="health-card health-card--wide health-route"
+    >
+      <div class="health-card__title">
+        Market hub 分流
+      </div>
+      <p class="health-sub">
+        名单走 primary（默认 202 / ws），其他人走 secondary（默认 166 / ws2）。保存后已在线用户需刷新。
+      </p>
+      <el-alert
+        v-if="routeError"
+        type="error"
+        :closable="false"
+        :title="routeError"
+        class="health-error"
+      />
+      <div class="health-route__row">
+        <label class="health-route__label">走 202 的用户</label>
+        <el-input
+          v-model="routeUsersText"
+          type="textarea"
+          :rows="5"
+          placeholder="每行一个登录名，如 gb11"
+          :disabled="!routeLoaded || routeLoading || routeSaving"
+        />
+      </div>
+      <div class="health-route__row health-route__origins">
+        <div>
+          <label class="health-route__label">primary</label>
+          <el-select v-model="routePrimaryOrigin" :disabled="!routeLoaded || routeLoading || routeSaving">
+            <el-option
+              v-for="opt in HUB_ORIGIN_OPTIONS"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </div>
+        <div>
+          <label class="health-route__label">secondary</label>
+          <el-select v-model="routeSecondaryOrigin" :disabled="!routeLoaded || routeLoading || routeSaving">
+            <el-option
+              v-for="opt in HUB_ORIGIN_OPTIONS"
+              :key="`s-${opt.value}`"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </div>
+      </div>
+      <div class="health-row">
+        <span class="health-sub">
+          {{ routeUpdatedAt ? `上次保存 ${new Date(routeUpdatedAt).toLocaleString("zh-CN", { hour12: false })}` : "尚未落盘，当前为默认/环境变量" }}
+        </span>
+        <el-button
+          type="primary"
+          size="small"
+          :loading="routeSaving"
+          :disabled="!routeLoaded || routeLoading"
+          @click="saveMarketHubRoute"
+        >
+          保存
+        </el-button>
+      </div>
     </div>
     <div v-if="health" class="health-grid">
       <!-- Status banner -->
@@ -537,6 +672,15 @@ onUnmounted(() => {
   padding: 18px;
 }
 .health-card--wide { grid-column: 1 / -1; }
+.health-route { margin-bottom: 16px; }
+.health-route__row { margin: 10px 0; }
+.health-route__label {
+  display: block;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 6px;
+}
+.health-route__origins { display: flex; gap: 16px; flex-wrap: wrap; }
 .health-card__title {
   font-size: 12px;
   text-transform: uppercase;

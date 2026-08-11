@@ -19,6 +19,8 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminPredictFunMembers",
   "Client_AdminGetPredictFunFeeConfig",
   "Client_AdminSavePredictFunFeeConfig",
+  "Client_AdminGetMarketHubRoute",
+  "Client_AdminSaveMarketHubRoute",
   "Client_AdminEnsurePredictFunHouseAccount",
   "Client_AdminPredictFunRecharge",
   "Client_AdminPredictFunMoneyLogs",

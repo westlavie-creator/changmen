@@ -203,6 +203,27 @@ export async function saveAdminPredictFunFeeConfig(body: {
   return unwrap(await post<AdminPredictFunFeeConfig>("Client_AdminSavePredictFunFeeConfig", body));
 }
 
+export interface AdminMarketHubRoute {
+  primaryOrigin: string;
+  secondaryOrigin: string;
+  primaryUsers: string[];
+  defaultHub: "primary" | "secondary";
+  updatedAt?: number;
+}
+
+export async function getAdminMarketHubRoute() {
+  return unwrap(await post<AdminMarketHubRoute>("Client_AdminGetMarketHubRoute", {}));
+}
+
+export async function saveAdminMarketHubRoute(body: {
+  primaryOrigin?: string;
+  secondaryOrigin?: string;
+  primaryUsers?: string[] | string;
+  defaultHub?: "primary" | "secondary";
+}) {
+  return unwrap(await post<AdminMarketHubRoute>("Client_AdminSaveMarketHubRoute", body));
+}
+
 export async function ensureAdminPredictFunHouseAccount(userId: string) {
   return unwrap(
     await post<{ created: boolean; account: AdminAccountDetail }>(

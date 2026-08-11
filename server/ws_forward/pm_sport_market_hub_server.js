@@ -6,7 +6,7 @@
  */
 import http from "node:http";
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { initDatabaseUrl } from "@changmen/db";
+import { initHubIdentity, resolveHubIdentity } from "./core/hub_identity.js";
 import {
   attachPmSportMarketHub,
   closePmSportMarketHub,
@@ -18,46 +18,6 @@ loadChangmenEnv();
 
 const PORT = Number(process.env.PM_SPORT_MARKET_HUB_PORT || 3459);
 const HUB_PATH = PM_SPORT_MARKET_HUB_PATH;
-
-/** @type {(token: string) => Promise<{ userId: string, userName: string } | null>} */
-async function resolveIdentityLight(token) {
-  if (!token)
-    return null;
-  try {
-    const { authGetUser, authPeekAccessToken, fetchUserById } = await import("@changmen/db");
-    let userId = "";
-    try {
-      const auth = await authGetUser(token);
-      userId = String(auth?.userId || "").trim();
-    }
-    catch {
-      /* peek */
-    }
-    if (!userId) {
-      try {
-        const peek = authPeekAccessToken?.(token);
-        userId = String(peek?.userId || "").trim();
-      }
-      catch {
-        return null;
-      }
-    }
-    if (!userId)
-      return null;
-    let userName = "";
-    try {
-      const user = await fetchUserById(userId);
-      userName = String(user?.user_name || "").trim();
-    }
-    catch {
-      /* optional */
-    }
-    return { userId, userName };
-  }
-  catch {
-    return null;
-  }
-}
 
 function sendJson(res, status, body) {
   const text = JSON.stringify(body);
@@ -84,7 +44,7 @@ const server = http.createServer((req, res) => {
 });
 
 attachPmSportMarketHub(server, {
-  resolveIdentity: resolveIdentityLight,
+  resolveIdentity: resolveHubIdentity,
 });
 
 server.on("error", (err) => {
@@ -97,15 +57,7 @@ server.on("error", (err) => {
 });
 
 void (async () => {
-  try {
-    await initDatabaseUrl();
-  }
-  catch (err) {
-    console.warn(
-      "[pm-sport-market-hub] initDatabaseUrl failed — identity attribution disabled:",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  await initHubIdentity();
   server.listen(PORT, () => {
     console.log(
       `[pm-sport-market-hub] listening :${PORT} path=${HUB_PATH} (isolated from PM-MARKET esport hub)`,

@@ -7,7 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_HK_RELAY_ORIGIN?: string;
   /** @deprecated 使用 VITE_HK_RELAY_ORIGIN */
   readonly VITE_PM_HK_RELAY_ORIGIN?: string;
-  /** Market hub 独立 origin（生产默认打开 changmen.fun 时用 https://ws.changmen.fun） */
+  /** 仅 DEV：覆盖 Market hub origin。生产走 GetUserInfo.MarketHubOrigin */
   readonly VITE_MARKET_HUB_ORIGIN?: string;
   readonly VITE_V4_PROXY?: string;
   readonly VITE_V4_DIRECT?: string;

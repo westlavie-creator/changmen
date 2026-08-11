@@ -111,10 +111,10 @@
 		file_server
 	}
 
-	# 用 IP 打开 HTTP 时领到域名，避免再落到已关闭的 https://IP
+	# 拒绝用 IP 走 HTTP（含 /setup）；装证引导只用 http://changmen.fun/setup
 	@ip_http host 47.57.10.202
 	handle @ip_http {
-		redir https://changmen.fun{uri} permanent
+		respond 403
 	}
 
 	# 其余全部跳到 HTTPS（正式站只走域名 mTLS）

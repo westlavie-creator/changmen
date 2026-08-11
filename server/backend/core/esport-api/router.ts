@@ -37,6 +37,7 @@ import {
   legacyBucketFor,
   type ActionBucket,
 } from "./action_registry.js";
+import { resolveMarketHubOriginForUser } from "./market_hub_route.js";
 import store from "./store.js";
 import { filterMarketIndexByClientMatches } from "./filter_market_index_by_matches.js";
 import { handleSendMessage as sendTelegramMessage } from "./telegram_send.js";
@@ -431,6 +432,7 @@ async function handleCoreAction(
         IsAdmin: isAdminUser(ctx.user),
         Role: ctx.user.role || "user",
         TeamId: ctx.user.teamId || null,
+        MarketHubOrigin: resolveMarketHubOriginForUser(ctx.user.userName),
       });
     }
     case "Client_UpdateSetting": {

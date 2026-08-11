@@ -23,6 +23,7 @@ import { subscribeUserChannel, unsubscribeUserChannel } from "@/realtime/userCha
 import { ensureBetTargetChannelSubscribed } from "@/realtime/betTargetChannel";
 import { ensurePublishChannelSubscribed } from "@/realtime/publishChannel";
 import { parseFormBool } from "@/shared/parseFormBool";
+import { setAssignedMarketHubOrigin } from "@changmen/client-core/shared/hkRelayOrigin";
 import {
   createDefaultUserConfig,
   mergeUserConfig,
@@ -99,6 +100,7 @@ export const useUserStore = defineStore("user", {
         const info: UserInfo = await getUserInfo();
         this.userId = info.ID;
         this.userName = info.UserName;
+        setAssignedMarketHubOrigin(info.MarketHubOrigin);
         this.setting = info.Setting ?? {};
         this.isAdmin = info.IsAdmin === true || info.IsAdmin === 1;
         this.role = info.Role || "user";
@@ -120,6 +122,7 @@ export const useUserStore = defineStore("user", {
         this.error = null;
       }
       catch (e) {
+        setAssignedMarketHubOrigin("");
         this.error = e instanceof Error ? e.message : String(e);
         this.ready = false;
         throw e;
@@ -171,6 +174,7 @@ export const useUserStore = defineStore("user", {
       this.role = "user";
       this.teamId = null;
       this.ready = false;
+      setAssignedMarketHubOrigin("");
       localStorage.removeItem(USER_KEY);
     },
 

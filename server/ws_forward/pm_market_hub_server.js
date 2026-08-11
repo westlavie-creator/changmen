@@ -5,7 +5,7 @@
  */
 import http from "node:http";
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
-import { initDatabaseUrl } from "@changmen/db";
+import { initHubIdentity, resolveHubIdentity } from "./core/hub_identity.js";
 import {
   attachPmMarketHub,
   closePmMarketHub,
@@ -16,46 +16,6 @@ import {
 loadChangmenEnv();
 
 const PORT = Number(process.env.PM_MARKET_HUB_PORT || 3457);
-
-/** @type {(token: string) => Promise<{ userId: string, userName: string } | null>} */
-async function resolveIdentityLight(token) {
-  if (!token)
-    return null;
-  try {
-    const { authGetUser, authPeekAccessToken, fetchUserById } = await import("@changmen/db");
-    let userId = "";
-    try {
-      const auth = await authGetUser(token);
-      userId = String(auth?.userId || "").trim();
-    }
-    catch {
-      /* peek */
-    }
-    if (!userId) {
-      try {
-        const peek = authPeekAccessToken?.(token);
-        userId = String(peek?.userId || "").trim();
-      }
-      catch {
-        return null;
-      }
-    }
-    if (!userId)
-      return null;
-    let userName = "";
-    try {
-      const user = await fetchUserById(userId);
-      userName = String(user?.user_name || "").trim();
-    }
-    catch {
-      /* userName 可选；缺省时健康页回退显示 userId */
-    }
-    return { userId, userName };
-  }
-  catch {
-    return null;
-  }
-}
 
 function sendJson(res, status, body) {
   const text = JSON.stringify(body);
@@ -81,7 +41,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(404).end("Not Found");
 });
 
-attachPmMarketHub(server, { resolveIdentity: resolveIdentityLight });
+attachPmMarketHub(server, { resolveIdentity: resolveHubIdentity });
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
@@ -93,15 +53,7 @@ server.on("error", (err) => {
 });
 
 void (async () => {
-  try {
-    await initDatabaseUrl();
-  }
-  catch (err) {
-    console.warn(
-      "[pm-market-hub] initDatabaseUrl failed — identity attribution disabled:",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  await initHubIdentity();
   server.listen(PORT, () => {
     console.log(
       `[pm-market-hub] listening :${PORT} path=${PM_MARKET_HUB_PATH} (isolated from changmen-esport)`,

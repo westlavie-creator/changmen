@@ -42,9 +42,24 @@ export function resolveHkRelayHttpOrigin(): string {
 
 /** 生产主站打开时，Market hub 单独走此 origin（无尾斜杠）。 */
 export const CHANGMEN_MARKET_HUB_ORIGIN = "https://ws.changmen.fun";
+/** 未下发 / 默认组（166）。谁走 202 由 GetUserInfo.MarketHubOrigin 决定。 */
+export const CHANGMEN_MARKET_HUB_ORIGIN_B = "https://ws2.changmen.fun";
+
+/** 本次会话由 Client_GetUserInfo 写入；不进 sessionStorage，避免刷新后抢先用旧值。 */
+let assignedMarketHubOrigin = "";
+
+export function setAssignedMarketHubOrigin(origin: string | null | undefined): void {
+  assignedMarketHubOrigin = String(origin || "").trim().replace(/\/+$/, "");
+}
+
+export function getAssignedMarketHubOrigin(): string {
+  return assignedMarketHubOrigin;
+}
 
 function marketHubOriginFromEnv(): string {
   if (typeof import.meta === "undefined")
+    return "";
+  if (!import.meta.env?.DEV)
     return "";
   const env = import.meta.env as Record<string, string | undefined>;
   return String(env.VITE_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "");
@@ -52,8 +67,8 @@ function marketHubOriginFromEnv(): string {
 
 /**
  * PM / PF / PM-SPORT Market WS 的 HTTP origin。
- * 主站 changmen.fun 时拆到 ws.changmen.fun；dev / IP / 其它域名仍同源。
- * PM-USER、http-relay 不要用这个（仍走 resolveHkRelayHttpOrigin）。
+ * 主站 changmen.fun：用 GetUserInfo 下发的 origin；未下发（未登录/旧后端）→ ws2。
+ * dev / IP / 其它域名仍同源。PM-USER、http-relay 不要用这个。
  */
 export function resolveMarketHubHttpOrigin(): string {
   if (typeof window !== "undefined" && typeof import.meta !== "undefined" && import.meta.env?.DEV)
@@ -66,7 +81,7 @@ export function resolveMarketHubHttpOrigin(): string {
   if (typeof window !== "undefined") {
     const host = String(window.location?.hostname || "");
     if (host === "changmen.fun" || host === "www.changmen.fun")
-      return CHANGMEN_MARKET_HUB_ORIGIN;
+      return assignedMarketHubOrigin || CHANGMEN_MARKET_HUB_ORIGIN_B;
   }
 
   return resolveHkRelayHttpOrigin();
