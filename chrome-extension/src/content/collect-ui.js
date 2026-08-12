@@ -74,6 +74,7 @@ export async function mountCollectIcon(provider) {
     panel.innerHTML = [
       row("网关", "gateway"),
       row("token", "token"),
+      ...(config.sessionId ? [row("sessionId", "sessionId")] : []),
       row("referer", "referer"),
       row("数据", "data"),
       '<div class="gamebet-collect-panel-confirm">确定</div>',

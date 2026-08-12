@@ -25,8 +25,9 @@ function wrapProviderForHga(provider) {
   return provider;
 }
 
-async function tryMountCollectUi() {
+async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
   for (const platformId of PLATFORM_LIST) {
+    if (iframeOnlyObSport && platformId !== PLATFORMS.OB) continue;
     const ProviderCls = PROVIDER_REGISTRY[platformId];
     if (!ProviderCls) continue;
     let provider = createProvider(platformId);
@@ -35,10 +36,12 @@ async function tryMountCollectUi() {
       provider = wrapProviderForHga(provider);
     }
     try {
-      if (await provider.Check()) {
-        await mountCollectIcon(provider);
-        return true;
+      if (!(await provider.Check())) continue;
+      if (iframeOnlyObSport && typeof provider.allowIframeMount === "function" && !provider.allowIframeMount()) {
+        continue;
       }
+      await mountCollectIcon(provider);
+      return true;
     } catch (err) {
       console.warn("[Gamebet] provider check failed", platformId, err);
     }
@@ -47,11 +50,12 @@ async function tryMountCollectUi() {
 }
 
 async function detectAndMountCollectUi() {
-  if (window !== window.top) return;
   if (document.body?.querySelector(".gamebet-collect-float")) return;
 
+  const iframeOnlyObSport = window !== window.top;
+  // 非顶层：只尝试 OB 体育（电竞/其它馆仍禁止 iframe 挂载，避免误伤）
   for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
-    if (await tryMountCollectUi()) return;
+    if (await tryMountCollectUi({ iframeOnlyObSport })) return;
     await sleep(COLLECT_POLL_MS);
   }
 }

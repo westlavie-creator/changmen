@@ -1,10 +1,90 @@
 import { PLATFORMS } from "./platforms.js";
 import { getCookie, sleep } from "./utils.js";
 import { getPolymarketCredentials } from "./polymarket/init.js";
+import {
+  buildObEsportConfig,
+  buildObSportConfig,
+  discoverObSportGateway,
+  findObSportIframeHref,
+  parseObEsportEntry,
+  parseObSportEntry,
+} from "./ob-entry.js";
 
 const IM_PATH =
   /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
 const IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
+
+const OB_SPORT_STORAGE_KEY = "gamebet.obSportCreds";
+const OB_SPORT_GATEWAY_WAIT_MS = 8000;
+const OB_SPORT_GATEWAY_POLL_MS = 400;
+
+/** @type {ReturnType<typeof setInterval>|null} */
+let obSportGatewayPoller = null;
+
+/** 体育 iframe 内把网关写入 storage，供父页 GetConfig 读取 */
+async function publishObSportGatewayHint(entry, gateway) {
+  if (!gateway || !chrome?.storage?.local) return;
+  try {
+    await chrome.storage.local.set({
+      [OB_SPORT_STORAGE_KEY]: {
+        token: entry.token,
+        sessionId: entry.sessionId,
+        gateway,
+        updatedAt: Date.now(),
+      },
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureObSportGatewayPublisher(entry) {
+  if (obSportGatewayPoller || !entry) return;
+  let tries = 0;
+  obSportGatewayPoller = setInterval(() => {
+    tries += 1;
+    const gw = discoverObSportGateway();
+    if (gw) {
+      void publishObSportGatewayHint(entry, gw);
+      clearInterval(obSportGatewayPoller);
+      obSportGatewayPoller = null;
+      return;
+    }
+    if (tries >= Math.ceil(OB_SPORT_GATEWAY_WAIT_MS / OB_SPORT_GATEWAY_POLL_MS)) {
+      clearInterval(obSportGatewayPoller);
+      obSportGatewayPoller = null;
+    }
+  }, OB_SPORT_GATEWAY_POLL_MS);
+}
+
+async function readObSportGatewayHint(entry) {
+  if (!chrome?.storage?.local) return null;
+  try {
+    const bag = await chrome.storage.local.get(OB_SPORT_STORAGE_KEY);
+    const row = bag?.[OB_SPORT_STORAGE_KEY];
+    if (!row || typeof row !== "object") return null;
+    if (row.token && entry?.token && String(row.token) !== String(entry.token)) return null;
+    if (Date.now() - Number(row.updatedAt || 0) > 30 * 60 * 1000) return null;
+    return row.gateway ? String(row.gateway) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveObSportGateway(entry) {
+  const deadline = Date.now() + OB_SPORT_GATEWAY_WAIT_MS;
+  while (Date.now() <= deadline) {
+    const fromPerf = discoverObSportGateway();
+    if (fromPerf) {
+      await publishObSportGatewayHint(entry, fromPerf);
+      return fromPerf;
+    }
+    const fromStore = await readObSportGatewayHint(entry);
+    if (fromStore) return fromStore;
+    await sleep(OB_SPORT_GATEWAY_POLL_MS);
+  }
+  return discoverObSportGateway() || (await readObSportGatewayHint(entry));
+}
 
 /** PB / ps3838：x-app-data 有 BrowserSessionId(_N)? + custid(_N)?，或顶层 token 含会话头 */
 function hasPbLoginSession() {
@@ -40,40 +120,61 @@ function hasPbLoginSession() {
 /** @type {Record<string, new () => { Check(): Promise<boolean>; GetConfig(): Promise<object|undefined> }>} */
 export const PROVIDER_REGISTRY = {
   [PLATFORMS.OB]: class ObProvider {
+    /** @type {"esport"|"sport"|null} */
+    _kind = null;
+    /** @type {string|null} 体育进馆 URL（本页或 iframe.src） */
+    _sportHref = null;
+
+    /** 仅体育允许在 iframe 挂采集图标（电竞仍只走顶层） */
+    allowIframeMount() {
+      return this._kind === "sport";
+    }
+
     async Check() {
-      const url = new URL(location.href);
-      const token = url.searchParams.get("token");
-      const addr = url.searchParams.get("addr");
-      if (!token || !/\d+/.test(token)) return false;
-      if (!addr) return false;
-      try {
-        const parsed = JSON.parse(window.atob(addr));
-        return Array.isArray(parsed.api);
-      } catch {
-        return false;
+      this._kind = null;
+      this._sportHref = null;
+
+      const esport = parseObEsportEntry(location.href);
+      if (esport) {
+        this._kind = "esport";
+        return true;
       }
+
+      const sportSelf = parseObSportEntry(location.href);
+      if (sportSelf) {
+        this._kind = "sport";
+        this._sportHref = location.href;
+        const gw = discoverObSportGateway();
+        if (gw) await publishObSportGatewayHint(sportSelf, gw);
+        else ensureObSportGatewayPublisher(sportSelf);
+        return true;
+      }
+
+      // 父页壳：…/game/sport/ob + iframe 进馆
+      if (window === window.top) {
+        const iframeHref = findObSportIframeHref(document);
+        if (iframeHref) {
+          this._kind = "sport";
+          this._sportHref = iframeHref;
+          return true;
+        }
+      }
+      return false;
     }
 
     async GetConfig() {
-      const url = new URL(location.href);
-      const token = url.searchParams.get("token");
-      const addr = url.searchParams.get("addr");
-      const parsed = JSON.parse(window.atob(addr));
-      const referer = `https://${location.host}/`;
-      return {
-        provider: PLATFORMS.OB,
-        gateway: parsed.api[0],
-        token,
-        referer,
-        data: window.btoa(
-          JSON.stringify({
-            provider: PLATFORMS.OB,
-            gateway: parsed.api,
-            token,
-            referer,
-          }),
-        ),
-      };
+      if (this._kind === "esport" || (!this._kind && parseObEsportEntry(location.href))) {
+        const entry = parseObEsportEntry(location.href);
+        if (!entry) return undefined;
+        return buildObEsportConfig(entry);
+      }
+
+      const href = this._sportHref || location.href;
+      const entry = parseObSportEntry(href);
+      if (!entry) return undefined;
+      const gateway = await resolveObSportGateway(entry);
+      if (!gateway) return undefined;
+      return buildObSportConfig(entry, gateway);
     }
   },
 

@@ -77,6 +77,7 @@
       panel.innerHTML = [
         row("\u7F51\u5173", "gateway"),
         row("token", "token"),
+        ...config.sessionId ? [row("sessionId", "sessionId")] : [],
         row("referer", "referer"),
         row("\u6570\u636E", "data"),
         '<div class="gamebet-collect-panel-confirm">\u786E\u5B9A</div>'
@@ -3457,9 +3458,202 @@
     });
   }
 
+  // src/content/ob-entry.js
+  function parseObEsportEntry(href) {
+    let url;
+    try {
+      url = typeof href === "string" ? new URL(href) : href;
+    } catch {
+      return null;
+    }
+    const token = url.searchParams.get("token") || "";
+    const addr = url.searchParams.get("addr") || "";
+    if (!token || !/\d+/.test(token) || !addr) return null;
+    try {
+      const parsed = JSON.parse(globalThis.atob(decodeURIComponent(addr)));
+      if (!Array.isArray(parsed?.api) || !parsed.api.length) return null;
+      return {
+        kind: "esport",
+        token,
+        gateway: String(parsed.api[0]),
+        gateways: parsed.api.map(String),
+        referer: `${url.protocol}//${url.host}/`,
+        addr
+      };
+    } catch {
+      return null;
+    }
+  }
+  function parseObSportEntry(href) {
+    let url;
+    try {
+      url = typeof href === "string" ? new URL(href) : href;
+    } catch {
+      return null;
+    }
+    if (parseObEsportEntry(url)) return null;
+    const token = (url.searchParams.get("token") || "").trim();
+    const api = url.searchParams.get("api");
+    const sessionId = (url.searchParams.get("sessionId") || "").trim();
+    if (!token || api == null || api === "" || !sessionId) return null;
+    if (!/^[0-9a-f]{16,}$/i.test(token) || /^\d+$/.test(token)) return null;
+    return {
+      kind: "sport",
+      token,
+      sessionId,
+      api,
+      referer: `${url.protocol}//${url.host}/`,
+      href: url.href
+    };
+  }
+  function discoverObSportGateway(performanceLike = globalThis.performance) {
+    const hosts = [];
+    const seen = /* @__PURE__ */ new Set();
+    try {
+      const entries = performanceLike?.getEntriesByType?.("resource") || [];
+      for (const entry of entries) {
+        const name = String(entry?.name || "");
+        let u;
+        try {
+          u = new URL(name);
+        } catch {
+          continue;
+        }
+        if (!/^https?:$/i.test(u.protocol)) continue;
+        const path = u.pathname || "";
+        const isObApi = /\/yewu\d*\//i.test(path) || /getFilterMatchListPB|structureTournamentMatchesPB|getAllMatchesOddsPB|getDateMenuListPB/i.test(
+          path
+        );
+        if (!isObApi) continue;
+        const origin2 = u.origin;
+        if (seen.has(origin2)) continue;
+        seen.add(origin2);
+        hosts.push(origin2);
+      }
+    } catch {
+    }
+    return hosts[0] || null;
+  }
+  function findObSportIframeHref(doc = document) {
+    try {
+      const frames = doc.querySelectorAll?.("iframe[src]") || [];
+      for (const frame of frames) {
+        const src = frame.getAttribute("src") || "";
+        if (!src) continue;
+        let abs = src;
+        try {
+          abs = new URL(src, doc.baseURI || location.href).href;
+        } catch {
+        }
+        if (parseObSportEntry(abs)) return abs;
+      }
+    } catch {
+    }
+    return null;
+  }
+  function buildObSportConfig(entry, gateway) {
+    const gate = gateway ? String(gateway).replace(/\/$/, "") : "";
+    const payload = {
+      provider: "OB",
+      kind: "sport",
+      gateway: gate ? [gate] : [],
+      token: entry.token,
+      sessionId: entry.sessionId,
+      api: entry.api,
+      referer: entry.referer
+    };
+    return {
+      provider: "OB",
+      gateway: gate,
+      token: entry.token,
+      referer: entry.referer,
+      sessionId: entry.sessionId,
+      data: globalThis.btoa(JSON.stringify(payload))
+    };
+  }
+  function buildObEsportConfig(entry) {
+    return {
+      provider: "OB",
+      gateway: entry.gateway,
+      token: entry.token,
+      referer: entry.referer,
+      data: globalThis.btoa(
+        JSON.stringify({
+          provider: "OB",
+          gateway: entry.gateways,
+          token: entry.token,
+          referer: entry.referer
+        })
+      )
+    };
+  }
+
   // src/content/providers.js
   var IM_PATH = /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
   var IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
+  var OB_SPORT_STORAGE_KEY = "gamebet.obSportCreds";
+  var OB_SPORT_GATEWAY_WAIT_MS = 8e3;
+  var OB_SPORT_GATEWAY_POLL_MS = 400;
+  var obSportGatewayPoller = null;
+  async function publishObSportGatewayHint(entry, gateway) {
+    if (!gateway || !chrome?.storage?.local) return;
+    try {
+      await chrome.storage.local.set({
+        [OB_SPORT_STORAGE_KEY]: {
+          token: entry.token,
+          sessionId: entry.sessionId,
+          gateway,
+          updatedAt: Date.now()
+        }
+      });
+    } catch {
+    }
+  }
+  function ensureObSportGatewayPublisher(entry) {
+    if (obSportGatewayPoller || !entry) return;
+    let tries = 0;
+    obSportGatewayPoller = setInterval(() => {
+      tries += 1;
+      const gw = discoverObSportGateway();
+      if (gw) {
+        void publishObSportGatewayHint(entry, gw);
+        clearInterval(obSportGatewayPoller);
+        obSportGatewayPoller = null;
+        return;
+      }
+      if (tries >= Math.ceil(OB_SPORT_GATEWAY_WAIT_MS / OB_SPORT_GATEWAY_POLL_MS)) {
+        clearInterval(obSportGatewayPoller);
+        obSportGatewayPoller = null;
+      }
+    }, OB_SPORT_GATEWAY_POLL_MS);
+  }
+  async function readObSportGatewayHint(entry) {
+    if (!chrome?.storage?.local) return null;
+    try {
+      const bag = await chrome.storage.local.get(OB_SPORT_STORAGE_KEY);
+      const row = bag?.[OB_SPORT_STORAGE_KEY];
+      if (!row || typeof row !== "object") return null;
+      if (row.token && entry?.token && String(row.token) !== String(entry.token)) return null;
+      if (Date.now() - Number(row.updatedAt || 0) > 30 * 60 * 1e3) return null;
+      return row.gateway ? String(row.gateway) : null;
+    } catch {
+      return null;
+    }
+  }
+  async function resolveObSportGateway(entry) {
+    const deadline = Date.now() + OB_SPORT_GATEWAY_WAIT_MS;
+    while (Date.now() <= deadline) {
+      const fromPerf = discoverObSportGateway();
+      if (fromPerf) {
+        await publishObSportGatewayHint(entry, fromPerf);
+        return fromPerf;
+      }
+      const fromStore = await readObSportGatewayHint(entry);
+      if (fromStore) return fromStore;
+      await sleep(OB_SPORT_GATEWAY_POLL_MS);
+    }
+    return discoverObSportGateway() || await readObSportGatewayHint(entry);
+  }
   function hasPbLoginSession() {
     const appRaw = localStorage.getItem("x-app-data");
     if (appRaw) {
@@ -3485,39 +3679,53 @@
   }
   var PROVIDER_REGISTRY = {
     [PLATFORMS.OB]: class ObProvider {
+      /** @type {"esport"|"sport"|null} */
+      _kind = null;
+      /** @type {string|null} 体育进馆 URL（本页或 iframe.src） */
+      _sportHref = null;
+      /** 仅体育允许在 iframe 挂采集图标（电竞仍只走顶层） */
+      allowIframeMount() {
+        return this._kind === "sport";
+      }
       async Check() {
-        const url = new URL(location.href);
-        const token = url.searchParams.get("token");
-        const addr = url.searchParams.get("addr");
-        if (!token || !/\d+/.test(token)) return false;
-        if (!addr) return false;
-        try {
-          const parsed = JSON.parse(window.atob(addr));
-          return Array.isArray(parsed.api);
-        } catch {
-          return false;
+        this._kind = null;
+        this._sportHref = null;
+        const esport = parseObEsportEntry(location.href);
+        if (esport) {
+          this._kind = "esport";
+          return true;
         }
+        const sportSelf = parseObSportEntry(location.href);
+        if (sportSelf) {
+          this._kind = "sport";
+          this._sportHref = location.href;
+          const gw = discoverObSportGateway();
+          if (gw) await publishObSportGatewayHint(sportSelf, gw);
+          else ensureObSportGatewayPublisher(sportSelf);
+          return true;
+        }
+        if (window === window.top) {
+          const iframeHref = findObSportIframeHref(document);
+          if (iframeHref) {
+            this._kind = "sport";
+            this._sportHref = iframeHref;
+            return true;
+          }
+        }
+        return false;
       }
       async GetConfig() {
-        const url = new URL(location.href);
-        const token = url.searchParams.get("token");
-        const addr = url.searchParams.get("addr");
-        const parsed = JSON.parse(window.atob(addr));
-        const referer = `https://${location.host}/`;
-        return {
-          provider: PLATFORMS.OB,
-          gateway: parsed.api[0],
-          token,
-          referer,
-          data: window.btoa(
-            JSON.stringify({
-              provider: PLATFORMS.OB,
-              gateway: parsed.api,
-              token,
-              referer
-            })
-          )
-        };
+        if (this._kind === "esport" || !this._kind && parseObEsportEntry(location.href)) {
+          const entry2 = parseObEsportEntry(location.href);
+          if (!entry2) return void 0;
+          return buildObEsportConfig(entry2);
+        }
+        const href = this._sportHref || location.href;
+        const entry = parseObSportEntry(href);
+        if (!entry) return void 0;
+        const gateway = await resolveObSportGateway(entry);
+        if (!gateway) return void 0;
+        return buildObSportConfig(entry, gateway);
       }
     },
     [PLATFORMS.RAY]: class RayProvider {
@@ -4268,8 +4476,9 @@
     };
     return provider;
   }
-  async function tryMountCollectUi() {
+  async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
     for (const platformId of PLATFORM_LIST) {
+      if (iframeOnlyObSport && platformId !== PLATFORMS.OB) continue;
       const ProviderCls = PROVIDER_REGISTRY[platformId];
       if (!ProviderCls) continue;
       let provider = createProvider(platformId);
@@ -4278,10 +4487,12 @@
         provider = wrapProviderForHga(provider);
       }
       try {
-        if (await provider.Check()) {
-          await mountCollectIcon(provider);
-          return true;
+        if (!await provider.Check()) continue;
+        if (iframeOnlyObSport && typeof provider.allowIframeMount === "function" && !provider.allowIframeMount()) {
+          continue;
         }
+        await mountCollectIcon(provider);
+        return true;
       } catch (err) {
         console.warn("[Gamebet] provider check failed", platformId, err);
       }
@@ -4289,10 +4500,10 @@
     return false;
   }
   async function detectAndMountCollectUi() {
-    if (window !== window.top) return;
     if (document.body?.querySelector(".gamebet-collect-float")) return;
+    const iframeOnlyObSport = window !== window.top;
     for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
-      if (await tryMountCollectUi()) return;
+      if (await tryMountCollectUi({ iframeOnlyObSport })) return;
       await sleep(COLLECT_POLL_MS);
     }
   }

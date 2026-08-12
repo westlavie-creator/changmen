@@ -11,6 +11,7 @@
 | `utils.js` | sleep、UUID、cookie、tab 内 fetch POST |
 | `collect-ui.js` | 浮动图标 + 凭证复制面板 |
 | `providers.js` | OB/RAY/IM/TF/IA/SABA/PB/IMT/HGA/HG/Stake/Dex/Polymarket 的 Check/GetConfig |
+| `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId` 解析与网关嗅探 |
 | `hga-poll.js` | HGA 注单轮询上报（对齐 A8 `Ie`） |
 | `tab-proxy.js` | 带 `options.tabId` 的消息转发到 Stake handler |
 | `stake/init.js` | stake.com：setTab + GraphQL WS + A8 Socket.IO |
