@@ -73,12 +73,12 @@ function saveBetOddsToFo(
   marketIds: { home: string; away: string },
   clobPrices?: { home?: number; away?: number },
 ) {
-  const locked = bet.Status === "Locked";
   const betId = String(bet.SourceBetID);
   const homeId = String(bet.SourceHomeID);
   const awayId = String(bet.SourceAwayID);
   const homePrice = clobPrices?.home;
-  // Index 种子：若该 token 已有 WS(mqtt) 价，勿用慢 Index 盖掉
+  // Index 种子：有 clob 的一侧按本侧可买解锁；勿用「对侧无价 → Status Locked」把本侧 fo 打成 isLock
+  // （否则 getOdds 恒为 0，盘口空白，而 OrderList 仍可读 clobPrice）。对齐 PM 13aaa8f6；http 勿盖 mqtt。
   if (Number.isFinite(homePrice) && isValidPredictClobPrice(homePrice!)) {
     const prev = source === "http" ? getVenueOddsEntry(PLATFORM, homeId) : null;
     if (!(prev?.source === "mqtt" && isValidPredictClobPrice(Number(prev.clobPrice)))) {
@@ -88,7 +88,7 @@ function saveBetOddsToFo(
         clobPrice: homePrice!,
         betId,
         side: "home",
-        locked: locked || !bet.HomeOdds,
+        locked: false,
       }, source);
     }
   }
@@ -102,7 +102,7 @@ function saveBetOddsToFo(
         clobPrice: awayPrice!,
         betId,
         side: "away",
-        locked: locked || !bet.AwayOdds,
+        locked: false,
       }, source);
     }
   }
