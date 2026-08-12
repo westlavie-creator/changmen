@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const writeProfileAsync = vi.hoisted(() => vi.fn(async () => {}));
 const fetchAccountRecordsByOwnerStrict = vi.hoisted(() => vi.fn(async () => []));
+const fetchAccountRecordsByOwner = vi.hoisted(() => vi.fn(async () => []));
 const saveAccountRecordsForOwner = vi.hoisted(() => vi.fn(async () => {}));
 const patchPlayerAccountRecord = vi.hoisted(() => vi.fn(async () => null));
 
@@ -10,7 +11,7 @@ vi.mock("@changmen/db", () => ({
   writeProfile: vi.fn(),
   fetchProfileById: vi.fn(async () => null),
   saveAccountRecordsForOwner,
-  fetchAccountRecordsByOwner: vi.fn(async () => []),
+  fetchAccountRecordsByOwner,
   fetchAccountRecordsByOwnerStrict,
   patchPlayerAccountRecord,
 }));
@@ -133,5 +134,29 @@ describe("core/db/store listAccountsForUser 读路径无写 (P0-3)", () => {
     ]);
     expect(saveAccountRecordsForOwner).toHaveBeenCalledTimes(1);
     expect(saveAccountRecordsForOwner.mock.calls[0][0]).toBe("p0-3-write");
+  });
+});
+
+describe("core/db/store loadAccountsForUserStrict (P0-4 D3)", () => {
+  beforeEach(() => {
+    fetchAccountRecordsByOwnerStrict.mockReset();
+  });
+
+  it("读成功：写入缓存并返回", async () => {
+    fetchAccountRecordsByOwnerStrict.mockResolvedValueOnce([
+      { accountId: 3, provider: "PredictFun" },
+    ]);
+    const list = await store.loadAccountsForUserStrict("pf-ok");
+    expect(list.map(a => a.accountId)).toEqual([3]);
+    expect(store.listAccountsForUser("pf-ok").map(a => a.accountId)).toEqual([3]);
+  });
+
+  it("读失败：抛错且不把缓存写成空列表", async () => {
+    await store.replaceAccountsForUser("pf-keep", [
+      { accountId: 5, provider: "PredictFun", playerName: "x" },
+    ]);
+    fetchAccountRecordsByOwnerStrict.mockRejectedValueOnce(new Error("rds down"));
+    await expect(store.loadAccountsForUserStrict("pf-keep")).rejects.toThrow("rds down");
+    expect(store.listAccountsForUser("pf-keep").map(a => a.accountId)).toEqual([5]);
   });
 });

@@ -153,6 +153,18 @@ export async function loadAccountsForUser(uid) {
   return normalized;
 }
 
+/**
+ * [P0-4 D3] 严格回源：RDS 读失败抛错，且失败时不改内存缓存。
+ * 供管理端 ensurePredictFunHouseAccount 等「读失败不能当空」路径使用。
+ */
+export async function loadAccountsForUserStrict(uid) {
+  const id = String(uid);
+  const records = await sb.fetchAccountRecordsByOwnerStrict(id);
+  const normalized = normalizeAccountList(records);
+  _accountsCache.set(id, normalized);
+  return normalized;
+}
+
 /** 内存 accounts 为空时从 players 回源 */
 export async function refreshAccountsFromRdsIfEmpty(uid) {
   const id = String(uid);

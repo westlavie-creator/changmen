@@ -5,7 +5,7 @@
 import * as sb from "@changmen/db";
 import { isAdminUser } from "../auth/admin_auth.js";
 import { filterProfiles, getVisibleUserIds, resolveVisibleUserIds } from "../auth/role_filter.js";
-import { listProfileRows, loadAccountsForUser, loadProfileById } from "../db/store.js";
+import { listProfileRows, loadAccountsForUser, loadAccountsForUserStrict, loadProfileById } from "../db/store.js";
 import store from "../esport-api/store.js";
 import { summarizePfOrders } from "../integrations/predictfun/pf_ledger.js";
 import * as accountStore from "./account_store.js";
@@ -130,7 +130,14 @@ export async function ensurePredictFunHouseAccount(userId, caller = null) {
     throw new Error("用户不存在");
 
   const playerName = String(profile.user_name || "").trim() || uid.slice(0, 8);
-  await loadAccountsForUser(uid);
+  // [P0-4 D3] 严格回源：读失败不得当「无账号」去 CreateTagPlatform（会重复建 PF）
+  try {
+    await loadAccountsForUserStrict(uid);
+  }
+  catch (err) {
+    console.error("[admin_pf] ensurePredictFunHouseAccount 读账号失败，已中止:", err?.message);
+    throw new Error("账号读取失败，请稍后重试（已阻止重复开通）");
+  }
   const accounts = [...store.getAccountsForUser(uid)];
   const existing = findPredictFunAccount(accounts);
   if (existing) {
