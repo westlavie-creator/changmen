@@ -52,7 +52,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 |----|------|------|------|------|
 | P0-2 | 用户设置写：await + 失败回滚 + `ok:false` | `core/db/store.js`、`profile_store.js` 等 | 低 | ✅ 已完成 |
 | P0-1 | RDS 写队列 drop 可观测 + 告警（先只加监控） | `server/db/rds/common.js` | 低（纯监控）/ 中（若改背压） | 🔶 第一步完成（可观测）；补 key / 背压待后续 |
-| P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | 🔶 D1~D4 已完成；D5 未做 |
+| P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | ✅ D1~D5 已完成 |
 | P0-3 | 账号读路径 `listAccountsForUser` 写副作用竞态 | `core/db/store.js` | 中→偏高 | ✅ 已完成 |
 
 **执行顺序建议**：P0-2（已完成）→ P0-1（先只加告警）→ P0-4 → P0-3（最敏感，放最后）。
@@ -82,7 +82,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | D2 | `account/order_store.saveOrder`（PF/PM 全经此） | `fetchOrdersByPlayerOrderIds` | 读失败→当新单→覆盖 `pfLedgerState`/`pmOrigin`/卖单 proceeds | **data-loss / 资金** |
 | D3 | `admin_pf.ensurePredictFunHouseAccount` | `fetchAccountRecordsByOwner` | 读失败→`!existing`→重复 insert 第二条 PF 账号 | **data-loss** ✅ 已修（`loadAccountsForUserStrict`） |
 | D4 | `account_store.createTagPlatform` / `findVenueAccountKeyConflict` | `fetchPlayerByVenueAccountKey`/`findVenueAccountKeyConflict` | 冲突检测失败→当"无冲突"→继续 insert（DB unique 兜底） | **security（已被约束缓解）** ✅ 已修（Strict + 写路径 fail-closed） |
-| D5 | PF 结算/入账 `loadPfOrders`（`pf_player_account`/`pf_exec_settle`） | `fetchOrdersByPlayer` | 读失败→跳过结算/`pending_credit` 不入账（fail-safe 方向，重试可恢复） | **资金（可恢复）** |
+| D5 | PF 结算/入账 `loadPfOrders`（`pf_player_account`/`pf_exec_settle`） | `fetchOrdersByPlayer` | 读失败→跳过结算/`pending_credit` 不入账（fail-safe 方向，重试可恢复） | **资金（可恢复）** ✅ 已修（`fetchOrdersByPlayerStrict` + `loadPfOrdersStrict`） |
 
 **技术方案（兼容 → 迁移，零回归优先）**：
 
@@ -102,7 +102,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 - (b) D1~D3（含重复账号）；
 - (c) 全部 D1~D5。
 
-> 现状：已选 (b) 并完成 D1+D2+D3。剩余 D4~D5 待定。
+> 现状：已完成 D1~D5（范围 c）。P0-4 危险子集收口。
 
 ### P1 — 性能热点
 
@@ -260,3 +260,5 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | 2026-08-07 | PM-ID 抖动（composer 审计 P0-3 根因） | `polymarket-esports`：新增 `polymarketEventForceDeletable`（只认稳定单调 `closed`，**不看**官方明示会抖的 `ended`）；exclude 仅收 `closed`，`ended` 仅跳过采集不强删；`loop.js` 的 `forceDeleteIds` 减去本轮 candidates（双保险）。根因：结算过渡期 `ended` 每 60~120s 翻转→仍 acceptingOrders 的场被反复写→强删→`platform_matches.match_id` 外键置空→ID 复用断裂→重建换新 ID（13 活跃却用到 id=913）。生产取证：PM 6h 内 114 次删除仅涉 46 场（均 2.5 次/场），757708 每 60s 写删一轮 863→885→null | PM 采集器 22/22（全新执行非缓存）；全量 turbo 9/11 通过，2 失败（web 7 汇率/URL、ws-forward RAY 握手）经 `git stash` 基线对照逐条一致，为既有无关问题；提交 `f56608e5` | 复核推翻早期"ended_filter 相邻周期翻转"假设：真因在 PM 采集器写删，非 composer 结束判定 |
 | 2026-08-13 | P0-3 | `listAccountsForUser` 去掉 fire-and-forget `saveAccountRecordsForOwner`；乘网规范化仅更新内存，落库留给 `replaceAccountsForUser`/SaveData | `store.settings.test.mjs` 新增 2 测（读不写 RDS / 显式 replace 仍写），全文件通过 | 未另做 dirty 后台 flush：与「读不写、写路径唯一」一致；历史 multiply 待下次 SaveData 落库，运行时内存已规范化 |
 | 2026-08-13 | P0-4 D3 | 新增 `loadAccountsForUserStrict`（失败抛、不污染缓存）；`ensurePredictFunHouseAccount` 改用 strict，读失败抛「已阻止重复开通」且不 CreateTagPlatform | `admin_pf_ensure.test.js` 3 测 + `store.settings` 2 测 strict 全过 | 列表/充值等展示路径仍用 lenient `loadAccountsForUser` |
+| 2026-08-13 | P0-4 D4 | 新增 `fetchPlayerByVenueAccountKeyStrict` / `findVenueAccountKeyConflictStrict`；`createTagPlatform`、`insertPlayerRow`、`batchSavePlayerAccountRecords` 写路径改 strict，读失败中止建号/保存 | `account_store_create_tag.test.js` 4/4（含 D4 失败中止） | lenient 版保留给非写路径；DB unique 仍为第二道保险 |
+| 2026-08-13 | P0-4 D5 | 新增 `fetchOrdersByPlayerStrict` + `loadPfOrdersStrict`；结算/入账/卖出/恢复/官方同步/client handlers 改 strict；读失败中止（不当「无单」跳过）。`publishPfBalanceKnown` 等展示仍用 lenient | `pf_player_account_d5` + `orders_store` D5 + `pf_recover_stuck`/`pf_client_handlers` mock 共用 Strict | P0-4 危险子集全部完成 |

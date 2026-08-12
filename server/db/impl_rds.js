@@ -65,6 +65,7 @@ export {
   fetchOrdersByUserOrderIds,
   fetchPredictionSellsByBuyOrderIds,
   fetchOrdersByPlayer,
+  fetchOrdersByPlayerStrict,
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,
   fetchOrdersByPlayerOrderIdsStrict,

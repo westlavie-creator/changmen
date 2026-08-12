@@ -15,7 +15,7 @@ import { roundUsdt } from "./pf_ledger.js";
 import { readPfLedgerState } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
-  loadPfOrders,
+  loadPfOrdersStrict,
   publishPfBalanceKnown,
 } from "./pf_player_account.js";
 import {
@@ -73,7 +73,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
     }
     if (readPfLedgerState(rdsRow) === "pending_credit") {
       return withHouseOrderLock(async () => {
-        const freshList = await loadPfOrders(playerId, userId);
+        const freshList = await loadPfOrdersStrict(playerId, userId);
         const key = rdsOrderKey(rdsRow);
         const fresh = freshList.find(row => rdsOrderKey(row) === key) ?? rdsRow;
         if (rdsAlreadyRefunded(fresh)) {
@@ -103,7 +103,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
 
   if (venueOrder.status === "reject" && isOpenChangmenOrderStatus(rdsOrderStatus(rdsRow))) {
     return withHouseOrderLock(async () => {
-      const freshList = await loadPfOrders(playerId, userId);
+      const freshList = await loadPfOrdersStrict(playerId, userId);
       const key = rdsOrderKey(rdsRow);
       const fresh = freshList.find(row => rdsOrderKey(row) === key) ?? rdsRow;
       if (rdsAlreadyRefunded(fresh) || !isOpenChangmenOrderStatus(rdsOrderStatus(fresh))) {
@@ -326,7 +326,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
 
     if (sellProceedsFix) {
       // ???? fee??? fee + ?? proceeds + ??????????????????
-      const list = await loadPfOrders(playerId, userId);
+      const list = await loadPfOrdersStrict(playerId, userId);
       const buy = list.find((row) => {
         const id = rdsOrderKey(row);
         const hash = rdsPfHash(row);

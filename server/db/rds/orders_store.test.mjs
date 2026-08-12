@@ -48,6 +48,17 @@ describe("orders_store read SQL", () => {
     expect(params).toEqual(["user-1", 7]);
   });
 
+  it("P0-4 D5: fetchOrdersByPlayerStrict throws on query failure", async () => {
+    const { fetchOrdersByPlayerStrict } = await import("./orders_store.js");
+    queryMock.mockRejectedValueOnce(new Error("rds down"));
+    await expect(fetchOrdersByPlayerStrict(7, "user-1")).rejects.toThrow("rds down");
+  });
+
+  it("P0-4 D5: fetchOrdersByPlayer still returns [] on failure (lenient)", async () => {
+    queryMock.mockRejectedValueOnce(new Error("rds down"));
+    await expect(fetchOrdersByPlayer(7, "user-1")).resolves.toEqual([]);
+  });
+
   it("fetchOrdersByPlayer with sinceCreateAt keeps window + open Polymarket buys", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByPlayer(7, "user-1", { sinceCreateAt: 1_700_000_000_000 });

@@ -116,9 +116,14 @@ vi.mock("../../account/order_store.js", () => ({
   },
 }));
 
-vi.mock("@changmen/db", () => ({
-  fetchOrdersByPlayer: vi.fn(async () => []),
-}));
+vi.mock("@changmen/db", () => {
+  const fetchOrdersByPlayer = vi.fn(async () => []);
+  return {
+    fetchOrdersByPlayer,
+    // [P0-4 D5] Strict 与 lenient 共用同一 mock，既有用例无需逐条改
+    fetchOrdersByPlayerStrict: (...args) => fetchOrdersByPlayer(...args),
+  };
+});
 
 vi.mock("../../esport-api/store.js", () => ({
   default: {

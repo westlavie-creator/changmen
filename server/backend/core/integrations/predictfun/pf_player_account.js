@@ -47,8 +47,7 @@ export async function resolvePfBalance(player, userId, playerId) {
   return bal;
 }
 
-export async function loadPfOrders(playerId, userId) {
-  const rows = await sb.fetchOrdersByPlayer(playerId, userId);
+function mapPfOrderRows(rows) {
   return (rows || []).map((r) => {
     const base = rowToOrder(r);
     const raw = r.raw && typeof r.raw === "object" && !Array.isArray(r.raw) ? r.raw : {};
@@ -94,6 +93,20 @@ export async function loadPfOrders(playerId, userId) {
       })(),
     };
   });
+}
+
+/** lenient：RDS 失败→[]（仅展示/统计） */
+export async function loadPfOrders(playerId, userId) {
+  const rows = await sb.fetchOrdersByPlayer(playerId, userId);
+  return mapPfOrderRows(rows);
+}
+
+/**
+ * [P0-4 D5] strict：RDS 失败抛错，勿当「无订单」跳过结算/入账。
+ */
+export async function loadPfOrdersStrict(playerId, userId) {
+  const rows = await sb.fetchOrdersByPlayerStrict(playerId, userId);
+  return mapPfOrderRows(rows);
 }
 
 /** @deprecated 用户路径勿用绝对值 SET；仅遗留兼容 */
@@ -151,7 +164,8 @@ export async function applyPendingPfLedgerCredit(playerId, userId, row) {
 }
 
 export async function retryPendingPfLedgerCredits(playerId, userId) {
-  const list = await loadPfOrders(playerId, userId);
+  // [P0-4 D5] 严格读：失败不得当「无 pending_credit」跳过入账
+  const list = await loadPfOrdersStrict(playerId, userId);
   let creditedCount = 0;
   let creditedUsdt = 0;
   for (const row of list) {
@@ -159,7 +173,7 @@ export async function retryPendingPfLedgerCredits(playerId, userId) {
       continue;
     let result = { ok: false };
     await withHouseOrderLock(async () => {
-      const freshList = await loadPfOrders(playerId, userId);
+      const freshList = await loadPfOrdersStrict(playerId, userId);
       const fresh = freshList.find(r => rdsOrderKey(r) === rdsOrderKey(row));
       if (!fresh || readPfLedgerState(fresh) !== "pending_credit")
         return;

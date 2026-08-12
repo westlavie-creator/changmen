@@ -7,7 +7,7 @@ import { roundUsdt } from "./pf_ledger.js";
 import { isPfSellBlockedForSettle } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
-  loadPfOrders,
+  loadPfOrdersStrict,
   publishPfBalanceKnown,
   resolvePfBalance,
   retryPendingPfLedgerCredits,
@@ -31,7 +31,8 @@ import { upsertPfServerOrder } from "./pf_server_order.js";
 export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
   await retryPendingPfLedgerCredits(playerId, userId);
 
-  const list = await loadPfOrders(playerId, userId);
+  // [P0-4 D5] 严格读：失败不得当「无待结算单」跳过
+  const list = await loadPfOrdersStrict(playerId, userId);
   const marketCache = new Map();
   let settled = 0;
   let wins = 0;
@@ -96,7 +97,7 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
 
     let applied = null;
     await withHouseOrderLock(async () => {
-      const freshList = await loadPfOrders(playerId, userId);
+      const freshList = await loadPfOrdersStrict(playerId, userId);
       const key = rdsOrderKey(rdsRow);
       const fresh = freshList.find(row => rdsOrderKey(row) === key);
       if (!fresh || String(rdsOrderStatus(fresh)).toLowerCase() !== "none")

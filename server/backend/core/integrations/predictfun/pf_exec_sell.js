@@ -17,7 +17,7 @@ import {
 } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
-  loadPfOrders,
+  loadPfOrdersStrict,
   publishPfBalanceKnown,
   resolvePfBalance,
 } from "./pf_player_account.js";
@@ -55,7 +55,7 @@ import { upsertPfServerOrder } from "./pf_server_order.js";
  * @throws {Error}
  */
 export async function executePfSellInLock({ playerId, userId, buyOrderId }) {
-  const list = await loadPfOrders(playerId, userId);
+  const list = await loadPfOrdersStrict(playerId, userId);
   const buy = findPfOrderInList(list, buyOrderId);
   const gateSell = evaluatePfBuyForSell(buy);
   if (!gateSell.ok)

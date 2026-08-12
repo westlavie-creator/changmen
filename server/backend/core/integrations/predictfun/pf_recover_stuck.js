@@ -5,7 +5,7 @@
 import { isPfSellClosing } from "./pf_lifecycle.js";
 import { executePfSellInLock } from "./pf_exec_sell.js";
 import {
-  loadPfOrders,
+  loadPfOrdersStrict,
   retryPendingPfLedgerCredits,
 } from "./pf_player_account.js";
 import { rdsOrderKey } from "./pf_order_row.js";
@@ -19,7 +19,7 @@ import { withHouseOrderLock } from "./pf_order_service.js";
  */
 export async function recoverPfStuckOrdersForPlayer(playerId, userId) {
   const pendingCredit = await retryPendingPfLedgerCredits(playerId, userId);
-  const list = await loadPfOrders(playerId, userId);
+  const list = await loadPfOrdersStrict(playerId, userId);
   const closingRows = list.filter(isPfSellClosing);
   /** @type {Array<{ buyOrderId: string, ok: boolean, msg?: string, info?: object }>} */
   const closing = [];
@@ -52,7 +52,7 @@ export async function recoverPfStuckOrdersForPlayer(playerId, userId) {
 
 /** 只列出卡住项（不执行补偿） */
 export async function listPfStuckOrdersForPlayer(playerId, userId) {
-  const list = await loadPfOrders(playerId, userId);
+  const list = await loadPfOrdersStrict(playerId, userId);
   const pendingCredit = list
     .filter((row) => String(row.pfLedgerState ?? "").toLowerCase() === "pending_credit")
     .map((row) => ({

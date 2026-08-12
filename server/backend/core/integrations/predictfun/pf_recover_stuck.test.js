@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./pf_player_account.js", () => ({
-  loadPfOrders: vi.fn(async () => []),
+  loadPfOrdersStrict: vi.fn(async () => []),
   retryPendingPfLedgerCredits: vi.fn(async () => ({ creditedCount: 0, creditedUsdt: 0 })),
 }));
 
@@ -15,8 +15,8 @@ vi.mock("./pf_order_service.js", () => ({
 
 describe("pf_recover_stuck", () => {
   it("lists pending_credit and closing without executing", async () => {
-    const { loadPfOrders } = await import("./pf_player_account.js");
-    loadPfOrders.mockResolvedValueOnce([
+    const { loadPfOrdersStrict } = await import("./pf_player_account.js");
+    loadPfOrdersStrict.mockResolvedValueOnce([
       {
         orderId: "0xbuy",
         pfLedgerState: "pending_credit",
@@ -41,9 +41,9 @@ describe("pf_recover_stuck", () => {
   });
 
   it("recovers closing via executePfSellInLock", async () => {
-    const { loadPfOrders, retryPendingPfLedgerCredits } = await import("./pf_player_account.js");
+    const { loadPfOrdersStrict, retryPendingPfLedgerCredits } = await import("./pf_player_account.js");
     const { executePfSellInLock } = await import("./pf_exec_sell.js");
-    loadPfOrders.mockResolvedValueOnce([
+    loadPfOrdersStrict.mockResolvedValueOnce([
       {
         orderId: "0xclosing",
         OrderID: "0xclosing",

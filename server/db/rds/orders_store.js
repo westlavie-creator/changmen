@@ -586,40 +586,50 @@ export async function fetchOrdersByDatePage(date, userId, pageIndex = 1, pageSiz
  *   sinceCreateAt>0 时：[changmen 扩展] 只返回窗口内订单，并额外保留
  *   Polymarket 仍有可卖剩余份额的买单（对齐 hasOpenPolymarketPosition / PM_SHARE_DUST=0.01）。
  *   省略则全量（MoneyRiskView / A8 Client_GetPlayerOrder）。
+ * strict：查询失败向上抛（供 PF 结算/入账等写路径 fail-closed）。
+ * 无 pool / 无 userId → `[]`（正常语义，非失败）。
  */
-export async function fetchOrdersByPlayer(playerId, userId, opts = undefined) {
+export async function fetchOrdersByPlayerStrict(playerId, userId, opts = undefined) {
   const pool = getPgPool();
   if (!pool || !userId)
     return [];
   const since = Number(opts?.sinceCreateAt);
   const useSince = Number.isFinite(since) && since > 0;
-  try {
-    const { rows } = await pool.query(
-      useSince
-        ? `SELECT * FROM orders
-           WHERE user_id = $1 AND player_id = $2
-             AND (
-               create_at >= $3
-               OR (
-                 provider ILIKE 'Polymarket'
-                 AND coalesce(raw->>'pmSide', '') IS DISTINCT FROM 'sell'
-                 AND coalesce(raw->>'pmSellState', '') NOT IN ('closed', 'settled')
-                 AND lower(coalesce(status, '')) NOT IN ('reject', 'return', 'pending')
-                 AND (
-                   coalesce(nullif(raw->>'pmShares', ''), '0')::float8
-                   - coalesce(nullif(raw->>'pmAttributedSellShares', ''), '0')::float8
-                 ) > 0.01
-               )
+  const { rows } = await pool.query(
+    useSince
+      ? `SELECT * FROM orders
+         WHERE user_id = $1 AND player_id = $2
+           AND (
+             create_at >= $3
+             OR (
+               provider ILIKE 'Polymarket'
+               AND coalesce(raw->>'pmSide', '') IS DISTINCT FROM 'sell'
+               AND coalesce(raw->>'pmSellState', '') NOT IN ('closed', 'settled')
+               AND lower(coalesce(status, '')) NOT IN ('reject', 'return', 'pending')
+               AND (
+                 coalesce(nullif(raw->>'pmShares', ''), '0')::float8
+                 - coalesce(nullif(raw->>'pmAttributedSellShares', ''), '0')::float8
+               ) > 0.01
              )
-           ORDER BY create_at DESC`
-        : `SELECT * FROM orders
-           WHERE user_id = $1 AND player_id = $2
-           ORDER BY create_at DESC`,
-      useSince
-        ? [String(userId), Number(playerId), since]
-        : [String(userId), Number(playerId)],
-    );
-    return rows || [];
+           )
+         ORDER BY create_at DESC`
+      : `SELECT * FROM orders
+         WHERE user_id = $1 AND player_id = $2
+         ORDER BY create_at DESC`,
+    useSince
+      ? [String(userId), Number(playerId), since]
+      : [String(userId), Number(playerId)],
+  );
+  return rows || [];
+}
+
+/**
+ * @param {{ sinceCreateAt?: number }} [opts]
+ * lenient：失败吞成 `[]`（展示/统计）；写路径请用 Strict。
+ */
+export async function fetchOrdersByPlayer(playerId, userId, opts = undefined) {
+  try {
+    return await fetchOrdersByPlayerStrict(playerId, userId, opts);
   }
   catch (err) {
     console.warn("[rds] fetchOrdersByPlayer:", err.message);

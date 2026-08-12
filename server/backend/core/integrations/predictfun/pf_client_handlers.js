@@ -21,7 +21,7 @@ import {
   withHouseOrderLock,
 } from "./pf_order_service.js";
 import {
-  loadPfOrders,
+  loadPfOrdersStrict,
   publishPfBalanceKnown,
   resolvePfBalance,
   retryPendingPfLedgerCredits,
@@ -317,7 +317,7 @@ export async function handlePfGetOrder(body, userId) {
       console.warn("[Pf_GetOrder] pending credit retry skipped", err);
     }
 
-    const list = await loadPfOrders(gate.playerId, userId);
+    const list = await loadPfOrdersStrict(gate.playerId, userId);
     const rdsRow = findPfOrderInList(list, orderId);
 
     // 用户只认 changmen RDS：无本人订单则拒绝，禁止 house 代查任意 hash
@@ -369,7 +369,7 @@ export async function handlePfGetOrders(body, userId) {
     return gate;
 
   try {
-    const list = await loadPfOrders(gate.playerId, userId);
+    const list = await loadPfOrdersStrict(gate.playerId, userId);
     const orders = [];
     let refundedCount = 0;
 
@@ -411,7 +411,7 @@ export async function handlePfGetOrders(body, userId) {
       settleStats = await settleResolvedPfOrdersForPlayer(gate.playerId, userId);
       if (settleStats.settled > 0) {
         // 结算后重载列表，保证返回含 Win/Lose
-        const refreshed = await loadPfOrders(gate.playerId, userId);
+        const refreshed = await loadPfOrdersStrict(gate.playerId, userId);
         orders.length = 0;
         for (const rdsRow of refreshed) {
           orders.push(mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)));

@@ -115,6 +115,7 @@ export const {
   fetchOrdersByDate,
   fetchOrdersByDatePage,
   fetchOrdersByPlayer,
+  fetchOrdersByPlayerStrict,
   fetchOrdersByPlayerAll,
   fetchOrdersByPlayerOrderIds,
   fetchOrdersByPlayerOrderIdsStrict,
