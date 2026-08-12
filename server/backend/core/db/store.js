@@ -128,16 +128,20 @@ export async function pullProfilesFromDb() {
 
 const _accountsCache = new Map();
 
+/**
+ * 读内存账号（规范化乘网等）。
+ * [P0-3] 读路径不得写 RDS：曾 fire-and-forget saveAccountRecordsForOwner，
+ * 与 replaceAccountsForUser 竞态可覆盖/丢账号。规范化仅更新内存；
+ * 落库由 replaceAccountsForUser / SaveData 等显式写路径完成。
+ */
 export function listAccountsForUser(uid) {
   const id = String(uid);
   const cached = _accountsCache.get(id);
   if (!cached)
     return [];
   const normalized = normalizeAccountList(cached);
-  if (accountsMultiplyNeedsPersist(cached, normalized)) {
+  if (accountsMultiplyNeedsPersist(cached, normalized))
     _accountsCache.set(id, normalized);
-    sb.saveAccountRecordsForOwner(id, normalized);
-  }
   return normalized;
 }
 

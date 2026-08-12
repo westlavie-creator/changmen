@@ -3,7 +3,7 @@
 本文件是 changmen **代码优化的唯一跟踪入口**：记录待办、风险、执行规约与进度。
 AI 助手每次执行优化任务都**按本文档进行**，用户可据此查看与验收。
 
-- 最近更新：2026-08-03
+- 最近更新：2026-08-13
 - 关联：[ARCHITECTURE.md](./ARCHITECTURE.md)、[DATA_STORAGE.md](./DATA_STORAGE.md)、[ACCOUNT_BACKEND.md](./ACCOUNT_BACKEND.md)
 - **目录注记（2026-08-07）**：match 模块已整合——`match-engine/` → `server/match/identity`、`team-resolver/` → `server/match/resolver`、`matcher/`+`match-composer/` → `server/match/matcher`。下文旧目录名为当时命名；现路径以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准。
 
@@ -53,7 +53,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | P0-2 | 用户设置写：await + 失败回滚 + `ok:false` | `core/db/store.js`、`profile_store.js` 等 | 低 | ✅ 已完成 |
 | P0-1 | RDS 写队列 drop 可观测 + 告警（先只加监控） | `server/db/rds/common.js` | 低（纯监控）/ 中（若改背压） | 🔶 第一步完成（可观测）；补 key / 背压待后续 |
 | P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | 🔶 D1+D2 已完成（数据丢失项，范围 a）；D3~D5 未做 |
-| P0-3 | 账号读路径 `listAccountsForUser` 写副作用竞态 | `core/db/store.js:117-127` | 中→偏高 | TODO |
+| P0-3 | 账号读路径 `listAccountsForUser` 写副作用竞态 | `core/db/store.js` | 中→偏高 | ✅ 已完成 |
 
 **执行顺序建议**：P0-2（已完成）→ P0-1（先只加告警）→ P0-4 → P0-3（最敏感，放最后）。
 
@@ -66,7 +66,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
   - 🔶 **`_writeRds` key 审计结论**（供第二步）：高频采集写 `platform_matches`/`platform_bets`/`live_timers` **均已带 `key`**（coalesce，不丢，热路径安全）；**无 key** 的有 `client_matches`、`sport_client_matches:${sport}`（单写者 / 全量替换，**可安全补常量/按 sport 的 key**）与 `sport_venue_matches`/`sport_venue_bets`/`sport_team_venue_maps`（**increment upsert，补常量 key 会误 coalesce 丢数据，不可裸补**）。补 key 属写语义改动，留第二步逐一评估。
   - ⏳ **第二步（可选、需压测）**：给可安全的写补 key；对采集热路径做背压或调大队列。
 - **P0-4**：catch 后统一 `return []`/`null`，调用方无法区分空/错。`client_matches` 链路已用 `null=失败/[]=空`（可参考）。**实测 42 个读函数全部混淆，但只有一小撮"读驱动写/结算"才是真 P0**——详见下「P0-4 落地设计」，只精修危险子集，不做 42 函数大扫除。
-- **P0-3**：读函数里 `sb.saveAccountRecordsForOwner(...)` 无 await，与 `replaceAccountsForUser` 竞态。方案：读路径不做写副作用，规范化改 dirty 标记由单一写路径 flush；账号数据敏感，必须配足单测 + 灰度。
+- **P0-3**：✅ 已完成。读函数里 `sb.saveAccountRecordsForOwner(...)` 无 await，与 `replaceAccountsForUser` 竞态。已改为读路径只更新内存规范化结果，不再写 RDS；落库仅由 `replaceAccountsForUser` / SaveData 等显式写路径完成。
 
 #### P0-4 落地设计（区分「空」与「查询失败」）— 待批范围
 
@@ -258,3 +258,4 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | 2026-08-04 | P0-4 D2 | 新增 `fetchOrdersByPlayerOrderIdsStrict`（同上语义）+ facade 导出；`saveOrder` 合并基线改用 strict，读失败 `return false` 中止（不 upsert 覆盖账本）；`order_store_link.test.mjs` mock 把 strict 与 lenient 指向同一 fn 让既有 29 用例继续驱动 | 新增 D2 abort 用例通过；`git stash` 对比 8 个 tracked 文件 lint 63=63 零新增 | pf_exec_buy 对 `false` 已有重试+清晰报错，读写共池"RDS 挂"两者同样失败，无实际回归 |
 | 2026-08-04 | 顺手修（非 P0-4） | 修 `order_store_link.test.mjs > PM settled open buy...` 预存在失败：`money` 断言由写死 `50` 改为按结算公式 `shares*fx-bet` 动态算（`57b93bf8` 改结算 PnL、`3d6c6fff` 改汇率 6.8→6.7 后测试未同步）。34 是正确的 fee-inclusive 结算值 | 该文件 30/30 全绿；deploy 门 `npm run app:build` 通过；后端测试门 42/42；`check:boundaries` OK；两个 `user_*` node-assert 文件用 `node` 跑各自 ok（非 vitest 用例、`npm test` 不 glob 到） | 因编辑过该文件顺手清红，非 P0-4 范围；34≠50 本就不在 deploy/CI 门内 |
 | 2026-08-07 | PM-ID 抖动（composer 审计 P0-3 根因） | `polymarket-esports`：新增 `polymarketEventForceDeletable`（只认稳定单调 `closed`，**不看**官方明示会抖的 `ended`）；exclude 仅收 `closed`，`ended` 仅跳过采集不强删；`loop.js` 的 `forceDeleteIds` 减去本轮 candidates（双保险）。根因：结算过渡期 `ended` 每 60~120s 翻转→仍 acceptingOrders 的场被反复写→强删→`platform_matches.match_id` 外键置空→ID 复用断裂→重建换新 ID（13 活跃却用到 id=913）。生产取证：PM 6h 内 114 次删除仅涉 46 场（均 2.5 次/场），757708 每 60s 写删一轮 863→885→null | PM 采集器 22/22（全新执行非缓存）；全量 turbo 9/11 通过，2 失败（web 7 汇率/URL、ws-forward RAY 握手）经 `git stash` 基线对照逐条一致，为既有无关问题；提交 `f56608e5` | 复核推翻早期"ended_filter 相邻周期翻转"假设：真因在 PM 采集器写删，非 composer 结束判定 |
+| 2026-08-13 | P0-3 | `listAccountsForUser` 去掉 fire-and-forget `saveAccountRecordsForOwner`；乘网规范化仅更新内存，落库留给 `replaceAccountsForUser`/SaveData | `store.settings.test.mjs` 新增 2 测（读不写 RDS / 显式 replace 仍写），全文件通过 | 未另做 dirty 后台 flush：与「读不写、写路径唯一」一致；历史 multiply 待下次 SaveData 落库，运行时内存已规范化 |
