@@ -16,25 +16,25 @@ describe("market_hub_route", () => {
     vi.unstubAllEnvs();
   });
 
-  it("defaults: gb11–15 → ws, others → ws2", async () => {
+  it("defaults: everyone → ws (202)", async () => {
     const mod = await import("./market_hub_route.js");
     expect(mod.resolveMarketHubOriginForUser("GB11")).toBe("https://ws.changmen.fun");
     expect(mod.resolveMarketHubOriginForUser("gb15")).toBe("https://ws.changmen.fun");
-    expect(mod.resolveMarketHubOriginForUser("gb16")).toBe("https://ws2.changmen.fun");
-    expect(mod.resolveMarketHubOriginForUser("")).toBe("https://ws2.changmen.fun");
+    expect(mod.resolveMarketHubOriginForUser("gb16")).toBe("https://ws.changmen.fun");
+    expect(mod.resolveMarketHubOriginForUser("")).toBe("https://ws.changmen.fun");
   });
 
-  it("env list overrides default when no file", async () => {
+  it("env list without file still defaults everyone to ws", async () => {
     vi.stubEnv("MARKET_HUB_PRIMARY_USERS", "alice, Bob");
     const mod = await import("./market_hub_route.js");
     expect(mod.resolveMarketHubOriginForUser("alice")).toBe("https://ws.changmen.fun");
     expect(mod.resolveMarketHubOriginForUser("bob")).toBe("https://ws.changmen.fun");
-    expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws2.changmen.fun");
+    expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws.changmen.fun");
   });
 
-  it("empty primaryUsers means everyone on secondary", async () => {
+  it("empty primaryUsers + defaultHub secondary sends everyone to ws2", async () => {
     const mod = await import("./market_hub_route.js");
-    mod.saveMarketHubRouteConfig({ primaryUsers: [] });
+    mod.saveMarketHubRouteConfig({ primaryUsers: [], defaultHub: "secondary" });
     expect(mod.getMarketHubRouteConfig().primaryUsers).toEqual([]);
     expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws2.changmen.fun");
   });
@@ -51,7 +51,7 @@ describe("market_hub_route", () => {
   it("file overrides env", async () => {
     vi.stubEnv("MARKET_HUB_PRIMARY_USERS", "alice");
     const mod = await import("./market_hub_route.js");
-    mod.saveMarketHubRouteConfig({ primaryUsers: ["carol"] });
+    mod.saveMarketHubRouteConfig({ primaryUsers: ["carol"], defaultHub: "secondary" });
     expect(mod.resolveMarketHubOriginForUser("carol")).toBe("https://ws.changmen.fun");
     expect(mod.resolveMarketHubOriginForUser("alice")).toBe("https://ws2.changmen.fun");
   });

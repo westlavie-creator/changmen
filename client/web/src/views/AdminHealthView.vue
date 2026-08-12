@@ -226,7 +226,7 @@ async function saveMarketHubRoute() {
       primaryUsers: routeUsersText.value,
       primaryOrigin: routePrimaryOrigin.value,
       secondaryOrigin: routeSecondaryOrigin.value,
-      defaultHub: "secondary",
+      defaultHub: "primary",
     });
     routeUsersText.value = (cfg.primaryUsers || []).join("\n");
     routePrimaryOrigin.value = cfg.primaryOrigin;
@@ -287,7 +287,7 @@ onUnmounted(() => {
         Market hub 分流
       </div>
       <p class="health-sub">
-        名单走 primary（默认 202 / ws），其他人走 secondary（默认 166 / ws2）。保存后已在线用户需刷新。
+        默认全员 202 / ws。仅当把 defaultHub 改回 secondary 时，名单外才走 166。保存后已在线用户需刷新。
       </p>
       <el-alert
         v-if="routeError"

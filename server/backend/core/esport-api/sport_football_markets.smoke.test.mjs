@@ -82,10 +82,10 @@ assert.ok(obMap.default.firstBatch.some(x => x.code === "epl" && x.tournamentId 
 assert.ok(obMap.default.firstBatch.some(x => x.code === "uel" && x.tournamentId === "262" && x.tnjc === "欧联资"));
 assert.equal(isFootballSiblingEventTitle("Final 2026 vs Foo"), false);
 
-const catalog = await import("../../../../packages/shared/catalog/game_catalog.json", {
+const sportsCatalog = await import("../../../../packages/shared/catalog/game_catalog_sports.json", {
   with: { type: "json" },
 });
-const footCodes = catalog.default.games
+const footCodes = sportsCatalog.default.games
   .filter(g => g.sport === "football")
   .map(g => g.code)
   .sort();

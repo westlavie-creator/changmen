@@ -27,10 +27,10 @@ describe("resolveHkRelayHttpOrigin", () => {
     expect(resolveHkRelayHttpOrigin()).toBe("http://127.0.0.1:5274");
   });
 
-  it("生产主站：未下发 origin 走 ws2（166）", () => {
+  it("生产主站：未下发 origin 走 ws（202）", () => {
     vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
     vi.stubEnv("DEV", false);
-    expect(resolveMarketHubHttpOrigin()).toBe("https://ws2.changmen.fun");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
     expect(resolveHkRelayHttpOrigin()).toBe("https://changmen.fun");
   });
 

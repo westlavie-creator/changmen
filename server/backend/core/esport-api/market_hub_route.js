@@ -3,7 +3,7 @@
  * 落盘：ESPORT_DATA_DIR/market_hub_route.json；未落盘时回退 env，再回退默认。
  *
  * primaryUsers → primaryOrigin（默认 ws.changmen.fun / 202）
- * 其他人 / 未登录（前端）→ secondaryOrigin（默认 ws2.changmen.fun / 166）
+ * 其他人：defaultHub=secondary 才走 166；默认全员 202（166 无回国优化）。
  */
 import { readJsonFile, writeJsonFile } from "@changmen/storage/json_file_store.js";
 
@@ -97,7 +97,9 @@ export function getMarketHubRouteConfig() {
     || envOrigin("MARKET_HUB_PRIMARY_ORIGIN", MARKET_HUB_DEFAULT_PRIMARY_ORIGIN);
   const secondaryOrigin = (hasFile && normalizeMarketHubOrigin(raw.secondaryOrigin))
     || envOrigin("MARKET_HUB_SECONDARY_ORIGIN", MARKET_HUB_DEFAULT_SECONDARY_ORIGIN);
-  const defaultHub = hasFile && raw.defaultHub === "primary" ? "primary" : "secondary";
+  const defaultHub = hasFile
+    ? (raw.defaultHub === "secondary" ? "secondary" : "primary")
+    : "primary";
   const updatedAt = hasFile && Number(raw.updatedAt) > 0
     ? Number(raw.updatedAt)
     : undefined;
@@ -141,7 +143,7 @@ export function saveMarketHubRouteConfig(input = {}) {
     : getMarketHubRouteConfig().primaryUsers;
   if (!users)
     throw new Error("primaryUsers 无效");
-  const defaultHub = input.defaultHub === "primary" ? "primary" : "secondary";
+  const defaultHub = input.defaultHub === "secondary" ? "secondary" : "primary";
   const next = {
     primaryOrigin,
     secondaryOrigin,
