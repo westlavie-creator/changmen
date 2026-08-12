@@ -12,7 +12,6 @@ import { createValueBetLinkId, toFixed } from "@changmen/client-core/shared/form
 import { manualBetToastSeconds } from "@/shared/betTiming";
 import { wait } from "@changmen/client-core/shared/wait";
 import { useAccountStore } from "@/stores/accountStore";
-import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import {
   buildManualBetCheckFailureHtml,
   buildManualBetContextLines,
@@ -23,7 +22,6 @@ import {
   refreshOrderListAfterBind,
 } from "@/stores/betting/arbOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
 import { buildPolymarketMatchedBuyVenueOrderFromBet } from "@changmen/venue-adapter/polymarket";
@@ -49,19 +47,10 @@ export function buildValueBetConfirmPromptMessage(
   ].join("\n");
 }
 
-export function explainValueBetBlocked(betId: number): string | null {
-  const lose = useLoseOrderStore();
-  if (lose.orders.has(betId))
-    return "该盘口在补单队列中，请先处理补单";
-  const active = useActiveBetRunStore();
-  if (active.runs.has(betId))
-    return "该盘口套利/补单进行中，请稍后再试";
-  return null;
-}
-
 /**
  * [changmen 扩展] 正 EV 半自动确认下单（P1）。
  * 入口：点击金色 edge 角标；不改双击手动下单；不进套利 linkId/makeup。
+ * 正 EV 不与套利/补单互斥（可并行）。
  */
 export async function runValueBetConfirm(
   match: ViewMatch,
@@ -73,12 +62,6 @@ export async function runValueBetConfirm(
   const user = useUserStore();
   if (user.config.valueBetConfirm === false) {
     await ElMessageBox.alert("已关闭「正EV确认下单」，请在参数配置中开启", "正 EV");
-    return;
-  }
-
-  const blocked = explainValueBetBlocked(bet.id);
-  if (blocked) {
-    await ElMessageBox.alert(blocked, "正 EV");
     return;
   }
 
@@ -126,12 +109,7 @@ export async function runValueBetConfirm(
     return;
   }
 
-  // 确认后再次校验 edge / 互斥，避免弹窗期间盘口变化
-  const blocked2 = explainValueBetBlocked(bet.id);
-  if (blocked2) {
-    await ElMessageBox.alert(blocked2, "正 EV");
-    return;
-  }
+  // 确认后再次校验 edge，避免弹窗期间盘口变化
   const snap2 = computeValueBetEdge(bet, item, side);
   if (!snap2 || !isValueBetPositiveEdge(snap2.edge)) {
     await ElMessageBox.alert("确认期间正 EV 已消失，已取消下单", "正 EV");

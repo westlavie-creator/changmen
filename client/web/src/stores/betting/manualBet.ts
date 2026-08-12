@@ -4,6 +4,7 @@ import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption } from "@changmen/client-core/models/betOption";
 import { wait } from "@changmen/client-core/shared/wait";
+import { readValueBetMoney } from "@/extensions/valueBet/valueBetStake";
 import { manualBetToastSeconds } from "@/shared/betTiming";
 import { useAccountStore } from "@/stores/accountStore";
 import {
@@ -15,6 +16,18 @@ import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
+
+/** 手动下单默认金额：优先正EV金额，未配置时回退套利 betMoney */
+export function defaultManualBetAmount(config: {
+  valueBetMoney?: number;
+  betMoney?: number;
+}): number {
+  const ev = readValueBetMoney(config);
+  if (ev > 0)
+    return ev;
+  const arb = Number(config.betMoney);
+  return Number.isFinite(arb) && arb > 0 ? arb : 10;
+}
 
 export interface ManualBetContext {
   setMessage: (msg: string) => void;
@@ -64,7 +77,7 @@ export async function runManualBet(
       {
         confirmButtonText: "确定",
         cancelButtonText: "取消",
-        inputValue: String(user.config.betMoney || 10),
+        inputValue: String(defaultManualBetAmount(user.config)),
         inputType: "number",
         inputValidator: val => (Number(val) > 0 ? true : "请输入有效金额"),
         customClass: "manual-bet-prompt-box",

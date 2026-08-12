@@ -1,7 +1,17 @@
 import type { ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { describe, expect, it } from "vitest";
 import { buildManualBetCheckFailureHtml } from "@/stores/betting/manualBetAlert";
-import { buildManualBetPromptMessage } from "@/stores/betting/manualBet";
+import { buildManualBetPromptMessage, defaultManualBetAmount } from "@/stores/betting/manualBet";
+
+describe("defaultManualBetAmount", () => {
+  it("prefers valueBetMoney over betMoney", () => {
+    expect(defaultManualBetAmount({ valueBetMoney: 80, betMoney: 100 })).toBe(80);
+  });
+
+  it("falls back to betMoney when valueBetMoney is 0", () => {
+    expect(defaultManualBetAmount({ valueBetMoney: 0, betMoney: 50 })).toBe(50);
+  });
+});
 
 describe("buildManualBetPromptMessage", () => {
   it("uses bet.getBetName for market label (A8 parity)", () => {
