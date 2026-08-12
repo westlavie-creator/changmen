@@ -4,6 +4,30 @@
 
 import { _writeRds, _writeRdsAsync, getPgPool } from "./common.js";
 
+/**
+ * PB 采集常只拉 live，且 SaveMatch 为全量快照；单轮残缺/空列表会把 platform_matches
+ * 整批 orphan 进 history，MATCHER 上表现为 PB 一会有一会没有。
+ * 对 PB：空快照不清空；缺席场次仅在 synced_at 超过宽限后才 orphan。
+ */
+export const PB_SNAPSHOT_ORPHAN_GRACE_MS = 5 * 60 * 1000;
+
+export function isStickyPlatformMatchSnapshot(platform) {
+  return String(platform || "").trim() === "PB";
+}
+
+export function shouldIgnoreEmptyPlatformMatchSnapshot(platform) {
+  const plat = String(platform || "").trim();
+  // Polymarket：VPS 独占，清理走 prune；PB：防误清
+  return plat === "Polymarket" || isStickyPlatformMatchSnapshot(plat);
+}
+
+/** @returns {number|null} null = 立即删本批之外；number = 仅删 synced_at 早于该时刻的缺席行 */
+export function platformMatchOrphanCutoffMs(platform, now = Date.now()) {
+  if (!isStickyPlatformMatchSnapshot(platform))
+    return null;
+  return Number(now) - PB_SNAPSHOT_ORPHAN_GRACE_MS;
+}
+
 function _mapLiveTimerRows(provider, timer) {
   if (!Array.isArray(timer))
     return null;
@@ -28,11 +52,27 @@ function _mapLiveTimerRows(provider, timer) {
 /** 删除该平台本批快照之外的 platform_matches / live_timers（不含 platform_bets）。
  * platform_bets 由 replacePlatformBets* 按场覆盖；孤儿盘口在 collector cycle 末尾单独清，
  * 避免 matches upsert 事务里先删 bets 造成「地图盘闪没」。
+ * @param {{ wipeBets?: boolean, orphanBeforeMs?: number|null }} [opts]
+ *   orphanBeforeMs：仅删 synced_at < 该时刻（或 null synced）的缺席行；缺省立即删。
  */
-async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatchIds, { wipeBets = false } = {}) {
+async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatchIds, {
+  wipeBets = false,
+  orphanBeforeMs = null,
+} = {}) {
   const plat = String(platform);
   const ids = (keepSourceMatchIds || []).map(String);
+  const stickyCutoff = Number.isFinite(Number(orphanBeforeMs)) ? Number(orphanBeforeMs) : null;
+  const staleMatchClause = stickyCutoff != null
+    ? "AND (synced_at IS NULL OR synced_at < $CUTOFF::bigint)"
+    : "";
+  const staleTimerClause = stickyCutoff != null
+    ? "AND (updated_at IS NULL OR updated_at < $CUTOFF::bigint)"
+    : "";
+
   if (!ids.length) {
+    // 粘滞馆：空 keep 不得整馆清空（由上层 ignore []）；非粘滞仍可全清
+    if (stickyCutoff != null)
+      return;
     if (wipeBets) {
       await exec.query(
         `DELETE FROM platform_bets WHERE platform = $1`,
@@ -54,6 +94,15 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
     );
     return;
   }
+
+  const betParams = stickyCutoff != null ? [plat, ids, stickyCutoff] : [plat, ids];
+  const matchSqlCutoff = stickyCutoff != null
+    ? staleMatchClause.replaceAll("$CUTOFF", "$3")
+    : "";
+  const timerSqlCutoff = stickyCutoff != null
+    ? staleTimerClause.replaceAll("$CUTOFF", "$3")
+    : "";
+
   if (wipeBets) {
     await exec.query(
       `DELETE FROM platform_bets
@@ -63,18 +112,20 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
   }
   await exec.query(
     `DELETE FROM live_timers
-     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))`,
-    [plat, ids],
+     WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))
+     ${timerSqlCutoff}`,
+    betParams,
   );
   await exec.query(
     `WITH moved AS (
        DELETE FROM platform_matches
        WHERE platform = $1 AND NOT (source_match_id = ANY($2::text[]))
+       ${matchSqlCutoff}
        RETURNING *
      )
      INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
      SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
-    [plat, ids],
+    betParams,
   );
 }
 
@@ -108,6 +159,7 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
   ])];
   // Polymarket：VPS 独占，只 upsert；清理走 prunePolymarketPlatformMatches（ended ∪ synced 过旧）
   const allowOrphanDelete = platform !== "Polymarket";
+  const orphanBeforeMs = platformMatchOrphanCutoffMs(platform, Date.now());
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
@@ -146,8 +198,11 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
       rows.map(r => JSON.stringify(Array.isArray(r.teams) ? r.teams : [])),
       rows.map(r => r.synced_at),
     ]);
-    if (allowOrphanDelete)
-      await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds);
+    if (allowOrphanDelete) {
+      await _rdsDeletePlatformSnapshotOrphans(client, platform, keepIds, {
+        orphanBeforeMs,
+      });
+    }
     await client.query("COMMIT");
   }
   catch (err) {
@@ -530,6 +585,7 @@ function mapPlatformMatchRows(provider, matchs) {
 /** fire-and-forget：按平台 upsert 本批比赛。
  * 非 Polymarket：并删除本批之外的孤儿行；[] = 空快照全清。
  * Polymarket：只 upsert（VPS 独占）；[] 忽略；清理用 prunePolymarketPlatformMatches。
+ * PB：[] 忽略；缺席行仅在 synced_at 超过 PB_SNAPSHOT_ORPHAN_GRACE_MS 后 orphan。
  * @param {string} provider
  * @param {object[]} matchs
  * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]
@@ -539,8 +595,11 @@ export function writePlatformMatches(provider, matchs, opts = {}) {
     return;
   const plat = String(provider);
   if (!matchs.length) {
-    if (plat === "Polymarket") {
-      console.warn("[rds] ignore writePlatformMatches([]) for Polymarket (use prune)");
+    if (shouldIgnoreEmptyPlatformMatchSnapshot(plat)) {
+      console.warn(
+        `[rds] ignore writePlatformMatches([]) for ${plat}`
+        + (plat === "Polymarket" ? " (use prune)" : " (sticky snapshot)"),
+      );
       return;
     }
     _writeRds(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches", {
@@ -566,8 +625,11 @@ export async function writePlatformMatchesAsync(provider, matchs, opts = {}) {
     return;
   const plat = String(provider);
   if (!matchs.length) {
-    if (plat === "Polymarket") {
-      console.warn("[rds] ignore writePlatformMatchesAsync([]) for Polymarket (use prune)");
+    if (shouldIgnoreEmptyPlatformMatchSnapshot(plat)) {
+      console.warn(
+        `[rds] ignore writePlatformMatchesAsync([]) for ${plat}`
+        + (plat === "Polymarket" ? " (use prune)" : " (sticky snapshot)"),
+      );
       return;
     }
     await _writeRdsAsync(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches");

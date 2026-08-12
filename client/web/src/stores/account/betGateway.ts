@@ -76,6 +76,7 @@ function notifyPendingVenueConfirm(
       }
     }
     // PM/PF：仅在 settle 已有结论（非仍 pending）后补刷，避免与 place 早刷竞态写回旧余额。
+    // 订单栏同理：place 时 refreshOrderListAfterBind 往往早于落库；此处与补单 loseOrderPmPending 对齐再刷。
     // 失败不阻断 toast / 其它场馆路径不变。
     if (isPendingConfirmVenueProvider(account.provider) && !pendingConfirm) {
       try {
@@ -84,6 +85,13 @@ function notifyPendingVenueConfirm(
       }
       catch {
         /* 刷新失败不阻断 toast */
+      }
+      try {
+        const { refreshOrderListAfterBind } = await import("@/stores/betting/arbOrderBind");
+        refreshOrderListAfterBind();
+      }
+      catch {
+        /* 侧栏刷新失败不阻断 toast */
       }
     }
   })();

@@ -104,6 +104,10 @@ export {
   pruneMatchesOlderThanTwoDays,
   pruneMatchesOlderThanCollectPast,
   PLATFORM_MATCH_PAST_PRUNE_MS,
+  PB_SNAPSHOT_ORPHAN_GRACE_MS,
+  isStickyPlatformMatchSnapshot,
+  shouldIgnoreEmptyPlatformMatchSnapshot,
+  platformMatchOrphanCutoffMs,
 } from "./rds/platform_collector_store.js";
 
 export {

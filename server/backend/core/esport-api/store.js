@@ -212,10 +212,15 @@ export function saveMatches(provider, matchs) {
     return;
   }
   const now = Date.now();
-  const next = {};
+  const batch = {};
   const list = Array.isArray(matchs) ? matchs : [];
-  const prev = _matches[provider];
+  const prev = _matches[provider] || {};
   // [A8 可证实] SaveMatch 为全量快照：空数组 = 该平台当前无可见赛（与 collectStore 对齐）
+  // [changmen 扩展] PB：空快照忽略（与 RDS sticky 一致），避免 MATCHER 整馆闪没
+  if (!list.length && sb.shouldIgnoreEmptyPlatformMatchSnapshot?.(plat)) {
+    console.warn(`[esport-api] ignore API_SaveMatch([]) for ${plat} (sticky snapshot)`);
+    return;
+  }
   for (const m of list) {
     if (!m || m.SourceMatchID == null)
       continue;
@@ -225,7 +230,7 @@ export function saveMatches(provider, matchs) {
     const sid = String(m.SourceMatchID);
     const prevRow = prev?.[sid];
     const linkedId = linkedClientMatchId(m) ?? linkedClientMatchId(prevRow);
-    next[sid] = {
+    batch[sid] = {
       ...m,
       provider,
       savedAt: now,
@@ -234,9 +239,33 @@ export function saveMatches(provider, matchs) {
         : {}),
     };
   }
+  const next = { ...batch };
+  const alsoKeepSourceMatchIds = [];
+  // PB：宽限内缺席行留在采集内存；RDS 只 upsert 本批，alsoKeep 防误删（不刷新 sticky synced_at）
+  if (sb.isStickyPlatformMatchSnapshot?.(plat)) {
+    const graceMs = Number(sb.PB_SNAPSHOT_ORPHAN_GRACE_MS) || 5 * 60 * 1000;
+    for (const [sid, row] of Object.entries(prev)) {
+      if (next[sid] || !row)
+        continue;
+      const savedAt = Number(row.savedAt) || 0;
+      if (savedAt > 0 && now - savedAt < graceMs) {
+        next[sid] = row;
+        alsoKeepSourceMatchIds.push(sid);
+      }
+    }
+  }
   _matches[provider] = next;
   dropOrphanBetsForProvider(provider, Object.keys(next));
-  sb.writePlatformMatches(provider, Object.values(next));
+  const upsertRows = Object.values(batch);
+  if (!upsertRows.length && sb.shouldIgnoreEmptyPlatformMatchSnapshot?.(plat)) {
+    // 本批被 startTime 滤空：等同空快照，保留内存 sticky，不打 RDS 全清
+    return;
+  }
+  sb.writePlatformMatches(
+    provider,
+    upsertRows,
+    alsoKeepSourceMatchIds.length ? { alsoKeepSourceMatchIds } : {},
+  );
 }
 
 /** matchMerge 完成后把 client_matches.matchs 回写到采集内存，避免下轮 align 重复 */
