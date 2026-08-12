@@ -32,12 +32,16 @@ describe("handleRayRealtimeMessage", () => {
     );
 
     expect(saveVenueOdds).toHaveBeenCalledOnce();
-    expect(saveVenueOdds).toHaveBeenCalledWith("RAY", {
-      id: "known",
-      odds: 1.92,
-      isLock: false,
-      time: 12345,
-    });
+    expect(saveVenueOdds).toHaveBeenCalledWith(
+      "RAY",
+      {
+        id: "known",
+        odds: 1.92,
+        isLock: false,
+        time: 12345,
+      },
+      "mqtt",
+    );
   });
 
   test("ignores non-odds messages", () => {

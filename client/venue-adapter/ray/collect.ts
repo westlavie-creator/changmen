@@ -93,12 +93,16 @@ export function handleRayRealtimeMessage(
   for (const row of msg.odds) {
     const id = String(row.id ?? "");
     if (!id || !isVenueOdds(PLATFORM, id)) continue;
-    saveVenueOdds(PLATFORM, {
-      id,
-      odds: Number(row.odds) || 0,
-      isLock: row.status !== 1,
-      time: now,
-    });
+    saveVenueOdds(
+      PLATFORM,
+      {
+        id,
+        odds: Number(row.odds) || 0,
+        isLock: row.status !== 1,
+        time: now,
+      },
+      "mqtt",
+    );
   }
 }
 
