@@ -112,7 +112,14 @@ export async function insertPlayerRow({
   if (!Number.isFinite(pid) || pid <= 0 || !uid)
     return null;
   if (venueKey) {
-    const conflict = await findVenueAccountKeyConflict(venueKey);
+    let conflict;
+    try {
+      conflict = await findVenueAccountKeyConflictStrict(venueKey);
+    }
+    catch (err) {
+      console.error("[rds] insertPlayerRow 占用检查失败，已中止:", err?.message);
+      throw new Error("场馆账号占用检查失败，请稍后重试（已阻止添加）");
+    }
     if (conflict) {
       const sameOwner = conflict.ownerUserId && conflict.ownerUserId === uid;
       if (sameOwner && conflict.deleted)
@@ -182,9 +189,10 @@ export async function fetchPlayerByProviderAndVenueMemberId(
 
 /**
  * 全库场馆账号互斥（含软删）：查找占用同一 venue_account_key 的其他 player。
- * 软删行仍占坑，防止删号后被他人抢加。
+ * strict：查询失败向上抛（供 CreateTagPlatform / SaveData 等写路径 fail-closed）。
+ * 无 key / 无 pool → `null`（非失败）；无占用行 → `null`。
  */
-export async function findVenueAccountKeyConflict(venueAccountKey, { playerId } = {}) {
+export async function findVenueAccountKeyConflictStrict(venueAccountKey, { playerId } = {}) {
   const key = String(venueAccountKey || "").trim();
   if (!key)
     return null;
@@ -192,27 +200,36 @@ export async function findVenueAccountKeyConflict(venueAccountKey, { playerId } 
   if (!pool)
     return null;
   const id = Number(playerId) || 0;
+  const { rows } = await pool.query(
+    `SELECT p.id, p.owner_user_id, p.deleted_at, u.user_name
+     FROM players p
+     LEFT JOIN users u ON u.id = p.owner_user_id
+     WHERE p.venue_account_key = $1
+       AND ($2::bigint = 0 OR p.id <> $2)
+     ORDER BY (p.deleted_at IS NULL) DESC, p.updated_at DESC NULLS LAST, p.id DESC
+     LIMIT 1`,
+    [key, id],
+  );
+  const row = rows?.[0];
+  if (!row)
+    return null;
+  return {
+    id: Number(row.id),
+    ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
+    userName: String(row.user_name || ""),
+    deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
+    deleted: row.deleted_at != null,
+  };
+}
+
+/**
+ * 全库场馆账号互斥（含软删）：查找占用同一 venue_account_key 的其他 player。
+ * 软删行仍占坑，防止删号后被他人抢加。
+ * lenient：失败吞成 `null`（仅展示/非写路径）。
+ */
+export async function findVenueAccountKeyConflict(venueAccountKey, { playerId } = {}) {
   try {
-    const { rows } = await pool.query(
-      `SELECT p.id, p.owner_user_id, p.deleted_at, u.user_name
-       FROM players p
-       LEFT JOIN users u ON u.id = p.owner_user_id
-       WHERE p.venue_account_key = $1
-         AND ($2::bigint = 0 OR p.id <> $2)
-       ORDER BY (p.deleted_at IS NULL) DESC, p.updated_at DESC NULLS LAST, p.id DESC
-       LIMIT 1`,
-      [key, id],
-    );
-    const row = rows?.[0];
-    if (!row)
-      return null;
-    return {
-      id: Number(row.id),
-      ownerUserId: row.owner_user_id != null ? String(row.owner_user_id) : null,
-      userName: String(row.user_name || ""),
-      deletedAt: row.deleted_at != null ? Number(row.deleted_at) : null,
-      deleted: row.deleted_at != null,
-    };
+    return await findVenueAccountKeyConflictStrict(venueAccountKey, { playerId });
   }
   catch (err) {
     console.warn("[rds] findVenueAccountKeyConflict:", err.message);
@@ -220,24 +237,32 @@ export async function findVenueAccountKeyConflict(venueAccountKey, { playerId } 
   }
 }
 
-/** 按 venue_account_key 取占用人（含软删；优先活跃） */
-export async function fetchPlayerByVenueAccountKey(venueAccountKey) {
+/**
+ * 按 venue_account_key 取占用人（含软删；优先活跃）。
+ * strict：查询失败向上抛。
+ */
+export async function fetchPlayerByVenueAccountKeyStrict(venueAccountKey) {
   const key = String(venueAccountKey || "").trim();
   if (!key)
     return null;
   const pool = getPgPool();
   if (!pool)
     return null;
+  const { rows } = await pool.query(
+    `SELECT ${PLAYER_SELECT}
+     FROM players
+     WHERE venue_account_key = $1
+     ORDER BY (deleted_at IS NULL) DESC, updated_at DESC NULLS LAST, id DESC
+     LIMIT 1`,
+    [key],
+  );
+  return _mapPlayerRow(rows?.[0]);
+}
+
+/** 按 venue_account_key 取占用人（含软删；优先活跃）；lenient 失败→null */
+export async function fetchPlayerByVenueAccountKey(venueAccountKey) {
   try {
-    const { rows } = await pool.query(
-      `SELECT ${PLAYER_SELECT}
-       FROM players
-       WHERE venue_account_key = $1
-       ORDER BY (deleted_at IS NULL) DESC, updated_at DESC NULLS LAST, id DESC
-       LIMIT 1`,
-      [key],
-    );
-    return _mapPlayerRow(rows?.[0]);
+    return await fetchPlayerByVenueAccountKeyStrict(venueAccountKey);
   }
   catch (err) {
     console.warn("[rds] fetchPlayerByVenueAccountKey:", err.message);
@@ -1052,7 +1077,14 @@ export async function batchSavePlayerAccountRecords(ownerUserId, records) {
     const key = String(patch.venueAccountKey || "").trim();
     if (!key)
       continue;
-    const conflict = await findVenueAccountKeyConflict(key, { playerId: patch.playerId });
+    let conflict;
+    try {
+      conflict = await findVenueAccountKeyConflictStrict(key, { playerId: patch.playerId });
+    }
+    catch (err) {
+      console.error("[rds] findVenueAccountKeyConflictStrict 失败，已中止 SaveData:", err?.message);
+      throw new Error("场馆账号占用检查失败，请稍后重试（已阻止保存）");
+    }
     if (!conflict)
       continue;
     const sameOwner = conflict.ownerUserId && conflict.ownerUserId === uid;

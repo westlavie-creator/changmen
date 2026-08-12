@@ -140,7 +140,9 @@ export {
   updatePlayerDisplayName,
   batchUpdatePlayerDisplayNames,
   findVenueAccountKeyConflict,
+  findVenueAccountKeyConflictStrict,
   fetchPlayerByVenueAccountKey,
+  fetchPlayerByVenueAccountKeyStrict,
   resurrectPlayerRow,
   upsertTagPlatformByName,
 } from "./rds/player_store.js";

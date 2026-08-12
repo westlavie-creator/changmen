@@ -52,7 +52,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 |----|------|------|------|------|
 | P0-2 | 用户设置写：await + 失败回滚 + `ok:false` | `core/db/store.js`、`profile_store.js` 等 | 低 | ✅ 已完成 |
 | P0-1 | RDS 写队列 drop 可观测 + 告警（先只加监控） | `server/db/rds/common.js` | 低（纯监控）/ 中（若改背压） | 🔶 第一步完成（可观测）；补 key / 背压待后续 |
-| P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | 🔶 D1+D2+D3 已完成；D4~D5 未做 |
+| P0-4 | 数据层读接口区分「空」与「查询失败」 | `orders_store.js`、`client_matches_store.js`、`player_store.js`、`profile_store.js` 等 | 中 | 🔶 D1~D4 已完成；D5 未做 |
 | P0-3 | 账号读路径 `listAccountsForUser` 写副作用竞态 | `core/db/store.js` | 中→偏高 | ✅ 已完成 |
 
 **执行顺序建议**：P0-2（已完成）→ P0-1（先只加告警）→ P0-4 → P0-3（最敏感，放最后）。
@@ -81,7 +81,7 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | D1 | `account_service.handleSaveAccounts` → `prepareAccountsForSave`（`core/db/store.js`） | `fetchAccountRecordsByOwner` | 读失败→`existing=[]`→合并丢服务端字段 / `prunePlayersNotInList` 软删账号 | **data-loss** |
 | D2 | `account/order_store.saveOrder`（PF/PM 全经此） | `fetchOrdersByPlayerOrderIds` | 读失败→当新单→覆盖 `pfLedgerState`/`pmOrigin`/卖单 proceeds | **data-loss / 资金** |
 | D3 | `admin_pf.ensurePredictFunHouseAccount` | `fetchAccountRecordsByOwner` | 读失败→`!existing`→重复 insert 第二条 PF 账号 | **data-loss** ✅ 已修（`loadAccountsForUserStrict`） |
-| D4 | `account_store.createTagPlatform` / `findVenueAccountKeyConflict` | `fetchPlayerByVenueAccountKey`/`findVenueAccountKeyConflict` | 冲突检测失败→当"无冲突"→继续 insert（DB unique 兜底） | **security（已被约束缓解）** |
+| D4 | `account_store.createTagPlatform` / `findVenueAccountKeyConflict` | `fetchPlayerByVenueAccountKey`/`findVenueAccountKeyConflict` | 冲突检测失败→当"无冲突"→继续 insert（DB unique 兜底） | **security（已被约束缓解）** ✅ 已修（Strict + 写路径 fail-closed） |
 | D5 | PF 结算/入账 `loadPfOrders`（`pf_player_account`/`pf_exec_settle`） | `fetchOrdersByPlayer` | 读失败→跳过结算/`pending_credit` 不入账（fail-safe 方向，重试可恢复） | **资金（可恢复）** |
 
 **技术方案（兼容 → 迁移，零回归优先）**：

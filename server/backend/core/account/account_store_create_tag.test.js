@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const upsertTagPlatformByName = vi.fn();
 const fetchPlayerByVenueAccountKey = vi.fn();
+const fetchPlayerByVenueAccountKeyStrict = vi.fn();
 const findVenueAccountKeyConflict = vi.fn();
+const findVenueAccountKeyConflictStrict = vi.fn();
 const fetchPlayerByProviderAndVenueMemberId = vi.fn();
 const fetchPlayerByPlatformAndName = vi.fn();
 const fetchPlayerByPlatformNameAndPlayerName = vi.fn();
@@ -12,7 +14,9 @@ const insertPlayerRow = vi.fn();
 vi.mock("@changmen/db", () => ({
   upsertTagPlatformByName,
   fetchPlayerByVenueAccountKey,
+  fetchPlayerByVenueAccountKeyStrict,
   findVenueAccountKeyConflict,
+  findVenueAccountKeyConflictStrict,
   fetchPlayerByProviderAndVenueMemberId,
   fetchPlayerByPlatformAndName,
   fetchPlayerByPlatformNameAndPlayerName,
@@ -32,7 +36,7 @@ describe("createTagPlatform venue key soft-delete rules", () => {
   });
 
   it("resurrects own soft-deleted player via add-account path", async () => {
-    fetchPlayerByVenueAccountKey.mockResolvedValueOnce({
+    fetchPlayerByVenueAccountKeyStrict.mockResolvedValueOnce({
       id: 42,
       playerId: 42,
       ownerUserId: "user-a",
@@ -68,7 +72,7 @@ describe("createTagPlatform venue key soft-delete rules", () => {
   });
 
   it("rejects when another user still holds the key after soft-delete", async () => {
-    fetchPlayerByVenueAccountKey.mockResolvedValueOnce({
+    fetchPlayerByVenueAccountKeyStrict.mockResolvedValueOnce({
       id: 7,
       playerId: 7,
       ownerUserId: "user-a",
@@ -78,7 +82,7 @@ describe("createTagPlatform venue key soft-delete rules", () => {
       venueMemberId: "m1",
       deletedAt: 100,
     });
-    findVenueAccountKeyConflict.mockResolvedValueOnce({
+    findVenueAccountKeyConflictStrict.mockResolvedValueOnce({
       id: 7,
       ownerUserId: "user-a",
       userName: "GB01",
@@ -96,7 +100,7 @@ describe("createTagPlatform venue key soft-delete rules", () => {
   });
 
   it("does not resurrect soft-deleted row with different venueMemberId matched by name", async () => {
-    fetchPlayerByVenueAccountKey.mockResolvedValueOnce(null);
+    fetchPlayerByVenueAccountKeyStrict.mockResolvedValueOnce(null);
     fetchPlayerByProviderAndVenueMemberId.mockResolvedValueOnce(null);
     fetchPlayerByPlatformAndName.mockResolvedValueOnce({
       id: 11,
@@ -128,5 +132,17 @@ describe("createTagPlatform venue key soft-delete rules", () => {
     expect(created.playerId).toBe(99);
     expect(resurrectPlayerRow).not.toHaveBeenCalled();
     expect(insertPlayerRow).toHaveBeenCalled();
+  });
+
+  it("P0-4 D4: venue key 占用查询失败时中止，不 insert", async () => {
+    fetchPlayerByVenueAccountKeyStrict.mockRejectedValueOnce(new Error("rds down"));
+
+    const { createTagPlatform } = await import("./account_store.js");
+    await expect(createTagPlatform("OB盘", "m1", "user-a", {
+      provider: "OB",
+      venueMemberId: "m1",
+    })).rejects.toThrow(/场馆账号占用检查失败/);
+    expect(insertPlayerRow).not.toHaveBeenCalled();
+    expect(resurrectPlayerRow).not.toHaveBeenCalled();
   });
 });

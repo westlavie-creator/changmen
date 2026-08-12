@@ -79,11 +79,26 @@ async function createTagPlatform(platformName, playerName, ownerUserId, opts = {
   }
 
   // 含软删指纹占坑：他人占用（含已删）→ 拒绝；本人已删 → 复活
+  // [P0-4 D4] 冲突查询用 strict：读失败不得当「无占用」继续 insert
   if (venueKey) {
-    const holder = await sb.fetchPlayerByVenueAccountKey(venueKey);
+    let holder;
+    try {
+      holder = await sb.fetchPlayerByVenueAccountKeyStrict(venueKey);
+    }
+    catch (err) {
+      console.error("[account] fetchPlayerByVenueAccountKeyStrict 失败，已中止建号:", err?.message);
+      throw new Error("场馆账号占用检查失败，请稍后重试（已阻止添加）");
+    }
     if (holder) {
       if (String(holder.ownerUserId) !== uid) {
-        const detailed = await sb.findVenueAccountKeyConflict(venueKey);
+        let detailed;
+        try {
+          detailed = await sb.findVenueAccountKeyConflictStrict(venueKey);
+        }
+        catch (err) {
+          console.error("[account] findVenueAccountKeyConflictStrict 失败，已中止建号:", err?.message);
+          throw new Error("场馆账号占用检查失败，请稍后重试（已阻止添加）");
+        }
         const conflict = detailed || {
           id: holder.playerId ?? holder.id,
           ownerUserId: holder.ownerUserId,
