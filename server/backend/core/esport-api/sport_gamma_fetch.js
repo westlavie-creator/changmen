@@ -42,6 +42,7 @@ const _caches = new Map();
  * @property {string} [cacheKey] 进程内缓存键，默认 sportKey
  * @property {string} [logTag]
  * @property {string[]} [leagueGameCodes] 若设，用 event.sport.sport 等覆盖 Game（棒球 mlb|kbo|npb；足球 epl|…）
+ * @property {Record<string, string>} [leagueAliases] 可选；馆侧 sport → changmen code（足球专用，棒球勿传）
  * @property {boolean} [lineMarkets] 若 true，挂接 spreads/totals（足球 More Markets）
  */
 
@@ -196,22 +197,36 @@ function splitTitleTeams(title) {
  * @param {object} raw
  * @param {string} fallbackGame
  * @param {string[]} [leagueGameCodes]
+ * @param {Record<string, string>} [leagueAliases] 馆侧 sport → changmen code（仅调用方传入时生效；足球 col→uecl）
  */
-function resolveEventGameCode(raw, fallbackGame, leagueGameCodes) {
+function resolveEventGameCode(raw, fallbackGame, leagueGameCodes, leagueAliases) {
   const allow = new Set((leagueGameCodes || []).map(k => String(k).toLowerCase()).filter(Boolean));
   if (!allow.size)
     return fallbackGame;
-  const fromSport = String(raw?.sport?.sport ?? "").toLowerCase().trim();
-  if (fromSport && allow.has(fromSport))
+  /** @type {Record<string, string>} */
+  const aliases = leagueAliases && typeof leagueAliases === "object" ? leagueAliases : {};
+  const mapKey = (key) => {
+    const k = String(key || "").toLowerCase().trim();
+    if (!k)
+      return null;
+    if (allow.has(k))
+      return k;
+    const mapped = String(aliases[k] || "").toLowerCase().trim();
+    if (mapped && allow.has(mapped))
+      return mapped;
+    return null;
+  };
+  const fromSport = mapKey(raw?.sport?.sport);
+  if (fromSport)
     return fromSport;
-  const fromSlug = String(raw?.seriesSlug ?? "").toLowerCase().trim();
-  if (fromSlug && allow.has(fromSlug))
+  const fromSlug = mapKey(raw?.seriesSlug);
+  if (fromSlug)
     return fromSlug;
   const series = Array.isArray(raw?.series) ? raw.series : [];
   for (const row of series) {
-    const tick = String(row?.ticker ?? row?.slug ?? "").toLowerCase().trim();
-    if (tick && allow.has(tick))
-      return tick;
+    const hit = mapKey(row?.ticker ?? row?.slug);
+    if (hit)
+      return hit;
   }
   return fallbackGame;
 }
@@ -233,6 +248,9 @@ export async function fetchSportAsClientMatchDtos(options) {
   const leagueGameCodes = Array.isArray(options.leagueGameCodes)
     ? options.leagueGameCodes.map(k => String(k || "").toLowerCase()).filter(Boolean)
     : [];
+  const leagueAliases = options.leagueAliases && typeof options.leagueAliases === "object"
+    ? options.leagueAliases
+    : undefined;
   const lineMarkets = Boolean(options.lineMarkets);
 
   const mem = _caches.get(cacheKey);
@@ -253,6 +271,7 @@ export async function fetchSportAsClientMatchDtos(options) {
       idBase,
       logTag,
       leagueGameCodes,
+      leagueAliases,
       lineMarkets,
     });
     const at = Date.now();
@@ -277,10 +296,10 @@ export async function fetchSportAsClientMatchDtos(options) {
 }
 
 /**
- * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], lineMarkets?: boolean }} opts
+ * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, lineMarkets } = opts;
+  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets } = opts;
 
   const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag);
   if (!seriesIds.length) {
@@ -355,7 +374,7 @@ async function fetchSportRowsFromGamma(opts) {
         title,
         base: baseFootballEventTitle(title),
         startTimeMs: startTimeMsOf(raw),
-        game: resolveEventGameCode(raw, gameCode, leagueGameCodes),
+        game: resolveEventGameCode(raw, gameCode, leagueGameCodes, leagueAliases),
         markets: typed,
         sibling,
       });

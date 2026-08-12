@@ -23,6 +23,7 @@ import {
   MARKET_MONEYLINE,
   MARKET_SPREADS,
   MARKET_TOTALS,
+  UNKNOWN_FOOTBALL_GAME,
   baseFootballEventTitle,
   displayBetName,
   encodeSportBetId,
@@ -589,7 +590,7 @@ export function resolveFootballLeagueGame(category) {
   const fromSlug = resolveFootballLeagueFromText(String(category?.slug ?? ""));
   if (fromSlug)
     return fromSlug;
-  return "uef";
+  return UNKNOWN_FOOTBALL_GAME;
 }
 
 /**

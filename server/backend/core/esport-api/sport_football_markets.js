@@ -1,7 +1,12 @@
 /**
  * 体育盘口规范（足球为主；moneyline/spreads/totals 常量亦供棒球 Gamma 共用）。
  * 仅 sport_* 路径使用；禁止写入电竞 client_matches。
+ *
+ * 竞赛身份 = changmen game_catalog.code；场馆 native 经别名映射进来。
+ * 解析失败用 unknown_fb，不再默认塞 uef（uef 仅表示 PM 明确的 UEFA 宽分类）。
  */
+
+export const UNKNOWN_FOOTBALL_GAME = "unknown_fb";
 
 export const FOOTBALL_LEAGUE_CODES = [
   "epl",
@@ -11,6 +16,7 @@ export const FOOTBALL_LEAGUE_CODES = [
   "sea",
   "ucl",
   "uel",
+  "uecl",
   "mls",
   "ere",
   "por",
@@ -25,10 +31,70 @@ export const FOOTBALL_LEAGUE_CODES = [
   "caf",
   "chi",
   "chi2",
+  "unknown_fb",
 ];
 
-/** 联赛解析失败时的兜底码；跨馆合并时仅此类可挂到真实联赛 */
-export const FOOTBALL_FALLBACK_GAMES = new Set(["uef", "fif"]);
+/**
+ * 跨馆软挂（曾用 uef/fif 挂到真实联赛）已关闭：未知/宽分类不得靠队名粘到中超等。
+ * 同 code 硬隔离合并仍有效。
+ */
+export const FOOTBALL_FALLBACK_GAMES = new Set();
+
+/**
+ * Polymarket /sports 短码 → changmen Game（与 catalog.platforms.Polymarket 对齐）。
+ * Gamma 拉取仍要带上左侧 key（如 col）。
+ */
+export const FOOTBALL_PM_SPORT_ALIASES = {
+  col: "uecl",
+};
+
+/**
+ * OB 足球 tournamentId → changmen Game（来自 getFilterMatchListPB 实测）。
+ * 资格赛 tid 也先挂到同一杯赛 code；正赛若另开 tid 再追加。
+ */
+export const FOOTBALL_OB_TOURNAMENT_ALIASES = {
+  180: "epl",
+  320: "lal",
+  276: "bun",
+  79: "fl1",
+  239: "sea",
+  6344: "chi",
+  563: "mls",
+  262: "uel", // 欧洲联赛资格赛（当前快照）
+  8120: "uecl", // 欧洲协会联赛资格赛（当前快照）
+};
+
+/**
+ * @param {string|number} tournamentId
+ * @returns {string|null}
+ */
+export function mapObFootballTournamentToGame(tournamentId) {
+  const id = String(tournamentId ?? "").trim();
+  if (!id)
+    return null;
+  return FOOTBALL_OB_TOURNAMENT_ALIASES[id] || null;
+}
+
+/** Gamma /sports 查询用的 PM sport key（含别名源码，排除 unknown） */
+export function footballPmSportFetchKeys() {
+  const codes = FOOTBALL_LEAGUE_CODES.filter(c => c !== UNKNOWN_FOOTBALL_GAME);
+  return [...new Set([...codes, ...Object.keys(FOOTBALL_PM_SPORT_ALIASES)])];
+}
+
+/**
+ * PM event.sport → changmen code；未识别返回 null。
+ * @param {string} sport
+ */
+export function mapPmFootballSportToGame(sport) {
+  const s = String(sport || "").toLowerCase().trim();
+  if (!s)
+    return null;
+  if (FOOTBALL_PM_SPORT_ALIASES[s])
+    return FOOTBALL_PM_SPORT_ALIASES[s];
+  if (FOOTBALL_LEAGUE_CODES.includes(s) && s !== UNKNOWN_FOOTBALL_GAME)
+    return s;
+  return null;
+}
 
 export const MARKET_MONEYLINE = "moneyline";
 export const MARKET_SPREADS = "spreads";
@@ -254,7 +320,8 @@ export function orientSpreadLine(line, flipped) {
 }
 
 /**
- * PF/PM 文本 → 足球联赛 Game 码；对不上返回 null（调用方兜底）。
+ * PF/PM/OB 文本 → 足球联赛 Game 码；对不上返回 null（调用方用 unknown_fb）。
+ * 第一批知名联赛/杯赛含 OB 中文全称与热门短名；顺序：细竞赛先于宽分类。
  * chi 勿用裸 \bchi\b（V8 对 Chişinău 的 ş 仍可能切出 chi）；用 \p{L} 环视。
  * @param {string} text
  */
@@ -264,29 +331,32 @@ export function resolveFootballLeagueFromText(text) {
     return null;
   /** @type {Array<[RegExp, string]>} */
   const table = [
-    [/\b(epl|premier league)\b/u, "epl"],
-    [/\b(lal|la liga|laliga)\b/u, "lal"],
-    [/\b(bun|bundesliga)\b/u, "bun"],
-    [/\b(fl1|ligue 1)\b/u, "fl1"],
-    [/\b(sea|serie a)\b/u, "sea"],
-    [/\b(ucl|champions league)\b/u, "ucl"],
-    [/\b(uel|europa league)\b/u, "uel"],
-    [/\bmls\b/u, "mls"],
-    [/\b(ere|eredivisie)\b/u, "ere"],
-    [/\b(por|primeira liga|liga portugal)\b/u, "por"],
-    [/\b(uef|uefa)\b/u, "uef"],
-    [/\b(fif|fifa|world cup)\b/u, "fif"],
-    [/\b(mex|liga mx)\b/u, "mex"],
+    // 杯赛：协会联赛须在「欧洲联赛」之前
+    [/\b(ucl|champions\s+league)\b|欧洲冠军联赛|欧冠/u, "ucl"],
+    [/\b(col|conference\s+league)\b|欧洲协会联赛|欧协联|欧协资/u, "uecl"],
+    [/\b(uel|europa\s+league)\b|欧洲联赛|欧罗巴联赛|欧联资|(?<![\p{L}\p{N}_])欧联(?![\p{L}\p{N}_])/u, "uel"],
+    // 五大 + 中超/美职（第一批）
+    [/\b(epl|premier\s+league)\b|英格兰超级联赛|(?<![\p{L}\p{N}_])英超(?![\p{L}\p{N}_])/u, "epl"],
+    [/\b(lal|la\s*liga|laliga)\b|西班牙甲级联赛|(?<![\p{L}\p{N}_])西甲(?![\p{L}\p{N}_])/u, "lal"],
+    [/\b(bun|bundesliga)\b|德国甲级联赛|(?<![\p{L}\p{N}_])德甲(?![\p{L}\p{N}_])/u, "bun"],
+    [/\b(fl1|ligue\s*1)\b|法国甲级联赛|(?<![\p{L}\p{N}_])法甲(?![\p{L}\p{N}_])/u, "fl1"],
+    [/\b(sea|serie\s*a)\b|意大利甲级联赛|(?<![\p{L}\p{N}_])意甲(?![\p{L}\p{N}_])/u, "sea"],
+    [/\b(csl|chinese\s+super\s+league)\b|中国超级联赛|(?<![\p{L}\p{N}_])chi(?![\p{L}\p{N}_])|中超/u, "chi"],
+    [/\bmls\b|美国职业大联盟|美职联/u, "mls"],
+    // 其余已有 catalog 竞赛
+    [/\b(ere|eredivisie)\b|荷兰甲级联赛|荷甲/u, "ere"],
+    [/\b(por|primeira\s+liga|liga\s+portugal)\b|葡萄牙超级联赛|葡超/u, "por"],
+    [/\b(mex|liga\s*mx)\b|墨西哥超级联赛|墨超/u, "mex"],
     [/\b(bra|brasileir)/u, "bra"],
-    [/\b(arg|primera(?:\s+divisi[oó]n)?|argentina)\b/u, "arg"],
-    // 仅美洲杯；勿用裸 \bcopa\b（会误伤 Copa del Rey / Copa Libertadores 等）
+    [/\b(arg|primera(?:\s+divisi[oó]n)?|argentina)\b|阿根廷职业联赛|阿甲/u, "arg"],
     [/\bcopa\s+am[eé]rica\b|\bamerica'?s?\s+cup\b|美洲杯/u, "copa"],
-    [/\b(jap|j-?league)\b/u, "jap"],
-    [/\b(afc)\b/u, "afc"],
-    [/\b(caf)\b/u, "caf"],
-    [/\b(chi2|china league one)\b/u, "chi2"],
-    // 勿用裸 \bchi\b：V8 对 Chişinău 的 ş 词界仍可能切出 chi；用字母类环视
-    [/\b(csl|chinese\s+super\s+league)\b|(?<![\p{L}\p{N}_])chi(?![\p{L}\p{N}_])|中超/u, "chi"],
+    [/\b(jap|j-?league|j1)\b|日本j1联赛|日职/u, "jap"],
+    [/\b(chi2|china\s+league\s+one)\b|中甲/u, "chi2"],
+    [/\b(afc)\b|亚足联/u, "afc"],
+    [/\b(caf)\b|非足联/u, "caf"],
+    // 宽分类：仅精确短码，禁止裸 uefa 全文（避免友谊赛/杂项误标欧足联）
+    [/(?<![\p{L}\p{N}_])uef(?![\p{L}\p{N}_])/u, "uef"],
+    [/\b(fif|fifa|world\s+cup)\b|国际足联|世界杯/u, "fif"],
   ];
   for (const [re, code] of table) {
     if (re.test(raw))
@@ -294,7 +364,10 @@ export function resolveFootballLeagueFromText(text) {
   }
   const allow = new Set(FOOTBALL_LEAGUE_CODES);
   const token = raw.trim();
-  if (allow.has(token))
+  if (allow.has(token) && token !== UNKNOWN_FOOTBALL_GAME)
     return token;
+  const fromPm = mapPmFootballSportToGame(token);
+  if (fromPm)
+    return fromPm;
   return null;
 }

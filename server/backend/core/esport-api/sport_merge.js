@@ -21,6 +21,7 @@ import {
   MARKET_MONEYLINE,
   MARKET_SPREADS,
   MARKET_TOTALS,
+  UNKNOWN_FOOTBALL_GAME,
   displayBetName,
   encodeSportBetId,
   marketBetKey,
@@ -31,7 +32,7 @@ import {
 
 const VENUE_PRIORITY = ["Polymarket", "PredictFun"];
 
-/** 足球兜底腿配对用中性键；真实联赛仍按各自 Game 硬隔离 */
+/** 足球兜底腿配对用中性键；真实联赛仍按各自 Game 硬隔离（软挂已关，见 FOOTBALL_FALLBACK_GAMES） */
 const FOOTBALL_SOFT_PAIR_GAME = "_fb_soft";
 
 /** @type {ReturnType<typeof createSportTeamPlugin>} */
@@ -44,7 +45,7 @@ function gameCodeForSport(sport, legGame) {
     return String(legGame);
   const s = String(sport);
   if (s === "football")
-    return "uef";
+    return UNKNOWN_FOOTBALL_GAME;
   if (s === "tennis")
     return "tennis";
   if (s === "basketball")
@@ -55,7 +56,7 @@ function gameCodeForSport(sport, legGame) {
 }
 
 /**
- * 足球配对 Game：真实联赛硬隔离；仅 uef/fif 走软桶，再二次挂到同队同时的真实联赛。
+ * 足球配对 Game：真实联赛硬隔离；仅 FOOTBALL_FALLBACK_GAMES（现为空）可走软桶。
  * @param {boolean} isFootball
  * @param {string} game
  */
@@ -65,7 +66,7 @@ function pairGameForSport(isFootball, game) {
   const g = String(game || "").toLowerCase().trim();
   if (FOOTBALL_FALLBACK_GAMES.has(g))
     return FOOTBALL_SOFT_PAIR_GAME;
-  return g || "uef";
+  return g || UNKNOWN_FOOTBALL_GAME;
 }
 
 /**
@@ -75,8 +76,15 @@ function pairGameForSport(isFootball, game) {
 function preferFootballGame(legs, fallback) {
   for (const leg of legs) {
     const g = String(leg?.game || "").toLowerCase().trim();
-    if (g && !FOOTBALL_FALLBACK_GAMES.has(g) && g !== "soccer" && g !== FOOTBALL_SOFT_PAIR_GAME)
+    if (
+      g
+      && !FOOTBALL_FALLBACK_GAMES.has(g)
+      && g !== "soccer"
+      && g !== FOOTBALL_SOFT_PAIR_GAME
+      && g !== UNKNOWN_FOOTBALL_GAME
+    ) {
       return g;
+    }
   }
   return fallback;
 }

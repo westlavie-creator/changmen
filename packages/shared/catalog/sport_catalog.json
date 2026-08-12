@@ -50,9 +50,9 @@
       "nameEn": "Football",
       "status": "active",
       "defaultGameCodes": [
-        "epl", "lal", "bun", "fl1", "sea", "ucl", "uel", "mls",
+        "epl", "lal", "bun", "fl1", "sea", "ucl", "uel", "uecl", "mls",
         "ere", "por", "uef", "fif", "mex", "bra", "arg", "copa",
-        "jap", "afc", "caf", "chi", "chi2"
+        "jap", "afc", "caf", "chi", "chi2", "unknown_fb"
       ],
       "matcherProfile": "football",
       "linePath": "lines/football",

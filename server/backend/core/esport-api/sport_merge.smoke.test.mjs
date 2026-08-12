@@ -497,7 +497,7 @@ assert.equal(mergedDup.dtos.length, 1);
 assert.equal(mergedDup.dtos[0].Title, "Yunnan Yukun FC vs Shenzhen Xinpengcheng FC");
 assert.deepEqual(Object.keys(mergedDup.dtos[0].Matchs).sort(), ["Polymarket", "PredictFun"]);
 
-// 足球：PM chi + PF uef（联赛解析失败兜底）仍应合并，展示 Game=chi
+// 足球：PM chi + PF uef 不再软挂合并（须同 code；未知用 unknown_fb）
 const softLeague = [{
   ID: 300,
   Title: "Qingdao Hainiu FC vs Tianjin Jinmen Hu FC",
@@ -540,10 +540,8 @@ const softLeague = [{
   }],
 }];
 const soft = mergeSportClientMatchDtoList("football", softLeague);
-assert.equal(soft.multiVenueCount, 1);
-assert.equal(soft.dtos.length, 1);
-assert.equal(soft.dtos[0].Game, "chi");
-assert.deepEqual(Object.keys(soft.dtos[0].Matchs).sort(), ["Polymarket", "PredictFun"]);
+assert.equal(soft.multiVenueCount, 0);
+assert.equal(soft.dtos.length, 2);
 
 // 足球：不同真实联赛同队名不得合并（与棒球 mlb/kbo 同构）
 const crossFoot = [{

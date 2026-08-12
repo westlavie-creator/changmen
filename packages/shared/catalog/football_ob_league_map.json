@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-12",
+  "sportId": "1",
+  "source": {
+    "filter": "GET yewu11/v1/w/getFilterMatchListPB",
+    "structure": "POST yewu11/v2/w/structureTournamentMatchesPB",
+    "hostExample": "api.937kddt.com",
+    "payload": "JSON {code,data,msg}; data = gzip+base64",
+    "fields": {
+      "tournamentId": "联赛/杯赛稳定 ID（采集主键）",
+      "nameText": "中文全称",
+      "tnjc": "中文简称（热门栏/筛选）",
+      "sportId": "1=足球",
+      "regionId": "地区 ID",
+      "structureFields": ["tid", "tn", "csid", "mids", "tlev", "mgt"]
+    },
+    "notes": [
+      "勿用 UI 文案当主键；以 tournamentId 为准。",
+      "同一 changmen 杯赛可能有多 tid（正赛/资格赛分开）。当前早盘欧联仅见资格赛 262。",
+      "本次快照未出现欧洲冠军联赛/欧冠；上线采集时遇 tid 再补 ucl。"
+    ]
+  },
+  "firstBatch": [
+    {
+      "code": "epl",
+      "tournamentId": "180",
+      "nameText": "英格兰超级联赛",
+      "tnjc": "英超"
+    },
+    {
+      "code": "lal",
+      "tournamentId": "320",
+      "nameText": "西班牙甲级联赛",
+      "tnjc": "西甲"
+    },
+    {
+      "code": "bun",
+      "tournamentId": "276",
+      "nameText": "德国甲级联赛",
+      "tnjc": "德甲"
+    },
+    {
+      "code": "fl1",
+      "tournamentId": "79",
+      "nameText": "法国甲级联赛",
+      "tnjc": "法甲"
+    },
+    {
+      "code": "sea",
+      "tournamentId": "239",
+      "nameText": "意大利甲级联赛",
+      "tnjc": "意甲"
+    },
+    {
+      "code": "chi",
+      "tournamentId": "6344",
+      "nameText": "中国超级联赛",
+      "tnjc": "中超"
+    },
+    {
+      "code": "mls",
+      "tournamentId": "563",
+      "nameText": "美国职业大联盟",
+      "tnjc": "美职联"
+    },
+    {
+      "code": "uel",
+      "tournamentId": "262",
+      "nameText": "欧洲联赛资格赛",
+      "tnjc": "欧联资",
+      "phase": "qualifier",
+      "note": "当前快照仅资格赛；正赛 tid 待补，勿假设与 262 相同"
+    },
+    {
+      "code": "uecl",
+      "tournamentId": "8120",
+      "nameText": "欧洲协会联赛资格赛",
+      "tnjc": "欧协资",
+      "phase": "qualifier",
+      "note": "当前快照仅资格赛；正赛 tid 待补"
+    },
+    {
+      "code": "ucl",
+      "tournamentId": null,
+      "nameText": "欧洲冠军联赛",
+      "tnjc": "欧冠",
+      "phase": "unknown",
+      "note": "本次 getFilterMatchListPB 早盘快照未出现；保留名称别名，tid 见盘再填"
+    }
+  ],
+  "tournaments": [
+    {"tournamentId": "180", "nameText": "英格兰超级联赛", "tnjc": "英超", "regionId": "50"},
+    {"tournamentId": "320", "nameText": "西班牙甲级联赛", "tnjc": "西甲", "regionId": "83"},
+    {"tournamentId": "276", "nameText": "德国甲级联赛", "tnjc": "德甲", "regionId": "78"},
+    {"tournamentId": "79", "nameText": "法国甲级联赛", "tnjc": "法甲", "regionId": "161"},
+    {"tournamentId": "239", "nameText": "意大利甲级联赛", "tnjc": "意甲", "regionId": "80"},
+    {"tournamentId": "6344", "nameText": "中国超级联赛", "tnjc": "中超", "regionId": "8"},
+    {"tournamentId": "563", "nameText": "美国职业大联盟", "tnjc": "美职联", "regionId": "62"},
+    {"tournamentId": "262", "nameText": "欧洲联赛资格赛", "tnjc": "欧联资", "regionId": "3"},
+    {"tournamentId": "8120", "nameText": "欧洲协会联赛资格赛", "tnjc": "欧协资", "regionId": "3"},
+    {"tournamentId": "359", "nameText": "巴西甲级联赛", "tnjc": "巴甲", "regionId": "29"},
+    {"tournamentId": "322", "nameText": "南美自由杯", "tnjc": "自由杯", "regionId": "5"},
+    {"tournamentId": "2761", "nameText": "南美洲球会杯", "tnjc": "南美杯", "regionId": "5"},
+    {"tournamentId": "328", "nameText": "荷兰甲级联赛", "tnjc": "荷甲", "regionId": "91"},
+    {"tournamentId": "572", "nameText": "葡萄牙超级联赛", "tnjc": "葡超", "regionId": "115"},
+    {"tournamentId": "1906", "nameText": "墨西哥超级联赛", "tnjc": "墨超", "regionId": "23"},
+    {"tournamentId": "3384", "nameText": "阿根廷职业联赛", "tnjc": "阿职业", "regionId": "122"},
+    {"tournamentId": "90", "nameText": "日本J1联赛", "tnjc": "日J1", "regionId": "133"},
+    {"tournamentId": "64", "nameText": "韩国K1联赛", "tnjc": "韩K1", "regionId": "70"}
+  ]
+}
