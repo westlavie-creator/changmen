@@ -1,6 +1,6 @@
 /**
  * 内部 gameCode → 各数据源 slug 映射
- * gameCode 与 packages/shared/catalog/game_catalog.json 对齐
+ * gameCode 与 packages/shared/catalog/game_catalog*.json 对齐（电竞 + 体育经 game_catalog.ts 合并）
  */
 export const GAME_MAP = {
   cs2: {

@@ -8,6 +8,7 @@
     "./catalog/game_catalog": "./catalog/game_catalog.ts",
     "./catalog/game_catalog.browser": "./catalog/game_catalog.browser.ts",
     "./catalog/game_catalog.json": "./catalog/game_catalog.json",
+    "./catalog/game_catalog_sports.json": "./catalog/game_catalog_sports.json",
     "./catalog/venue_games.json": "./catalog/venue_games.json",
     "./catalog/sport_catalog": "./catalog/sport_catalog.ts",
     "./catalog/sport_catalog.json": "./catalog/sport_catalog.json",

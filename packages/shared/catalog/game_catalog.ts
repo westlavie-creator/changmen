@@ -1,4 +1,5 @@
-import catalog from "./game_catalog.json" with { type: "json" };
+import esportCatalog from "./game_catalog.json" with { type: "json" };
+import sportsCatalog from "./game_catalog_sports.json" with { type: "json" };
 
 export const DEFAULT_GAME_SPORT = "esport";
 
@@ -11,6 +12,17 @@ interface GameEntry {
   a8Name?: string;
   platforms?: Record<string, string>;
 }
+
+/** 电竞 + 体育合并视图；对外 listGames / resolve 仍走此对象。 */
+const catalog = {
+  version: Math.max(Number(esportCatalog.version) || 0, Number(sportsCatalog.version) || 0),
+  updatedAt: [esportCatalog.updatedAt, sportsCatalog.updatedAt].filter(Boolean).sort().at(-1) || "",
+  description: "merged game_catalog.json (esport) + game_catalog_sports.json",
+  games: [
+    ...((esportCatalog.games || []) as GameEntry[]),
+    ...((sportsCatalog.games || []) as GameEntry[]),
+  ],
+};
 
 /** 平博 league.gameCode 经 slugify 后的别名 → catalog code */
 const PB_SLUG_ALIASES: Record<string, string> = {

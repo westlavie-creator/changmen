@@ -1,0 +1,293 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-12",
+  "description": "体育联赛/杯赛类型（football/baseball/basketball/tennis）。与电竞 game_catalog.json 分离；运行时由 game_catalog.ts 合并。足球未知用 unknown_fb，勿默认 uef。",
+  "games": [
+    {
+      "code": "mlb",
+      "sport": "baseball",
+      "name": "美职棒",
+      "nameEn": "MLB",
+      "platforms": {
+        "Polymarket": "mlb",
+        "PredictFun": "mlb"
+      }
+    },
+    {
+      "code": "nba",
+      "sport": "basketball",
+      "name": "美职篮",
+      "nameEn": "NBA",
+      "platforms": {
+        "Polymarket": "nba",
+        "PredictFun": "nba"
+      }
+    },
+    {
+      "code": "kbo",
+      "sport": "baseball",
+      "name": "韩职棒",
+      "nameEn": "KBO",
+      "platforms": {
+        "Polymarket": "kbo",
+        "PredictFun": "kbo"
+      }
+    },
+    {
+      "code": "npb",
+      "sport": "baseball",
+      "name": "日职棒",
+      "nameEn": "NPB",
+      "platforms": {
+        "Polymarket": "npb",
+        "PredictFun": "npb"
+      }
+    },
+    {
+      "code": "tennis",
+      "sport": "tennis",
+      "name": "网球",
+      "nameEn": "Tennis",
+      "platforms": {
+        "Polymarket": "tennis",
+        "PredictFun": "tennis"
+      }
+    },
+    {
+      "code": "epl",
+      "sport": "football",
+      "name": "英超",
+      "nameEn": "Premier League",
+      "platforms": {
+        "Polymarket": "epl",
+        "PredictFun": "epl",
+        "OB": "180"
+      }
+    },
+    {
+      "code": "lal",
+      "sport": "football",
+      "name": "西甲",
+      "nameEn": "La Liga",
+      "platforms": {
+        "Polymarket": "lal",
+        "PredictFun": "lal",
+        "OB": "320"
+      }
+    },
+    {
+      "code": "bun",
+      "sport": "football",
+      "name": "德甲",
+      "nameEn": "Bundesliga",
+      "platforms": {
+        "Polymarket": "bun",
+        "PredictFun": "bun",
+        "OB": "276"
+      }
+    },
+    {
+      "code": "fl1",
+      "sport": "football",
+      "name": "法甲",
+      "nameEn": "Ligue 1",
+      "platforms": {
+        "Polymarket": "fl1",
+        "PredictFun": "fl1",
+        "OB": "79"
+      }
+    },
+    {
+      "code": "sea",
+      "sport": "football",
+      "name": "意甲",
+      "nameEn": "Serie A",
+      "platforms": {
+        "Polymarket": "sea",
+        "PredictFun": "sea",
+        "OB": "239"
+      }
+    },
+    {
+      "code": "ucl",
+      "sport": "football",
+      "name": "欧冠",
+      "nameEn": "UEFA Champions League",
+      "platforms": {
+        "Polymarket": "ucl",
+        "PredictFun": "ucl"
+      }
+    },
+    {
+      "code": "uel",
+      "sport": "football",
+      "name": "欧联",
+      "nameEn": "UEFA Europa League",
+      "platforms": {
+        "Polymarket": "uel",
+        "PredictFun": "uel",
+        "OB": "262"
+      }
+    },
+    {
+      "code": "uecl",
+      "sport": "football",
+      "name": "欧协联",
+      "nameEn": "UEFA Conference League",
+      "platforms": {
+        "Polymarket": "col",
+        "PredictFun": "uecl",
+        "OB": "8120"
+      }
+    },
+    {
+      "code": "mls",
+      "sport": "football",
+      "name": "美职联",
+      "nameEn": "MLS",
+      "platforms": {
+        "Polymarket": "mls",
+        "PredictFun": "mls",
+        "OB": "563"
+      }
+    },
+    {
+      "code": "ere",
+      "sport": "football",
+      "name": "荷甲",
+      "nameEn": "Eredivisie",
+      "platforms": {
+        "Polymarket": "ere",
+        "PredictFun": "ere"
+      }
+    },
+    {
+      "code": "por",
+      "sport": "football",
+      "name": "葡超",
+      "nameEn": "Primeira Liga",
+      "platforms": {
+        "Polymarket": "por",
+        "PredictFun": "por"
+      }
+    },
+    {
+      "code": "mex",
+      "sport": "football",
+      "name": "墨超",
+      "nameEn": "Liga MX",
+      "platforms": {
+        "Polymarket": "mex",
+        "PredictFun": "mex"
+      }
+    },
+    {
+      "code": "bra",
+      "sport": "football",
+      "name": "巴甲",
+      "nameEn": "Brasileirão",
+      "platforms": {
+        "Polymarket": "bra",
+        "PredictFun": "bra"
+      }
+    },
+    {
+      "code": "arg",
+      "sport": "football",
+      "name": "阿甲",
+      "nameEn": "Primera División",
+      "platforms": {
+        "Polymarket": "arg",
+        "PredictFun": "arg"
+      }
+    },
+    {
+      "code": "copa",
+      "sport": "football",
+      "name": "美洲杯",
+      "nameEn": "Copa América",
+      "platforms": {
+        "Polymarket": "copa",
+        "PredictFun": "copa"
+      }
+    },
+    {
+      "code": "jap",
+      "sport": "football",
+      "name": "日职联",
+      "nameEn": "J-League",
+      "platforms": {
+        "Polymarket": "jap",
+        "PredictFun": "jap"
+      }
+    },
+    {
+      "code": "chi",
+      "sport": "football",
+      "name": "中超",
+      "nameEn": "Chinese Super League",
+      "platforms": {
+        "Polymarket": "chi",
+        "PredictFun": "chi",
+        "OB": "6344"
+      }
+    },
+    {
+      "code": "chi2",
+      "sport": "football",
+      "name": "中甲",
+      "nameEn": "China League One",
+      "platforms": {
+        "Polymarket": "chi2",
+        "PredictFun": "chi2"
+      }
+    },
+    {
+      "code": "afc",
+      "sport": "football",
+      "name": "亚足联",
+      "nameEn": "AFC",
+      "platforms": {
+        "Polymarket": "afc",
+        "PredictFun": "afc"
+      }
+    },
+    {
+      "code": "caf",
+      "sport": "football",
+      "name": "非足联",
+      "nameEn": "CAF",
+      "platforms": {
+        "Polymarket": "caf",
+        "PredictFun": "caf"
+      }
+    },
+    {
+      "code": "uef",
+      "sport": "football",
+      "name": "欧足联",
+      "nameEn": "UEFA",
+      "platforms": {
+        "Polymarket": "uef",
+        "PredictFun": "uef"
+      }
+    },
+    {
+      "code": "fif",
+      "sport": "football",
+      "name": "国际足联",
+      "nameEn": "FIFA",
+      "platforms": {
+        "Polymarket": "fif",
+        "PredictFun": "fif"
+      }
+    },
+    {
+      "code": "unknown_fb",
+      "sport": "football",
+      "name": "未分类",
+      "nameEn": "Unknown Football",
+      "platforms": {}
+    }
+  ]
+}

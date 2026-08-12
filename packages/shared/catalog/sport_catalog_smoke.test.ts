@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 const sport = await import("./sport_catalog.ts");
 const gameCatalog = await import("./game_catalog.json", { with: { type: "json" } });
+const sportsCatalog = await import("./game_catalog_sports.json", { with: { type: "json" } });
 
 assert.equal(sport.DEFAULT_SPORT, "esport");
 assert.equal(sport.listSports().length, 5);
@@ -40,7 +41,7 @@ assert.deepEqual(
   ["baseball", "basketball", "esport", "football", "tennis"],
 );
 
-for (const game of gameCatalog.default.games) {
+for (const game of [...gameCatalog.default.games, ...sportsCatalog.default.games]) {
   const sportCode = game.sport ?? sport.DEFAULT_SPORT;
   assert.ok(sport.isKnownSport(sportCode), `${game.code} → ${sportCode}`);
 }

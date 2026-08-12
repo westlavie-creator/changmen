@@ -58,6 +58,8 @@ assert.equal(g.getGameSport("chi"), "football");
 assert.equal(g.getPlatformGameId("Polymarket", "chi"), "chi");
 assert.equal(g.getGameCodeForPlatformId("PredictFun", "epl"), "epl");
 assert.ok(!g.getActivePlatformGameIds("Polymarket").includes("chi"));
+assert.equal(g.listGames().filter(x => (x.sport ?? "esport") === "esport").length, gameCatalog.default.games.length);
+assert.ok(g.listGames().some(x => x.code === "unknown_fb"));
 
 
 const pb = await import("./pb_team_platform_id.ts");
