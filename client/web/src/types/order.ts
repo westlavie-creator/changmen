@@ -22,6 +22,8 @@ export interface OrderRow {
   CreateAt?: number;
   PlayerID?: number;
   Player?: OrderPlayerInfo;
+  /** [changmen 扩展] 对应 player 已 soft-delete；展示用（对齐管理端 playerDeleted） */
+  PlayerDeleted?: boolean;
   /** [changmen 扩展] Polymarket 持仓，来自 orders.raw */
   PmTokenId?: string;
   PmShares?: number;

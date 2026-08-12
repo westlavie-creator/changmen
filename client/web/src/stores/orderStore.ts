@@ -59,10 +59,27 @@ export const useOrderStore = defineStore("order", {
 
     accountOptions(): { value: number; label: string }[] {
       const accounts = useAccountStore().accounts;
+      const seen = new Set(accounts.map(a => a.accountId));
       const opts = accounts.map(a => ({
         value: a.accountId,
         label: `${a.platformName || a.provider}/${accountOrderDisplayName(a)}`,
       }));
+      // 已删账号仍出现在当日订单：筛选取名对齐后台历史展示
+      for (const rows of this.orders.values()) {
+        for (const r of rows) {
+          const pid = Number(r.PlayerID) || 0;
+          if (!pid || seen.has(pid))
+            continue;
+          seen.add(pid);
+          const name = String(r.Player?.UserName || "").trim() || `#${pid}`;
+          const platform = String(r.Player?.Platform || r.Type || "").trim();
+          const base = platform ? `${platform}/${name}` : name;
+          opts.push({
+            value: pid,
+            label: r.PlayerDeleted ? `${base}（已删）` : base,
+          });
+        }
+      }
       return [{ value: 0, label: "全部" }, ...opts];
     },
   },
@@ -209,10 +226,13 @@ export const useOrderStore = defineStore("order", {
         const platform = accountStore.getPlatformName(acc.platformId, acc.platformName);
         return `${platform} / ${accountOrderDisplayName(acc)}`;
       }
+      // 账号已删：后端 Client_GetOrderList 回填 Player（含 soft-delete）
       if (row.Player?.Platform || row.Player?.UserName) {
-        return `${row.Player.Platform || ""} / ${row.Player.UserName || ""}`.trim();
+        const base = `${row.Player.Platform || ""} / ${row.Player.UserName || ""}`.trim();
+        return row.PlayerDeleted && base ? `${base}（已删）` : base;
       }
-      return "";
+      const pid = Number(row.PlayerID) || 0;
+      return pid ? `#${pid}` : "";
     },
 
     /** 对齐 A8 OrderView：暂停账号平台角标加 `.Stop` 删除线 */

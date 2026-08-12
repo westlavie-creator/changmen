@@ -423,7 +423,7 @@ export async function fetchPlayersByIds(playerIds) {
 
 /**
  * 批量读 players（含已 soft-delete）。
- * 管理端历史订单展示原账号名；勿用于归属校验 / SaveData。
+ * 工作台 / 管理端历史订单展示原账号名；勿用于归属校验 / SaveData。
  */
 export async function fetchPlayersByIdsIncludingDeleted(playerIds) {
   const ids = [...new Set((playerIds || []).map(id => Number(id)).filter(id => id > 0))];

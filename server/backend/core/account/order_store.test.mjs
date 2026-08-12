@@ -6,6 +6,7 @@ import { listUserProfitRank, parseOrderBindRow, resolveStoredLink } from "./orde
 vi.mock("@changmen/db", () => ({
   fetchOrdersForProfitAggregate: vi.fn(),
   fetchProfiles: vi.fn(),
+  fetchPlayersByIdsIncludingDeleted: vi.fn(async () => []),
   placeholderLinkFromCreateAt: (ca) => ca,
   backendBindLinkFromCreateAt: vi.fn(),
 }));
@@ -723,5 +724,47 @@ describe("rowToOrder sell money zeroing", () => {
       raw: { pfSide: "sell", pfBuyOrderId: "0xpfbuy" },
     });
     expect(o.Money).toBe(0);
+  });
+});
+
+describe("attachPlayerDisplayToClientOrders", () => {
+  it("fills Player.UserName from soft-deleted player (venueAccountName first)", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchPlayersByIdsIncludingDeleted).mockResolvedValue([
+      {
+        id: 42,
+        playerId: 42,
+        platformName: "雷速",
+        playerName: "legacy",
+        deletedAt: 1_700_000_000_000,
+        accountData: { venueAccountName: "venue-user" },
+      },
+    ]);
+    const { attachPlayerDisplayToClientOrders } = await import("./order_store.js");
+    const list = await attachPlayerDisplayToClientOrders([
+      {
+        OrderID: "o1",
+        PlayerID: 42,
+        Type: "RAY",
+        Player: { Platform: "RAY", UserName: "", Status: "None" },
+      },
+    ]);
+    expect(list[0].Player.Platform).toBe("雷速");
+    expect(list[0].Player.UserName).toBe("venue-user");
+    expect(list[0].PlayerDeleted).toBe(true);
+  });
+
+  it("leaves orders untouched when player row missing", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchPlayersByIdsIncludingDeleted).mockResolvedValue([]);
+    const { attachPlayerDisplayToClientOrders } = await import("./order_store.js");
+    const input = [{
+      OrderID: "o2",
+      PlayerID: 99,
+      Player: { Platform: "OB", UserName: "", Status: "None" },
+    }];
+    const list = await attachPlayerDisplayToClientOrders(input);
+    expect(list[0].Player.UserName).toBe("");
+    expect(list[0].PlayerDeleted).toBeUndefined();
   });
 });

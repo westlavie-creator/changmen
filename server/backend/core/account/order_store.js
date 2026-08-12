@@ -96,10 +96,50 @@ export function mergeOrderLogicalSave(prevRow, prevRaw, o, pmOrigin) {
   return result;
 }
 
+/**
+ * [changmen 扩展] 工作台订单回填 Player 展示名（含已 soft-delete 账号）。
+ * 对齐 admin attachPlayerDisplayToAdminOrders；A8 形状仍走 Player.Platform / UserName。
+ */
+export async function attachPlayerDisplayToClientOrders(list) {
+  const orders = list || [];
+  const ids = [...new Set(
+    orders.map(o => Number(o?.PlayerID) || 0).filter(id => id > 0),
+  )];
+  if (!ids.length)
+    return orders;
+  const players = await sb.fetchPlayersByIdsIncludingDeleted(ids);
+  const byId = new Map(players.map(p => [Number(p.id ?? p.playerId), p]));
+  return orders.map((order) => {
+    const p = byId.get(Number(order.PlayerID) || 0);
+    if (!p)
+      return order;
+    const data
+      = p.accountData && typeof p.accountData === "object" && !Array.isArray(p.accountData)
+        ? p.accountData
+        : {};
+    const venueAccountName = String(data.venueAccountName || "").trim();
+    const playerName = String(p.playerName || "").trim();
+    const pid = Number(order.PlayerID) || 0;
+    const userName = venueAccountName || playerName || (pid ? `#${pid}` : "");
+    const platformName = String(p.platformName || "").trim();
+    const deleted = p.deletedAt != null;
+    return {
+      ...order,
+      Player: {
+        ...(order.Player && typeof order.Player === "object" ? order.Player : {}),
+        Platform: platformName || order.Player?.Platform || "",
+        UserName: userName,
+        Status: order.Player?.Status || "None",
+      },
+      PlayerDeleted: deleted || undefined,
+    };
+  });
+}
+
 export async function listByDate(date, userId) {
   const target = date || toDateKey(Date.now());
   const rows = await sb.fetchOrdersByDate(target, userId);
-  return rows.map(toClientOrder);
+  return attachPlayerDisplayToClientOrders(rows.map(toClientOrder));
 }
 
 export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 1024) {
@@ -109,7 +149,7 @@ export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 102
   const { rows } = await sb.fetchOrdersByDatePage(target, userId, page, size);
   // [changmen 扩展] 同 Link + buyId 跨日并入；卖单归买单日
   const merged = await enrichOrdersBelongingToDate(rows || [], target, { userId });
-  const list = merged.map(toClientOrder);
+  const list = await attachPlayerDisplayToClientOrders(merged.map(toClientOrder));
   return { list, total: list.length };
 }
 
