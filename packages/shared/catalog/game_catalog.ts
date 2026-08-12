@@ -16,7 +16,10 @@ interface GameEntry {
 /** 电竞 + 体育合并视图；对外 listGames / resolve 仍走此对象。 */
 const catalog = {
   version: Math.max(Number(esportCatalog.version) || 0, Number(sportsCatalog.version) || 0),
-  updatedAt: [esportCatalog.updatedAt, sportsCatalog.updatedAt].filter(Boolean).sort().at(-1) || "",
+  updatedAt: (() => {
+    const stamps = [esportCatalog.updatedAt, sportsCatalog.updatedAt].filter(Boolean).sort();
+    return stamps[stamps.length - 1] || "";
+  })(),
   description: "merged game_catalog.json (esport) + game_catalog_sports.json",
   games: [
     ...((esportCatalog.games || []) as GameEntry[]),
