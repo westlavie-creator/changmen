@@ -28,6 +28,14 @@ export function platformMatchOrphanCutoffMs(platform, now = Date.now()) {
   return Number(now) - PB_SNAPSHOT_ORPHAN_GRACE_MS;
 }
 
+/** 解析 orphanBeforeMs：null/undefined/"" → 立即删；勿把 Number(null)=0 当成 cutoff */
+export function resolveSnapshotOrphanBeforeMs(orphanBeforeMs) {
+  if (orphanBeforeMs == null || orphanBeforeMs === "")
+    return null;
+  const n = Number(orphanBeforeMs);
+  return Number.isFinite(n) ? n : null;
+}
+
 function _mapLiveTimerRows(provider, timer) {
   if (!Array.isArray(timer))
     return null;
@@ -61,7 +69,7 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
 } = {}) {
   const plat = String(platform);
   const ids = (keepSourceMatchIds || []).map(String);
-  const stickyCutoff = Number.isFinite(Number(orphanBeforeMs)) ? Number(orphanBeforeMs) : null;
+  const stickyCutoff = resolveSnapshotOrphanBeforeMs(orphanBeforeMs);
   const staleMatchClause = stickyCutoff != null
     ? "AND (synced_at IS NULL OR synced_at < $CUTOFF::bigint)"
     : "";

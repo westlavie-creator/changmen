@@ -4,6 +4,7 @@ import {
   PB_SNAPSHOT_ORPHAN_GRACE_MS,
   isStickyPlatformMatchSnapshot,
   platformMatchOrphanCutoffMs,
+  resolveSnapshotOrphanBeforeMs,
   shouldIgnoreEmptyPlatformMatchSnapshot,
 } from "./platform_collector_store.js";
 
@@ -29,5 +30,14 @@ describe("PB sticky platform_matches snapshot", () => {
       now - PB_SNAPSHOT_ORPHAN_GRACE_MS,
     );
     assert.equal(PB_SNAPSHOT_ORPHAN_GRACE_MS, 5 * 60 * 1000);
+  });
+
+  it("resolveSnapshotOrphanBeforeMs does not treat null as 0", () => {
+    assert.equal(resolveSnapshotOrphanBeforeMs(null), null);
+    assert.equal(resolveSnapshotOrphanBeforeMs(undefined), null);
+    assert.equal(resolveSnapshotOrphanBeforeMs(""), null);
+    assert.equal(resolveSnapshotOrphanBeforeMs("x"), null);
+    assert.equal(resolveSnapshotOrphanBeforeMs(0), 0);
+    assert.equal(resolveSnapshotOrphanBeforeMs(1_700_000_000_000), 1_700_000_000_000);
   });
 });

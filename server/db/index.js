@@ -103,6 +103,7 @@ export const {
   isStickyPlatformMatchSnapshot,
   shouldIgnoreEmptyPlatformMatchSnapshot,
   platformMatchOrphanCutoffMs,
+  resolveSnapshotOrphanBeforeMs,
   writePlatformBets,
   replacePlatformBetsForMatch,
   replacePlatformBetsForMatchAsync,

@@ -108,6 +108,7 @@ export {
   isStickyPlatformMatchSnapshot,
   shouldIgnoreEmptyPlatformMatchSnapshot,
   platformMatchOrphanCutoffMs,
+  resolveSnapshotOrphanBeforeMs,
 } from "./rds/platform_collector_store.js";
 
 export {
