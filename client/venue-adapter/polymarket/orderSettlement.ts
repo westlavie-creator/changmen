@@ -72,8 +72,8 @@ export async function settlePolymarketDelayedOrder(
   const rest = await settlePolymarketDelayedOrderViaRest(account, orderId, opts);
   if (rest.outcome === "matched")
     return rest;
-  // WS 已报 Cancellation 且 REST 未发现成交 → 确认 unfilled
-  if (wsResult?.outcome === "unfilled" && rest.outcome !== "matched")
+  // WS 已报 Cancellation 且 REST 未 matched（上一分支已 return）→ 确认 unfilled
+  if (wsResult?.outcome === "unfilled")
     return { outcome: "unfilled", row: rest.row ?? wsResult.row };
   return rest;
 }
