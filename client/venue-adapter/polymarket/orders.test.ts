@@ -16,6 +16,7 @@ import {
   parsePolymarketMicroUsdc,
   resolvePolymarketWinningAssetId,
   scalePolymarketVenueOrdersForDisplay,
+  selectPolymarketConfirmedTradeForOrder,
   type PolymarketTradeRow,
 } from "./orders";
 import { collectPolymarketUserAddresses } from "./l2Auth";
@@ -158,6 +159,60 @@ describe("flattenPolymarketTrades", () => {
 
     const orders = mapPolymarketTradesToVenueOrders([trade], new Map(), 0, userAddresses);
     expect(orders).toHaveLength(0);
+  });
+});
+
+describe("selectPolymarketConfirmedTradeForOrder", () => {
+  test("aggregates multi-bucket BUY fills instead of returning the first leg", () => {
+    const selected = selectPolymarketConfirmedTradeForOrder([
+      {
+        id: "t1",
+        taker_order_id: "0xbuy",
+        side: "BUY",
+        status: "TRADE_STATUS_CONFIRMED",
+        size: "30",
+        price: "0.4",
+        match_time: "1700000000",
+      },
+      {
+        id: "t2",
+        taker_order_id: "0xbuy",
+        side: "BUY",
+        status: "TRADE_STATUS_CONFIRMED",
+        size: "70",
+        price: "0.5",
+        match_time: "1700000001",
+        bucket_index: 1,
+      },
+    ], "0xbuy", "BUY");
+    expect(selected?.size).toBe("100");
+    expect(selected?.price).toBe("0.47");
+  });
+
+  test("aggregates multi-bucket SELL fills for delayed settle size_matched", () => {
+    const selected = selectPolymarketConfirmedTradeForOrder([
+      {
+        id: "s1",
+        taker_order_id: "0xsell",
+        side: "SELL",
+        status: "MINED",
+        size: "30",
+        price: "0.55",
+        match_time: "1700000100",
+      },
+      {
+        id: "s2",
+        taker_order_id: "0xsell",
+        side: "SELL",
+        status: "MINED",
+        size: "70",
+        price: "0.55",
+        match_time: "1700000101",
+        bucket_index: 1,
+      },
+    ], "0xsell", "SELL");
+    expect(selected?.size).toBe("100");
+    expect(Number(selected?.price)).toBeCloseTo(0.55, 6);
   });
 });
 

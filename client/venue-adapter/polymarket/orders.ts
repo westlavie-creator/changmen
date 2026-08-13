@@ -476,6 +476,35 @@ export function polymarketTradeNotionalUsdc(trade: PolymarketTradeRow): number {
   return Math.round(polymarketBuyStakeUsdc(trade.size, price) * 10000) / 10000;
 }
 
+/**
+ * 从已 flatten 的成交里按 orderId 取确认腿。
+ * 多 bucket 必须合计（与 sync 的 aggregate* 一致）；禁止 return 第一腿，否则
+ * delayed/FOK settle 会把 size_matched 写成部分成交 → 卖出归因/持仓错误。
+ */
+export function selectPolymarketConfirmedTradeForOrder(
+  flattened: PolymarketTradeRow[],
+  orderId: string,
+  side: "BUY" | "SELL" = "BUY",
+): PolymarketTradeRow | null {
+  const id = String(orderId ?? "").trim();
+  if (!id)
+    return null;
+  const wantSide = String(side ?? "BUY").trim().toUpperCase();
+  const matched = (flattened || []).filter((trade) => {
+    if (!polymarketTradeRefsOrderId(trade, id))
+      return false;
+    if (String(trade.side ?? "").trim().toUpperCase() !== wantSide)
+      return false;
+    return isPolymarketTradeConfirmed(String(trade.status ?? ""));
+  }).map(trade => ({ ...trade, taker_order_id: id }));
+  if (!matched.length)
+    return null;
+  const aggregated = wantSide === "SELL"
+    ? aggregatePolymarketSellTrades(matched)
+    : aggregatePolymarketTrades(matched);
+  return aggregated[0] ?? null;
+}
+
 /** 近窗内按 orderId 查已确认成交（体育 delayed 订单状态滞后时的兜底） */
 export async function fetchPolymarketConfirmedTradeForOrder(
   account: PlatformAccount,
@@ -497,17 +526,7 @@ export async function fetchPolymarketConfirmedTradeForOrder(
     return null;
   }
   const flattened = flattenPolymarketTrades(rawTrades, userAddresses);
-  const wantSide = side.toUpperCase();
-  for (const trade of flattened) {
-    if (!polymarketTradeRefsOrderId(trade, id))
-      continue;
-    if (String(trade.side ?? "").trim().toUpperCase() !== wantSide)
-      continue;
-    if (!isPolymarketTradeConfirmed(String(trade.status ?? "")))
-      continue;
-    return trade;
-  }
-  return null;
+  return selectPolymarketConfirmedTradeForOrder(flattened, id, side);
 }
 
 /** MAKER 成交在 maker_orders；TAKER 用 taker_order_id */
