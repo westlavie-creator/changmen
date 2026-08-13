@@ -9,6 +9,22 @@ import {
   type PolymarketRejectOrderContext,
 } from "@changmen/venue-adapter/polymarket";
 import { saveOrders } from "@/api/order";
+import { resolveOrderItemLabel } from "@/shared/orderItemDisplay";
+
+/** Reject 落库选项：队名优先，避免管理端只看到 Home/Away */
+function itemLabelFromBetOption(option: BetOption): string {
+  const target = String(option.target ?? "").trim();
+  const named = option.target === "Away"
+    ? String(option.bet?.awayName ?? "").trim()
+    : String(option.bet?.homeName ?? "").trim();
+  if (named)
+    return named;
+  const matchTitle = String(option.match?.title ?? "");
+  const fromMatch = resolveOrderItemLabel(target, matchTitle);
+  if (fromMatch && fromMatch !== target)
+    return fromMatch;
+  return target;
+}
 
 function contextFromBetOption(
   option: BetOption | undefined,
@@ -24,7 +40,7 @@ function contextFromBetOption(
     game: String(option.match?.game ?? ""),
     match: String(option.match?.title ?? ""),
     bet: String(option.bet?.getBetName?.() ?? ""),
-    item: String(option.target ?? ""),
+    item: itemLabelFromBetOption(option),
     ...(link ? { link } : {}),
   };
 }

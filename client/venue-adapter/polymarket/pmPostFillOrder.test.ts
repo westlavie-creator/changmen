@@ -159,4 +159,52 @@ describe("buildPolymarketMatchedBuyVenueOrderFromBet", () => {
     expect(order?.match).toBe("A vs B");
     expect(order?.createAt).toBe(1_700_000_000_000);
   });
+
+  it("falls back to match title side when bet names missing", async () => {
+    const option = new BetOption("Polymarket", "cond", "tok", "Away", 10, "Away", 2);
+    option.match = { game: "CS", title: "Left Side vs Right Side" } as never;
+    option.bet = {
+      homeName: "",
+      awayName: "",
+      name: "Map",
+      getBetName: () => "Map 1",
+    } as never;
+    option.target = "Away";
+    option.itemId = "tok";
+    option.betId = "cond";
+    const matched = new BetResult("Polymarket", true, "ok", {}, {
+      success: true,
+      status: "matched",
+      orderID: "0xm2",
+      makingAmount: "10000000",
+      takingAmount: "25000000",
+    });
+    matched.orderId = "0xm2";
+    const order = await buildPolymarketMatchedBuyVenueOrderFromBet(option, matched);
+    expect(order?.item).toBe("Right Side");
+  });
+
+  it("falls back through dashed VS match titles", async () => {
+    const option = new BetOption("Polymarket", "cond", "tok", "Home", 10, "Home", 2);
+    option.match = { game: "VAL", title: "SEN Otters - VS - HIMMERS" } as never;
+    option.bet = {
+      homeName: "",
+      awayName: "",
+      name: "Map",
+      getBetName: () => "Map 1",
+    } as never;
+    option.target = "Home";
+    option.itemId = "tok";
+    option.betId = "cond";
+    const matched = new BetResult("Polymarket", true, "ok", {}, {
+      success: true,
+      status: "matched",
+      orderID: "0xm3",
+      makingAmount: "10000000",
+      takingAmount: "25000000",
+    });
+    matched.orderId = "0xm3";
+    const order = await buildPolymarketMatchedBuyVenueOrderFromBet(option, matched);
+    expect(order?.item).toBe("SEN Otters");
+  });
 });

@@ -47,6 +47,7 @@ import {
   pfUnrealizedPnlAtLiveCny,
   resolvePfOrderListStatusClass,
 } from "@/shared/pfOrderDisplay";
+import { resolveOrderItemLabel } from "@/shared/orderItemDisplay";
 import { positionEventObserveTag } from "@/shared/positionEventsDisplay";
 import { ensurePfOrderLabelIndex } from "@/shared/pfOrderLabelIndex";
 import {
@@ -146,6 +147,10 @@ function pfBetText(row: OrderRow): string {
 function pfItemText(row: OrderRow): string {
   void pfLabelTick.value;
   return pfOrderItemText(row);
+}
+
+function orderItemText(row: OrderRow): string {
+  return resolveOrderItemLabel(row.Item, row.Match);
 }
 
 function isPendingRow(row: OrderRow): boolean {
@@ -447,7 +452,7 @@ function formatRebindOrderBlock(label: string, row: OrderRow): string {
     `订单：${shortOrderId(String(row.OrderID ?? ""))}`,
     `对阵：${stripOrderText(row.Match)}`,
     `盘口：${stripOrderText(row.Bet)}`,
-    `选项：${stripOrderText(row.Item)}`,
+    `选项：${stripOrderText(orderItemText(row))}`,
     `金额：${toFixed(Number(row.BetMoney) || 0, 0)}  赔率：${formatDisplayOdds(Number(row.Odds) || 0)}`,
     `Link：${formatLinkId(row.Link)}`,
   ];
@@ -746,7 +751,7 @@ function badgeTitle(row: OrderRow): string {
             </div>
             <div class="item">
               <label v-if="isPfOrderListRow(block.row)">{{ pfItemText(block.row) }}</label>
-              <label v-else v-html="block.row.Item" />
+              <label v-else>{{ orderItemText(block.row) }}</label>
             </div>
           </div>
           <div class="profit">

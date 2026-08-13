@@ -42,18 +42,50 @@ describe("persistPolymarketExecutionReject", () => {
       tip: { pmPosted: true },
     });
     const option = new BetOption("Polymarket", "m1", "b1", "i1", 10, "Home", 1.55);
+    option.match = { title: "Alpha vs Beta", game: "LoL" } as never;
+    option.bet = { homeName: "Alpha", awayName: "Beta", getBetName: () => "全场" } as never;
     const out = await persistPolymarketExecutionReject(account, result, "api_failed", {
       betOption: option,
       linkId: 55,
     });
     expect(out?.status).toBe("reject");
     expect(out?.orderId).toBe("pm-rej-9-1700000000000-api_failed");
+    expect(out?.item).toBe("Alpha");
     expect(out?.betMoney).toBe(10);
     expect(out?.link).toBe(55);
     expect(out?.pmRejectReason).toBe("api_failed");
     expect(saveOrders).toHaveBeenCalledTimes(1);
     expect(saveOrders.mock.calls[0][0]).toBe(account);
     expect(saveOrders.mock.calls[0][1][0].orderId).toBe(out!.orderId);
+  });
+
+  it("maps Away to awayName on reject", async () => {
+    const account = { provider: "Polymarket", accountId: 3 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xaway",
+      beginTime: 100,
+    });
+    const option = new BetOption("Polymarket", "m1", "b1", "i1", 5, "Away", 1.8);
+    option.match = { title: "HomeTeam vs AwayTeam" } as never;
+    option.bet = { homeName: "HomeTeam", awayName: "AwayTeam", getBetName: () => "地图1" } as never;
+    const out = await persistPolymarketExecutionReject(account, result, "unfilled", {
+      betOption: option,
+    });
+    expect(out?.item).toBe("AwayTeam");
+  });
+
+  it("falls back to match title when bet names missing", async () => {
+    const account = { provider: "Polymarket", accountId: 3 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xmatch",
+      beginTime: 100,
+    });
+    const option = new BetOption("Polymarket", "m1", "b1", "i1", 5, "Away", 1.8);
+    option.match = { title: "Left vs Right" } as never;
+    const out = await persistPolymarketExecutionReject(account, result, "unfilled", {
+      betOption: option,
+    });
+    expect(out?.item).toBe("Right");
   });
 
   it("saves unfilled with official orderId without requiring pmPosted", async () => {

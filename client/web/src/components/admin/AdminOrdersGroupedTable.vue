@@ -5,6 +5,7 @@ import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import { formatLinkId, isSingleLegLink, isValueBetLink } from "@changmen/client-core/shared/format";
 import { formatLinkIdFull } from "@/shared/linkDisplay";
 import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
+import { resolveOrderItemLabel } from "@/shared/orderItemDisplay";
 
 const props = defineProps<{
   groups: [number, AdminOrderRow[]][];
@@ -197,7 +198,7 @@ function spanMethod({
     </el-table-column>
     <el-table-column label="选项" width="100" show-overflow-tooltip>
       <template #default="{ row }">
-        {{ row.order.item }}
+        {{ resolveOrderItemLabel(row.order.item, row.order.match) }}
       </template>
     </el-table-column>
     <el-table-column label="赔率" width="84" align="right" class-name="admin-order-cell--num">

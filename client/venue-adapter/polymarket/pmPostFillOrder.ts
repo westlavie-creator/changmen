@@ -164,9 +164,22 @@ export async function buildPolymarketMatchedBuyVenueOrderFromBet(
   if (!isPolymarketBetResultFillConfirmed(result))
     return null;
   const orderId = String(result.orderId ?? "").trim();
-  const itemName = option.target === "Home"
+  const named = option.target === "Home"
     ? option.bet?.homeName
     : option.bet?.awayName;
+  const matchTitle = String(option.match?.title ?? "");
+  const target = String(option.target ?? "").trim();
+  const fromMatch = (() => {
+    const parts = matchTitle.split(/\s*[-–—]?\s*vs\.?\s*[-–—]?\s*|\s+v\.?\s+/i);
+    if (parts.length !== 2)
+      return "";
+    const clean = (s: string) => String(s ?? "")
+      .replace(/^[-–—\s]+|[-–—\s]+$/g, "")
+      .trim();
+    const side = target === "Away" ? parts[1] : parts[0];
+    return clean(side);
+  })();
+  const itemName = String(named ?? "").trim() || fromMatch || target;
   const data = (option.data ?? {}) as {
     bookPrice?: number;
     apiBetMoney?: number;
