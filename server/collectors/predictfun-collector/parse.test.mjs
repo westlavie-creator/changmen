@@ -279,4 +279,167 @@ describe("predictfun-collector parse", () => {
     assert.equal(m1.HomeOdds, decimalOddsFromProbability(0.40));
     assert.equal(m1.AwayOdds, decimalOddsFromProbability(0.65));
   });
+
+  it("ignores First Blood props and maps Match Winner teams (live ESPORTS_DOTA2 shape)", () => {
+    const cat = {
+      id: 297627,
+      slug: "dota2-liquid-vg-2026-08-13",
+      title: "Dota 2: Team Liquid vs Vici Gaming (BO3) - The International Group Stage",
+      status: "OPEN",
+      marketVariant: "ESPORTS_DOTA2",
+      startsAt: "2026-08-13T06:00:00.000Z",
+      tags: [{ id: "83", name: "Esports" }, { id: "87", name: "Dota 2" }],
+      variantDetails: {
+        sports: {
+          provider: "POLYMARKET",
+          teams: [
+            { id: 61, name: "Team Liquid", abbreviation: "liquid" },
+            { id: 77198, name: "Vici Gaming", abbreviation: "vg" },
+          ],
+        },
+      },
+      markets: [
+        {
+          id: 1293772,
+          title: "Match Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_MONEYLINE",
+          outcomes: [
+            {
+              name: "TL",
+              onChainId: "mw-home-token",
+              bestAsk: { price: 0.75 },
+              team: { id: 61, name: "Team Liquid", abbreviation: "liquid", league: "dota2" },
+              variantDetails: { sports: { team: { id: 61, name: "Team Liquid", abbreviation: "liquid" } } },
+            },
+            {
+              name: "VG",
+              onChainId: "mw-away-token",
+              bestAsk: { price: 0.26 },
+              team: { id: 77198, name: "Vici Gaming", abbreviation: "vg", league: "dota2" },
+              variantDetails: { sports: { team: { id: 77198, name: "Vici Gaming", abbreviation: "vg" } } },
+            },
+          ],
+        },
+        {
+          id: 1293774,
+          title: "Game 1 Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_CHILD_MONEYLINE",
+          outcomes: [
+            { name: "TL", onChainId: "g1-h", bestAsk: { price: 0.6 } },
+            { name: "VG", onChainId: "g1-a", bestAsk: { price: 0.42 } },
+          ],
+        },
+        {
+          id: 1345026,
+          title: "First Blood in Game 1?",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: null,
+          outcomes: [
+            {
+              name: "TL",
+              onChainId: "fb1-h",
+              bestAsk: { price: 0.5 },
+              team: { id: 61, name: "Team Liquid", abbreviation: "liquid" },
+            },
+            {
+              name: "VG",
+              onChainId: "fb1-a",
+              bestAsk: { price: 0.5 },
+              team: { id: 77198, name: "Vici Gaming", abbreviation: "vg" },
+            },
+          ],
+        },
+        {
+          id: 1345025,
+          title: "First Blood in Game 2?",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: null,
+          outcomes: [
+            {
+              name: "TL",
+              onChainId: "fb2-h",
+              bestAsk: { price: 0.5 },
+              team: { id: 61, name: "Team Liquid", abbreviation: "liquid" },
+            },
+            {
+              name: "VG",
+              onChainId: "fb2-a",
+              bestAsk: { price: 0.5 },
+              team: { id: 77198, name: "Vici Gaming", abbreviation: "vg" },
+            },
+          ],
+        },
+        {
+          id: 1345028,
+          title: "Total Kills Over/Under 50.5 in Game 1?",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: null,
+          outcomes: [
+            { name: "Over", onChainId: "ou-o", bestAsk: { price: 0.5 } },
+            { name: "Under", onChainId: "ou-u", bestAsk: { price: 0.5 } },
+          ],
+        },
+      ],
+    };
+
+    assert.equal(isPredictEsportsMoneylineCategory(cat), true);
+    const mapped = buildPredictMappedMarket(cat);
+    assert.ok(mapped);
+    assert.equal(mapped.match.Home, "Team Liquid");
+    assert.equal(mapped.match.Away, "Vici Gaming");
+    assert.equal(mapped.match.HomeID, "dota2:team-liquid");
+    assert.equal(mapped.match.AwayID, "dota2:vici-gaming");
+    assert.equal(mapped.homeTokenId, "mw-home-token");
+    assert.equal(mapped.awayTokenId, "mw-away-token");
+    assert.ok(!String(mapped.match.Home).toLowerCase().includes("first blood"));
+    assert.ok(!mapped.bets.some(b => /first blood/i.test(b.HomeName) || /first blood/i.test(b.AwayName)));
+    assert.equal(mapped.bets.find(b => b.Map === 0)?.BetName, "Match Winner");
+    assert.equal(mapped.bets.find(b => b.Map === 1)?.HomeName, "Team Liquid");
+    assert.equal(mapped.bets.find(b => b.Map === 1)?.SourceHomeID, "g1-h");
+  });
+
+  it("resolves Match Winner teams from category.variantDetails when outcome.team missing", () => {
+    const cat = {
+      id: 297618,
+      slug: "dota2-falcons-lgd",
+      title: "Dota 2: Team Falcons vs LGD Gaming (BO3)",
+      status: "OPEN",
+      marketVariant: "ESPORTS_DOTA2",
+      startsAt: "2026-08-13T02:00:00.000Z",
+      tags: [{ name: "Dota 2" }],
+      variantDetails: {
+        sports: {
+          teams: [
+            { name: "Team Falcons", abbreviation: "flc" },
+            { name: "LGD Gaming", abbreviation: "lgd" },
+          ],
+        },
+      },
+      markets: [
+        {
+          id: 1,
+          title: "Match Winner",
+          status: "REGISTERED",
+          tradingStatus: "OPEN",
+          marketType: "SPORTS_MONEYLINE",
+          outcomes: [
+            // abbr 与 category.abbreviation 不一致时走 teams 顺序兜底
+            { name: "T1", onChainId: "h", bestAsk: { price: 0.55 } },
+            { name: "T2", onChainId: "a", bestAsk: { price: 0.48 } },
+          ],
+        },
+      ],
+    };
+    const mapped = buildPredictMappedMarket(cat);
+    assert.ok(mapped);
+    assert.equal(mapped.match.Home, "Team Falcons");
+    assert.equal(mapped.match.Away, "LGD Gaming");
+  });
 });

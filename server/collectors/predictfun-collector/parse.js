@@ -6,10 +6,13 @@
  *
  * 官方电竞现形态：
  * - marketVariant: ESPORTS_LOL / ESPORTS_CS2 / …
- * - 单盘 SPORTS_MONEYLINE「Match Winner」+ 双 outcome（队名在 variantData.team）
+ * - 单盘 SPORTS_MONEYLINE「Match Winner」+ 双 outcome（队名在 outcome.team /
+ *   outcome.variantDetails.sports.team；category.variantDetails.sports.teams 为字典）
+ * - Game/Map N Winner → SPORTS_CHILD_MONEYLINE
+ * - First Blood / Totals 等 prop：常为 marketType=null，禁止当主客队
  * - market.status 多为 REGISTERED + tradingStatus OPEN
  *
- * 仍兼容旧 SPORTS_TEAM_MATCH（每队一盘 Yes）。
+ * 仍兼容旧 SPORTS_TEAM_MATCH（每队一盘 Yes，须 market.team）。
  */
 
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
@@ -124,15 +127,25 @@ export function parsePredictGameMapNumber(title) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/**
+ * 旧形态「每队一盘」(SportsMatch team-win)。
+ * 官方：`market.team` 标记该盘关于哪支队；禁止用 `market.title` 冒充队名
+ * （否则 First Blood / Totals 等 `marketType=null` 的 prop 会进 dual）。
+ */
 function isDualTeamMoneylineMarket(market) {
   if (!isTradablePredictMarket(market))
     return false;
-  if (market.marketType && market.marketType !== "SPORTS_MONEYLINE")
+  const teamName = String(market?.team?.name ?? "").trim();
+  if (!teamName)
     return false;
-  const title = String(market.title ?? market.team?.name ?? "").trim().toLowerCase();
-  if (!title || title === "draw" || title === "tie" || title === "match winner")
+  const mt = String(market.marketType ?? "");
+  // 有 marketType 时必须是 MONEYLINE；null 仅兼容极旧盘（仍须有 team）
+  if (mt && mt !== "SPORTS_MONEYLINE")
     return false;
-  return Boolean(market.team?.name || (title && title !== "match winner"));
+  const title = String(market.title ?? "").trim().toLowerCase();
+  if (title === "draw" || title === "tie" || title === "match winner")
+    return false;
+  return true;
 }
 
 export function readPredictTopPrice(level) {
@@ -169,15 +182,36 @@ export function outcomeTeamName(outcome) {
   return String(
     outcome?.team?.name
     ?? outcome?.variantData?.team?.name
+    // 官方新字段：outcome.variantDetails.sports.team（与 deprecated variantData 并存）
+    ?? outcome?.variantDetails?.sports?.team?.name
     ?? "",
   ).trim();
 }
 
+/** category.variantDetails.sports.teams（官方 SportsCategoryDetails） */
+export function categorySportsTeams(category) {
+  const fromDetails = category?.variantDetails?.sports?.teams;
+  if (Array.isArray(fromDetails) && fromDetails.length)
+    return fromDetails;
+  const deprecated = category?.teams;
+  return Array.isArray(deprecated) ? deprecated : [];
+}
+
+function rememberAbbrTeam(map, key, teamName) {
+  const k = String(key ?? "").trim().toUpperCase();
+  const name = String(teamName ?? "").trim();
+  if (!k || !name)
+    return;
+  if (!map.has(k))
+    map.set(k, name);
+}
+
 /**
- * 全场 Match Winner 的 outcome.name（如 NEM）→ 队名。
+ * 全场 Match Winner 的 outcome.name / abbreviation → 队名。
  * PF 局盘 Map N Winner 常只有 abbreviation、没有 team 字段。
+ * 另合并 category.variantDetails.sports.teams（官方队名字典）。
  */
-function buildOutcomeAbbrTeamMap(markets) {
+function buildOutcomeAbbrTeamMap(markets, category) {
   /** @type {Map<string, string>} */
   const map = new Map();
   for (const market of markets || []) {
@@ -187,17 +221,22 @@ function buildOutcomeAbbrTeamMap(markets) {
       const team = outcomeTeamName(outcome);
       if (!team)
         continue;
-      const nameKey = String(outcome?.name ?? "").trim().toUpperCase();
-      if (nameKey)
-        map.set(nameKey, team);
-      const abbr = String(
+      rememberAbbrTeam(map, outcome?.name, team);
+      rememberAbbrTeam(
+        map,
         outcome?.team?.abbreviation
-        ?? outcome?.variantData?.team?.abbreviation
-        ?? "",
-      ).trim().toUpperCase();
-      if (abbr)
-        map.set(abbr, team);
+          ?? outcome?.variantData?.team?.abbreviation
+          ?? outcome?.variantDetails?.sports?.team?.abbreviation,
+        team,
+      );
     }
+  }
+  for (const t of categorySportsTeams(category)) {
+    const name = String(t?.name ?? "").trim();
+    if (!name)
+      continue;
+    rememberAbbrTeam(map, t?.abbreviation, name);
+    rememberAbbrTeam(map, name, name);
   }
   return map;
 }
@@ -396,7 +435,8 @@ function yesOutcomeTokenId(market) {
 }
 
 function teamNameOf(market) {
-  return String(market.team?.name ?? market.title ?? "").trim();
+  // dual 路径只认官方 market.team，禁止 title 回退（prop 标题会污染主客）
+  return String(market?.team?.name ?? "").trim();
 }
 
 function startTimeOf(category) {
@@ -409,7 +449,7 @@ function startTimeOf(category) {
   return Date.now();
 }
 
-/** 旧形态：每队一盘 */
+/** 旧形态：每队一盘（须 market.team） */
 function pickDualTeamMarkets(markets) {
   const teamMarkets = markets.filter(isDualTeamMoneylineMarket);
   if (teamMarkets.length < 2)
@@ -420,27 +460,53 @@ function pickDualTeamMarkets(markets) {
   return { mode: "dual", home, away };
 }
 
-/** 新形态：单盘 Match Winner + 双 outcome */
-function pickSingleMoneylineMarket(markets) {
+/**
+ * 新形态：单盘 Match Winner + 双 outcome。
+ * 队名：outcome.team / variantDetails；缺省时用 category.variantDetails.sports.teams 按序兜底。
+ * 只认 marketType=SPORTS_MONEYLINE（排除 First Blood 等 marketType=null 的 prop）。
+ */
+function pickSingleMoneylineMarket(markets, category) {
   const tradable = markets.filter(isTradablePredictMarket);
-  const ml = tradable.find(m => String(m.marketType ?? "") === "SPORTS_MONEYLINE")
-    || tradable.find(m => (m.outcomes ?? []).length >= 2 && parsePredictGameMapNumber(m.title) === 0);
+  const moneyline = tradable.filter(m => String(m.marketType ?? "") === "SPORTS_MONEYLINE");
+  const ml = moneyline.find(m => String(m.title ?? "").trim().toLowerCase() === "match winner")
+    || moneyline[0]
+    || null;
   if (!ml)
     return null;
   const outcomes = ml.outcomes ?? [];
   if (outcomes.length < 2)
     return null;
-  const withTeam = outcomes.filter(o => outcomeTeamName(o));
-  const homeOutcome = withTeam[0] || null;
-  const awayOutcome = withTeam[1] || null;
-  if (!homeOutcome || !awayOutcome)
+
+  const abbrTeamMap = buildOutcomeAbbrTeamMap(markets, category);
+  const catTeams = categorySportsTeams(category);
+
+  function resolveSideName(outcome, sideIndex) {
+    const fromOutcome = resolveChildOutcomeTeamName(outcome, abbrTeamMap);
+    if (fromOutcome)
+      return fromOutcome;
+    const fallback = catTeams[sideIndex];
+    return String(fallback?.name ?? "").trim();
+  }
+
+  const homeOutcome = outcomes[0];
+  const awayOutcome = outcomes[1];
+  const homeName = resolveSideName(homeOutcome, 0);
+  const awayName = resolveSideName(awayOutcome, 1);
+  if (!homeOutcome || !awayOutcome || !homeName || !awayName)
     return null;
-  return { mode: "single", market: ml, homeOutcome, awayOutcome };
+  return {
+    mode: "single",
+    market: ml,
+    homeOutcome,
+    awayOutcome,
+    homeName,
+    awayName,
+  };
 }
 
-/** Game/Map N Winner 局盘（队名可从全场 abbreviation 回填） */
-function pickChildGameMarkets(markets) {
-  const abbrTeamMap = buildOutcomeAbbrTeamMap(markets);
+/** Game/Map N Winner 局盘（队名可从全场 abbreviation / variantDetails 回填） */
+function pickChildGameMarkets(markets, category) {
+  const abbrTeamMap = buildOutcomeAbbrTeamMap(markets, category);
   const out = [];
   for (const market of markets || []) {
     if (!isCollectableChildMoneyline(market))
@@ -511,9 +577,9 @@ export function isPredictEsportsMoneylineCategory(category) {
     return false;
   const markets = category.markets ?? [];
   return Boolean(
-    pickDualTeamMarkets(markets)
-    || pickSingleMoneylineMarket(markets)
-    || pickChildGameMarkets(markets).length,
+    pickSingleMoneylineMarket(markets, category)
+    || pickDualTeamMarkets(markets)
+    || pickChildGameMarkets(markets, category).length,
   );
 }
 
@@ -522,10 +588,11 @@ export function buildPredictMappedMarket(category, buyPrices = {}, orderbooks = 
     return null;
 
   const markets = category.markets ?? [];
-  const dual = pickDualTeamMarkets(markets);
-  const single = dual ? null : pickSingleMoneylineMarket(markets);
+  // 优先 Match Winner（single）；dual 仅旧「每队一盘」。避免 First Blood 等 prop 抢 dual。
+  const single = pickSingleMoneylineMarket(markets, category);
+  const dual = single ? null : pickDualTeamMarkets(markets);
   // dual 全场（每队一盘）仍可能挂 Map/Game N Winner 子盘，不能因 dual 丢掉局盘
-  const childGames = pickChildGameMarkets(markets);
+  const childGames = pickChildGameMarkets(markets, category);
   if (!dual && !single && !childGames.length)
     return null;
 
@@ -587,7 +654,31 @@ export function buildPredictMappedMarket(category, buyPrices = {}, orderbooks = 
     return decimalOddsFromProbability(buyPrices[mid] ?? 0);
   }
 
-  if (dual) {
+  if (single) {
+    homeMarketId = String(single.market.id ?? "");
+    awayMarketId = homeMarketId;
+    homeTokenId = String(single.homeOutcome.onChainId ?? "");
+    awayTokenId = String(single.awayOutcome.onChainId ?? "");
+    homeName = single.homeName;
+    awayName = single.awayName;
+    homeOdds = oddsForOutcome(single.market, single.homeOutcome);
+    awayOdds = oddsForOutcome(single.market, single.awayOutcome);
+    rememberBookMeta(single.market, homeMarketId, yesOutcomeOnChainId(single.market) || homeTokenId);
+    bets.push(buildBetFromDualOutcomes({
+      sourceMatchId,
+      sourceBetId: `${categoryId}#m0`,
+      mapNum: 0,
+      betName: "Match Winner",
+      homeName,
+      awayName,
+      homeTokenId,
+      awayTokenId,
+      homeOdds,
+      awayOdds,
+    }));
+    bets[bets.length - 1].MarketID = homeMarketId;
+  }
+  else if (dual) {
     homeMarketId = String(dual.home.id ?? "");
     awayMarketId = String(dual.away.id ?? "");
     homeTokenId = yesOutcomeTokenId(dual.home);
@@ -610,30 +701,6 @@ export function buildPredictMappedMarket(category, buyPrices = {}, orderbooks = 
       homeOdds,
       awayOdds,
     }));
-  }
-  else if (single) {
-    homeMarketId = String(single.market.id ?? "");
-    awayMarketId = homeMarketId;
-    homeTokenId = String(single.homeOutcome.onChainId ?? "");
-    awayTokenId = String(single.awayOutcome.onChainId ?? "");
-    homeName = outcomeTeamName(single.homeOutcome);
-    awayName = outcomeTeamName(single.awayOutcome);
-    homeOdds = oddsForOutcome(single.market, single.homeOutcome);
-    awayOdds = oddsForOutcome(single.market, single.awayOutcome);
-    rememberBookMeta(single.market, homeMarketId, yesOutcomeOnChainId(single.market) || homeTokenId);
-    bets.push(buildBetFromDualOutcomes({
-      sourceMatchId,
-      sourceBetId: `${categoryId}#m0`,
-      mapNum: 0,
-      betName: "Match Winner",
-      homeName,
-      awayName,
-      homeTokenId,
-      awayTokenId,
-      homeOdds,
-      awayOdds,
-    }));
-    bets[bets.length - 1].MarketID = homeMarketId;
   }
   else if (childGames[0]) {
     // 仅有局盘时用 Map1 队名定主客
