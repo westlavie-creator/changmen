@@ -14,9 +14,15 @@ export function parseObEsportEntry(href) {
   const token = url.searchParams.get("token") || "";
   const addr = url.searchParams.get("addr") || "";
   // 历史逻辑：token 含数字即可；必须有可解的 addr.api[]
+  // [A8 可证实] atob(addr)；另试 decodeURIComponent（URL 编码 addr）
   if (!token || !/\d+/.test(token) || !addr) return null;
   try {
-    const parsed = JSON.parse(globalThis.atob(decodeURIComponent(addr)));
+    let parsed;
+    try {
+      parsed = JSON.parse(globalThis.atob(addr));
+    } catch {
+      parsed = JSON.parse(globalThis.atob(decodeURIComponent(addr)));
+    }
     if (!Array.isArray(parsed?.api) || !parsed.api.length) return null;
     return {
       kind: "esport",
@@ -32,7 +38,7 @@ export function parseObEsportEntry(href) {
 }
 
 /**
- * OB 体育 PC 进馆（常见于 iframe user-pc-new.*）：
+ * OB 体育 PC 进馆（常见于壳站 iframe，如 user-pc-new.*）：
  * token=十六进制，api=密文网关参数，sessionId=会话。
  * @param {string|URL} href
  */
@@ -147,19 +153,27 @@ export function buildObSportConfig(entry, gateway) {
 
 /**
  * @param {object} entry parseObEsportEntry 结果
+ * [A8 可证实] referer 固定 `https://${host}/`（见 A8 插件 ObProvider.GetConfig）
  */
 export function buildObEsportConfig(entry) {
+  let host = "";
+  try {
+    host = new URL(entry.referer || location.href).host;
+  } catch {
+    host = typeof location !== "undefined" ? location.host : "";
+  }
+  const referer = `https://${host}/`;
   return {
     provider: "OB",
     gateway: entry.gateway,
     token: entry.token,
-    referer: entry.referer,
+    referer,
     data: globalThis.btoa(
       JSON.stringify({
         provider: "OB",
         gateway: entry.gateways,
         token: entry.token,
-        referer: entry.referer,
+        referer,
       }),
     ),
   };

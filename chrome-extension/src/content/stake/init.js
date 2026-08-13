@@ -12,10 +12,13 @@ import {
 } from "./subscription.js";
 
 /**
- * stake.com 页：setTab + GraphQL WS 订阅 + A8 桥接
+ * stake.com 页：setTab + GraphQL WS 订阅
+ * [A8 可证实] setTab + graphql-transport-ws + lockdownToken；connection_ack 清空订阅表
+ * [changmen] 不再连接 A8 聚合 47.115.75.57（a8-bridge no-op）；赔率经 tab 代发回 changmen 前端
  * @param {(handler: ReturnType<typeof createStakeMessageHandler>) => void} registerHandler
  */
 export function initStakePage(registerHandler) {
+  // A8 Check 用 hostname；setTab 引导用 host===stake.com — 统一 hostname 更稳
   if (location.hostname !== "stake.com") return;
 
   const handler = createStakeMessageHandler();

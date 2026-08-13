@@ -8,8 +8,9 @@ import { initStakePage } from "./stake/init.js";
 import { installTabProxyListener, registerTabHandler } from "./tab-proxy.js";
 import { sleep } from "./utils.js";
 
+/** 与 A8 一致：每轮间隔 3s；A8 仅重试 10 次，此处略放宽以兼容慢进馆 */
 const COLLECT_POLL_MS = 3000;
-const COLLECT_MAX_ATTEMPTS = 120;
+const COLLECT_MAX_ATTEMPTS = 40;
 
 /** HGA GetConfig 后启动注单轮询 */
 function wrapProviderForHga(provider) {
@@ -25,9 +26,12 @@ function wrapProviderForHga(provider) {
   return provider;
 }
 
-async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
+/**
+ * 对齐 A8：任意 frame（含 iframe）对 PLATFORM_LIST 全量 Check，命中即挂采集图标。
+ * 不按 window.top 拦截（A8 无此限制）。
+ */
+async function tryMountCollectUi() {
   for (const platformId of PLATFORM_LIST) {
-    if (iframeOnlyObSport && platformId !== PLATFORMS.OB) continue;
     const ProviderCls = PROVIDER_REGISTRY[platformId];
     if (!ProviderCls) continue;
     let provider = createProvider(platformId);
@@ -36,12 +40,10 @@ async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
       provider = wrapProviderForHga(provider);
     }
     try {
-      if (!(await provider.Check())) continue;
-      if (iframeOnlyObSport && typeof provider.allowIframeMount === "function" && !provider.allowIframeMount()) {
-        continue;
+      if (await provider.Check()) {
+        await mountCollectIcon(provider);
+        return true;
       }
-      await mountCollectIcon(provider);
-      return true;
     } catch (err) {
       console.warn("[Gamebet] provider check failed", platformId, err);
     }
@@ -52,10 +54,8 @@ async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
 async function detectAndMountCollectUi() {
   if (document.body?.querySelector(".gamebet-collect-float")) return;
 
-  const iframeOnlyObSport = window !== window.top;
-  // 非顶层：只尝试 OB 体育（电竞/其它馆仍禁止 iframe 挂载，避免误伤）
   for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
-    if (await tryMountCollectUi({ iframeOnlyObSport })) return;
+    if (await tryMountCollectUi()) return;
     await sleep(COLLECT_POLL_MS);
   }
 }

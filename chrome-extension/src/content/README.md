@@ -6,12 +6,12 @@
 
 | 文件 | 职责 |
 |------|------|
-| `index.js` | 入口：tab 代理、Stake 初始化、平台探测与采集 UI |
-| `platforms.js` | 平台 ID 枚举 |
+| `index.js` | 入口：tab 代理、Stake/Dex 初始化；**对齐 A8** 任意 frame 全量馆 Check 后挂采集 UI |
+| `platforms.js` | 平台枚举；`PLATFORM_LIST` 含 A8 全量馆 + Dex/Polymarket 扩展 |
 | `utils.js` | sleep、UUID、cookie、tab 内 fetch POST |
 | `collect-ui.js` | 浮动图标 + 凭证复制面板 |
-| `providers.js` | OB/RAY/IM/TF/IA/SABA/PB/IMT/HGA/HG/Stake/Dex/Polymarket 的 Check/GetConfig |
-| `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId` 解析与网关嗅探 |
+| `providers.js` | 各馆 Check/GetConfig；A8 11 馆对齐 + OB 体育/Dex/Polymarket 扩展 |
+| `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId`；电竞 referer 对齐 A8 `https://host/` |
 | `hga-poll.js` | HGA 注单轮询上报（对齐 A8 `Ie`） |
 | `tab-proxy.js` | 带 `options.tabId` 的消息转发到 Stake handler |
 | `stake/init.js` | stake.com：setTab + GraphQL WS + A8 Socket.IO |

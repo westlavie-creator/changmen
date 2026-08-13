@@ -26,8 +26,10 @@ assert.equal(esport?.gateway, "https://api-esport.example.com");
 const esportCfg = buildObEsportConfig(esport);
 assert.equal(esportCfg.provider, "OB");
 assert.equal(esportCfg.gateway, "https://api-esport.example.com");
+assert.equal(esportCfg.referer, "https://dj-pc.example.com/");
 const esportData = JSON.parse(Buffer.from(esportCfg.data, "base64").toString("utf8"));
 assert.deepEqual(esportData.gateway, ["https://api-esport.example.com", "https://api2.example.com"]);
+assert.equal(esportData.referer, "https://dj-pc.example.com/");
 assert.equal(esportData.kind, undefined);
 
 const sportHref =

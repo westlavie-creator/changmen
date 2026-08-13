@@ -125,11 +125,6 @@ export const PROVIDER_REGISTRY = {
     /** @type {string|null} 体育进馆 URL（本页或 iframe.src） */
     _sportHref = null;
 
-    /** 仅体育允许在 iframe 挂采集图标（电竞仍只走顶层） */
-    allowIframeMount() {
-      return this._kind === "sport";
-    }
-
     async Check() {
       this._kind = null;
       this._sportHref = null;
@@ -150,7 +145,7 @@ export const PROVIDER_REGISTRY = {
         return true;
       }
 
-      // 父页壳：…/game/sport/ob + iframe 进馆
+      // 父页壳：…/game/sport/ob + iframe 进馆（[changmen 扩展]；A8 仅认当前帧 URL）
       if (window === window.top) {
         const iframeHref = findObSportIframeHref(document);
         if (iframeHref) {
@@ -342,15 +337,18 @@ export const PROVIDER_REGISTRY = {
 
   [PLATFORMS.PB]: class PbProvider {
     /**
-     * 旧平博电竞：`/esports-hub/`、`/compact/sports/`
-     * ps3838 等复刻站：`/{lang}/sports/...`，登录后 x-app-data 为无后缀
-     * `BrowserSessionId` / `custid`，且顶层 `token` 含 `X-Browser-Session-Id` / `X-Custid`
+     * [A8 可证实] `/esports-hub/`、`/compact/sports/` + 存在 `x-app-data`
+     * [changmen 扩展] ps3838 等：`/sports` + 登录会话字段（BrowserSessionId/custid）
      */
     async Check() {
       const path = location.pathname;
-      const pathOk = /\/esports\-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(path);
-      if (!pathOk) return false;
-      return hasPbLoginSession();
+      if (/\/esports\-hub\/|\/compact\/sports\//.test(path)) {
+        return Boolean(localStorage.getItem("x-app-data"));
+      }
+      if (/\/sports(\/|$)/.test(path)) {
+        return hasPbLoginSession();
+      }
+      return false;
     }
 
     async GetConfig() {
@@ -366,6 +364,7 @@ export const PROVIDER_REGISTRY = {
         token: JSON.stringify(snapshot),
         referer: location.href,
       };
+      // [changmen] UTF-8 安全 btoa；A8 为 window.btoa(JSON.stringify) 遇非 Latin1 会抛
       return {
         provider: PLATFORMS.PB,
         gateway: payload.gateway,
@@ -412,7 +411,10 @@ export const PROVIDER_REGISTRY = {
       if (ok) {
         void (async () => {
           await sleep(1000);
-          const icon = document.body.querySelector(".gamebet-collect-float");
+          // A8 写 .esport-collect-provider-icon；changmen UI 为 .gamebet-collect-float
+          const icon =
+            document.body.querySelector(".gamebet-collect-float")
+            || document.body.querySelector(".esport-collect-provider-icon");
           icon?.setAttribute(
             "onmouseover",
             "this.setAttribute('uid',window.uid);this.setAttribute('ver',window.ver);this.setAttribute('username',window.username);",
@@ -423,7 +425,9 @@ export const PROVIDER_REGISTRY = {
     }
 
     async GetConfig() {
-      const icon = document.body.querySelector(".gamebet-collect-float");
+      const icon =
+        document.body.querySelector(".gamebet-collect-float")
+        || document.body.querySelector(".esport-collect-provider-icon");
       const uid = icon?.getAttribute("uid") ?? "";
       const ver = icon?.getAttribute("ver") ?? "";
       const username = icon?.getAttribute("username") ?? "";
@@ -456,7 +460,9 @@ export const PROVIDER_REGISTRY = {
       if (ok) {
         void (async () => {
           await sleep(1000);
-          const icon = document.body.querySelector(".gamebet-collect-float");
+          const icon =
+            document.body.querySelector(".gamebet-collect-float")
+            || document.body.querySelector(".esport-collect-provider-icon");
           icon?.setAttribute(
             "onmouseover",
             "this.setAttribute('userdata',JSON.stringify(window.userData));",
@@ -467,7 +473,9 @@ export const PROVIDER_REGISTRY = {
     }
 
     async GetConfig() {
-      const icon = document.body.querySelector(".gamebet-collect-float");
+      const icon =
+        document.body.querySelector(".gamebet-collect-float")
+        || document.body.querySelector(".esport-collect-provider-icon");
       const userdata = icon?.getAttribute("userdata") ?? "";
       if (!userdata) return undefined;
       const parsed = JSON.parse(userdata);

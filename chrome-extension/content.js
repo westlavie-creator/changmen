@@ -115,21 +115,21 @@
   var PLATFORMS = Object.freeze({
     OB: "OB",
     RAY: "RAY",
-    IA: "IA",
     IM: "IM",
     TF: "TF",
+    IA: "IA",
     SABA: "SABA",
     PB: "PB",
     IMT: "IMT",
     HGA: "HGA",
     HG: "HG",
     Stake: "Stake",
+    /** [changmen 扩展] A8 插件无 */
     Dex: "Dex",
+    /** [changmen 扩展] A8 插件无 */
     Polymarket: "Polymarket"
   });
-  var PLATFORM_LIST = Object.values(PLATFORMS).filter(
-    (id) => id !== PLATFORMS.HG && id !== PLATFORMS.HGA && id !== PLATFORMS.IM && id !== PLATFORMS.TF && id !== PLATFORMS.XBet
-  );
+  var PLATFORM_LIST = Object.values(PLATFORMS);
 
   // ../node_modules/axios/lib/helpers/bind.js
   function bind(fn, thisArg) {
@@ -3470,7 +3470,12 @@
     const addr = url.searchParams.get("addr") || "";
     if (!token || !/\d+/.test(token) || !addr) return null;
     try {
-      const parsed = JSON.parse(globalThis.atob(decodeURIComponent(addr)));
+      let parsed;
+      try {
+        parsed = JSON.parse(globalThis.atob(addr));
+      } catch {
+        parsed = JSON.parse(globalThis.atob(decodeURIComponent(addr)));
+      }
       if (!Array.isArray(parsed?.api) || !parsed.api.length) return null;
       return {
         kind: "esport",
@@ -3572,17 +3577,24 @@
     };
   }
   function buildObEsportConfig(entry) {
+    let host = "";
+    try {
+      host = new URL(entry.referer || location.href).host;
+    } catch {
+      host = typeof location !== "undefined" ? location.host : "";
+    }
+    const referer = `https://${host}/`;
     return {
       provider: "OB",
       gateway: entry.gateway,
       token: entry.token,
-      referer: entry.referer,
+      referer,
       data: globalThis.btoa(
         JSON.stringify({
           provider: "OB",
           gateway: entry.gateways,
           token: entry.token,
-          referer: entry.referer
+          referer
         })
       )
     };
@@ -3683,10 +3695,6 @@
       _kind = null;
       /** @type {string|null} 体育进馆 URL（本页或 iframe.src） */
       _sportHref = null;
-      /** 仅体育允许在 iframe 挂采集图标（电竞仍只走顶层） */
-      allowIframeMount() {
-        return this._kind === "sport";
-      }
       async Check() {
         this._kind = null;
         this._sportHref = null;
@@ -3879,15 +3887,18 @@
     },
     [PLATFORMS.PB]: class PbProvider {
       /**
-       * 旧平博电竞：`/esports-hub/`、`/compact/sports/`
-       * ps3838 等复刻站：`/{lang}/sports/...`，登录后 x-app-data 为无后缀
-       * `BrowserSessionId` / `custid`，且顶层 `token` 含 `X-Browser-Session-Id` / `X-Custid`
+       * [A8 可证实] `/esports-hub/`、`/compact/sports/` + 存在 `x-app-data`
+       * [changmen 扩展] ps3838 等：`/sports` + 登录会话字段（BrowserSessionId/custid）
        */
       async Check() {
         const path = location.pathname;
-        const pathOk = /\/esports\-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(path);
-        if (!pathOk) return false;
-        return hasPbLoginSession();
+        if (/\/esports\-hub\/|\/compact\/sports\//.test(path)) {
+          return Boolean(localStorage.getItem("x-app-data"));
+        }
+        if (/\/sports(\/|$)/.test(path)) {
+          return hasPbLoginSession();
+        }
+        return false;
       }
       async GetConfig() {
         if (!await this.Check()) return void 0;
@@ -3945,7 +3956,7 @@
         if (ok) {
           void (async () => {
             await sleep(1e3);
-            const icon = document.body.querySelector(".gamebet-collect-float");
+            const icon = document.body.querySelector(".gamebet-collect-float") || document.body.querySelector(".esport-collect-provider-icon");
             icon?.setAttribute(
               "onmouseover",
               "this.setAttribute('uid',window.uid);this.setAttribute('ver',window.ver);this.setAttribute('username',window.username);"
@@ -3955,7 +3966,7 @@
         return ok;
       }
       async GetConfig() {
-        const icon = document.body.querySelector(".gamebet-collect-float");
+        const icon = document.body.querySelector(".gamebet-collect-float") || document.body.querySelector(".esport-collect-provider-icon");
         const uid = icon?.getAttribute("uid") ?? "";
         const ver = icon?.getAttribute("ver") ?? "";
         const username = icon?.getAttribute("username") ?? "";
@@ -3985,7 +3996,7 @@
         if (ok) {
           void (async () => {
             await sleep(1e3);
-            const icon = document.body.querySelector(".gamebet-collect-float");
+            const icon = document.body.querySelector(".gamebet-collect-float") || document.body.querySelector(".esport-collect-provider-icon");
             icon?.setAttribute(
               "onmouseover",
               "this.setAttribute('userdata',JSON.stringify(window.userData));"
@@ -3995,7 +4006,7 @@
         return ok;
       }
       async GetConfig() {
-        const icon = document.body.querySelector(".gamebet-collect-float");
+        const icon = document.body.querySelector(".gamebet-collect-float") || document.body.querySelector(".esport-collect-provider-icon");
         const userdata = icon?.getAttribute("userdata") ?? "";
         if (!userdata) return void 0;
         const parsed = JSON.parse(userdata);
@@ -4463,7 +4474,7 @@
 
   // src/content/index.js
   var COLLECT_POLL_MS = 3e3;
-  var COLLECT_MAX_ATTEMPTS = 120;
+  var COLLECT_MAX_ATTEMPTS = 40;
   function wrapProviderForHga(provider) {
     const original = provider.GetConfig.bind(provider);
     provider.GetConfig = async () => {
@@ -4476,9 +4487,8 @@
     };
     return provider;
   }
-  async function tryMountCollectUi({ iframeOnlyObSport = false } = {}) {
+  async function tryMountCollectUi() {
     for (const platformId of PLATFORM_LIST) {
-      if (iframeOnlyObSport && platformId !== PLATFORMS.OB) continue;
       const ProviderCls = PROVIDER_REGISTRY[platformId];
       if (!ProviderCls) continue;
       let provider = createProvider(platformId);
@@ -4487,12 +4497,10 @@
         provider = wrapProviderForHga(provider);
       }
       try {
-        if (!await provider.Check()) continue;
-        if (iframeOnlyObSport && typeof provider.allowIframeMount === "function" && !provider.allowIframeMount()) {
-          continue;
+        if (await provider.Check()) {
+          await mountCollectIcon(provider);
+          return true;
         }
-        await mountCollectIcon(provider);
-        return true;
       } catch (err) {
         console.warn("[Gamebet] provider check failed", platformId, err);
       }
@@ -4501,9 +4509,8 @@
   }
   async function detectAndMountCollectUi() {
     if (document.body?.querySelector(".gamebet-collect-float")) return;
-    const iframeOnlyObSport = window !== window.top;
     for (let attempt = 0; attempt < COLLECT_MAX_ATTEMPTS; attempt++) {
-      if (await tryMountCollectUi({ iframeOnlyObSport })) return;
+      if (await tryMountCollectUi()) return;
       await sleep(COLLECT_POLL_MS);
     }
   }

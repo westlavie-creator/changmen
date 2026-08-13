@@ -103,11 +103,13 @@ async function handleExternalMessage(message, reply, sender) {
       return;
     }
     case "setTab": {
+      // [A8 可证实] external：data.value = tabId，storage[key]=tabId，response=data
       const tabId = sender?.tab?.id;
       const payload = message.data;
       if (tabId && payload?.key) {
+        const response = { ...payload, value: tabId, tabId };
         await storageSet({ [payload.key]: tabId });
-        reply({ type, uuid, response: { ...payload, tabId } });
+        reply({ type, uuid, response });
         return;
       }
       reply({ type, uuid, response: null });
@@ -124,7 +126,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   return true;
 });
 
-/** content script 内 setTab（无 external sender） */
+/** content script 内 setTab（无 external sender）— 对齐 A8 onMessage：data.tabId/value = tabId */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type !== "setTab") return false;
   const tabId = sender.tab?.id;
@@ -138,7 +140,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       success: true,
       type: message.type,
       uuid: message.uuid,
-      response: { key, tabId },
+      response: { ...message.data, key, tabId, value: tabId },
     });
   });
   return true;

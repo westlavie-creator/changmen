@@ -3360,8 +3360,9 @@
         const tabId = sender?.tab?.id;
         const payload = message.data;
         if (tabId && payload?.key) {
+          const response = { ...payload, value: tabId, tabId };
           await storageSet({ [payload.key]: tabId });
-          reply({ type, uuid, response: { ...payload, tabId } });
+          reply({ type, uuid, response });
           return;
         }
         reply({ type, uuid, response: null });
@@ -3389,7 +3390,7 @@
         success: true,
         type: message.type,
         uuid: message.uuid,
-        response: { key, tabId }
+        response: { ...message.data, key, tabId, value: tabId }
       });
     });
     return true;
