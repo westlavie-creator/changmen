@@ -1,7 +1,6 @@
 /**
- * 合场主链路：
- * align → cluster → dry IDs → dedupe → project → shape → multi → ended
- * →（写库时）仅对存活行 insert stub，避免 orphan。
+ * 合场主链路（M2：Match / End 进程内拆分）：
+ * align → cluster → Match(pass) → End(pass) →（写库时）存活行 insert stub
  */
 import {
   alignUnmatchedToClientMatches,
@@ -65,11 +64,13 @@ function stripTempIds(rows) {
   });
 }
 
-export async function resolveAndProject(list, snapshot, opts = {}) {
+/**
+ * Match 匹配：聚类结果 → 结构/朝向/盘口/多馆过滤。
+ * 不判定 ended（M2）。
+ */
+export function runMatchPass(list, snapshot, opts = {}) {
   const fromVenuesOnly = !!opts.fromVenuesOnly || !!snapshot._fromVenuesOnly;
   const {
-    allowInsert = false,
-    adapter = null,
     forceReanchorOrientation = false,
     stickyOrientation,
   } = opts;
@@ -88,7 +89,6 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
     ? new Map()
     : buildExistingClientIdKeyIndex(alignRows, matches);
 
-  // 始终先 dry：不 insert；滤空后再对存活行写 stub
   let info = resolveIdsDryRun(list, {
     matches,
     existingClientRows: clientRows,
@@ -107,18 +107,35 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
     existingClientRows: clientRows,
     platformOverrides,
     forceReanchorOrientation: fromVenuesOnly ? true : forceReanchorOrientation,
-    // 纯场馆：禁止 sticky / existing 朝向
     stickyOrientation: fromVenuesOnly ? false : stickyOrientation,
   });
 
   applyLiveShape(info, { matches });
   info = filterMultiPlatform(info, MIN_PLATFORMS);
 
-  /** ended 过滤前：本拍已纳入活跃集的正 ID（用于空写安全判定） */
   const processedActiveIds = new Set(
     info.map(r => Number(r.ID)).filter(id => Number.isFinite(id) && id > 0),
   );
-  const preEndedCount = info.length;
+
+  return {
+    info,
+    projectStats,
+    mergedDuplicateIds: deduped.mergedCount,
+    preEndedCount: info.length,
+    processedActiveIds,
+    existingIdKeyIndex,
+    fromVenuesOnly,
+  };
+}
+
+/**
+ * End 结束：仅 `ended_filter` 拆出活场 / 结束场。不改 matchs 聚类。
+ */
+export function runEndPass(info, snapshot, opts = {}) {
+  const fromVenuesOnly = !!opts.fromVenuesOnly || !!snapshot._fromVenuesOnly;
+  const matches = snapshot.matches || {};
+  const timers = snapshot.timers || {};
+  const clientRows = fromVenuesOnly ? [] : (snapshot.clientRows || []);
 
   const pmSportByClientId = fromVenuesOnly
     ? new Map()
@@ -126,33 +143,74 @@ export async function resolveAndProject(list, snapshot, opts = {}) {
   const endedAtByClientId = fromVenuesOnly
     ? new Map()
     : buildEndedAtByClientId(clientRows);
-  const ended = filterActiveClientMatches(info, {
+
+  const ended = filterActiveClientMatches(info || [], {
     platformMatches: matches,
     timersByProvider: timers,
     pmSportByClientId,
     endedAtByClientId,
   });
-  info = ended.list;
-  const endedRows = ended.endedList || [];
 
+  return {
+    info: ended.list,
+    endedRows: ended.endedList || [],
+    endedCount: ended.endedCount,
+  };
+}
+
+/** 写库前：仅对 End 后仍存活的行 insert stub */
+export async function resolveMatchIdsForWrite(info, snapshot, opts = {}) {
+  const fromVenuesOnly = !!opts.fromVenuesOnly || !!snapshot._fromVenuesOnly;
+  const { adapter = null, existingIdKeyIndex = null } = opts;
+  if (!adapter || !(info || []).length)
+    return info || [];
+  if (fromVenuesOnly)
+    throw new Error("[match-composer] fromVenuesOnly 禁止写库");
+
+  const matches = snapshot.matches || {};
+  const alignClientRows = fromVenuesOnly ? [] : (snapshot.alignClientRows || []);
+  const clientRows = fromVenuesOnly ? [] : (snapshot.clientRows || []);
+  const alignRows = alignClientRows?.length ? alignClientRows : clientRows;
+  const index = existingIdKeyIndex || (fromVenuesOnly
+    ? new Map()
+    : buildExistingClientIdKeyIndex(alignRows, matches));
+
+  return resolveIdsForWrite(adapter, stripTempIds(info), {
+    matches,
+    existingIdKeyIndex: index,
+  });
+}
+
+/**
+ * 兼容旧调用：Match → End →（可选）insert stub。
+ * 新代码请直接用 runMatchPass / runEndPass。
+ */
+export async function resolveAndProject(list, snapshot, opts = {}) {
+  const {
+    allowInsert = false,
+    adapter = null,
+  } = opts;
+
+  const match = runMatchPass(list, snapshot, opts);
+  const end = runEndPass(match.info, snapshot, opts);
+
+  let info = end.info;
   if (allowInsert && adapter && info.length) {
-    if (fromVenuesOnly) {
-      throw new Error("[match-composer] fromVenuesOnly 禁止写库");
-    }
-    info = await resolveIdsForWrite(adapter, stripTempIds(info), {
-      matches,
-      existingIdKeyIndex,
+    info = await resolveMatchIdsForWrite(info, snapshot, {
+      ...opts,
+      adapter,
+      existingIdKeyIndex: match.existingIdKeyIndex,
     });
   }
 
   return {
     info,
-    endedRows,
-    projectStats,
-    endedCount: ended.endedCount,
-    mergedDuplicateIds: deduped.mergedCount,
-    preEndedCount,
-    processedActiveIds,
-    fromVenuesOnly,
+    endedRows: end.endedRows,
+    projectStats: match.projectStats,
+    endedCount: end.endedCount,
+    mergedDuplicateIds: match.mergedDuplicateIds,
+    preEndedCount: match.preEndedCount,
+    processedActiveIds: match.processedActiveIds,
+    fromVenuesOnly: match.fromVenuesOnly,
   };
 }

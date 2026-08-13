@@ -10,7 +10,12 @@ import { assertComposerMayWrite } from "../lib/write_guard.js";
 import { loadSnapshot } from "./io/snapshot.js";
 import { snapshotFromVenuesOnly } from "./io/venues_only.js";
 import { writeClientMatches } from "./io/write.js";
-import { composeFromSnapshot, resolveAndProject } from "./pipeline.js";
+import {
+  composeFromSnapshot,
+  resolveMatchIdsForWrite,
+  runEndPass,
+  runMatchPass,
+} from "./pipeline.js";
 
 /**
  * M1：匹配缺口 ≠ 结束。
@@ -74,7 +79,8 @@ export function shouldAllowEmptyWrite({
 }
 
 /**
- * 一次合场。默认不写库（MATCH_COMPOSER_WRITE=1 才写）。
+ * 一次合场（M2：Match → End，分日志；写库仍一次）。
+ * 默认不写库（MATCH_COMPOSER_WRITE=1 才写）。
  * @param {boolean} [opts.fromVenuesOnly] 忽略 RDS client_matches / 绑定 / sticky，纯场馆合场（检验用；禁止写库）
  */
 export async function composeOnce({
@@ -94,28 +100,41 @@ export async function composeOnce({
   if (fromVenuesOnly)
     snapshot = snapshotFromVenuesOnly(snapshot);
 
+  const t0 = Date.now();
   const { list, alignStats, skippedBindings } = composeFromSnapshot(snapshot, {
     fromVenuesOnly,
   });
+  const clusterMs = Date.now() - t0;
+
+  const passOpts = {
+    forceReanchorOrientation,
+    stickyOrientation,
+    fromVenuesOnly,
+  };
+
+  const tMatch = Date.now();
+  const match = runMatchPass(list, snapshot, passOpts);
+  const matchMs = Date.now() - tMatch;
+
+  const tEnd = Date.now();
+  const end = runEndPass(match.info, snapshot, passOpts);
+  const endMs = Date.now() - tEnd;
+
+  let info = end.info;
+  const endedRows = end.endedRows;
+  const endedCount = end.endedCount;
 
   const adapter = write && db.isMatcherStoreReady()
     ? db.getClientMatchIdAdapter()
     : null;
 
-  const {
-    info,
-    endedRows = [],
-    projectStats,
-    endedCount,
-    mergedDuplicateIds,
-    processedActiveIds,
-  } = await resolveAndProject(list, snapshot, {
-    allowInsert: !!write,
-    adapter,
-    forceReanchorOrientation,
-    stickyOrientation,
-    fromVenuesOnly,
-  });
+  if (write && adapter && info.length) {
+    info = await resolveMatchIdsForWrite(info, snapshot, {
+      ...passOpts,
+      adapter,
+      existingIdKeyIndex: match.existingIdKeyIndex,
+    });
+  }
 
   const previousActiveIds = fromVenuesOnly
     ? []
@@ -123,6 +142,12 @@ export async function composeOnce({
       .filter(r => r.ended_at == null && r.endedAt == null)
       .map(r => Number(r.id ?? r.ID))
       .filter(id => Number.isFinite(id) && id > 0);
+
+  console.log(
+    `[match-composer] matchPass ${matchMs}ms rows=${match.preEndedCount}`
+    + ` · endPass ${endMs}ms ended=${endedCount} live=${info.length}`
+    + ` · cluster ${clusterMs}ms`,
+  );
 
   const now = Date.now();
   let wrote = false;
@@ -138,7 +163,7 @@ export async function composeOnce({
       info,
       endedCount,
       allowEmptyWrite,
-      processedActiveIds,
+      processedActiveIds: match.processedActiveIds,
       previousActiveIds,
     });
     if (!emptyOk.ok) {
@@ -197,11 +222,11 @@ export async function composeOnce({
     matchCount: info.length,
     builtAt: now,
     wrote,
-    projectStats,
+    projectStats: match.projectStats,
     alignStats,
     skippedBindings,
     endedCount,
-    mergedDuplicateIds,
+    mergedDuplicateIds: match.mergedDuplicateIds,
     matchIdBackfill,
     teamReg: snapshot.teamReg,
     nameSync: snapshot.nameSync,
@@ -209,5 +234,6 @@ export async function composeOnce({
     fromVenuesOnly: !!fromVenuesOnly,
     matches: snapshot.matches,
     info,
+    timing: { clusterMs, matchMs, endMs },
   };
 }

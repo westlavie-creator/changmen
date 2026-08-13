@@ -61,9 +61,10 @@ M2 进程内拆分   ──建议在 M1 后──► 可停
 
 ## 当前
 
-**M1 已完成**（2026-08-13）— 结束写入权威已落地，可停。
+**M1 已完成**（2026-08-13）— 结束写入权威已落地。  
+**M2 已完成**（2026-08-13）— 进程内 `runMatchPass` / `runEndPass` 拆分 + 分日志。
 
-下一步任选：**M2**（进程内 matchPass/endPass）或 **步2**（GetMatchs 读/缓存）；勿与未合并改动搅在同一提交。
+下一步任选：**步2**（GetMatchs 读/缓存）或 **步3**（Save* 增量触发）；勿与未合并改动搅在同一提交。
 
 ---
 
@@ -161,11 +162,21 @@ markEndedIds = previousActiveIds.filter(
 
 ---
 
-## M2（另开，本次不实施）
+## M2（进程内 Match / End 拆分）
 
-- `composeOnce` 拆为 `runMatchPass` → 写映射补丁，再 `runEndPass` → 只产出 `endedRows`
-- 分开日志与耗时；写库 API 可仍是一次 `writeClientMatchesAsync`
-- 不做新表、不改 GetMatchs
+### 改动
+
+- `pipeline.js`：`runMatchPass`（映射/投影）与 `runEndPass`（仅 `ended_filter`）；`resolveAndProject` 保留为二者编排兼容层
+- `compose_once.js`：先 Match 再 End，打 `[match-composer] matchPass …ms · endPass …ms`；写库仍一次 `writeClientMatchesAsync`
+- 单测：`tests/match_end_pass.test.mjs`
+
+### 不做
+
+- 新表、GetMatchs、算法公式、两次写库
+
+### M2 停点
+
+可停。下一步另开。
 
 ## 步2–4（另开）
 
