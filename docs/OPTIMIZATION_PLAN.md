@@ -4,7 +4,7 @@
 AI 助手每次执行优化任务都**按本文档进行**，用户可据此查看与验收。
 
 - 最近更新：2026-08-13
-- 关联：[ARCHITECTURE.md](./ARCHITECTURE.md)、[DATA_STORAGE.md](./DATA_STORAGE.md)、[ACCOUNT_BACKEND.md](./ACCOUNT_BACKEND.md)
+- 关联：[ARCHITECTURE.md](./ARCHITECTURE.md)、[DATA_STORAGE.md](./DATA_STORAGE.md)、[ACCOUNT_BACKEND.md](./ACCOUNT_BACKEND.md)、**[MATCH_LIFECYCLE_ROADMAP.md](./MATCH_LIFECYCLE_ROADMAP.md)**（合场 → 场次状态机演进）
 - **目录注记（2026-08-07）**：match 模块已整合——`match-engine/` → `server/match/identity`、`team-resolver/` → `server/match/resolver`、`matcher/`+`match-composer/` → `server/match/matcher`。下文旧目录名为当时命名；现路径以 [ARCHITECTURE.md](./ARCHITECTURE.md) 为准。
 
 ---
@@ -106,12 +106,14 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 
 ### P1 — 性能热点
 
+> **合场相关**：见精简版 [MATCH_LIFECYCLE_ROADMAP.md](./MATCH_LIFECYCLE_ROADMAP.md)（三步：补丁写 → 馆变驱动 → 状态写清）。P1-1≈第一步；P1-2 随第二/三步自然减轻，不单独立项。
+
 后端：
 
 | ID | 条目 | 位置 | 风险 | 状态 |
 |----|------|------|------|------|
-| P1-1 | matchMerge 写库表锁 + 全表 id 扫描 | `client_matches_store.js:148-150` | 中 | TODO |
-| P1-2 | `Client_GetMatchs` 缓存 miss 全量 `SELECT *` | `client_matches_store.js:198-202` | 中 | TODO |
+| P1-1 | matchMerge 写库表锁 + 全表 id 扫描 | `client_matches_store.js` 写路径 | 中 | ➡️ 并入生命周期 **Phase 1**（补丁写） |
+| P1-2 | `Client_GetMatchs` 缓存 miss 全量 `SELECT *` | `client_matches_store.js` + `store.loadClientMatchesFromDb` | 中 | ➡️ 并入生命周期 **Phase 2**（脏场投影） |
 | P1-3 | 批量存账号 venue key 冲突 N+1 | `player_store.js:1042-1057` | 低 | TODO |
 | P1-4 | canonical team 批量 upsert 逐条 query | `team_store.js:414-429` | 低 | TODO |
 | P1-5 | 订单套利分析 `ABS(link)` 自连接无索引 | `orders_store.js:1278-1314` 等 | 中 | TODO |
@@ -262,3 +264,6 @@ AI 助手每次执行优化任务都**按本文档进行**，用户可据此查�
 | 2026-08-13 | P0-4 D3 | 新增 `loadAccountsForUserStrict`（失败抛、不污染缓存）；`ensurePredictFunHouseAccount` 改用 strict，读失败抛「已阻止重复开通」且不 CreateTagPlatform | `admin_pf_ensure.test.js` 3 测 + `store.settings` 2 测 strict 全过 | 列表/充值等展示路径仍用 lenient `loadAccountsForUser` |
 | 2026-08-13 | P0-4 D4 | 新增 `fetchPlayerByVenueAccountKeyStrict` / `findVenueAccountKeyConflictStrict`；`createTagPlatform`、`insertPlayerRow`、`batchSavePlayerAccountRecords` 写路径改 strict，读失败中止建号/保存 | `account_store_create_tag.test.js` 4/4（含 D4 失败中止） | lenient 版保留给非写路径；DB unique 仍为第二道保险 |
 | 2026-08-13 | P0-4 D5 | 新增 `fetchOrdersByPlayerStrict` + `loadPfOrdersStrict`；结算/入账/卖出/恢复/官方同步/client handlers 改 strict；读失败中止（不当「无单」跳过）。`publishPfBalanceKnown` 等展示仍用 lenient | `pf_player_account_d5` + `orders_store` D5 + `pf_recover_stuck`/`pf_client_handlers` mock 共用 Strict | P0-4 危险子集全部完成 |
+| 2026-08-13 | 合场演进路线 | 用户确认终态=场次状态机（方案 3）；新建 `MATCH_LIFECYCLE_ROADMAP.md`：Phase0 契约 →1 补丁写 →2 脏投影 →3 增量合场 →4 状态机；P1-1/P1-2 并入 Phase1/2 | 仅文档 | 先过程后终态；当前停在 Phase 0 待批状态/事件表 |
+| 2026-08-13 | Phase 0 冻结 | 用户拍板 **禁止 ended→active**；路线文档补状态/事件表、补丁写契约、对账信号；Phase 0 退出 | 仅文档 | 下一步：Phase 1 落地设计 |
+| 2026-08-13 | 职责模型 + Phase1 设计 | 对齐「Save*=馆状态；changmen=自有状态+映射」；`MATCH_LIFECYCLE_ROADMAP` 补总览与 Phase1 文件/步骤/开关/退出标准 | 仅文档 | 待用户批准后再改写路径代码 |
