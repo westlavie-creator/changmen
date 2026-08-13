@@ -6,6 +6,12 @@ const venueGames = await import("./venue_games.json", { with: { type: "json" } }
 
 assert.equal(g.getGameSport("cs2"), "esport");
 assert.equal(g.getGameCodeForPlatformId("IA", "3"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("PB", "cs2"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("PB", "cs-go"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("PB", "counter-strike"), "cs2");
+assert.equal(g.getGameCodeForPlatformId("PB", "kings-of-glory"), "kog");
+assert.ok(g.isAllowedPlatformGameId("PB", "cs-go"));
+assert.ok(g.isAllowedPlatformGameId("PB", "cs2"));
 assert.deepEqual(g.resolveClientGame("IA", "3"), { Game: "CS:GO", GameID: 3 });
 assert.equal(g.getGameCodeForPlatformId("TF", "14"), "kog");
 assert.equal(g.getGameCodeForPlatformId("IA", "16"), "kog");

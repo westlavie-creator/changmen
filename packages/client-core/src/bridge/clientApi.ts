@@ -2,6 +2,8 @@ import type { CollectPlatformInfo } from "@changmen/api-contract";
 
 export interface ClientApiBridge {
   getCollectPlatform(provider: string): Promise<CollectPlatformInfo | null>;
+  /** [A8 可证实] 对齐 `Ut.getPlatform(PB).games`；changmen 经 `Client_GetGames` */
+  getGames(provider: string): Promise<string[]>;
   saveLiveTimer(provider: string, timer: unknown[]): Promise<void>;
   updatePlatform(body: Record<string, unknown>): Promise<unknown>;
   getHgFollowOrders(agentId: string): Promise<unknown[]>;
@@ -26,6 +28,11 @@ function requireBridge(): ClientApiBridge {
 
 export async function getCollectPlatform(provider: string) {
   return requireBridge().getCollectPlatform(provider);
+}
+
+export async function getGames(provider: string): Promise<string[]> {
+  const games = await requireBridge().getGames(provider);
+  return Array.isArray(games) ? games.filter(Boolean).map(String) : [];
 }
 
 export async function saveLiveTimer(provider: string, timer: unknown[]) {

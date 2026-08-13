@@ -1,7 +1,7 @@
 import { gamebetExtensionId } from "@/config/gamebetExtension";
 import { getToken } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
-import { getCollectPlatform, updatePlatform } from "@/api/platform";
+import { getCollectPlatform, getGames, updatePlatform } from "@/api/platform";
 import { saveLiveTimer } from "@/api/match";
 import { getHgFollowOrders } from "@/api/hg";
 import { saveUserLog } from "@/api/chat";
@@ -36,6 +36,7 @@ export function installClientCoreBridges() {
 
   registerClientApi({
     getCollectPlatform,
+    getGames,
     saveLiveTimer: async (provider, timer) => {
       await saveLiveTimer(provider, timer);
     },

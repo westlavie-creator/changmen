@@ -28,6 +28,9 @@ const catalog = {
 const PB_SLUG_ALIASES: Record<string, string> = {
   "cs": "cs2",
   "cs2": "cs2",
+  "cs-go": "cs2",
+  "csgo": "cs2",
+  "counter-strike": "cs2",
   "counter-strike-2": "cs2",
   "valorant": "valorant",
   "lol": "lol",
@@ -36,6 +39,7 @@ const PB_SLUG_ALIASES: Record<string, string> = {
   "dota-2": "dota2",
   "kog": "kog",
   "king-of-glory": "kog",
+  "kings-of-glory": "kog",
   "honor-of-kings": "kog",
 };
 

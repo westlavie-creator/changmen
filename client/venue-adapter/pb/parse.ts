@@ -157,7 +157,10 @@ export function parseEuroOddsPayload(
 
 export function pbTeamLogo(gameSlug: string, englishName: string): string {
   const team = slugify(englishName);
-  return `https://static.storeclutter.com/cdn-cgi/image/width=80,quality=75/images/esports/${gameSlug}/${team}/${team}-logo.png`;
+  // [A8 可证实] XF：`t==="cs2"&&(t="cs")`；euro/odds 常见 cs-go 亦走同一 CDN 目录
+  let game = slugify(gameSlug);
+  if (game === "cs2" || game === "cs-go" || game === "csgo") game = "cs";
+  return `https://static.storeclutter.com/cdn-cgi/image/width=80,quality=75/images/esports/${game}/${team}/${team}-logo.png`;
 }
 
 export const PB_EURO_ODDS_QUERY_BASE =
@@ -165,7 +168,7 @@ export const PB_EURO_ODDS_QUERY_BASE =
   "&language=zh-cn&isHomePage=&leagueCode=&eventType=0&eSportCode=" +
   "&periodNum=0%2C1%2C2%2C3%2C4%2C5%2C6%2C7&participant=&locale=zh_CN";
 
-/** @deprecated 仅滚球；采集应同时拉 live + prematch */
+/** @deprecated 仅滚球；与 A8 `mHe` 一致，采集只拉 isLive=true */
 export const PB_DEFAULT_ODDS_QUERY = `${PB_EURO_ODDS_QUERY_BASE}&isLive=true`;
 
 /** `gHe` URL 的 path+query 段；由 `pbOddsUrl` 与 gateway 拼成完整 URL（不经 `Am`/`pbGet`） */

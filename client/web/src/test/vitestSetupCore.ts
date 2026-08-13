@@ -54,6 +54,7 @@ vi.mock("@changmen/client-core/bridge/clientApi", async (importOriginal) => {
   return {
     ...actual,
     getCollectPlatform: vi.fn().mockResolvedValue(null),
+    getGames: vi.fn().mockResolvedValue([]),
     saveLiveTimer: vi.fn().mockResolvedValue(undefined),
     updatePlatform: vi.fn().mockResolvedValue(undefined),
     getHgFollowOrders: vi.fn().mockResolvedValue([]),
