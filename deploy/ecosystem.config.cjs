@@ -1,15 +1,15 @@
 /**
  * PM2 生产进程清单（扁平 VPS 布局：DEPLOY_REPO = 应用根，无外层 Git 仓库）。
- *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector,changmen-sxbet-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-sxbet-market-hub
+ *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub
  * 整仓 git pull 已废弃；上海/香港均为 tarball 扁平部署。
  *
  * changmen-predictfun-collector：PF REST 采集；默认随 deploy 与 PM collector 同启。
- * changmen-sxbet-collector：SX.bet REST 采集；默认随 deploy 与 PM/PF collector 同启。
  * changmen-polymarket-collector：电竞 PM Gamma discovery；默认随 deploy 启动。
  * changmen-pm-market-hub：PM-MARKET WS hub（电竞独立进程，避免扇出拖死 esport）。
  * changmen-pm-sport-market-hub：PM-SPORT-MARKET WS hub（体育独立进程/上游，与电竞隔离）。
  * changmen-predictfun-market-hub：PREDICTFUN-MARKET WS hub（独立进程，同理）。
- * changmen-sxbet-market-hub：SXBET-MARKET WS hub（Centrifugo best_odds，一把 SXBET_API_KEY）。
+ * changmen-sxbet-collector / changmen-sxbet-market-hub：SXBet 场馆已暂停；条目保留供手动恢复，
+ *   默认不随 deploy 启动（deploy-server-remote.sh 会 pm2 delete）。
  * 写 platform_* + MarketIndex；浏览器仅 Index → WS → fo（已切流，无浏览器 Save*）。
  * 关写库设 POLYMARKET_COLLECTOR_WRITE_PLATFORM=0。
  *

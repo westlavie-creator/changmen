@@ -2,7 +2,13 @@
 
 对照官方文档：[docs.sx.bet](https://docs.sx.bet/llms.txt)。
 
-## 结论
+## 状态
+
+**已暂停**（`registry/manifest.json`：`implementation: "paused"`，`collect`/`bet: false`）。浏览器不注册采集/下注；生产 deploy 会 `pm2 delete` `changmen-sxbet-collector` 与 `changmen-sxbet-market-hub`。
+
+源码与 VPS collector / market-hub 仍保留，便于恢复。
+
+## 结论（恢复时）
 
 SX Bet **有正式公开 API**。**Discovery 由 VPS** `@changmen/sxbet-collector` 独占写 `platform_*` + MarketIndex；浏览器只做 Index → Centrifugo → `fo` 与 EIP-712 下单。
 
@@ -17,13 +23,11 @@ SX Bet **有正式公开 API**。**Discovery 由 VPS** `@changmen/sxbet-collecto
 | 实时最优价 | Centrifugo `best_odds:global` | 浏览器 `ws.ts`（需 API key） |
 | 下单（taker） | `POST /orders/fill/v2` + EIP-712 | `fillSxOrder`（`orders.ts`） |
 
-## 启用
+## 恢复启用
 
-`registry/manifest.json`：`collectionMode: "vps_http_ws"`、`collect: true`。
-
-VPS：
-- `npm run sxbet-collector` / PM2 `changmen-sxbet-collector`（REST → platform_*）
-- `npm run sxbet-market-hub` / PM2 `changmen-sxbet-market-hub`（Centrifugo → 浏览器；需 `SXBET_API_KEY`）
+1. `registry/manifest.json`：`collect: true`、`implementation: "done"`，并恢复 `streamMeta`
+2. `sxbet/index.ts`：重新挂上 `collector`（及需要时 `provider`）
+3. VPS：`pm2 start deploy/ecosystem.config.cjs --only changmen-sxbet-collector,changmen-sxbet-market-hub`（需 `SXBET_API_KEY`）
 
 浏览器**不**需要 CollectPlatform apiKey；实时赔率走 `/esport/ws-forward/SXBET-MARKET`。
 

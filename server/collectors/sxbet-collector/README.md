@@ -1,5 +1,7 @@
 # sxbet-collector (`@changmen/sxbet-collector`)
 
+**场馆已暂停**：生产 deploy **不**启动本进程，并会 `pm2 delete changmen-sxbet-collector`。源码保留便于恢复。
+
 VPS 守护进程：SX.bet **REST discovery（唯一权威）** → `platform_matches` / `platform_bets` + 本机 `sxbet_market_index.json`。解析见本包 `parse.js`（含 `buildSxMappedMarket`）。
 
 浏览器 SXBet 采集器经 Centrifugo `best_odds:global` 写 `fo`；**不**跑 markets discovery，也**不** `SaveMatch`/`SaveBet`。Index 仅映射/种子。
@@ -9,7 +11,7 @@ VPS 守护进程：SX.bet **REST discovery（唯一权威）** → `platform_mat
 | 环境 | 命令 |
 |------|------|
 | 开发 | 仓库根 `npm run sxbet-collector` |
-| 生产 PM2 | `changmen-sxbet-collector`（ecosystem 已注册） |
+| 生产 PM2 | `changmen-sxbet-collector`（ecosystem 有条目；**当前默认不启**） |
 
 必需 env：
 
