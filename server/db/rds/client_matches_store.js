@@ -102,6 +102,19 @@ const UPSERT_SQL = `
   `;
 
 /**
+ * M1：结束只信调用方补丁，写库不再「库活跃 − 本拍活跃」自行猜 end。
+ * @param {number[]} markEndedIds
+ * @param {Set<number>|number[]} writtenActiveIds 本拍仍写入活跃集的 id
+ */
+export function resolveLifecycleMarkIds(markEndedIds, writtenActiveIds) {
+  const active = writtenActiveIds instanceof Set
+    ? writtenActiveIds
+    : new Set([...(writtenActiveIds || [])].map(Number).filter(id => Number.isFinite(id) && id > 0));
+  return [...new Set((markEndedIds || []).map(Number))]
+    .filter(id => Number.isFinite(id) && id > 0 && !active.has(id));
+}
+
+/**
  * @param {object} pool
  * @param {{ activeRows: object[], endedRows: object[], markEndedIds: number[], builtAt: number }} payload
  */
@@ -115,12 +128,7 @@ async function _rdsWriteClientMatchesLifecycle(pool, payload) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE client_matches IN SHARE ROW EXCLUSIVE MODE");
 
-    const { rows: activeIdRows } = await client.query(
-      "SELECT id FROM client_matches WHERE ended_at IS NULL",
-    );
-    const activeInDb = new Set(activeIdRows.map(r => Number(r.id)));
     const writtenActiveIds = new Set(
       activeRows.map(r => Number(r.id)).filter(id => Number.isFinite(id) && id > 0),
     );
@@ -139,11 +147,8 @@ async function _rdsWriteClientMatchesLifecycle(pool, payload) {
       await client.query(UPSERT_SQL, _buildUpsertParams(safeEndedRows));
     }
 
-    // 锁内差量：库中仍活跃、但本拍未写入活跃集的 id → 标 ended（恢复旧 replace 安全性）
-    const markIds = [...new Set([
-      ...(markEndedIds || []).map(Number),
-      ...[...activeInDb].filter(id => !writtenActiveIds.has(id)),
-    ].filter(id => Number.isFinite(id) && id > 0 && !writtenActiveIds.has(id)))];
+    // 仅 payload.markEndedIds（M1：不再扫表差量猜归档）
+    const markIds = resolveLifecycleMarkIds(markEndedIds, writtenActiveIds);
 
     if (markIds.length) {
       await client.query(
@@ -216,7 +221,8 @@ function _dedupeClientMatchRows(rows) {
   return [...seen.values()];
 }
 
-function _normalizeWritePayload(rowsOrPayload, builtAt = Date.now()) {
+/** @param {object|object[]} rowsOrPayload @param {number} [builtAt] */
+export function normalizeClientMatchesWritePayload(rowsOrPayload, builtAt = Date.now()) {
   if (rowsOrPayload && !Array.isArray(rowsOrPayload) && typeof rowsOrPayload === "object") {
     const activeRows = _dedupeClientMatchRows(
       (rowsOrPayload.activeRows || []).map(r => ({ ...r, ended_at: null })),
@@ -229,6 +235,7 @@ function _normalizeWritePayload(rowsOrPayload, builtAt = Date.now()) {
     );
     const activeIds = new Set(activeRows.map(r => Number(r.id)));
     const endedIds = new Set(endedRows.map(r => Number(r.id)));
+    // 对象补丁：只信传入的 markEndedIds，不根据「库/上次活跃差集」发明 end
     const markEndedIds = (rowsOrPayload.markEndedIds || [])
       .map(Number)
       .filter(id => Number.isFinite(id) && id > 0 && !activeIds.has(id) && !endedIds.has(id));
@@ -246,6 +253,7 @@ function _normalizeWritePayload(rowsOrPayload, builtAt = Date.now()) {
     rowsOrPayload.map(r => ({ ...r, ended_at: null })),
   );
   const activeIds = new Set(activeRows.map(r => Number(r.id)));
+  // 旧式全量数组：仍用进程内 _lastWrittenIds 生成 markEnded（不扫库）
   const markEndedIds = [..._lastWrittenIds].filter(id => !activeIds.has(id));
   return {
     activeRows,
@@ -256,11 +264,11 @@ function _normalizeWritePayload(rowsOrPayload, builtAt = Date.now()) {
 }
 
 /**
- * fire-and-forget：upsert 活跃列表；离开活跃集的 id 标 ended（不搬 history）。
+ * fire-and-forget：upsert 活跃 + 显式 end 补丁（不搬 history）。
  * 兼容旧调用：传 rows 数组；新调用可传 { activeRows, endedRows, markEndedIds, builtAt }。
  */
 export function writeClientMatches(rowsOrPayload) {
-  const payload = _normalizeWritePayload(rowsOrPayload);
+  const payload = normalizeClientMatchesWritePayload(rowsOrPayload);
   if (!payload)
     return;
   _writeRds(async (pool) => {
@@ -270,7 +278,7 @@ export function writeClientMatches(rowsOrPayload) {
 
 /** await 写入完成（matcher / matchMerge 使用，避免前端读到上一版） */
 export async function writeClientMatchesAsync(rowsOrPayload, builtAt = Date.now()) {
-  const payload = _normalizeWritePayload(rowsOrPayload, builtAt);
+  const payload = normalizeClientMatchesWritePayload(rowsOrPayload, builtAt);
   if (!payload)
     return;
   const pool = getPgPool();

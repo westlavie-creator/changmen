@@ -1,14 +1,37 @@
-# 合场演进（短计划）
+# 合场演进（匹配 / 结束分离）
 
 - 更新：2026-08-13
 - 原则：**一步只动一层；上线后行为对外可视为不变；下一步另开，不提前耦合**
+- 触发：`#1669` 未开赛被差量 `markEnded` 误伤 → 明确「匹配」与「结束」是两套动作
 
 ## 正确逻辑
 
 - 馆 `SaveMatch` → 只更新该馆（`platform_*`）
-- changmen → 自己的比赛状态 + 与各馆 id 的映射
-- `GetMatchs` → 只读投影  
-- 比赛结束即结束，没有 ended→active
+- changmen → **匹配**（映射）与 **结束**（可见性）分开决策、分开写入理由
+- `GetMatchs` → 只读投影（`ended_at IS NULL`）
+- 比赛结束即结束，**没有**自动 ended→active（人工「恢复」除外）
+
+### 两套动作
+
+| 动作 | 职责 | 可写 | 触发 | 失败时 |
+|------|------|------|------|--------|
+| **匹配 Match** | 哪些馆组成这场 | `matchs` / 朝向 / 盘口 / 新建或复用 id | 定时 compose；以后 Save* 增量 | 本拍少挂馆或跳过更新；**不**标 ended |
+| **结束 End** | 这场是否还对用户可见 | 仅 `ended_at`（以后可加 `ended_reason`） | `ended_filter`，或人工 force | 漏判 → 短暂幽灵活跃；**不用**「本拍没合出来」代替 |
+
+```text
+SaveMatch(platform_*)
+        │
+        ▼
+   Match 匹配 ──upsert matchs 等──► client_matches
+        │                                    │
+        │                                    ▼
+        └────────► End 结束 ──仅 ended_at──► client_matches
+                         ▲
+                         │
+                  人工强制结束
+```
+
+`#1669` 根因：Match 一拍没产出 id → 被当成 End（compose 差量 `markEndedIds` + 写库锁内再猜）。
 
 ## 分步（互不影响）
 
@@ -16,77 +39,134 @@
 
 | 步 | 只改什么 | 明确不改 | 对外行为 | 做完标志 |
 |----|----------|----------|----------|----------|
-| **1** | 仅 `client_matches` **写库实现**（只应用本拍 upsert/end，去掉锁表扫活跃 id） | 不合场算法、不改 Save*、不改 GetMatchs | 应与现在一致 | 写路径变简单；测过不漏结束、不复活 |
-| **2** | 仅 GetMatchs **读/缓存**（脏场或减负加载） | 不改写库、不合场、不改 Save* | 列表内容不变，可更快 | miss/尖刺下降 |
-| **3** | 仅 **触发时机**：Save* 后入队「相关场」增量刷新（仍走现有 compose/写补丁） | 不改匹配算法核心、不改 API 形状 | 更及时；定时全量可先保留 | 增量能跟上馆变 |
-| **4** | 仅 **changmen 状态表达**（lifecycle/事件，映射与投影分开） | 不顺便改馆写入、不改前端协议 | 语义更清晰 | 状态与代码同构 |
+| **M1** | 结束**写入权威**：compose 补丁语义 + RDS 写库 | 不合场聚类、不改 Save*/GetMatchs、不改 `ended_filter` 规则本身 | 未开赛掉簇不再误藏；真结束仍离开列表；已 ended 不复活 | `#1669` 类不可复现；单测绿 |
+| **M2** | 进程内拆 `matchPass` / `endPass`（同一定时器，分日志） | 不改算法公式、不改 API | 行为同 M1 | 日志/指标可分 Match 与 End |
+| **2** | 仅 GetMatchs **读/缓存** | 不改写库、不合场、不改 Save* | 列表内容不变，可更快 | miss/尖刺下降 |
+| **3** | 仅 **触发时机**：Save* 后入队相关场增量 Match | 不改匹配算法核心、不改 API 形状 | 更及时；定时全量可先保留 | 增量能跟上馆变 |
+| **4** | 仅 **状态表达**（`ended_reason`：`filter` / `force`，或 lifecycle） | 不顺便改馆写入、不改前端协议 | 可审计自动 vs 强制 | 状态与代码同构 |
 
 ```text
-步1 写库     ──独立──► 可停
-步2 读取     ──独立──► 可停（不依赖步3/4）
-步3 触发     ──建议在步1之后──► 可停（不依赖步4）
-步4 状态模型 ──建议在步3之后──► 终态
+M1 结束写入权威 ──独立──► 可停
+M2 进程内拆分   ──建议在 M1 后──► 可停
+步2 读取        ──独立──► 可停（不依赖 M2/3/4；勿与 M1 同提交）
+步3 触发        ──建议在 M1 后──► 可停
+步4 状态模型    ──建议在步3 后──► 终态
 ```
-
-- **步2 与步1 无强依赖**，可并行或先后，只要别在同一次提交里搅在一起。  
-- **步3 依赖步1**（增量结果要能以补丁写出）。  
-- **步4 依赖步3**（先有事件入口，再升状态机）。
 
 ## 协作规矩
 
-1. 同一时间只做一个步。  
-2. 该步 PR/提交只碰上表「只改什么」里的文件。  
+1. 同一时间只做一个步。
+2. 该步 PR/提交只碰上表「只改什么」里的文件。
 3. 发现别的问题 → 记下来，不塞进当前步。
 
 ## 当前
 
-下一步 = **步1**（只动写库）。执行方案见下；你点头再改代码。
+**M1 已完成**（2026-08-13）— 结束写入权威已落地，可停。
 
-## 步1 执行方案（具体）
+下一步任选：**M2**（进程内 matchPass/endPass）或 **步2**（GetMatchs 读/缓存）；勿与未合并改动搅在同一提交。
+
+---
+
+## M1 执行方案（具体）
 
 ### 要改掉的行为
 
-今天 `_rdsWriteClientMatchesLifecycle`（`server/db/rds/client_matches_store.js`）在事务里：
+**A. compose**（`server/match/matcher/compose/compose_once.js`）
+
+```js
+markEndedIds = previousActiveIds.filter(
+  id => !activeIds.has(id) && !endedIds.has(id),
+);
+```
+
+「本拍 `info` 没有 = 结束」——把 Match 缺口写成 End。
+
+**B. 写库**（`server/db/rds/client_matches_store.js` → `_rdsWriteClientMatchesLifecycle`）
+
+事务里：
 
 1. `LOCK TABLE client_matches …`
 2. `SELECT id … WHERE ended_at IS NULL`（全活跃 id）
-3. 用「库里活跃 − 本拍活跃」**再算一遍**该结束的 id
-4. 再和传入的 `markEndedIds` 合并后 `UPDATE`
+3. 「库里活跃 − 本拍活跃」**再猜**该结束的 id
+4. 与传入的 `markEndedIds` 合并后 `UPDATE`
 
-compose 其实**已经**算好 `markEndedIds` 传进来了。步1 = 写库**只信传入的补丁**，不再自己扫表猜。
+写库层第二次把「没写进本拍活跃集」当成 End。
 
-### 改后行为（同一文件为主）
+### 改后行为
 
-事务内只做：
+**Compose → 写补丁**
 
-1. （可选）短事务 / 按需行锁，**不要整表锁 + 全扫活跃 id**
-2. UPSERT `activeRows`、`endedRows`（已有：active 与 ended 同 id 时丢掉 active）
-3. `UPDATE … ended_at` **仅**对传入的 `markEndedIds`
-4. sticky SQL 保持不变（已 ended 不会被活跃 UPSERT 清掉）
+| 字段 | 含义 |
+|------|------|
+| `activeRows` | 本拍 Match 产出的活场 |
+| `endedRows` | **仅** `ended_filter` 产出的结束场（全量 UPSERT） |
+| `markEndedIds` | **空**（或仅 sticky 再确认，与现 `stickyOnlyIds` 合并） |
+| gap | `previousActive − info − endedRows` → 只打 warn（`[match-composer] active gap`），**不**标 ended |
 
-### 调用约定（不改合场算法，只保证补丁完整）
+**RDS 写库**
 
-| 调用方 | 步1要求 |
+1. 短事务；去掉整表锁 + 全扫活跃 id（同进程 in-flight + write_guard）
+2. UPSERT `activeRows`、`endedRows`（同 id 时丢掉 active，保留）
+3. `UPDATE … ended_at` **仅** payload `markEndedIds`（且不在本拍 active）
+4. sticky SQL 不变（已 ended 不会被活跃 UPSERT 清掉）
+
+**旧调用方**
+
+| 调用方 | M1 要求 |
 |--------|---------|
-| `compose/io/write.js` → `writeClientMatchesAsync({ activeRows, endedRows, markEndedIds })` | 已传 `markEndedIds`，保持；写库侧以此为 end 权威 |
-| 旧式 `writeClientMatches(rows数组)` | 仍用内存 `_lastWrittenIds` 生成 `markEndedIds`（现有 `_normalizeWritePayload`），**不**再靠锁内扫库 |
+| `compose/io/write.js` → `writeClientMatchesAsync({ activeRows, endedRows, markEndedIds })` | compose 不再传差量 end；写库只信补丁 |
+| 旧式 `writeClientMatches(rows[])` | 仍用内存 `_lastWrittenIds` 生成 `markEndedIds`，**不**再靠锁内扫库 |
 
 ### 不动的范围
 
-- `composeOnce` 聚类 / 打分 / ended 判定逻辑  
-- SaveMatch / GetMatchs / 前端  
-- `ended_at` sticky、空写保护  
+- 合场聚类 / 打分 / `isClientMatchEnded` 判定公式
+- SaveMatch / GetMatchs / 前端
+- `forceEndClientMatch` / `clearClientMatchEndedAt`
+- 空写保护、自动 ended→active（仍禁止）
 
-### 建议提交内顺序
+### 文件清单
 
-1. 改 `_rdsWriteClientMatchesLifecycle`：删锁内全扫差集；`markIds` = 仅 payload 的 `markEndedIds`（过滤掉仍在本拍 active 的）  
-2. 同步收紧/去掉 `LOCK TABLE`（若去掉后并发仍安全：同进程 matchMerge 已有 in-flight；跨进程仍有 write_guard）  
-3. 补单测：只标传入 end；同 id active+end → ended；未传入的活跃 id **不会**被写库层自行标 ended  
-4. 跑 matcher compose 相关测试 + 该 store 测试  
+- `server/match/matcher/compose/compose_once.js`
+- `server/match/matcher/compose/io/write.js`（注释/传参收紧，若需要）
+- `server/db/rds/client_matches_store.js`
+- matcher/db 相关单测
+- 本文档（当前=M1 做完标志）
+
+### 提交内顺序
+
+1. 写库：删锁内差集；`markIds` = 仅 payload `markEndedIds`
+2. compose：去掉 previousActive 差量 markEnded；gap 只 warn
+3. 单测：掉簇不归档；`endedRows` 仍归档；未传入的活跃 id 写库不自创 end；sticky 不复活
+4. 跑 matcher compose + store 相关 vitest
+5. 更新本文「当前」为 M1 已完成 / 下一步 M2 或步2
 
 ### 风险与验收
 
-- **风险**：若某调用方漏传 `markEndedIds`，可能少标结束（幽灵活跃）。生产主路径是 compose，已传。  
-- **验收**：合场一轮后，该结束的场仍离开 GetMatchs；已结束场不会复活；相关测试绿。
+- **风险**：`ended_filter` 漏判 → 多留 GetMatchs 几拍（幽灵活跃）。优于未开赛 sticky 误藏。
+- **验收**
+  - 活跃 id 本拍不在 `info`、未进 `endedRows` → 库中仍 `ended_at IS NULL`
+  - `endedRows` 含该 id → 写后有 `ended_at`
+  - 人工 force 后，活跃 UPSERT 不能清 `ended_at`
+  - 生产：开赛前掉簇不再把场打进「已隐藏」；真结束场仍离开 GetMatchs
 
-点头后按此改，改完即停，不开步2。
+### M1 停点
+
+合并上线后**停**。不顺手做 M2 / 步2。存量已误标场需要时点「恢复」，不做自动复活。
+
+### M1 落地记录
+
+- `compose_once.js`：`resolveComposeEndPatch` → `markEndedIds=[]`，`activeGaps` 只 warn
+- `client_matches_store.js`：删锁内活跃差集；`resolveLifecycleMarkIds` 只信 payload
+- 单测：`compose_end_patch.test.mjs`、`client_matches_lifecycle.test.mjs`
+
+---
+
+## M2（另开，本次不实施）
+
+- `composeOnce` 拆为 `runMatchPass` → 写映射补丁，再 `runEndPass` → 只产出 `endedRows`
+- 分开日志与耗时；写库 API 可仍是一次 `writeClientMatchesAsync`
+- 不做新表、不改 GetMatchs
+
+## 步2–4（另开）
+
+与上表一致。步4 再考虑 `ended_reason`（`filter` | `force`），便于审计；仍禁止自动复活。

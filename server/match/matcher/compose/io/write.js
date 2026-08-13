@@ -1,7 +1,8 @@
 /**
  * 写 client_matches + 对齐 post-hooks。
  * active 写 ended_at=NULL（DB sticky 不会清已有 ended_at）；
- * 新判定 ended 全量 UPSERT；已 sticky 的 ended 只标 ended、不覆盖 matchs（防盘口收缩）。
+ * 新判定 ended 全量 UPSERT（endedRows）；
+ * markEndedIds 仅显式补丁 / sticky 再确认——M1 起不再用「本拍未合出」差量归档。
  */
 import * as db from "@changmen/db";
 import { clientMatchWriteRow } from "../write_payload.js";

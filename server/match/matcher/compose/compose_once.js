@@ -13,6 +13,23 @@ import { writeClientMatches } from "./io/write.js";
 import { composeFromSnapshot, resolveAndProject } from "./pipeline.js";
 
 /**
+ * M1：匹配缺口 ≠ 结束。
+ * 返回本拍应传给写库的 markEndedIds（恒为空；结束只靠 endedRows）以及仅供日志的 activeGaps。
+ */
+export function resolveComposeEndPatch({ previousActiveIds = [], info = [], endedRows = [] } = {}) {
+  const activeIds = new Set(
+    (info || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
+  );
+  const endedIds = new Set(
+    (endedRows || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
+  );
+  const activeGaps = (previousActiveIds || [])
+    .map(Number)
+    .filter(id => Number.isFinite(id) && id > 0 && !activeIds.has(id) && !endedIds.has(id));
+  return { markEndedIds: [], activeGaps };
+}
+
+/**
  * 空写策略（防误清活跃集）：
  * - info 非空 → 放行
  * - ALLOW_EMPTY_WRITE=1 → 强制放行
@@ -132,15 +149,17 @@ export async function composeOnce({
       );
     }
 
-    const activeIds = new Set(
-      (info || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
-    );
-    const endedIds = new Set(
-      (endedRows || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
-    );
-    const markEndedIds = previousActiveIds.filter(
-      id => !activeIds.has(id) && !endedIds.has(id),
-    );
+    const { markEndedIds, activeGaps } = resolveComposeEndPatch({
+      previousActiveIds,
+      info,
+      endedRows,
+    });
+    if (activeGaps.length) {
+      console.warn(
+        `[match-composer] active gap (not ending): ${activeGaps.slice(0, 20).join(",")}`
+        + (activeGaps.length > 20 ? `…(+${activeGaps.length - 20})` : ""),
+      );
+    }
     const stickyEndedIds = (snapshot.clientRows || [])
       .filter(r => r.ended_at != null || r.endedAt != null)
       .map(r => Number(r.id ?? r.ID))
