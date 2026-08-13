@@ -4,8 +4,9 @@ import { getCollectPlatform, getGames } from "@changmen/client-core/bridge/clien
 import { getStaticVenueGames } from "@changmen/client-core/shared/venueGames";
 import { PB_PLUGIN_REQUIRED_MSG, pbCollectEuroOdds, resolvePbAccount } from "./transport";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { PLATFORMS } from "../shared/platforms";
-import { parseEuroOddsPayload } from "./parse";
+import { mergeEuroOddsPayloads, parseEuroOddsPayload } from "./parse";
 import { isPbAllowedSourceGameId } from "./gameFilter";
 import { ingestAndReportPbParsedMatch } from "./markets";
 import { wait } from "@changmen/client-core/shared/wait";
@@ -27,6 +28,33 @@ async function resolvePbPlatformGames(): Promise<string[]> {
     console.warn("[PB] getGames failed, fallback to static venue games", err);
   }
   return getStaticVenueGames(PLATFORM);
+}
+
+/**
+ * [changmen 扩展] A8 `mHe` 只拉 isLive=true；此处并行拉 live + prematch 再合并，
+ * 同 event.id 时后写入优先，故 live 放最后。
+ * 单侧失败时仍用另一侧，避免 Promise.all 整轮落空。
+ */
+async function fetchPbEuroOddsMerged(
+  account: PlatformAccount,
+): Promise<Record<string, unknown> | undefined> {
+  const settled = await Promise.allSettled([
+    pbCollectEuroOdds(account, true),
+    pbCollectEuroOdds(account, false),
+  ]);
+  const liveData = settled[0].status === "fulfilled" ? settled[0].value : undefined;
+  const prematchData = settled[1].status === "fulfilled" ? settled[1].value : undefined;
+  if (settled[0].status === "rejected") {
+    console.warn("[PB] euro/odds live failed", settled[0].reason);
+  }
+  if (settled[1].status === "rejected") {
+    console.warn("[PB] euro/odds prematch failed", settled[1].reason);
+  }
+  const payloads = [prematchData, liveData].filter(
+    (p): p is Record<string, unknown> => p != null,
+  );
+  if (!payloads.length) return undefined;
+  return mergeEuroOddsPayloads(...payloads);
 }
 
 export function startPbCollector(): () => void {
@@ -70,8 +98,8 @@ export function startPbCollector(): () => void {
         }
         pluginMissingNotified = false;
 
-        // [A8 可证实] mHe：只拉 isLive=true；解析全部联赛后再按 games 过滤
-        const data = await pbCollectEuroOdds(account, true);
+        // [changmen 扩展] live + prematch；解析全部联赛后再按 games 过滤
+        const data = await fetchPbEuroOddsMerged(account);
         if (!data) {
           await wait(POLL_MS);
           continue;

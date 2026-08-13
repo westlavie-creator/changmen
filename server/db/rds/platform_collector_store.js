@@ -11,6 +11,23 @@ import { _writeRds, _writeRdsAsync, getPgPool } from "./common.js";
  */
 export const PB_SNAPSHOT_ORPHAN_GRACE_MS = 5 * 60 * 1000;
 
+/**
+ * RDS `_writeRds` 同 key 会 coalesce。采集一轮 = 1 次 matches + N 次 bets，
+ * 若共用 `collector:${plat}`，多场 SaveBet 会互相覆盖，只留下最后一场盘口。
+ * matches / timers / 每场 bets 必须拆 key。
+ */
+export function collectorMatchesWriteKey(platform) {
+  return `collector:${String(platform || "").trim()}:matches`;
+}
+
+export function collectorBetsWriteKey(platform, matchId) {
+  return `collector:${String(platform || "").trim()}:bets:${String(matchId ?? "")}`;
+}
+
+export function collectorTimersWriteKey(platform) {
+  return `collector:${String(platform || "").trim()}:timers`;
+}
+
 export function isStickyPlatformMatchSnapshot(platform) {
   return String(platform || "").trim() === "PB";
 }
@@ -611,7 +628,7 @@ export function writePlatformMatches(provider, matchs, opts = {}) {
       return;
     }
     _writeRds(pool => _rdsClearPlatformMatchSnapshot(pool, plat), "platform_matches", {
-      key: `collector:${plat}`,
+      key: collectorMatchesWriteKey(plat),
     });
     return;
   }
@@ -619,7 +636,7 @@ export function writePlatformMatches(provider, matchs, opts = {}) {
   _writeRds(
     pool => _rdsUpsertPlatformMatches(pool, rows, opts),
     "platform_matches",
-    { key: `collector:${provider}` },
+    { key: collectorMatchesWriteKey(provider) },
   );
 }
 
@@ -888,7 +905,7 @@ export function writePlatformBets(provider, matchId, bets) {
   if (!rows.length)
     return;
   _writeRds(pool => _rdsUpsertPlatformBets(pool, rows), "platform_bets", {
-    key: `collector:${provider}`,
+    key: collectorBetsWriteKey(provider, matchId),
   });
 }
 
@@ -900,7 +917,7 @@ export function replacePlatformBetsForMatch(provider, matchId, bets) {
   const plat = String(provider);
   const mid = String(matchId);
   _writeRds(pool => _rdsReplacePlatformBets(pool, plat, mid, rows), "platform_bets", {
-    key: `collector:${plat}`,
+    key: collectorBetsWriteKey(plat, mid),
   });
 }
 
@@ -957,7 +974,7 @@ export function writeLiveTimers(provider, timer) {
     return;
   const { plat, rows } = mapped;
   _writeRds(pool => _rdsReplaceLiveTimersForPlatform(pool, plat, rows), "live_timers", {
-    key: `collector:${plat}`,
+    key: collectorTimersWriteKey(plat),
   });
 }
 

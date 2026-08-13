@@ -126,6 +126,7 @@ describe("PB collect platform parity", () => {
 
     expect(getGames).toHaveBeenCalledWith("PB");
     expect(pbCollectEuroOdds).toHaveBeenCalledWith(expect.anything(), true);
+    expect(pbCollectEuroOdds).toHaveBeenCalledWith(expect.anything(), false);
     expect(ingestAndReportPbParsedMatch.mock.calls[0]![0].gameId).toBe("cs-go");
   });
 
@@ -151,5 +152,85 @@ describe("PB collect platform parity", () => {
     stop();
 
     expect(ingestAndReportPbParsedMatch.mock.calls[0]![0].gameId).toBe("cs-go");
+  });
+
+  test("merges prematch euro/odds into the collect snapshot", async () => {
+    const { startPbCollector } = await import("./collect");
+    hasA8PluginRuntime.mockReturnValue(true);
+    getCollectPlatform.mockResolvedValue({ Gateway: "https://pb.example", BetName: ".*" });
+    getGames.mockResolvedValue(["cs2"]);
+    resolvePbAccount.mockReturnValue({
+      provider: "PB",
+      gateway: "https://pb.example",
+      token: "{}",
+      balance: 1,
+    });
+    pbCollectEuroOdds.mockImplementation(async (_account, isLive: boolean) => {
+      if (isLive) return EURO_PAYLOAD;
+      return {
+        leagues: [
+          {
+            id: 2,
+            gameCode: "cs2",
+            gameName: "CS2",
+            name: "Prematch League",
+            events: [
+              {
+                id: 999002,
+                time: 1_700_000_100_000,
+                live: false,
+                participants: [
+                  { type: "HOME", name: "Team C", englishName: "Team C" },
+                  { type: "AWAY", name: "Team D", englishName: "Team D" },
+                ],
+                periods: {
+                  "0": {
+                    moneyLine: { homePrice: 1.8, awayPrice: 2.0, lineId: 99 },
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      };
+    });
+    ingestAndReportPbParsedMatch.mockImplementation((row) => ({
+      match: { SourceMatchID: row.matchId },
+      bets: [],
+    }));
+
+    const stop = startPbCollector();
+    await vi.waitFor(() => expect(ingestAndReportPbParsedMatch).toHaveBeenCalledTimes(2));
+    stop();
+
+    const ids = ingestAndReportPbParsedMatch.mock.calls.map((c) => c[0].matchId).sort();
+    expect(ids).toEqual(["999001", "999002"]);
+  });
+
+  test("keeps prematch when live euro/odds throws", async () => {
+    const { startPbCollector } = await import("./collect");
+    hasA8PluginRuntime.mockReturnValue(true);
+    getCollectPlatform.mockResolvedValue({ Gateway: "https://pb.example", BetName: ".*" });
+    getGames.mockResolvedValue(["cs2"]);
+    resolvePbAccount.mockReturnValue({
+      provider: "PB",
+      gateway: "https://pb.example",
+      token: "{}",
+      balance: 1,
+    });
+    pbCollectEuroOdds.mockImplementation(async (_account, isLive: boolean) => {
+      if (isLive) throw new Error("live down");
+      return EURO_PAYLOAD;
+    });
+    ingestAndReportPbParsedMatch.mockImplementation((row) => ({
+      match: { SourceMatchID: row.matchId },
+      bets: [],
+    }));
+
+    const stop = startPbCollector();
+    await vi.waitFor(() => expect(ingestAndReportPbParsedMatch).toHaveBeenCalled());
+    stop();
+
+    expect(ingestAndReportPbParsedMatch.mock.calls[0]![0].matchId).toBe("999001");
   });
 });

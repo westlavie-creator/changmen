@@ -181,7 +181,7 @@ export function pbOddsUrl(gateway: string, isLive = true, now = Date.now()): str
   return `${base}${pbOddsPath(isLive, now)}`;
 }
 
-/** 合并 live / prematch 两次 euro/odds 响应（同 event.id 时 live 优先） */
+/** 合并多次 euro/odds；同 event.id 后写入覆盖。调用方应先 prematch 后 live。 */
 export function mergeEuroOddsPayloads(
   ...payloads: Array<Record<string, unknown>>
 ): Record<string, unknown> {
