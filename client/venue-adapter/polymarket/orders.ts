@@ -961,6 +961,17 @@ function mergeChangmenStoredWithClob(stored: VenueOrder, clob: VenueOrder): Venu
   let nextMoney = blockGammaSettlement ? base.money : (gammaSettled ? clob.money : base.money);
   let nextReward = blockGammaSettlement ? base.reward : (gammaSettled ? clob.reward : base.reward);
 
+  // 假 Reject（delayed 误判）但 CLOB 已有成交份额 → 翻回可卖买单
+  const storedReject = String(base.status ?? "").toLowerCase() === "reject";
+  const clobFillShares = Number(clob.pmShares) || 0;
+  if (!blockGammaSettlement && storedReject && clobFillShares > 0.0001) {
+    nextStatus = gammaSettled ? clob.status : "none";
+    if (!gammaSettled) {
+      nextMoney = 0;
+      nextReward = Number(clob.reward) || Number(base.reward) || 0;
+    }
+  }
+
   // 赛果与盈亏脱钩：卖光仍写入/刷新 pmMatchResult
   const nextMatchResult = clob.pmMatchResult
     ?? ((clob.status === "win" || clob.status === "lose") ? clob.status : undefined)

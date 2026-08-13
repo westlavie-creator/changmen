@@ -44,6 +44,8 @@ export async function settleArbLeg(
     () => useAccountStore().updateVenueOrders(account, {
       pendingBindLinkId: opts.pendingBindLinkId,
       pendingBindOrderId,
+      // 官方 delayed：matched 后 trades 可能滞后；等 orderId 出现再 save
+      waitForOrderId: pendingBindOrderId,
     }),
     {
       confirmPostAccepted: isPendingConfirmVenueProvider(account.provider) && Boolean(result),

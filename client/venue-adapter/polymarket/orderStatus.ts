@@ -70,7 +70,7 @@ function parseMatchedSize(row: PolymarketOrderRow | null | undefined): number {
   return Number.isFinite(matched) && matched > 0 ? matched : 0;
 }
 
-/** GET /data/order/{id} 行解读 */
+/** GET /data/order/{id} 行解读（对齐官方 Order Lifecycle） */
 export function interpretPolymarketOrderRow(
   row: PolymarketOrderRow | null | undefined,
 ): "matched" | "unfilled" | "pending" {
@@ -85,17 +85,18 @@ export function interpretPolymarketOrderRow(
   const trades = row.associate_trades;
   if (Array.isArray(trades) && trades.length > 0)
     return "matched";
+  // 官方：unmatched = delay 后挂簿成功，非杀单；delayed/live 仍待确认
+  if (status === "delayed" || status === "live" || status === "unmatched")
+    return "pending";
   if (
     status.includes("cancel")
     || status.includes("kill")
-    || status === "unmatched"
     || status === "expired"
   ) {
     return "unfilled";
   }
-  if (status === "matched" && parseMatchedSize(row) === 0)
-    return "unfilled";
-  if (status === "delayed" || status === "live")
+  // matched 但无份额：接口滞后时常见，勿立刻当拒单
+  if (status === "matched")
     return "pending";
   return "pending";
 }

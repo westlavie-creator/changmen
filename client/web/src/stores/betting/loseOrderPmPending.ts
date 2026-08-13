@@ -69,6 +69,7 @@ export async function applyVenueJbSettlementOutcome(
     () => useAccountStore().updateVenueOrders(account, {
       pendingBindLinkId: order.linkId || undefined,
       pendingBindOrderId: String(result.orderId ?? "").trim() || undefined,
+      waitForOrderId: String(result.orderId ?? "").trim() || undefined,
     }),
     { confirmPostAccepted: true },
   );

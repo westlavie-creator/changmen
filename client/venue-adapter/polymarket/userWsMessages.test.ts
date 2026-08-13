@@ -45,12 +45,32 @@ describe("interpretPolymarketUserWsMessage", () => {
     }, ORDER_ID)).toBe("unfilled");
   });
 
-  it("unfilled on order UPDATE with unmatched status", () => {
+  it("pending (null) on UPDATE with unmatched — official: not a kill", () => {
     expect(interpretPolymarketUserWsMessage({
       event_type: "order",
       type: "UPDATE",
       id: ORDER_ID,
       status: "unmatched",
+      size_matched: "0",
+    }, ORDER_ID)).toBeNull();
+  });
+
+  it("pending (null) on PLACEMENT delayed", () => {
+    expect(interpretPolymarketUserWsMessage({
+      event_type: "order",
+      type: "PLACEMENT",
+      id: ORDER_ID,
+      status: "delayed",
+      size_matched: "0",
+    }, ORDER_ID)).toBeNull();
+  });
+
+  it("unfilled on status CANCELED", () => {
+    expect(interpretPolymarketUserWsMessage({
+      event_type: "order",
+      type: "UPDATE",
+      id: ORDER_ID,
+      status: "CANCELED",
       size_matched: "0",
     }, ORDER_ID)).toBe("unfilled");
   });

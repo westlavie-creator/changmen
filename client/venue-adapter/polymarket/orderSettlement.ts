@@ -65,9 +65,15 @@ export async function settlePolymarketDelayedOrder(
 ): Promise<{ outcome: PolymarketPollOutcome; row: PolymarketOrderRow | null }> {
   const wsResult = await awaitPolymarketOrderWatch(orderId);
   clearPolymarketOrderWatch(orderId);
-  if (wsResult?.outcome === "matched" || wsResult?.outcome === "unfilled") {
-    return { outcome: wsResult.outcome, row: wsResult.row };
-  }
+  // 官方：WS matched 可采信；WS unfilled 仍须 REST/trades 权威确认（防误杀）
+  if (wsResult?.outcome === "matched")
+    return { outcome: "matched", row: wsResult.row };
 
-  return settlePolymarketDelayedOrderViaRest(account, orderId, opts);
+  const rest = await settlePolymarketDelayedOrderViaRest(account, orderId, opts);
+  if (rest.outcome === "matched")
+    return rest;
+  // WS 已报 Cancellation 且 REST 未发现成交 → 确认 unfilled
+  if (wsResult?.outcome === "unfilled" && rest.outcome !== "matched")
+    return { outcome: "unfilled", row: rest.row ?? wsResult.row };
+  return rest;
 }

@@ -104,13 +104,18 @@ describe("interpretPolymarketOrderRow", () => {
     expect(interpretPolymarketOrderRow({})).toBe("pending");
   });
 
-  it("unfilled for unmatched after sports delay", () => {
+  it("pending for unmatched after sports delay (official: book placement)", () => {
     expect(interpretPolymarketOrderRow({ status: "unmatched", size_matched: "0" }))
-      .toBe("unfilled");
+      .toBe("pending");
   });
 
-  it("unfilled for matched with zero size", () => {
+  it("pending for matched with zero size until shares/trades appear", () => {
     expect(interpretPolymarketOrderRow({ status: "matched", size_matched: "0" }))
+      .toBe("pending");
+  });
+
+  it("unfilled for canceled", () => {
+    expect(interpretPolymarketOrderRow({ status: "CANCELED", size_matched: "0" }))
       .toBe("unfilled");
   });
 
@@ -258,5 +263,31 @@ describe("settlePolymarketDelayedOrder", () => {
     expect(out.outcome).toBe("matched");
     expect(out.row?.status).toBe("MATCHED");
     expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalledWith(acc, "0xlate", 60_000, "BUY");
+  });
+
+  it("does not trust ws unfilled alone — confirms via trades", async () => {
+    const acc = { provider: "Polymarket" } as never;
+    awaitPolymarketOrderWatch.mockReset();
+    awaitPolymarketOrderWatch.mockResolvedValueOnce({
+      source: "ws",
+      outcome: "unfilled",
+      row: { status: "cancelled", size_matched: "0" },
+    });
+    fetchPolymarketConfirmedTradeForOrder.mockReset();
+    fetchPolymarketConfirmedTradeForOrder.mockResolvedValueOnce({
+      id: "trade-late",
+      size: "9",
+      status: "CONFIRMED",
+      side: "BUY",
+      taker_order_id: "0xws-unfilled-but-traded",
+    });
+
+    const out = await settlePolymarketDelayedOrder(acc, "0xws-unfilled-but-traded", {
+      poll: { initialDelayMs: 0, intervalMs: 0, maxAttempts: 1 },
+      tradeConfirm: { lookbackMs: 60_000, retryMs: 0, maxRetries: 1 },
+    });
+
+    expect(out.outcome).toBe("matched");
+    expect(fetchPolymarketConfirmedTradeForOrder).toHaveBeenCalled();
   });
 });

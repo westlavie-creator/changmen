@@ -148,7 +148,7 @@ export function sortVenueOrdersNewestFirst(orders: VenueOrder[]): VenueOrder[] {
 /**
  * 订单状态层结论（POST/API 受理之后）。
  * - filled：最终成交
- * - unfilled：确认未成交（拒单 / FOK / unmatched）
+ * - unfilled：确认未成交（拒单 / FOK Cancellation / trade FAILED）
  * - timeout：仍待确认（官方 delay 窗或接口滞后未决；jb / 套利侧续查，**不入补单**）
  */
 export type VenueLegSettlement = "filled" | "unfilled" | "timeout";

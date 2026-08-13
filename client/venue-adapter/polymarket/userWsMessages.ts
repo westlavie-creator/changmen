@@ -29,7 +29,11 @@ function messageRelatesToOrder(msg: Record<string, unknown>, watchOrderId: strin
 
 /**
  * 解读 User Channel 单帧对指定 orderId 的终态。
- * 对齐官网：order CANCELLATION = FOK 未成交；trade CONFIRMED/MATCHED = 成交。
+ * 对齐官方 Real-Time Order Updates：
+ * - Placement = 受理（含 delayed），非终态
+ * - Update = 部分/全部成交（须 size_matched>0）
+ * - Cancellation / status CANCELED = 剩余量取消 → unfilled
+ * - unmatched 官方= delay 后挂簿成功，**不是** FOK 杀单
  */
 export function interpretPolymarketUserWsMessage(
   raw: unknown,
@@ -43,23 +47,33 @@ export function interpretPolymarketUserWsMessage(
 
   const eventType = String(msg.event_type ?? "").trim().toLowerCase();
   const type = String(msg.type ?? "").trim().toUpperCase();
+  const orderStatus = String(msg.status ?? "").trim().toLowerCase();
 
   if (eventType === "order" || type === "PLACEMENT" || type === "UPDATE" || type === "CANCELLATION") {
-    const orderStatus = String(msg.status ?? "").trim().toLowerCase();
-    if (type === "CANCELLATION" || orderStatus === "unmatched")
+    if (type === "CANCELLATION" || orderStatus === "canceled" || orderStatus === "cancelled")
       return "unfilled";
     const sizeMatched = Number(msg.size_matched);
     if (type === "UPDATE" && Number.isFinite(sizeMatched) && sizeMatched > 0)
       return "matched";
+    // PLACEMENT / DELAYED / LIVE / UNMATCHED：继续等 trade 或 Cancellation
     return null;
   }
 
   if (eventType === "trade" || type === "TRADE") {
     const status = String(msg.status ?? "").trim().toUpperCase();
-    if (status === "FAILED")
+    if (status === "FAILED" || status === "TRADE_STATUS_FAILED")
       return "unfilled";
-    if (status === "MATCHED" || status === "MINED" || status === "CONFIRMED")
+    if (
+      status === "MATCHED"
+      || status === "MINED"
+      || status === "CONFIRMED"
+      || status === "TRADE_STATUS_MATCHED"
+      || status === "TRADE_STATUS_MATCHED_NOT_BROADCASTED"
+      || status === "TRADE_STATUS_MINED"
+      || status === "TRADE_STATUS_CONFIRMED"
+    ) {
       return "matched";
+    }
   }
   return null;
 }

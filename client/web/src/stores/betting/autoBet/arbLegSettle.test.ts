@@ -146,7 +146,10 @@ describe("settleArbLeg (Polymarket)", () => {
 
     expect(updateVenueOrders).toHaveBeenCalledWith(
       acc,
-      expect.objectContaining({ pendingBindOrderId: expect.any(String) }),
+      expect.objectContaining({
+        pendingBindOrderId: expect.any(String),
+        waitForOrderId: expect.any(String),
+      }),
     );
     expect(out.rejected).toBe(false);
     expect(result.pending).toBe(false);
@@ -174,7 +177,10 @@ describe("settleArbLeg (Polymarket)", () => {
     expect(settlePolymarketDelayedOrder).not.toHaveBeenCalled();
     expect(updateVenueOrders).toHaveBeenCalledWith(
       acc,
-      expect.objectContaining({ pendingBindOrderId: expect.any(String) }),
+      expect.objectContaining({
+        pendingBindOrderId: expect.any(String),
+        waitForOrderId: expect.any(String),
+      }),
     );
     expect(out.rejected).toBe(false);
     expect(out.orders[0]?.orderId).toBe("0xnew");
