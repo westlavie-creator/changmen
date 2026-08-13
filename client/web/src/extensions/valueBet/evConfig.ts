@@ -2,7 +2,7 @@ import type { PlatformId } from "@/types/esport";
 
 export const SHARP_PLATFORM: PlatformId = "PB";
 
-export const SOFT_PLATFORMS: PlatformId[] = ["OB", "RAY", "IA", "SABA", "IMT"];
+export const SOFT_PLATFORMS: PlatformId[] = ["OB", "RAY", "IA", "SABA", "IMT", "Polymarket"];
 
 export const MIN_EDGE = 0.03;
 
