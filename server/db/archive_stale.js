@@ -33,7 +33,7 @@ const PLATFORM_ARCHIVE_SPECS = [
     history: "platform_matches_history",
     column: "synced_at",
     key: "platform_matches",
-    cols: "platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id",
+    cols: "platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id",
   },
 ];
 

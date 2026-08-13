@@ -58,6 +58,7 @@ const EURO_PAYLOAD = {
       events: [
         {
           id: 999001,
+          rotNum: "10001",
           time: 1_700_000_000_000,
           live: true,
           participants: [
@@ -128,6 +129,7 @@ describe("PB collect platform parity", () => {
     expect(pbCollectEuroOdds).toHaveBeenCalledWith(expect.anything(), true);
     expect(pbCollectEuroOdds).toHaveBeenCalledWith(expect.anything(), false);
     expect(ingestAndReportPbParsedMatch.mock.calls[0]![0].gameId).toBe("cs-go");
+    expect(ingestAndReportPbParsedMatch.mock.calls[0]![0].rotNum).toBe("10001");
   });
 
   test("falls back to static venue games when Client_GetGames returns empty", async () => {

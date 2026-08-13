@@ -21,6 +21,8 @@ export interface CollectMatchDto {
   Teams: CollectTeamDto[];
   /** OB game/index 的 is_live：1 未开赛，2 进行中 */
   IsLive?: number;
+  /** [changmen 扩展] PB euro/odds rotNum：对阵归组键；SourceMatchID 仍为 event.id */
+  RotNum?: string;
 }
 
 export interface CollectBetDto {

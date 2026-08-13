@@ -48,6 +48,7 @@ export function buildPbCollectMatchDto(row: PbParsedMatch): CollectMatchDto {
         Logo: pbTeamLogo(row.gameId, row.away.englishName),
       },
     ],
+    ...(row.rotNum ? { RotNum: row.rotNum } : {}),
   };
 }
 

@@ -14,6 +14,10 @@ export function toA8SaveMatchRow(m: CollectMatchDto) {
     Teams: m.Teams.map(toA8SaveTeamRow),
     BO: m.BO,
     ...(m.IsLive != null ? { IsLive: m.IsLive } : {}),
+    // [changmen 扩展] PB rotNum；A8 SaveMatch 无此字段，后端按可选列落库
+    ...(m.RotNum != null && String(m.RotNum).trim() !== ""
+      ? { RotNum: String(m.RotNum).trim() }
+      : {}),
   };
 }
 

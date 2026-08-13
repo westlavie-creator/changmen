@@ -113,8 +113,8 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
          DELETE FROM platform_matches WHERE platform = $1
          RETURNING *
        )
-       INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
-       SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
+       INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id)
+       SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id FROM moved`,
       [plat],
     );
     return;
@@ -148,8 +148,8 @@ async function _rdsDeletePlatformSnapshotOrphans(exec, platform, keepSourceMatch
        ${matchSqlCutoff}
        RETURNING *
      )
-     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
-     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
+     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id)
+     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id FROM moved`,
     betParams,
   );
 }
@@ -188,12 +188,12 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
   const sql = `
     INSERT INTO platform_matches (
       platform, source_match_id, source_game_id, start_time,
-      home_id, home, away_id, away, bo, is_live, teams, synced_at
+      home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at
     )
     SELECT * FROM unnest(
       $1::text[], $2::text[], $3::text[], $4::bigint[],
       $5::text[], $6::text[], $7::text[], $8::text[],
-      $9::smallint[], $10::smallint[], $11::jsonb[], $12::bigint[]
+      $9::smallint[], $10::smallint[], $11::text[], $12::jsonb[], $13::bigint[]
     )
     ON CONFLICT (platform, source_match_id) DO UPDATE SET
       source_game_id = EXCLUDED.source_game_id,
@@ -204,6 +204,8 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
       away = EXCLUDED.away,
       bo = EXCLUDED.bo,
       is_live = EXCLUDED.is_live,
+      -- 旧采集未带 RotNum 时勿清空已写入的归组键
+      rot_num = COALESCE(EXCLUDED.rot_num, platform_matches.rot_num),
       teams = EXCLUDED.teams,
       synced_at = EXCLUDED.synced_at
   `;
@@ -220,6 +222,7 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
       rows.map(r => r.away),
       rows.map(r => r.bo),
       rows.map(r => r.is_live),
+      rows.map(r => r.rot_num),
       rows.map(r => JSON.stringify(Array.isArray(r.teams) ? r.teams : [])),
       rows.map(r => r.synced_at),
     ]);
@@ -272,10 +275,10 @@ async function _rdsPrunePolymarketPlatformMatches(pool, opts = {}) {
        )
        INSERT INTO platform_matches_history (
          platform, source_match_id, source_game_id, start_time, home_id, home,
-         away_id, away, bo, is_live, teams, synced_at, match_id
+         away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
        )
        SELECT platform, source_match_id, source_game_id, start_time, home_id, home,
-              away_id, away, bo, is_live, teams, synced_at, match_id
+              away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
        FROM moved
        RETURNING source_match_id`,
       [forceDelete, staleBefore],
@@ -439,13 +442,14 @@ async function _rdsReplaceLiveTimersForPlatform(pool, platform, rows) {
 
 async function _rdsFetchPlatformMatches(pool) {
   const { rows } = await pool.query(
-    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, teams, match_id
+    `SELECT platform, source_match_id, source_game_id, start_time, home, home_id, away, away_id, bo, is_live, rot_num, teams, match_id
      FROM platform_matches`,
   );
   const byPlatform = {};
   for (const r of rows) {
     if (!byPlatform[r.platform])
       byPlatform[r.platform] = [];
+    const rot = r.rot_num != null ? String(r.rot_num).trim() : "";
     byPlatform[r.platform].push({
       Type: r.platform,
       SourceMatchID: r.source_match_id,
@@ -457,6 +461,7 @@ async function _rdsFetchPlatformMatches(pool) {
       AwayID: r.away_id ?? "",
       BO: r.bo ?? 0,
       IsLive: r.is_live != null ? Number(r.is_live) : undefined,
+      ...(rot ? { RotNum: rot } : {}),
       Teams: Array.isArray(r.teams) ? r.teams : [],
       ClientMatchId: r.match_id != null ? Number(r.match_id) : null,
     });
@@ -591,20 +596,25 @@ export async function setPlatformMatchId(platform, sourceMatchId, matchId, opts 
 
 function mapPlatformMatchRows(provider, matchs) {
   const now = Date.now();
-  return matchs.map(m => ({
-    platform: String(provider),
-    source_match_id: String(m.SourceMatchID),
-    source_game_id: m.SourceGameID != null ? String(m.SourceGameID) : null,
-    start_time: Number(m.StartTime) || null,
-    home_id: m.HomeID != null ? String(m.HomeID) : null,
-    home: String(m.Home || ""),
-    away_id: m.AwayID != null ? String(m.AwayID) : null,
-    away: String(m.Away || ""),
-    bo: m.BO != null ? Number(m.BO) : null,
-    is_live: m.IsLive != null ? Number(m.IsLive) : null,
-    teams: Array.isArray(m.Teams) ? m.Teams : [],
-    synced_at: now,
-  }));
+  return matchs.map(m => {
+    const rotRaw = m.RotNum ?? m.rot_num ?? m.rotNum;
+    const rot = rotRaw != null ? String(rotRaw).trim() : "";
+    return {
+      platform: String(provider),
+      source_match_id: String(m.SourceMatchID),
+      source_game_id: m.SourceGameID != null ? String(m.SourceGameID) : null,
+      start_time: Number(m.StartTime) || null,
+      home_id: m.HomeID != null ? String(m.HomeID) : null,
+      home: String(m.Home || ""),
+      away_id: m.AwayID != null ? String(m.AwayID) : null,
+      away: String(m.Away || ""),
+      bo: m.BO != null ? Number(m.BO) : null,
+      is_live: m.IsLive != null ? Number(m.IsLive) : null,
+      rot_num: rot || null,
+      teams: Array.isArray(m.Teams) ? m.Teams : [],
+      synced_at: now,
+    };
+  });
 }
 
 /** fire-and-forget：按平台 upsert 本批比赛。
@@ -709,10 +719,10 @@ async function _rdsPrunePlatformMatchesByStartBefore(pool, opts = {}) {
        )
        INSERT INTO platform_matches_history (
          platform, source_match_id, source_game_id, start_time, home_id, home,
-         away_id, away, bo, is_live, teams, synced_at, match_id
+         away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
        )
        SELECT platform, source_match_id, source_game_id, start_time, home_id, home,
-              away_id, away, bo, is_live, teams, synced_at, match_id
+              away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
        FROM moved
        RETURNING platform, source_match_id`,
       [cutoff],

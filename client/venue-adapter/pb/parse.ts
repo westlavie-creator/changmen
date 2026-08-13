@@ -66,9 +66,18 @@ export interface PbParsedMatch {
   bo: number;
   startTime: number;
   isLive: boolean;
+  /** euro/odds event.rotNum；同对阵多 event 归组键 */
+  rotNum?: string;
   home: { id: string; name: string; englishName: string };
   away: { id: string; name: string; englishName: string };
   stages: PbParsedStage[];
+}
+
+function readRotNum(event: Record<string, unknown>): string | undefined {
+  const raw = event.rotNum ?? event.RotNum;
+  if (raw == null) return undefined;
+  const s = String(raw).trim();
+  return s || undefined;
 }
 
 export function parseEuroOddsPayload(
@@ -127,6 +136,7 @@ export function parseEuroOddsPayload(
 
       stages.sort((a, b) => a.stageId - b.stageId);
 
+      const rotNum = readRotNum(event);
       matches.push({
         matchId,
         gameId: gameSlug,
@@ -136,6 +146,7 @@ export function parseEuroOddsPayload(
         bo: inferBo(stages),
         startTime: toNumber(event.time) || Date.now(),
         isLive: Boolean(event.live || event.isLive),
+        ...(rotNum ? { rotNum } : {}),
         home: {
           id: slugify(String(home.englishName || home.name)),
           name: String(home.name || home.englishName || ""),

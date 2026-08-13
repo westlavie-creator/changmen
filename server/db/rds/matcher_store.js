@@ -511,8 +511,8 @@ export async function deletePlatformMatchRow(platform, sourceMatchId) {
        DELETE FROM platform_matches WHERE platform = $1 AND source_match_id = $2
        RETURNING *
      )
-     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id)
-     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, teams, synced_at, match_id FROM moved`,
+     INSERT INTO platform_matches_history (platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id)
+     SELECT platform, source_match_id, source_game_id, start_time, home_id, home, away_id, away, bo, is_live, rot_num, teams, synced_at, match_id FROM moved`,
     [plat, srcId],
   );
 }
