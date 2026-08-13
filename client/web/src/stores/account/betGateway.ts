@@ -12,11 +12,11 @@ import {
   bettingResultMessageHtml,
 } from "@/shared/a8Notify";
 import { playOrderSuccessSound } from "@/shared/orderSound";
-import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
+import { settleArbLegUntilTerminal } from "@/stores/betting/autoBet/arbLegSettle";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetectionQuote";
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
-import { isPendingConfirmVenueProvider, isPredictFunProvider } from "@changmen/shared/account_multiply";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
 import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
@@ -29,6 +29,10 @@ export interface PlaceBetOpts {
   linkId?: number;
 }
 
+/**
+ * delayed 受理后：跟到已成交 / 未成交再提示。
+ * 仍 pendingConfirm（含 delayed / FOK 挂簿 grace）→ 不报成/不成，避免假阴性。
+ */
 function notifyPendingVenueConfirm(
   store: AccountStoreContext,
   account: PlatformAccount,
@@ -39,18 +43,13 @@ function notifyPendingVenueConfirm(
   toastSeconds: number,
 ) {
   void (async () => {
-    const { rejected, pendingConfirm } = await settleArbLeg(account, result, {
+    const { rejected, pendingConfirm } = await settleArbLegUntilTerminal(account, result, {
       rejectWaitSec: 0,
       betOption: option,
     });
-    // PM：保持原语义（timeout 仍显示「已成交」）；PF：区分待确认
-    const isPf = account.provider === "PredictFun";
-    const stillPending = isPf && pendingConfirm;
-    const titleSuffix = stillPending
-      ? "待确认"
-      : rejected
-        ? "未成交"
-        : "已成交";
+    if (pendingConfirm)
+      return;
+    const titleSuffix = rejected ? "未成交" : "已成交";
     ElNotification({
       title: "",
       message: bettingResultMessageHtml(
@@ -60,25 +59,22 @@ function notifyPendingVenueConfirm(
         `<p>${result.message || ""}</p>`,
         titleSuffix,
       ),
-      type: stillPending ? "warning" : rejected ? "error" : "success",
+      type: rejected ? "error" : "success",
       dangerouslyUseHTMLString: true,
       duration: toastSeconds === 0 ? 3000 : toastSeconds * 1000,
       customClass: `notification ${account.provider}`,
     });
-    if (!rejected && !stillPending) {
+    if (!rejected) {
       void playOrderSuccessSound({ betRowId: option.betId });
       void publishBettingEvent(option);
-      // PF：受理≠成交；成功计数推迟到此处（filled）再写
-      if (isPredictFunProvider(account.provider)) {
+      // PF/PM：受理≠成交；成功计数推迟到 filled
+      if (isPendingConfirmVenueProvider(account.provider)) {
         const betRowId = Number(option.bet?.id ?? option.betId);
         if (Number.isFinite(betRowId) && betRowId > 0)
           markSuccessfulBet(account, betRowId, option.target, option.odds);
       }
     }
-    // PM/PF：仅在 settle 已有结论（非仍 pending）后补刷，避免与 place 早刷竞态写回旧余额。
-    // 订单栏同理：place 时 refreshOrderListAfterBind 往往早于落库；此处与补单 loseOrderPmPending 对齐再刷。
-    // 失败不阻断 toast / 其它场馆路径不变。
-    if (isPendingConfirmVenueProvider(account.provider) && !pendingConfirm) {
+    if (isPendingConfirmVenueProvider(account.provider)) {
       try {
         const { refreshAccountBalance } = await import("@/stores/account/balanceRefresh");
         await refreshAccountBalance(store, account);
@@ -216,7 +212,7 @@ export async function placeBet(
   finally {
     loading.close();
     const notifyType = result.pending ? "warning" : result.success ? "success" : "error";
-    const statusSuffix = result.pending ? "待确认" : "";
+    const statusSuffix = result.pending ? "确认中" : "";
     ElNotification({
       title: "",
       message: bettingResultMessageHtml(

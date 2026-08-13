@@ -10,7 +10,10 @@ import {
   isPolymarketOrderIdRejected,
 } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
-import { awaitPolymarketSettlementJob } from "./settlementJob";
+import {
+  awaitPolymarketSettlementJob,
+  clearPolymarketSettlementJob,
+} from "./settlementJob";
 import type { PolymarketOrderResponseLike, PolymarketPollOutcome } from "./orderTypes";
 import { buildPolymarketMatchedBuyVenueOrderForSaveAsync } from "./pmPostFillOrder";
 
@@ -46,7 +49,20 @@ function needsPmSettlementPoll(result: BetResult): boolean {
   const status = String(
     (result.response as { status?: string } | undefined)?.status ?? "",
   ).trim().toLowerCase();
-  return status === "delayed" || status === "live";
+  return status === "delayed" || status === "live" || status === "unmatched";
+}
+
+/** timeout Job 不可缓存为终态：清掉再 REST/WS settle */
+async function settlePolymarketIgnoringTimeoutJob(
+  account: PlatformAccount,
+  orderId: string,
+): Promise<{ outcome: PolymarketPollOutcome; row: import("./orderTypes").PolymarketOrderRow | null }> {
+  const jobResult = await awaitPolymarketSettlementJob(account, orderId);
+  if (jobResult?.outcome === "matched" || jobResult?.outcome === "unfilled")
+    return jobResult;
+  if (jobResult)
+    clearPolymarketSettlementJob(account, orderId);
+  return settlePolymarketDelayedOrder(account, orderId);
 }
 
 async function resolvePolymarketPostAcceptedOutcome(
@@ -54,8 +70,13 @@ async function resolvePolymarketPostAcceptedOutcome(
   result: BetResult,
   deps: PolymarketLegOutcomeDeps,
 ): Promise<VenueLegOutcome> {
-  if (result.reject) {
-    const settlement = result.reject === "timeout" ? "timeout" : "unfilled";
+  // 历史 timeout reject：非终态，清掉后继续跟
+  if (result.reject === "timeout") {
+    result.reject = null;
+    result.pending = true;
+  }
+  else if (result.reject) {
+    const settlement = "unfilled" as const;
     return {
       orders: rejectOrders(account, result, settlement),
       settlement,
@@ -115,7 +136,7 @@ async function resolvePolymarketPostAcceptedOutcome(
 
   const orderId = String(result.orderId ?? "").trim();
   if (orderId && needsPmSettlementPoll(result)) {
-    const settled = await settlePolymarketDelayedOrder(account, orderId);
+    const settled = await settlePolymarketIgnoringTimeoutJob(account, orderId);
     applyPolymarketSettlementToResult(result, settled.outcome, settled.row);
     const settlement = pollOutcomeToSettlement(settled.outcome);
     if (settlement === "filled") {
@@ -124,12 +145,11 @@ async function resolvePolymarketPostAcceptedOutcome(
         settlement,
       };
     }
+    if (settlement === "timeout") {
+      return { orders: [], settlement };
+    }
     return {
-      orders: rejectOrders(
-        account,
-        result,
-        settlement === "timeout" ? "timeout" : "unfilled",
-      ),
+      orders: rejectOrders(account, result, "unfilled"),
       settlement,
     };
   }
@@ -156,9 +176,10 @@ export async function resolvePolymarketLegOutcome(
   deps: PolymarketLegOutcomeDeps,
 ): Promise<VenueLegOutcome> {
   if (result.pending && result.orderId) {
-    const jobResult = await awaitPolymarketSettlementJob(account, result.orderId);
-    const { outcome, row } = jobResult
-      ?? await settlePolymarketDelayedOrder(account, result.orderId);
+    const { outcome, row } = await settlePolymarketIgnoringTimeoutJob(
+      account,
+      result.orderId,
+    );
     applyPolymarketSettlementToResult(result, outcome, row);
     const settlement = pollOutcomeToSettlement(outcome);
     if (settlement === "filled") {
@@ -167,12 +188,11 @@ export async function resolvePolymarketLegOutcome(
         settlement,
       };
     }
+    if (settlement === "timeout") {
+      return { orders: [], settlement };
+    }
     return {
-      orders: rejectOrders(
-        account,
-        result,
-        settlement === "timeout" ? "timeout" : "unfilled",
-      ),
+      orders: rejectOrders(account, result, "unfilled"),
       settlement,
     };
   }

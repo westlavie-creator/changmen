@@ -3,13 +3,17 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@changmen/client-core/models/betResult";
 
-import { settleArbLeg } from "./arbLegSettle";
+import { settleArbLeg, settleArbLegUntilTerminal } from "./arbLegSettle";
 
 const updateVenueOrders = vi.fn<() => Promise<VenueOrder[] | undefined>>();
 const settlePolymarketDelayedOrder = vi.fn();
 const awaitPolymarketSettlementJob = vi.fn();
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 const persistPolymarketExecutionReject = vi.fn();
+
+vi.mock("@changmen/client-core/shared/wait", () => ({
+  wait: vi.fn(async () => {}),
+}));
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ updateVenueOrders }),
@@ -237,5 +241,22 @@ describe("settleArbLeg (Polymarket)", () => {
     expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xmissing");
     expect(out.rejected).toBe(true);
     expect(result.reject).toBe("unfilled");
+  });
+
+  it("UntilTerminal does not force unfilled while still pendingConfirm", async () => {
+    const acc = account("Polymarket");
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xstill",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "timeout", row: { status: "delayed" } });
+
+    const out = await settleArbLegUntilTerminal(acc, result);
+
+    expect(out.pendingConfirm).toBe(true);
+    expect(out.rejected).toBe(false);
+    expect(result.reject).not.toBe("unfilled");
+    expect(persistPolymarketExecutionReject).not.toHaveBeenCalled();
+    expect(settlePolymarketDelayedOrder.mock.calls.length).toBeGreaterThan(1);
   });
 });

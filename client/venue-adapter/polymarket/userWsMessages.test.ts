@@ -45,12 +45,22 @@ describe("interpretPolymarketUserWsMessage", () => {
     }, ORDER_ID)).toBe("unfilled");
   });
 
-  it("pending (null) on UPDATE with unmatched — official: not a kill", () => {
+  it("pending on UPDATE with unmatched and no fill (FOK not terminal yet)", () => {
     expect(interpretPolymarketUserWsMessage({
       event_type: "order",
       type: "UPDATE",
       id: ORDER_ID,
       status: "unmatched",
+      size_matched: "0",
+    }, ORDER_ID)).toBeNull();
+  });
+
+  it("pending on UPDATE with live and no fill", () => {
+    expect(interpretPolymarketUserWsMessage({
+      event_type: "order",
+      type: "UPDATE",
+      id: ORDER_ID,
+      status: "live",
       size_matched: "0",
     }, ORDER_ID)).toBeNull();
   });

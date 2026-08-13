@@ -33,7 +33,7 @@ function messageRelatesToOrder(msg: Record<string, unknown>, watchOrderId: strin
  * - Placement = 受理（含 delayed），非终态
  * - Update = 部分/全部成交（须 size_matched>0）
  * - Cancellation / status CANCELED = 剩余量取消 → unfilled
- * - unmatched 官方= delay 后挂簿成功，**不是** FOK 杀单
+ * - unmatched/live 无成交：仍挂簿，非终态（等 FOK 系统 cancel / matched）
  */
 export function interpretPolymarketUserWsMessage(
   raw: unknown,
@@ -55,7 +55,16 @@ export function interpretPolymarketUserWsMessage(
     const sizeMatched = Number(msg.size_matched);
     if (type === "UPDATE" && Number.isFinite(sizeMatched) && sizeMatched > 0)
       return "matched";
-    // PLACEMENT / DELAYED / LIVE / UNMATCHED：继续等 trade 或 Cancellation
+    // PLACEMENT / delayed / live / unmatched：继续等系统 cancel 或成交
+    if (
+      type === "PLACEMENT"
+      || orderStatus === "delayed"
+      || orderStatus === "live"
+      || orderStatus === "unmatched"
+    ) {
+      return null;
+    }
+    // 其它 UPDATE（无成交份额）继续等 trade / Cancellation
     return null;
   }
 

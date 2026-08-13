@@ -23,6 +23,7 @@ import {
 } from "@/stores/betting/arbOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useUserStore } from "@/stores/userStore";
 import { buildPolymarketMatchedBuyVenueOrderFromBet } from "@changmen/venue-adapter/polymarket";
 
@@ -161,8 +162,8 @@ export async function runValueBetConfirm(
   const linkId = createValueBetLinkId();
   const result = await accountStore.betting(account, option, toastSec);
   if (result?.success) {
-    // PF pending：等 betGateway settle 确认 filled 后再 mark
-    const skipMark = String(account.provider ?? "") === "PredictFun" && result.pending;
+    // PM/PF pending：受理≠成交，等 betGateway settle 确认后再 mark
+    const skipMark = isPendingConfirmVenueProvider(account.provider) && result.pending;
     if (!skipMark)
       markSuccessfulBet(account, bet.id, side, option.odds);
     // 方案 B：先入库再绑 💎；PM matched 已在 placeBet 用 POST 乐观落库
@@ -199,9 +200,11 @@ export async function runValueBetConfirm(
       bound = false;
     }
     setMessage(
-      bound
-        ? `正EV下单成功 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
-        : `正EV下单成功 ${item.type}@${option.odds}（💎 标记稍后刷新）`,
+      result.pending
+        ? `正EV确认中 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
+        : bound
+          ? `正EV下单成功 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
+          : `正EV下单成功 ${item.type}@${option.odds}（💎 标记稍后刷新）`,
     );
     // delayed：由 notifyPendingVenueConfirm 在 settle 确认后刷，避免早刷盖回旧余额
     if (!result.pending)

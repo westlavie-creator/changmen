@@ -70,6 +70,21 @@ function parseMatchedSize(row: PolymarketOrderRow | null | undefined): number {
   return Number.isFinite(matched) && matched > 0 ? matched : 0;
 }
 
+/** 官网挂簿且无成交（FOK 残留候选，settle 侧 grace 后再 cancel 收尾） */
+export function isPolymarketRestingNoFill(
+  row: PolymarketOrderRow | null | undefined,
+): boolean {
+  if (!row || Object.keys(row).length === 0)
+    return false;
+  if (parseMatchedSize(row) > 0)
+    return false;
+  const trades = row.associate_trades;
+  if (Array.isArray(trades) && trades.length > 0)
+    return false;
+  const status = String(row.status ?? "").trim().toLowerCase();
+  return status === "live" || status === "unmatched";
+}
+
 /** GET /data/order/{id} 行解读（对齐官方 Order Lifecycle） */
 export function interpretPolymarketOrderRow(
   row: PolymarketOrderRow | null | undefined,
@@ -85,8 +100,11 @@ export function interpretPolymarketOrderRow(
   const trades = row.associate_trades;
   if (Array.isArray(trades) && trades.length > 0)
     return "matched";
-  // 官方：unmatched = delay 后挂簿成功，非杀单；delayed/live 仍待确认
-  if (status === "delayed" || status === "live" || status === "unmatched")
+  // delayed：官方 delay 窗内，仍待确认
+  if (status === "delayed")
+    return "pending";
+  // live/unmatched：官网挂簿态；FOK 应很快系统 cancel 或 matched，非终态未成交
+  if (status === "live" || status === "unmatched")
     return "pending";
   if (
     status.includes("cancel")
@@ -201,20 +219,31 @@ export function formatPolymarketSettlementMessage(
     return `${id} / ${status} / 已成交${size > 0 ? ` ${size} shares` : ""}`;
   }
   if (outcome === "unfilled")
-    return `${id} / 未成交 / FOK 延迟后未吃满已取消`;
-  return `${id} / 待确认超时 / 请刷新账号订单或上官网核对`;
+    return `${id} / 未成交 / 延迟后未吃到`;
+  return `${id} / 确认中 / 继续核对成交`;
 }
 
-/** 拒单检测收尾：更新 BetResult 文案并清除 pending */
+/**
+ * 拒单检测收尾。
+ * timeout：本地轮询未出终态 → 保持 pending，不设 reject（对用户非终态，须续跟）。
+ */
 export function applyPolymarketSettlementToResult(
   result: BetResult,
   outcome: PolymarketPollOutcome,
   row: PolymarketOrderRow | null,
 ): void {
-  result.pending = false;
   result.message = formatPolymarketSettlementMessage(String(result.orderId ?? ""), outcome, row);
-  if (outcome === "unfilled" || outcome === "timeout")
-    result.reject = outcome;
+  if (outcome === "timeout") {
+    result.pending = true;
+    if (result.reject === "timeout")
+      result.reject = null;
+    return;
+  }
+  result.pending = false;
+  if (outcome === "unfilled")
+    result.reject = "unfilled";
+  else if (result.reject)
+    result.reject = null;
 }
 
 /** 执行下单后未成交（统计拒单率）；timeout 不落库 */

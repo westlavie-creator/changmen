@@ -10,6 +10,7 @@ import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome"
 import { useAccountStore } from "@/stores/accountStore";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
+import { wait } from "@changmen/client-core/shared/wait";
 
 export interface ArbLegSettleResult {
   orders: VenueOrder[];
@@ -26,6 +27,10 @@ export interface SettleArbLegOpts {
   /** [changmen 扩展] PM 未成交落库用（stake/盘口） */
   betOption?: BetOption;
 }
+
+/** 本地一轮 timeout 后续跟（吃单须跟到成/不成） */
+export const PENDING_CONFIRM_FOLLOW_ROUNDS = 6;
+export const PENDING_CONFIRM_FOLLOW_GAP_MS = 2_000;
 
 /** 套利单腿：场馆 resolveLegOutcome（wait → 拉单 / PM settle） */
 export async function settleArbLeg(
@@ -70,4 +75,27 @@ export async function settleArbLeg(
     rejected,
     pendingConfirm: isVenueLegPendingConfirm(outcome),
   };
+}
+
+/**
+ * 跟到已成交 / 未成交。
+ * timeout / 仍 pending → 续跟；耗尽仍未知则保持 pendingConfirm（禁止硬判未成交）。
+ * 非 pending-confirm 馆：一轮即返回。
+ */
+export async function settleArbLegUntilTerminal(
+  account: PlatformAccount,
+  result?: BetResult,
+  rejectWaitSecOrOpts?: number | SettleArbLegOpts,
+): Promise<ArbLegSettleResult> {
+  const needFollow = isPendingConfirmVenueProvider(account.provider) && Boolean(result);
+  const rounds = needFollow ? PENDING_CONFIRM_FOLLOW_ROUNDS : 1;
+  let last: ArbLegSettleResult = { orders: [], rejected: false, pendingConfirm: false };
+  for (let round = 0; round < rounds; round++) {
+    last = await settleArbLeg(account, result, rejectWaitSecOrOpts);
+    if (!last.pendingConfirm)
+      return last;
+    if (round < rounds - 1)
+      await wait(PENDING_CONFIRM_FOLLOW_GAP_MS * (round + 1));
+  }
+  return last;
 }

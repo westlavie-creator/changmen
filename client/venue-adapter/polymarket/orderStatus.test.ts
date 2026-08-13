@@ -104,8 +104,13 @@ describe("interpretPolymarketOrderRow", () => {
     expect(interpretPolymarketOrderRow({})).toBe("pending");
   });
 
-  it("pending for unmatched after sports delay (official: book placement)", () => {
+  it("pending for unmatched after sports delay (wait FOK cancel/match)", () => {
     expect(interpretPolymarketOrderRow({ status: "unmatched", size_matched: "0" }))
+      .toBe("pending");
+  });
+
+  it("pending for live with no fill (wait FOK cancel/match)", () => {
+    expect(interpretPolymarketOrderRow({ status: "live", size_matched: "0" }))
       .toBe("pending");
   });
 
@@ -130,6 +135,8 @@ describe("formatPolymarketSettlementMessage", () => {
       .toContain("已成交");
     expect(formatPolymarketSettlementMessage("0x1", "unfilled", null))
       .toContain("未成交");
+    expect(formatPolymarketSettlementMessage("0x1", "timeout", null))
+      .toContain("确认中");
   });
 });
 
@@ -143,6 +150,18 @@ describe("applyPolymarketSettlementToResult", () => {
     expect(result.pending).toBe(false);
     expect(result.reject).toBe("unfilled");
     expect(result.message).toContain("未成交");
+  });
+
+  it("keeps pending on timeout without reject", () => {
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0x1",
+      reject: "timeout",
+    });
+    applyPolymarketSettlementToResult(result, "timeout", null);
+    expect(result.pending).toBe(true);
+    expect(result.reject).toBeNull();
+    expect(result.message).toContain("确认中");
   });
 });
 

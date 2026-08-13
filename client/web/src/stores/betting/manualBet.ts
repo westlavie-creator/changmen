@@ -17,6 +17,7 @@ import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 import { useUserStore } from "@/stores/userStore";
 import { useMatchStore } from "@/stores/matchStore";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 
 /** 手动下单默认金额：优先正EV金额，未配置时回退套利 betMoney */
 export function defaultManualBetAmount(
@@ -125,11 +126,15 @@ export async function runManualBet(
   }
   const result = await accountStore.betting(account, option, toastSec);
   if (result?.success) {
-    // PF pending：等 betGateway settle 确认 filled 后再 mark（受理≠成交）
-    const skipMark = String(account.provider ?? "") === "PredictFun" && result.pending;
+    // PM/PF pending：受理≠成交，等 settle 确认后再 mark
+    const skipMark = isPendingConfirmVenueProvider(account.provider) && result.pending;
     if (!skipMark)
       markSuccessfulBet(account, bet.id, side, option.odds);
-    setMessage(`手动下单成功 ${item.type}@${option.odds}`);
+    setMessage(
+      result.pending
+        ? `手动下单确认中 ${item.type}@${option.odds}`
+        : `手动下单成功 ${item.type}@${option.odds}`,
+    );
     // [changmen 扩展] PM matched 已在 placeBet 用 POST 乐观落库；此处刷侧栏 + 后台校正
     try {
       const provider = String(account.provider ?? "");

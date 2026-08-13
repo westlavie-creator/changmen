@@ -83,6 +83,18 @@ export async function awaitPolymarketSettlementJob(
   return entry.promise;
 }
 
+/** 单笔 Job 清除（timeout 后续跟时丢掉缓存，强制再 settle） */
+export function clearPolymarketSettlementJob(
+  account: PlatformAccount,
+  orderId: string,
+): void {
+  const id = String(orderId ?? "").trim();
+  const accountId = account.accountId;
+  if (!id || accountId == null)
+    return;
+  jobs.delete(settlementJobKey(accountId, id));
+}
+
 /** User WS 全停时一并清理（单测 / 登出） */
 export function clearPolymarketSettlementJobs(): void {
   jobs.clear();

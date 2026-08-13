@@ -11,7 +11,7 @@ import {
   maxLegRejectWaitSec,
   showRejectDetectionTip,
 } from "@/stores/betting/autoBet/rejectWait";
-import { settleArbLeg } from "@/stores/betting/autoBet/arbLegSettle";
+import { settleArbLegUntilTerminal } from "@/stores/betting/autoBet/arbLegSettle";
 import { bindArbLegOrder, resolveArbBindOrderId } from "@/stores/betting/arbOrderBind";
 import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { syncActiveBetLegSettleResult, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
@@ -118,7 +118,7 @@ export async function settleBothArbLegs(
 
   if (resultA?.success && accountA) {
     legTasks.push((async () => {
-      const synced = await settleArbLeg(accountA, resultA, {
+      const synced = await settleArbLegUntilTerminal(accountA, resultA, {
         rejectWaitSec: legRejectWaitSec(config, accountA.provider),
         pendingBindLinkId: linkId,
         betOption: legA,
@@ -155,7 +155,7 @@ export async function settleBothArbLegs(
 
   if (resultB?.success && accountB) {
     legTasks.push((async () => {
-      const synced = await settleArbLeg(accountB, resultB, {
+      const synced = await settleArbLegUntilTerminal(accountB, resultB, {
         rejectWaitSec: legRejectWaitSec(config, accountB.provider),
         pendingBindLinkId: linkId,
         betOption: legB,

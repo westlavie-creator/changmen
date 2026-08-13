@@ -14,7 +14,7 @@ describe("markArbSuccessLegs", () => {
     markSuccessfulBet.mockReset();
   });
 
-  it("marks both success legs without pendingConfirm gate for A8/PM", () => {
+  it("skips Polymarket while pendingConfirm; marks OB", () => {
     const legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
     const legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     markArbSuccessLegs(
@@ -27,7 +27,7 @@ describe("markArbSuccessLegs", () => {
         resultA: new BetResult("OB", true),
         resultB: Object.assign(new BetResult("Polymarket", true), {
           orderId: "0xpm",
-          reject: "timeout",
+          pending: true,
         }),
       } as never,
       {
@@ -38,18 +38,12 @@ describe("markArbSuccessLegs", () => {
       } as never,
     );
 
-    expect(markSuccessfulBet).toHaveBeenCalledTimes(2);
+    expect(markSuccessfulBet).toHaveBeenCalledTimes(1);
     expect(markSuccessfulBet).toHaveBeenCalledWith(
       expect.objectContaining({ accountId: 1 }),
       100,
       "Home",
       2,
-    );
-    expect(markSuccessfulBet).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 2 }),
-      100,
-      "Away",
-      1.72,
     );
   });
 
