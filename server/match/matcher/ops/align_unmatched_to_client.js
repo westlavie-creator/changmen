@@ -106,11 +106,19 @@ function stripTimeSuffix(key) {
   return at > 0 ? key.slice(0, at) : key;
 }
 
+function isEndedClientMatchRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
 function buildClientMatchIndexes(clientRows, matches) {
   const byIdKey = new Map();
   const byNameKey = new Map();
 
   for (const cm of clientRows || []) {
+    // M4：align 不得挂到 sticky ended（与 identity 复用索引一致）
+    if (isEndedClientMatchRow(cm))
+      continue;
     const stored = String(cm.merge_key || "");
     if (stored.startsWith("match:id:")) {
       if (!byIdKey.has(stored))
@@ -150,6 +158,9 @@ function buildClientMatchIndexes(clientRows, matches) {
 function buildExistingClientIdKeyIndex(clientRows, matches) {
   const map = new Map();
   for (const cm of clientRows || []) {
+    // M3：已结束行不进复用索引，避免同队下场复用 sticky ended id
+    if (isEndedClientMatchRow(cm))
+      continue;
     const id = Number(cm.id);
     if (!Number.isFinite(id))
       continue;

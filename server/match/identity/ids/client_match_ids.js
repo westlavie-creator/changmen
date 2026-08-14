@@ -19,10 +19,17 @@ function matchsIsSubset(subMatchs, superMatchs) {
   return true;
 }
 
+function isEndedClientMatchRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
 function findReuseIdByMatchsSuperset(existingRows, builtMatchs) {
   let bestId = 0;
   let bestCount = 0;
   for (const row of existingRows || []) {
+    if (isEndedClientMatchRow(row))
+      continue;
     if (!matchsIsSubset(row.matchs, builtMatchs))
       continue;
     const count = Object.keys(row.matchs || {}).length;
@@ -80,6 +87,8 @@ function findReuseIdByPlatformOverlap(existingRows, builtMatchs) {
   let bestId = 0;
   let bestOverlap = 0;
   for (const row of existingRows || []) {
+    if (isEndedClientMatchRow(row))
+      continue;
     let overlap = 0;
     for (const [plat, srcId] of Object.entries(builtMatchs || {})) {
       if (String(row.matchs?.[plat] ?? "") === String(srcId))
@@ -133,8 +142,12 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
 
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
+  const activeIds = new Set();
   for (const row of existing || []) {
+    if (isEndedClientMatchRow(row))
+      continue;
     const id = Number(row.id);
+    activeIds.add(id);
     if (row.merge_key)
       byMergeKey.set(row.merge_key, id);
     const sig = matchsSignature(row.matchs);
@@ -142,6 +155,9 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
       byMatchsSig.set(sig, id);
   }
   for (const [key, id] of idKeyIndex) {
+    const n = Number(id);
+    if (Number.isFinite(n) && n > 0)
+      activeIds.add(n);
     if (!byMergeKey.has(key))
       byMergeKey.set(key, id);
   }
@@ -152,12 +168,21 @@ async function resolveClientMatchIds(adapter, builtRows, { matches, existingIdKe
   for (const row of builtRows) {
     const mergeKey = row.MergeKey ? String(row.MergeKey) : null;
     let id = Number(row.ID) || 0;
+    // M4：上游 seed 带入的 ended id 不得落库复用
+    if (id > 0 && !activeIds.has(id))
+      id = 0;
 
     if (!id && mergeKey?.startsWith("match:id:")) {
       id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || idKeyIndex.get(mergeKey) || 0;
     }
     if (!id && matches) {
-      id = findLinkedClientIdFromMatchs(row.Matchs, matches, { mergeKey, existingIdKeyIndex: idKeyIndex });
+      // M3：platform_matches.match_id 可能仍挂 ended CM，不得复用
+      const linked = findLinkedClientIdFromMatchs(row.Matchs, matches, {
+        mergeKey,
+        existingIdKeyIndex: idKeyIndex,
+      });
+      if (linked && activeIds.has(linked))
+        id = linked;
     }
     if (!id && mergeKey) {
       id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || 0;

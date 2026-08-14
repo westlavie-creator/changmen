@@ -41,6 +41,8 @@ SaveMatch(platform_*)
 |----|----------|----------|----------|----------|
 | **M1** | 结束**写入权威**：compose 补丁语义 + RDS 写库 | 不合场聚类、不改 Save*/GetMatchs、不改 `ended_filter` 规则本身 | 未开赛掉簇不再误藏；真结束仍离开列表；已 ended 不复活 | `#1669` 类不可复现；单测绿 |
 | **M2** | 进程内拆 `matchPass` / `endPass`（同一定时器，分日志） | 不改算法公式、不改 API | 行为同 M1 | 日志/指标可分 Match 与 End |
+| **M3** | 身份复用：**ended 行不占 merge_key / 重叠复用** | 不改合键公式、不改 ended_filter | 同队下场不再粘到 sticky ended id | Metanoia 类可自动进活场 |
+| **M4** | 挂接面：**seed / align / 内存 link / DB match_id** 跳过 ended | 不改合键公式、不改 ended_filter 判定 | 同队下场不再被 seed 吃回 ended | 馆源可重新成簇并回写新 id |
 | **2** | 仅 GetMatchs **读/缓存** | 不改写库、不合场、不改 Save* | 列表内容不变，可更快 | miss/尖刺下降 |
 | **3** | 仅 **触发时机**：Save* 后入队相关场增量 Match | 不改匹配算法核心、不改 API 形状 | 更及时；定时全量可先保留 | 增量能跟上馆变 |
 | **4** | 仅 **状态表达**（`ended_reason`：`filter` / `force`，或 lifecycle） | 不顺便改馆写入、不改前端协议 | 可审计自动 vs 强制 | 状态与代码同构 |
@@ -48,7 +50,9 @@ SaveMatch(platform_*)
 ```text
 M1 结束写入权威 ──独立──► 可停
 M2 进程内拆分   ──建议在 M1 后──► 可停
-步2 读取        ──独立──► 可停（不依赖 M2/3/4；勿与 M1 同提交）
+M3 ended 不占复用 ──建议在 M1 后──► 可停
+M4 seed/align/match_id ──建议在 M3 后──► 可停
+步2 读取        ──独立──► 可停（勿与 M* 同提交）
 步3 触发        ──建议在 M1 后──► 可停
 步4 状态模型    ──建议在步3 后──► 终态
 ```
@@ -62,7 +66,9 @@ M2 进程内拆分   ──建议在 M1 后──► 可停
 ## 当前
 
 **M1 已完成**（2026-08-13）— 结束写入权威已落地。  
-**M2 已完成**（2026-08-13）— 进程内 `runMatchPass` / `runEndPass` 拆分 + 分日志。
+**M2 已完成**（2026-08-13）— 进程内 `runMatchPass` / `runEndPass` 拆分 + 分日志。  
+**M3 已完成**（2026-08-15）— ended 行不再参与 merge_key / 平台重叠身份复用。  
+**M4 已完成**（2026-08-15）— seed / align / 内存链接 / `platform_matches.match_id` 均不粘 sticky ended。
 
 下一步任选：**步2**（GetMatchs 读/缓存）或 **步3**（Save* 增量触发）；勿与未合并改动搅在同一提交。
 
@@ -177,6 +183,55 @@ markEndedIds = previousActiveIds.filter(
 ### M2 停点
 
 可停。下一步另开。
+
+---
+
+## M3（ended 不占身份复用）
+
+### 根因
+
+同队下场共用 `merge_key`（正常）；但 `resolveIds*` / `buildExistingClientIdKeyIndex` / `fetchClientMatchIdIndex` 把 **已 ended** 行也纳入复用 → 新场拿到 sticky ended id → `endPass` 整场滤掉（Metanoia `#1459`）。
+
+### 改动
+
+- `resolveIdsDryRun`：只对活跃行建 merge_key / sig 索引，重叠复用也只用活跃行
+- `buildExistingClientIdKeyIndex`：跳过 `ended_at`
+- `fetchClientMatchIdIndex` / `findClientMatchIdByMergeKey`：SQL 仅 `ended_at IS NULL`
+- `insertClientMatchStub`：23505 时优先活跃；仅 ended 占坑则 `merge_key '@ended:'||id` 腾键再 insert
+- identity `findReuseIdBy*`：跳过 ended；`resolveClientMatchIds` / dry-run 忽略指向非活跃 id 的 platform link
+- 单测：`ended_lifecycle.test.mjs` + `client_match_ids.test.mjs`（M3）
+
+### 不做
+
+- 不自动清旧 ended、不改合键公式、不改 sticky 语义
+
+### M3 停点
+
+可停。存量卡住场等下一轮 matchMerge 应拿到新 id。
+
+## M4（seed / align / match_id 不粘 ended）
+
+### 根因
+
+M3 只堵了身份**索引**；`seedFromExisting`、align 索引、内存 `ClientMatchId`、DB `platform_matches.match_id` 仍可把新馆源喂回 sticky ended → endPass 整场滤掉。
+
+### 改动
+
+- `seedFromExisting`：跳过 `ended_at`
+- `reuseIdSync` / `resolveClientMatchIds`：非活跃正 `row.ID` 丢弃
+- `buildClientMatchIndexes`：跳过 ended（与 M3 复用索引一致）
+- `composeFromSnapshot`：`stripEndedClientMatchLinks`；bindings 仅活跃 CM
+- PB rotnum sticky：不从 ended 行取粘性
+- 写库后 `clearPlatformMatchIdsPointingAtEnded()`（JOIN 自愈），再 backfill 活场
+- 单测：cluster / align / ended_lifecycle（M4）
+
+### 不做
+
+- 不改合键 / ended_filter / UI 推荐策略
+
+### M4 停点
+
+可停。
 
 ## 步2–4（另开）
 

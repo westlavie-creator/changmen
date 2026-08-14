@@ -106,6 +106,9 @@ function isUnstartedMapsOnly(entry, bets = {}) {
 function stickySetFromClientRows(existingClientRows) {
   const ids = new Set();
   for (const cm of existingClientRows || []) {
+    const ended = cm?.ended_at ?? cm?.endedAt;
+    if (ended != null && ended !== "")
+      continue;
     const matchs = cm.matchs || cm.Matchs || {};
     const sid = matchs.PB;
     if (sid != null && sid !== "")

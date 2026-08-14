@@ -11,19 +11,35 @@ import {
   resolveClientMatchIds,
 } from "@changmen/match-identity/ids/client_match_ids.js";
 
-function reuseIdSync(row, existing, matches, byMergeKey, byMatchsSig, batchAssigned, existingIdKeyIndex) {
+/** M3：已结束行不参与身份复用 */
+export function isEndedClientMatchRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
+function activeClientMatchRows(rows) {
+  return (rows || []).filter(r => !isEndedClientMatchRow(r));
+}
+
+function reuseIdSync(row, existingActive, matches, byMergeKey, byMatchsSig, batchAssigned, existingIdKeyIndex, activeIds) {
   const mergeKey = row.MergeKey ? String(row.MergeKey) : null;
   let id = Number(row.ID) || 0;
+  // M4：seed 可能带上 ended id；非活跃正 ID 一律丢弃
+  if (id > 0 && activeIds && !activeIds.has(id))
+    id = 0;
 
   if (!id && mergeKey?.startsWith("match:id:") && existingIdKeyIndex?.has(mergeKey))
     id = existingIdKeyIndex.get(mergeKey) || 0;
   if (!id && mergeKey)
     id = batchAssigned.get(mergeKey) || byMergeKey.get(mergeKey) || 0;
   if (!id && matches) {
-    id = findLinkedClientIdFromMatchs(row.Matchs, matches, {
+    const linked = findLinkedClientIdFromMatchs(row.Matchs, matches, {
       mergeKey,
       existingIdKeyIndex,
-    }) || 0;
+    });
+    // M3：链接到 ended CM 的 match_id 忽略
+    if (linked && activeIds?.has(linked))
+      id = linked;
   }
   if (!id) {
     const sig = matchsSignature(row.Matchs);
@@ -31,9 +47,9 @@ function reuseIdSync(row, existing, matches, byMergeKey, byMatchsSig, batchAssig
       id = byMatchsSig.get(sig) || 0;
   }
   if (!id)
-    id = findReuseIdByMatchsSuperset(existing, row.Matchs) || 0;
+    id = findReuseIdByMatchsSuperset(existingActive, row.Matchs) || 0;
   if (!id)
-    id = findReuseIdByPlatformOverlap(existing, row.Matchs) || 0;
+    id = findReuseIdByPlatformOverlap(existingActive, row.Matchs) || 0;
   return { id, mergeKey };
 }
 
@@ -45,10 +61,13 @@ export function resolveIdsDryRun(builtRows, {
   existingClientRows = [],
   existingIdKeyIndex,
 } = {}) {
+  const activeExisting = activeClientMatchRows(existingClientRows);
   const byMergeKey = new Map();
   const byMatchsSig = new Map();
-  for (const row of existingClientRows || []) {
+  const activeIds = new Set();
+  for (const row of activeExisting) {
     const id = Number(row.id);
+    activeIds.add(id);
     if (row.merge_key)
       byMergeKey.set(String(row.merge_key), id);
     const sig = matchsSignature(row.matchs || row.Matchs);
@@ -57,6 +76,9 @@ export function resolveIdsDryRun(builtRows, {
   }
   if (existingIdKeyIndex) {
     for (const [key, id] of existingIdKeyIndex) {
+      const n = Number(id);
+      if (Number.isFinite(n) && n > 0)
+        activeIds.add(n);
       if (!byMergeKey.has(key))
         byMergeKey.set(key, id);
     }
@@ -67,12 +89,13 @@ export function resolveIdsDryRun(builtRows, {
   for (const row of builtRows || []) {
     const { id: reuse, mergeKey } = reuseIdSync(
       row,
-      existingClientRows,
+      activeExisting,
       matches,
       byMergeKey,
       byMatchsSig,
       batchAssigned,
       existingIdKeyIndex,
+      activeIds,
     );
     let id = reuse;
     if (!id) {

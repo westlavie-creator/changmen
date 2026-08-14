@@ -19,9 +19,11 @@ export function isMatcherStoreReady() {
   return !!pool();
 }
 
+/** M3：仅活跃行参与 merge_key / 平台重叠身份复用（ended 不得占坑） */
 export async function fetchClientMatchIdIndex() {
   const { rows } = await rdsQuery(
-    "SELECT id, merge_key, matchs FROM client_matches",
+    `SELECT id, merge_key, matchs FROM client_matches
+     WHERE ended_at IS NULL`,
   );
   return rows.map(r => ({
     id: Number(r.id),
@@ -35,7 +37,9 @@ export async function findClientMatchIdByMergeKey(mergeKey) {
   if (!key)
     return null;
   const { rows } = await rdsQuery(
-    "SELECT id FROM client_matches WHERE merge_key = $1 LIMIT 1",
+    `SELECT id FROM client_matches
+     WHERE merge_key = $1 AND ended_at IS NULL
+     LIMIT 1`,
     [key],
   );
   return rows[0] ? Number(rows[0].id) : null;
@@ -43,36 +47,69 @@ export async function findClientMatchIdByMergeKey(mergeKey) {
 
 async function insertClientMatchStubRds(mergeKey, stub) {
   const builtAt = Date.now();
-  try {
-    const { rows } = await rdsQuery(
-      `INSERT INTO client_matches (
+  const params = [
+    mergeKey,
+    String(stub.title || ""),
+    stub.game != null ? String(stub.game) : null,
+    stub.game_id != null ? String(stub.game_id) : null,
+    Number(stub.start_time) || 0,
+    Number(stub.bo) || 0,
+    Number(stub.round) || 0,
+    Number(stub.round_start) || 0,
+    jsonb(stub.matchs, {}),
+    jsonb([], []),
+    builtAt,
+  ];
+  const insertSql = `INSERT INTO client_matches (
         merge_key, title, game, game_id, start_time, bo, round, round_start, matchs, bets, built_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10::jsonb,$11)
-      RETURNING id`,
-      [
-        mergeKey,
-        String(stub.title || ""),
-        stub.game != null ? String(stub.game) : null,
-        stub.game_id != null ? String(stub.game_id) : null,
-        Number(stub.start_time) || 0,
-        Number(stub.bo) || 0,
-        Number(stub.round) || 0,
-        Number(stub.round_start) || 0,
-        jsonb(stub.matchs, {}),
-        jsonb([], []),
-        builtAt,
-      ],
-    );
+      RETURNING id`;
+
+  async function tryInsert() {
+    const { rows } = await rdsQuery(insertSql, params);
     return Number(rows[0].id);
   }
+
+  try {
+    return await tryInsert();
+  }
   catch (err) {
-    if (err.code === "23505") {
-      const { rows } = await rdsQuery("SELECT id FROM client_matches WHERE merge_key = $1", [mergeKey]);
-      if (!rows.length)
-        throw err;
-      return Number(rows[0].id);
+    if (err.code !== "23505")
+      throw err;
+
+    // M3：优先复用仍活跃的同 key；勿把 sticky ended id 交回给新场
+    const active = await rdsQuery(
+      `SELECT id FROM client_matches
+       WHERE merge_key = $1 AND ended_at IS NULL
+       LIMIT 1`,
+      [mergeKey],
+    );
+    if (active.rows.length)
+      return Number(active.rows[0].id);
+
+    // 仅 ended 占坑：改名腾出 merge_key，再 insert 新活场
+    await rdsQuery(
+      `UPDATE client_matches
+       SET merge_key = merge_key || '@ended:' || id::text
+       WHERE merge_key = $1 AND ended_at IS NOT NULL`,
+      [mergeKey],
+    );
+    try {
+      return await tryInsert();
     }
-    throw err;
+    catch (err2) {
+      if (err2.code !== "23505")
+        throw err2;
+      const again = await rdsQuery(
+        `SELECT id FROM client_matches
+         WHERE merge_key = $1 AND ended_at IS NULL
+         LIMIT 1`,
+        [mergeKey],
+      );
+      if (again.rows.length)
+        return Number(again.rows[0].id);
+      throw err2;
+    }
   }
 }
 

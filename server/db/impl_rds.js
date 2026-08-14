@@ -94,6 +94,8 @@ export {
   syncPlatformBetsForMatchAsync,
   deleteOrphanPlatformBetsAsync,
   setPlatformMatchId,
+  clearPlatformMatchIdsForClientMatchIds,
+  clearPlatformMatchIdsPointingAtEnded,
   writeLiveTimers,
   writeLiveTimersAsync,
   writePlatformBets,

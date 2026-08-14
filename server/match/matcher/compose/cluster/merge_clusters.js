@@ -125,11 +125,19 @@ function groupEntries(entries, keyFn, timeOk, basis) {
   return { rows, used };
 }
 
+function isEndedClientMatchRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
 function seedFromExisting(entries, existingClientRows) {
   const byKey = indexEntriesWithPbAliases(entries);
   const seeded = [];
   const used = new Set();
   for (const cm of existingClientRows || []) {
+    // M4：ended 不参与种子，避免同队下场粘 sticky id 并吃掉馆源
+    if (isEndedClientMatchRow(cm))
+      continue;
     const matchs = cm.matchs || cm.Matchs || {};
     const chain = [];
     for (const [platform, sid] of Object.entries(matchs)) {

@@ -124,4 +124,38 @@ describe("client_match_ids", () => {
       }),
     ).toBe(0);
   });
+
+  it("resolveClientMatchIds does not reuse ended id via stale platform link (M3)", async () => {
+    const mergeKey = "match:id:3:100601:101107";
+    let inserted = 0;
+    const adapter = {
+      async fetchClientMatchIndex() {
+        // fetch index is active-only (ended excluded upstream)
+        return [];
+      },
+      async insertClientMatchStub(key) {
+        expect(key).toBe(mergeKey);
+        inserted += 1;
+        return 9001;
+      },
+      findClientMatchIdByMergeKey: async () => null,
+    };
+    const matches = {
+      OB: { newob: { SourceMatchID: "newob", ClientMatchId: 1459 } },
+      Polymarket: { newpm: { SourceMatchID: "newpm", match_id: 1459 } },
+    };
+    const rows = [{
+      MergeKey: mergeKey,
+      Title: "Metanoia Wolves vs MEIA NOITE",
+      Game: "CS2",
+      GameID: "3",
+      StartTime: 1,
+      BO: 3,
+      Matchs: { OB: "newob", Polymarket: "newpm" },
+      Bets: [],
+    }];
+    const out = await resolveClientMatchIds(adapter, rows, { matches });
+    expect(out[0].ID).toBe(9001);
+    expect(inserted).toBe(1);
+  });
 });

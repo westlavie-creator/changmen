@@ -348,4 +348,32 @@ describe("alignUnmatchedToClientMatches", () => {
     expect(stats.alignedByName).toBe(0);
     expect(matches.OB.ob1.ClientMatchId).toBeNull();
   });
+
+  it("does not align unmatched platforms onto ended client rows (M4)", () => {
+    const matches = rawMatches([
+      {
+        platform: "OB",
+        sourceMatchId: "ob1",
+        home: "Leviatán GC",
+        away: "Daruma Synergy",
+        homeId: "100217",
+        awayId: "100218",
+      },
+    ]);
+
+    const clientRows = [
+      {
+        id: 1459,
+        merge_key: "match:id:8:100217:100218",
+        game_id: "8",
+        start_time: START,
+        matchs: { RAY: "ray1" },
+        ended_at: START,
+      },
+    ];
+
+    const stats = alignUnmatchedToClientMatches(matches, clientRows);
+    expect(stats.alignedById).toBe(0);
+    expect(matches.OB.ob1.ClientMatchId).toBeNull();
+  });
 });

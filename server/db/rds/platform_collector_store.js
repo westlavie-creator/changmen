@@ -594,6 +594,52 @@ export async function setPlatformMatchId(platform, sourceMatchId, matchId, opts 
   return { updated: n > 0, skipped: n === 0, conflict: false };
 }
 
+/**
+ * M4：清空所有仍指向已 ended client_matches 的 platform_matches.match_id。
+ * 用 JOIN 自愈，避免每拍传入全表 sticky id 列表。
+ * @returns {Promise<{ cleared: number }>}
+ */
+export async function clearPlatformMatchIdsForClientMatchIds(clientMatchIds) {
+  const ids = [...new Set(
+    (clientMatchIds || [])
+      .map(Number)
+      .filter(id => Number.isFinite(id) && id > 0),
+  )];
+  if (!ids.length)
+    return { cleared: 0 };
+
+  const pool = getPgPool();
+  if (!pool)
+    return { cleared: 0 };
+
+  const res = await pool.query(
+    `UPDATE platform_matches
+     SET match_id = NULL
+     WHERE match_id = ANY($1::bigint[])`,
+    [ids],
+  );
+  return { cleared: res.rowCount ?? 0 };
+}
+
+/**
+ * M4：清空仍挂在已结束 client_matches 上的 match_id（不传 id 列表）。
+ * @returns {Promise<{ cleared: number }>}
+ */
+export async function clearPlatformMatchIdsPointingAtEnded() {
+  const pool = getPgPool();
+  if (!pool)
+    return { cleared: 0 };
+
+  const res = await pool.query(
+    `UPDATE platform_matches pm
+     SET match_id = NULL
+     FROM client_matches cm
+     WHERE pm.match_id = cm.id
+       AND cm.ended_at IS NOT NULL`,
+  );
+  return { cleared: res.rowCount ?? 0 };
+}
+
 function mapPlatformMatchRows(provider, matchs) {
   const now = Date.now();
   return matchs.map(m => {

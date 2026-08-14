@@ -112,4 +112,26 @@ describe("clusterByGbThenName", () => {
     assert.equal(list[0]._clusterBasis, "id");
     assert.deepEqual(list[0].Matchs, { OB: "ob1", RAY: "ray1", IA: "ia1" });
   });
+
+  it("does not seed from ended client rows (M4)", () => {
+    installPlugin();
+    const list = clusterByGbThenName(
+      {
+        OB: { ob1: pmOb },
+        IA: { ia1: pmIa },
+      },
+      [{
+        id: 1459,
+        merge_key: "manual:seed",
+        matchs: { OB: "ob1", IA: "ia1" },
+        home_gb_team_id: GB_FOO,
+        away_gb_team_id: GB_BAR,
+        ended_at: 1_700_000_000_000,
+      }],
+    );
+    assert.equal(list.length, 1);
+    assert.notEqual(list[0].ID, 1459);
+    assert.equal(list[0]._clusterBasis, "id");
+    assert.deepEqual(list[0].Matchs, { OB: "ob1", IA: "ia1" });
+  });
 });

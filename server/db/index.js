@@ -63,6 +63,8 @@ export {
 export const {
   isAuthConfigured,
   setPlatformMatchId,
+  clearPlatformMatchIdsForClientMatchIds,
+  clearPlatformMatchIdsPointingAtEnded,
   fetchProfiles,
   fetchProfileById,
   writeProfile,

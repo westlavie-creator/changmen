@@ -22,6 +22,67 @@ import { applyLiveShape, filterMultiPlatform } from "./shape/live_shape.js";
 import { projectList } from "./sides/project_sources.js";
 import { resolveMatchStructure } from "./structure/resolve_structure.js";
 
+function isEndedClientMatchRow(row) {
+  const ended = row?.ended_at ?? row?.endedAt;
+  return ended != null && ended !== "";
+}
+
+function activeClientIdSet(clientRows) {
+  const ids = new Set();
+  for (const r of clientRows || []) {
+    if (isEndedClientMatchRow(r))
+      continue;
+    const id = Number(r.id ?? r.ID);
+    if (Number.isFinite(id) && id > 0)
+      ids.add(id);
+  }
+  return ids;
+}
+
+/** M4：去掉指向 ended CM 的内存链接，让馆源可重新 align / 成簇 */
+export function stripEndedClientMatchLinks(matches, clientRows) {
+  const endedIds = new Set();
+  for (const r of clientRows || []) {
+    if (!isEndedClientMatchRow(r))
+      continue;
+    const id = Number(r.id ?? r.ID);
+    if (Number.isFinite(id) && id > 0)
+      endedIds.add(id);
+  }
+  if (!endedIds.size || !matches)
+    return 0;
+  let cleared = 0;
+  for (const byId of Object.values(matches)) {
+    if (!byId || typeof byId !== "object")
+      continue;
+    for (const match of Object.values(byId)) {
+      const raw = match?.ClientMatchId ?? match?.client_match_id ?? match?.match_id;
+      if (raw == null || raw === "")
+        continue;
+      const cid = Number(raw);
+      if (!endedIds.has(cid))
+        continue;
+      delete match.ClientMatchId;
+      delete match.client_match_id;
+      delete match.match_id;
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
+function filterBindingsToActive(bindingsByClientId, activeIds) {
+  if (!bindingsByClientId?.size)
+    return bindingsByClientId;
+  const out = new Map();
+  for (const [cmId, list] of bindingsByClientId.entries()) {
+    const id = Number(cmId);
+    if (activeIds.has(id))
+      out.set(cmId, list);
+  }
+  return out;
+}
+
 export function composeFromSnapshot(snapshot, opts = {}) {
   const fromVenuesOnly = !!opts.fromVenuesOnly || !!snapshot._fromVenuesOnly;
   const {
@@ -33,7 +94,13 @@ export function composeFromSnapshot(snapshot, opts = {}) {
 
   const clientRows = fromVenuesOnly ? [] : (rawClientRows || []);
   const alignClientRows = fromVenuesOnly ? [] : (rawAlignRows || []);
-  const platformBindingsByClientId = fromVenuesOnly ? null : rawBindings;
+  const activeIds = activeClientIdSet(clientRows);
+  const platformBindingsByClientId = fromVenuesOnly
+    ? null
+    : filterBindingsToActive(rawBindings, activeIds);
+
+  if (!fromVenuesOnly)
+    stripEndedClientMatchLinks(matches, clientRows);
 
   const alignRows = alignClientRows?.length ? alignClientRows : clientRows;
   const alignStats = fromVenuesOnly

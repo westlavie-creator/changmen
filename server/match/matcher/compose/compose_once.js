@@ -199,6 +199,28 @@ export async function composeOnce({
     });
 
     try {
+      // M4：只清「仍挂在 ended CM 上」的 match_id；JOIN 自愈，勿扫全表 sticky id
+      if (typeof db.clearPlatformMatchIdsPointingAtEnded === "function") {
+        const cleared = await db.clearPlatformMatchIdsPointingAtEnded();
+        if (cleared?.cleared) {
+          console.log(
+            `[match-composer] cleared platform_matches.match_id pointing at ended (${cleared.cleared} rows)`,
+          );
+          try {
+            const { invalidateMatcherRdsSnapshot } = await import(
+              "../ops/rds_snapshot_cache.js"
+            );
+            invalidateMatcherRdsSnapshot(["platformMatches", "clientMatches"]);
+          }
+          catch { /* 独立进程无 cache */ }
+        }
+      }
+    }
+    catch (err) {
+      console.error("[match-composer] clearPlatformMatchIds FAILED:", err.message);
+    }
+
+    try {
       const { backfillPlatformMatchIdsForIdMerges } = await import(
         "../ops/backfill_platform_match_ids.js"
       );

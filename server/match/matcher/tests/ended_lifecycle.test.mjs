@@ -34,7 +34,26 @@ describe("ended lifecycle identity reuse", () => {
     assert.equal(active.ended_at, null);
   });
 
-  it("dry-run reuses id from ended existing row via platform overlap", () => {
+  it("dry-run does not reuse ended id via merge_key (M3)", () => {
+    const existing = [
+      {
+        id: 1459,
+        merge_key: "match:id:3:100601:101107",
+        matchs: { RAY: "old", Polymarket: "oldpm" },
+        ended_at: 1_700_000_000_000,
+      },
+    ];
+    const built = [{
+      MergeKey: "match:id:3:100601:101107",
+      Matchs: { OB: "newob", Polymarket: "newpm", PredictFun: "newpf", PB: "newpb" },
+      Title: "Metanoia Wolves vs MEIA NOITE",
+    }];
+    const out = resolveIdsDryRun(built, { existingClientRows: existing });
+    assert.ok(out[0].ID < 0, "should get temp id, not ended 1459");
+    assert.notEqual(out[0].ID, 1459);
+  });
+
+  it("dry-run does not reuse ended id via platform overlap (M3)", () => {
     const existing = [
       {
         id: 77,
@@ -49,15 +68,80 @@ describe("ended lifecycle identity reuse", () => {
       Title: "reuse",
     }];
     const out = resolveIdsDryRun(built, { existingClientRows: existing });
-    assert.equal(out[0].ID, 77);
+    assert.ok(out[0].ID < 0);
+    assert.notEqual(out[0].ID, 77);
   });
 
-  it("platform overlap helper hits ended rows", () => {
+  it("dry-run still reuses active id via merge_key", () => {
+    const existing = [
+      {
+        id: 88,
+        merge_key: "match:id:3:1:2",
+        matchs: { OB: "a", RAY: "b" },
+        ended_at: null,
+      },
+    ];
+    const built = [{
+      MergeKey: "match:id:3:1:2",
+      Matchs: { OB: "a", RAY: "b", Polymarket: "c" },
+      Title: "live",
+    }];
+    const out = resolveIdsDryRun(built, { existingClientRows: existing });
+    assert.equal(out[0].ID, 88);
+  });
+
+  it("platform overlap helper skips ended rows", () => {
     const id = findReuseIdByPlatformOverlap(
-      [{ id: 15, matchs: { OB: "a", TF: "b" } }],
+      [
+        { id: 15, matchs: { OB: "a", TF: "b" }, ended_at: 1 },
+        { id: 16, matchs: { OB: "a", RAY: "c" } },
+      ],
       { OB: "a", RAY: "c" },
     );
-    assert.equal(id, 15);
+    assert.equal(id, 16);
     assert.ok(matchsSignature({ OB: "a", TF: "b" }).includes("OB:a"));
+  });
+
+  it("dry-run ignores platform link to ended client id (M3)", () => {
+    const existing = [
+      {
+        id: 1459,
+        merge_key: "match:id:3:100601:101107",
+        matchs: { RAY: "old" },
+        ended_at: 1_700_000_000_000,
+      },
+    ];
+    const matches = {
+      OB: { newob: { SourceMatchID: "newob", ClientMatchId: 1459 } },
+      Polymarket: { newpm: { SourceMatchID: "newpm", ClientMatchId: 1459 } },
+    };
+    const built = [{
+      MergeKey: "match:id:3:100601:101107",
+      Matchs: { OB: "newob", Polymarket: "newpm" },
+      Title: "Metanoia Wolves vs MEIA NOITE",
+    }];
+    const out = resolveIdsDryRun(built, { existingClientRows: existing, matches });
+    assert.ok(out[0].ID < 0);
+    assert.notEqual(out[0].ID, 1459);
+  });
+
+  it("dry-run rejects seed-assigned ended row.ID (M4)", () => {
+    const existing = [
+      {
+        id: 1459,
+        merge_key: "match:id:3:100601:101107",
+        matchs: { OB: "newob", Polymarket: "newpm" },
+        ended_at: 1_700_000_000_000,
+      },
+    ];
+    const built = [{
+      ID: 1459,
+      MergeKey: "match:id:3:100601:101107",
+      Matchs: { OB: "newob", Polymarket: "newpm" },
+      Title: "Metanoia Wolves vs MEIA NOITE",
+    }];
+    const out = resolveIdsDryRun(built, { existingClientRows: existing });
+    assert.ok(out[0].ID < 0);
+    assert.notEqual(out[0].ID, 1459);
   });
 });
