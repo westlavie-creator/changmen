@@ -8,23 +8,89 @@ on:
       - "server/**"
       - "packages/**"
       - "deploy/**"
+      - "scripts/deploy/**"
       - ".github/workflows/deploy.yml"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:
     inputs:
       full_deploy:
-        description: "Force remote npm install/build/restart path"
+        description: "Force full FE+BE deploy (ignore path classify)"
         required: false
         default: false
         type: boolean
+      scope:
+        description: "Manual scope override: auto | frontend | backend | full"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - frontend
+          - backend
+          - full
 
 concurrency:
   group: deploy-changmen-hongkong
   cancel-in-progress: false
 
 jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      scope: ${{ steps.out.outputs.scope }}
+      reason: ${{ steps.out.outputs.reason }}
+      frontend: ${{ steps.out.outputs.frontend }}
+      backend: ${{ steps.out.outputs.backend }}
+      noop: ${{ steps.out.outputs.noop }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Classify deploy scope (step 5)
+        id: out
+        env:
+          DEPLOY_FORCE_FULL: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.full_deploy == 'true' || github.event.inputs.scope == 'full')) && '1' || '0' }}
+          MANUAL_SCOPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scope || 'auto' }}
+        run: |
+          set -euo pipefail
+          # full_deploy wins over a narrower manual scope
+          if [[ "${DEPLOY_FORCE_FULL}" == "1" ]]; then
+            {
+              echo "scope=full"
+              echo "reason=force_full"
+              echo "frontend=true"
+              echo "backend=true"
+              echo "noop=false"
+            } >> "$GITHUB_OUTPUT"
+            echo "forced full deploy"
+            exit 0
+          fi
+          if [[ "${MANUAL_SCOPE}" == "frontend" || "${MANUAL_SCOPE}" == "backend" || "${MANUAL_SCOPE}" == "full" ]]; then
+            fe=false; be=false
+            [[ "${MANUAL_SCOPE}" == "frontend" || "${MANUAL_SCOPE}" == "full" ]] && fe=true
+            [[ "${MANUAL_SCOPE}" == "backend" || "${MANUAL_SCOPE}" == "full" ]] && be=true
+            {
+              echo "scope=${MANUAL_SCOPE}"
+              echo "reason=manual_${MANUAL_SCOPE}"
+              echo "frontend=${fe}"
+              echo "backend=${be}"
+              echo "noop=false"
+            } >> "$GITHUB_OUTPUT"
+            echo "manual scope=${MANUAL_SCOPE}"
+            exit 0
+          fi
+          FROM="${{ github.event.before }}"
+          TO="${{ github.sha }}"
+          node scripts/deploy/classify-deploy-scope-cli.mjs --from "${FROM}" --to "${TO}"
+          echo "classified:"
+          cat "$GITHUB_OUTPUT"
+
   build:
+    needs: classify
+    if: needs.classify.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -55,11 +121,15 @@ jobs:
           test -f client/web/dist/index.html
           test -d client/web/dist/assets
           ls client/web/dist/assets/index*.js >/dev/null
-          # venue adapters split per platform (venue-ob-*, venue-shared-*, …); no venue-all chunk
           ls client/web/dist/assets/venue-shared*.js >/dev/null
           ls client/web/dist/assets/venue-ob*.js >/dev/null
           tar -C client/web/dist -czf "${DIST_ARCHIVE}" .
           ls -lh "${DIST_ARCHIVE}"
+          # Prove production API base is baked (step 4+)
+          if ! grep -Rql 'https://api.changmen.fun' client/web/dist/assets/; then
+            echo "ERROR: dist missing VITE_API_BASE https://api.changmen.fun" >&2
+            exit 1
+          fi
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v5
@@ -69,8 +139,9 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  deploy:
-    needs: build
+  deploy-backend:
+    needs: classify
+    if: needs.classify.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -78,10 +149,8 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-      # Production HK — fixed; do not use DEPLOY_HOST_HONGKONG (was test 166)
       DEPLOY_HOST: "47.57.10.202"
       DEPLOY_FULL: ${{ github.event.inputs.full_deploy == 'true' && '1' || '0' }}
-      DIST_ARCHIVE: /tmp/changmen-dist.tgz
       REPO_ARCHIVE: /tmp/changmen-repo.tgz
       REMOTE_DEPLOY_SCRIPTS: /tmp/changmen-deploy
 
@@ -98,13 +167,7 @@ jobs:
           echo "DEPLOY_USER=${DEPLOY_USER:-root}" >> "$GITHUB_ENV"
           echo "DEPLOY_PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
           echo "DEPLOY_REPO=${DEPLOY_REPO:-/root/changmen}" >> "$GITHUB_ENV"
-          echo "Deploying to production HK-202 (${DEPLOY_HOST})"
-
-      - name: Download dist artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: frontend-dist-${{ github.sha }}
-          path: /tmp
+          echo "Deploying BACKEND to production HK-202 (${DEPLOY_HOST})"
 
       - name: Pack app archive (git HEAD only)
         run: |
@@ -124,7 +187,6 @@ jobs:
 
       - name: Upload app archive and deploy scripts (hongkong)
         run: |
-          # Stream via ssh (more reliable than scp on some VPS paths); verify sha256
           LOCAL_SHA="$(sha256sum "${REPO_ARCHIVE}" | awk '{print $1}')"
           LOCAL_SIZE="$(stat -c%s "${REPO_ARCHIVE}")"
           echo "local repo archive: ${LOCAL_SIZE} bytes sha256=${LOCAL_SHA}"
@@ -132,7 +194,6 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "rm -f /tmp/changmen-repo.upload.tgz /tmp/changmen-repo.tgz"
-          # retries: prior scp to this host occasionally produced size-matched corrupt gzip
           ok=0
           for attempt in 1 2 3; do
             echo "upload attempt ${attempt}"
@@ -176,6 +237,87 @@ jobs:
             fi
             bash ${REMOTE_DEPLOY_SCRIPTS}/apply-repo-archive.sh /tmp/changmen-repo.tgz
             find \"\${DEPLOY_REPO}/deploy/scripts\" -name '*.sh' -exec sed -i 's/\\r$//' {} +"
+
+      - name: Run post-deploy check (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && node scripts/ops/diagnostics/post-deploy-check.mjs"
+
+      - name: Sync HK relay env (hongkong)
+        env:
+          PREDICT_FUN_API_KEY: ${{ secrets.PREDICT_FUN_API_KEY }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e
+            repo='${DEPLOY_REPO:-/root/changmen}'
+            for i in 1 2 3 4 5; do
+              if [ -f \"\$repo/server/backend/.env\" ]; then break; fi
+              sleep 1
+            done
+            test -f \"\$repo/server/backend/.env\"
+            cd \"\$repo\" && PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' bash deploy/scripts/sync-hk-relay-env-remote.sh"
+
+      - name: Probe HK relay (hongkong)
+        env:
+          PROBE_TOKEN: ${{ secrets.PROBE_TOKEN }}
+          PREDICT_FUN_API_KEY: ${{ secrets.PREDICT_FUN_API_KEY }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && PROBE_TOKEN='${PROBE_TOKEN}' PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' node scripts/ops/diagnostics/probe-hk-relay.mjs --skip-ws" \
+            || echo "WARN: probe-hk-relay failed (set GitHub secret PROBE_TOKEN if HTTP_RELAY_REQUIRE_TOKEN=1)"
+
+      - name: Verify production homepage (hongkong)
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "curl -sf -o /dev/null http://127.0.0.1:3456/ || curl -sf -o /dev/null http://127.0.0.1/"
+
+  deploy-frontend:
+    needs: [classify, build, deploy-backend]
+    if: |
+      always()
+      && needs.classify.outputs.frontend == 'true'
+      && needs.build.result == 'success'
+      && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_REPO: ${{ secrets.DEPLOY_REPO }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_HOST: "47.57.10.202"
+      DIST_ARCHIVE: /tmp/changmen-dist.tgz
+
+    steps:
+      - name: Resolve deploy host
+        run: |
+          test -n "${DEPLOY_SSH_KEY}" || (echo "Missing secret DEPLOY_SSH_KEY" && exit 1)
+          echo "DEPLOY_USER=${DEPLOY_USER:-root}" >> "$GITHUB_ENV"
+          echo "DEPLOY_PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+          echo "DEPLOY_REPO=${DEPLOY_REPO:-/root/changmen}" >> "$GITHUB_ENV"
+          echo "Deploying FRONTEND dist only to HK-202 (${DEPLOY_HOST}) — no pm2"
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: /tmp
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
 
       - name: Upload frontend dist archive (hongkong)
         run: |
@@ -227,41 +369,8 @@ jobs:
             rm -rf \"\$app/dist.prev\"
             rm -f \"\$archive\" \"\$app/.deploy-needs-dist-upload\"
             chmod 711 /root 2>/dev/null || true
-            chmod -R a+rX \"\$app/dist\""
-
-      - name: Run post-deploy check (hongkong)
-        run: |
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && node scripts/ops/diagnostics/post-deploy-check.mjs"
-
-      - name: Sync HK relay env (hongkong)
-        env:
-          PREDICT_FUN_API_KEY: ${{ secrets.PREDICT_FUN_API_KEY }}
-        run: |
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e
-            repo='${DEPLOY_REPO:-/root/changmen}'
-            for i in 1 2 3 4 5; do
-              if [ -f \"\$repo/server/backend/.env\" ]; then break; fi
-              sleep 1
-            done
-            test -f \"\$repo/server/backend/.env\"
-            cd \"\$repo\" && PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' bash deploy/scripts/sync-hk-relay-env-remote.sh"
-
-      - name: Probe HK relay (hongkong)
-        env:
-          PROBE_TOKEN: ${{ secrets.PROBE_TOKEN }}
-          PREDICT_FUN_API_KEY: ${{ secrets.PREDICT_FUN_API_KEY }}
-        run: |
-          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=8 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "cd '${DEPLOY_REPO:-/root/changmen}/server/backend' && PROBE_TOKEN='${PROBE_TOKEN}' PREDICT_FUN_API_KEY='${PREDICT_FUN_API_KEY}' node scripts/ops/diagnostics/probe-hk-relay.mjs --skip-ws" \
-            || echo "WARN: probe-hk-relay failed (set GitHub secret PROBE_TOKEN if HTTP_RELAY_REQUIRE_TOKEN=1)"
+            chmod -R a+rX \"\$app/dist\"
+            echo \"OK frontend-only dist; pm2 untouched\""
 
       - name: Verify production homepage (hongkong)
         run: |

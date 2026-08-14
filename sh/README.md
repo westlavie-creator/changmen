@@ -34,7 +34,9 @@ bash sh/dev-esport.sh
 
 | 脚本 | 作用 |
 |------|------|
-| **`deploy-hongkong.sh`** | 香港紧急备用（日常走 GHA push `master`） |
+| **`deploy-hongkong.sh`** | 香港紧急备用全量（日常走 GHA push `master`） |
+| **`deploy-frontend.sh`** | **步骤 5**：只 `app:build` + 上传 `dist`（**不** `pm2 restart`） |
+| **`deploy-backend.sh`** | **步骤 5**：只仓库包 + PM2（**不**换 `dist`） |
 | `deploy-server.sh` | → `deploy-hongkong.sh`（遗留别名） |
 | **`setup-caddy.sh`** | 上传 `deploy/Caddyfile` 并应用 |
 | **`push-git.sh`** | 本机 git commit + push |
@@ -43,7 +45,7 @@ bash sh/dev-esport.sh
 | **`sync-market-indexes.sh`** | VPS → 本机 MarketIndex（开发；可 `--watch`） |
 
 复制 `deploy-server.local.sh.example` → `deploy-server.local.sh` 可覆盖 `DEPLOY_HOST`、`SSH_IDENTITY` 等。  
-核心逻辑在 `deploy-server-core.sh`。
+全量核心逻辑在 `deploy-server-core.sh`；GHA 按路径分流见 [PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) 步骤 5。
 
 ## 端口对照
 

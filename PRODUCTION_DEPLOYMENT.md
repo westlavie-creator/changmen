@@ -83,8 +83,8 @@ Nginx / Caddy 反代示例要点：
            └─ /esport/* 等    → 127.0.0.1:3456 (PM2 changmen-esport)
 ```
 
-- **前端发版**：`git pull` → `npm run app:build` → 更新 `dist/`（Caddy 直接读磁盘，无需 reload，更不必动 PM2）
-- **后端发版**：`git pull` → `npm install`（若依赖变）→ `pm2 restart changmen-esport`（**不必**重新 `app:build`）
+- **前端发版**：`./sh/deploy-frontend.sh` 或 GHA 仅 `client/web` 变更 → 更新 `dist/`（**不必** `pm2 restart`）
+- **后端发版**：`./sh/deploy-backend.sh` 或 GHA 仅 `server/**` → `pm2 restart`（**不必**重新 `app:build`）
 
 部署前把 Caddyfile 里 `root` 改成 VPS 上真实的 `.../changmen/client/web/dist` 路径。
 
@@ -269,7 +269,26 @@ npm run build
 | **2** | API CORS（允许 `changmen.fun` / `www` Origin） | ✅ backend `core/http/cors.js`；`CORS_ALLOWED_ORIGINS` 可覆盖 |
 | **3** | `VITE_API_BASE` 试包验收 | ✅ 已验收（正式切流前） |
 | **4** | 正式前端打 API 域 | ✅ `client/web/.env.production` + 生产 `dist` 已切；Caddy 仍双挂；回滚目录 `dist.prev.step4` |
-| 5+ | 拆发布流水线 / 收掉页面站 API 反代 | 未做 |
+| **5** | 拆发布流水线（FE 只换 `dist` / BE 只 `pm2`） | ✅ GHA 按路径分流；`./sh/deploy-frontend.sh` / `./sh/deploy-backend.sh` |
+| 6 | 收掉页面站 API 反代（真正拆开） | 未做 |
+
+### 步骤 5 操作（独立发版）
+
+| 变更范围 | GHA / 本机 | 是否 `pm2 restart` |
+|----------|------------|-------------------|
+| 仅 `client/web/**` | 只 build + 上传 `dist` | **否** |
+| 仅 `server/**` / `deploy/**` 等 | 只 apply 仓库 + 重启进程 | 是 |
+| `venue-adapter` / `packages/*` / 两侧都有 | 全量（先 BE 再 FE） | 是 |
+
+本机紧急：
+
+```bash
+./sh/deploy-frontend.sh   # 只换静态，不动 PM2
+./sh/deploy-backend.sh    # 只后端，保留现网 dist
+```
+
+分类逻辑：`scripts/deploy/classify-deploy-scope.mjs`。手动强制全量：GHA `workflow_dispatch` → `full_deploy` 或 `scope=full`。
+
 
 ### 步骤 1 操作
 
