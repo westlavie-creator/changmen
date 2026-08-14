@@ -139,4 +139,40 @@ describe("reconcile bugs", () => {
     // 队名不同；若错误取了 OB 的 gb(1,2) 会与第二场误并
     assert.equal(out.length, 2);
   });
+
+  it("mergeClustersByName preserves _pbSiblingSourceMatchIds from non-preferred row", () => {
+    const all = [
+      entry("OB", "ob1", "Foo", "Bar", T0, { homeGb: "1", awayGb: "2" }),
+      entry("RAY", "ray1", "Foo", "Bar", T0, { homeGb: "1", awayGb: "2" }),
+      entry("IA", "ia1", "Foo", "Bar", T0 + 30_000),
+      entry("PB", "pb-live", "Foo", "Bar", T0 + 30_000),
+    ];
+    const list = [
+      {
+        MergeKey: "match:id:3:1:2",
+        Matchs: { OB: "ob1", RAY: "ray1" },
+        Title: "Foo vs Bar",
+        StartTime: T0,
+        GameID: "3",
+        BO: 3,
+        _clusterBasis: "id",
+      },
+      {
+        MergeKey: "match:name:3:bar:foo",
+        Matchs: { IA: "ia1", PB: "pb-live" },
+        Title: "Foo vs Bar",
+        StartTime: T0 + 30_000,
+        GameID: "3",
+        BO: 3,
+        _clusterBasis: "name",
+        _pbSiblingSourceMatchIds: ["pb-pre"],
+        _pbRotNum: "31832",
+      },
+    ];
+    const { list: out } = reconcileClustersByName(list, all);
+    assert.equal(out.length, 1);
+    assert.equal(out[0].Matchs.PB, "pb-live");
+    assert.deepEqual(out[0]._pbSiblingSourceMatchIds, ["pb-pre"]);
+    assert.equal(out[0]._pbRotNum, "31832");
+  });
 });

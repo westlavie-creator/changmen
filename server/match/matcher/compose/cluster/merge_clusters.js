@@ -2,6 +2,7 @@
  * 自研合场聚类：gb 对 → 队名+严格时间；最少 2 馆。
  * MergeKey 使用 legacy match:id: / match:name: 格式。
  */
+import { isComposerPbRotnumCollapse } from "../../lib/config.js";
 import {
   canUseIdKey,
   canUseNameKey,
@@ -9,6 +10,11 @@ import {
   pairKeyId,
   pairKeyName,
 } from "../normalize/platform_entry.js";
+import {
+  collapsePbEntriesByRotNum,
+  indexEntriesWithPbAliases,
+  pickPrimaryPbSourceId,
+} from "../normalize/pb_rotnum_collapse.js";
 import { startTimesCompatibleId, startTimesCompatibleName } from "../util/time.js";
 import {
   findPlatformMatch,
@@ -50,7 +56,8 @@ function toClusterRow(entries, mergeKey, basis) {
   for (const e of entries)
     Matchs[e.platform] = e.sourceMatchId;
   const meta = pickMeta(entries);
-  return {
+  const pb = entries.find(e => e.platform === "PB");
+  const row = {
     MergeKey: mergeKey,
     Matchs,
     Title: meta.Title,
@@ -65,6 +72,11 @@ function toClusterRow(entries, mergeKey, basis) {
     _clusterBasis: basis,
     _entryCount: entries.length,
   };
+  if (pb?._pbSiblingSourceMatchIds?.length) {
+    row._pbSiblingSourceMatchIds = [...pb._pbSiblingSourceMatchIds];
+    row._pbRotNum = pb._pbRotNum || "";
+  }
+  return row;
 }
 
 function groupEntries(entries, keyFn, timeOk, basis) {
@@ -114,7 +126,7 @@ function groupEntries(entries, keyFn, timeOk, basis) {
 }
 
 function seedFromExisting(entries, existingClientRows) {
-  const byKey = new Map(entries.map(e => [e.rowKey, e]));
+  const byKey = indexEntriesWithPbAliases(entries);
   const seeded = [];
   const used = new Set();
   for (const cm of existingClientRows || []) {
@@ -176,10 +188,13 @@ export function bindingCompatibleWithRow(row, platform, sourceMatchId, matches) 
 
 /**
  * DB 人工绑定：校验同队对后挂 Matchs。
+ * PB 同 rot 多 binding 时按 rotNum 选举，避免 last-wins 把主盘打回未开图 event。
  */
-export function applyPlatformBindings(list, platformBindingsByClientId, matches = {}) {
+export function applyPlatformBindings(list, platformBindingsByClientId, matches = {}, opts = {}) {
   if (!platformBindingsByClientId?.size)
     return { list, skippedBindings: 0 };
+  const bets = opts.bets || {};
+  const pbCollapse = opts.pbRotnumCollapse ?? isComposerPbRotnumCollapse();
   const byId = new Map(list.map(r => [Number(r.ID), r]));
   let skippedBindings = 0;
   for (const [cmId, bindings] of platformBindingsByClientId.entries()) {
@@ -205,11 +220,33 @@ export function applyPlatformBindings(list, platformBindingsByClientId, matches 
       byId.set(id, row);
     }
     const listBindings = Array.isArray(bindings) ? bindings : [];
+    const byPlat = new Map();
     for (const b of listBindings) {
       const plat = b.platform || b.Platform;
-      const sid = b.source_match_id ?? b.SourceMatchID ?? b.sourceMatchId;
-      if (!plat || sid == null || sid === "")
+      const rawSid = b.source_match_id ?? b.SourceMatchID ?? b.sourceMatchId;
+      if (!plat || rawSid == null || rawSid === "")
         continue;
+      if (!byPlat.has(plat))
+        byPlat.set(plat, []);
+      byPlat.get(plat).push(String(rawSid));
+    }
+    for (const [plat, sids] of byPlat) {
+      let sid = sids[sids.length - 1];
+      if (plat === "PB" && pbCollapse) {
+        const candidates = [...new Set([
+          ...(row.Matchs?.PB ? [String(row.Matchs.PB)] : []),
+          ...sids,
+        ])];
+        if (candidates.length > 1) {
+          const sticky = row.Matchs?.PB != null && String(row.Matchs.PB) !== ""
+            ? new Set([String(row.Matchs.PB)])
+            : new Set();
+          sid = pickPrimaryPbSourceId(candidates, matches, {
+            bets,
+            stickySourceMatchIds: sticky,
+          }) || sid;
+        }
+      }
       if (Object.keys(row.Matchs || {}).length
         && !bindingCompatibleWithRow(row, plat, String(sid), matches)) {
         skippedBindings += 1;
@@ -224,8 +261,13 @@ export function applyPlatformBindings(list, platformBindingsByClientId, matches 
   };
 }
 
-export function clusterByGbThenName(matches, existingClientRows = []) {
-  const all = collectPlatformEntries(matches);
+export function clusterByGbThenName(matches, existingClientRows = [], opts = {}) {
+  const collected = collectPlatformEntries(matches);
+  const { entries: all } = collapsePbEntriesByRotNum(collected, {
+    bets: opts.bets || {},
+    existingClientRows,
+    enabled: opts.pbRotnumCollapse ?? isComposerPbRotnumCollapse(),
+  });
   const { rows: seedRows, used: seedUsed } = seedFromExisting(all, existingClientRows);
 
   const remain = all.filter(e => !seedUsed.has(e.rowKey));

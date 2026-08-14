@@ -20,11 +20,16 @@ export {
   resolveOrientationLock,
   sideModeAgainstLock,
 } from "./compose/sides/orientation_lock.js";
-export { projectClientMatchSides, projectList, projectPlatformSource } from "./compose/sides/project_sources.js";
+export { projectClientMatchSides, projectList, projectPlatformSource, resolveRawSourceForMap } from "./compose/sides/project_sources.js";
 export {
   collectPeriods,
   resolveMatchStructure,
   resolveRowBo,
   resolveRowStructure,
 } from "./compose/structure/resolve_structure.js";
+export {
+  listPbEventIdsForProjection,
+  listPbRotNumSiblings,
+  isPbRotGroupCollision,
+} from "./compose/normalize/pb_rotnum_collapse.js";
 export { clientMatchWriteRow, gbTeamIdForWrite } from "./compose/write_payload.js";

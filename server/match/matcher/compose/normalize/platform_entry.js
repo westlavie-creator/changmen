@@ -43,6 +43,8 @@ export function collectPlatformEntries(matches) {
       const awayN = normalizeTeam(awayName);
       const startMs = normalizeEpochMs(pm.StartTime);
       const linkedId = pm.ClientMatchId ?? pm.client_match_id ?? pm.match_id;
+      const rotRaw = pm.RotNum ?? pm.rotNum ?? pm.rot_num;
+      const rotNum = rotRaw != null ? String(rotRaw).trim() : "";
       entries.push({
         platform,
         sourceMatchId,
@@ -59,6 +61,7 @@ export function collectPlatformEntries(matches) {
         Game,
         GameID: mergeGameId,
         BO: Number(pm.BO) || 0,
+        rotNum,
         nativeRow: pm,
         rowKey: `${platform}:${sourceMatchId}`,
         clientMatchId: linkedId != null && linkedId !== "" ? Number(linkedId) : null,

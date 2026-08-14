@@ -202,7 +202,7 @@ export async function composeOnce({
       const { backfillPlatformMatchIdsForIdMerges } = await import(
         "../ops/backfill_platform_match_ids.js"
       );
-      matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info);
+      matchIdBackfill = await backfillPlatformMatchIdsForIdMerges(info, snapshot.matches);
       if (matchIdBackfill?.updated) {
         try {
           const { invalidateMatcherRdsSnapshot } = await import(

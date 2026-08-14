@@ -40,8 +40,10 @@ export function composeFromSnapshot(snapshot, opts = {}) {
     ? { skipped: true, reason: "fromVenuesOnly" }
     : alignUnmatchedToClientMatches(matches, alignRows);
 
-  let list = clusterByGbThenName(matches, clientRows);
-  const bound = applyPlatformBindings(list, platformBindingsByClientId, matches);
+  let list = clusterByGbThenName(matches, clientRows, { bets: snapshot.bets || {} });
+  const bound = applyPlatformBindings(list, platformBindingsByClientId, matches, {
+    bets: snapshot.bets || {},
+  });
   list = bound.list;
 
   return {

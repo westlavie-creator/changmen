@@ -69,3 +69,12 @@ export function isComposerForceReanchor() {
     || "";
   return String(v).trim() === "1";
 }
+
+/**
+ * PB 同 rotNum 多 event 认一场 + B1 sibling 地图盘拼进 Sources（默认开）。
+ * 回滚：COMPOSER_PB_ROTNUM_COLLAPSE=0
+ * [changmen 扩展] Matchs.PB 仍为主 event.id；下注 ID 在 Sources.HomeID/BetID。
+ */
+export function isComposerPbRotnumCollapse() {
+  return String(process.env.COMPOSER_PB_ROTNUM_COLLAPSE ?? "1").trim() !== "0";
+}

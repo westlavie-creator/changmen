@@ -3,9 +3,14 @@
  *
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
  * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
+ *
+ * PB B1：主 event（Matchs.PB）缺某 Map 时，从同 rotNum sibling 取该 Map；
+ * Source.HomeID / BetID 仍是那条腿自己的 event.id，Matchs.PB 不变。
  */
 import { parseTitleTeams } from "@changmen/match-identity/teams/match_utils.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";
+import { isComposerPbRotnumCollapse } from "../../lib/config.js";
+import { listPbEventIdsForProjection } from "../normalize/pb_rotnum_collapse.js";
 import { rawSourceForMap } from "../normalize/native_bets.js";
 import { resolveRowStructure } from "../structure/resolve_structure.js";
 import { swapBetSource } from "../util/swap.js";
@@ -47,6 +52,43 @@ export function betHasOdds(src) {
   if (!src || typeof src !== "object")
     return false;
   return Boolean(String(src.HomeID ?? "").trim() || String(src.AwayID ?? "").trim());
+}
+
+/**
+ * 取某 Map 的原生 Source；PB 主 event 缺盘时回落到 sibling（HomeID/BetID 仍属该腿 event）。
+ * @returns {{ raw: object|null, pm: object|null, sourceMatchId: string }}
+ */
+export function resolveRawSourceForMap({
+  platform,
+  primarySourceMatchId,
+  mapNum,
+  bets,
+  matches,
+  row,
+}) {
+  const primarySid = String(primarySourceMatchId ?? "");
+  const primaryPm = findPlatformMatch(matches, platform, primarySid);
+  const gameCode = getGameCodeForPlatformId(
+    platform,
+    primaryPm?.SourceGameID ?? primaryPm?.GameID,
+  );
+  const primaryRaw = rawSourceForMap(platform, primarySid, mapNum, bets, gameCode);
+  if (betHasOdds(primaryRaw) || platform !== "PB" || !isComposerPbRotnumCollapse()) {
+    return { raw: primaryRaw, pm: primaryPm, sourceMatchId: primarySid };
+  }
+
+  const ids = listPbEventIdsForProjection(row, matches)
+    .filter(sid => sid && sid !== primarySid);
+  for (const sid of ids) {
+    const pm = findPlatformMatch(matches, platform, sid);
+    if (!pm)
+      continue;
+    const code = getGameCodeForPlatformId(platform, pm.SourceGameID ?? pm.GameID);
+    const raw = rawSourceForMap(platform, sid, mapNum, bets, code);
+    if (betHasOdds(raw))
+      return { raw, pm, sourceMatchId: sid };
+  }
+  return { raw: primaryRaw, pm: primaryPm, sourceMatchId: primarySid };
 }
 
 export function projectPlatformSource({
@@ -152,13 +194,19 @@ export function projectClientMatchSides(row, {
         return true;
       };
 
-      const pm = findPlatformMatch(matches, platform, sourceMatchId);
-      if (!pm) {
+      const pmPrimary = findPlatformMatch(matches, platform, sourceMatchId);
+      if (!pmPrimary) {
         omitted.push({ platform, map: mapNum, reason: "no_pm" });
         continue;
       }
-      const gameCode = getGameCodeForPlatformId(platform, pm.SourceGameID ?? pm.GameID);
-      const raw = rawSourceForMap(platform, sourceMatchId, mapNum, bets, gameCode);
+      const { raw, pm: pmForSide } = resolveRawSourceForMap({
+        platform,
+        primarySourceMatchId: sourceMatchId,
+        mapNum,
+        bets,
+        matches,
+        row,
+      });
 
       // 局盘无原生赔率：禁止用 Map0 全场冒充（决胜局除外）
       if (!betHasOdds(raw) && mapNum !== 0) {
@@ -175,7 +223,7 @@ export function projectClientMatchSides(row, {
 
       const r = projectPlatformSource({
         platform,
-        pm,
+        pm: pmForSide || pmPrimary,
         raw,
         homeGb,
         awayGb,

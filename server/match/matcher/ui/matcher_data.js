@@ -253,6 +253,7 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
         match_id: matchId,
         bound_client_match_id: boundCmId,
         synced_at: Number(firstValue(m.savedAt, m.synced_at, 0)) || 0,
+        rot_num: String(firstValue(m.RotNum, m.rotNum, m.rot_num, "") || "").trim() || "",
         teams: Array.isArray(m.Teams) ? m.Teams : (Array.isArray(m.teams) ? m.teams : []),
       });
     }
@@ -422,6 +423,7 @@ async function fetchMatcherHiddenClientMatches() {
       away_id: firstValue(raw.away_id, ""),
       bo: Number(raw.bo) || 0,
       match_id: raw.match_id != null ? Number(raw.match_id) : null,
+      rot_num: String(firstValue(raw.rot_num, raw.RotNum, raw.rotNum, "") || "").trim() || "",
       teams: Array.isArray(raw.teams) ? raw.teams : [],
     });
     const game = resolveUiGame(normalized.platform, normalized.source_game_id);

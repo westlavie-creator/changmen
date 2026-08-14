@@ -4,6 +4,8 @@
  * 在投影前定型，投影与 shape 只读，不再回头改已投影的 Sources。
  * 真相源：Round/live 来自 timers + OB is_live；BO 只信 OB。
  */
+import { isComposerPbRotnumCollapse } from "../../lib/config.js";
+import { listPbEventIdsForProjection } from "../normalize/pb_rotnum_collapse.js";
 import { findPlatformMatch } from "../sides/orientation_lock.js";
 
 const TIMER_PRIORITY = {
@@ -114,19 +116,33 @@ export function resolveRowBo(row, matches) {
 
 /**
  * 该场应有的局段集合：platform_bets 出现过的 Map ∪ {0} ∪ 决胜局。
+ * PB：同 rotNum sibling 的 Map 一并计入（B1 拼盘；Matchs.PB 仍只一个主 event）。
  * @returns {number[]} 升序
  */
-export function collectPeriods(row, bets, deciderMap = 0) {
+export function collectPeriods(row, bets, deciderMap = 0, matches = null) {
   const set = new Set([0]);
   for (const [platform, sourceMatchId] of Object.entries(row?.Matchs || {})) {
-    const block = bets?.[`${platform}:${sourceMatchId}`];
-    const list = Array.isArray(block) ? block : (block?.bets || []);
-    for (const b of list)
-      set.add(Number(b.Map) || 0);
+    const ids = sourceMatchIdsForPeriods(platform, sourceMatchId, row, matches);
+    for (const sid of ids) {
+      const block = bets?.[`${platform}:${sid}`];
+      const list = Array.isArray(block) ? block : (block?.bets || []);
+      for (const b of list)
+        set.add(Number(b.Map) || 0);
+    }
   }
   if (Number(deciderMap) > 0)
     set.add(Number(deciderMap));
   return [...set].sort((a, b) => a - b);
+}
+
+function sourceMatchIdsForPeriods(platform, sourceMatchId, row, matches) {
+  const primary = String(sourceMatchId ?? "");
+  if (!primary)
+    return [];
+  if (platform !== "PB" || !isComposerPbRotnumCollapse())
+    return [primary];
+  const ids = listPbEventIdsForProjection(row, matches);
+  return ids.length ? ids : [primary];
 }
 
 /**
@@ -137,7 +153,7 @@ export function resolveRowStructure(row, { matches, bets } = {}) {
   const bo = resolveRowBo(row, matches);
   const round = Number(row?.Round) || 0;
   const deciderMap = round > 0 && bo > 0 && round === bo ? round : 0;
-  return { bo, deciderMap, periods: collectPeriods(row, bets, deciderMap) };
+  return { bo, deciderMap, periods: collectPeriods(row, bets, deciderMap, matches) };
 }
 
 /**

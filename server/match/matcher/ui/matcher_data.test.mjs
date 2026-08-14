@@ -106,4 +106,23 @@ describe("dashboardRowsFromSnapshot", () => {
     }
     expect(computeRecommendations(rows, [])).toEqual([]);
   });
+
+  it("passes PB rot_num through snapshot rows", () => {
+    const matchesRaw = {
+      PB: {
+        1633928872: {
+          SourceMatchID: "1633928872",
+          SourceGameID: "cs2",
+          StartTime: T0,
+          Home: "Spirit",
+          Away: "NAVI",
+          RotNum: "31832",
+        },
+      },
+    };
+    const rows = dashboardRowsFromSnapshot(matchesRaw, []);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].rot_num).toBe("31832");
+    expect(rows[0].source_match_id).toBe("1633928872");
+  });
 });

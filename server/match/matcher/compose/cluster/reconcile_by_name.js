@@ -170,6 +170,32 @@ function mergeMatchsUnion(rows) {
   return out;
 }
 
+/** 合并簇时保留 PB rot 拼盘元数据（B1 periods / sibling 列表） */
+function unionPbRotMeta(rows) {
+  const sibs = new Set();
+  let rot = "";
+  for (const row of rows || []) {
+    const r = String(row?._pbRotNum || "").trim();
+    if (r && !rot)
+      rot = r;
+    for (const sid of row?._pbSiblingSourceMatchIds || []) {
+      const s = String(sid || "").trim();
+      if (s)
+        sibs.add(s);
+    }
+  }
+  // 并集 Matchs.PB 以外的不应进 sibling；主 id 若在 sibs 里去掉
+  const primary = rows?.map(r => String(r?.Matchs?.PB || "").trim()).find(Boolean) || "";
+  if (primary)
+    sibs.delete(primary);
+  const out = {};
+  if (sibs.size)
+    out._pbSiblingSourceMatchIds = [...sibs];
+  if (rot)
+    out._pbRotNum = rot;
+  return out;
+}
+
 function pickPreferredRow(rows) {
   const idRow = rows.find(r => String(r.MergeKey || "").startsWith("match:id:"));
   if (idRow)
@@ -402,6 +428,7 @@ export function mergeClustersByName(list, byKey, stats) {
       allMembers.push(...membersOfRow(row, byKey));
     // 也纳入并集里可能尚未在 membersOfRow 的（理论上都在）
     const meta = pickMetaFromMembers(allMembers, preferred);
+    const pbMeta = unionPbRotMeta(rows);
     const merged = {
       ...preferred,
       Matchs: unionMatchs,
@@ -417,7 +444,12 @@ export function mergeClustersByName(list, byKey, stats) {
       _clusterBasis: "reconciled",
       _reconciled: true,
       _entryCount: Object.keys(unionMatchs).length,
+      ...pbMeta,
     };
+    if (!pbMeta._pbSiblingSourceMatchIds)
+      delete merged._pbSiblingSourceMatchIds;
+    if (!pbMeta._pbRotNum)
+      delete merged._pbRotNum;
     stats.merged += 1;
     out.push(merged);
   }

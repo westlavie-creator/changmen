@@ -278,6 +278,12 @@
     .client-match-id-banner.teams-id-mapped .match-id-label { color: #e6c88a; }
     .client-match-id-banner.teams-id-mapped .match-id-value { color: var(--warn); }
     .team-table .col-match-id { width: 68px; }
+    .team-table .col-match-id:has(.pb-id-stack) { width: auto; min-width: 148px; }
+    .team-table .col-pb-ids { min-width: 168px; vertical-align: top; }
+    .th-hint {
+      display: block; font-size: 10px; font-weight: 500;
+      color: #64748b; margin-top: 2px; letter-spacing: 0;
+    }
     .team-canonical {
       font-size: 10px; color: #9ec5ff;
       font-family: "IBM Plex Mono", Consolas, monospace; margin-top: 2px;
@@ -459,6 +465,27 @@
       font-size: 10px; color: var(--muted); background: var(--chip);
       border: 1px solid var(--line); padding: 1px 7px; border-radius: 999px; margin-left: 6px;
     }
+    .pb-id-stack {
+      font-family: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+      font-size: 11px; color: #94a3b8; line-height: 1.45;
+      min-width: 148px;
+    }
+    .pb-kv {
+      display: grid;
+      grid-template-columns: 4.8em minmax(0, 1fr) auto;
+      column-gap: 6px; align-items: baseline;
+    }
+    .pb-k {
+      font-size: 10px; font-weight: 700; color: #64748b;
+      letter-spacing: 0;
+    }
+    .pb-k.rot { color: #5eead4; }
+    .pb-v { color: #cbd5e1; white-space: nowrap; }
+    .pb-kv.missing .pb-v { color: #64748b; }
+    .pb-tag {
+      font-size: 10px; font-weight: 650; color: #e6b84d;
+    }
+    .pb-tag.sib { color: #8b9aab; font-weight: 550; }
 
     .panel-toolbar { margin-bottom: 0; }
     .filter-chips { display: flex; gap: 6px; }
@@ -796,6 +823,147 @@ function renderMatchLinkCell(m, platform, cms) {
     ? `<div class="match-id-linked">#${cmId}</div>`
     : `<div class="match-id-platform">${esc(srcId)}</div>`;
   return `<div class="match-link-cell">${renderMatchLinkHandle(platform, srcId, cmId)}<div>${idLine}</div></div>`;
+}
+
+function readPbRotNum(m) {
+  return String(m?.rot_num || m?.rotNum || m?.RotNum || '').trim();
+}
+
+function pbRowsForRot(platforms, rot) {
+  const key = String(rot || '').trim();
+  if (!key) return [];
+  return (platforms?.PB || []).filter(x => readPbRotNum(x) === key);
+}
+
+function resolvePbPlatformRow(m, platforms) {
+  const sid = String(m?.source_match_id || '');
+  if (readPbRotNum(m))
+    return m;
+  return (platforms?.PB || []).find(x => String(x.source_match_id) === sid) || m;
+}
+
+function pbRelatedRows(platforms, m, cm) {
+  const pb = platforms?.PB || [];
+  const live = resolvePbPlatformRow(m, platforms);
+  const sid = String(live?.source_match_id || m?.source_match_id || '');
+  const rot = readPbRotNum(live);
+  const cmId = cm?.id != null && cm.id !== '' ? Number(cm.id) : NaN;
+  const slot = cm?.matchs?.PB != null && String(cm.matchs.PB) !== ''
+    ? String(cm.matchs.PB)
+    : '';
+  const byId = new Map();
+  const add = (row) => {
+    const id = String(row?.source_match_id || '');
+    if (!id) return;
+    const prev = byId.get(id);
+    if (!prev) {
+      byId.set(id, row);
+      return;
+    }
+    if (!readPbRotNum(prev) && readPbRotNum(row))
+      byId.set(id, { ...prev, ...row });
+  };
+  if (live) add(live);
+  if (m && m !== live) add(m);
+  for (const x of pb) {
+    const xsid = String(x.source_match_id || '');
+    if (sid && xsid === sid) {
+      add(x);
+      continue;
+    }
+    if (rot && readPbRotNum(x) === rot) {
+      add(x);
+      continue;
+    }
+    if (slot && xsid === slot) {
+      add(x);
+      continue;
+    }
+    const bound = Number(x.match_id ?? x.bound_client_match_id);
+    if (Number.isFinite(cmId) && bound === cmId)
+      add(x);
+  }
+  return [...byId.values()];
+}
+
+function renderPbEventIdsHtml(m, platforms, cm) {
+  const live = resolvePbPlatformRow(m, platforms);
+  const sid = String(live?.source_match_id || m?.source_match_id || '');
+  const related = pbRelatedRows(platforms, m, cm);
+  let boundPrimary = '';
+  if (cm && cm.matchs && cm.matchs.PB != null && String(cm.matchs.PB) !== '')
+    boundPrimary = String(cm.matchs.PB);
+  else {
+    const hit = clientMatchForPlatformRow(m, _lastData?.clientMatches || [], platforms);
+    if (hit?.matchs?.PB != null && String(hit.matchs.PB) !== '')
+      boundPrimary = String(hit.matchs.PB);
+  }
+  const primary = boundPrimary || sid;
+  const ids = [];
+  const seen = new Set();
+  const pushId = (id) => {
+    const s = String(id || '');
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    ids.push(s);
+  };
+  pushId(primary);
+  pushId(sid);
+  for (const row of related)
+    pushId(row.source_match_id);
+
+  let rot = readPbRotNum(live);
+  if (!rot) {
+    for (const row of related) {
+      rot = readPbRotNum(row);
+      if (rot) break;
+    }
+  }
+
+  // 仅在确知 matchs.PB 时标主/兄，避免把兄行误标成主
+  const showRoles = !!boundPrimary;
+  const lines = ids.map(id => {
+    const isPrimary = id === primary;
+    const role = showRoles
+      ? `<span class="pb-tag${isPrimary ? '' : ' sib'}" title="${isPrimary ? 'matchs.PB 当前绑定，下注用这条 event.id' : '同 rotNum / 同比赛的另一条 PB event.id'}">${isPrimary ? '主' : '兄'}</span>`
+      : '<span></span>';
+    return `<div class="pb-kv"><span class="pb-k" title="PB 官方赛事 ID，下注用这个">event.id</span><span class="pb-v">${esc(id)}</span>${role}</div>`;
+  });
+  lines.push(rot
+    ? `<div class="pb-kv"><span class="pb-k rot" title="同一系列多条 event 共用的轮次号">rotNum</span><span class="pb-v">${esc(rot)}</span><span></span></div>`
+    : `<div class="pb-kv missing"><span class="pb-k" title="同一系列多条 event 共用的轮次号">rotNum</span><span class="pb-v">—</span><span></span></div>`);
+  return `<div class="pb-id-stack">${lines.join('')}</div>`;
+}
+
+function renderVenueIdCell(m, platforms, cm) {
+  if (String(m?.platform || '') === 'PB') {
+    return `<td class="col-pb-ids">${renderPbEventIdsHtml(m, platforms, cm)}</td>`;
+  }
+  return `<td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>`;
+}
+
+function clientMatchForPlatformRow(m, cms, platforms) {
+  const sid = String(m?.source_match_id || '');
+  const plat = m?.platform;
+  const list = cms || [];
+  const bySlot = list.find(c => String(c.matchs?.[plat] ?? '') === sid);
+  if (bySlot) return bySlot;
+  const bound = m?.match_id ?? m?.bound_client_match_id;
+  if (bound != null && bound !== '') {
+    const byBound = list.find(c => Number(c.id) === Number(bound));
+    if (byBound) return byBound;
+  }
+  if (plat === 'PB') {
+    const plats = platforms || _lastData?.platforms || {};
+    const rot = readPbRotNum(resolvePbPlatformRow(m, plats));
+    if (rot) {
+      for (const sib of pbRowsForRot(plats, rot)) {
+        const hit = list.find(c => String(c.matchs?.PB || '') === String(sib.source_match_id));
+        if (hit) return hit;
+      }
+    }
+  }
+  return null;
 }
 
 function renderMatchMergeTarget(cmId) {
@@ -1316,12 +1484,12 @@ function renderEndedMatchTable(cm, platforms, teamMaps) {
       <td>${renderEndedTeamCell(m, 'home', gameCode, teamMaps)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td>${renderEndedTeamCell(m, 'away', gameCode, teamMaps)}</td>
-      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+      ${renderVenueIdCell(m, platforms, cm)}
       <td>${dir}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
-    <thead><tr><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID</th><th>方向</th></tr></thead>
+    <thead><tr><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID<span class="th-hint">PB：event.id / rotNum</span></th><th>方向</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
 }
@@ -1544,7 +1712,7 @@ function renderTeamTable(rec, recIdx, cms, teamMaps) {
       action = `<button type="button" class="btn btn-sm btn-success" data-platform-action="${recIdx}" data-platform="${esc(m.platform)}" data-match-id="${esc(m.source_match_id)}">确认</button>`;
     }
     return `<tr>
-      <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}</td>
+      <td class="col-match-id">${renderMatchLinkCell(m, m.platform, cms)}${m.platform === 'PB' ? renderPbEventIdsHtml(m, _lastData?.platforms || {}, clientMatchForPlatformRow(m, cms, _lastData?.platforms)) : ''}</td>
       <td class="col-platform">${pbadge(m.platform)} ${status}</td>
       <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform)}</td>
@@ -1973,7 +2141,7 @@ function renderReverseCell(cmId, platform, isReversed) {
     title="${title}">${btnText}</button></span>`;
 }
 
-function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
+function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm, platforms) {
   const visible = searchQuery
     ? rows.filter(m => matchMatchesTeamSearch(m, searchQuery))
     : rows;
@@ -1981,6 +2149,7 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
   const cms = cm ? [{ id: cm.id, matchs: cm.matchs || {} }] : [];
   const linkCmId = cm?.id;
   const reverseSet = new Set(Array.isArray(cm?.reverse) ? cm.reverse : []);
+  const platIndex = platforms || _lastData?.platforms || {};
   const rowsHtml = visible.map(m => {
     const isReversed = reverseSet.has(m.platform);
     const status = m._platformMissing
@@ -1992,12 +2161,12 @@ function renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm) {
       <td>${renderTeamCell(m, 'home', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'home' } : null)}</td>
       <td style="color:#64748b;font-size:11px">${fmtTime(m.start_time)}</td>
       <td>${renderTeamCell(m, 'away', gameCode, teamMaps, m.platform, linkCmId != null ? { cmId: linkCmId, side: 'away' } : null)}</td>
-      <td style="color:#64748b;font-family:ui-monospace,monospace;font-size:11px">${esc(m.source_match_id)}</td>
+      ${renderVenueIdCell(m, platIndex, cm)}
       <td>${renderReverseCell(cm.id, m.platform, isReversed)}</td>
     </tr>`;
   }).join('');
   return `<table class="team-table">
-    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID</th><th>方向</th></tr></thead>
+    <thead><tr><th>比赛 ID</th><th>平台</th><th>主</th><th>开赛</th><th>客</th><th>场次 ID<span class="th-hint">PB：event.id / rotNum</span></th><th>方向</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>`;
 }
@@ -2008,7 +2177,7 @@ function renderMatchedCard(cm, platforms, teamMaps, searchQuery, columnMode) {
   const liveRows = rows.filter(r => !r._platformMissing);
   if (!liveRows.length) return '';
   const gameCode = clientMatchGameCode(cm, liveRows.length ? liveRows : rows);
-  const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm);
+  const tableHtml = renderMatchedTable(rows, gameCode, teamMaps, searchQuery, cm, platforms);
   if (!tableHtml) return '';
   const teamsIdMapped = clientMatchTeamsFullyIdMapped(liveRows, teamMaps, gameCode);
   const needsAttention = clientMatchNeedsAttention(cm, platforms, teamMaps);
@@ -2130,7 +2299,7 @@ function renderUnmatchedPlatforms(platforms, recs, cms, teamMaps, searchQuery) {
         ? '<span class="rec-tag">推荐组</span>'
         : (_unmatchedFilter === 'all' ? '<span class="orphan-tag">无推荐</span>' : '');
       return `<tr>
-        <td class="col-match-id">${renderMatchLinkCell(m, p, cms)}</td>
+        <td class="col-match-id">${renderMatchLinkCell(m, p, cms)}${p === 'PB' ? renderPbEventIdsHtml(m, platforms, clientMatchForPlatformRow(m, cms, platforms)) : ''}</td>
         <td>${pbadge(p)}${tag}</td>
         <td>${renderTeamCell(m, 'home', gameCode, teamMaps, p)}</td>
         <td>${renderTeamCell(m, 'away', gameCode, teamMaps, p)}</td>
