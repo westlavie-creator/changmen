@@ -125,4 +125,31 @@ describe("dashboardRowsFromSnapshot", () => {
     expect(rows[0].rot_num).toBe("31832");
     expect(rows[0].source_match_id).toBe("1633928872");
   });
+
+  it("passes PB is_live through snapshot rows", () => {
+    const matchesRaw = {
+      PB: {
+        live: {
+          SourceMatchID: "1",
+          SourceGameID: "cs2",
+          StartTime: T0,
+          Home: "A",
+          Away: "B",
+          IsLive: 1,
+        },
+        pre: {
+          SourceMatchID: "2",
+          SourceGameID: "cs2",
+          StartTime: T0,
+          Home: "A",
+          Away: "B",
+          IsLive: 0,
+        },
+      },
+    };
+    const rows = dashboardRowsFromSnapshot(matchesRaw, []);
+    const byId = Object.fromEntries(rows.map(r => [r.source_match_id, r]));
+    expect(byId["1"].is_live).toBe(true);
+    expect(byId["2"].is_live).toBe(false);
+  });
 });

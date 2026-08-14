@@ -486,6 +486,12 @@
       font-size: 10px; font-weight: 650; color: #e6b84d;
     }
     .pb-tag.sib { color: #8b9aab; font-weight: 550; }
+    .pb-live {
+      font-size: 10px; font-weight: 650; color: #34d399; margin-left: 4px;
+    }
+    .pb-live.pre { color: #94a3b8; font-weight: 550; }
+    .pb-live.unk { color: #64748b; font-weight: 500; }
+    .pb-role-cell { white-space: nowrap; text-align: right; }
 
     .panel-toolbar { margin-bottom: 0; }
     .filter-chips { display: flex; gap: 6px; }
@@ -829,6 +835,27 @@ function readPbRotNum(m) {
   return String(m?.rot_num || m?.rotNum || m?.RotNum || '').trim();
 }
 
+/** @returns {boolean|null} */
+function readPbIsLive(m) {
+  const raw = m?.is_live ?? m?.isLive ?? m?.IsLive ?? m?.live;
+  if (raw === true || raw === 1 || raw === '1') return true;
+  if (raw === false || raw === 0 || raw === '0') return false;
+  if (typeof raw === 'string') {
+    const s = raw.trim().toLowerCase();
+    if (s === 'true') return true;
+    if (s === 'false') return false;
+  }
+  return null;
+}
+
+function pbLiveTagHtml(isLive) {
+  if (isLive === true)
+    return `<span class="pb-live" title="euro/odds isLive=true">live</span>`;
+  if (isLive === false)
+    return `<span class="pb-live pre" title="euro/odds isLive=false">pre</span>`;
+  return `<span class="pb-live unk" title="isLive 未知">—</span>`;
+}
+
 function pbRowsForRot(platforms, rot) {
   const key = String(rot || '').trim();
   if (!key) return [];
@@ -922,12 +949,15 @@ function renderPbEventIdsHtml(m, platforms, cm) {
 
   // 仅在确知 matchs.PB 时标主/兄，避免把兄行误标成主
   const showRoles = !!boundPrimary;
+  const rowById = new Map(related.map(r => [String(r.source_match_id || ''), r]));
   const lines = ids.map(id => {
     const isPrimary = id === primary;
+    const row = rowById.get(id) || (id === sid ? live : null);
+    const liveTag = pbLiveTagHtml(readPbIsLive(row));
     const role = showRoles
-      ? `<span class="pb-tag${isPrimary ? '' : ' sib'}" title="${isPrimary ? 'matchs.PB 当前绑定，下注用这条 event.id' : '同 rotNum / 同比赛的另一条 PB event.id'}">${isPrimary ? '主' : '兄'}</span>`
-      : '<span></span>';
-    return `<div class="pb-kv"><span class="pb-k" title="PB 官方赛事 ID，下注用这个">event.id</span><span class="pb-v">${esc(id)}</span>${role}</div>`;
+      ? `<span class="pb-tag${isPrimary ? '' : ' sib'}" title="${isPrimary ? 'matchs.PB 当前绑定' : '同 rotNum 另一条 PB event.id'}">${isPrimary ? '主' : '兄'}</span>${liveTag}`
+      : liveTag;
+    return `<div class="pb-kv"><span class="pb-k" title="PB 官方赛事 ID，下注用这个">event.id</span><span class="pb-v">${esc(id)}</span><span class="pb-role-cell">${role}</span></div>`;
   });
   lines.push(rot
     ? `<div class="pb-kv"><span class="pb-k rot" title="同一系列多条 event 共用的轮次号">rotNum</span><span class="pb-v">${esc(rot)}</span><span></span></div>`

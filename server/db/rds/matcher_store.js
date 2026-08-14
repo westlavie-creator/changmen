@@ -393,7 +393,7 @@ export async function fetchPlatformMatchesForHiddenClientMatches(clientRows) {
   if (cmIds.length) {
     const { rows } = await rdsQuery(
       `SELECT platform, source_match_id, source_game_id, start_time,
-              home, home_id, away, away_id, bo, rot_num, teams, match_id, synced_at
+              home, home_id, away, away_id, bo, is_live, rot_num, teams, match_id, synced_at
        FROM platform_matches
        WHERE match_id = ANY($1::bigint[])`,
       [cmIds],
@@ -408,7 +408,7 @@ export async function fetchPlatformMatchesForHiddenClientMatches(clientRows) {
     const { rows } = await rdsQuery(
       `SELECT DISTINCT ON (platform, source_match_id)
               platform, source_match_id, source_game_id, start_time,
-              home, home_id, away, away_id, bo, rot_num, teams, match_id, synced_at
+              home, home_id, away, away_id, bo, is_live, rot_num, teams, match_id, synced_at
        FROM platform_matches
        WHERE (platform, source_match_id) IN (
          SELECT * FROM UNNEST($1::text[], $2::text[]) AS t(platform, source_match_id)
@@ -426,7 +426,7 @@ export async function fetchPlatformMatchesForHiddenClientMatches(clientRows) {
     const { rows } = await rdsQuery(
       `SELECT DISTINCT ON (platform, source_match_id)
               platform, source_match_id, source_game_id, start_time,
-              home, home_id, away, away_id, bo, rot_num, teams, match_id, synced_at
+              home, home_id, away, away_id, bo, is_live, rot_num, teams, match_id, synced_at
        FROM platform_matches_history
        WHERE (platform, source_match_id) IN (
          SELECT * FROM UNNEST($1::text[], $2::text[]) AS t(platform, source_match_id)

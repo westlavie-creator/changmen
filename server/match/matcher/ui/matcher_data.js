@@ -210,6 +210,23 @@ function firstValue(...values) {
   return values.find(v => v != null && v !== "");
 }
 
+/** @returns {boolean|null} */
+function normalizeIsLiveFlag(...values) {
+  const raw = firstValue(...values);
+  if (raw === true || raw === 1 || raw === "1")
+    return true;
+  if (raw === false || raw === 0 || raw === "0")
+    return false;
+  if (typeof raw === "string") {
+    const s = raw.trim().toLowerCase();
+    if (s === "true")
+      return true;
+    if (s === "false")
+      return false;
+  }
+  return null;
+}
+
 function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
   const normalized = normalizeMatchesShape(matchesRaw);
   // 用当前快照建平台索引，过滤掉挂载已全部失效的僵尸 client_matches
@@ -254,6 +271,7 @@ function dashboardRowsFromSnapshot(matchesRaw, clientMatches) {
         bound_client_match_id: boundCmId,
         synced_at: Number(firstValue(m.savedAt, m.synced_at, 0)) || 0,
         rot_num: String(firstValue(m.RotNum, m.rotNum, m.rot_num, "") || "").trim() || "",
+        is_live: normalizeIsLiveFlag(m.IsLive, m.isLive, m.is_live, m.live),
         teams: Array.isArray(m.Teams) ? m.Teams : (Array.isArray(m.teams) ? m.teams : []),
       });
     }
@@ -424,6 +442,7 @@ async function fetchMatcherHiddenClientMatches() {
       bo: Number(raw.bo) || 0,
       match_id: raw.match_id != null ? Number(raw.match_id) : null,
       rot_num: String(firstValue(raw.rot_num, raw.RotNum, raw.rotNum, "") || "").trim() || "",
+      is_live: normalizeIsLiveFlag(raw.is_live, raw.IsLive, raw.isLive, raw.live),
       teams: Array.isArray(raw.teams) ? raw.teams : [],
     });
     const game = resolveUiGame(normalized.platform, normalized.source_game_id);
