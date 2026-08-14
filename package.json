@@ -29,6 +29,7 @@
   "scripts": {
     "install:all": "npm install",
     "dev": "turbo run dev",
+    "dev:remote": "bash sh/dev-esport.sh remote",
     "dev:backend": "turbo run dev --filter=@changmen/backend",
     "esport:dev": "npm run web --prefix server/backend",
     "dev:frontend": "turbo run dev --filter=@changmen/web",
@@ -46,6 +47,7 @@
     "analyze:deps": "npm run analyze:deps:check --prefix client/web",
     "test:frontend": "turbo run typecheck test --filter=@changmen/web",
     "test:catalog-smoke": "node scripts/catalog-smoke.mjs",
+    "sync:market-indexes": "node scripts/sync/pull-vps-market-indexes.mjs",
     "matcher:ui": "npm run start --prefix server/match/matcher",
     "composer:once": "npm run compose:once --prefix server/match/matcher",
     "composer:diff": "npm run compose:diff --prefix server/match/matcher",

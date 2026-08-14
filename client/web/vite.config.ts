@@ -6,6 +6,9 @@ import { visualizer } from "rollup-plugin-visualizer";
 import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
 import { ElementPlusResolver } from "unplugin-vue-components/resolvers";
+import fs from "node:fs";
+import https from "node:https";
+import tls from "node:tls";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { matcherDevRedirect } from "./vite/plugins/matcherDevRedirect";
@@ -29,10 +32,53 @@ const clientCoreVitestGlob = path
 
 // Windows：避开 Hyper-V/WSL 动态保留段（3560 曾落入 3513-3612 → EACCES）；Linux/VPS 仍用 3456
 const DEV_API_PORT = process.platform === "win32" ? 3700 : 3456;
-const API_TARGET = process.env.VITE_API_PROXY || `http://127.0.0.1:${DEV_API_PORT}`;
 // Hyper-V/WSL 常保留 5123-5222（含 Vite 默认 5173/5174）
 const DEFAULT_DEV_PORT = process.platform === "win32" ? 5274 : 5174;
-const DEV_PORT = Number(process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
+
+type DevProxyOpts = {
+  target: string;
+  changeOrigin: boolean;
+  ws?: boolean;
+  secure?: boolean;
+  agent?: https.Agent;
+};
+
+/** 远端 HTTPS（mTLS）时 Vite 代理须带本机客户端证书，CN 须与登录用户名一致 */
+function buildHttpsClientAgent(env: Record<string, string>): https.Agent | undefined {
+  const certPath = String(env.VITE_API_PROXY_TLS_CERT || "").trim();
+  const keyPath = String(env.VITE_API_PROXY_TLS_KEY || "").trim();
+  if (!certPath || !keyPath)
+    return undefined;
+  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
+    console.warn(`[vite] VITE_API_PROXY_TLS_CERT/KEY 文件不存在，跳过 mTLS agent`);
+    return undefined;
+  }
+  const caPath = String(env.VITE_API_PROXY_TLS_CA || "").trim();
+  // 勿只用自建 CA 覆盖信任库：生产 changmen.fun 是 Let's Encrypt，单独 ca= 会报
+  // unable to get local issuer certificate。自建 CA 时追加到系统根证书。
+  const caExtra = caPath && fs.existsSync(caPath) ? fs.readFileSync(caPath) : null;
+  return new https.Agent({
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath),
+    ...(caExtra
+      ? { ca: [...tls.rootCertificates, caExtra] }
+      : {}),
+  });
+}
+
+function withProxyTarget(
+  target: string,
+  opts: { ws?: boolean; agent?: https.Agent } = {},
+): DevProxyOpts {
+  const isHttps = /^https:/i.test(target);
+  return {
+    target,
+    changeOrigin: true,
+    ws: opts.ws,
+    secure: isHttps,
+    ...(isHttps && opts.agent ? { agent: opts.agent } : {}),
+  };
+}
 const INTENTIONAL_MIXED_IMPORTS = [
   "/src/api/chat.ts",
   "/src/runtime/collectors.ts",
@@ -83,47 +129,58 @@ function venueChunkName(id: string): string | undefined {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
+  const apiTarget = String(env.VITE_API_PROXY || process.env.VITE_API_PROXY || "")
+    .trim()
+    .replace(/\/+$/, "")
+    || `http://127.0.0.1:${DEV_API_PORT}`;
+  const DEV_PORT = Number(env.VITE_DEV_PORT || process.env.VITE_DEV_PORT) || DEFAULT_DEV_PORT;
+  const mtlsAgent = /^https:/i.test(apiTarget) ? buildHttpsClientAgent(env) : undefined;
   const hkRelayTarget = String(env.VITE_HK_RELAY_ORIGIN || env.VITE_PM_HK_RELAY_ORIGIN || "").trim().replace(/\/+$/, "");
 
-  const proxy: Record<string, { target: string; changeOrigin: boolean; ws?: boolean }> = {};
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/i.test(apiTarget)) {
+    console.log(`[vite] remote API proxy → ${apiTarget}${mtlsAgent ? " (mTLS client cert)" : " (no VITE_API_PROXY_TLS_*; login may fail if site requires client cert)"}`);
+  }
+
+  const proxy: Record<string, DevProxyOpts> = {};
   if (hkRelayTarget) {
     // 场馆 HK 出海 relay：dev 同源走 Vite 代理到香港 VPS，避免浏览器跨域 OPTIONS 到 3560 / 外网 IP
-    proxy["/esport/http-relay"] = { target: hkRelayTarget, changeOrigin: true };
-    proxy["/esport/ws-forward/PM-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
-    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
-    proxy["/esport/ws-forward/PM-USER"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
-    proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
-    proxy["/esport/ws-forward/SXBET-MARKET"] = { target: hkRelayTarget, changeOrigin: true, ws: true };
+    const relayAgent = /^https:/i.test(hkRelayTarget) ? mtlsAgent : undefined;
+    proxy["/esport/http-relay"] = withProxyTarget(hkRelayTarget, { agent: relayAgent });
+    proxy["/esport/ws-forward/PM-MARKET"] = withProxyTarget(hkRelayTarget, { ws: true, agent: relayAgent });
+    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = withProxyTarget(hkRelayTarget, { ws: true, agent: relayAgent });
+    proxy["/esport/ws-forward/PM-USER"] = withProxyTarget(hkRelayTarget, { ws: true, agent: relayAgent });
+    proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = withProxyTarget(hkRelayTarget, { ws: true, agent: relayAgent });
+    proxy["/esport/ws-forward/SXBET-MARKET"] = withProxyTarget(hkRelayTarget, { ws: true, agent: relayAgent });
   }
   else {
-    // 纯本机：Market WS 独立 hub（须在通用 /esport 代理之前）
+    // 纯本机或分拆 hub：Market WS 独立 origin（须在通用 /esport 代理之前）
     const pmHubPort = Number(env.VITE_PM_MARKET_HUB_PORT || process.env.PM_MARKET_HUB_PORT || 3457);
     const pmHubTarget = String(env.VITE_PM_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(pmHubPort) && pmHubPort > 0 ? pmHubPort : 3457}`;
-    proxy["/esport/ws-forward/PM-MARKET"] = { target: pmHubTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PM-MARKET"] = withProxyTarget(pmHubTarget, { ws: true });
 
     const pmSportHubPort = Number(env.VITE_PM_SPORT_MARKET_HUB_PORT || process.env.PM_SPORT_MARKET_HUB_PORT || 3459);
     const pmSportHubTarget = String(env.VITE_PM_SPORT_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(pmSportHubPort) && pmSportHubPort > 0 ? pmSportHubPort : 3459}`;
-    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = { target: pmSportHubTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PM-SPORT-MARKET"] = withProxyTarget(pmSportHubTarget, { ws: true });
 
     const pfHubPort = Number(env.VITE_PREDICTFUN_MARKET_HUB_PORT || process.env.PREDICTFUN_MARKET_HUB_PORT || 3458);
     const pfHubTarget = String(env.VITE_PREDICTFUN_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(pfHubPort) && pfHubPort > 0 ? pfHubPort : 3458}`;
-    proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = { target: pfHubTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/PREDICTFUN-MARKET"] = withProxyTarget(pfHubTarget, { ws: true });
 
     const sxHubPort = Number(env.VITE_SXBET_MARKET_HUB_PORT || process.env.SXBET_MARKET_HUB_PORT || 3460);
     const sxHubTarget = String(env.VITE_SXBET_MARKET_HUB_ORIGIN || "").trim().replace(/\/+$/, "")
       || `http://127.0.0.1:${Number.isFinite(sxHubPort) && sxHubPort > 0 ? sxHubPort : 3460}`;
-    proxy["/esport/ws-forward/SXBET-MARKET"] = { target: sxHubTarget, changeOrigin: true, ws: true };
+    proxy["/esport/ws-forward/SXBET-MARKET"] = withProxyTarget(sxHubTarget, { ws: true });
   }
-  proxy["/esport2"] = { target: API_TARGET, changeOrigin: true, ws: true };
-  proxy["/esport"] = { target: API_TARGET, changeOrigin: true, ws: true };
-  proxy["/common"] = { target: API_TARGET, changeOrigin: true, ws: true };
-  proxy["/api"] = { target: API_TARGET, changeOrigin: true, ws: true };
-  proxy["/matcher"] = { target: API_TARGET, changeOrigin: true, ws: true };
-  proxy["/health"] = { target: API_TARGET, changeOrigin: true };
-  proxy["/v4.0"] = { target: API_TARGET, changeOrigin: true, ws: true };
+  proxy["/esport2"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
+  proxy["/esport"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
+  proxy["/common"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
+  proxy["/api"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
+  proxy["/matcher"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
+  proxy["/health"] = withProxyTarget(apiTarget, { agent: mtlsAgent });
+  proxy["/v4.0"] = withProxyTarget(apiTarget, { ws: true, agent: mtlsAgent });
 
   return {
   base: "/",

@@ -3,6 +3,10 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE?: string;
   readonly VITE_API_PROXY?: string;
+  /** DEV：Vite 代理 HTTPS 目标时的客户端证书（mTLS） */
+  readonly VITE_API_PROXY_TLS_CERT?: string;
+  readonly VITE_API_PROXY_TLS_KEY?: string;
+  readonly VITE_API_PROXY_TLS_CA?: string;
   readonly VITE_V4_BASE_URL?: string;
   readonly VITE_HK_RELAY_ORIGIN?: string;
   /** @deprecated 使用 VITE_HK_RELAY_ORIGIN */

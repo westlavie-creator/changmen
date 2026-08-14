@@ -14,13 +14,16 @@ bash sh/dev-esport.sh
 
 | 脚本 | 作用 |
 |------|------|
-| **`dev-esport.sh`** | 电竞：后端 `:3456` + Vite `:5174`（Linux 默认） |
-| `dev-esport.sh parity` | 同上 + `matcher:ui`（matchMerge 已内嵌 backend） |
+| **`dev-esport.sh remote`** | **推荐**：只 Vite → VPS（不起本机 backend） |
+| **`dev-esport.sh`** | 本机全栈：后端 `:3456` + Vite `:5174` |
+| `dev-esport.sh parity` | 全栈 + `matcher:ui`（matchMerge 已内嵌 backend） |
 | **`dev-football.sh`** | 足球：同级仓库 `../changmen-football` → `:3457` |
-| **`dev.sh`** | 兼容入口 → 等同 `dev-esport.sh`；`dev.sh football` → 足球 |
+| **`dev.sh`** | 兼容入口 → `dev-esport.sh`；`dev.sh remote` / `dev.sh football` |
 | **`backend.sh`** | 仅电竞后端 |
 | **`football-backend.sh`** | 仅足球进程 |
 | **`setup-dev-env.sh`** | 首次：从 `.env.example` 复制 `server/backend/.env` |
+
+**remote 模式**须在 `client/web/.env.local` 设 `VITE_API_PROXY=https://changmen.fun`（及 mTLS 证书，见 `.env.example`）。详见 [LOCAL_DEV.md](../LOCAL_DEV.md)。
 
 默认**后台启动**（写日志到 `/tmp/changmen-dev/`），并尝试用浏览器打开 Vite 页。  
 从 Cursor 终端运行时不要依赖 `gnome-terminal`（常因无法打开显示而失败）。需要GUI窗口时：`CHANGMEN_USE_TERM=1 ./sh/dev.sh`。
@@ -36,6 +39,7 @@ bash sh/dev-esport.sh
 | **`setup-caddy.sh`** | 上传 `deploy/Caddyfile` 并应用 |
 | **`push-git.sh`** | 本机 git commit + push |
 | **`sync-telegram-env.sh`** | 同步 Telegram 配置到 VPS |
+| **`sync-market-indexes.sh`** | VPS → 本机 MarketIndex（开发；可 `--watch`） |
 
 复制 `deploy-server.local.sh.example` → `deploy-server.local.sh` 可覆盖 `DEPLOY_HOST`、`SSH_IDENTITY` 等。  
 核心逻辑在 `deploy-server-core.sh`。

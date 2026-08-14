@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# 一键启动电竞开发环境 —— 等价于 npm run dev（turbo 前台并行起 backend + Vite）。
-# 用 npm run dev 而不是分拆后台启动：输出滚动、Ctrl+C 一次全部停止，不会出现
-# "Waiting for backend..." 卡住 / 后台进程被连坐杀掉的问题。
-#
-# Usage:
-#   ./sh/dev.sh               # backend + Vite 前台启动
-#   ./sh/dev.sh football      # 转调 dev-football.sh
+# 电竞开发入口。
+#   ./sh/dev.sh              # 本机全栈（turbo 前台：backend + Vite）
+#   ./sh/dev.sh remote       # 只 Vite → VPS（转调 dev-esport.sh remote）
+#   ./sh/dev.sh football     # 转调 dev-football.sh
 set -euo pipefail
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/_common.sh"
@@ -17,6 +14,10 @@ if [[ "${1:-}" == "football" ]]; then
   exec "${SH_DIR}/dev-football.sh"
 fi
 
+if [[ "${1:-}" == "remote" || "${1:-}" == "vps" ]]; then
+  exec "${SH_DIR}/dev-esport.sh" "$@"
+fi
+
 echo
 echo "========================================"
 echo "  changmen Dev (npm run dev = turbo)"
@@ -26,6 +27,7 @@ echo "  Vite    : http://localhost:${VITE_PORT}/   ← 请打开这个（不是 
 echo "  Chrome  : load chrome-extension/"
 echo "  输出    : 前台滚动，Ctrl+C 一次全部停止"
 echo "  环境    : A8_AUTH=0（本地 users.json） + SKIP_APP_BUILD=1（跳过每次全量构建）"
+echo "  Tip     : 改 UI 用 ./sh/dev.sh remote（不起本机 backend）"
 echo
 
 cd "${ROOT}"

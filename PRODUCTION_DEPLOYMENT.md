@@ -232,7 +232,8 @@ npm run build
 
 | 变量 | 用途 |
 |------|------|
-| `VITE_API_PROXY` | **仅 dev**：Vite 把 `/esport` 代理到本机 3456 |
+| `VITE_API_PROXY` | **仅 dev**：Vite 把 `/esport` 代理到本机或 VPS（remote：`https://changmen.fun`） |
+| `VITE_API_PROXY_TLS_*` | **仅 dev remote**：代理 HTTPS 时的客户端证书（mTLS，CN=登录名） |
 | `VITE_V4_PROXY=1` | dev 时 v4 走本地 `/v4.0/` |
 | `VITE_V4_DIRECT=1` | 仅在已放行 CORS 的域名使用 |
 
@@ -262,13 +263,13 @@ npm run build
 
 ## 6. 开发联调 vs 生产（对照）
 
-| 项 | 开发 | 生产 |
-|----|------|------|
-| API 地址 | 本机 backend 或 Vite dev + proxy（端口见 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)） | `https://your-domain.com` |
-| 启动 | `BAT\dev.bat` / `BAT\dev.bat parity` | `npm run web`（内嵌 matchMerge） |
-| 认证 | 可 `A8_AUTH=0` + TJ01 | JWT 真实用户（`users` + `profiles`） |
-| 采集 | 本机浏览器 + 插件 | 各操作员客户端上报同一 RDS |
-| Node Feed | **不存在** | **不存在** |
+| 项 | 开发（remote） | 开发（全栈） | 生产 |
+|----|----------------|--------------|------|
+| API 地址 | Vite → `VITE_API_PROXY`（VPS） | Vite → 本机 backend | 同源 `/esport` |
+| 启动 | `./sh/dev-esport.sh remote` | `./sh/dev-esport.sh` / `npm run dev` | `npm run web`（内嵌 matchMerge） |
+| 认证 | 生产账号 + mTLS 客户端证（代理带证） | 可 `A8_AUTH=0` + TJ01 | JWT + mTLS |
+| 采集 | 本机浏览器 + 插件 → VPS | 本机浏览器 + 插件 → 本机 | 各操作员客户端上报同一 RDS |
+| Node Feed | **不存在** | **不存在** | **不存在** |
 
 ---
 
