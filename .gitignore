@@ -47,6 +47,7 @@ server/backend/data/*.db-wal
 .env
 .env.*
 !.env.example
+!.env.production
 server/match/matcher/.matcher-heartbeat.json
 server/match/matcher/.composer-heartbeat.json
 

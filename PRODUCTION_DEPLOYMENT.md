@@ -267,7 +267,9 @@ npm run build
 |------|------|------|
 | **1** | DNS + Caddy 双挂 `api.changmen.fun`（页面站不变） | ✅ 已启用 |
 | **2** | API CORS（允许 `changmen.fun` / `www` Origin） | ✅ backend `core/http/cors.js`；`CORS_ALLOWED_ORIGINS` 可覆盖 |
-| 3+ | `VITE_API_BASE` 试包 / 正式切流 / 拆流水线 | 未做 |
+| **3** | `VITE_API_BASE` 试包验收 | ✅ 已验收（正式切流前） |
+| **4** | 正式前端打 API 域 | ✅ `client/web/.env.production` + 生产 `dist` 已切；Caddy 仍双挂；回滚目录 `dist.prev.step4` |
+| 5+ | 拆发布流水线 / 收掉页面站 API 反代 | 未做 |
 
 ### 步骤 1 操作
 
