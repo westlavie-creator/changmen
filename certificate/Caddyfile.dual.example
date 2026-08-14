@@ -1,11 +1,15 @@
 # changmen — HTTP 装证引导 + HTTPS mTLS（仅域名，无 IP :443 兜底）
-# :80 无客户端证书；正式站只认 changmen.fun / www / ws
+# :80 无客户端证书；正式站：changmen.fun / www（页面+API 同源）+ api（API 双挂）+ ws
 # 域名入口：Let's Encrypt + 客户端证
 #   /etc/caddy/certs/le/{fullchain.pem,privkey.pem}
+# LE SAN 须含：changmen.fun www.changmen.fun ws.changmen.fun api.changmen.fun
 #
 # 登录门 B：证书 + 插件。Caddy 须向 Node 注入（或剥离）客户端证头：
 #   X-Changmen-Client-Cert / X-Changmen-Client-Subject
 # 前端探测 GET /api/client-cert-status
+#
+# 步骤 1（前后端分开部署）：api.changmen.fun 双挂同一 backend；页面站不变。
+# 启用：./sh/step1-enable-api-subdomain.sh（须先 DNS A → VPS）
 
 {
 	auto_https off
@@ -37,6 +41,7 @@
 	}
 }
 
+# 页面站：静态 + API（现网同源，步骤 1 不改行为）
 (changmen_https_site) {
 	encode gzip
 
@@ -89,6 +94,50 @@
 	}
 }
 
+# API 双挂：仅反代，不托管前端（步骤 1）
+(changmen_api_only) {
+	encode gzip
+
+	handle /health {
+		import changmen_proxy_mtls
+	}
+	handle /esport/ws-forward/PM-MARKET* {
+		reverse_proxy 127.0.0.1:3457
+	}
+	handle /esport/ws-forward/PREDICTFUN-MARKET* {
+		reverse_proxy 127.0.0.1:3458
+	}
+	handle /esport/ws-forward/PM-SPORT-MARKET* {
+		reverse_proxy 127.0.0.1:3459
+	}
+	handle /esport/ws-forward/SXBET-MARKET* {
+		reverse_proxy 127.0.0.1:3460
+	}
+	handle /esport/* {
+		import changmen_proxy_mtls
+	}
+	handle /common/* {
+		import changmen_proxy_mtls
+	}
+	handle /api/* {
+		import changmen_proxy_mtls
+	}
+	handle /esport2/* {
+		import changmen_proxy_mtls
+	}
+	@matcher_api path /matcher /matcher/*
+	handle @matcher_api {
+		import changmen_proxy_mtls
+	}
+	handle /v4.0/* {
+		import changmen_proxy_mtls
+	}
+
+	handle {
+		respond "changmen api" 200
+	}
+}
+
 :80 {
 	encode gzip
 
@@ -126,7 +175,7 @@
 	}
 }
 
-# 公网域名：Let's Encrypt，浏览器认
+# 公网域名：Let's Encrypt，浏览器认（页面站 — 步骤 1 不变）
 changmen.fun, www.changmen.fun {
 	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem {
 		import changmen_mtls_tls
@@ -134,6 +183,15 @@ changmen.fun, www.changmen.fun {
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	header Content-Security-Policy "upgrade-insecure-requests"
 	import changmen_https_site
+}
+
+# API 双挂（步骤 1）：与页面站同一 backend + mTLS；用户仍可只走 changmen.fun
+api.changmen.fun {
+	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem {
+		import changmen_mtls_tls
+	}
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	import changmen_api_only
 }
 
 # 行情 WS 专用：无 mTLS（跨域 WSS 带不上客户端证）

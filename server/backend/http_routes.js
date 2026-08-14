@@ -37,6 +37,8 @@ import {
   seedRequestContext,
   sendUnhandledError,
   withTiming,
+  applyCorsHeaders,
+  tryHandleCorsPreflight,
 } from "./core/http/index.js";
 
 const { listPlatforms } = adapterRequire("registry", "feeds.js");
@@ -317,6 +319,11 @@ export function createHttpHandler({ port, serveStatic }) {
   return async function handleHttp(req, res) {
     seedRequestContext(req);
     try {
+      // 步骤 2：页面站 → api. 子域；无 Origin（同源）时 no-op
+      applyCorsHeaders(req, res);
+      if (tryHandleCorsPreflight(req, res))
+        return;
+
       const url = req.pathname;
       // Socket.IO 握手由 ws_forward / realtime-hub 处理，勿走 esport-api / 静态文件
       if (isWsForwardHttpPath(url))

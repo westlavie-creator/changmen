@@ -261,6 +261,31 @@ npm run build
 
 ---
 
+## 前后端分开部署（分步，可随时停）
+
+| 步骤 | 内容 | 状态 |
+|------|------|------|
+| **1** | DNS + Caddy 双挂 `api.changmen.fun`（页面站不变） | ✅ 已启用 |
+| **2** | API CORS（允许 `changmen.fun` / `www` Origin） | ✅ backend `core/http/cors.js`；`CORS_ALLOWED_ORIGINS` 可覆盖 |
+| 3+ | `VITE_API_BASE` 试包 / 正式切流 / 拆流水线 | 未做 |
+
+### 步骤 1 操作
+
+1. DNS 添加 **A 记录**：`api.changmen.fun` → `47.57.10.202`（与 `changmen.fun` 相同）。  
+2. 本机执行：
+
+```bash
+./sh/step1-enable-api-subdomain.sh
+```
+
+脚本会：`certbot --expand` 把 `api` 写入现有 LE 证书 → 安装 `certificate/Caddyfile.dual.example` → `caddy reload`。  
+3. 验收：`curl --cert …/RIVER.crt --key …/RIVER.key https://api.changmen.fun/health` → `ok`。  
+4. **可停**：用户继续只用 `https://changmen.fun`，无感。
+
+回滚：恢复 VPS 上 `/etc/caddy/Caddyfile.bak.step1.*` 并 `caddy reload`。
+
+---
+
 ## 6. 开发联调 vs 生产（对照）
 
 | 项 | 开发（remote） | 开发（全栈） | 生产 |

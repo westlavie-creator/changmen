@@ -38,6 +38,7 @@ bash sh/dev-esport.sh
 | `deploy-server.sh` | → `deploy-hongkong.sh`（遗留别名） |
 | **`setup-caddy.sh`** | 上传 `deploy/Caddyfile` 并应用 |
 | **`push-git.sh`** | 本机 git commit + push |
+| **`step1-enable-api-subdomain.sh`** | 步骤 1：启用 `api.changmen.fun` 双挂（须先加 DNS） |
 | **`sync-telegram-env.sh`** | 同步 Telegram 配置到 VPS |
 | **`sync-market-indexes.sh`** | VPS → 本机 MarketIndex（开发；可 `--watch`） |
 
