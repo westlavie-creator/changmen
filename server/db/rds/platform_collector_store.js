@@ -203,7 +203,8 @@ async function _rdsUpsertPlatformMatches(pool, rows, opts = {}) {
       away_id = EXCLUDED.away_id,
       away = EXCLUDED.away,
       bo = EXCLUDED.bo,
-      is_live = EXCLUDED.is_live,
+      -- 旧采集未带 IsLive 时勿清空（EXCLUDED 为 NULL）
+      is_live = COALESCE(EXCLUDED.is_live, platform_matches.is_live),
       -- 旧采集未带 RotNum 时勿清空已写入的归组键
       rot_num = COALESCE(EXCLUDED.rot_num, platform_matches.rot_num),
       teams = EXCLUDED.teams,

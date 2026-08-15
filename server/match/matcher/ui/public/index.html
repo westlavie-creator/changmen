@@ -887,8 +887,13 @@ function pbRelatedRows(platforms, m, cm) {
       byId.set(id, row);
       return;
     }
-    if (!readPbRotNum(prev) && readPbRotNum(row))
-      byId.set(id, { ...prev, ...row });
+    const merged = { ...prev, ...row };
+    // 后写缺 is_live 时保留已有真值
+    if (readPbIsLive(merged) == null && readPbIsLive(prev) != null)
+      merged.is_live = prev.is_live ?? prev.isLive ?? prev.IsLive;
+    if (!readPbRotNum(merged) && readPbRotNum(prev))
+      merged.rot_num = readPbRotNum(prev);
+    byId.set(id, merged);
   };
   if (live) add(live);
   if (m && m !== live) add(m);

@@ -212,17 +212,18 @@ function firstValue(...values) {
 
 /** @returns {boolean|null} */
 function normalizeIsLiveFlag(...values) {
-  const raw = firstValue(...values);
-  if (raw === true || raw === 1 || raw === "1")
-    return true;
-  if (raw === false || raw === 0 || raw === "0")
-    return false;
-  if (typeof raw === "string") {
-    const s = raw.trim().toLowerCase();
-    if (s === "true")
+  for (const raw of values) {
+    if (raw === true || raw === 1 || raw === "1")
       return true;
-    if (s === "false")
+    if (raw === false || raw === 0 || raw === "0")
       return false;
+    if (typeof raw === "string") {
+      const s = raw.trim().toLowerCase();
+      if (s === "true")
+        return true;
+      if (s === "false")
+        return false;
+    }
   }
   return null;
 }
