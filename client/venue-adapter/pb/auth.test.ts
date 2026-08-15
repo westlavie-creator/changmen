@@ -160,4 +160,37 @@ describe("buildPbAuthHeaders ps3838 plain keys", () => {
     expect(headers?.["x-u"]).toBe("u-token");
     expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
   });
+
+  it("剪贴板外层 / base64 也能取出 plain 头与 X-U（避免 betslip 403）", () => {
+    const cookie = {
+      "x-app-data": JSON.stringify({
+        BrowserSessionId: "sess-plain",
+        custid: "id%3Dabc",
+      }),
+      "v-hucode": "hu",
+      token: JSON.stringify({
+        "X-Browser-Session-Id": "sess-plain",
+        "X-Custid": "id=abc",
+        "X-U": "u-token",
+        "X-SLID": "-1",
+        "X-Lcu": "lcu",
+      }),
+    };
+    const clipboard = {
+      provider: "PB",
+      gateway: "https://www.part888.com",
+      token: JSON.stringify(cookie),
+      referer: "https://www.part888.com/zh-cn/compact/sports/e-sports",
+    };
+    for (const raw of [JSON.stringify(clipboard), Buffer.from(JSON.stringify(clipboard)).toString("base64")]) {
+      const headers = buildPbAuthHeaders(makeAccount(raw));
+      expect(headers?.["x-browser-session-id"]).toBe("sess-plain");
+      expect(headers?.["x-custid"]).toBe("id=abc");
+      expect(headers?.["x-u"]).toBe("u-token");
+      expect(headers?.["x-slid"]).toBe("-1");
+      expect(headers?.["x-lcu"]).toBe("lcu");
+      expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
+      expect(headers?.token).toBeUndefined();
+    }
+  });
 });

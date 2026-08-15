@@ -196,6 +196,10 @@ export function parsePbVenueIdentity(
   }
 }
 
+/**
+ * 合并 localStorage.token 内层鉴权头（part888/ps3838 的 X-U / X-SLID / X-Lcu 等）。
+ * 只收 x-*，避免误把 Odds:Selections 等业务键写成非法 HTTP 头。
+ */
 function mergeInnerTokenHeaders(
   headers: Record<string, string>,
   outer: Record<string, string>,
@@ -206,22 +210,29 @@ function mergeInnerTokenHeaders(
     const inner = JSON.parse(innerRaw) as Record<string, string>;
     for (const [key, value] of Object.entries(inner)) {
       if (value == null || value === "") continue;
-      headers[key.toLowerCase()] = String(value);
+      const lower = key.toLowerCase();
+      if (!lower.startsWith("x-")) continue;
+      headers[lower] = String(value);
     }
   } catch {
     /* optional nested auth headers */
   }
 }
 
-/** [A8 可证实] bundle `k0(t,e)`；[changmen 扩展] 515/1228 后缀 + ps3838 无后缀 */
+/**
+ * [A8 可证实] bundle `k0(t,e)` 固定 515；
+ * [changmen 扩展] 515/1228/plain + 与 parsePbVenueIdentity 相同的粘贴规范化
+ * （base64 / 剪贴板外层 {provider,token}），否则 part888 会丢 X-U → betslip `{"error":403}`。
+ */
 export function buildPbAuthHeaders(
   account: PlatformAccount,
   extra: Record<string, string> = {},
 ): Record<string, string> | undefined {
   if (account.token == null) return undefined;
   try {
-    const outer = JSON.parse(account.token) as Record<string, string>;
-    const appData = JSON.parse(outer["x-app-data"] || "{}") as Record<string, string>;
+    const outer = normalizePbTokenCookie(String(account.token));
+    if (!outer) return undefined;
+    const appData = (tryParseJsonObject(outer["x-app-data"] || "{}") || {}) as Record<string, string>;
     const mode = detectPbSessionMode(appData, outer);
     const sessionId = resolveBrowserSessionId(mode, appData);
     const custidRaw = resolveCustidRaw(mode, appData, outer);

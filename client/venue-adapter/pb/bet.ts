@@ -192,6 +192,16 @@ export const pbProvider: PlatformProvider = {
 
     option.response = rows;
     if (!Array.isArray(rows) || rows.length !== 1) {
+      // part888/ps3838：缺内层 X-U 等时场馆常回 HTTP200 + {"error":403}
+      if (
+        rows
+        && typeof rows === "object"
+        && !Array.isArray(rows)
+        && (rows as { error?: unknown }).error === 403
+      ) {
+        option.checkError = "会话鉴权失败(403)：请重新登录平博并粘贴账号（需含内层 X-U）";
+        return option;
+      }
       option.checkError = JSON.stringify(rows);
       return option;
     }
