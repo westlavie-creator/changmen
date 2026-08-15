@@ -1,5 +1,6 @@
 import {
   deleteOrphanPlatformBetsAsync,
+  prunePredictFunPlatformMatches,
   syncPlatformBetsForMatchAsync,
   writePlatformMatchesAsync,
 } from "@changmen/db";
@@ -15,6 +16,7 @@ import { persistPredictFunMarketIndex } from "./market_index.js";
 import {
   bestAskFromPredictBook,
   buildPredictMappedMarket,
+  isPredictCategoryOpenForCollect,
   isPredictEsportsMoneylineCategory,
 } from "./parse.js";
 
@@ -28,10 +30,24 @@ export async function runPredictFunDiscoveryCycle() {
   // 默认 tagIds=Esports（见 api.js）；覆盖旧 SPORTS_TEAM_MATCH→MLB 误拉
   const rawCategories = await fetchPredictCategories({ status: "OPEN" });
   const esportCategories = rawCategories.filter(isPredictEsportsMoneylineCategory);
-  const filtered = esportCategories.filter((category) => {
+  const inWindow = esportCategories.filter((category) => {
     const startMs = category.startsAt ? Date.parse(category.startsAt) : 0;
     return predictCollectStartTimeAllowed(startMs);
   });
+
+  // 源头门控：Match Winner 已 PRICE_PROPOSED/结算 → 停写并 prune（category 仍 OPEN）
+  /** @type {string[]} */
+  const excludeSourceMatchIds = [];
+  const filtered = [];
+  for (const category of inWindow) {
+    if (!isPredictCategoryOpenForCollect(category)) {
+      const sid = String(category.id ?? "").trim();
+      if (sid)
+        excludeSourceMatchIds.push(sid);
+      continue;
+    }
+    filtered.push(category);
+  }
 
   const marketIds = [];
   for (const category of filtered) {
@@ -58,10 +74,25 @@ export async function runPredictFunDiscoveryCycle() {
       break;
   }
 
+  // 本轮写入的场绝不强删（与 PM 双保险同口径）
+  const candidateSids = new Set(candidates.map(row => String(row.match.SourceMatchID)));
+  const forceDeleteIds = excludeSourceMatchIds.filter(id => !candidateSids.has(String(id)));
+
   if (!candidates.length) {
-    // 与 polymarket-esports 同口径：过滤后 0 不 clear，避免稀疏赛程/时间窗外误抹库
+    // 窗内无开放场：不整馆 clear；仅 prune 已结算/提案的 sid
+    let pruned = 0;
+    if (forceDeleteIds.length) {
+      try {
+        const deleted = await prunePredictFunPlatformMatches({ forceDeleteIds });
+        pruned = Array.isArray(deleted) ? deleted.length : 0;
+      }
+      catch (err) {
+        console.warn("[predictfun-collector] settle prune failed:", err?.message || err);
+      }
+    }
     console.warn(
-      `[predictfun-collector] skip write: raw=${rawCategories.length} esport=${esportCategories.length} inWindow=${filtered.length} mapped=0`,
+      `[predictfun-collector] skip write: raw=${rawCategories.length} esport=${esportCategories.length} `
+      + `inWindow=${inWindow.length} open=${filtered.length} mapped=0 exclude=${forceDeleteIds.length} pruned=${pruned}`,
     );
     return {
       matches: 0,
@@ -69,7 +100,10 @@ export async function runPredictFunDiscoveryCycle() {
       mapBets: 0,
       raw: rawCategories.length,
       esport: esportCategories.length,
-      inWindow: filtered.length,
+      inWindow: inWindow.length,
+      open: filtered.length,
+      excluded: forceDeleteIds.length,
+      pruned,
       skippedClear: true,
     };
   }
@@ -80,6 +114,7 @@ export async function runPredictFunDiscoveryCycle() {
   const keepIds = matches.map(m => String(m.SourceMatchID));
 
   // matches 先落库；bets 按 source_bet_id upsert（map0 不抹 map1/2），再清本场多余 bet_id / 场级孤儿
+  // 非 keep 的 PF 行会 orphan 删除；另显式 prune 结算 sid（双保险）
   await writePlatformMatchesAsync(PLATFORM, matches);
 
   let mapBetCount = 0;
@@ -92,6 +127,17 @@ export async function runPredictFunDiscoveryCycle() {
     await syncPlatformBetsForMatchAsync(PLATFORM, mapped.match.SourceMatchID, bets);
   }
   await deleteOrphanPlatformBetsAsync(PLATFORM, keepIds);
+
+  let settlePruned = 0;
+  if (forceDeleteIds.length) {
+    try {
+      const deleted = await prunePredictFunPlatformMatches({ forceDeleteIds });
+      settlePruned = Array.isArray(deleted) ? deleted.length : 0;
+    }
+    catch (err) {
+      console.warn("[predictfun-collector] settle prune failed:", err?.message || err);
+    }
+  }
 
   // 开赛早于采集 past 窗（默认 6h）：全平台 prune
   let pastPruned = 0;
@@ -124,6 +170,9 @@ export async function runPredictFunDiscoveryCycle() {
     mapBets: mapBetCount,
     raw: rawCategories.length,
     esport: esportCategories.length,
-    inWindow: filtered.length,
+    inWindow: inWindow.length,
+    open: filtered.length,
+    excluded: forceDeleteIds.length,
+    settlePruned,
   };
 }

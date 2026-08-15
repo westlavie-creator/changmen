@@ -28,6 +28,8 @@ VPS 守护进程：Predict.fun **REST discovery（唯一权威）** → `platfor
 
 Discovery 按 `tagIds=83`（Esports）拉取 `ESPORTS_LOL` / `ESPORTS_CS2` 等；**不再**默认 `SPORTS_TEAM_MATCH`（那是 MLB）。过滤后 0 条时**不 clear** `platform_*`。
 
+**结束门控（源头）**：`category.status` 赛后常仍为 `OPEN`。当全场 **Match Winner** 为 `PRICE_PROPOSED` / `RESOLVED` / `SETTLED`（或 `tradingStatus=CLOSED`）时**停写**并 `prunePredictFunPlatformMatches`，避免已结束场继续喂合场。
+
 本机同步 key：`node scripts/sync/sync-predictfun-key-remote.mjs <host>`。
 
 ## 数据流

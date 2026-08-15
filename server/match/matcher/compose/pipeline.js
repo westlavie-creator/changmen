@@ -15,6 +15,7 @@ import { dedupeRowsById } from "./ids/dedupe_rows.js";
 import { resolveIdsDryRun, resolveIdsForWrite } from "./ids/resolve_ids.js";
 import {
   buildEndedAtByClientId,
+  buildEndedPmSportByPolymarketLink,
   buildPmSportByClientId,
   filterActiveClientMatches,
 } from "./shape/ended_filter.js";
@@ -212,12 +213,16 @@ export function runEndPass(info, snapshot, opts = {}) {
   const endedAtByClientId = fromVenuesOnly
     ? new Map()
     : buildEndedAtByClientId(clientRows);
+  const endedPmSportByPolymarketLink = fromVenuesOnly
+    ? new Map()
+    : buildEndedPmSportByPolymarketLink(clientRows);
 
   const ended = filterActiveClientMatches(info || [], {
     platformMatches: matches,
     timersByProvider: timers,
     pmSportByClientId,
     endedAtByClientId,
+    endedPmSportByPolymarketLink,
   });
 
   return {

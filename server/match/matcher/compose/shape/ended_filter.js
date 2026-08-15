@@ -134,6 +134,86 @@ function isPmConfirmEnded(link, pmSport, startMs, now) {
   return true;
 }
 
+/**
+ * 已 ended 且 pm_sport 确认结束的馆源 → `"Platform:sourceId"`。
+ * （Match 层剔除复活源用；当前 pipeline 未挂接，避免与 activeGap 竞态。）
+ */
+export function buildEndedSourceTombstones(clientRows) {
+  const out = new Set();
+  for (const row of clientRows || []) {
+    const ended = row?.ended_at ?? row?.endedAt;
+    if (ended == null || ended === "")
+      continue;
+    const pmSport = row?.pm_sport ?? row?.PmSport;
+    const matchs = row?.matchs ?? row?.Matchs ?? {};
+    const pmLink = matchs?.Polymarket;
+    // 有 PM：须 pm_sport 身份一致且已结束，才整场馆源进墓碑
+    if (pmLink != null && pmLink !== "") {
+      if (!isPmSportEnded(pmSport) || !pmSportMatchesLink(pmLink, pmSport))
+        continue;
+    }
+    else if (!isPmSportEnded(pmSport)) {
+      // 无 PM 链接时不靠 pm_sport 墓碑（避免误伤）
+      continue;
+    }
+    for (const [platform, sourceId] of Object.entries(matchs || {})) {
+      const sid = String(sourceId ?? "").trim();
+      if (!platform || !sid)
+        continue;
+      out.add(`${platform}:${sid}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * 历史 ended 行上、已确认结束的 pm_sport，按 Polymarket eventId 索引。
+ * 新活跃行 pm_sport 为空时，endPass 可跨行认终态（防幽灵复活）。
+ */
+export function buildEndedPmSportByPolymarketLink(clientRows) {
+  const out = new Map();
+  for (const row of clientRows || []) {
+    const ended = row?.ended_at ?? row?.endedAt;
+    if (ended == null || ended === "")
+      continue;
+    const pmSport = row?.pm_sport ?? row?.PmSport;
+    if (!isPmSportEnded(pmSport))
+      continue;
+    const matchs = row?.matchs ?? row?.Matchs ?? {};
+    const link = matchs?.Polymarket;
+    if (link == null || link === "")
+      continue;
+    if (!pmSportMatchesLink(link, pmSport))
+      continue;
+    const key = String(link).trim();
+    const endedMs = Number(ended) || 0;
+    const prev = out.get(key);
+    if (!prev || endedMs >= (Number(prev._endedAt) || 0))
+      out.set(key, { ...pmSport, _endedAt: endedMs });
+  }
+  return out;
+}
+
+/** 从 matches 去掉墓碑馆源（原地）。@returns {number} 清除条数
+ *  当前未挂 pipeline：先 strip 会导致活跃幽灵进 activeGap 而关不掉。
+ */
+export function stripTombstonedPlatformSources(matches, tombstones) {
+  if (!matches || !tombstones?.size)
+    return 0;
+  let cleared = 0;
+  for (const [platform, byId] of Object.entries(matches)) {
+    if (!byId || typeof byId !== "object")
+      continue;
+    for (const sid of Object.keys(byId)) {
+      if (!tombstones.has(`${platform}:${sid}`))
+        continue;
+      delete byId[sid];
+      cleared += 1;
+    }
+  }
+  return cleared;
+}
+
 function isObConfirmEnded(row, platformMatches, timersByProvider) {
   const hasOb = row?.Matchs?.OB != null && row.Matchs.OB !== "";
   if (!hasOb)
@@ -218,6 +298,7 @@ export function filterActiveClientMatches(list, ctx = {}) {
     timersByProvider = {},
     pmSportByClientId,
     endedAtByClientId,
+    endedPmSportByPolymarketLink,
     now = Date.now(),
   } = ctx;
   const kept = [];
@@ -228,10 +309,15 @@ export function filterActiveClientMatches(list, ctx = {}) {
     const stickyEnded = Number.isFinite(id)
       && endedAtByClientId?.has(id)
       && endedAtByClientId.get(id) != null;
-    const pmSport = (Number.isFinite(id) && pmSportByClientId?.get(id))
+    const pmLink = row?.Matchs?.Polymarket ?? row?.matchs?.Polymarket;
+    const ownPm = (Number.isFinite(id) && pmSportByClientId?.get(id))
       || row?.PmSport
       || row?.pm_sport
       || null;
+    const inherited = (!ownPm && pmLink != null && pmLink !== ""
+      && endedPmSportByPolymarketLink?.get(String(pmLink)))
+      || null;
+    const pmSport = ownPm || inherited || null;
     if (stickyEnded || isClientMatchEnded(row, platformMatches, timersByProvider, now, pmSport)) {
       endedCount++;
       endedList.push(row);

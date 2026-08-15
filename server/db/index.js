@@ -96,6 +96,7 @@ export const {
   writePlatformMatches,
   writePlatformMatchesAsync,
   prunePolymarketPlatformMatches,
+  prunePredictFunPlatformMatches,
   prunePlatformMatchesByStartBefore,
   markClientMatchesEndedByStartBefore,
   pruneMatchesOlderThanTwoDays,

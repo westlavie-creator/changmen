@@ -3,6 +3,8 @@ import { describe, it } from "vitest";
 import {
   filterActiveClientMatches,
   isClientMatchEnded,
+  buildEndedPmSportByPolymarketLink,
+  buildEndedSourceTombstones,
 } from "../compose/shape/ended_filter.js";
 import { filterMultiPlatform } from "../compose/shape/live_shape.js";
 
@@ -129,5 +131,57 @@ describe("ended_filter + multi platform", () => {
       ),
       false,
     );
+  });
+
+  it("inherits ended pm_sport by Polymarket link when active row has null pm_sport", () => {
+    const now = Date.now();
+    const row = {
+      ID: 1855,
+      StartTime: now - 4 * 3600 * 1000,
+      Round: 0,
+      Matchs: { Polymarket: "831247", PredictFun: "300365" },
+      Bets: [],
+    };
+    const platformMatches = {
+      Polymarket: { "831247": { SourceMatchID: "831247" } },
+      PredictFun: { "300365": { SourceMatchID: "300365" } },
+    };
+    assert.equal(isClientMatchEnded(row, platformMatches, {}, now, null), false);
+    const inherited = { ended: true, status: "finished", eventId: "831247", _endedAt: now - 3600_000 };
+    const { list, endedCount } = filterActiveClientMatches([row], {
+      platformMatches,
+      endedPmSportByPolymarketLink: new Map([["831247", inherited]]),
+      now,
+    });
+    assert.equal(endedCount, 1);
+    assert.equal(list.length, 0);
+  });
+
+  it("buildEndedPmSportByPolymarketLink indexes confirmed ended history", () => {
+    const map = buildEndedPmSportByPolymarketLink([
+      {
+        id: 1808,
+        ended_at: 1000,
+        matchs: { Polymarket: "831247", PredictFun: "300365" },
+        pm_sport: { ended: true, eventId: "831247", status: "finished" },
+      },
+      {
+        id: 1855,
+        ended_at: null,
+        matchs: { Polymarket: "831247" },
+        pm_sport: null,
+      },
+    ]);
+    assert.equal(map.get("831247")?.ended, true);
+    const tombs = buildEndedSourceTombstones([
+      {
+        id: 1808,
+        ended_at: 1000,
+        matchs: { Polymarket: "831247", PredictFun: "300365" },
+        pm_sport: { ended: true, eventId: "831247" },
+      },
+    ]);
+    assert.equal(tombs.has("Polymarket:831247"), true);
+    assert.equal(tombs.has("PredictFun:300365"), true);
   });
 });

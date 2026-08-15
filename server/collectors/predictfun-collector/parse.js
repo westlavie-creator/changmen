@@ -100,8 +100,70 @@ export function isTradablePredictMarket(market) {
     return false;
   const status = String(market.status ?? "").toUpperCase();
   // 电竞/运动盘：REGISTERED / PRICE_PROPOSED + trading OPEN
+  // 注意：Match Winner 的 PRICE_PROPOSED 表示赛果提案中 → 列表 discovery 另见
+  // isPredictCategoryOpenForCollect（停写），此处仍允许读局盘结算态。
   if (status && !["OPEN", "REGISTERED", "PRICE_PROPOSED"].includes(status))
     return false;
+  return true;
+}
+
+/**
+ * 市场进入结算/提案/关闭：不再适合「未结束比赛」列表。
+ * PRICE_PROPOSED = 官方提案结算价（赛已实质结束，category 仍常为 OPEN）。
+ */
+export function isPredictMarketResolvingOrSettled(market) {
+  if (!market || typeof market !== "object")
+    return false;
+  const status = String(market.status ?? "").toUpperCase();
+  const trading = String(market.tradingStatus ?? "").toUpperCase();
+  if (["RESOLVED", "SETTLED", "PRICE_PROPOSED"].includes(status))
+    return true;
+  if (trading === "CLOSED")
+    return true;
+  return false;
+}
+
+/** 全场 Match Winner（SPORTS_MONEYLINE）；不要求 tradable，便于识别 PRICE_PROPOSED。 */
+export function findPredictMatchWinnerMarket(markets) {
+  const list = Array.isArray(markets) ? markets : [];
+  const moneyline = list.filter(m => String(m?.marketType ?? "") === "SPORTS_MONEYLINE");
+  const byTitle = moneyline.find(
+    m => String(m?.title ?? "").trim().toLowerCase() === "match winner",
+  );
+  if (byTitle)
+    return byTitle;
+  // 旧 dual：每队一盘（title=队名 + market.team），禁止把单队盘当成全场 ML
+  const teamNamed = moneyline.filter(m => String(m?.team?.name ?? "").trim());
+  if (teamNamed.length >= 2)
+    return null;
+  // 仅当全场只剩一块 SPORTS_MONEYLINE 时才回落
+  return moneyline.length === 1 ? moneyline[0] : null;
+}
+
+/**
+ * 源头门控：category 仍 OPEN，但全场盘已提案/结算 → 停采集、可 prune。
+ * - 有 Match Winner：看该盘
+ * - 旧 dual（每队一盘）：两侧都 resolving/settled 才停
+ */
+export function isPredictCategoryOpenForCollect(category) {
+  if (!category || typeof category !== "object")
+    return false;
+  if (String(category.status ?? "").toUpperCase() !== "OPEN")
+    return false;
+  const markets = category.markets ?? [];
+  const ml = findPredictMatchWinnerMarket(markets);
+  if (ml)
+    return !isPredictMarketResolvingOrSettled(ml);
+
+  const dualMl = markets.filter(m =>
+    String(m?.marketType ?? "") === "SPORTS_MONEYLINE"
+    && String(m?.team?.name ?? "").trim(),
+  );
+  if (dualMl.length >= 2) {
+    if (dualMl.every(isPredictMarketResolvingOrSettled))
+      return false;
+    return true;
+  }
   return true;
 }
 

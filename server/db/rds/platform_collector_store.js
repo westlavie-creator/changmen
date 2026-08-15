@@ -742,6 +742,76 @@ export async function prunePolymarketPlatformMatches(opts = {}) {
   }
 }
 
+/**
+ * PredictFun 显式清理：Match Winner 已提案/结算的 category id（forceDeleteIds）。
+ * 与 PM 不同：不做 synced_at stale 扫（PF 写路径已有 orphan 删）。
+ * @param {{ forceDeleteIds?: string[] }} [opts]
+ * @returns {Promise<string[]>} 删除的 source_match_id
+ */
+async function _rdsPrunePredictFunPlatformMatches(pool, opts = {}) {
+  const forceDelete = Array.isArray(opts.forceDeleteIds)
+    ? [...new Set(opts.forceDeleteIds.map(String).filter(Boolean))]
+    : [];
+  if (!forceDelete.length)
+    return [];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const moved = await client.query(
+      `WITH moved AS (
+         DELETE FROM platform_matches
+         WHERE platform = 'PredictFun'
+           AND source_match_id = ANY($1::text[])
+         RETURNING *
+       )
+       INSERT INTO platform_matches_history (
+         platform, source_match_id, source_game_id, start_time, home_id, home,
+         away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
+       )
+       SELECT platform, source_match_id, source_game_id, start_time, home_id, home,
+              away_id, away, bo, is_live, rot_num, teams, synced_at, match_id
+       FROM moved
+       RETURNING source_match_id`,
+      [forceDelete],
+    );
+    const deletedIds = moved.rows.map(r => String(r.source_match_id));
+    if (deletedIds.length) {
+      await client.query(
+        `DELETE FROM platform_bets
+         WHERE platform = 'PredictFun' AND source_match_id = ANY($1::text[])`,
+        [deletedIds],
+      );
+      await client.query(
+        `DELETE FROM live_timers
+         WHERE platform = 'PredictFun' AND source_match_id = ANY($1::text[])`,
+        [deletedIds],
+      );
+    }
+    await client.query("COMMIT");
+    return deletedIds;
+  }
+  catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  }
+  finally {
+    client.release();
+  }
+}
+
+export async function prunePredictFunPlatformMatches(opts = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    return await _rdsPrunePredictFunPlatformMatches(pool, opts);
+  }
+  catch (err) {
+    console.warn("[rds:platform_matches_prune_predictfun]", err.message);
+    throw err;
+  }
+}
+
 /** 开赛早于该阈值的平台赛一律 prune（默认 6h，与 PM/PF 采集主窗 past 一致） */
 export const PLATFORM_MATCH_PAST_PRUNE_MS = 6 * 60 * 60 * 1000;
 

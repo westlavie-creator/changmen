@@ -4,7 +4,10 @@ import {
   bestAskFromPredictBook,
   buildPredictMappedMarket,
   decimalOddsFromProbability,
+  findPredictMatchWinnerMarket,
+  isPredictCategoryOpenForCollect,
   isPredictEsportsMoneylineCategory,
+  isPredictMarketResolvingOrSettled,
   mapPredictEsportTag,
   resolvePredictOutcomeBuyProb,
 } from "./parse.js";
@@ -93,6 +96,51 @@ describe("predictfun-collector parse", () => {
 
   it("detects ESPORTS_LOL single-market dual-outcome categories", () => {
     assert.equal(isPredictEsportsMoneylineCategory(SAMPLE_ESPORTS_LOL), true);
+  });
+
+  it("stops collect when Match Winner is PRICE_PROPOSED / RESOLVED (category still OPEN)", () => {
+    assert.equal(isPredictCategoryOpenForCollect(SAMPLE_ESPORTS_LOL), true);
+    assert.equal(
+      isPredictCategoryOpenForCollect({
+        ...SAMPLE_ESPORTS_LOL,
+        markets: [{
+          ...SAMPLE_ESPORTS_LOL.markets[0],
+          status: "PRICE_PROPOSED",
+          tradingStatus: "OPEN",
+        }],
+      }),
+      false,
+    );
+    assert.equal(
+      isPredictCategoryOpenForCollect({
+        ...SAMPLE_ESPORTS_LOL,
+        markets: [{
+          ...SAMPLE_ESPORTS_LOL.markets[0],
+          status: "RESOLVED",
+          tradingStatus: "CLOSED",
+        }],
+      }),
+      false,
+    );
+    assert.equal(isPredictMarketResolvingOrSettled({ status: "REGISTERED", tradingStatus: "OPEN" }), false);
+    assert.equal(isPredictMarketResolvingOrSettled({ status: "PRICE_PROPOSED" }), true);
+    const ml = findPredictMatchWinnerMarket(SAMPLE_ESPORTS_LOL.markets);
+    assert.equal(String(ml?.title), "Match Winner");
+  });
+
+  it("does not treat dual team-named moneyline as Match Winner", () => {
+    assert.equal(findPredictMatchWinnerMarket(SAMPLE_CATEGORY.markets), null);
+    assert.equal(isPredictCategoryOpenForCollect(SAMPLE_CATEGORY), true);
+    assert.equal(
+      isPredictCategoryOpenForCollect({
+        ...SAMPLE_CATEGORY,
+        markets: SAMPLE_CATEGORY.markets.map(m => ({
+          ...m,
+          status: "PRICE_PROPOSED",
+        })),
+      }),
+      false,
+    );
   });
 
   it("builds mapped market with orderbook buy prices", () => {
