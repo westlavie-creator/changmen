@@ -49,6 +49,7 @@ export function buildPbCollectMatchDto(row: PbParsedMatch): CollectMatchDto {
       },
     ],
     ...(row.rotNum ? { RotNum: row.rotNum } : {}),
+    IsLive: row.isLive ? 1 : 0,
   };
 }
 

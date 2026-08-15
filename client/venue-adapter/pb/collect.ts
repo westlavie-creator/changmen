@@ -6,7 +6,7 @@ import { PB_PLUGIN_REQUIRED_MSG, pbCollectEuroOdds, resolvePbAccount } from "./t
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { PLATFORMS } from "../shared/platforms";
-import { mergeEuroOddsPayloads, parseEuroOddsPayload } from "./parse";
+import { mergeEuroOddsPayloads, parseEuroOddsPayload, stampEuroOddsQueryIsLive } from "./parse";
 import { isPbAllowedSourceGameId } from "./gameFilter";
 import { ingestAndReportPbParsedMatch } from "./markets";
 import { wait } from "@changmen/client-core/shared/wait";
@@ -42,8 +42,12 @@ async function fetchPbEuroOddsMerged(
     pbCollectEuroOdds(account, true),
     pbCollectEuroOdds(account, false),
   ]);
-  const liveData = settled[0].status === "fulfilled" ? settled[0].value : undefined;
-  const prematchData = settled[1].status === "fulfilled" ? settled[1].value : undefined;
+  const liveData = settled[0].status === "fulfilled"
+    ? stampEuroOddsQueryIsLive(settled[0].value as Record<string, unknown>, true)
+    : undefined;
+  const prematchData = settled[1].status === "fulfilled"
+    ? stampEuroOddsQueryIsLive(settled[1].value as Record<string, unknown>, false)
+    : undefined;
   if (settled[0].status === "rejected") {
     console.warn("[PB] euro/odds live failed", settled[0].reason);
   }

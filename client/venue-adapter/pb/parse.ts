@@ -192,6 +192,33 @@ export function pbOddsUrl(gateway: string, isLive = true, now = Date.now()): str
   return `${base}${pbOddsPath(isLive, now)}`;
 }
 
+/** 按 euro/odds 请求参数打标，避免 event 本体缺 live 字段时误判。 */
+export function stampEuroOddsQueryIsLive(
+  payload: Record<string, unknown> | undefined | null,
+  isLive: boolean,
+): Record<string, unknown> | undefined {
+  if (!payload || typeof payload !== "object")
+    return payload ?? undefined;
+  const leagues = payload.leagues;
+  if (!Array.isArray(leagues))
+    return payload;
+  for (const league of leagues) {
+    if (!league || typeof league !== "object")
+      continue;
+    const events = (league as Record<string, unknown>).events;
+    if (!Array.isArray(events))
+      continue;
+    for (const event of events) {
+      if (!event || typeof event !== "object")
+        continue;
+      const row = event as Record<string, unknown>;
+      row.isLive = isLive;
+      row.live = isLive;
+    }
+  }
+  return payload;
+}
+
 /** 合并多次 euro/odds；同 event.id 后写入覆盖。调用方应先 prematch 后 live。 */
 export function mergeEuroOddsPayloads(
   ...payloads: Array<Record<string, unknown>>

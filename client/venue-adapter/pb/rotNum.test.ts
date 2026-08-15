@@ -51,5 +51,24 @@ describe("PB rotNum SaveMatch step1", () => {
     });
     expect(dto.SourceMatchID).toBe("1633896380");
     expect(dto.RotNum).toBe("53830");
+    expect(dto.IsLive).toBe(1);
+  });
+
+  test("buildPbCollectMatchDto sets IsLive=0 for prematch", () => {
+    const dto = buildPbCollectMatchDto({
+      matchId: "1633957560",
+      gameId: "cs2",
+      gameCode: "cs2",
+      gameName: "CS2",
+      leagueName: "T",
+      bo: 3,
+      startTime: 1_700_000_000_000,
+      isLive: false,
+      rotNum: "51066",
+      home: { id: "a", name: "A", englishName: "A" },
+      away: { id: "b", name: "B", englishName: "B" },
+      stages: [],
+    });
+    expect(dto.IsLive).toBe(0);
   });
 });
