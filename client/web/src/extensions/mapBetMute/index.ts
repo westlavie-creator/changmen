@@ -1,5 +1,5 @@
 /**
- * [changmen 扩展] 地图4+折叠禁下（UI + executeArbBet 早退）。
+ * [changmen 扩展] 地图3+折叠禁下（UI + executeArbBet 早退）。
  */
 
 export {

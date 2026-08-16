@@ -1,11 +1,11 @@
 /**
- * [changmen 扩展] 用户折叠地图4+盘口：禁止该局自动/手动新开仓。
- * Map 0–3 不可折叠。状态仅 sessionStorage，不进 USERCONFIG / 服务端。
+ * [changmen 扩展] 用户折叠地图3+盘口：禁止该局自动/手动新开仓。
+ * Map 0–2 不可折叠。状态仅 sessionStorage，不进 USERCONFIG / 服务端。
  */
 
 import { ref, type Ref } from "vue";
 
-export const MIN_FOLDABLE_MAP = 4;
+export const MIN_FOLDABLE_MAP = 3;
 export const MAP_BET_MUTE_SESSION_KEY = "MapBetMute";
 
 const mutedKeys: Ref<Set<string>> = ref(new Set());

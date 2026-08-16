@@ -51,7 +51,7 @@ describe("executeArbBet orchestration", () => {
     resetMapBetMuteForTests();
   });
 
-  it("[changmen 扩展] 折叠地图4+ 时不进 prepare", async () => {
+  it("[changmen 扩展] 折叠地图3+ 时不进 prepare", async () => {
     toggleMapMute(1, 5);
     await executeArbBet({
       match: { id: 1, liveRound: 0 } as never,
