@@ -63,7 +63,7 @@ const showLiveTimer = computed(() => {
   return lr !== 0 && lr === props.bet.round;
 });
 
-/** [changmen 扩展] 仅 map>=3 且非 live 可折叠；live 与折叠按钮互斥 */
+/** [changmen 扩展] 全场或 map>=3 且非 live 可折叠；live 与折叠按钮互斥 */
 const canFold = computed(() => canFoldMap(props.bet.round) && !showLiveTimer.value);
 const mapMuted = computed(() => {
   void muteKeysRef.value;

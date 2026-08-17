@@ -51,6 +51,18 @@ describe("executeArbBet orchestration", () => {
     resetMapBetMuteForTests();
   });
 
+  it("[changmen 扩展] 折叠全场时不进 prepare", async () => {
+    toggleMapMute(1, 0);
+    await executeArbBet({
+      match: { id: 1, liveRound: 5 } as never,
+      bet: { id: 10, round: 0 } as never,
+      config: createDefaultUserConfig(),
+      setMessage: vi.fn(),
+    });
+    expect(prepareArbAttempt).not.toHaveBeenCalled();
+    expect(recordArbAttemptMetric).not.toHaveBeenCalled();
+  });
+
   it("[changmen 扩展] 折叠地图3+ 时不进 prepare", async () => {
     toggleMapMute(1, 5);
     await executeArbBet({
