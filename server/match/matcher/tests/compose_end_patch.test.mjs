@@ -99,4 +99,41 @@ describe("M1 resolveComposeEndPatch", () => {
     assert.deepEqual(markEndedIds, []);
     assert.deepEqual(activeGaps, [1669]);
   });
+
+  it("empty platformMatches {} (fetch fail / blank snapshot) never mass-ends past-grace gaps", () => {
+    const now = Date.now();
+    const { markEndedIds, activeGaps } = resolveComposeEndPatch({
+      previousActiveIds: [1, 2, 3],
+      info: [],
+      endedRows: [],
+      clientRows: [
+        { id: 1, start_time: now - ALL_SOURCES_GONE_MS - 60_000, matchs: { OB: "a" } },
+        { id: 2, start_time: now - ALL_SOURCES_GONE_MS - 120_000, matchs: { RAY: "b" } },
+        { id: 3, start_time: now - ALL_SOURCES_GONE_MS - 180_000, matchs: { PB: "c" } },
+      ],
+      // fetchPlatformMatches 失败时返回 {}，与「真的零馆源」不可区分
+      platformMatches: {},
+      now,
+    });
+    assert.deepEqual(markEndedIds, []);
+    assert.deepEqual(activeGaps, [1, 2, 3]);
+  });
+
+  it("empty platform buckets (OB:{}) still treated as blank snapshot", () => {
+    const now = Date.now();
+    const { markEndedIds, activeGaps } = resolveComposeEndPatch({
+      previousActiveIds: [7],
+      info: [],
+      endedRows: [],
+      clientRows: [{
+        id: 7,
+        start_time: now - ALL_SOURCES_GONE_MS - 60_000,
+        matchs: { OB: "gone" },
+      }],
+      platformMatches: { OB: {}, RAY: {} },
+      now,
+    });
+    assert.deepEqual(markEndedIds, []);
+    assert.deepEqual(activeGaps, [7]);
+  });
 });
