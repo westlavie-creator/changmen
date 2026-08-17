@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import type { PlatformAccount } from "@/models/platformAccount";
 import { ElMessageBox } from "element-plus";
+import { computed } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
+import {
+  ensurePmVaultUnlocked,
+  normalizePmVaultUserId,
+  pmAccountShowsUnlockPending,
+} from "@/security/pmVault";
+import { useUserStore } from "@/stores/userStore";
 
-defineProps<{
+const props = defineProps<{
   account: PlatformAccount;
   readonly?: boolean;
   preview?: boolean;
 }>();
+
+const userStore = useUserStore();
+
+const pmNeedsUnlock = computed(() => {
+  if (props.preview)
+    return false;
+  return pmAccountShowsUnlockPending(props.account, userStore.userId);
+});
 
 const emit = defineEmits<{
   refresh: [];
@@ -15,6 +30,15 @@ const emit = defineEmits<{
   money: [];
   remove: [];
 }>();
+
+async function promptPmVaultUnlock() {
+  if (!pmNeedsUnlock.value || props.preview)
+    return;
+  const uid = normalizePmVaultUserId(useUserStore().userId);
+  if (!uid)
+    return;
+  await ensurePmVaultUnlocked(uid);
+}
 
 function formatBalance(value?: number) {
   if (value === undefined || Number.isNaN(value))
@@ -65,6 +89,7 @@ async function confirmRemove() {
       {
         pause: account.isPause(),
         loading: account.loadingBalance,
+        'vault-locked': pmNeedsUnlock,
       },
     ]"
   >
@@ -83,17 +108,30 @@ async function confirmRemove() {
         error: account.balance === undefined,
         stale: account.balance !== undefined && account.balanceStale,
       }"
-      :title="account.balanceStale ? '刷新失败，显示上次余额' : undefined"
+      :title="pmNeedsUnlock ? '本机钱包未解锁，鼠标移入后点钥匙按钮解锁' : account.balanceStale ? '刷新失败，显示上次余额' : undefined"
     >
       <label class="currency">
         {{ account.currency || 'CNY' }}
       </label>
-      <template v-if="account.balance !== undefined">
+      <template v-if="account.balance !== undefined && !pmNeedsUnlock">
         {{ formatBalance(account.balance) }}
       </template>
     </div>
 
+    <div v-if="pmNeedsUnlock" class="vault-unlock-hint">
+      待解锁
+    </div>
+
     <div v-if="!readonly || preview" class="toolbar flex flex-wrap flex-center flex-middle">
+      <el-button
+        v-if="pmNeedsUnlock"
+        title="解锁本机钱包"
+        size="small"
+        type="warning"
+        class="am-icon-key vault-unlock-btn"
+        :disabled="preview"
+        @click="promptPmVaultUnlock"
+      />
       <el-button
         title="刷新"
         size="small"

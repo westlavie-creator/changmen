@@ -12,6 +12,15 @@ export {
   stripPrivateKeysForPersist,
 } from "./accounts";
 export {
+  applyPmVaultBalanceGate,
+  pmAccountShowsUnlockPending,
+  pmVaultAccountUi,
+  refreshPmVaultAccountUi,
+  refreshPmVaultAccountUiFromStore,
+  resetPmVaultAccountUi,
+  touchPmVaultAccountUiSession,
+} from "./accountUiStatus";
+export {
   pmVaultUi,
   lockPmVault,
   isPmVaultUnlocked,

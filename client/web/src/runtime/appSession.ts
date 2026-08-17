@@ -10,7 +10,7 @@ import { useMessageStore } from "@/stores/messageStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
-import { lockPmVault } from "@/security/pmVault";
+import { lockPmVault, resetPmVaultAccountUi } from "@/security/pmVault";
 
 async function applyPmTransportRoutingOnLogin(): Promise<void> {
   try {
@@ -120,6 +120,7 @@ export function stopAppSession(): void {
   void resetPmTransportRoutingOnLogout();
   void resetPfTransportRoutingOnLogout();
   lockPmVault();
+  resetPmVaultAccountUi();
   stopSessionRuntime();
   teardownArbRuntimeSync();
   useMessageStore().stop();

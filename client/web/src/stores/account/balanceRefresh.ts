@@ -124,6 +124,17 @@ export async function refreshAccountBalance(
   account.loadingBalance = true;
   const hadBalance = account.balance !== undefined;
   try {
+    const providerId = String(account.provider ?? "").toLowerCase();
+    if (providerId === "polymarket" && account.accountId) {
+      const { normalizePmVaultUserId, pmAccountShowsUnlockPending } = await import("@/security/pmVault");
+      const { useUserStore } = await import("@/stores/userStore");
+      const uid = normalizePmVaultUserId(useUserStore().userId);
+      if (uid && pmAccountShowsUnlockPending(account, uid)) {
+        account.balance = undefined;
+        account.balanceStale = false;
+        return;
+      }
+    }
     const result = await fetchVenueBalance(account);
     if (result) {
       account.balance = result.balance;

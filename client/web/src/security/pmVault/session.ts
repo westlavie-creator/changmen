@@ -2,7 +2,7 @@
  * 本机 PM 钱包会话：解锁后内存持钥；logout / 关页清空
  */
 
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import {
   base64ToBytes,
   bytesToBase64,
@@ -66,6 +66,17 @@ interface SessionState {
 
 let session: SessionState | null = null;
 
+/** 供 Vue 订阅 session 变更（session 本身非响应式） */
+export const pmVaultSessionRev = ref(0);
+
+function notifyPmVaultSessionChanged(): void {
+  pmVaultSessionRev.value += 1;
+  void import("./accountUiStatus").then((m) => {
+    m.touchPmVaultAccountUiSession(session?.userId);
+    void m.refreshPmVaultAccountUiFromStore();
+  });
+}
+
 /** 规范化 vault 用的 userId；未登录返回空串 */
 export function normalizePmVaultUserId(userId: unknown): string {
   if (userId == null)
@@ -105,6 +116,7 @@ export function lockPmVault(): void {
     setupWaiter.resolve(false);
     setupWaiter = null;
   }
+  notifyPmVaultSessionChanged();
 }
 
 export function getCachedPrivateKey(accountId: number): string | undefined {
@@ -162,6 +174,7 @@ export async function setupPmVault(userId: string, password: string): Promise<vo
     plainByAccountId: new Map(),
     unlockedAt: now,
   };
+  notifyPmVaultSessionChanged();
 }
 
 export async function unlockPmVault(userId: string, password: string): Promise<void> {
@@ -186,6 +199,7 @@ export async function unlockPmVault(userId: string, password: string): Promise<v
     plainByAccountId: plain,
     unlockedAt: Date.now(),
   };
+  notifyPmVaultSessionChanged();
 }
 
 export async function changePmVaultPassword(
@@ -251,6 +265,7 @@ export async function changePmVaultPassword(
     plainByAccountId: new Map(entries),
     unlockedAt: now,
   };
+  notifyPmVaultSessionChanged();
 }
 
 export async function putPrivateKeyInVault(
@@ -278,6 +293,7 @@ export async function putPrivateKeyInVault(
     updatedAt: Date.now(),
   });
   session.plainByAccountId.set(id, pk);
+  notifyPmVaultSessionChanged();
 }
 
 export async function vaultHasKey(userId: string, accountId: number): Promise<boolean> {
@@ -372,6 +388,8 @@ export function completePmVaultUnlock(ok: boolean): void {
   const success = ok && isPmVaultUnlocked(pmVaultUi.userId);
   if (success)
     void syncUnlockedKeysIntoAccountStore();
+  pmVaultSessionRev.value += 1;
+  void import("./accountUiStatus").then(m => m.refreshPmVaultAccountUiFromStore());
   w?.resolve(success);
 }
 
@@ -385,6 +403,8 @@ export function completePmVaultSetup(ok: boolean): void {
   const success = ok && isPmVaultUnlocked(pmVaultUi.userId);
   if (success)
     void syncUnlockedKeysIntoAccountStore();
+  pmVaultSessionRev.value += 1;
+  void import("./accountUiStatus").then(m => m.refreshPmVaultAccountUiFromStore());
   w?.resolve(success);
 }
 

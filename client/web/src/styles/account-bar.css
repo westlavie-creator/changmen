@@ -81,6 +81,19 @@
   content:" · 待刷新";font-size:11px;opacity:.85;margin-left:2px;
 }
 
+/* [changmen 扩展] PM 本机钱包未解锁：余额区 TOKEN ERROR，下方单独提示 */
+.providers .account .vault-unlock-hint {
+  color:var(--cm-color-warning);font-size:11px;line-height:1.2;margin-top:-2px;padding-bottom:2px;
+}
+
+.providers .account.vault-locked {
+  border-color:var(--cm-color-warning);
+}
+
+.providers .account .toolbar .vault-unlock-btn {
+  font-weight:600;
+}
+
 .providers .account .toolbar {
   position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;visibility:hidden;
 }

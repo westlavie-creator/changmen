@@ -17,6 +17,7 @@ import {
   mergeVaultKeysIntoAccounts,
   migrateTokenPrivateKeysToVault,
   normalizePmVaultUserId,
+  refreshPmVaultAccountUi,
   stripPrivateKeysForPersist,
 } from "@/security/pmVault";
 import { useUserStore } from "@/stores/userStore";
@@ -91,6 +92,14 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
       }
     }
     void warmPolymarketUserWsFromAccounts(store.accounts);
+    if (userId) {
+      try {
+        await refreshPmVaultAccountUi(store.accounts, userId);
+      }
+      catch {
+        /* IDB 不可用时跳过 */
+      }
+    }
   }
   finally {
     store.loading = false;
