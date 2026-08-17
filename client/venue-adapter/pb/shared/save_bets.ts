@@ -5,6 +5,8 @@ export interface PbStageSnapshot {
   winHomeId: string;
   winAwayId: string;
   winMarketId: string;
+  /** euro/odds moneyLine.lineId；写入 SaveBet.LineID */
+  winLineId?: number;
   winLocked: boolean;
   betName: string;
 }
@@ -29,6 +31,8 @@ export interface PbSaveBetRow {
   AwayName: string;
   AwayOdds: number;
   Status: string;
+  /** [changmen 扩展] 见 CollectBetDto.LineID */
+  LineID?: number;
 }
 
 export interface PbFoOddEntry {
@@ -62,6 +66,7 @@ export function pbStageToSaveBetRow(
   stage: PbStageSnapshot,
   platform = "PB",
 ): PbSaveBetRow {
+  const lineId = Number(stage.winLineId) || 0;
   return {
     Type: platform,
     SourceMatchID: match.matchId,
@@ -75,6 +80,7 @@ export function pbStageToSaveBetRow(
     AwayName: match.away.name,
     AwayOdds: stage.winAway,
     Status: stage.winLocked ? "Locked" : "Normal",
+    ...(lineId > 0 ? { LineID: lineId } : {}),
   };
 }
 

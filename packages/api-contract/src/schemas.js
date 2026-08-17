@@ -71,7 +71,8 @@ const GetMatchsBetSourceOutbound = z.object({
   AwayOdds: z.number().optional(),
   Status: z.string().optional(),
   HomeMarketID: z.string().optional(),
-  AwayMarketID: z.string().optional()
+  AwayMarketID: z.string().optional(),
+  LineID: z.union([z.string(), z.number()]).optional()
 }).passthrough();
 const GetMatchsBetRowOutbound = z.object({
   Map: z.union([z.string(), z.number()]).optional(),

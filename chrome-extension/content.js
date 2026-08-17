@@ -70,6 +70,12 @@
           panel.remove();
           return;
         }
+        if (config.error) {
+          alert(String(config.error));
+          icon.classList.remove("hide");
+          panel.remove();
+          return;
+        }
       } finally {
         panel.classList.remove("loading");
       }
@@ -3600,6 +3606,77 @@
     };
   }
 
+  // src/content/pb-credential.js
+  function validatePbLocalStorageSnapshot(snapshot) {
+    const store = snapshot && typeof snapshot === "object" ? snapshot : {};
+    const appRaw = store["x-app-data"];
+    if (!appRaw) {
+      return "\u7F3A\u5C11 x-app-data\uFF1A\u8BF7\u5728\u5DF2\u767B\u5F55\u7684\u5E73\u535A\u9875\u518D\u590D\u5236";
+    }
+    let app;
+    try {
+      app = JSON.parse(appRaw);
+    } catch {
+      return "x-app-data \u65E0\u6CD5\u89E3\u6790\uFF1A\u8BF7\u5237\u65B0\u5E73\u535A\u9875\u540E\u91CD\u8BD5";
+    }
+    if (!app || typeof app !== "object") {
+      return "x-app-data \u65E0\u6548\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236";
+    }
+    let suffix = null;
+    for (const key of Object.keys(app)) {
+      const m = key.match(/^BrowserSessionId_(\d+)$/);
+      if (m) {
+        suffix = m[1];
+        break;
+      }
+    }
+    if (suffix == null) {
+      for (const key of Object.keys(app)) {
+        const m = key.match(/^custid_(\d+)$/);
+        if (m) {
+          suffix = m[1];
+          break;
+        }
+      }
+    }
+    const plain = Boolean(app.BrowserSessionId || app.custid);
+    if (suffix) {
+      if (!app[`BrowserSessionId_${suffix}`]) {
+        return `\u7F3A\u5C11 BrowserSessionId_${suffix}\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236`;
+      }
+      if (!app[`custid_${suffix}`] && !store[`custid_${suffix}`]) {
+        return `\u7F3A\u5C11 custid_${suffix}\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236`;
+      }
+    } else if (plain) {
+      if (!app.BrowserSessionId) {
+        return "\u7F3A\u5C11 BrowserSessionId\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236";
+      }
+      if (!app.custid) {
+        return "\u7F3A\u5C11 custid\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236";
+      }
+    } else {
+      return "\u672A\u8BC6\u522B\u5230\u767B\u5F55\u4F1A\u8BDD\uFF08BrowserSessionId / custid\uFF09\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236";
+    }
+    let inner;
+    try {
+      inner = JSON.parse(store.token || "");
+    } catch {
+      inner = null;
+    }
+    if (!inner || typeof inner !== "object" || Array.isArray(inner)) {
+      return "\u7F3A\u5C11\u5185\u5C42 token\uFF08\u542B X-U\uFF09\uFF1A\u4F1A\u8BDD\u672A\u5199\u5168\uFF0C\u8BF7\u5237\u65B0/\u91CD\u65B0\u767B\u5F55\u5E73\u535A\u540E\u518D\u590D\u5236\uFF08\u5426\u5219\u9884\u68C0\u4F1A 403\uFF09";
+    }
+    if (suffix) {
+      const xu = inner[`X-U-${suffix}`] || inner[`x-u-${suffix}`] || inner["X-U"] || inner["x-u"];
+      if (!String(xu || "").trim()) {
+        return `\u7F3A\u5C11\u5185\u5C42 X-U-${suffix}\uFF08\u6216 X-U\uFF09\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236\uFF08\u5426\u5219\u9884\u68C0\u4F1A 403\uFF09`;
+      }
+    } else if (!String(inner["X-U"] || inner["x-u"] || "").trim()) {
+      return "\u7F3A\u5C11\u5185\u5C42 X-U\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236\uFF08\u5426\u5219\u9884\u68C0\u4F1A 403\uFF09";
+    }
+    return null;
+  }
+
   // src/content/providers.js
   var IM_PATH = /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
   var IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
@@ -3907,6 +3984,10 @@
           const key = localStorage.key(i);
           if (key) snapshot[key] = localStorage.getItem(key) ?? "";
         }
+        const credentialError = validatePbLocalStorageSnapshot(snapshot);
+        if (credentialError) {
+          return { error: credentialError };
+        }
         const payload = {
           provider: PLATFORMS.PB,
           gateway: `https://${location.host}`,
@@ -4149,6 +4230,126 @@
     const contentType = response.headers.get("content-type") || "";
     const data = contentType.includes("json") ? await response.json() : await response.text();
     return { data, status: response.status, statusText: response.statusText };
+  }
+
+  // src/content/pb/hosts.js
+  var PB_HOST_RE = /(^|\.)(part888|ps3838)\.com$/i;
+  function isPbSportsHost(hostname = location.hostname) {
+    return PB_HOST_RE.test(String(hostname || ""));
+  }
+  function isPbWsTopFrame() {
+    try {
+      return window === window.top;
+    } catch {
+      return true;
+    }
+  }
+
+  // src/content/pb/init.js
+  var ENABLED_KEY = "pbWsObserveEnabled";
+  var SOURCE = "cm-pb-ws";
+  var FILTER_KEY = "pbWsFilterMatchMapMl";
+  var listening = false;
+  var enabled = true;
+  var filterMatchMapMl = true;
+  var lastBoard = [];
+  var lastPhase = "off";
+  function postCmd(cmd, extra = {}) {
+    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, ...extra }, "*");
+  }
+  function publishStatus(status) {
+    try {
+      chrome.runtime.sendMessage({
+        type: "pbWsObserveStatus",
+        status: {
+          host: location.hostname,
+          href: location.pathname,
+          mode: "hook",
+          ...status,
+          updatedAt: Date.now()
+        }
+      });
+    } catch {
+    }
+  }
+  function onPageMessage(ev) {
+    if (ev.source !== window) return;
+    const data = ev.data;
+    if (!data || data.source !== SOURCE) return;
+    if (data.kind !== "status") return;
+    const clearClose = data.phase === "hooked" || data.phase === "connected" || data.phase === "hook_start";
+    const status = {
+      running: enabled,
+      connected: data.connected === true,
+      readyState: data.readyState,
+      phase: data.phase || "hook",
+      vssid: data.vssid || "",
+      frameCount: data.frameCount,
+      lastType: data.lastType || "",
+      lastDestination: data.lastDestination || "",
+      lastClose: clearClose ? null : data.lastClose,
+      lastError: clearClose ? "" : data.lastClose ? `page_ws_close ${data.lastClose.code}` : "",
+      subscribedOut: data.subscribedOut,
+      inboundDest: data.inboundDest,
+      inboundTypeCount: data.inboundTypeCount,
+      checklist: data.checklist,
+      filterMatchMapMl: data.filterMatchMapMl
+    };
+    if (Array.isArray(data.latestOdds)) {
+      status.latestOdds = data.latestOdds;
+      lastBoard = data.latestOdds;
+    }
+    if (typeof data.phase === "string" && data.phase) lastPhase = data.phase;
+    publishStatus(status);
+  }
+  function ensureListening() {
+    if (listening) return;
+    listening = true;
+    window.addEventListener("message", onPageMessage);
+  }
+  async function ensureObserve(on) {
+    enabled = on;
+    ensureListening();
+    if (!on) {
+      lastBoard = [];
+      lastPhase = "off";
+      postCmd("stop");
+      publishStatus({ running: false, connected: false, phase: "off", latestOdds: [] });
+      console.info("[PB WS] observe stopped (hook)");
+      return;
+    }
+    chrome.runtime.sendMessage(
+      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.PB } },
+      () => {
+      }
+    );
+    publishStatus({ running: true, connected: false, phase: "hook_start", filterMatchMapMl });
+    postCmd("start", { filterMatchMapMl });
+    console.info("[PB WS] observe start (hook page WS, light)");
+  }
+  function initPbWsObserve() {
+    if (!isPbSportsHost() || !isPbWsTopFrame()) return;
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type !== "pbWsObserveBoardGet") return false;
+      sendResponse({ latestOdds: lastBoard, phase: lastPhase });
+      return true;
+    });
+    chrome.storage.local.get([ENABLED_KEY, FILTER_KEY], (items) => {
+      if (typeof items?.[FILTER_KEY] === "boolean") {
+        filterMatchMapMl = items[FILTER_KEY];
+      }
+      void ensureObserve(items?.[ENABLED_KEY] !== false);
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local") return;
+      if (changes[FILTER_KEY]) {
+        filterMatchMapMl = changes[FILTER_KEY].newValue !== false;
+        if (enabled) postCmd("setFilter", { filterMatchMapMl });
+      }
+      if (changes[ENABLED_KEY]) {
+        void ensureObserve(changes[ENABLED_KEY].newValue !== false);
+      }
+    });
   }
 
   // src/content/config.js
@@ -4522,6 +4723,7 @@
     initDexPage((handler) => {
       registerTabHandler(PLATFORMS.Dex, handler);
     });
+    initPbWsObserve();
     const startDetect = () => void detectAndMountCollectUi();
     if (document.body) {
       startDetect();

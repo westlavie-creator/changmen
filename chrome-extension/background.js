@@ -3284,6 +3284,63 @@
 
   // src/background/index.js
   var MANIFEST = chrome.runtime.getManifest();
+  var PB_WS_STATUS_KEY = "pbWsObserve";
+  var PB_WS_ENABLED_KEY = "pbWsObserveEnabled";
+  var PB_WS_BOARD_KEY = "pbWsLatestOdds";
+  var PB_WS_MAX_RECENT = 40;
+  async function appendPbWsFrame(frame) {
+    const bag = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]);
+    const cur = bag?.[PB_WS_STATUS_KEY] || {};
+    const boardCards = bag?.[PB_WS_BOARD_KEY]?.cards;
+    const recent = Array.isArray(cur.recent) ? cur.recent.slice() : [];
+    recent.push(frame);
+    while (recent.length > PB_WS_MAX_RECENT) recent.shift();
+    const next = {
+      ...cur,
+      recent,
+      frameCount: (cur.frameCount || 0) + 1,
+      lastType: frame?.type || cur.lastType,
+      updatedAt: Date.now()
+    };
+    if (Array.isArray(boardCards)) next.latestOdds = boardCards;
+    await storageSet({ [PB_WS_STATUS_KEY]: next });
+  }
+  async function mergePbWsStatus(status) {
+    const cur = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]) || {};
+    const curStatus = cur?.[PB_WS_STATUS_KEY] || {};
+    const curBoard = cur?.[PB_WS_BOARD_KEY];
+    const next = {
+      ...curStatus,
+      ...status,
+      recent: curStatus.recent || [],
+      updatedAt: Date.now()
+    };
+    if (!Array.isArray(status?.latestOdds)) {
+      if (Array.isArray(curStatus.latestOdds)) next.latestOdds = curStatus.latestOdds;
+      else delete next.latestOdds;
+    } else {
+      const incomingSeq = Number(status.boardSeq) || 0;
+      const curSeq = Number(curStatus.boardSeq) || Number(curBoard?.boardSeq) || 0;
+      if (incomingSeq && curSeq && incomingSeq < curSeq) {
+        next.latestOdds = Array.isArray(curBoard?.cards) ? curBoard.cards : curStatus.latestOdds;
+        next.boardSeq = curSeq;
+      }
+    }
+    if (status?.lastClose == null && (status?.phase === "hooked" || status?.phase === "connected" || status?.connected === true)) {
+      next.lastClose = null;
+      if (!status.lastError) next.lastError = "";
+    }
+    const patch = { [PB_WS_STATUS_KEY]: next };
+    const keepIncomingBoard = Array.isArray(status?.latestOdds) && !(Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq));
+    if (keepIncomingBoard) {
+      patch[PB_WS_BOARD_KEY] = {
+        cards: status.latestOdds,
+        updatedAt: Date.now(),
+        boardSeq: Number(status.boardSeq) || 0
+      };
+    }
+    await storageSet(patch);
+  }
   function forwardToTab(message, tabId) {
     return new Promise((resolve, reject) => {
       chrome.tabs.sendMessage(tabId, message, (response) => {
@@ -3368,6 +3425,41 @@
         reply({ type, uuid, response: null });
         return;
       }
+      case "pbWsObserveGet": {
+        const bag = await storageGet([
+          PB_WS_STATUS_KEY,
+          PB_WS_ENABLED_KEY,
+          PB_WS_BOARD_KEY,
+          "PB"
+        ]);
+        const observe = bag?.[PB_WS_STATUS_KEY] || null;
+        const board = bag?.[PB_WS_BOARD_KEY];
+        let latestOdds = Array.isArray(board?.cards) ? board.cards : Array.isArray(observe?.latestOdds) ? observe.latestOdds : [];
+        const tabId = Number(bag?.PB);
+        if (Number.isFinite(tabId) && tabId > 0) {
+          try {
+            const live = await chrome.tabs.sendMessage(tabId, { type: "pbWsObserveBoardGet" });
+            if (Array.isArray(live?.latestOdds) && live.latestOdds.length)
+              latestOdds = live.latestOdds;
+          } catch {
+          }
+        }
+        reply({
+          type,
+          uuid,
+          response: {
+            enabled: bag?.[PB_WS_ENABLED_KEY] !== false,
+            observe: observe ? { ...observe, latestOdds } : { latestOdds }
+          }
+        });
+        return;
+      }
+      case "pbWsObserveSet": {
+        const enabled = message.data?.enabled === true;
+        await storageSet({ [PB_WS_ENABLED_KEY]: enabled });
+        reply({ type, uuid, response: { enabled } });
+        return;
+      }
       default:
         reply({ type, uuid, response: null });
     }
@@ -3378,6 +3470,14 @@
     return true;
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "pbWsObserveFrame") {
+      void appendPbWsFrame(message.frame).then(() => sendResponse({ ok: true }));
+      return true;
+    }
+    if (message?.type === "pbWsObserveStatus") {
+      void mergePbWsStatus(message.status || {}).then(() => sendResponse({ ok: true }));
+      return true;
+    }
     if (message?.type !== "setTab") return false;
     const tabId = sender.tab?.id;
     const key = message.data?.key;
@@ -3396,4 +3496,21 @@
     return true;
   });
   initModifyHeaderListener();
+  async function initActionUi() {
+    if (chrome.sidePanel?.setPanelBehavior) {
+      try {
+        await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+        await chrome.action.setPopup({ popup: "" });
+        return;
+      } catch (err) {
+        console.warn("[sidePanel]", err);
+      }
+    }
+    try {
+      await chrome.action.setPopup({ popup: "popup.html" });
+    } catch (err) {
+      console.warn("[action.setPopup]", err);
+    }
+  }
+  void initActionUi();
 })();

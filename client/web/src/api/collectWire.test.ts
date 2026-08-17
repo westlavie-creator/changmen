@@ -66,7 +66,7 @@ describe("collectWire A8 parity", () => {
     });
   });
 
-  it("toA8SaveBetRow drops changmen-only extensions", () => {
+  it("toA8SaveBetRow drops unrelated extensions but keeps LineID", () => {
     const row = toA8SaveBetRow({
       Type: "OB",
       SourceMatchID: "m1",
@@ -98,6 +98,22 @@ describe("collectWire A8 parity", () => {
       AwayOdds: 2.1,
       Status: "Normal",
     });
+
+    expect(toA8SaveBetRow({
+      Type: "PB",
+      SourceMatchID: "1633896380",
+      Map: 0,
+      SourceBetID: "1633896380:0",
+      BetName: "[全场]-比赛胜负",
+      SourceHomeID: "h",
+      HomeName: "A",
+      HomeOdds: 1.8,
+      SourceAwayID: "a",
+      AwayName: "B",
+      AwayOdds: 2.0,
+      Status: "Normal",
+      LineID: 42,
+    }).LineID).toBe(42);
   });
 
   it("toA8LiveTimerRow keeps three timer fields", () => {

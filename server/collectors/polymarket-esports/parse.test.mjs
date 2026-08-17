@@ -66,6 +66,27 @@ describe("polymarket-esports parse", () => {
     assert.equal(mapped.bet.Status, "Normal");
   });
 
+  it("attaches mapOutcome from outcomePrices on match winner (map 0)", () => {
+    const market = {
+      condition_id: "0xmatch",
+      sportsMarketType: "moneyline",
+      groupItemTitle: "Match Winner",
+      active: true,
+      closed: false,
+      clob_token_ids: '["tok-h","tok-a"]',
+      outcomes: '["T1","GEN"]',
+      outcomePrices: '["0.001","0.999"]',
+      gameStartTime: Date.now() + 600_000,
+      events: [{ id: "evt-ml", title: "T1 vs GEN" }],
+      tags: [{ slug: "lol", label: "LoL" }],
+    };
+    const mapped = buildPolymarketMappedMarket(market, { "tok-h": 0.001, "tok-a": 0.999 });
+    assert.ok(mapped);
+    assert.equal(mapped.bet.Map, 0);
+    assert.equal(mapped.mapOutcome, "away");
+    assert.equal(mapped.outcomeKind, "price");
+  });
+
   it("attaches mapOutcome from outcomePrices on child map market", () => {
     const market = {
       condition_id: "0xmap3",

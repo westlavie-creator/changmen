@@ -38,6 +38,11 @@ export interface CollectBetDto {
   AwayName: string;
   AwayOdds: number;
   Status: "Normal" | "Locked" | string;
+  /**
+   * [changmen 扩展] PB euro/odds moneyLine.lineId。
+   * A8 SaveBet 无此字段；旧前端忽略，仍用本机 lineCache。
+   */
+  LineID?: number;
 }
 
 export interface CollectConfigDto extends Record<string, unknown> {

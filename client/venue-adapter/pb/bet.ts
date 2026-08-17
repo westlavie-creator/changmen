@@ -1,5 +1,5 @@
 import { BetResult } from "@changmen/client-core/models/betResult";
-import { getPbLineId } from "./lineCache";
+import { getPbLineId, setPbLineId } from "./lineCache";
 import { pbPost } from "./transport";
 import { toNumber } from "./parse";
 import { startPbRejectPoll, pbRejectStorageKey } from "./rejectPoll";
@@ -170,11 +170,16 @@ export const pbProvider: PlatformProvider = {
 
   async checkBet(account, option) {
     const itemId = option.itemId;
-    const cachedLine = getPbLineId(option.betId);
+    // 优先 GetMatchs Sources.LineID（新前端）；否则本机 lineCache（旧前端 / 本机刚采过）
+    const fromSource = Number(option.item?.lineId) || 0;
+    const cachedLine = fromSource > 0 ? fromSource : getPbLineId(option.betId);
     if (!cachedLine) {
       option.checkError = `查找line值失败,${option.betId}`;
       return option;
     }
+    // 本机有会话采集时同步刷新 cache，旧路径与旁路一致
+    if (fromSource > 0 && option.betId)
+      setPbLineId(option.betId, fromSource);
 
     const probePath = `/member-betslip/v2/all-odds-selections?locale=zh_CN&_=${Date.now()}&withCredentials=true`;
     const rows = await pbPost<PbOddsSelectionRow[]>(account, probePath, {

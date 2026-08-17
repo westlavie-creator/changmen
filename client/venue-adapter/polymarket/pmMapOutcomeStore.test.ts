@@ -41,6 +41,32 @@ describe("pmMapOutcomeStore", () => {
     expect(lookupResolutionSourceBySourceMatchId("e1")).toBeNull();
   });
 
+  it("indexes match-winner (map 0) outcome the same as map markets", () => {
+    replacePmMapOutcomesFromIndex({
+      updatedAt: 1,
+      assetIds: ["h0", "a0"],
+      entries: [{
+        sourceMatchId: "e1",
+        marketId: "c0",
+        homeTokenId: "h0",
+        awayTokenId: "a0",
+        sourceBetId: "c0",
+        map: 0,
+        homeName: "T1",
+        awayName: "GEN",
+        homeOdds: 1.01,
+        awayOdds: 50,
+        status: "Normal",
+        mapOutcome: "away",
+        outcomeKind: "price",
+      }],
+    });
+    const hit = lookupPmMapOutcomeByToken("h0");
+    expect(hit?.map).toBe(0);
+    expect(hit?.mapOutcome).toBe("away");
+    expect(pmMapOutcomeWinnerLabel(hit!, "T1", "GEN")).toBe("GEN");
+  });
+
   it("keeps first resolutionSource per sourceMatchId across map entries", () => {
     replacePmMapOutcomesFromIndex({
       updatedAt: 1,

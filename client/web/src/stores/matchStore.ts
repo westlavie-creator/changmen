@@ -323,10 +323,16 @@ export const useMatchStore = defineStore("match", {
       }
     },
 
-    async manualBet(match: ViewMatch, bet: ViewBet, item: ViewBetItem, side: BetSide) {
+    async manualBet(
+      match: ViewMatch,
+      bet: ViewBet,
+      item: ViewBetItem,
+      side: BetSide,
+      oddsOverride?: number,
+    ) {
       await runManualBet(match, bet, item, side, {
         setMessage: m => this.setBettingMessage(m),
-      });
+      }, oddsOverride);
     },
 
     /** [changmen 扩展] 点击金色 EV 角标 → 正 EV 确认下单 */

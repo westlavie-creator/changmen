@@ -37,7 +37,7 @@ function stitchMatches() {
   };
 }
 
-/** live 有 Map0；prematch 有 Map2/3（未开图） */
+/** live 有 Map0；prematch 有 Map2/3（未开图）；含 LineID 供 S2 验收 */
 function stitchBets() {
   return {
     [`PB:${LIVE_ID}`]: [{
@@ -49,6 +49,7 @@ function stitchBets() {
       HomeOdds: 1.8,
       AwayOdds: 2.0,
       Status: "Normal",
+      LineID: 10001,
     }],
     [`PB:${PRE_ID}`]: [
       {
@@ -60,6 +61,7 @@ function stitchBets() {
         HomeOdds: 1.9,
         AwayOdds: 1.95,
         Status: "Normal",
+        LineID: 20002,
       },
       {
         Map: 3,
@@ -70,6 +72,7 @@ function stitchBets() {
         HomeOdds: 1.7,
         AwayOdds: 2.1,
         Status: "Normal",
+        LineID: 30003,
       },
     ],
     "OB:ob1": [{
@@ -134,15 +137,39 @@ describe("PB rotNum stitch (Phase B1)", () => {
     assert.ok(map0?.Sources?.PB);
     assert.equal(map0.Sources.PB.BetID, `${LIVE_ID}:0`);
     assert.equal(map0.Sources.PB.HomeID, `${LIVE_ID}|0|1|0|0|0|0`);
+    assert.equal(map0.Sources.PB.LineID, 10001);
 
     const map2 = info[0].Bets.find(b => Number(b.Map) === 2);
     assert.ok(map2?.Sources?.PB, "Map2 should come from prematch sibling");
     assert.equal(map2.Sources.PB.BetID, `${PRE_ID}:2`);
     assert.equal(map2.Sources.PB.HomeID, `${PRE_ID}|2|1|0|0|0|0`);
+    assert.equal(map2.Sources.PB.LineID, 20002, "S2: sibling LineID must project");
 
     const map3 = info[0].Bets.find(b => Number(b.Map) === 3);
     assert.ok(map3?.Sources?.PB);
     assert.equal(map3.Sources.PB.BetID, `${PRE_ID}:3`);
+    assert.equal(map3.Sources.PB.LineID, 30003);
+  });
+
+  it("resolveRawSourceForMap falls back to sibling with LineID", async () => {
+    const { resolveRawSourceForMap } = await import("../compose/sides/project_sources.js");
+    const matches = stitchMatches();
+    const bets = stitchBets();
+    const row = {
+      Matchs: { PB: LIVE_ID },
+      _pbSiblingSourceMatchIds: [PRE_ID],
+    };
+    const hit = resolveRawSourceForMap({
+      platform: "PB",
+      primarySourceMatchId: LIVE_ID,
+      mapNum: 2,
+      bets,
+      matches,
+      row,
+    });
+    assert.equal(hit.sourceMatchId, PRE_ID);
+    assert.equal(hit.raw?.BetID, `${PRE_ID}:2`);
+    assert.equal(hit.raw?.LineID, 20002);
   });
 
   it("COMPOSER_PB_ROTNUM_COLLAPSE=0 disables sibling periods", () => {

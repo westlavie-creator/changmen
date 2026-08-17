@@ -64,6 +64,14 @@ describe("pb save_bets", () => {
     expect(row.Status).toBe("Locked");
     expect(row.HomeOdds).toBe(2.1);
     expect(row.AwayOdds).toBe(1.75);
+    expect(row.LineID).toBeUndefined();
+  });
+
+  test("pbStageToSaveBetRow includes LineID from moneyLine", () => {
+    const { matches } = parseEuroOddsPayload(FIXTURE, { allowedSlugs: ["cs-go"] });
+    const map0 = matches[0].stages.find((s) => s.stageId === 0)!;
+    const row = pbStageToSaveBetRow(matches[0], map0);
+    expect(row.LineID).toBe(42);
   });
 
   test("buildPbSaveBetRowsFromMatch returns one row per stage", () => {

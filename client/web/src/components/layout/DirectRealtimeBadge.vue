@@ -72,8 +72,13 @@ const VENUE_WS_SECOND_ROW_IDS = new Set([
   "sx-market",
 ]);
 
+const venueWsPb = computed(() =>
+  venueWsStatuses.value.find(entry => entry.id === "pb") ?? null,
+);
 const venueWsFirstRow = computed(() =>
-  venueWsStatuses.value.filter(entry => !VENUE_WS_SECOND_ROW_IDS.has(entry.id)),
+  venueWsStatuses.value.filter(
+    entry => entry.id !== "pb" && !VENUE_WS_SECOND_ROW_IDS.has(entry.id),
+  ),
 );
 const venueWsSecondRow = computed(() =>
   venueWsStatuses.value.filter((entry) => {
@@ -177,6 +182,7 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     "sx-market": "SX Bet Market WS（best_odds Centrifugo）",
     "dex": "DexSport WS",
     "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
+    "pb": "平博 PB sports-websocket（扩展观测旁路；赔率主路径仍为 euro/odds HTTP）",
   };
   const label = names[entry.id] ?? entry.label;
   const lines: string[] = [label];
@@ -312,9 +318,17 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S）"
+    aria-label="直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S）"
   >
     <div class="direct-realtime-row direct-realtime-row--primary">
+      <span
+        v-if="venueWsPb"
+        class="direct-realtime-item"
+        :title="venueWsTooltip(venueWsPb)"
+      >
+        <span class="direct-realtime-dot" :class="venueWsDotClass(venueWsPb)" />
+        {{ venueWsPb.label }}
+      </span>
       <span
         v-for="status in statuses"
         :key="status.platform"

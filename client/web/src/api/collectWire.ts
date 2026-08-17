@@ -31,8 +31,12 @@ function toA8SaveTeamRow(t: CollectTeamDto) {
   };
 }
 
-/** A8 SaveBet 固定 12 字段；采集器多带的 changmen 扩展（如 GroupName）在此剥掉 [A8 可证实] */
+/**
+ * A8 SaveBet 固定 12 字段；采集器多带的 GroupName 等在此剥掉 [A8 可证实]。
+ * [changmen 扩展] 可选透传 LineID（PB moneyLine.lineId）；旧后端/旧前端忽略未知字段即可。
+ */
 export function toA8SaveBetRow(b: CollectBetDto) {
+  const lineId = Number(b.LineID) || 0;
   return {
     Type: b.Type,
     SourceMatchID: b.SourceMatchID,
@@ -46,6 +50,7 @@ export function toA8SaveBetRow(b: CollectBetDto) {
     AwayName: b.AwayName,
     AwayOdds: b.AwayOdds,
     Status: b.Status,
+    ...(lineId > 0 ? { LineID: lineId } : {}),
   };
 }
 

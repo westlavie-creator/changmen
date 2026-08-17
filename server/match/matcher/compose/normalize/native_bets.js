@@ -88,6 +88,7 @@ export function cloneRawSource(src) {
     Status: src.Status || "Normal",
     ...(src.HomeMarketID ? { HomeMarketID: String(src.HomeMarketID) } : {}),
     ...(src.AwayMarketID ? { AwayMarketID: String(src.AwayMarketID) } : {}),
+    ...(Number(src.LineID) > 0 ? { LineID: Number(src.LineID) } : {}),
   };
 }
 
@@ -113,6 +114,9 @@ export function sourceFromBet(provider, b) {
       src.AwayMarketID = mid;
     }
   }
+  const lineId = Number(b.LineID) || 0;
+  if (lineId > 0)
+    src.LineID = lineId;
   return src;
 }
 

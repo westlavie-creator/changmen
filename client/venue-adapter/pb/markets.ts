@@ -11,10 +11,17 @@ import {
 
 const PLATFORM = PLATFORMS.PB;
 
-/** Ingest：parse 后的单场 → fo + lineId 缓存 */
-export function ingestPbParsedMatchToFo(row: PbParsedMatch, now = Date.now()): void {
+/** lineId 缓存与 fo 解耦：writeFo=false 时仍要刷，否则赛前下注缺 lineId */
+function syncPbLineIdsFromParsedMatch(row: PbParsedMatch): void {
   for (const stage of row.stages) {
     if (stage.winLineId) setPbLineId(stage.winMarketId, stage.winLineId);
+  }
+}
+
+/** Ingest：parse 后的单场 → fo + lineId 缓存 */
+export function ingestPbParsedMatchToFo(row: PbParsedMatch, now = Date.now()): void {
+  syncPbLineIdsFromParsedMatch(row);
+  for (const stage of row.stages) {
     for (const entry of listPbStageFoEntries(stage)) {
       saveVenueOdds(PLATFORM, { ...entry, time: now });
     }
@@ -58,12 +65,18 @@ export function buildPbSaveBetRowsFromParsedMatch(row: PbParsedMatch): CollectBe
   return buildPbSaveBetRowsFromMatch(row, PLATFORM) as CollectBetDto[];
 }
 
-/** Ingest fo + 返回 match / bets 载荷（collect 轮询用） */
+/** Ingest fo + 返回 match / bets 载荷（collect 轮询用）
+ * @param opts.writeFo 默认 true。`false` 时不写 fo，仍同步 lineId（A8 模式下 prematch 不跑）。
+ */
 export function ingestAndReportPbParsedMatch(
   row: PbParsedMatch,
   now = Date.now(),
+  opts?: { writeFo?: boolean },
 ): { match: CollectMatchDto; bets: CollectBetDto[] } {
-  ingestPbParsedMatchToFo(row, now);
+  if (opts?.writeFo !== false)
+    ingestPbParsedMatchToFo(row, now);
+  else
+    syncPbLineIdsFromParsedMatch(row);
   return {
     match: buildPbCollectMatchDto(row),
     bets: buildPbSaveBetRowsFromParsedMatch(row),

@@ -5,6 +5,8 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import LimitDiagDialog from "@/components/match/LimitDiagDialog.vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { useBetRowExtensionUiEnabled } from "@/composables/useExtensionPrefs";
+import { useUserStore } from "@/stores/userStore";
+import { storeToRefs } from "pinia";
 import { ArbLineOverlay, useBetRowArbUi } from "@/extensions/arbBet/ui";
 import {
   canFoldMap,
@@ -23,6 +25,11 @@ import {
 import { useCreateLoseDialogStore } from "@/stores/createLoseDialogStore";
 import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
+import {
+  getPbWsShadowRevision,
+  resolvePbWsShadow,
+  subscribePbWsShadow,
+} from "@changmen/venue-adapter/pb";
 
 /** allowBetting 须 withDefaults(true)：裸 `?: boolean` 缺省会被 Vue 铸成 false，电竞双击会静默失效 */
 const props = withDefaults(
@@ -57,6 +64,11 @@ const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
 const betRowUiEnabled = useBetRowExtensionUiEnabled();
+const { pbWsShadowUi, pbChangmenExtensions } = storeToRefs(useUserStore());
+/** 影子旁显：须 PB changmen 扩展开 + 子开关开（与 setPbWsShadowUiAllowed 一致） */
+const pbWsShadowUiEnabled = computed(
+  () => pbChangmenExtensions.value === true && pbWsShadowUi.value === true,
+);
 
 const showLiveTimer = computed(() => {
   const lr = props.match.liveRound;
@@ -130,6 +142,130 @@ function itemOdds(item: ViewBet["items"][0], side: BetSide) {
   return side === "Home" ? row.home : row.away;
 }
 
+/** [changmen 扩展] PB WS 影子价旁显；可点选 target / 双击按旁显价下限手动下单；不写 fo */
+const pbWsShadowTick = ref(0);
+let unsubPbWsShadow: (() => void) | undefined;
+let pbWsShadowPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopPbWsShadowWatch() {
+  unsubPbWsShadow?.();
+  unsubPbWsShadow = undefined;
+  if (pbWsShadowPollTimer) {
+    clearInterval(pbWsShadowPollTimer);
+    pbWsShadowPollTimer = null;
+  }
+}
+
+function startPbWsShadowWatch() {
+  stopPbWsShadowWatch();
+  pbWsShadowTick.value = getPbWsShadowRevision();
+  unsubPbWsShadow = subscribePbWsShadow(() => {
+    pbWsShadowTick.value = getPbWsShadowRevision();
+  });
+  pbWsShadowPollTimer = setInterval(() => {
+    const rev = getPbWsShadowRevision();
+    if (rev !== pbWsShadowTick.value)
+      pbWsShadowTick.value = rev;
+  }, 200);
+}
+
+watch(
+  pbWsShadowUiEnabled,
+  (on) => {
+    if (on)
+      startPbWsShadowWatch();
+    else
+      stopPbWsShadowWatch();
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  stopPbWsShadowWatch();
+});
+
+/** 影子验准开且 PB：旁显只显示一个价，前缀 H=HTTP / M=WS 标来源（主价数字不变） */
+function pbSourceSplitActive(item: ViewBet["items"][0]): boolean {
+  return pbWsShadowUiEnabled.value && item.type === "PB";
+}
+
+/**
+ * 影子旁显：只显示官网源（M）。主价数字零改动；不用 fo 打 H 底。
+ */
+function pbShadowLabel(item: ViewBet["items"][0], side: BetSide): string | undefined {
+  if (!pbSourceSplitActive(item))
+    return undefined;
+  void pbWsShadowTick.value;
+  const oddId = side === "Home" ? item.homeId : item.awayId;
+  const shadow = resolvePbWsShadow({
+    oddId,
+    map: props.bet.round,
+  });
+  if (!shadow || shadow.source !== "M" || shadow.isLock || !(shadow.odds > 0))
+    return undefined;
+  const raw = (shadow.text && String(shadow.text).trim()) || toFixed(shadow.odds, 3, "round");
+  return `M${raw}`;
+}
+
+/** 旁显 CSS：H/M 区分来源；蓝下划线表示可点 */
+function pbShadowClass(item: ViewBet["items"][0], side: BetSide): Record<string, boolean> {
+  if (!pbSourceSplitActive(item)) return {};
+  void pbWsShadowTick.value;
+  const oddId = side === "Home" ? item.homeId : item.awayId;
+  const shadow = resolvePbWsShadow({ oddId, map: props.bet.round });
+  const src = shadow?.source;
+  return {
+    "pb-ws-shadow--m": src === "M",
+    "pb-ws-shadow--diff": pbWsShadowDiffers(item, side),
+  };
+}
+
+function pbWsShadowEntry(item: ViewBet["items"][0], side: BetSide) {
+  const oddId = side === "Home" ? item.homeId : item.awayId;
+  return resolvePbWsShadow({ oddId, map: props.bet.round });
+}
+
+function pbShadowOddId(item: ViewBet["items"][0], side: BetSide): string {
+  return side === "Home" ? item.homeId : item.awayId;
+}
+
+function pbShadowSrcAttr(item: ViewBet["items"][0], side: BetSide): string | undefined {
+  if (!pbSourceSplitActive(item)) return undefined;
+  void pbWsShadowTick.value;
+  return pbWsShadowEntry(item, side)?.source;
+}
+
+/** 单击影子价：选 target（与主格同路径） */
+function onPbShadowClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent) {
+  e.stopPropagation();
+  onTarget(item.type, side);
+}
+
+/** 双击影子价：打开手动下单（主价/fo 路径不变；旁显只负责同步官网展示） */
+function onPbShadowDblClick(item: ViewBet["items"][0], side: BetSide, e: MouseEvent) {
+  e.stopPropagation();
+  if (!bettingEnabled.value)
+    return;
+  void matchStore.manualBet(props.match, props.bet, item, side);
+}
+
+function pbWsShadowDiffers(item: ViewBet["items"][0], side: BetSide): boolean {
+  if (!pbSourceSplitActive(item))
+    return false;
+  void pbWsShadowTick.value;
+  const oddId = side === "Home" ? item.homeId : item.awayId;
+  const shadow = resolvePbWsShadow({
+    oddId,
+    map: props.bet.round,
+  });
+  if (!shadow || shadow.source !== "M" || shadow.isLock || !(shadow.odds > 0))
+    return false;
+  const main = itemOdds(item, side);
+  if (!(main > 0))
+    return true;
+  return Math.abs(main - shadow.odds) >= 0.001;
+}
+
 /** [A8 可证实] HomeView 内联 `c(bet)`：各行最高主/客赔 implied，无红线/可下单标签 */
 const arb = computed(() => {
   let bestHome = 0;
@@ -180,11 +316,9 @@ watch(showLiveTimer, (on) => {
 
 onUnmounted(stopLocalLiveClock);
 
-/** PM Index：地图盘口胜负（以 Polymarket 为准） */
+/** PM Index：全场 / 地图盘口胜负（以 Polymarket 为准；按该行 token 查，不串图） */
 const pmMapOutcome = computed(() => {
   void pmMapOutcomeTick.value;
-  if (props.bet.round <= 0)
-    return null;
   const pmItem = props.bet.items.find(i => String(i.type) === "Polymarket");
   if (!pmItem)
     return null;
@@ -360,6 +494,15 @@ function onBetTitleDblClick() {
           >WIN</span>
           {{ itemOdds(item, "Home") || ""
           }}<span
+            v-if="pbShadowLabel(item, 'Home')"
+            class="pb-ws-shadow"
+            :class="pbShadowClass(item, 'Home')"
+            :data-odd-id="pbShadowOddId(item, 'Home')"
+            :data-shadow-src="pbShadowSrcAttr(item, 'Home')"
+            title="影子=官网 WS / 页内euro（不做DOM）。无源不显示。主价不动。单击选边；双击走主价下单"
+            @click="onPbShadowClick(item, 'Home', $event)"
+            @dblclick="onPbShadowDblClick(item, 'Home', $event)"
+          >{{ pbShadowLabel(item, "Home") }}</span><span
             v-if="evMarker.evLabel(item, 'Home')"
             class="ev-badge"
             :class="{ 'ev-badge--action': evMarker.isPositiveEv(item, 'Home') }"
@@ -397,6 +540,15 @@ function onBetTitleDblClick() {
           >WIN</span>
           {{ itemOdds(item, "Away") || ""
           }}<span
+            v-if="pbShadowLabel(item, 'Away')"
+            class="pb-ws-shadow"
+            :class="pbShadowClass(item, 'Away')"
+            :data-odd-id="pbShadowOddId(item, 'Away')"
+            :data-shadow-src="pbShadowSrcAttr(item, 'Away')"
+            title="影子=官网 WS / 页内euro（不做DOM）。无源不显示。主价不动。单击选边；双击走主价下单"
+            @click="onPbShadowClick(item, 'Away', $event)"
+            @dblclick="onPbShadowDblClick(item, 'Away', $event)"
+          >{{ pbShadowLabel(item, "Away") }}</span><span
             v-if="evMarker.evLabel(item, 'Away')"
             class="ev-badge"
             :class="{ 'ev-badge--action': evMarker.isPositiveEv(item, 'Away') }"

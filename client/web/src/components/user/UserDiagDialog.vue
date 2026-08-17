@@ -15,6 +15,7 @@ import UserDiagProxyTab from "@/components/user/tabs/UserDiagProxyTab.vue";
 import UserDiagRankTab from "@/components/user/tabs/UserDiagRankTab.vue";
 import UserDiagReportTab from "@/components/user/tabs/UserDiagReportTab.vue";
 import UserDiagTradeTab from "@/components/user/tabs/UserDiagTradeTab.vue";
+import UserDiagUiTab from "@/components/user/tabs/UserDiagUiTab.vue";
 import UserDiagWalletTab from "@/components/user/tabs/UserDiagWalletTab.vue";
 import { parseFormBool } from "@/shared/parseFormBool";
 import { useUserStore } from "@/stores/userStore";
@@ -24,6 +25,7 @@ const emit = defineEmits<{ close: [] }>();
 const user = useUserStore();
 const { setting } = storeToRefs(user);
 const active = ref("rank");
+const extrasReady = ref(false);
 
 const visible = computed({
   get: () => props.open,
@@ -61,6 +63,7 @@ const tabDefs: TabDef[] = [
   },
   { name: "chat", label: "聊天室", component: UserDiagChatTab },
   { name: "wallet", label: "钱包", component: UserDiagWalletTab },
+  { name: "ui", label: "界面", component: UserDiagUiTab },
   { name: "extensions", label: "扩展", component: UserDiagExtensionsTab },
 ];
 
@@ -83,10 +86,17 @@ onMounted(() => {
 });
 
 async function onDialogOpen() {
-  await user.loadExtras(true);
+  extrasReady.value = false;
+  try {
+    await user.loadExtras(true);
+  }
+  finally {
+    extrasReady.value = true;
+  }
 }
 
 function onDialogClosed() {
+  extrasReady.value = false;
   emit("close");
 }
 </script>
@@ -102,10 +112,12 @@ function onDialogClosed() {
     @open="onDialogOpen"
     @closed="onDialogClosed"
   >
-    <el-tabs v-model="active" type="border-card">
-      <el-tab-pane v-for="tab in visibleTabs" :key="tab.name" :label="tab.label" :name="tab.name">
-        <component :is="tab.component" v-if="active === tab.name" />
-      </el-tab-pane>
-    </el-tabs>
+    <div v-loading="!extrasReady">
+      <el-tabs v-model="active" type="border-card">
+        <el-tab-pane v-for="tab in visibleTabs" :key="tab.name" :label="tab.label" :name="tab.name">
+          <component :is="tab.component" v-if="extrasReady && active === tab.name" />
+        </el-tab-pane>
+      </el-tabs>
+    </div>
   </el-dialog>
 </template>

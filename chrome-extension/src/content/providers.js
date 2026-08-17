@@ -9,6 +9,7 @@ import {
   parseObEsportEntry,
   parseObSportEntry,
 } from "./ob-entry.js";
+import { validatePbLocalStorageSnapshot } from "./pb-credential.js";
 
 const IM_PATH =
   /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
@@ -357,6 +358,11 @@ export const PROVIDER_REGISTRY = {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key) snapshot[key] = localStorage.getItem(key) ?? "";
+      }
+      // [changmen 扩展] 复制前校验内层 X-U 等，避免用户拷到「能刷余额、预检 403」的残缺包
+      const credentialError = validatePbLocalStorageSnapshot(snapshot);
+      if (credentialError) {
+        return { error: credentialError };
       }
       const payload = {
         provider: PLATFORMS.PB,

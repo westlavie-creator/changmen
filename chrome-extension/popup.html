@@ -2,18 +2,41 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>じらいや</title>
+  <title>じらいや · PB</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 16px; min-width: 220px; }
-    h1 { font-size: 14px; margin: 0 0 8px; }
-    p { margin: 4px 0; font-size: 12px; color: #444; }
-    code { font-size: 11px; background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 12px;
+      width: 320px;
+      background: #1a1d24;
+      color: #e8eaed;
+    }
+    h1 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+    p { margin: 4px 0; font-size: 12px; color: #9aa0a6; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 4px; }
+    .row label { font-size: 13px; color: #e8eaed; }
+    .hint { font-size: 11px; color: #7a858f; line-height: 1.4; }
+    .status { font-size: 11px; color: #b0b8c0; margin-top: 8px; white-space: pre-wrap; }
+    .status.ok { color: #3dd68c; }
+    .status.err { color: #f87171; }
+    .meta { margin-top: 8px; padding: 8px; background: #22262e; border-radius: 6px; font-size: 11px; line-height: 1.45; color: #9aa0a6; }
+    .ok { color: #3dd68c; }
+    .miss { color: #f87171; }
   </style>
 </head>
 <body>
-  <h1>じらいや</h1>
+  <h1>じらいや · PB</h1>
   <p>版本：<span id="ver">…</span></p>
-  <p>扩展 ID：<code id="id">…</code></p>
+
+  <div class="row">
+    <label for="pbWs">PB WebSocket 观测</label>
+    <input type="checkbox" id="pbWs" checked />
+  </div>
+  <p class="hint">观测只给主站影子价灌官网 WS / 页内 euro，不写主价。旁显在网页「用户中心 → 扩展」。</p>
+  <p id="pbStatus" class="status">状态：—</p>
+  <div id="pbSubs" class="meta">订阅：—</div>
+
   <script src="popup.js"></script>
 </body>
 </html>

@@ -64,6 +64,13 @@ export async function mountCollectIcon(provider) {
         panel.remove();
         return;
       }
+      // [changmen 扩展] 馆侧返回 error（如 PB 缺 X-U）时禁止复制残缺凭证
+      if (config.error) {
+        alert(String(config.error));
+        icon.classList.remove("hide");
+        panel.remove();
+        return;
+      }
     } finally {
       panel.classList.remove("loading");
     }

@@ -11,7 +11,7 @@
 | 5 | 不用 platforms.json 采盘 | �?| 同上 | 已实�?|
 | 6 | `getPlatform(PB)` 仅过�?games | `Vt.getPlatform` | `getCollectPlatform` + `getGames` | 已实�?|
 | 7 | 拉盘 `Zn.get` euro/odds | `_Ze` | `client/venue-adapter/pb/transport.ts` | 已实�?|
-| 8 | 请求�?`k0` 固定 515 | `k0` | `shared/platforms/pbHeaders.ts` | 已实�?|
+| 8 | 请求�?`k0` 固定 515 | `k0` | `client/venue-adapter/pb/auth.ts` ([changmen] 515/suffix/plain+XU; see PB.md) | 已实�?|
 | 9 | `TQ` key `${matchId}:${map}` | `TQ.set` | `client/venue-adapter/pb/lineCache.ts` | 已实�?|
 | 10 | 余额 `Zn.post` account-balance | `PZe.getBalance` | `providers/pbProvider.ts` | 已实�?|
 | 11 | checkBet �?`TQ.get` | `PZe.checkBet` | `providers/pbProvider.ts` | 已实�?|

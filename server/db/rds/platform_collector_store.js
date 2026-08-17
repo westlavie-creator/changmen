@@ -315,11 +315,11 @@ async function _rdsUpsertPlatformBets(exec, rows) {
   const sql = `
     INSERT INTO platform_bets (
       platform, source_match_id, source_bet_id, map, bet_name,
-      home_odds, away_odds, is_locked, source_home_id, source_away_id, market_id, updated_at
+      home_odds, away_odds, is_locked, source_home_id, source_away_id, market_id, line_id, updated_at
     )
     SELECT * FROM unnest(
       $1::text[], $2::text[], $3::text[], $4::smallint[], $5::text[],
-      $6::numeric[], $7::numeric[], $8::boolean[], $9::text[], $10::text[], $11::text[], $12::bigint[]
+      $6::numeric[], $7::numeric[], $8::boolean[], $9::text[], $10::text[], $11::text[], $12::bigint[], $13::bigint[]
     )
     ON CONFLICT (platform, source_match_id, source_bet_id) DO UPDATE SET
       map = EXCLUDED.map,
@@ -330,6 +330,7 @@ async function _rdsUpsertPlatformBets(exec, rows) {
       source_home_id = EXCLUDED.source_home_id,
       source_away_id = EXCLUDED.source_away_id,
       market_id = EXCLUDED.market_id,
+      line_id = EXCLUDED.line_id,
       updated_at = EXCLUDED.updated_at
   `;
   await exec.query(sql, [
@@ -344,6 +345,7 @@ async function _rdsUpsertPlatformBets(exec, rows) {
     rows.map(r => r.source_home_id),
     rows.map(r => r.source_away_id),
     rows.map(r => r.market_id),
+    rows.map(r => r.line_id),
     rows.map(r => r.updated_at),
   ]);
 }
@@ -473,7 +475,7 @@ async function _rdsFetchPlatformMatches(pool) {
 async function _rdsFetchPlatformBets(pool) {
   const { rows } = await pool.query(
     `SELECT platform, source_bet_id, source_match_id, map, bet_name,
-            source_home_id, source_away_id, home_odds, away_odds, is_locked, market_id
+            source_home_id, source_away_id, home_odds, away_odds, is_locked, market_id, line_id
      FROM platform_bets`,
   );
   const byKey = {};
@@ -494,6 +496,9 @@ async function _rdsFetchPlatformBets(pool) {
     const mid = String(r.market_id ?? "").trim();
     if (mid)
       bet.MarketID = mid;
+    const lineId = Number(r.line_id) || 0;
+    if (lineId > 0)
+      bet.LineID = lineId;
     byKey[key].bets.push(bet);
   }
   return byKey;
@@ -999,13 +1004,14 @@ export async function fetchLiveTimers() {
   }
 }
 
-/** SaveBet → platform_bets 行（A8 协议无 group_name；MarketID 为 PF 等扩展） */
+/** SaveBet → platform_bets 行（A8 协议无 group_name；MarketID 为 PF 等扩展；LineID 为 PB 扩展） */
 function mapSaveBetRows(provider, matchId, bets) {
   const now = Date.now();
   const rawRows = (bets || [])
     .filter(b => b && b.SourceBetID != null && !String(b.BetName ?? "").includes("+"))
     .map(b => {
       const marketId = String(b.MarketID ?? b.market_id ?? "").trim();
+      const lineId = Number(b.LineID ?? b.line_id) || 0;
       return {
         platform: String(provider),
         source_bet_id: String(b.SourceBetID),
@@ -1015,6 +1021,7 @@ function mapSaveBetRows(provider, matchId, bets) {
         source_home_id: String(b.SourceHomeID ?? b.source_home_id ?? "") || null,
         source_away_id: String(b.SourceAwayID ?? b.source_away_id ?? "") || null,
         market_id: marketId || null,
+        line_id: lineId > 0 ? lineId : null,
         home_odds: Number(b.HomeOdds) || 0,
         away_odds: Number(b.AwayOdds) || 0,
         is_locked: b.Status !== "Normal",

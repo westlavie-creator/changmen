@@ -167,6 +167,11 @@ export interface BetSourceDto {
   /** [changmen 扩展] PredictFun orderbook marketId（与 onChainId HomeID 不同） */
   HomeMarketID?: string;
   AwayMarketID?: string;
+  /**
+   * [changmen 扩展] PB moneyLine.lineId。
+   * A8 GetMatchs 无此字段；旧前端忽略，下注仍走本机 lineCache。
+   */
+  LineID?: number;
 }
 
 export interface BetRowDto {

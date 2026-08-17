@@ -4,8 +4,8 @@
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
  * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
  *
- * PB B1：主 event（Matchs.PB）缺某 Map 时，从同 rotNum sibling 取该 Map；
- * Source.HomeID / BetID 仍是那条腿自己的 event.id，Matchs.PB 不变。
+ * PB B1 / S2：主 event（Matchs.PB）缺某 Map 时，从同 rotNum sibling 取该 Map；
+ * Source.HomeID / BetID / LineID 仍是那条腿自己的 event；Matchs.PB 不变。
  */
 import { parseTitleTeams } from "@changmen/match-identity/teams/match_utils.js";
 import { getGameCodeForPlatformId } from "@changmen/shared/catalog/game_catalog";

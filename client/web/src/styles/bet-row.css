@@ -73,6 +73,48 @@
   min-width:100px;height:24px;line-height:22px;margin:auto 3px;text-align:center;background-image:linear-gradient(1deg,#2223 4%,#13141280 50%,#25252533 97%);border:1px solid hsla(0,0%,100%,.3);display:block;border-radius:4px;color:#fff;position:relative;font-size:13px;cursor:default;
 }
 
+/* [changmen 扩展] PB 影子旁显：蓝下划线=可点（单击选边 / 双击下单）；不改主价、不写 fo */
+.matchs .bet .item .item-odds .pb-ws-shadow {
+  display:inline;
+  margin-left:4px;
+  font-size:10px;
+  line-height:inherit;
+  color:#9ecbff;
+  font-weight:500;
+  pointer-events:auto;
+  cursor:pointer;
+  text-decoration:underline;
+  text-decoration-color:#4da3ff;
+  text-underline-offset:2px;
+  opacity:.95;
+  position:relative;
+  z-index:2;
+}
+/* H：弱化；M：扫一眼能看见（验准用，不改主价） */
+.matchs .bet .item .item-odds .pb-ws-shadow--h {
+  color:#7a8a9a;
+  opacity:.85;
+  font-weight:400;
+}
+.matchs .bet .item .item-odds .pb-ws-shadow--m {
+  color:#3dd68c;
+  font-weight:700;
+  font-size:11px;
+  opacity:1;
+}
+/* 与主价有差：只改字色提醒，下划线仍保持蓝（可点语义） */
+.matchs .bet .item .item-odds .pb-ws-shadow--diff {
+  color:#e3b341;
+  text-decoration-color:#4da3ff;
+}
+.matchs .bet .item .item-odds:has(.pb-ws-shadow) {
+  height:auto;
+  min-height:24px;
+  line-height:1.2;
+  padding:3px 2px;
+  white-space:normal;
+}
+
 .matchs .bet .item .item-odds.lock:after {
   content:"";position:absolute;left:0;right:0;top:0;bottom:0;background:#000c url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAmVBMVEUAAAAwQGgtRGIsRGQrQ2EvQWUsQ2QrQGUvRGMrQ2UuQWYuQGQtQ2IsQmUrQWMuQ2QtQWUsRGQtQmMuQ2UtQWMtQWQsQmUtQ2QsQmUtQmUtQWQuQmQtQmQtQWQtQ2QtQmQtQmUtQmQsQWMuQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmQtQmT///9jQUN8AAAAMXRSTlMAICIpKisuMDE1Nzg5Ojs9P0BVWFpmaGttfH2AkpSZrq/Cw8TFztDn6Ozt8fP29/z9zLAm3QAAAAFiS0dEMkDSTMgAAAB+SURBVBjTVc3bAoFAFEbhVSKnyFBUFHIuar//y7lQY+a/W9/F3gAwPFZV4aE3rZvy0tQTDbf3Apafa9+u7AEO4nQwlxggllkHgUQAkQS/XiWSK6VULkkIsBFjayAzIevhOfBeFpzhZEHrj1oLxHXsG7LbakjNLykwfvz77vMFsiIaB3L6tdYAAAAASUVORK5CYII=) no-repeat center center;border-radius:4px;
 }

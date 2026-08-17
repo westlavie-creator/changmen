@@ -63,9 +63,12 @@ export function isLightUiTheme(theme: UiTheme): boolean {
   return LIGHT_UI_THEMES.has(theme);
 }
 
-/** [changmen 扩展] 用户中心「扩展」选项卡配置（Client_SaveData key=Extensions） */
+/**
+ * [changmen 扩展] Client_SaveData key=Extensions。
+ * 界面皮肤 / BetRow UI 在用户中心「界面」Tab 编辑；其余在「扩展」Tab。
+ */
 export interface ExtensionPrefs extends Record<string, unknown> {
-  /** BetRow 套利划线、利润角标、赔率 flash、EV 标记 */
+  /** BetRow 套利划线、利润角标、赔率 flash、EV 标记（「界面」Tab） */
   betRowUi: boolean;
   /** 比例 9999 单边模式：本侧是否参与自动套利预检（仍不自动下单） */
   singleLeg9999Precheck: boolean;
@@ -81,7 +84,7 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   /** 双边预测市场：同卖净利优于锁定利润时两边一起卖 */
   arbEarlyLockSell: ArbEarlyLockSellPrefs;
   /**
-   * 控制台 UI 皮肤。
+   * 控制台 UI 皮肤（「界面」Tab）。
    * default = 现有深色；brutal = 粗边框；paper = 浅纸感；terminal = 终端风。
    */
   uiTheme: UiTheme;
@@ -179,5 +182,11 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
     arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
     uiTheme: normalizeUiTheme(row.uiTheme),
+    // pbWsShadowUi 仅本机 localStorage，故意不从 RDS / Extensions 读取或写回
   };
+}
+
+/** 序列化 Extensions 上报体：不含本机-only 字段（如 pbWsShadowUi） */
+export function serializeExtensionPrefsForSave(prefs: ExtensionPrefs): string {
+  return JSON.stringify(normalizeExtensionPrefs(prefs));
 }

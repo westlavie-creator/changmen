@@ -139,4 +139,32 @@ describe("pbProvider.checkBet", () => {
     expect(checked.data).toBeNull();
     expect(checked.checkError).toBe("赔率下降 2 < 2.05");
   });
+
+  it("Sources.LineID 可在无 lineCache 时预检", async () => {
+    pbPost.mockResolvedValue([
+      {
+        status: "AVAILABLE",
+        minStake: 1,
+        maxStake: 1000,
+        odds: 1.91,
+        lineId: 42,
+      },
+    ]);
+    const option = new BetOption(
+      "PB",
+      "1633896380",
+      "1633896380:0",
+      "1633896380|0|1|0|0|0|0",
+      50,
+      "Home",
+      1.9,
+    );
+    option.item = { lineId: 42 } as BetOption["item"];
+    const checked = await pbProvider.checkBet!(account, option);
+    expect(checked.checkError).toBeUndefined();
+    expect(checked.data).toBeTruthy();
+    expect(pbPost.mock.calls[0]![2].oddsSelections[0].selectionId).toBe(
+      "42|1633896380|0|1|0|0|0|0",
+    );
+  });
 });

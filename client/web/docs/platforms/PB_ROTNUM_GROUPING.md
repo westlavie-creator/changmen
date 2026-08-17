@@ -40,6 +40,8 @@ node scripts/ops/diagnostics/diag-pb-rotnum.mjs --api
 
 全过后再开 **Step3：合场按 rot 认一场**。
 
+**Client 契约方向（待拍板）：** 多 event / rot 只在门内消化，`Client_GetMatchs` 对外维持单 event 假象——见 [PB_GETMATCHS_FACADE.md](./PB_GETMATCHS_FACADE.md)。不要把 `SourceMatchID` / `Matchs.PB` 改成 `rot_num`。
+
 ## 观测记录（2026-08-14）
 
 - API：非 Kills 无空 rot；撞号 0；多组 live/prematch 同 rot、map 无重叠。  

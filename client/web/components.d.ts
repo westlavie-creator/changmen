@@ -113,6 +113,7 @@ declare module 'vue' {
     UserDiagRankTab: typeof import('./src/components/user/tabs/UserDiagRankTab.vue')['default']
     UserDiagReportTab: typeof import('./src/components/user/tabs/UserDiagReportTab.vue')['default']
     UserDiagTradeTab: typeof import('./src/components/user/tabs/UserDiagTradeTab.vue')['default']
+    UserDiagUiTab: typeof import('./src/components/user/tabs/UserDiagUiTab.vue')['default']
     UserDiagWalletTab: typeof import('./src/components/user/tabs/UserDiagWalletTab.vue')['default']
     UserInfoPanel: typeof import('./src/components/user/UserInfoPanel.vue')['default']
     UserWorkspacePreview: typeof import('./src/components/admin/preview/UserWorkspacePreview.vue')['default']

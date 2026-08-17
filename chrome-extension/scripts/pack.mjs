@@ -20,6 +20,8 @@ const RUNTIME_FILES = [
   "content.js.LICENSE.txt",
   "popup.html",
   "popup.js",
+  "sidepanel.html",
+  "pb-ws-hook.js",
   "version.json",
   "extension-id.json",
 ];

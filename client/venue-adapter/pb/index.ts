@@ -6,6 +6,30 @@ export { pbProvider, startPbCollector };
 export * from "./auth";
 export * from "./bet";
 export * from "./collect";
+export {
+  countPbWsShadowBySource,
+  getPbWsShadow,
+  getPbWsShadowRevision,
+  listPbWsShadowIdsBySource,
+  rememberPbRotEvent,
+  replacePbWsShadowFromBoard,
+  resolvePbWsShadow,
+  savePbWsShadow,
+  seedPbWsShadowFromHttp,
+  subscribePbWsShadow,
+} from "./wsShadowOdds";
+export {
+  isPbWsShadowUiAllowed,
+  setPbWsShadowUiAllowed,
+  startPbWsStatusPoll,
+} from "./wsStatusPoll";
+export {
+  isPbChangmenExtensions,
+  isPbLiveFoOnly,
+  isPbPrematchCollectEnabled,
+  setPbChangmenExtensions,
+  setPbLiveFoOnly,
+} from "./extensionsMode";
 
 export const pbAdapter: PlatformAdapter = {
   id: "PB",

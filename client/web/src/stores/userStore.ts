@@ -3,7 +3,9 @@ import type { FollowConfig } from "@/types/order";
 import type { ExtensionPrefs } from "@/types/extensionPrefs";
 import type { MessageConfig, ProxyRow } from "@/types/userExtras";
 import type { UserConfig } from "@/types/userConfig";
-import { createDefaultExtensionPrefs, normalizeExtensionPrefs } from "@/types/extensionPrefs";
+import { createDefaultExtensionPrefs, normalizeExtensionPrefs, serializeExtensionPrefsForSave } from "@/types/extensionPrefs";
+import { readPbWsShadowUiLocal, writePbWsShadowUiLocal } from "@/shared/pbWsShadowUiLocal";
+import { readPbChangmenExtensionsLocal, writePbChangmenExtensionsLocal } from "@/shared/pbExtensionsLocal";
 import { defineStore } from "pinia";
 import { toRaw } from "vue";
 import { clearAuthSession, getRefreshToken } from "@/api/client";
@@ -58,8 +60,20 @@ export const useUserStore = defineStore("user", {
     proxyList: [] as ProxyRow[],
     message: {} as MessageConfig,
     extensionPrefs: createDefaultExtensionPrefs(),
+    /**
+     * PB WS 影子价旁显。仅本机 localStorage，不进 Extensions / RDS。
+     * 默认关。
+     */
+    pbWsShadowUi: readPbWsShadowUiLocal(),
+    /**
+     * PB changmen 扩展总开关。仅本机 localStorage。
+     * 默认关 = A8（仅 live 写 fo）；开 = changmen（双循环 + 赛前写 fo 等）。
+     */
+    pbChangmenExtensions: readPbChangmenExtensionsLocal(),
     follow: null as FollowConfig | null,
     extrasLoaded: false,
+    /** 递增以作废过期的 loadExtras，防止慢 GetData 冲掉已保存的扩展偏好 */
+    extrasLoadGen: 0,
     isAdmin: false,
     role: "user" as "admin" | "leader" | "user",
     teamId: null as string | null,
@@ -97,6 +111,8 @@ export const useUserStore = defineStore("user", {
         return;
       }
       try {
+        // 尽早按本机缓存开门控，勿等 Extensions GetData
+        await this.syncPbCollectModeFromLocal();
         const info: UserInfo = await getUserInfo();
         this.userId = info.ID;
         this.userName = info.UserName;
@@ -165,6 +181,15 @@ export const useUserStore = defineStore("user", {
       this.proxyList = [];
       this.message = {};
       this.extensionPrefs = createDefaultExtensionPrefs();
+      // 本机影子价偏好保留在 localStorage；登出只关运行时门控，下次登录再按本地值恢复
+      try {
+        const { setPbWsShadowUiAllowed, setPbChangmenExtensions } = await import("@changmen/venue-adapter/pb");
+        setPbWsShadowUiAllowed(false);
+        setPbChangmenExtensions(false);
+      }
+      catch {
+        /* adapter 未加载时忽略 */
+      }
       this.follow = null;
       this.extrasLoaded = false;
       this.config = createDefaultUserConfig();
@@ -181,18 +206,27 @@ export const useUserStore = defineStore("user", {
     async loadExtras(force = false) {
       if (this.extrasLoaded && !force)
         return;
+      // 世代号：打开弹窗的慢请求不得盖掉用户已改/已保存的扩展偏好
+      const gen = ++this.extrasLoadGen;
       try {
         const proxies = await getClientDataArray<ProxyRow>("PROXY");
+        if (gen !== this.extrasLoadGen)
+          return;
         this.proxyList = proxies.filter(p => p?.proxyId != null);
       }
       catch {
         /* PROXY GetData 失败时保留已有列表 */
       }
       const msg = await getClientData<MessageConfig>("Message");
-      this.message = msg ?? {};
       const ext = await getClientData<ExtensionPrefs>("Extensions");
-      this.extensionPrefs = normalizeExtensionPrefs(ext);
       const follow = await getClientData<FollowConfig & Record<string, unknown>>("Follow");
+      if (gen !== this.extrasLoadGen)
+        return;
+      this.message = msg ?? {};
+      this.extensionPrefs = normalizeExtensionPrefs(ext);
+      await this.syncPbCollectModeFromLocal();
+      if (gen !== this.extrasLoadGen)
+        return;
       this.follow = follow ?? null;
       this.extrasLoaded = true;
     },
@@ -210,10 +244,43 @@ export const useUserStore = defineStore("user", {
       await saveClientData("Message", JSON.stringify(this.message));
     },
 
+    /** 从本机恢复 PB 采集模式（A8 默认）并同步运行时门控 */
+    async syncPbCollectModeFromLocal() {
+      this.pbChangmenExtensions = readPbChangmenExtensionsLocal();
+      this.pbWsShadowUi = readPbWsShadowUiLocal();
+      const { setPbChangmenExtensions, setPbWsShadowUiAllowed } = await import("@changmen/venue-adapter/pb");
+      setPbChangmenExtensions(this.pbChangmenExtensions === true);
+      setPbWsShadowUiAllowed(this.pbChangmenExtensions === true && this.pbWsShadowUi === true);
+    },
+
+    /** 本机缓存立即生效，不写 RDS */
+    async setPbWsShadowUi(on: boolean) {
+      const next = on === true;
+      this.pbWsShadowUi = next;
+      writePbWsShadowUiLocal(next);
+      const { setPbWsShadowUiAllowed } = await import("@changmen/venue-adapter/pb");
+      setPbWsShadowUiAllowed(this.pbChangmenExtensions === true && next);
+    },
+
+    /** 本机立即生效：关=A8；开=changmen 扩展（双循环、赛前写 fo） */
+    async setPbChangmenExtensions(on: boolean) {
+      const next = on === true;
+      this.pbChangmenExtensions = next;
+      writePbChangmenExtensionsLocal(next);
+      const { setPbChangmenExtensions, setPbWsShadowUiAllowed } = await import("@changmen/venue-adapter/pb");
+      setPbChangmenExtensions(next);
+      setPbWsShadowUiAllowed(next && this.pbWsShadowUi === true);
+    },
+
     async saveExtensionPrefs() {
+      // 作废进行中的 loadExtras，避免「保存成功后被打开弹窗时的旧 GetData 冲回关」
+      this.extrasLoadGen += 1;
       // 失败减仓暂锁死：保存前再归一化，避免内存/旧 KV 把 enabled:true 写回
       this.extensionPrefs = normalizeExtensionPrefs(this.extensionPrefs);
-      const result = await saveClientDataDetailed("Extensions", JSON.stringify(this.extensionPrefs));
+      const result = await saveClientDataDetailed(
+        "Extensions",
+        serializeExtensionPrefsForSave(this.extensionPrefs),
+      );
       if (!result.ok)
         throw new Error(result.msg || "保存扩展配置失败");
     },

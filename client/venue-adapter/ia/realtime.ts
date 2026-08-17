@@ -20,6 +20,9 @@ import {
 
 const PLATFORM = PLATFORMS.IA;
 
+/** 任意两次 failover 之间的最小间隔，避免 official↔changmen 疯狂抖动 */
+export const IA_FAILOVER_COOLDOWN_MS = 5_000;
+
 export type IaRealtimeMessage = Record<string, unknown>;
 
 export type IaRealtimeStatus = {
@@ -38,20 +41,36 @@ export type IaRealtimeClient = {
 
 const FAILOVER_ORDER: IaWsEndpointSource[] = ["official", "changmen"];
 
+/** 浏览器无法伪造 Origin：page origin ≠ 官网 gateway 时 official 必失败 */
+export function isIaOfficialOriginHopeless(
+  gateway: string,
+  pageOrigin: string | undefined = typeof location !== "undefined" ? location.origin : undefined,
+): boolean {
+  if (!pageOrigin) return false;
+  return pageOrigin !== gateway.replace(/\/+$/, "");
+}
+
+function configForSource(source: IaWsEndpointSource, gateway: string): IaWsConnectConfig {
+  return source === "changmen" ? getIaChangmenWsConfig(gateway) : getIaOfficialWsConfig(gateway);
+}
+
 function nextFailoverConfig(
   failedSource: IaWsEndpointSource,
   gateway: string,
-): IaWsConnectConfig | null {
+): IaWsConnectConfig {
+  // localhost / 非 ilustre 页：只走 CHANGMEN，绝不回 official（Origin 拒连 → 无限抖动）
+  if (isIaOfficialOriginHopeless(gateway)) {
+    return getIaChangmenWsConfig(gateway);
+  }
+
   const idx = FAILOVER_ORDER.indexOf(failedSource);
   const next = idx === -1 ? FAILOVER_ORDER[0]! : FAILOVER_ORDER[(idx + 1) % FAILOVER_ORDER.length]!;
-  switch (next) {
-    case "official":
-      return getIaOfficialWsConfig(gateway);
-    case "changmen":
-      return getIaChangmenWsConfig(gateway);
-    default:
-      return null;
-  }
+  return configForSource(next, gateway);
+}
+
+function initialConfig(gateway: string): IaWsConnectConfig {
+  if (isIaOfficialOriginHopeless(gateway)) return getIaChangmenWsConfig(gateway);
+  return getIaOfficialWsConfig(gateway);
 }
 
 function createDirectIaRealtimeClient(gateway: string): IaRealtimeClient {
@@ -62,12 +81,32 @@ function createDirectIaRealtimeClient(gateway: string): IaRealtimeClient {
   let failoverBusy = false;
   let intentionalDisconnect = false;
   let connectTimer: ReturnType<typeof setTimeout> | null = null;
+  let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastFailoverAt = 0;
 
   const clearConnectTimer = () => {
     if (connectTimer) {
       clearTimeout(connectTimer);
       connectTimer = null;
     }
+  };
+
+  const clearCooldownTimer = () => {
+    if (cooldownTimer) {
+      clearTimeout(cooldownTimer);
+      cooldownTimer = null;
+    }
+  };
+
+  const sleepCooldown = async (ms: number) => {
+    if (ms <= 0) return;
+    await new Promise<void>((resolve) => {
+      clearCooldownTimer();
+      cooldownTimer = setTimeout(() => {
+        cooldownTimer = null;
+        resolve();
+      }, ms);
+    });
   };
 
   const tearDownSocket = () => {
@@ -100,12 +139,24 @@ function createDirectIaRealtimeClient(gateway: string): IaRealtimeClient {
       });
 
       const nextConfig = nextFailoverConfig(failedSource, gateway);
-      if (!nextConfig) return;
+      const waitMs = Math.max(0, IA_FAILOVER_COOLDOWN_MS - (Date.now() - lastFailoverAt));
+      const sameSource = nextConfig.source === failedSource;
 
-      console.warn(
-        `[IA WS] ${failedSource} failed, switching to ${nextConfig.source}:`,
-        reason,
-      );
+      if (sameSource || waitMs > 0) {
+        const delay = sameSource ? Math.max(waitMs, IA_FAILOVER_COOLDOWN_MS) : waitMs;
+        console.warn(
+          `[IA WS] ${failedSource} failed (${reason}); retry ${nextConfig.source} in ${delay}ms`,
+        );
+        await sleepCooldown(delay);
+        if (stopped) return;
+      } else {
+        console.warn(
+          `[IA WS] ${failedSource} failed, switching to ${nextConfig.source}:`,
+          reason,
+        );
+      }
+
+      lastFailoverAt = Date.now();
       await connectWithConfig(nextConfig);
     } finally {
       failoverBusy = false;
@@ -189,14 +240,24 @@ function createDirectIaRealtimeClient(gateway: string): IaRealtimeClient {
     async start(onMessage) {
       onMessageHandler = onMessage;
       stopped = false;
+      lastFailoverAt = 0;
+      clearCooldownTimer();
 
       if (socket?.connected) return getDirectRealtimeStatus(PLATFORM);
 
-      await connectWithConfig(getIaOfficialWsConfig(gateway));
+      const first = initialConfig(gateway);
+      if (first.source === "changmen" && isIaOfficialOriginHopeless(gateway)) {
+        console.info(
+          "[IA WS] page Origin ≠ ilustre; skip official, use CHANGMEN forward",
+          typeof location !== "undefined" ? location.origin : "",
+        );
+      }
+      await connectWithConfig(first);
       return getDirectRealtimeStatus(PLATFORM);
     },
     async stop() {
       stopped = true;
+      clearCooldownTimer();
       tearDownSocket();
       onMessageHandler = null;
       activeConfig = null;
@@ -216,4 +277,3 @@ export function createIaRealtimeClient(gateway: string = IA_DEFAULT_GATEWAY): Ia
 
 /** A8 `wQe` 默认 gateway（与 HTTP 采集对象 `t` 同源） */
 export const IA_A8_REALTIME_GATEWAY = IA_A8_COLLECT.gateway;
-

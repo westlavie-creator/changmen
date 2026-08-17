@@ -36,7 +36,7 @@ const PARITY = {
   TF: "同 A8",
   IA: "同 A8",
   SABA: "同 A8",
-  PB: "经典 path+x-app-data 同 A8；+/sports 会话检测 [changmen]；data UTF-8 btoa [changmen]",
+  PB: "经典 path+x-app-data 同 A8；+/sports 会话检测 [changmen]；data UTF-8 btoa；复制前校验内层 X-U [changmen]",
   IMT: "同 A8",
   HGA: "Check/GetConfig 同 A8（图标 class 换名）；注单轮询暂停 no-op",
   HG: "同 A8（图标 class 换名）",

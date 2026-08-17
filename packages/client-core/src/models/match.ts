@@ -24,6 +24,11 @@ export class ViewBetItem {
    */
   homeSubscribeId = "";
   awaySubscribeId = "";
+  /**
+   * [changmen 扩展] PB Sources.LineID（moneyLine.lineId）。
+   * 旧 GetMatchs 无此字段时为 0；下注回退本机 lineCache。
+   */
+  lineId = 0;
 
   constructor(source: BetRowDto["Sources"][string], providerMatchId: string) {
     this.type = source.Type;
@@ -32,6 +37,7 @@ export class ViewBetItem {
     this.homeId = source.HomeID;
     this.awayId = source.AwayID;
     this.sourceStatus = String(source.Status ?? "Normal");
+    this.lineId = Number(source.LineID) || 0;
     // [A8 可证实] HG 用 Sources 作 fallback；其它馆默认 0，只信 fo。
     // PredictFun 与 PM 同构：电竞不信 GetMatchs Sources 赔率；仍解析 MarketID 供订盘/下单。
     if (source.Type === HG_PLATFORM) {

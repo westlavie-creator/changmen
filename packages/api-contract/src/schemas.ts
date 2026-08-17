@@ -101,6 +101,8 @@ export const GetMatchsBetSourceOutbound = z.object({
   Status: z.string().optional(),
   HomeMarketID: z.string().optional(),
   AwayMarketID: z.string().optional(),
+  /** [changmen 扩展] PB lineId；可选 */
+  LineID: z.union([z.string(), z.number()]).optional(),
 }).passthrough();
 
 export const GetMatchsBetRowOutbound = z.object({

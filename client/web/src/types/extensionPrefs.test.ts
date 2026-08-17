@@ -141,4 +141,9 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ uiTheme: "neon" }).uiTheme).toBe("default");
     expect(normalizeExtensionPrefs({}).uiTheme).toBe("default");
   });
+
+  it("ignores legacy pbWsShadowUi from RDS Extensions payload", () => {
+    expect(normalizeExtensionPrefs({ pbWsShadowUi: true })).toEqual(defaultPrefs);
+    expect("pbWsShadowUi" in normalizeExtensionPrefs({ pbWsShadowUi: true })).toBe(false);
+  });
 });

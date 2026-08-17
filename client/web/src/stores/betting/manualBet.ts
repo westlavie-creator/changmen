@@ -49,13 +49,14 @@ export function buildManualBetPromptMessage(
   ].join("\n");
 }
 
-/** [A8 可证实] 双击赔率手动下单 */
+/** [A8 可证实] 双击赔率手动下单；[changmen 扩展] oddsOverride 用于影子价点击时用旁显价作接受下限 */
 export async function runManualBet(
   match: ViewMatch,
   bet: ViewBet,
   item: ViewBetItem,
   side: BetSide,
   ctx: ManualBetContext,
+  oddsOverride?: number,
 ): Promise<void> {
   const accountStore = useAccountStore();
   const user = useUserStore();
@@ -69,7 +70,11 @@ export async function runManualBet(
     return;
   }
 
-  const odds = item.getOdds(side);
+  const fromItem = item.getOdds(side);
+  const odds =
+    oddsOverride != null && Number.isFinite(oddsOverride) && oddsOverride > 0
+      ? oddsOverride
+      : fromItem;
   let amount: number;
   try {
     const { value } = await ElMessageBox.prompt(

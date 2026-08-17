@@ -49,7 +49,8 @@ chrome-extension/
   vendor/               # socket.io 等第三方 bundle（Stake 桥接用）
   scripts/build.mjs     # 同步 src → 根目录 + version.json
   assets/               # 图标与 content 样式
-  popup.html            # 查看版本与扩展 ID
+  sidepanel.html        # Side Panel 观测面板（点击图标打开）
+  popup.html / popup.js # 面板逻辑（sidepanel 复用 popup.js）
 ```
 
 ## 开发

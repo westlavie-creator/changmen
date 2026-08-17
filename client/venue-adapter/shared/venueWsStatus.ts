@@ -15,6 +15,8 @@ const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
   { id: "predictfun-market", label: "PF" },
   { id: "dex", label: "DEX" },
   { id: "cm-hub", label: "HUB" },
+  /** [changmen 扩展] part888 sports-websocket 观测（扩展旁路，非 HTTP 主路径） */
+  { id: "pb", label: "PB" },
 ];
 
 const statusById = new Map<string, VenueWsStatus>(
