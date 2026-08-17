@@ -1,4 +1,5 @@
 import * as db from "@changmen/db";
+import { normalizeEpochMs } from "@changmen/shared/time/match_time";
 import {
   isComposerForceReanchor,
   isComposerStickyOrientation,
@@ -16,30 +17,77 @@ import {
   runEndPass,
   runMatchPass,
 } from "./pipeline.js";
+import {
+  ALL_SOURCES_GONE_MS,
+  allPlatformSourcesGone,
+} from "./shape/ended_filter.js";
 
 /**
  * M1：匹配缺口 ≠ 结束。
- * 返回本拍应传给写库的 markEndedIds（恒为空；结束只靠 endedRows）以及仅供日志的 activeGaps。
+ * 例外（根治用户侧僵尸场）：gap 且馆源在当前 snapshot 全部消失、且已过
+ * ALL_SOURCES_GONE 时间门 → 才进 markEndedIds（只写 ended_at）。
+ * 馆源仍在、本拍只是没合出来 → 仍只记 activeGaps，不结束。
  */
-export function resolveComposeEndPatch({ previousActiveIds = [], info = [], endedRows = [] } = {}) {
+export function resolveComposeEndPatch({
+  previousActiveIds = [],
+  info = [],
+  endedRows = [],
+  clientRows = [],
+  platformMatches = null,
+  now = Date.now(),
+} = {}) {
   const activeIds = new Set(
     (info || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
   );
   const endedIds = new Set(
     (endedRows || []).map(m => Number(m.ID)).filter(id => Number.isFinite(id) && id > 0),
   );
-  const activeGaps = (previousActiveIds || [])
+  const gaps = (previousActiveIds || [])
     .map(Number)
     .filter(id => Number.isFinite(id) && id > 0 && !activeIds.has(id) && !endedIds.has(id));
-  return { markEndedIds: [], activeGaps };
+
+  if (platformMatches == null) {
+    return { markEndedIds: [], activeGaps: gaps };
+  }
+
+  const byId = new Map();
+  for (const row of clientRows || []) {
+    const id = Number(row?.id ?? row?.ID);
+    if (Number.isFinite(id) && id > 0)
+      byId.set(id, row);
+  }
+
+  const markEndedIds = [];
+  const activeGaps = [];
+  for (const id of gaps) {
+    const row = byId.get(id);
+    if (!row) {
+      activeGaps.push(id);
+      continue;
+    }
+    const matchs = row.matchs ?? row.Matchs ?? {};
+    const startMs = normalizeEpochMs(row.start_time ?? row.StartTime);
+    if (
+      startMs > 0
+      && startMs <= now - ALL_SOURCES_GONE_MS
+      && allPlatformSourcesGone(matchs, platformMatches)
+    ) {
+      markEndedIds.push(id);
+    }
+    else {
+      activeGaps.push(id);
+    }
+  }
+  return { markEndedIds, activeGaps };
 }
 
 /**
  * 空写策略（防误清活跃集）：
  * - info 非空 → 放行
  * - ALLOW_EMPTY_WRITE=1 → 强制放行
- * - endedCount>0 且本拍处理过的正 ID 覆盖 RDS 全部 active → 允许全部标 ended
- * - 其余（含 ended>0 但未覆盖全部 active）→ 拒写
+ * - endedCount>0 且本拍处理过的正 ID + sources-gone markEndedIds 覆盖 RDS 全部 active → 允许
+ * - info 空、endedCount=0，但 markEndedIds 已覆盖全部 previous active（全是僵尸收尾）→ 允许
+ * - 其余 → 拒写
  */
 export function shouldAllowEmptyWrite({
   info,
@@ -47,6 +95,7 @@ export function shouldAllowEmptyWrite({
   allowEmptyWrite,
   processedActiveIds,
   previousActiveIds,
+  markEndedIds = [],
 } = {}) {
   if (info?.length)
     return { ok: true, reason: "nonempty" };
@@ -54,27 +103,36 @@ export function shouldAllowEmptyWrite({
     return { ok: true, reason: "forced" };
 
   const ended = Number(endedCount) || 0;
-  if (ended <= 0)
-    return { ok: false, reason: "empty_without_ended" };
-
   const prev = [...(previousActiveIds || [])].filter(id => Number.isFinite(id) && id > 0);
   const processed = processedActiveIds instanceof Set
     ? processedActiveIds
     : new Set(processedActiveIds || []);
+  const marked = new Set(
+    (markEndedIds || []).map(Number).filter(id => Number.isFinite(id) && id > 0),
+  );
 
   if (!prev.length) {
     // RDS 本就无 active：空写无害
     return { ok: true, reason: "all_ended_no_previous" };
   }
 
-  const uncovered = prev.filter(id => !processed.has(id));
+  const uncovered = prev.filter(id => !processed.has(id) && !marked.has(id));
   if (uncovered.length) {
     return {
       ok: false,
-      reason: "empty_but_unprocessed_actives",
+      reason: ended <= 0 && !marked.size
+        ? "empty_without_ended"
+        : "empty_but_unprocessed_actives",
       uncoveredCount: uncovered.length,
     };
   }
+
+  if (ended <= 0 && !marked.size)
+    return { ok: false, reason: "empty_without_ended" };
+
+  if (ended <= 0 && marked.size)
+    return { ok: true, reason: "all_sources_gone_covered" };
+
   return { ok: true, reason: "all_ended_covered" };
 }
 
@@ -159,12 +217,34 @@ export async function composeOnce({
     if (!guard.ok)
       throw new Error(`[match-composer] ${guard.reason}`);
 
+    const { markEndedIds, activeGaps } = resolveComposeEndPatch({
+      previousActiveIds,
+      info,
+      endedRows,
+      clientRows: snapshot.clientRows,
+      platformMatches: snapshot.matches,
+      now,
+    });
+    if (markEndedIds.length) {
+      console.log(
+        `[match-composer] sources-gone end: ${markEndedIds.slice(0, 20).join(",")}`
+        + (markEndedIds.length > 20 ? `…(+${markEndedIds.length - 20})` : ""),
+      );
+    }
+    if (activeGaps.length) {
+      console.warn(
+        `[match-composer] active gap (not ending): ${activeGaps.slice(0, 20).join(",")}`
+        + (activeGaps.length > 20 ? `…(+${activeGaps.length - 20})` : ""),
+      );
+    }
+
     const emptyOk = shouldAllowEmptyWrite({
       info,
       endedCount,
       allowEmptyWrite,
       processedActiveIds: match.processedActiveIds,
       previousActiveIds,
+      markEndedIds,
     });
     if (!emptyOk.ok) {
       throw new Error(
@@ -174,17 +254,6 @@ export async function composeOnce({
       );
     }
 
-    const { markEndedIds, activeGaps } = resolveComposeEndPatch({
-      previousActiveIds,
-      info,
-      endedRows,
-    });
-    if (activeGaps.length) {
-      console.warn(
-        `[match-composer] active gap (not ending): ${activeGaps.slice(0, 20).join(",")}`
-        + (activeGaps.length > 20 ? `…(+${activeGaps.length - 20})` : ""),
-      );
-    }
     const stickyEndedIds = (snapshot.clientRows || [])
       .filter(r => r.ended_at != null || r.endedAt != null)
       .map(r => Number(r.id ?? r.ID))

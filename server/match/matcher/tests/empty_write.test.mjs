@@ -40,6 +40,43 @@ describe("shouldAllowEmptyWrite", () => {
     assert.equal(r.ok, false);
   });
 
+  it("allows empty when markEndedIds covers all previous (sources-gone zombies)", () => {
+    const r = shouldAllowEmptyWrite({
+      info: [],
+      endedCount: 0,
+      processedActiveIds: new Set(),
+      previousActiveIds: [2008, 2029],
+      markEndedIds: [2008, 2029],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.reason, "all_sources_gone_covered");
+  });
+
+  it("allows empty when endPass + sources-gone marks cover previous", () => {
+    const r = shouldAllowEmptyWrite({
+      info: [],
+      endedCount: 1,
+      processedActiveIds: new Set([10]),
+      previousActiveIds: [10, 2008],
+      markEndedIds: [2008],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.reason, "all_ended_covered");
+  });
+
+  it("still rejects empty when zombie gap is not marked", () => {
+    const r = shouldAllowEmptyWrite({
+      info: [],
+      endedCount: 1,
+      processedActiveIds: new Set([10]),
+      previousActiveIds: [10, 99],
+      markEndedIds: [],
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, "empty_but_unprocessed_actives");
+    assert.equal(r.uncoveredCount, 1);
+  });
+
   it("force allows disaster empty", () => {
     assert.equal(
       shouldAllowEmptyWrite({
