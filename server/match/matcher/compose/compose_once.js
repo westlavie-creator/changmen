@@ -22,11 +22,25 @@ import {
   allPlatformSourcesGone,
 } from "./shape/ended_filter.js";
 
+/** snapshot 是否含至少一条馆源（{} 与 fetch 失败回落不可区分，不能当 sources-gone） */
+export function platformMatchesSnapshotNonEmpty(platformMatches) {
+  if (platformMatches == null || typeof platformMatches !== "object")
+    return false;
+  for (const block of Object.values(platformMatches)) {
+    if (!block || typeof block !== "object")
+      continue;
+    if (Object.keys(block).length > 0)
+      return true;
+  }
+  return false;
+}
+
 /**
  * M1：匹配缺口 ≠ 结束。
  * 例外（根治用户侧僵尸场）：gap 且馆源在当前 snapshot 全部消失、且已过
  * ALL_SOURCES_GONE 时间门 → 才进 markEndedIds（只写 ended_at）。
  * 馆源仍在、本拍只是没合出来 → 仍只记 activeGaps，不结束。
+ * 整表 platformMatches 为空（含 RDS fetch 失败返回 {}）→ 不 markEnded，避免误杀全场。
  */
 export function resolveComposeEndPatch({
   previousActiveIds = [],
@@ -46,7 +60,7 @@ export function resolveComposeEndPatch({
     .map(Number)
     .filter(id => Number.isFinite(id) && id > 0 && !activeIds.has(id) && !endedIds.has(id));
 
-  if (platformMatches == null) {
+  if (!platformMatchesSnapshotNonEmpty(platformMatches)) {
     return { markEndedIds: [], activeGaps: gaps };
   }
 
