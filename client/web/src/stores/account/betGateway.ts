@@ -31,7 +31,8 @@ export interface PlaceBetOpts {
 
 /**
  * delayed 受理后：跟到已成交 / 未成交再提示。
- * 仍 pendingConfirm（含 delayed / FOK 挂簿 grace）→ 不报成/不成，避免假阴性。
+ * PF 仍 pendingConfirm（挂单 OPEN）→ 不报成/不成。
+ * PM FOK 窗后只有成交/未成交，不会停在 pendingConfirm。
  */
 function notifyPendingVenueConfirm(
   store: AccountStoreContext,

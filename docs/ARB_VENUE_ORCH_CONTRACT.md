@@ -14,7 +14,7 @@
 |----------|--------------|------|
 | `checkBetting` | 有/无 `data` + 错误 | 失败也要回 |
 | `betting` | `BetResult`（success/fail；PM/PF 可 `pending`） | 未调用 → `not_attempted` |
-| `settleArbLeg` / `resolveLegOutcome` | `VenueLegOutcome`：`filled` \| `unfilled` \| `timeout` + `orders` | 编排不改写判定 |
+| `settleArbLeg` / `resolveLegOutcome` | `VenueLegOutcome`：`filled` \| `unfilled` \| `timeout` + `orders` | 编排不改写判定。**PM 不回 `timeout`** |
 
 ## Polymarket 三态（betting → settle）
 
@@ -24,16 +24,15 @@
 | **fill confirmed**（`matched` + takingAmount>0） | **快路径**：直接 `filled`，不进 delayed poll；拉单 **一次** 供绑单 | 绑单 / 不成补单 |
 | `pending` / delayed | settlement job：等满官方 `sd` + 查询滞后后 **filled / unfilled** | 见下表 |
 
-官方 delay（[Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：体育盘 `delayed` = 异步 seconds-delay 窗；时长取 CLOB `GET /clob-markets/{condition_id}` 的 **`sd`**（秒）。轮询见 `buildPolymarketDelayedPollOpts(sd)`。窗内不可撤；窗后 FOK 未成交必须 `unfilled`（可撤则撤），**不得**把套利腿停在 `timeout`/`pendingConfirm`。
+官方 delay（[Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：体育盘 `delayed` = 异步 seconds-delay 窗；时长取 CLOB `GET /clob-markets/{condition_id}` 的 **`sd`**（秒）。轮询见 `buildPolymarketDelayedPollOpts(sd)`。窗内不可撤。窗后：撮合、校验失败 rejected，或 `unmatched` 挂簿。本仓库 FOK：**窗后无成交必须 `unfilled`（可撤则撤）**。官方无 `timeout` 态；poll 内部 timeout 经 `coercePolymarketFokPollOutcome` 收成 `unfilled`，**不得**回传编排 / 进行中订单。官方未规定缺省 `sd`：拉失败 / 无 `condition_id` / 行无 `sd` 时用保守上限 **30s**（`UNKNOWN_SPORTS_SECONDS_DELAY`），禁止默认 1s。Settlement Job 缺失时须复用下单时的 poll，或按 `pmConditionId` 再拉 `sd`。`delayed` / 查不到行（delay 窗内常见 404）须走 FOK grace，窗内不立刻 cancel。
 
 | settle | 含义 | 套利补单 |
 |--------|------|----------|
 | `filled` | 成交 | 不补 |
 | `unfilled` | 确认未成交（FOK 窗后无成交 / cancel） | **可补** |
-| `timeout` | 仅接口完全不可达等极端情况 | **不补新单**；挂 `pendingVenueOrderId` 由 jb 续查原单 |
 
 `[changmen 扩展]` fill confirmed 时编排入口可跳过无意义预拉（见 `resolveVenueLegOutcome`）。
-`isVenueLegConfirmedUnfilled` = 仅 `unfilled`；`isVenueLegRejected` 仍含 timeout（jb 须先查 pending）。
+`isVenueLegConfirmedUnfilled` = 仅 `unfilled`。PM 进行中订单：delay 窗内「确认中」；窗后只显示已成交或拒单。编排层 `settleArbLeg` 若仍收到 PM `timeout`，按 `unfilled` 收，`pendingConfirm=false`（与 UI / 补单一致）。
 
 ## PredictFun 三态（betting → settle）
 

@@ -5,7 +5,9 @@ vi.mock("./marketDelay", () => ({
   fetchPolymarketMarketSecondsDelay: vi.fn(async () => ({
     secondsDelay: 1,
     takerOrderDelayEnabled: false,
+    fromMarket: true,
   })),
+  UNKNOWN_SPORTS_SECONDS_DELAY: 30,
   buildPolymarketDelayedPollOpts: vi.fn(() => ({
     initialDelayMs: 1000,
     intervalMs: 1000,

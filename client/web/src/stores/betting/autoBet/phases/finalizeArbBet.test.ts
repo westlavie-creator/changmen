@@ -45,6 +45,7 @@ vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
 
 vi.mock("@/stores/betting/autoBet/arbLegSettle", () => ({
   settleArbLeg,
+  settleArbLegUntilTerminal: settleArbLeg,
 }));
 
 vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
@@ -492,13 +493,13 @@ describe("finalizeArbBet makeup enqueue", () => {
     expect(refreshBalance).toHaveBeenNthCalledWith(2, accountB);
   });
 
-  it("PM delayed 仍 pendingConfirm 时不补刷（避免旧余额）", async () => {
+  it("PF 仍 pendingConfirm 时不补刷（避免旧余额）", async () => {
     const accountA = makeAccount("OB");
-    const accountB = makeAccount("Polymarket");
+    const accountB = makeAccount("PredictFun");
     mockDualLegVenueSync(
       { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
       {
-        orders: [{ ...venueOrder("pm-1", "none", 3), provider: "Polymarket" }],
+        orders: [{ ...venueOrder("pf-1", "none", 3), provider: "PredictFun" }],
         rejected: false,
         pendingConfirm: true,
       },
@@ -507,13 +508,14 @@ describe("finalizeArbBet makeup enqueue", () => {
     await finalizeArbBet(
       params,
       makePlaced({
-        legB: makeLeg("Polymarket", "T2"),
+        legB: makeLeg("PredictFun", "T2"),
         accountA,
         accountB,
-        resultB: Object.assign(new BetResult("Polymarket", true), {
-          orderId: "pm-1",
+        resultB: Object.assign(new BetResult("PredictFun", true), {
+          orderId: "pf-1",
           pending: true,
         }),
+        placeOutcomeB: "accepted_pending_confirm",
       }),
     );
 

@@ -38,14 +38,13 @@ describe("arbMakeUpSides", () => {
     expect(arbMakeUpSides(ray, true, pm, true)).toBeNull();
   });
 
-  it("does not enqueue when OB filled and PM still pendingConfirm (timeout)", () => {
+  it("does not enqueue when OB filled and PF still pendingConfirm", () => {
     const ob = new BetResult("OB", true);
-    const pm = Object.assign(new BetResult("Polymarket", true), {
-      orderId: "0xpm",
-      reject: "timeout",
+    const pf = Object.assign(new BetResult("PredictFun", true), {
+      orderId: "0xpf",
     });
-    expect(arbMakeUpSides(ob, false, pm, false, false, true)).toBeNull();
-    expect(arbMakeUpSides(ob, false, pm, true, false, false)).toBe("enqueueB");
+    expect(arbMakeUpSides(ob, false, pf, false, false, true)).toBeNull();
+    expect(arbMakeUpSides(ob, false, pf, true, false, false)).toBe("enqueueB");
   });
 
   it("enqueues B when OB filled and PM confirmed unfilled", () => {

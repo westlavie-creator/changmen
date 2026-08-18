@@ -29,6 +29,7 @@ import {
 } from "./pmLogicalPosition";
 import { estimatePolymarketSellProceedsUsdc, type PolymarketBidLevel } from "./parse";
 import {
+  UNKNOWN_SPORTS_SECONDS_DELAY,
   buildPolymarketDelayedPollOpts,
   buildPolymarketWatchTimeoutMs,
   fetchPolymarketMarketSecondsDelay,
@@ -448,9 +449,10 @@ export async function awaitPolymarketManualSellFinalOutcome(params: {
   const conditionId = String(buy.pmConditionId ?? "").trim();
   const delayInfo = conditionId
     ? await fetchPolymarketMarketSecondsDelay(conditionId)
-    : { secondsDelay: 1, takerOrderDelayEnabled: false };
-  const poll = buildPolymarketDelayedPollOpts(delayInfo.secondsDelay);
-  const watchTimeoutMs = buildPolymarketWatchTimeoutMs(delayInfo.secondsDelay);
+    : { secondsDelay: UNKNOWN_SPORTS_SECONDS_DELAY, takerOrderDelayEnabled: false, fromMarket: false };
+  const sd = delayInfo.fromMarket ? delayInfo.secondsDelay : UNKNOWN_SPORTS_SECONDS_DELAY;
+  const poll = buildPolymarketDelayedPollOpts(sd);
+  const watchTimeoutMs = buildPolymarketWatchTimeoutMs(sd);
   if (conditionId) {
     registerPolymarketOrderWatch(params.account, sellOrderId, {
       conditionId,
@@ -469,6 +471,7 @@ export async function awaitPolymarketManualSellFinalOutcome(params: {
     side: "SELL",
     poll,
     tradeConfirm,
+    conditionId: conditionId || undefined,
   });
 
   const settled = await awaitPolymarketSettlementJob(params.account, sellOrderId)

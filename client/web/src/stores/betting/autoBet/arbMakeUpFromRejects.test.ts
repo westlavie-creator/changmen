@@ -271,19 +271,19 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
-  it("hangs pendingVenue resume when OB filled and PM still timeout/pendingConfirm", async () => {
+  it("hangs pendingVenue resume when OB filled and PF still pendingConfirm", async () => {
     const placed = basePlaced();
     placed.accountA = { accountId: 14, provider: "OB" } as never;
-    placed.accountB = { accountId: 99, provider: "Polymarket" } as never;
+    placed.accountB = { accountId: 99, provider: "PredictFun" } as never;
     placed.legA = new BetOption("OB" as never, "m1", "b1", "h1", 70, "Home", 2);
-    placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Away", 1.72);
+    placed.legB = new BetOption("PredictFun" as never, "m2", "b2", "a1", 26, "Away", 1.72);
     placed.resultA = new BetResult("OB", true);
-    placed.resultB = Object.assign(new BetResult("Polymarket", true), {
-      orderId: "0xpm-timeout",
-      reject: "timeout",
+    placed.resultB = Object.assign(new BetResult("PredictFun", true), {
+      orderId: "0xpf-timeout",
+      pending: true,
     });
     placed.placeOutcomeA = "filled_pending_settle";
-    placed.placeOutcomeB = "filled_pending_settle";
+    placed.placeOutcomeB = "accepted_pending_confirm";
 
     const out = await applyArbMakeUpFromRejects(
       params(),
@@ -302,9 +302,9 @@ describe("applyArbMakeUpFromRejects", () => {
       expect.objectContaining({
         target: "Away",
         accountId: 14,
-        failedPlatformLabel: "Polymarket(待确认续查)",
+        failedPlatformLabel: "PredictFun(待确认续查)",
       }),
     );
-    expect(setPendingVenueOrder).toHaveBeenCalledWith(100, "0xpm-timeout", 99);
+    expect(setPendingVenueOrder).toHaveBeenCalledWith(100, "0xpf-timeout", 99);
   });
 });

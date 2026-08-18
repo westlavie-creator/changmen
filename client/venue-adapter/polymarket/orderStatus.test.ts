@@ -10,6 +10,9 @@ import {
   isPolymarketOrderIdRejected,
   isPolymarketPostedApiFailure,
   isPolymarketPostFillConfirmed,
+  coercePolymarketFokPollOutcome,
+  isPolymarketDelayLookupPending,
+  isPolymarketRestingNoFill,
 } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import { BetResult } from "@changmen/client-core/models/betResult";
@@ -129,6 +132,24 @@ describe("interpretPolymarketOrderRow", () => {
   });
 });
 
+describe("isPolymarketRestingNoFill / delay lookup", () => {
+  it("treats delayed with no fill as resting", () => {
+    expect(isPolymarketRestingNoFill({ status: "delayed", size_matched: "0" })).toBe(true);
+  });
+
+  it("treats live / unmatched with no fill as resting", () => {
+    expect(isPolymarketRestingNoFill({ status: "live", size_matched: "0" })).toBe(true);
+    expect(isPolymarketRestingNoFill({ status: "unmatched", size_matched: "0" })).toBe(true);
+  });
+
+  it("empty or missing row is delay-lookup pending, not resting", () => {
+    expect(isPolymarketRestingNoFill(null)).toBe(false);
+    expect(isPolymarketRestingNoFill({})).toBe(false);
+    expect(isPolymarketDelayLookupPending(null)).toBe(true);
+    expect(isPolymarketDelayLookupPending({})).toBe(true);
+  });
+});
+
 describe("formatPolymarketSettlementMessage", () => {
   it("formats matched and unfilled", () => {
     expect(formatPolymarketSettlementMessage("0x1", "matched", { status: "MATCHED", size_matched: "3" }))
@@ -162,6 +183,17 @@ describe("applyPolymarketSettlementToResult", () => {
     expect(result.pending).toBe(true);
     expect(result.reject).toBeNull();
     expect(result.message).toContain("确认中");
+  });
+});
+
+describe("coercePolymarketFokPollOutcome", () => {
+  it("keeps matched", () => {
+    expect(coercePolymarketFokPollOutcome("matched")).toBe("matched");
+  });
+
+  it("maps timeout and unfilled to unfilled", () => {
+    expect(coercePolymarketFokPollOutcome("timeout")).toBe("unfilled");
+    expect(coercePolymarketFokPollOutcome("unfilled")).toBe("unfilled");
   });
 });
 

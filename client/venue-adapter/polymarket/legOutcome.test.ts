@@ -6,7 +6,9 @@ import { resolvePolymarketLegOutcome } from "./legOutcome";
 
 const settlePolymarketDelayedOrder = vi.fn();
 const awaitPolymarketSettlementJob = vi.fn();
+const getPolymarketSettlementDelayCtx = vi.fn();
 const fetchPolymarketConfirmedTradeForOrder = vi.fn();
+const resolvePolymarketDelayedPollOpts = vi.fn();
 
 vi.mock("./orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
@@ -14,6 +16,12 @@ vi.mock("./orderSettlement", () => ({
 
 vi.mock("./settlementJob", () => ({
   awaitPolymarketSettlementJob: (...args: unknown[]) => awaitPolymarketSettlementJob(...args),
+  getPolymarketSettlementDelayCtx: (...args: unknown[]) => getPolymarketSettlementDelayCtx(...args),
+  clearPolymarketSettlementJob: vi.fn(),
+}));
+
+vi.mock("./marketDelay", () => ({
+  resolvePolymarketDelayedPollOpts: (...args: unknown[]) => resolvePolymarketDelayedPollOpts(...args),
 }));
 
 vi.mock("./orders", async (importOriginal) => {
@@ -52,6 +60,14 @@ describe("resolvePolymarketLegOutcome", () => {
     settlePolymarketDelayedOrder.mockReset();
     awaitPolymarketSettlementJob.mockReset();
     awaitPolymarketSettlementJob.mockResolvedValue(null);
+    getPolymarketSettlementDelayCtx.mockReset();
+    getPolymarketSettlementDelayCtx.mockReturnValue(null);
+    resolvePolymarketDelayedPollOpts.mockReset();
+    resolvePolymarketDelayedPollOpts.mockResolvedValue({
+      initialDelayMs: 30_000,
+      intervalMs: 1_000,
+      maxAttempts: 8,
+    });
     fetchPolymarketConfirmedTradeForOrder.mockReset();
     fetchVenueOrders.mockReset();
     fetchVenueOrders.mockResolvedValue([]);
@@ -87,10 +103,35 @@ describe("resolvePolymarketLegOutcome", () => {
 
     const out = await resolvePolymarketLegOutcome(account(), result, { fetchVenueOrders });
 
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(
+      account(),
+      "0xdelayed",
+      expect.objectContaining({
+        poll: expect.objectContaining({ initialDelayMs: 30_000 }),
+      }),
+    );
     expect(out.settlement).toBe("unfilled");
     expect(out.orders[0]?.status).toBe("reject");
     expect(result.pending).toBe(false);
     expect(fetchVenueOrders).not.toHaveBeenCalled();
+  });
+
+  it("poll timeout → settlement unfilled (no timeout leak)", async () => {
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xtimeout",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({
+      outcome: "timeout",
+      row: { status: "delayed" },
+    });
+
+    const out = await resolvePolymarketLegOutcome(account(), result, { fetchVenueOrders });
+
+    expect(out.settlement).toBe("unfilled");
+    expect(out.orders[0]?.status).toBe("reject");
+    expect(result.pending).toBe(false);
+    expect(result.reject).toBe("unfilled");
   });
 
   it("honors result.reject without polling venue list", async () => {
@@ -142,8 +183,53 @@ describe("resolvePolymarketLegOutcome", () => {
 
     const out = await resolvePolymarketLegOutcome(account(), result, { fetchVenueOrders });
 
-    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(account(), "0xmissing");
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(
+      account(),
+      "0xmissing",
+      expect.objectContaining({
+        poll: expect.objectContaining({ initialDelayMs: 30_000 }),
+      }),
+    );
     expect(out.settlement).toBe("unfilled");
     expect(result.reject).toBe("unfilled");
+  });
+
+  it("fallback settle reuses job delay poll without refetching sd", async () => {
+    const poll = { initialDelayMs: 3_000, intervalMs: 1_000, maxAttempts: 8 };
+    getPolymarketSettlementDelayCtx.mockReturnValue({
+      poll,
+      conditionId: "0xc",
+    });
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xctx",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+
+    await resolvePolymarketLegOutcome(account(), result, { fetchVenueOrders });
+
+    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(
+      account(),
+      "0xctx",
+      expect.objectContaining({ poll }),
+    );
+    expect(resolvePolymarketDelayedPollOpts).not.toHaveBeenCalled();
+  });
+
+  it("fallback settle fetches sd from pmConditionId when job ctx missing", async () => {
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      pending: true,
+      orderId: "0xcond",
+    });
+    settlePolymarketDelayedOrder.mockResolvedValue({ outcome: "unfilled", row: null });
+
+    await resolvePolymarketLegOutcome(
+      account(),
+      result,
+      { fetchVenueOrders },
+      "0xcondition",
+    );
+
+    expect(resolvePolymarketDelayedPollOpts).toHaveBeenCalledWith("0xcondition");
   });
 });

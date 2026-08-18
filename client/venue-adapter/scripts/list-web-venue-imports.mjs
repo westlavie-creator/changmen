@@ -38,6 +38,7 @@ const MOCK_ONLY_DEEP = new Set([
   "polymarket/orderSettlement",
   "polymarket/settlementJob",
   "polymarket/orders",
+  "polymarket/marketDelay",
   "shared/rejectWait",
 ]);
 

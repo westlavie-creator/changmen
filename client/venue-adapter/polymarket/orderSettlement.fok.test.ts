@@ -61,6 +61,38 @@ describe("finalizePolymarketFokRestingOrder", () => {
     expect(pmCancelOrder).not.toHaveBeenCalled();
   });
 
+  it("during grace delayed becomes matched without cancel", async () => {
+    fetchPolymarketOrderRow
+      .mockResolvedValueOnce({ status: "delayed", size_matched: "0" })
+      .mockResolvedValue({ status: "MATCHED", size_matched: "4" });
+
+    const out = await finalizePolymarketFokRestingOrder(
+      acc,
+      "0xgrace-d",
+      { status: "delayed", size_matched: "0" },
+      { graceMs: 80, graceIntervalMs: 20, postCancelAttempts: 1 },
+    );
+
+    expect(out.outcome).toBe("matched");
+    expect(pmCancelOrder).not.toHaveBeenCalled();
+  });
+
+  it("404 row during grace waits then matched without cancel", async () => {
+    fetchPolymarketOrderRow
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ status: "MATCHED", size_matched: "2" });
+
+    const out = await finalizePolymarketFokRestingOrder(
+      acc,
+      "0x404",
+      null,
+      { graceMs: 80, graceIntervalMs: 20, postCancelAttempts: 1 },
+    );
+
+    expect(out.outcome).toBe("matched");
+    expect(pmCancelOrder).not.toHaveBeenCalled();
+  });
+
   it("cancels once after grace then unfilled", async () => {
     fetchPolymarketOrderRow
       .mockResolvedValueOnce({ status: "live", size_matched: "0" })

@@ -8,15 +8,15 @@ import {
 } from "@changmen/venue-adapter/contract";
 import { resolveVenueLegOutcome } from "@/domain/betting/resolveVenueLegOutcome";
 import { useAccountStore } from "@/stores/accountStore";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { isPendingConfirmVenueProvider, isPolymarketProvider, isPredictFunProvider } from "@changmen/shared/account_multiply";
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import { wait } from "@changmen/client-core/shared/wait";
 
 export interface ArbLegSettleResult {
   orders: VenueOrder[];
-  /** 确认未成交（可补单）；timeout 为 false */
+  /** 确认未成交（可补单） */
   rejected: boolean;
-  /** 仍待确认（官方 delay / 接口滞后）；不入补单、不绑拒单 */
+  /** PF 仍待确认（OPEN）；PM FOK 不应出现 */
   pendingConfirm: boolean;
 }
 
@@ -28,7 +28,7 @@ export interface SettleArbLegOpts {
   betOption?: BetOption;
 }
 
-/** 本地一轮 timeout 后续跟（吃单须跟到成/不成）。PM FOK 在 sd 窗后应已是 unfilled，不再靠多轮空等。 */
+/** 本地一轮 timeout 后续跟。仅 PF（挂单可能仍 OPEN）。PM FOK 窗后只有 filled/unfilled。 */
 export const PENDING_CONFIRM_FOLLOW_ROUNDS = 6;
 export const PENDING_CONFIRM_FOLLOW_GAP_MS = 2_000;
 
@@ -55,11 +55,17 @@ export async function settleArbLeg(
     {
       confirmPostAccepted: isPendingConfirmVenueProvider(account.provider) && Boolean(result),
       rejectWaitSec: opts.rejectWaitSec,
+      pmConditionId: String(opts.betOption?.betId ?? "").trim() || undefined,
     },
   );
-  const rejected = isVenueLegConfirmedUnfilled(outcome);
-  // PM unfilled：落库 Reject；timeout 不算拒单、不落库
-  if (rejected && result && String(account.provider ?? "").trim() === "Polymarket") {
+  let rejected = isVenueLegConfirmedUnfilled(outcome);
+  let pendingConfirm = isVenueLegPendingConfirm(outcome);
+  // PM 官方无 timeout；编排只认 filled/unfilled。venue 若仍漏 timeout → 未成交。
+  if (isPolymarketProvider(account.provider) && pendingConfirm) {
+    rejected = true;
+    pendingConfirm = false;
+  }
+  if (rejected && result && isPolymarketProvider(account.provider)) {
     try {
       await persistPolymarketExecutionReject(account, result, "unfilled", {
         betOption: opts.betOption,
@@ -73,13 +79,14 @@ export async function settleArbLeg(
   return {
     orders: outcome.orders,
     rejected,
-    pendingConfirm: isVenueLegPendingConfirm(outcome),
+    pendingConfirm,
   };
 }
 
 /**
  * 跟到已成交 / 未成交。
- * timeout / 仍 pending → 续跟；耗尽仍未知则保持 pendingConfirm（禁止硬判未成交）。
+ * PF：timeout / 仍 pending → 续跟；耗尽仍未知则保持 pendingConfirm。
+ * PM：venue 已把内部 timeout 收成 unfilled，一轮即返回。
  * 非 pending-confirm 馆：一轮即返回。
  */
 export async function settleArbLegUntilTerminal(
@@ -87,7 +94,7 @@ export async function settleArbLegUntilTerminal(
   result?: BetResult,
   rejectWaitSecOrOpts?: number | SettleArbLegOpts,
 ): Promise<ArbLegSettleResult> {
-  const needFollow = isPendingConfirmVenueProvider(account.provider) && Boolean(result);
+  const needFollow = isPredictFunProvider(account.provider) && Boolean(result);
   const rounds = needFollow ? PENDING_CONFIRM_FOLLOW_ROUNDS : 1;
   let last: ArbLegSettleResult = { orders: [], rejected: false, pendingConfirm: false };
   for (let round = 0; round < rounds; round++) {

@@ -24,6 +24,7 @@ import { bumpPolymarketOrderSyncAfterBet } from "./pmOrderSync";
 import { registerPolymarketOrderWatch } from "./userWs";
 import { startPolymarketSettlementJob } from "./settlementJob";
 import {
+  UNKNOWN_SPORTS_SECONDS_DELAY,
   buildPolymarketDelayedPollOpts,
   buildPolymarketWatchTimeoutMs,
   fetchPolymarketMarketSecondsDelay,
@@ -691,12 +692,13 @@ export const polymarketProvider: PlatformProvider = {
       bumpPolymarketOrderSyncAfterBet(account.accountId);
       if (pending && bet.orderId) {
         const conditionId = String(option.betId ?? "").trim();
-        // 官方 delay 窗：CLOB market.sd（秒）；未知时回落 1s
+        // 官方 delay 窗：CLOB market.sd（秒）；未知不得按 1s 收尾
         const delayInfo = conditionId
           ? await fetchPolymarketMarketSecondsDelay(conditionId)
-          : { secondsDelay: 1, takerOrderDelayEnabled: false };
-        const poll = buildPolymarketDelayedPollOpts(delayInfo.secondsDelay);
-        const watchTimeoutMs = buildPolymarketWatchTimeoutMs(delayInfo.secondsDelay);
+          : { secondsDelay: UNKNOWN_SPORTS_SECONDS_DELAY, takerOrderDelayEnabled: false, fromMarket: false };
+        const sd = delayInfo.fromMarket ? delayInfo.secondsDelay : UNKNOWN_SPORTS_SECONDS_DELAY;
+        const poll = buildPolymarketDelayedPollOpts(sd);
+        const watchTimeoutMs = buildPolymarketWatchTimeoutMs(sd);
         if (conditionId) {
           registerPolymarketOrderWatch(account, bet.orderId, {
             conditionId,
@@ -709,7 +711,7 @@ export const polymarketProvider: PlatformProvider = {
           );
         }
         // delayed：后台确认成交（拒单/撮合）；手动卖出见 pmManualSell
-        startPolymarketSettlementJob(account, bet.orderId, { poll });
+        startPolymarketSettlementJob(account, bet.orderId, { poll, conditionId });
       }
       return bet;
     } catch (err) {

@@ -106,6 +106,22 @@ vi.mock("@changmen/venue-adapter/polymarket/orderSettlement", () => ({
   settlePolymarketDelayedOrder: (...args: unknown[]) => settlePolymarketDelayedOrder(...args),
 }));
 
+vi.mock("@changmen/venue-adapter/polymarket/settlementJob", () => ({
+  awaitPolymarketSettlementJob: vi.fn(async () => null),
+  getPolymarketSettlementDelayCtx: vi.fn(() => null),
+  clearPolymarketSettlementJob: vi.fn(),
+  startPolymarketSettlementJob: vi.fn(),
+  clearPolymarketSettlementJobs: vi.fn(),
+}));
+
+vi.mock("@changmen/venue-adapter/polymarket/marketDelay", () => ({
+  resolvePolymarketDelayedPollOpts: vi.fn(async () => ({
+    initialDelayMs: 1,
+    intervalMs: 1,
+    maxAttempts: 1,
+  })),
+}));
+
 vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
   maybeArbFailAutoSellByLink: vi.fn(async () => false),
 }));
@@ -278,6 +294,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
       acc,
       expect.objectContaining({ betMoney: 30, odds: 1.35 }),
       10,
+      expect.objectContaining({ linkId: expect.any(Number) }),
     );
   });
 
@@ -506,7 +523,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
     );
   });
 
-  it("timeout：写入 pendingVenueOrderId，续轮 settle 不再 POST", async () => {
+  it("PM poll timeout 收成 unfilled，不挂 pendingVenue", async () => {
     const bet = makeBet([makeItem("Polymarket", 4.167)]);
     matchs.push(makeMatch(bet));
     queueOrder();
@@ -531,43 +548,14 @@ describe("processLoseOrders (A8 jb parity)", () => {
     await processLoseOrders({ setMessage: vi.fn() });
 
     expect(betting).toHaveBeenCalledTimes(1);
-    expect(setPendingVenueOrder).toHaveBeenCalledWith(100, "0xtimeout-order", 47);
+    expect(setPendingVenueOrder).not.toHaveBeenCalled();
     expect(removeOrder).not.toHaveBeenCalled();
-
-    const queued = loseOrders.get(100);
-    expect(queued?.pendingVenueOrderId).toBe("0xtimeout-order");
-
-    betting.mockClear();
-    checkBetting.mockClear();
-    settlePolymarketDelayedOrder.mockReset();
-    settlePolymarketDelayedOrder.mockResolvedValueOnce({
-      outcome: "matched",
-      row: { status: "MATCHED", size_matched: "10" },
-    });
-    updateVenueOrders.mockResolvedValueOnce([
-      {
-        orderId: "0xtimeout-order",
-        provider: "Polymarket",
-        status: "none",
-        createAt: 1,
-        odds: 4,
-        betMoney: 70,
-        reward: 0,
-        money: 0,
-        match: "",
-        bet: "",
-        item: "",
-        game: "",
-      },
-    ]);
-
-    await processLoseOrders({ setMessage: vi.fn() });
-
-    expect(betting).not.toHaveBeenCalled();
-    expect(checkBetting).not.toHaveBeenCalled();
-    expect(settlePolymarketDelayedOrder).toHaveBeenCalledWith(acc, "0xtimeout-order");
-    expect(removeOrder).toHaveBeenCalledWith(100, true);
-    expect(clearPendingVenueOrder).toHaveBeenCalledWith(100);
+    expect(loseOrderMessage).toHaveBeenCalledWith(
+      acc,
+      expect.any(LoseOrder),
+      expect.any(BetOption),
+      true,
+    );
   });
 
   it("PM waitTime=-1 + pending unfilled：拒单检测后不出队", async () => {
@@ -658,6 +646,7 @@ describe("processLoseOrders (A8 jb parity)", () => {
       acc,
       expect.objectContaining({ betMoney: 66 }),
       10,
+      expect.objectContaining({ linkId: expect.any(Number) }),
     );
   });
 

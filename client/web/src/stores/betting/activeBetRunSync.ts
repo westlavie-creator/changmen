@@ -4,6 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ActiveBetLegStatus, ActiveBetRunPhase } from "@/types/activeBetRun";
 import type { MakeupRuntimePhase } from "@/types/order";
 import { getActivePinia } from "pinia";
+import { isPendingConfirmVenueProvider, isPolymarketProvider } from "@changmen/shared/account_multiply";
 import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 
@@ -190,12 +191,17 @@ export function syncActiveBetLeg(
   store.patchLeg(betId, side, { status, detail });
 }
 
-/** 单腿拒单检测结束后立即刷新 UI（不必等另一腿） */
+/** 单腿 settle 结束后立即刷新 UI（不必等另一腿） */
 export function syncActiveBetLegSettleResult(
   betId: number,
   side: "A" | "B",
   apiSuccess: boolean,
   venueRejected: boolean,
+  opts?: {
+    pendingConfirm?: boolean;
+    provider?: string;
+    pendingDetail?: string;
+  },
 ) {
   if (!apiSuccess) {
     syncActiveBetLeg(betId, side, "failed");
@@ -205,8 +211,26 @@ export function syncActiveBetLegSettleResult(
     syncActiveBetLeg(betId, side, "rejected", "拒单");
     return;
   }
-  // 拒单层：未拒单（检测通过）；整单收尾再标「已成交」
-  syncActiveBetLeg(betId, side, "confirmed", "未拒单");
+  if (opts?.pendingConfirm) {
+    // PM：官方无 timeout；窗后未知按未成交。待确认仅 PF。
+    if (isPolymarketProvider(opts?.provider)) {
+      syncActiveBetLeg(betId, side, "rejected", "拒单");
+      return;
+    }
+    syncActiveBetLeg(
+      betId,
+      side,
+      "pending_confirm",
+      opts.pendingDetail?.trim() || "delayed 待确认",
+    );
+    return;
+  }
+  // A8：拒单等待通过 →「未拒单」，整单收尾再标「已成交」。
+  // PM/PF：无 A8 拒单窗；filled 即成交。
+  if (isPendingConfirmVenueProvider(opts?.provider))
+    syncActiveBetLeg(betId, side, "confirmed", "已成交");
+  else
+    syncActiveBetLeg(betId, side, "confirmed", "未拒单");
 }
 
 /** [changmen 扩展] SaveOrderBind 重试仍失败时上屏 */

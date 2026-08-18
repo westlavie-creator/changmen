@@ -16,7 +16,7 @@ import { bindArbLegOrder, resolveArbBindOrderId } from "@/stores/betting/arbOrde
 import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { syncActiveBetLegSettleResult, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
 import { useAccountStore } from "@/stores/accountStore";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { isPendingConfirmVenueProvider, isPolymarketProvider } from "@changmen/shared/account_multiply";
 
 export interface ArbLegSettleSnapshot {
   ordersA: VenueOrder[];
@@ -126,7 +126,11 @@ export async function settleBothArbLegs(
       snapshot.ordersA = synced.orders;
       snapshot.rejectA = synced.rejected;
       snapshot.pendingConfirmA = synced.pendingConfirm;
-      syncActiveBetLegSettleResult(bet.id, "A", true, snapshot.rejectA);
+      syncActiveBetLegSettleResult(bet.id, "A", true, snapshot.rejectA, {
+        pendingConfirm: snapshot.pendingConfirmA,
+        provider: accountA.provider,
+        pendingDetail: placeOutcomeA === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认",
+      });
       const orderIdA = resolveArbBindOrderId(snapshot.ordersA, resultA, snapshot.rejectA);
       if (await bindArbLegOrder(linkId, accountA, resultA, snapshot.ordersA, snapshot.rejectA))
         snapshot.boundLegLabels.push(legA.type);
@@ -163,7 +167,11 @@ export async function settleBothArbLegs(
       snapshot.ordersB = synced.orders;
       snapshot.rejectB = synced.rejected;
       snapshot.pendingConfirmB = synced.pendingConfirm;
-      syncActiveBetLegSettleResult(bet.id, "B", true, snapshot.rejectB);
+      syncActiveBetLegSettleResult(bet.id, "B", true, snapshot.rejectB, {
+        pendingConfirm: snapshot.pendingConfirmB,
+        provider: accountB.provider,
+        pendingDetail: placeOutcomeB === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认",
+      });
       const orderIdB = resolveArbBindOrderId(snapshot.ordersB, resultB, snapshot.rejectB);
       if (await bindArbLegOrder(linkId, accountB, resultB, snapshot.ordersB, snapshot.rejectB))
         snapshot.boundLegLabels.push(legB.type);
@@ -202,9 +210,17 @@ export async function settleBothArbLegs(
     if (!account)
       return null;
     if (result?.success) {
-      if (pending)
+      if (pending) {
+        if (isPolymarketProvider(account.provider))
+          return `${leg.type} 🔴拒单`;
         return `${leg.type} 待确认`;
-      return `${leg.type} ${rejected ? "🔴拒单" : "否"}`;
+      }
+      if (rejected)
+        return `${leg.type} 🔴拒单`;
+      // A8「否」= 未拒单；PM/PF filled 直接报成交
+      if (isPendingConfirmVenueProvider(account.provider))
+        return `${leg.type} 已成交`;
+      return `${leg.type} 否`;
     }
     if (outcome === "not_attempted")
       return `${leg.type} 未下单`;

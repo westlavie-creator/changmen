@@ -34,7 +34,7 @@ npm run sync:exports --workspace=@changmen/venue-adapter
 npm run check:exports --workspace=@changmen/venue-adapter
 ```
 
-**web 深路径（仅 vitest mock）**：`polymarket/orderSettlement`、`polymarket/settlementJob`、`polymarket/orders`、`shared/rejectWait`。
+**web 深路径（仅 vitest mock）**：`polymarket/orderSettlement`、`polymarket/settlementJob`、`polymarket/orders`、`polymarket/marketDelay`、`shared/rejectWait`。
 
 **web 运行时单点深路径**：`registry/adapters`（`runtime/venueAdapters.ts`，避免 `registry` barrel 拉起全平台图）。
 

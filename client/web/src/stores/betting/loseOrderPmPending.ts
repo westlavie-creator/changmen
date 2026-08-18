@@ -5,7 +5,7 @@ import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
 import { BetOption as BetOptionCtor } from "@changmen/client-core/models/betOption";
 import { BetResult as BetResultCtor } from "@changmen/client-core/models/betResult";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { isPendingConfirmVenueProvider, isPolymarketProvider } from "@changmen/shared/account_multiply";
 import { isVenueLegConfirmedUnfilled, isVenueLegPendingConfirm, isVenueLegRejected } from "@changmen/venue-adapter/contract";
 import {
   bindArbLegOrder,
@@ -71,11 +71,13 @@ export async function applyVenueJbSettlementOutcome(
       pendingBindOrderId: String(result.orderId ?? "").trim() || undefined,
       waitForOrderId: String(result.orderId ?? "").trim() || undefined,
     }),
-    { confirmPostAccepted: true },
+    { confirmPostAccepted: true, pmConditionId: String(checked.betId ?? "").trim() || undefined },
   );
   const venueOrders = legOutcome.orders;
+  const pmPendingAsUnfilled = isPolymarketProvider(account.provider)
+    && (isVenueLegPendingConfirm(legOutcome) || isVenueTimeoutReject(result));
 
-  if (!isVenueLegRejected(legOutcome)) {
+  if (!isVenueLegRejected(legOutcome) && !pmPendingAsUnfilled) {
     loseStore.clearPendingVenueOrder(betId);
     const orderId = resolveArbBindOrderId(venueOrders, result, false);
     if (!(await bindArbLegOrder(order.linkId, account, result, venueOrders, false)) && orderId) {
@@ -102,7 +104,10 @@ export async function applyVenueJbSettlementOutcome(
     return "dequeued";
   }
 
-  if (isVenueLegPendingConfirm(legOutcome) || isVenueTimeoutReject(result)) {
+  if (
+    !pmPendingAsUnfilled
+    && (isVenueLegPendingConfirm(legOutcome) || isVenueTimeoutReject(result))
+  ) {
     loseStore.setPendingVenueOrder(betId, String(result.orderId ?? ""), account.accountId);
     setMessage(`订单待确认，下轮续查 ${String(result.orderId ?? "").slice(0, 10)}…`);
     syncActiveBetMakeupPendingConfirm(betId, result.orderId);
@@ -112,8 +117,8 @@ export async function applyVenueJbSettlementOutcome(
 
   loseStore.clearPendingVenueOrder(betId);
   if (
-    isVenueLegConfirmedUnfilled(legOutcome)
-    && String(account.provider ?? "").trim() === "Polymarket"
+    (isVenueLegConfirmedUnfilled(legOutcome) || pmPendingAsUnfilled)
+    && isPolymarketProvider(account.provider)
   ) {
     try {
       await persistPolymarketExecutionReject(account, result, "unfilled", {

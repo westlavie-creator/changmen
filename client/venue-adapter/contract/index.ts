@@ -190,6 +190,11 @@ export interface ResolveLegOutcomeOpts {
    * 受理后确认场馆（PM delayed / PF）忽略此项，走 adapter 内确认时序。
    */
   rejectWaitSec?: number;
+  /**
+   * PM CLOB `condition_id`（下注 `option.betId`）。
+   * Settlement Job 缺失时按官方 `GET /clob-markets/{id}` 的 `sd` 再轮询，避免默认 1s 窗内 FOK。
+   */
+  pmConditionId?: string;
 }
 
 export interface PlatformProvider {

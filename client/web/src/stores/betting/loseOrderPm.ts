@@ -3,6 +3,7 @@ import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { LoseOrder } from "@/models/loseOrder";
 import type { PlatformAccount } from "@/models/platformAccount";
+import { isPolymarketProvider } from "@changmen/shared/account_multiply";
 import { syncActiveBetMakeupPendingConfirm } from "@/stores/betting/activeBetRunSync";
 import { applyVenueJbSettlementOutcome } from "@/stores/betting/loseOrderPmPending";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
@@ -38,7 +39,7 @@ export async function processPmMakeUpLeg(ctx: PmMakeUpLegContext): Promise<void>
     setMessage,
   } = ctx;
 
-  if (result.pending)
+  if (result.pending && !isPolymarketProvider(account.provider))
     syncActiveBetMakeupPendingConfirm(betId, result.orderId);
 
   const outcome = await applyVenueJbSettlementOutcome({

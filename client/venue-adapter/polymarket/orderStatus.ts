@@ -70,7 +70,7 @@ function parseMatchedSize(row: PolymarketOrderRow | null | undefined): number {
   return Number.isFinite(matched) && matched > 0 ? matched : 0;
 }
 
-/** 官网挂簿且无成交（FOK 残留候选，settle 侧 grace 后再 cancel 收尾） */
+/** 官网挂簿或仍在 delay 窗、且无成交（FOK 收尾：grace 后再 cancel） */
 export function isPolymarketRestingNoFill(
   row: PolymarketOrderRow | null | undefined,
 ): boolean {
@@ -82,7 +82,14 @@ export function isPolymarketRestingNoFill(
   if (Array.isArray(trades) && trades.length > 0)
     return false;
   const status = String(row.status ?? "").trim().toLowerCase();
-  return status === "live" || status === "unmatched";
+  return status === "live" || status === "unmatched" || status === "delayed";
+}
+
+/** GET /data/order 暂无行：官方 delay 窗内常见，勿立刻 cancel */
+export function isPolymarketDelayLookupPending(
+  row: PolymarketOrderRow | null | undefined,
+): boolean {
+  return !row || Object.keys(row).length === 0;
 }
 
 /** GET /data/order/{id} 行解读（对齐官方 Order Lifecycle） */
@@ -151,6 +158,7 @@ function wait(ms: number) {
  * - 体育/比赛盘 marketable → 异步 delay 窗，时长见 CLOB `GET /clob-markets/{id}` 的 `sd`（秒）
  * - 加密/金融 taker delay 250ms（`itode`），API 同步等到结果，通常不返回 `delayed`
  * 有 conditionId 时用 `buildPolymarketDelayedPollOpts(sd)`（见 marketDelay.ts）。
+ * 未知 `sd` 不得用本常量当官方缺省（文档无缺省秒数）；fallback 走 `resolvePolymarketDelayedPollOpts`（保守 30s）。
  */
 export const POLYMARKET_SPORTS_DELAYED_POLL_OPTS = {
   initialDelayMs: 1_000,
@@ -205,6 +213,17 @@ export async function pollPolymarketDelayedOrder(
       await wait(intervalMs);
   }
   return { outcome: "timeout", row: last };
+}
+
+/**
+ * 编排可见的 FOK 结果只有 matched / unfilled。
+ * poll 内部 `timeout` = 已等满 sd+滞后仍无官方终态 → 按未成交（finalize 可撤则已撤）。
+ * 官方 Order Lifecycle 无 timeout 态。
+ */
+export function coercePolymarketFokPollOutcome(
+  outcome: PolymarketPollOutcome,
+): Exclude<PolymarketPollOutcome, "timeout"> {
+  return outcome === "matched" ? "matched" : "unfilled";
 }
 
 export function formatPolymarketSettlementMessage(

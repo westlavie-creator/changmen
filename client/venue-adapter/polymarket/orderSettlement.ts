@@ -5,8 +5,10 @@ import { pmCancelOrder } from "./pmClientApi";
 import {
   POLYMARKET_WS_FALLBACK_POLL_OPTS,
   POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS,
+  coercePolymarketFokPollOutcome,
   fetchPolymarketOrderRow,
   interpretPolymarketOrderRow,
+  isPolymarketDelayLookupPending,
   isPolymarketRestingNoFill,
   pollPolymarketDelayedOrder,
 } from "./orderStatus";
@@ -50,8 +52,8 @@ async function lookupTradeMatched(
 
 /**
  * FOK 在官方 delay 窗之后的收尾。调用方须已等满 `sd` + 查询滞后。
- * [A8 可证实] 无。官方 Order Lifecycle：窗内不可撤；窗后可撤。
- * FOK 全部成交否则取消，不得长期挂簿。仍无成交 → unfilled（套利可补），不再 timeout 挂起。
+ * [A8 可证实] 无。官方 Order Lifecycle：窗内不可撤（delayed / 查不到行）；窗后 live/unmatched 可撤。
+ * 仍无成交 → unfilled（套利可补），不再 timeout 挂起。
  */
 export async function finalizePolymarketFokRestingOrder(
   account: PlatformAccount,
@@ -80,7 +82,8 @@ export async function finalizePolymarketFokRestingOrder(
   if (opening === "unfilled")
     return { outcome: "unfilled", row: last };
 
-  if (isPolymarketRestingNoFill(last)) {
+  const needsGrace = isPolymarketRestingNoFill(last) || isPolymarketDelayLookupPending(last);
+  if (needsGrace) {
     const graceDeadline = Date.now() + graceMs;
     while (Date.now() < graceDeadline) {
       const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
@@ -92,7 +95,7 @@ export async function finalizePolymarketFokRestingOrder(
         return { outcome: "matched", row: last };
       if (state === "unfilled")
         return { outcome: "unfilled", row: last };
-      if (!isPolymarketRestingNoFill(last))
+      if (!isPolymarketRestingNoFill(last) && !isPolymarketDelayLookupPending(last))
         break;
       await wait(graceIntervalMs);
     }
@@ -193,17 +196,26 @@ export async function settlePolymarketDelayedOrder(
   const rest = await settlePolymarketDelayedOrderViaRest(account, orderId, opts);
   if (rest.outcome === "matched")
     return rest;
-  // REST 已确认取消且未挂簿：直接未成交。timeout / delayed / 仍挂簿：FOK 收尾（窗后可撤）
-  if (rest.outcome === "unfilled" && !isPolymarketRestingNoFill(rest.row))
+  // REST 已确认取消且未挂簿：直接未成交。timeout / delayed / 404 / 仍挂簿：FOK 收尾（窗后可撤）
+  if (
+    rest.outcome === "unfilled"
+    && !isPolymarketRestingNoFill(rest.row)
+    && !isPolymarketDelayLookupPending(rest.row)
+  ) {
     return rest;
+  }
 
   const lookbackMs = {
     ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS,
     ...opts?.tradeConfirm,
   }.lookbackMs;
-  return finalizePolymarketFokRestingOrder(account, orderId, rest.row, {
+  const fin = await finalizePolymarketFokRestingOrder(account, orderId, rest.row, {
     side: opts?.side ?? "BUY",
     lookbackMs,
     ...opts?.fokGrace,
   });
+  return {
+    outcome: coercePolymarketFokPollOutcome(fin.outcome),
+    row: fin.row,
+  };
 }

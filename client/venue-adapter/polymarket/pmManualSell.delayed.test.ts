@@ -3,6 +3,7 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 
 vi.mock("./marketDelay", () => ({
   fetchPolymarketMarketSecondsDelay: vi.fn(),
+  UNKNOWN_SPORTS_SECONDS_DELAY: 30,
   buildPolymarketDelayedPollOpts: vi.fn((sd: number) => ({
     initialDelayMs: Math.max(1000, sd * 1000),
     intervalMs: 1000,
@@ -60,6 +61,7 @@ describe("confirmPolymarketManualSellDelayedFill", () => {
     vi.mocked(fetchPolymarketMarketSecondsDelay).mockResolvedValue({
       secondsDelay: 3,
       takerOrderDelayEnabled: true,
+      fromMarket: true,
     });
     vi.mocked(awaitPolymarketSettlementJob).mockResolvedValue({
       outcome: "matched",
@@ -107,6 +109,7 @@ describe("confirmPolymarketManualSellDelayedFill", () => {
     vi.mocked(fetchPolymarketMarketSecondsDelay).mockResolvedValue({
       secondsDelay: 1,
       takerOrderDelayEnabled: false,
+      fromMarket: true,
     });
     vi.mocked(awaitPolymarketSettlementJob).mockResolvedValue(null);
     vi.mocked(settlePolymarketDelayedOrder).mockResolvedValue({
@@ -136,6 +139,7 @@ describe("confirmPolymarketManualSellDelayedFill", () => {
     vi.mocked(fetchPolymarketMarketSecondsDelay).mockResolvedValue({
       secondsDelay: 1,
       takerOrderDelayEnabled: false,
+      fromMarket: true,
     });
     vi.mocked(awaitPolymarketSettlementJob).mockResolvedValue({
       outcome: "unfilled",

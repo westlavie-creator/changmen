@@ -4,6 +4,7 @@ import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import {
   awaitPolymarketSettlementJob,
   clearPolymarketSettlementJobs,
+  getPolymarketSettlementDelayCtx,
   startPolymarketSettlementJob,
 } from "./settlementJob";
 
@@ -65,5 +66,22 @@ describe("settlementJob", () => {
       "0xopts",
       expect.objectContaining({ poll }),
     );
+  });
+
+  it("remembers delay poll for job-missing fallback", async () => {
+    vi.mocked(settlePolymarketDelayedOrder).mockResolvedValue({
+      outcome: "matched",
+      row: { status: "MATCHED" },
+    });
+    const poll = { initialDelayMs: 3_000, intervalMs: 1_000, maxAttempts: 8 };
+    startPolymarketSettlementJob(pmAccount(), "0xctx", {
+      poll,
+      conditionId: "0xc",
+    });
+    expect(getPolymarketSettlementDelayCtx(pmAccount(), "0xctx")).toEqual({
+      poll,
+      conditionId: "0xc",
+    });
+    await awaitPolymarketSettlementJob(pmAccount(), "0xctx");
   });
 });

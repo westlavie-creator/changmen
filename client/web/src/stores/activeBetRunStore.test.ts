@@ -6,6 +6,7 @@ import {
   syncActiveBetBegin,
   syncActiveBetAfterRejectSync,
   syncActiveBetBindSuccess,
+  syncActiveBetLegSettleResult,
   syncActiveBetPlaceResults,
   syncActiveBetPhase,
   syncActiveBetPrecheckResults,
@@ -485,5 +486,100 @@ describe("activeBetRunStore", () => {
     expect(legB.status).toBe("makeup");
     expect(run.phase).toBe("makeup");
     expect(run.overallLabel).toBe("补单中");
+  });
+
+  it("PM filled settle shows 已成交, not A8 未拒单", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "RAY", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ray1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+    store.patchLeg(100, "B", { status: "pending_confirm", detail: "delayed 待确认" });
+
+    syncActiveBetLegSettleResult(100, "B", true, false, { provider: "Polymarket" });
+
+    const legB = store.visibleRuns[0]!.legs.find(l => l.side === "B")!;
+    expect(legB.status).toBe("confirmed");
+    expect(legB.detail).toBe("已成交");
+    expect(legB.events.some(e => e.detail === "未拒单")).toBe(false);
+    expect(legB.events.some(e => e.stage === "拒单" && e.detail === "已成交")).toBe(true);
+  });
+
+  it("PM timeout settle shows 拒单, not 待确认", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "RAY", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "Polymarket", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ray1" } as never,
+      accountB: { playerName: "pm1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+    store.patchLeg(100, "B", { status: "pending_confirm", detail: "delayed 待确认" });
+
+    syncActiveBetLegSettleResult(100, "B", true, false, {
+      pendingConfirm: true,
+      provider: "Polymarket",
+    });
+
+    const legB = store.visibleRuns[0]!.legs.find(l => l.side === "B")!;
+    expect(legB.status).toBe("rejected");
+    expect(legB.detail).toBe("拒单");
+    expect(legB.events.some(e => e.detail === "未拒单")).toBe(false);
+    expect(legB.events.some(e => e.detail === "delayed 待确认" && e.stage === "拒单")).toBe(false);
+  });
+
+  it("A8 settle pass still uses 未拒单", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "RAY", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "OB", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ray1" } as never,
+      accountB: { playerName: "ob1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetLegSettleResult(100, "A", true, false, { provider: "RAY" });
+
+    const legA = store.visibleRuns[0]!.legs.find(l => l.side === "A")!;
+    expect(legA.status).toBe("confirmed");
+    expect(legA.detail).toBe("未拒单");
+    expect(legA.events.some(e => e.stage === "拒单" && e.detail === "未拒单")).toBe(true);
+  });
+
+  it("PF pendingConfirm settle stays 已挂单待确认", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "RAY", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "PredictFun", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ray1" } as never,
+      accountB: { playerName: "pf1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    syncActiveBetLegSettleResult(100, "B", true, false, {
+      pendingConfirm: true,
+      provider: "PredictFun",
+      pendingDetail: "已挂单待确认",
+    });
+
+    const legB = store.visibleRuns[0]!.legs.find(l => l.side === "B")!;
+    expect(legB.status).toBe("pending_confirm");
+    expect(legB.detail).toBe("已挂单待确认");
+    expect(legB.events.some(e => e.detail === "拒单")).toBe(false);
   });
 });
