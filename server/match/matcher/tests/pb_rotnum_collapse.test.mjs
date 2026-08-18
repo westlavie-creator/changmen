@@ -7,6 +7,7 @@ import {
 import { collectPlatformEntries } from "../compose/normalize/platform_entry.js";
 import {
   collapsePbEntriesByRotNum,
+  isPbLiveLike,
   isPbRotGroupCollision,
   listPbRotNumSiblings,
   pickPrimaryPbEntry,
@@ -56,6 +57,58 @@ describe("PB rotNum collapse (Phase A)", () => {
     assert.equal(list[0].Matchs.OB, "ob1");
     assert.equal(list[0].Matchs.PB, LIVE_ID);
     assert.deepEqual(list[0]._pbSiblingSourceMatchIds, [PRE_ID]);
+  });
+
+  it("both events have Map0 + IsLive flags → Matchs.PB is live (not lex-min PRE)", () => {
+    installPlugin();
+    // 真实 euro/odds：prematch 与 live 都有全场 Map0；PRE id 往往更小
+    const betsBothMap0 = {
+      [`PB:${LIVE_ID}`]: [{ Map: 0, SourceBetID: "l0", SourceHomeID: "h", SourceAwayID: "a" }],
+      [`PB:${PRE_ID}`]: [{ Map: 0, SourceBetID: "p0", SourceHomeID: "h", SourceAwayID: "a" }],
+    };
+    const list = clusterByGbThenName(
+      dualMatches({ live: { IsLive: 1 }, pre: { IsLive: 0 } }),
+      [],
+      { pbRotnumCollapse: true, bets: betsBothMap0 },
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+    assert.deepEqual(list[0]._pbSiblingSourceMatchIds, [PRE_ID]);
+  });
+
+  it("sticky PRE with Map0 promotes when sibling IsLive=1", () => {
+    installPlugin();
+    const betsBothMap0 = {
+      [`PB:${LIVE_ID}`]: [{ Map: 0, SourceBetID: "l0", SourceHomeID: "h", SourceAwayID: "a" }],
+      [`PB:${PRE_ID}`]: [
+        { Map: 0, SourceBetID: "p0", SourceHomeID: "h", SourceAwayID: "a" },
+        { Map: 2, SourceBetID: "p2", SourceHomeID: "h", SourceAwayID: "a" },
+      ],
+    };
+    const list = clusterByGbThenName(
+      dualMatches({ live: { IsLive: 1 }, pre: { IsLive: 0 } }),
+      [{
+        id: 1730,
+        merge_key: "manual:seed",
+        matchs: { OB: "ob1", PB: PRE_ID },
+      }],
+      { pbRotnumCollapse: true, bets: betsBothMap0 },
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].ID, 1730);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+  });
+
+  it("isPbLiveLike: explicit IsLive=0 is not live-like even with Map0", () => {
+    const entry = {
+      platform: "PB",
+      sourceMatchId: PRE_ID,
+      nativeRow: { ...pmPb, SourceMatchID: PRE_ID, IsLive: 0 },
+    };
+    const bets = {
+      [`PB:${PRE_ID}`]: [{ Map: 0, SourceBetID: "p0", SourceHomeID: "h", SourceAwayID: "a" }],
+    };
+    assert.equal(isPbLiveLike(entry, bets), false);
   });
 
   it("no rotNum does not collapse", () => {

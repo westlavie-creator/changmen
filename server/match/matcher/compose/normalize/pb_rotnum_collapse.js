@@ -41,6 +41,10 @@ export function mapsFromBets(bets, platform, sourceMatchId) {
   return maps;
 }
 
+function entryPm(entry) {
+  return entry?.nativeRow && typeof entry.nativeRow === "object" ? entry.nativeRow : entry;
+}
+
 function liveFlag(pm) {
   const raw = pm?.IsLive ?? pm?.isLive ?? pm?.live ?? pm?.is_live;
   if (raw === true || raw === 1 || raw === "1")
@@ -50,10 +54,26 @@ function liveFlag(pm) {
   return false;
 }
 
+/** SaveMatch 已显式标 IsLive=0/false 的 prematch，不得靠 Map0 冒充 live。 */
+function explicitNotLive(pm) {
+  const raw = pm?.IsLive ?? pm?.isLive ?? pm?.live ?? pm?.is_live;
+  if (raw === false || raw === 0 || raw === "0")
+    return true;
+  if (typeof raw === "string" && raw.trim().toLowerCase() === "false")
+    return true;
+  return false;
+}
+
+/**
+ * live 优先；缺 IsLive 时 Map0 仍作弱信号（旧行）。
+ * 显式 IsLive=0 的 prematch 全场盘绝不能 live-like，否则双 Map0 会按 id 字典序锁死 PRE。
+ */
 export function isPbLiveLike(entry, bets = {}) {
-  const pm = entry?.nativeRow && typeof entry.nativeRow === "object" ? entry.nativeRow : entry;
+  const pm = entryPm(entry);
   if (liveFlag(pm))
     return true;
+  if (explicitNotLive(pm))
+    return false;
   return mapsFromBets(bets, entry.platform || "PB", entry.sourceMatchId).has(0);
 }
 
@@ -117,8 +137,23 @@ function stickySetFromClientRows(existingClientRows) {
   return ids;
 }
 
+function sortBySourceMatchId(list) {
+  return [...list].sort((a, b) =>
+    String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)));
+}
+
+/** 多名 liveLike 时优先显式 IsLive=1，避免双 Map0 字典序锁 PRE。 */
+function pickPreferredLiveLike(liveLike) {
+  if (!liveLike?.length)
+    return null;
+  if (liveLike.length === 1)
+    return liveLike[0];
+  const flagged = liveLike.filter(e => liveFlag(entryPm(e)));
+  return sortBySourceMatchId(flagged.length ? flagged : liveLike)[0];
+}
+
 /**
- * 主 event：粘性 → 升主盘（未开图 sticky + 同组 live）→ live/map0 → 稳定 id。
+ * 主 event：粘性 → 升主盘（prematch/未开图 sticky + 同组 live）→ live/map0 → 稳定 id。
  */
 export function pickPrimaryPbEntry(entries, {
   bets = {},
@@ -134,8 +169,16 @@ export function pickPrimaryPbEntry(entries, {
 
   if (sticky.length === 1) {
     const s = sticky[0];
+    const sPm = entryPm(s);
+    // sticky 仍是 prematch（或未标 live），同组已有显式 live → 升主盘
+    const liveFlagged = entries.find(e =>
+      e.sourceMatchId !== s.sourceMatchId && liveFlag(entryPm(e)));
+    if (liveFlagged && !liveFlag(sPm))
+      return liveFlagged;
     if (isUnstartedMapsOnly(s, bets)) {
-      const live = liveLike.find(e => e.sourceMatchId !== s.sourceMatchId);
+      const live = pickPreferredLiveLike(
+        liveLike.filter(e => e.sourceMatchId !== s.sourceMatchId),
+      );
       if (live)
         return live;
     }
@@ -143,23 +186,16 @@ export function pickPrimaryPbEntry(entries, {
   }
   if (sticky.length > 1) {
     const stickyLive = sticky.filter(e => isPbLiveLike(e, bets));
-    if (stickyLive.length) {
-      return [...stickyLive].sort((a, b) =>
-        String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
-    }
-    return [...sticky].sort((a, b) =>
-      String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
+    if (stickyLive.length)
+      return pickPreferredLiveLike(stickyLive);
+    return sortBySourceMatchId(sticky)[0];
   }
 
-  if (liveLike.length === 1)
-    return liveLike[0];
-  if (liveLike.length > 1) {
-    return [...liveLike].sort((a, b) =>
-      String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
-  }
+  const preferred = pickPreferredLiveLike(liveLike);
+  if (preferred)
+    return preferred;
 
-  return [...entries].sort((a, b) =>
-    String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
+  return sortBySourceMatchId(entries)[0];
 }
 
 export function pickPrimaryPbSourceId(sourceIds, matches, opts = {}) {
