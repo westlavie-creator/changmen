@@ -3,9 +3,9 @@ import type { PolymarketOrderRow, PolymarketPollOutcome } from "./orderTypes";
 import { coercePolymarketFokPollOutcome } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
 
-/** POST delayed 后后台 settle；finalize 仍 A8 wait→sync，sync 时 await 本 Job */
+/** POST delayed 后后台 settle；finalize 仍 A8 wait→sync，sync 时 await 本 Job。outcome 已经过 FOK coerce，不含 timeout。 */
 export interface PolymarketSettlementPayload {
-  outcome: PolymarketPollOutcome;
+  outcome: Exclude<PolymarketPollOutcome, "timeout">;
   row: PolymarketOrderRow | null;
 }
 

@@ -13,7 +13,6 @@ import {
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
 import {
   awaitPolymarketSettlementJob,
-  clearPolymarketSettlementJob,
   getPolymarketSettlementDelayCtx,
 } from "./settlementJob";
 import { resolvePolymarketDelayedPollOpts } from "./marketDelay";
@@ -59,10 +58,8 @@ async function settlePolymarketIgnoringTimeoutJob(
   conditionId?: string,
 ): Promise<{ outcome: Exclude<PolymarketPollOutcome, "timeout">; row: import("./orderTypes").PolymarketOrderRow | null }> {
   const jobResult = await awaitPolymarketSettlementJob(account, orderId);
-  if (jobResult?.outcome === "matched" || jobResult?.outcome === "unfilled")
-    return jobResult;
   if (jobResult)
-    clearPolymarketSettlementJob(account, orderId);
+    return jobResult;
   const ctx = getPolymarketSettlementDelayCtx(account, orderId);
   const poll = ctx?.poll
     ?? await resolvePolymarketDelayedPollOpts(conditionId ?? ctx?.conditionId);

@@ -120,7 +120,7 @@ describe("awaitPolymarketManualSellFinalOutcome", () => {
 
   it("deadline ambiguous → unfilled terminal (no permanent pending)", async () => {
     vi.mocked(awaitPolymarketSettlementJob).mockResolvedValue({
-      outcome: "timeout",
+      outcome: "unfilled",
       row: { status: "DELAYED" },
     });
     vi.mocked(resolvePolymarketSellFillWithRetry).mockResolvedValue({
