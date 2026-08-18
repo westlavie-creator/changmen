@@ -49,8 +49,9 @@ async function lookupTradeMatched(
 }
 
 /**
- * FOK 残留挂簿收尾：短 grace 等系统 cancel/matched；仍挂簿则一次 cancel 再复核。
- * delayed / 非挂簿 → 不撤，保持原 outcome。
+ * FOK 在官方 delay 窗之后的收尾。调用方须已等满 `sd` + 查询滞后。
+ * [A8 可证实] 无。官方 Order Lifecycle：窗内不可撤；窗后可撤。
+ * FOK 全部成交否则取消，不得长期挂簿。仍无成交 → unfilled（套利可补），不再 timeout 挂起。
  */
 export async function finalizePolymarketFokRestingOrder(
   account: PlatformAccount,
@@ -73,36 +74,35 @@ export async function finalizePolymarketFokRestingOrder(
   const postCancelIntervalMs = opts?.postCancelIntervalMs ?? POLYMARKET_FOK_POST_CANCEL_INTERVAL_MS;
 
   let last = row;
-  if (!isPolymarketRestingNoFill(last)) {
-    const state = interpretPolymarketOrderRow(last);
-    if (state === "matched")
-      return { outcome: "matched", row: last };
-    if (state === "unfilled")
-      return { outcome: "unfilled", row: last };
-    return { outcome: "timeout", row: last };
-  }
+  const opening = interpretPolymarketOrderRow(last);
+  if (opening === "matched")
+    return { outcome: "matched", row: last };
+  if (opening === "unfilled")
+    return { outcome: "unfilled", row: last };
 
-  const graceDeadline = Date.now() + graceMs;
-  while (Date.now() < graceDeadline) {
-    const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
-    if (traded)
-      return traded;
-    last = await fetchPolymarketOrderRow(account, orderId);
-    const state = interpretPolymarketOrderRow(last);
-    if (state === "matched")
-      return { outcome: "matched", row: last };
-    if (state === "unfilled")
-      return { outcome: "unfilled", row: last };
-    if (!isPolymarketRestingNoFill(last))
-      return { outcome: state === "pending" ? "timeout" : state, row: last };
-    await wait(graceIntervalMs);
+  if (isPolymarketRestingNoFill(last)) {
+    const graceDeadline = Date.now() + graceMs;
+    while (Date.now() < graceDeadline) {
+      const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
+      if (traded)
+        return traded;
+      last = await fetchPolymarketOrderRow(account, orderId);
+      const state = interpretPolymarketOrderRow(last);
+      if (state === "matched")
+        return { outcome: "matched", row: last };
+      if (state === "unfilled")
+        return { outcome: "unfilled", row: last };
+      if (!isPolymarketRestingNoFill(last))
+        break;
+      await wait(graceIntervalMs);
+    }
   }
 
   try {
     await pmCancelOrder(account, orderId);
   }
   catch {
-    /* cancel 失败仍复核；可能已系统 cancel 或竞态成交 */
+    /* cancel 失败仍复核；可能已系统 cancel、delay 已结束、或竞态成交 */
   }
 
   for (let i = 0; i < postCancelAttempts; i++) {
@@ -115,14 +115,18 @@ export async function finalizePolymarketFokRestingOrder(
       return { outcome: "matched", row: last };
     if (state === "unfilled")
       return { outcome: "unfilled", row: last };
-    if (!isPolymarketRestingNoFill(last) && state === "pending")
-      return { outcome: "timeout", row: last };
     if (i < postCancelAttempts - 1)
       await wait(postCancelIntervalMs);
   }
 
-  // 仍挂簿：勿谎报未成交
-  return { outcome: "timeout", row: last };
+  const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
+  if (traded)
+    return traded;
+  last = await fetchPolymarketOrderRow(account, orderId);
+  const state = interpretPolymarketOrderRow(last);
+  if (state === "matched")
+    return { outcome: "matched", row: last };
+  return { outcome: "unfilled", row: last };
 }
 
 async function settlePolymarketDelayedOrderViaRest(
@@ -189,37 +193,17 @@ export async function settlePolymarketDelayedOrder(
   const rest = await settlePolymarketDelayedOrderViaRest(account, orderId, opts);
   if (rest.outcome === "matched")
     return rest;
-  if (rest.outcome === "unfilled")
+  // REST 已确认取消且未挂簿：直接未成交。timeout / delayed / 仍挂簿：FOK 收尾（窗后可撤）
+  if (rest.outcome === "unfilled" && !isPolymarketRestingNoFill(rest.row))
     return rest;
 
-  // WS Cancellation：须 trades 已排除成交；若 REST 仍挂簿则走 FOK 收尾（防状态滞后假未成交）
-  if (wsResult?.outcome === "unfilled") {
-    if (isPolymarketRestingNoFill(rest.row)) {
-      const lookbackMs = {
-        ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS,
-        ...opts?.tradeConfirm,
-      }.lookbackMs;
-      return finalizePolymarketFokRestingOrder(account, orderId, rest.row, {
-        side: opts?.side ?? "BUY",
-        lookbackMs,
-        ...opts?.fokGrace,
-      });
-    }
-    return { outcome: "unfilled", row: rest.row ?? wsResult.row };
-  }
-
-  // poll timeout / 仍 pending：若挂簿残留则 FOK grace + 一次 cancel
-  if (isPolymarketRestingNoFill(rest.row)) {
-    const lookbackMs = {
-      ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS,
-      ...opts?.tradeConfirm,
-    }.lookbackMs;
-    return finalizePolymarketFokRestingOrder(account, orderId, rest.row, {
-      side: opts?.side ?? "BUY",
-      lookbackMs,
-      ...opts?.fokGrace,
-    });
-  }
-
-  return rest;
+  const lookbackMs = {
+    ...POLYMARKET_WS_FALLBACK_TRADE_CONFIRM_OPTS,
+    ...opts?.tradeConfirm,
+  }.lookbackMs;
+  return finalizePolymarketFokRestingOrder(account, orderId, rest.row, {
+    side: opts?.side ?? "BUY",
+    lookbackMs,
+    ...opts?.fokGrace,
+  });
 }

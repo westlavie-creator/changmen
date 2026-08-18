@@ -28,7 +28,7 @@ export interface SettleArbLegOpts {
   betOption?: BetOption;
 }
 
-/** 本地一轮 timeout 后续跟（吃单须跟到成/不成） */
+/** 本地一轮 timeout 后续跟（吃单须跟到成/不成）。PM FOK 在 sd 窗后应已是 unfilled，不再靠多轮空等。 */
 export const PENDING_CONFIRM_FOLLOW_ROUNDS = 6;
 export const PENDING_CONFIRM_FOLLOW_GAP_MS = 2_000;
 

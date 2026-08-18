@@ -4,6 +4,10 @@ const fetchPolymarketConfirmedTradeForOrder = vi.fn();
 const fetchPolymarketOrderRow = vi.fn();
 const pmCancelOrder = vi.fn();
 const awaitPolymarketOrderWatch = vi.fn();
+const pollPolymarketDelayedOrder = vi.fn(async () => ({
+  outcome: "timeout" as const,
+  row: { status: "live", size_matched: "0" },
+}));
 
 vi.mock("./orders", () => ({
   fetchPolymarketConfirmedTradeForOrder: (...args: unknown[]) =>
@@ -24,10 +28,7 @@ vi.mock("./orderStatus", async (importOriginal) => {
   return {
     ...actual,
     fetchPolymarketOrderRow: (...args: unknown[]) => fetchPolymarketOrderRow(...args),
-    pollPolymarketDelayedOrder: vi.fn(async () => ({
-      outcome: "timeout" as const,
-      row: { status: "live", size_matched: "0" },
-    })),
+    pollPolymarketDelayedOrder: (...args: unknown[]) => pollPolymarketDelayedOrder(...args),
   };
 });
 
@@ -100,15 +101,33 @@ describe("finalizePolymarketFokRestingOrder", () => {
     expect(out.row?.size_matched).toBe("4");
   });
 
-  it("delayed/non-resting stays timeout without cancel", async () => {
+  it("after delay window: delayed row is cancelled then unfilled", async () => {
+    fetchPolymarketOrderRow.mockResolvedValue({ status: "delayed", size_matched: "0" });
+    pmCancelOrder.mockResolvedValue({});
+
     const out = await finalizePolymarketFokRestingOrder(
       acc,
       "0xd",
       { status: "delayed", size_matched: "0" },
-      { graceMs: 0 },
+      { graceMs: 0, postCancelAttempts: 1, postCancelIntervalMs: 0 },
     );
-    expect(out.outcome).toBe("timeout");
-    expect(pmCancelOrder).not.toHaveBeenCalled();
+    expect(pmCancelOrder).toHaveBeenCalledWith(acc, "0xd");
+    expect(out.outcome).toBe("unfilled");
+  });
+
+  it("still live after cancel → unfilled (FOK must not rest)", async () => {
+    fetchPolymarketOrderRow.mockResolvedValue({ status: "live", size_matched: "0" });
+    pmCancelOrder.mockResolvedValue({});
+
+    const out = await finalizePolymarketFokRestingOrder(
+      acc,
+      "0xhang",
+      { status: "live", size_matched: "0" },
+      { graceMs: 0, graceIntervalMs: 0, postCancelAttempts: 1, postCancelIntervalMs: 0 },
+    );
+
+    expect(pmCancelOrder).toHaveBeenCalledWith(acc, "0xhang");
+    expect(out.outcome).toBe("unfilled");
   });
 });
 
@@ -122,6 +141,11 @@ describe("settlePolymarketDelayedOrder FOK resting", () => {
     fetchPolymarketConfirmedTradeForOrder.mockResolvedValue(null);
     fetchPolymarketOrderRow.mockReset();
     pmCancelOrder.mockReset();
+    pollPolymarketDelayedOrder.mockReset();
+    pollPolymarketDelayedOrder.mockResolvedValue({
+      outcome: "timeout",
+      row: { status: "live", size_matched: "0" },
+    });
   });
 
   it("runs FOK cancel path when poll leaves live resting", async () => {
@@ -154,5 +178,22 @@ describe("settlePolymarketDelayedOrder FOK resting", () => {
 
     expect(out.outcome).toBe("unfilled");
     expect(pmCancelOrder).toHaveBeenCalledWith(acc, "0xws-lag");
+  });
+
+  it("poll timeout on delayed (no book row) → cancel then unfilled", async () => {
+    pollPolymarketDelayedOrder.mockResolvedValue({
+      outcome: "timeout",
+      row: { status: "delayed", size_matched: "0" },
+    });
+    fetchPolymarketOrderRow.mockResolvedValue({ status: "delayed", size_matched: "0" });
+    pmCancelOrder.mockResolvedValue({});
+
+    const out = await settlePolymarketDelayedOrder(acc, "0xdelay", {
+      tradeConfirm: { lookbackMs: 60_000, retryMs: 0, maxRetries: 1 },
+      fokGrace: { graceMs: 0, graceIntervalMs: 0, postCancelAttempts: 1, postCancelIntervalMs: 0 },
+    });
+
+    expect(out.outcome).toBe("unfilled");
+    expect(pmCancelOrder).toHaveBeenCalledWith(acc, "0xdelay");
   });
 });
