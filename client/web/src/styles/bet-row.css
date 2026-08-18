@@ -16,7 +16,7 @@
   color:#fff;font-size:12px;text-align:center;padding-bottom:6px;
 }
 
-/* [changmen 扩展] 全场 / 地图3+ 折叠禁下（与 live 互斥，不同时渲染） */
+/* [changmen 扩展] 全场 / 各地图折叠禁下（与 live 互斥，不同时渲染） */
 .matchs .bet .map-mute-toggle {
   position:absolute;right:4px;top:4px;z-index:2;
   min-width:22px;height:18px;padding:0 4px;margin:0;border:1px solid hsla(0,0%,100%,.35);

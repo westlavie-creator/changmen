@@ -24,7 +24,7 @@ export async function executeArbBet(params: {
   config: UserConfig;
   setMessage: (msg: string) => void;
 }): Promise<void> {
-  // [changmen 扩展] 用户折叠的全场 / 地图3+：跳过本盘（live 局互斥，不跳过）
+  // [changmen 扩展] 用户折叠的全场 / 地图：跳过本盘（live 局互斥，不跳过）
   if (isMapMuteActive(params.match.id, params.bet.round, params.match.liveRound))
     return;
 

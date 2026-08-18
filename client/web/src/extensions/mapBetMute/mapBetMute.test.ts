@@ -33,22 +33,28 @@ describe("mapBetMute", () => {
     resetMapBetMuteForTests();
   });
 
-  it("full match and maps >= 3 are foldable", () => {
-    expect(MIN_FOLDABLE_MAP).toBe(3);
+  it("full match and all maps are foldable", () => {
+    expect(MIN_FOLDABLE_MAP).toBe(0);
+    expect(canFoldMap(-1)).toBe(false);
     expect(canFoldMap(0)).toBe(true);
-    expect(canFoldMap(1)).toBe(false);
-    expect(canFoldMap(2)).toBe(false);
+    expect(canFoldMap(1)).toBe(true);
+    expect(canFoldMap(2)).toBe(true);
     expect(canFoldMap(3)).toBe(true);
     expect(canFoldMap(4)).toBe(true);
     expect(canFoldMap(5)).toBe(true);
   });
 
-  it("toggle no-ops for maps 1-2", () => {
-    expect(toggleMapMute(100, 1)).toBe(false);
-    expect(toggleMapMute(100, 2)).toBe(false);
-    expect(isMapMuted(100, 1)).toBe(false);
-    expect(isMapMuted(100, 2)).toBe(false);
+  it("toggle no-ops for non-map rows", () => {
+    expect(toggleMapMute(100, -1)).toBe(false);
+    expect(isMapMuted(100, -1)).toBe(false);
     expect(sessionStorage.getItem(MAP_BET_MUTE_SESSION_KEY)).toBeNull();
+  });
+
+  it("toggle mutes and unmutes map 1", () => {
+    expect(toggleMapMute(100, 1)).toBe(true);
+    expect(isMapMuted(100, 1)).toBe(true);
+    expect(toggleMapMute(100, 1)).toBe(false);
+    expect(isMapMuted(100, 1)).toBe(false);
   });
 
   it("toggle mutes and unmutes full match", () => {

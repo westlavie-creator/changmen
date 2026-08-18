@@ -87,15 +87,16 @@ describe("executeArbBet orchestration", () => {
     expect(prepareArbAttempt).toHaveBeenCalled();
   });
 
-  it("[changmen 扩展] 地图1 不受 mute 影响，仍进 prepare", async () => {
-    prepareArbAttempt.mockResolvedValue(null);
+  it("[changmen 扩展] 折叠地图1 时不进 prepare", async () => {
+    toggleMapMute(1, 1);
     await executeArbBet({
       match: { id: 1, liveRound: 0 } as never,
       bet: { id: 10, round: 1 } as never,
       config: createDefaultUserConfig(),
       setMessage: vi.fn(),
     });
-    expect(prepareArbAttempt).toHaveBeenCalled();
+    expect(prepareArbAttempt).not.toHaveBeenCalled();
+    expect(recordArbAttemptMetric).not.toHaveBeenCalled();
   });
 
   it("预检通过后 place 失败结果仍调用 finalize", async () => {

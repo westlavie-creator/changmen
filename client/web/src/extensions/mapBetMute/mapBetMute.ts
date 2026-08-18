@@ -1,20 +1,18 @@
 /**
- * [changmen 扩展] 用户折叠全场或地图3+盘口：禁止该局自动/手动新开仓。
- * Map 1–2 不可折叠。状态仅 sessionStorage，不进 USERCONFIG / 服务端。
+ * [changmen 扩展] 用户折叠全场或任意地图盘口：禁止该局自动/手动新开仓。
+ * Map -1（非地图盘）不可折叠。状态仅 sessionStorage，不进 USERCONFIG / 服务端。
  */
 
 import { ref, type Ref } from "vue";
 
-export const MIN_FOLDABLE_MAP = 3;
+export const MIN_FOLDABLE_MAP = 0;
 export const MAP_BET_MUTE_SESSION_KEY = "MapBetMute";
 
 const mutedKeys: Ref<Set<string>> = ref(new Set());
 let loaded = false;
 
 export function canFoldMap(round: number): boolean {
-  if (!Number.isFinite(round))
-    return false;
-  return round === 0 || round >= MIN_FOLDABLE_MAP;
+  return Number.isFinite(round) && round >= MIN_FOLDABLE_MAP;
 }
 
 export function muteKey(matchId: number, round: number): string {
