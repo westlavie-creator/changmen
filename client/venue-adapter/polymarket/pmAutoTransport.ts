@@ -69,13 +69,10 @@ function notifyRoutingApplied(result: PmAutoTransportApplyResult) {
 }
 
 /**
- * HTTP 选 extension 的条件（自动路由）：
- * Market WS 可达 + 插件在线 + 插件实测 CLOB /time 成功。
- * 仅 WS onopen 不够——没翻墙时 WS 偶通也会误选 extension，余额/下单全挂。
+ * 角标切到官方 WS 时，才允许 REST 走插件：
+ * 插件在线 + 实测 CLOB /time。登录自动路由不再调用本函数。
  */
-export async function resolveHttpModeForAutoRoute(marketWsOk: boolean): Promise<PmHttpMode> {
-  if (!marketWsOk)
-    return "vps";
+export async function resolveHttpModeForManualOfficialWs(): Promise<PmHttpMode> {
   const extension = await probeGamebetExtension();
   if (!extension)
     return "vps";
@@ -84,8 +81,8 @@ export async function resolveHttpModeForAutoRoute(marketWsOk: boolean): Promise<
 }
 
 /**
- * 角标切换 Market WS 时同步 HTTP：
- * - changmen → 强制 vps（本机官方 REST 不可用）
+ * 角标切换 Market WS 时同步 HTTP（用户显式覆盖，不是登录自动升 extension）：
+ * - changmen → 强制 vps
  * - official → 再测插件 CLOB，通才 extension
  */
 export async function syncPmHttpModeWithMarketWs(
@@ -93,7 +90,7 @@ export async function syncPmHttpModeWithMarketWs(
 ): Promise<PmHttpMode> {
   const httpMode = marketWsMode === "changmen"
     ? "vps"
-    : await resolveHttpModeForAutoRoute(true);
+    : await resolveHttpModeForManualOfficialWs();
   setPmHttpMode(httpMode);
   return httpMode;
 }
@@ -123,15 +120,15 @@ async function reconcileHttpUnderManualOverride(): Promise<PmHttpMode> {
 async function applyModes(
   marketWsOk: boolean,
 ): Promise<Omit<PmAutoTransportApplyResult, "applied" | "skippedManualOverride" | "reachable"> & { reachable: boolean }> {
-  const httpMode = await resolveHttpModeForAutoRoute(marketWsOk);
-  setPmHttpMode(httpMode);
+  // REST（book / 下单）固定 VPS，与余额同一出口；翻墙只切行情 WS。
+  setPmHttpMode("vps");
 
   if (marketWsOk) {
     setPmMarketWsSourceMode("official");
     setPmUserWsSourceMode("official");
     return {
       reachable: true,
-      httpMode,
+      httpMode: "vps",
       marketWsMode: "official",
       userWsMode: "official",
     };
@@ -148,10 +145,10 @@ async function applyModes(
 }
 
 /**
- * 登录后：探测 Polymarket 官方 Market WS。
- * - 可达：WS 直连官方；HTTP 仅当插件实测 CLOB 通才 extension，否则 VPS
- * - 不可达：WS + HTTP 均走 changmen VPS
- * 用户曾手动点角标切换时跳过 WS 自动路由（直到 logout 清除）；仍会纠偏不可用的 extension HTTP。
+ * 登录后：探测官方 Market WS。
+ * - 可达：WS 直连官方；HTTP 一律 VPS（预检/下单同一出口）
+ * - 不可达：WS + HTTP 均 changmen VPS
+ * 角标手动切官方后才可能把 HTTP 升到 extension；仍会纠偏不可用的 extension。
  */
 export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportApplyResult> {
   if (readManualOverride()) {

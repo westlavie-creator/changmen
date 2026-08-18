@@ -324,6 +324,79 @@ describe("pmTransport mode", () => {
 
   });
 
+  test("extension SubmitOrder Network Error 将 HTTP 降回 vps", async () => {
+    setPmHttpModeForTests("extension");
+    vi.mocked(a8PluginPost).mockRejectedValue(new Error("Network Error"));
+
+    await expect(pmEsportCall("Pm_SubmitOrder", {
+      playerId: 42,
+      order: { foo: 1 },
+      _account: pmAccount,
+    })).rejects.toThrow(/Network Error/);
+
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  test("extension GetBook Network Error 也将 HTTP 降回 vps", async () => {
+    setPmHttpModeForTests("extension");
+    vi.mocked(a8PluginGet).mockResolvedValue({ message: "Network Error" });
+
+    await expect(pmEsportCall("Pm_GetBook", { tokenId: "123" }))
+      .rejects.toThrow(/Network Error/);
+
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  test("extension 扩展断连也将 HTTP 降回 vps", async () => {
+    setPmHttpModeForTests("extension");
+    vi.mocked(a8PluginPost).mockRejectedValue(
+      new Error("Could not establish connection. Receiving end does not exist."),
+    );
+
+    await expect(pmEsportCall("Pm_SubmitOrder", {
+      playerId: 42,
+      order: { foo: 1 },
+      _account: pmAccount,
+    })).rejects.toThrow(/Could not establish connection/);
+
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  test("extension 插件 resolve(AxiosError) 也将 HTTP 降回 vps", async () => {
+    setPmHttpModeForTests("extension");
+    vi.mocked(a8PluginPost).mockResolvedValue({
+      message: "Network Error",
+      code: "ERR_NETWORK",
+      config: { data: "{}" },
+      request: {},
+    });
+
+    await expect(pmEsportCall("Pm_SubmitOrder", {
+      playerId: 42,
+      order: { foo: 1 },
+      _account: pmAccount,
+    })).rejects.toThrow(/Network Error/);
+
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  test("extension FOK 业务失败不降级 HTTP", async () => {
+    setPmHttpModeForTests("extension");
+    vi.mocked(a8PluginPost).mockResolvedValue({
+      status: 200,
+      data: { success: false, errorMsg: "FOK 未成交" },
+    });
+
+    const result = await pmEsportCall("Pm_SubmitOrder", {
+      playerId: 42,
+      order: { foo: 1 },
+      _account: pmAccount,
+    });
+
+    expect(result).toEqual({ success: false, errorMsg: "FOK 未成交" });
+    expect(resolvePmHttpMode()).toBe("extension");
+  });
+
 });
 
 

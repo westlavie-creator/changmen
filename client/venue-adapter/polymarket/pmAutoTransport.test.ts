@@ -39,7 +39,7 @@ describe("pmAutoTransport", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses official WS + extension HTTP when WS ok and plugin CLOB probe succeeds", async () => {
+  it("uses official WS + vps HTTP even when plugin CLOB probe would succeed", async () => {
     vi.spyOn(reachability, "probePolymarketOfficialReachable").mockResolvedValue({
       reachable: true,
       httpOk: true,
@@ -54,10 +54,12 @@ describe("pmAutoTransport", () => {
 
     const result = await applyPmAutoTransportOnLogin();
     expect(result.applied).toBe(true);
-    expect(result.httpMode).toBe("extension");
+    expect(result.httpMode).toBe("vps");
     expect(getPmMarketWsSourceMode()).toBe("official");
     expect(getPmUserWsSourceMode()).toBe("official");
-    expect(resolvePmHttpMode()).toBe("extension");
+    expect(resolvePmHttpMode()).toBe("vps");
+    expect(probeGamebetExtension).not.toHaveBeenCalled();
+    expect(reachability.probePolymarketClobViaExtension).not.toHaveBeenCalled();
   });
 
   it("uses official WS and vps HTTP when plugin exists but CLOB probe fails", async () => {
@@ -149,5 +151,18 @@ describe("pmAutoTransport", () => {
     const mode = await syncPmHttpModeWithMarketWs("changmen");
     expect(mode).toBe("vps");
     expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  it("syncPmHttpModeWithMarketWs to official uses extension when plugin CLOB probe succeeds", async () => {
+    vi.mocked(probeGamebetExtension).mockResolvedValue({
+      name: "gamebet",
+      version: "1.0.0",
+      extensionId: "test-ext",
+    });
+    vi.mocked(reachability.probePolymarketClobViaExtension).mockResolvedValue(true);
+
+    const mode = await syncPmHttpModeWithMarketWs("official");
+    expect(mode).toBe("extension");
+    expect(resolvePmHttpMode()).toBe("extension");
   });
 });

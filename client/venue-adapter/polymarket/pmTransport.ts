@@ -12,7 +12,7 @@ import {
 } from "@changmen/client-core/shared/platformHttp";
 import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2HeadersFromAccount } from "./l2Auth";
-import { resolvePmHttpMode } from "./pmTransportMode";
+import { demotePmHttpToVpsFromLocalNetworkError, resolvePmHttpMode } from "./pmTransportMode";
 
 const POLY_HEADER_NAMES = [
   "POLY_ADDRESS",
@@ -68,6 +68,55 @@ async function resolveAuthHeaders(
   return {};
 }
 
+function pluginErrorCode(err: unknown): string {
+  if (err && typeof err === "object" && "code" in err)
+    return String((err as { code?: unknown }).code ?? "");
+  return "";
+}
+
+function pluginErrorMessage(err: unknown): string {
+  if (err instanceof Error)
+    return err.message;
+  if (err && typeof err === "object" && typeof (err as { message?: unknown }).message === "string")
+    return String((err as { message: string }).message);
+  return typeof err === "string" ? err : "";
+}
+
+/** 本机 REST 没出门：Axios Network Error、扩展断连、超时。不含 CLOB FOK 文案。 */
+function isPmTransportNetworkError(err: unknown): boolean {
+  if (err == null)
+    return false;
+  const code = pluginErrorCode(err);
+  if (
+    code === "ERR_NETWORK"
+    || code === "ERR_INTERNET_DISCONNECTED"
+    || code === "ECONNABORTED"
+    || code === "ECONNRESET"
+    || code === "ETIMEDOUT"
+  ) {
+    return true;
+  }
+  const msg = pluginErrorMessage(err);
+  if (!msg)
+    return false;
+  return /network error/i.test(msg)
+    || /ERR_NETWORK/i.test(msg)
+    || /failed to fetch/i.test(msg)
+    || /timeout of \d+ms exceeded/i.test(msg)
+    || /Gamebet 扩展/i.test(msg)
+    || /Could not establish connection/i.test(msg)
+    || /Receiving end does not exist/i.test(msg)
+    || /Extension context invalidated/i.test(msg);
+}
+
+function rethrowAfterLocalNetworkDemote(err: unknown): never {
+  if (isPmTransportNetworkError(err)) {
+    if (demotePmHttpToVpsFromLocalNetworkError())
+      console.warn("[PM transport] 本机 REST Network Error，HTTP 降回 vps");
+  }
+  throw err;
+}
+
 async function pmHttpViaDirect<T>(
   method: PmHttpMethod,
   url: string,
@@ -85,11 +134,16 @@ async function pmHttpViaDirect<T>(
     pickPolyHeaders(options?.headers),
     bodyText,
   );
-  if (method === "GET")
-    return directGet<T>(url, headers);
-  if (method === "DELETE")
-    return directDeleteJson<T>(url, headers, data);
-  return directPostJson<T>(url, headers, data);
+  try {
+    if (method === "GET")
+      return await directGet<T>(url, headers);
+    if (method === "DELETE")
+      return await directDeleteJson<T>(url, headers, data);
+    return await directPostJson<T>(url, headers, data);
+  }
+  catch (err) {
+    rethrowAfterLocalNetworkDemote(err);
+  }
 }
 
 async function pmHttpViaExtension<T>(
@@ -110,12 +164,22 @@ async function pmHttpViaExtension<T>(
     bodyText,
   );
   const reqOptions = Object.keys(headers).length ? { headers } : undefined;
-  const raw = method === "GET"
-    ? await a8PluginGet(url, reqOptions)
-    : method === "DELETE"
-      ? await a8PluginDelete(url, data, reqOptions)
-      : await a8PluginPost(url, data, reqOptions);
-  return unwrapPluginResponse<T>(raw);
+  try {
+    const raw = method === "GET"
+      ? await a8PluginGet(url, reqOptions)
+      : method === "DELETE"
+        ? await a8PluginDelete(url, data, reqOptions)
+        : await a8PluginPost(url, data, reqOptions);
+    // 插件 catch 后 resolve(err)，不是 reject；AxiosError 经 sendMessage 会丢掉 instanceof
+    if (isPmTransportNetworkError(raw)) {
+      const msg = pluginErrorMessage(raw) || "Network Error";
+      throw raw instanceof Error ? raw : new Error(msg);
+    }
+    return unwrapPluginResponse<T>(raw);
+  }
+  catch (err) {
+    rethrowAfterLocalNetworkDemote(err);
+  }
 }
 
 /** 对齐 PB transport：插件 background 返回 axios response（含 .data） */

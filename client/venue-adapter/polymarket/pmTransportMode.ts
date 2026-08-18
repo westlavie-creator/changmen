@@ -39,6 +39,20 @@ export function isPmVpsHttpMode(): boolean {
   return resolvePmHttpMode() === "vps";
 }
 
+/**
+ * 本机 REST（extension/direct）Network Error：整条 HTTP 降回 VPS。
+ * 登录自动路径本就钉 VPS；此函数给角标手动升插件后的纠偏。
+ */
+export function demotePmHttpToVpsFromLocalNetworkError(): boolean {
+  const mode = resolvePmHttpMode();
+  if (mode === "vps")
+    return false;
+  if (testOverride && testOverride !== "vps")
+    testOverride = "vps";
+  setPmHttpMode("vps");
+  return true;
+}
+
 /** 测试 / 调试注入 */
 export function setPmHttpModeForTests(mode: PmHttpMode | null): void {
   testOverride = mode;
