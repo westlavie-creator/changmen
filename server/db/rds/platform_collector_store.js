@@ -330,7 +330,8 @@ async function _rdsUpsertPlatformBets(exec, rows) {
       source_home_id = EXCLUDED.source_home_id,
       source_away_id = EXCLUDED.source_away_id,
       market_id = EXCLUDED.market_id,
-      line_id = EXCLUDED.line_id,
+      -- 旧 SaveBet / 空刷新未带 LineID 时勿清空（与 is_live / rot_num 同口径）
+      line_id = COALESCE(EXCLUDED.line_id, platform_bets.line_id),
       updated_at = EXCLUDED.updated_at
   `;
   await exec.query(sql, [

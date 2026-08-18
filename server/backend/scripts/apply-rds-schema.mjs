@@ -131,6 +131,9 @@ async function main() {
     console.log("[rds] 执行 033_sport_matcher_tables.sql …");
     await client.query(readSql("033_sport_matcher_tables.sql"));
 
+    console.log("[rds] 执行 034_platform_bets_market_id.sql …");
+    await client.query(readSql("034_platform_bets_market_id.sql"));
+
     console.log("[rds] 执行 035_players_venue_account_key_including_deleted.sql …");
     await client.query(readSql("035_players_venue_account_key_including_deleted.sql"));
 
@@ -142,6 +145,9 @@ async function main() {
 
     console.log("[rds] 执行 038_platform_matches_rot_num.sql …");
     await client.query(readSql("038_platform_matches_rot_num.sql"));
+
+    console.log("[rds] 执行 039_platform_bets_line_id.sql …");
+    await client.query(readSql("039_platform_bets_line_id.sql"));
 
     const tables = await client.query(`
       SELECT tablename FROM pg_tables
