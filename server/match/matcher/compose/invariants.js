@@ -19,6 +19,15 @@ export function checkHomeSlotConsistency(row, nativeByPlatformMap = {}) {
           && String(src.AwayID) === String(map0.AwayID)) {
           continue;
         }
+        // 决胜局拷贝后 Map0 可能已剥除该馆（PM）：对照 Map0 原生盘 + Reverse
+        const map0Native = nativeByPlatformMap[`${platform}:0`];
+        if (mapNum !== 0 && map0Native) {
+          const shouldSwap = reverse.has(platform);
+          const expectHome = shouldSwap ? String(map0Native.AwayID ?? "") : String(map0Native.HomeID ?? "");
+          const expectAway = shouldSwap ? String(map0Native.HomeID ?? "") : String(map0Native.AwayID ?? "");
+          if (String(src.HomeID ?? "") === expectHome && String(src.AwayID ?? "") === expectAway)
+            continue;
+        }
         violations.push(`#${row.ID} ${key}: missing native for I1 check`);
         continue;
       }

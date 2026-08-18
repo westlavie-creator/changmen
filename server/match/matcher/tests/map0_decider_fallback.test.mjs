@@ -3,15 +3,20 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
+import { checkHomeSlotConsistency, checkReverseSubsetOfSources } from "../compose/invariants.js";
+import { applyLiveShape } from "../compose/shape/live_shape.js";
 import { projectClientMatchSides } from "../compose/sides/project_sources.js";
+import { resolveMatchStructure } from "../compose/structure/resolve_structure.js";
 import {
   GB_K27,
   GB_NIP,
   installPlugin,
   makeBets,
   pmOb,
+  pmPm,
   pmRay,
   rawOb,
+  rawPm,
   rawRay,
 } from "./fixtures.mjs";
 
@@ -143,5 +148,178 @@ describe("map0 fallback vs map lines", () => {
       result.omitted.some(o => o.reason === "no_map0_fallback_on_map_line" && o.map === 2),
       "should record mid-map omit when Map0 was available",
     );
+  });
+});
+
+describe("Polymarket Map0 exclusive on decider", () => {
+  function projectPmRow({ round, withOb = true, isLive = 2 }) {
+    installPlugin();
+    const matches = {
+      ...(withOb ? { OB: { ob1: { ...pmOb, BO: 3, IsLive: isLive } } } : {}),
+      Polymarket: { pm1: { ...pmPm } },
+      RAY: { ray1: { ...pmRay } },
+    };
+    const bets = makeBets({
+      ...(withOb ? { OB: { 0: rawOb } } : {}),
+      Polymarket: { 0: rawPm },
+      RAY: { 0: rawRay },
+    });
+    const row = {
+      ID: 20,
+      Title: "NIP vs K27",
+      Round: round,
+      HomeGbTeamId: GB_NIP,
+      AwayGbTeamId: GB_K27,
+      Matchs: {
+        ...(withOb ? { OB: "ob1" } : {}),
+        Polymarket: "pm1",
+        RAY: "ray1",
+      },
+      Reverse: [],
+      Bets: [],
+    };
+    const existing = { id: 20, home_gb_team_id: GB_NIP, away_gb_team_id: GB_K27 };
+    projectClientMatchSides(row, { matches, bets, existingRow: existing });
+    return { row, matches };
+  }
+
+  it("Round===OB.BO: PM only on decider, stripped from Map0", () => {
+    const { row } = projectPmRow({ round: 3 });
+    const map0 = row.Bets.find(b => (Number(b.Map) || 0) === 0);
+    const map3 = row.Bets.find(b => Number(b.Map) === 3);
+    assert.ok(map3?.Sources?.Polymarket, "decider keeps PM full-match copy");
+    assert.equal(map3.Sources.Polymarket.BetID, rawPm.BetID);
+    assert.equal(map0?.Sources?.Polymarket, undefined, "Map0 must not keep the same PM token");
+    assert.ok(map0?.Sources?.OB, "OB remains on Map0");
+    const rev = checkReverseSubsetOfSources(row);
+    assert.equal(rev.ok, true, rev.violations.join("; "));
+    const i1 = checkHomeSlotConsistency(row, {
+      "OB:0": rawOb,
+      "RAY:0": rawRay,
+      "Polymarket:0": rawPm,
+    });
+    assert.equal(i1.ok, true, i1.violations.join("; "));
+  });
+
+  it("Round!==BO: PM stays on Map0, no Map0 copy on map 3", () => {
+    const { row } = projectPmRow({ round: 2 });
+    const map0 = row.Bets.find(b => (Number(b.Map) || 0) === 0);
+    const map3 = row.Bets.find(b => Number(b.Map) === 3);
+    assert.ok(map0?.Sources?.Polymarket, "pre-decider Map0 keeps PM");
+    assert.equal(map3?.Sources?.Polymarket, undefined);
+  });
+
+  it("native PM Map=3: keep Map0 moneyline; do not strip", () => {
+    installPlugin();
+    const nativeMap3 = { ...rawPm, BetID: "p3", HomeID: "pmid-m3h", AwayID: "pmid-m3a" };
+    const matches = {
+      OB: { ob1: { ...pmOb, BO: 3, IsLive: 2 } },
+      Polymarket: { pm1: { ...pmPm } },
+    };
+    const bets = makeBets({
+      OB: { 0: rawOb },
+      Polymarket: { 0: rawPm, 3: nativeMap3 },
+    });
+    const row = {
+      ID: 23,
+      Title: "NIP vs K27",
+      Round: 3,
+      HomeGbTeamId: GB_NIP,
+      AwayGbTeamId: GB_K27,
+      Matchs: { OB: "ob1", Polymarket: "pm1" },
+      Reverse: [],
+      Bets: [],
+    };
+    projectClientMatchSides(row, {
+      matches,
+      bets,
+      existingRow: { id: 23, home_gb_team_id: GB_NIP, away_gb_team_id: GB_K27 },
+    });
+    const map0 = row.Bets.find(b => (Number(b.Map) || 0) === 0);
+    const map3 = row.Bets.find(b => Number(b.Map) === 3);
+    assert.equal(map0?.Sources?.Polymarket?.BetID, rawPm.BetID, "native map line must not strip Map0");
+    assert.equal(map3?.Sources?.Polymarket?.BetID, "p3");
+  });
+
+  it("BO5 Round=5: PM on Map=5 only; Round=3 is not decider", () => {
+    installPlugin();
+    const matches = {
+      OB: { ob1: { ...pmOb, BO: 5, IsLive: 2 } },
+      Polymarket: { pm1: { ...pmPm } },
+    };
+    const bets = makeBets({ OB: { 0: rawOb }, Polymarket: { 0: rawPm } });
+    const existing = { id: 22, home_gb_team_id: GB_NIP, away_gb_team_id: GB_K27 };
+    const mid = {
+      ID: 22,
+      Title: "NIP vs K27",
+      Round: 3,
+      HomeGbTeamId: GB_NIP,
+      AwayGbTeamId: GB_K27,
+      Matchs: { OB: "ob1", Polymarket: "pm1" },
+      Reverse: [],
+      Bets: [],
+    };
+    projectClientMatchSides(mid, { matches, bets, existingRow: existing });
+    assert.ok(mid.Bets.find(b => (Number(b.Map) || 0) === 0)?.Sources?.Polymarket);
+    assert.equal(mid.Bets.find(b => Number(b.Map) === 5)?.Sources?.Polymarket, undefined);
+
+    const last = {
+      ...mid,
+      Round: 5,
+      Bets: [],
+    };
+    projectClientMatchSides(last, { matches, bets, existingRow: existing });
+    assert.equal(last.Bets.find(b => (Number(b.Map) || 0) === 0)?.Sources?.Polymarket, undefined);
+    assert.ok(last.Bets.find(b => Number(b.Map) === 5)?.Sources?.Polymarket);
+  });
+
+  it("no OB: Round=3 does not copy or strip PM", () => {
+    const { row } = projectPmRow({ round: 3, withOb: false });
+    const map0 = row.Bets.find(b => (Number(b.Map) || 0) === 0);
+    assert.ok(map0?.Sources?.Polymarket, "without OB.BO there is no decider");
+    const map3 = row.Bets.find(b => Number(b.Map) === 3);
+    assert.equal(map3?.Sources?.Polymarket, undefined);
+  });
+
+  it("applyLiveShape after strip does not put PM back on Map0", () => {
+    const { row, matches } = projectPmRow({ round: 3 });
+    applyLiveShape([row], { matches });
+    const map0 = row.Bets.find(b => (Number(b.Map) || 0) === 0);
+    const map3 = row.Bets.find(b => Number(b.Map) === 3);
+    assert.equal(map0?.Sources?.Polymarket, undefined);
+    assert.ok(map3?.Sources?.Polymarket);
+  });
+
+  it("OB not live clears Round so Map0 keeps PM", () => {
+    installPlugin();
+    const matches = {
+      OB: { ob1: { ...pmOb, BO: 3, IsLive: 1 } },
+      Polymarket: { pm1: { ...pmPm } },
+    };
+    const bets = makeBets({
+      OB: { 0: rawOb },
+      Polymarket: { 0: rawPm },
+    });
+    const rows = [{
+      ID: 21,
+      Title: "NIP vs K27",
+      Round: 3,
+      RoundStart: 1,
+      HomeGbTeamId: GB_NIP,
+      AwayGbTeamId: GB_K27,
+      Matchs: { OB: "ob1", Polymarket: "pm1" },
+      Reverse: [],
+      Bets: [],
+    }];
+    resolveMatchStructure(rows, { matches, timers: {}, bets });
+    assert.equal(rows[0].Round, 0);
+    assert.equal(rows[0]._deciderMap, 0);
+    projectClientMatchSides(rows[0], {
+      matches,
+      bets,
+      existingRow: { id: 21, home_gb_team_id: GB_NIP, away_gb_team_id: GB_K27 },
+    });
+    const map0 = rows[0].Bets.find(b => (Number(b.Map) || 0) === 0);
+    assert.ok(map0?.Sources?.Polymarket);
   });
 });

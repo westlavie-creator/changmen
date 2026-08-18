@@ -3,6 +3,8 @@
  *
  * 禁止 Map0→任意局盘回填：缺原生地图盘就 omit，勿用全场冒充。
  * 仅当 Round===BO 时用 Map0 作为决胜局的投影输入（只 swap 一次）。
+ * Polymarket Map0 拷到决胜局后从 Map0 删除，避免同一 token 挂两行。
+ * 若 platform_bets 已有该馆原生 Map N，走原生投影、不剥 Map0。
  *
  * PB B1 / S2：主 event（Matchs.PB）缺某 Map 时，从同 rotNum sibling 取该 Map；
  * Source.HomeID / BetID / LineID 仍是那条腿自己的 event；Matchs.PB 不变。
@@ -174,6 +176,8 @@ export function projectClientMatchSides(row, {
   const ambiguous = [];
   /** 已投影的 Map0 Source：决胜局复用它，中间局仅用于区分 omit 原因 */
   const map0Projected = {};
+  /** PM 全场已拷到决胜局：投影结束后从 Map0 剥除 */
+  let pmMap0CopiedToDecider = false;
 
   const orderedBets = [...(row.Bets || [])].sort(
     (a, b) => (Number(a.Map) || 0) - (Number(b.Map) || 0),
@@ -191,6 +195,8 @@ export function projectClientMatchSides(row, {
         if (!betHasOdds(src))
           return false;
         nextSources[platform] = { ...src };
+        if (platform === "Polymarket")
+          pmMap0CopiedToDecider = true;
         return true;
       };
 
@@ -250,6 +256,12 @@ export function projectClientMatchSides(row, {
       bet.HomeName = parts[0].trim();
       bet.AwayName = parts.slice(1).join(" vs ").trim();
     }
+  }
+
+  if (pmMap0CopiedToDecider && deciderMap > 0) {
+    const map0 = (row.Bets || []).find(b => (Number(b.Map) || 0) === 0);
+    if (map0?.Sources?.Polymarket)
+      delete map0.Sources.Polymarket;
   }
 
   const platformsWithSources = new Set();

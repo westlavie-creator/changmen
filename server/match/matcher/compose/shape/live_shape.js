@@ -26,8 +26,9 @@ export function preserveInitialOddsFromSources(bet) {
 }
 
 /**
- * live Round>0：Map0 仅保留全场盘馆。
- * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun / Limitless（全场仍挂 Map0；局盘在各自 Map N）。
+ * live Round>0：Map0 仅保留当时还在 Sources 里的全场盘馆。
+ * [A8 可证实] OB；[changmen 扩展] Polymarket / PredictFun / Limitless。
+ * PM 在 Round===BO 时已由 project_sources 从 Map0 剥到决胜局，此处只保留、不加回。
  * trim 前保全 Initial*。
  */
 export function trimMapZeroLive(rows) {
