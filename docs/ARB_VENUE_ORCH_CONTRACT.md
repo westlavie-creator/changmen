@@ -24,7 +24,7 @@
 | **fill confirmed**（`matched` + takingAmount>0） | **快路径**：直接 `filled`，不进 delayed poll；拉单 **一次** 供绑单 | 绑单 / 不成补单 |
 | `pending` / delayed | settlement job：等满官方 `sd` + 查询滞后后 **filled / unfilled** | 见下表 |
 
-官方 delay（[Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：体育盘 `delayed` = 异步 seconds-delay 窗；时长取 CLOB `GET /clob-markets/{condition_id}` 的 **`sd`**（秒）。轮询见 `buildPolymarketDelayedPollOpts(sd)`。窗内不可撤。窗后：撮合、校验失败 rejected，或 `unmatched` 挂簿。本仓库 FOK：**窗后无成交必须 `unfilled`（可撤则撤）**。官方无 `timeout` 态；poll 内部 timeout 经 `coercePolymarketFokPollOutcome` 收成 `unfilled`，**不得**回传编排 / 进行中订单。官方未规定缺省 `sd`：拉失败 / 无 `condition_id` / 行无 `sd` 时用保守上限 **30s**（`UNKNOWN_SPORTS_SECONDS_DELAY`），禁止默认 1s。Settlement Job 缺失时须复用下单时的 poll，或按 `pmConditionId` 再拉 `sd`。`delayed` / 查不到行（delay 窗内常见 404）须走 FOK grace，窗内不立刻 cancel。
+官方 delay（[Order Lifecycle](https://docs.polymarket.com/concepts/order-lifecycle)）：体育盘 `delayed` = 异步 seconds-delay 窗；时长取 CLOB `GET /clob-markets/{condition_id}` 的 **`sd`**（秒）。轮询见 `buildPolymarketDelayedPollOpts(sd)`：先等满 `sd`，再最多 `POLYMARKET_POST_DELAY_GET_LAG_MS`（2s，**[changmen 扩展]** GET 滞后，非官方第二段 delay）。窗内不可撤。窗后：撮合、校验失败 rejected，或 `unmatched` 挂簿。本仓库 FOK：**窗后无成交必须 `unfilled`（可撤则撤）**。官方无 `timeout` 态；poll 内部 timeout 经 `coercePolymarketFokPollOutcome` 收成 `unfilled`，**不得**回传编排 / 进行中订单。官方未规定缺省 `sd`：拉失败 / 无 `condition_id` / 行无 `sd` 时用保守上限 **30s**（`UNKNOWN_SPORTS_SECONDS_DELAY`），禁止默认 1s。Settlement Job 缺失时须复用下单时的 poll，或按 `pmConditionId` 再拉 `sd`。`delayed` / 查不到行（delay 窗内常见 404）须走 FOK grace，窗内不立刻 cancel。
 
 | settle | 含义 | 套利补单 |
 |--------|------|----------|

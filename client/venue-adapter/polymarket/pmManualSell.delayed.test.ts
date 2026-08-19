@@ -7,7 +7,7 @@ vi.mock("./marketDelay", () => ({
   buildPolymarketDelayedPollOpts: vi.fn((sd: number) => ({
     initialDelayMs: Math.max(1000, sd * 1000),
     intervalMs: 1000,
-    maxAttempts: Math.max(6, Math.ceil(Math.max(8000, sd * 2000) / 1000)),
+    maxAttempts: 2,
   })),
   buildPolymarketWatchTimeoutMs: vi.fn((sd: number) => Math.min(90_000, sd * 1000 + 20_000)),
 }));

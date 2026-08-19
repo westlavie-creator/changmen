@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   UNKNOWN_SPORTS_SECONDS_DELAY,
+  POLYMARKET_POST_DELAY_GET_LAG_MS,
   buildPolymarketDelayedPollOpts,
   buildPolymarketWatchTimeoutMs,
   parsePolymarketClobMarketDelay,
@@ -37,28 +38,28 @@ describe("buildPolymarketDelayedPollOpts", () => {
     const opts = buildPolymarketDelayedPollOpts(1);
     expect(opts.initialDelayMs).toBe(1_000);
     expect(opts.intervalMs).toBe(1_000);
-    expect(opts.maxAttempts).toBeGreaterThanOrEqual(8);
+    expect(opts.maxAttempts).toBe(2);
   });
 
-  it("scales initial delay with sd=3 (sports example)", () => {
+  it("scales initial delay with sd=3; GET lag does not grow with sd", () => {
     const opts = buildPolymarketDelayedPollOpts(3);
     expect(opts.initialDelayMs).toBe(3_000);
-    expect(opts.maxAttempts).toBeGreaterThanOrEqual(8);
+    expect(opts.maxAttempts).toBe(2);
   });
 
-  it("unknown sd waits the conservative 30s window", () => {
+  it("unknown sd waits the conservative 30s window, not extra 8s polls", () => {
     const opts = buildPolymarketDelayedPollOpts(UNKNOWN_SPORTS_SECONDS_DELAY);
     expect(opts.initialDelayMs).toBe(30_000);
-    expect(opts.maxAttempts).toBeGreaterThanOrEqual(8);
+    expect(opts.maxAttempts).toBe(2);
   });
 });
 
 describe("buildPolymarketWatchTimeoutMs", () => {
-  it("covers poll budget plus buffer", () => {
+  it("covers poll budget plus GET-lag buffer, not a 10s pad", () => {
     const poll = buildPolymarketDelayedPollOpts(1);
     const timeout = buildPolymarketWatchTimeoutMs(1);
-    expect(timeout).toBeGreaterThan(
-      poll.initialDelayMs + poll.intervalMs * poll.maxAttempts,
-    );
+    const pollBudget = poll.initialDelayMs + poll.intervalMs * poll.maxAttempts;
+    expect(timeout).toBe(pollBudget + POLYMARKET_POST_DELAY_GET_LAG_MS);
+    expect(timeout).toBe(5_000);
   });
 });

@@ -91,9 +91,15 @@ export function clearPolymarketMarketDelayCache(): void {
 }
 
 /**
+ * [changmen 扩展] 官方 `sd` 结束后 GET /data/order 仍可能短滞后（delay 内 404）。
+ * 不是第二段 delay；官方 Order Lifecycle 只有市场 `sd`。
+ */
+export const POLYMARKET_POST_DELAY_GET_LAG_MS = 2_000;
+
+/**
  * 按官方 `sd` 生成 delayed 轮询参数：
  * - 先等满 delay 窗（`initialDelayMs = sd * 1000`，至少 1s）
- * - 再按 1s 间隔轮询 order 端点，覆盖接口滞后（至少 8s，且不少于 2×sd）
+ * - 再按 1s 间隔轮询，仅覆盖 GET 短滞后（`POLYMARKET_POST_DELAY_GET_LAG_MS`）
  */
 export function buildPolymarketDelayedPollOpts(secondsDelay: number): {
   initialDelayMs: number;
@@ -103,17 +109,16 @@ export function buildPolymarketDelayedPollOpts(secondsDelay: number): {
   const known = clampKnownSecondsDelay(secondsDelay);
   const sd = known ?? UNKNOWN_SPORTS_SECONDS_DELAY;
   const initialDelayMs = Math.max(1_000, sd * 1_000);
-  const lagBudgetMs = Math.max(8_000, sd * 2_000);
   const intervalMs = 1_000;
-  const maxAttempts = Math.max(6, Math.ceil(lagBudgetMs / intervalMs));
+  const maxAttempts = Math.max(1, Math.ceil(POLYMARKET_POST_DELAY_GET_LAG_MS / intervalMs));
   return { initialDelayMs, intervalMs, maxAttempts };
 }
 
-/** User WS watch 超时：delay 窗 + REST 轮询预算 + 余量 */
+/** User WS watch 超时：官方窗 + GET 滞后轮询 + 同等短余量（勿再加 10s） */
 export function buildPolymarketWatchTimeoutMs(secondsDelay: number): number {
   const poll = buildPolymarketDelayedPollOpts(secondsDelay);
   const pollBudgetMs = poll.initialDelayMs + poll.intervalMs * poll.maxAttempts;
-  return Math.min(90_000, pollBudgetMs + 10_000);
+  return Math.min(90_000, pollBudgetMs + POLYMARKET_POST_DELAY_GET_LAG_MS);
 }
 
 /** Job 缺失 / 无缓存 poll 时：有 condition_id 再拉 sd，否则按未知窗等 */
