@@ -29,12 +29,18 @@ describe("pbWsShadowUiLocal", () => {
     expect(readPbWsShadowUiLocal()).toBe(false);
   });
 
-  it("persists on and clears off", () => {
+  it("follows extensions when shadow key unset", () => {
+    store.set("changmen:pbExtensions", "1");
+    expect(readPbWsShadowUiLocal()).toBe(true);
+  });
+
+  it("persists on and explicit off", () => {
     writePbWsShadowUiLocal(true);
     expect(store.get(PB_WS_SHADOW_UI_LOCAL_KEY)).toBe("1");
     expect(readPbWsShadowUiLocal()).toBe(true);
     writePbWsShadowUiLocal(false);
-    expect(store.has(PB_WS_SHADOW_UI_LOCAL_KEY)).toBe(false);
+    expect(store.get(PB_WS_SHADOW_UI_LOCAL_KEY)).toBe("0");
+    store.set("changmen:pbExtensions", "1");
     expect(readPbWsShadowUiLocal()).toBe(false);
   });
 });

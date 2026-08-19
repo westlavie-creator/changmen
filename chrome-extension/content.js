@@ -4232,126 +4232,6 @@
     return { data, status: response.status, statusText: response.statusText };
   }
 
-  // src/content/pb/hosts.js
-  var PB_HOST_RE = /(^|\.)(part888|ps3838)\.com$/i;
-  function isPbSportsHost(hostname = location.hostname) {
-    return PB_HOST_RE.test(String(hostname || ""));
-  }
-  function isPbWsTopFrame() {
-    try {
-      return window === window.top;
-    } catch {
-      return true;
-    }
-  }
-
-  // src/content/pb/init.js
-  var ENABLED_KEY = "pbWsObserveEnabled";
-  var SOURCE = "cm-pb-ws";
-  var FILTER_KEY = "pbWsFilterMatchMapMl";
-  var listening = false;
-  var enabled = true;
-  var filterMatchMapMl = true;
-  var lastBoard = [];
-  var lastPhase = "off";
-  function postCmd(cmd, extra = {}) {
-    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, ...extra }, "*");
-  }
-  function publishStatus(status) {
-    try {
-      chrome.runtime.sendMessage({
-        type: "pbWsObserveStatus",
-        status: {
-          host: location.hostname,
-          href: location.pathname,
-          mode: "hook",
-          ...status,
-          updatedAt: Date.now()
-        }
-      });
-    } catch {
-    }
-  }
-  function onPageMessage(ev) {
-    if (ev.source !== window) return;
-    const data = ev.data;
-    if (!data || data.source !== SOURCE) return;
-    if (data.kind !== "status") return;
-    const clearClose = data.phase === "hooked" || data.phase === "connected" || data.phase === "hook_start";
-    const status = {
-      running: enabled,
-      connected: data.connected === true,
-      readyState: data.readyState,
-      phase: data.phase || "hook",
-      vssid: data.vssid || "",
-      frameCount: data.frameCount,
-      lastType: data.lastType || "",
-      lastDestination: data.lastDestination || "",
-      lastClose: clearClose ? null : data.lastClose,
-      lastError: clearClose ? "" : data.lastClose ? `page_ws_close ${data.lastClose.code}` : "",
-      subscribedOut: data.subscribedOut,
-      inboundDest: data.inboundDest,
-      inboundTypeCount: data.inboundTypeCount,
-      checklist: data.checklist,
-      filterMatchMapMl: data.filterMatchMapMl
-    };
-    if (Array.isArray(data.latestOdds)) {
-      status.latestOdds = data.latestOdds;
-      lastBoard = data.latestOdds;
-    }
-    if (typeof data.phase === "string" && data.phase) lastPhase = data.phase;
-    publishStatus(status);
-  }
-  function ensureListening() {
-    if (listening) return;
-    listening = true;
-    window.addEventListener("message", onPageMessage);
-  }
-  async function ensureObserve(on) {
-    enabled = on;
-    ensureListening();
-    if (!on) {
-      lastBoard = [];
-      lastPhase = "off";
-      postCmd("stop");
-      publishStatus({ running: false, connected: false, phase: "off", latestOdds: [] });
-      console.info("[PB WS] observe stopped (hook)");
-      return;
-    }
-    chrome.runtime.sendMessage(
-      { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.PB } },
-      () => {
-      }
-    );
-    publishStatus({ running: true, connected: false, phase: "hook_start", filterMatchMapMl });
-    postCmd("start", { filterMatchMapMl });
-    console.info("[PB WS] observe start (hook page WS, light)");
-  }
-  function initPbWsObserve() {
-    if (!isPbSportsHost() || !isPbWsTopFrame()) return;
-    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-      if (message?.type !== "pbWsObserveBoardGet") return false;
-      sendResponse({ latestOdds: lastBoard, phase: lastPhase });
-      return true;
-    });
-    chrome.storage.local.get([ENABLED_KEY, FILTER_KEY], (items) => {
-      if (typeof items?.[FILTER_KEY] === "boolean") {
-        filterMatchMapMl = items[FILTER_KEY];
-      }
-      void ensureObserve(items?.[ENABLED_KEY] !== false);
-    });
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local") return;
-      if (changes[FILTER_KEY]) {
-        filterMatchMapMl = changes[FILTER_KEY].newValue !== false;
-        if (enabled) postCmd("setFilter", { filterMatchMapMl });
-      }
-      if (changes[ENABLED_KEY]) {
-        void ensureObserve(changes[ENABLED_KEY].newValue !== false);
-      }
-    });
-  }
-
   // src/content/config.js
   var STAKE_LOCKDOWN_TOKEN = "s5MNWtjTM5TvCMkAzxov";
 
@@ -4723,7 +4603,6 @@
     initDexPage((handler) => {
       registerTabHandler(PLATFORMS.Dex, handler);
     });
-    initPbWsObserve();
     const startDetect = () => void detectAndMountCollectUi();
     if (document.body) {
       startDetect();

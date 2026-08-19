@@ -1,13 +1,15 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { selectionId } from "./parse";
 import {
   getPbWsShadow,
   resetPbWsShadowForTests,
   savePbWsShadow,
+  upsertPbWsShadowFromParsedMatch,
 } from "./wsShadowOdds";
 import {
   ingestShadow,
   mapObserveToStatus,
+  resetPbWsShadowUiAllowedForTests,
   setPbWsShadowUiAllowed,
 } from "./wsStatusPoll";
 
@@ -36,6 +38,38 @@ describe("mapObserveToStatus", () => {
         },
       }),
     ).toBe("connected");
+  });
+
+  test("inbound PING/CONNECTED counts as connected even if boolean was wiped", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        observe: {
+          connected: false,
+          phase: "hooked",
+          frameCount: 12,
+          lastType: "PING",
+        },
+      }),
+    ).toBe("connected");
+  });
+
+  test("readyState CLOSED is error even if phase still hooked", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        observe: { connected: false, readyState: 3, phase: "hooked", latestOdds: [{ eventId: 1 }] },
+      }),
+    ).toBe("error");
+  });
+
+  test("ws_closed is disconnected even with leftover lastType", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        observe: { phase: "ws_closed", lastType: "PING", frameCount: 9 },
+      }),
+    ).toBe("disconnected");
   });
 
   test("error when lastError set and not connected", () => {
@@ -96,5 +130,123 @@ describe("ingestShadow prefs gate", () => {
     // false→false 也必须保持空表
     setPbWsShadowUiAllowed(false);
     expect(getPbWsShadow(selectionId(3, 0, "HOME"))).toBeUndefined();
+  });
+
+  test("unset gate falls back to localStorage both-on", () => {
+    resetPbWsShadowUiAllowedForTests();
+    const store = new Map<string, string>([
+      ["changmen:pbExtensions", "1"],
+      ["changmen:pbWsShadowUi", "1"],
+    ]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, String(v));
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    });
+    try {
+      ingestShadow({
+        observe: {
+          connected: true,
+          latestOdds: [{ eventId: 4, period: 0, betType: 1, home: "1.4", away: "2.4" }],
+        },
+      });
+      expect(getPbWsShadow(selectionId(4, 0, "HOME"))?.odds).toBe(1.4);
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("unset shadow key still ingests when extensions on", () => {
+    resetPbWsShadowUiAllowedForTests();
+    const store = new Map<string, string>([["changmen:pbExtensions", "1"]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, String(v));
+      },
+      removeItem: (k: string) => {
+        store.delete(k);
+      },
+    });
+    try {
+      ingestShadow({
+        observe: {
+          connected: true,
+          latestOdds: [{ eventId: 6, period: 0, betType: 1, home: "1.6", away: "2.6" }],
+        },
+      });
+      expect(getPbWsShadow(selectionId(6, 0, "HOME"))?.odds).toBe(1.6);
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("enabled omitted still ingests when prefs on", () => {
+    setPbWsShadowUiAllowed(true);
+    ingestShadow({
+      observe: {
+        connected: true,
+        latestOdds: [{ eventId: 5, period: 0, betType: 1, home: "1.5", away: "2.5" }],
+      },
+    });
+    expect(getPbWsShadow(selectionId(5, 0, "HOME"))?.odds).toBe(1.5);
+  });
+
+  test("board ingest does not wipe collect euro periods", () => {
+    setPbWsShadowUiAllowed(true);
+    upsertPbWsShadowFromParsedMatch({
+      matchId: "1634270069",
+      gameId: "lol",
+      gameCode: "lol",
+      gameName: "lol",
+      leagueName: "",
+      bo: 5,
+      startTime: 1,
+      isLive: true,
+      rotNum: "31386",
+      home: { id: "a", name: "A", englishName: "A" },
+      away: { id: "b", name: "B", englishName: "B" },
+      stages: [
+        {
+          stageId: 0,
+          label: "全场",
+          winHome: 3.56,
+          winAway: 1.28,
+          winHomeId: selectionId(1634270069, 0, "HOME"),
+          winAwayId: selectionId(1634270069, 0, "AWAY"),
+          winMarketId: "1634270069:0",
+          winLocked: false,
+          betName: "全场",
+        },
+        {
+          stageId: 3,
+          label: "地图3",
+          winHome: 3.56,
+          winAway: 1.28,
+          winHomeId: selectionId(1634270069, 3, "HOME"),
+          winAwayId: selectionId(1634270069, 3, "AWAY"),
+          winMarketId: "1634270069:3",
+          winLocked: false,
+          betName: "地图3",
+        },
+      ],
+    });
+    ingestShadow({
+      enabled: true,
+      observe: {
+        connected: true,
+        latestOdds: [
+          { eventId: 1634270069, period: 0, betType: 1, home: "3.600", away: "1.270" },
+        ],
+      },
+    });
+    expect(getPbWsShadow(selectionId(1634270069, 0, "HOME"))?.text).toBe("3.600");
+    expect(getPbWsShadow(selectionId(1634270069, 3, "HOME"))?.odds).toBe(3.56);
   });
 });

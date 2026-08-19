@@ -27,6 +27,7 @@ import { useMatchStore } from "@/stores/matchStore";
 import { useOddsStore } from "@/stores/oddsStore";
 import {
   getPbWsShadowRevision,
+  isPbWsShadowUiAllowed,
   resolvePbWsShadow,
   subscribePbWsShadow,
 } from "@changmen/venue-adapter/pb";
@@ -65,10 +66,12 @@ const limitItemIds = ref<string[]>([]);
 
 const betRowUiEnabled = useBetRowExtensionUiEnabled();
 const { pbWsShadowUi, pbChangmenExtensions } = storeToRefs(useUserStore());
-/** 影子旁显：须 PB changmen 扩展开 + 子开关开（与 setPbWsShadowUiAllowed 一致） */
-const pbWsShadowUiEnabled = computed(
-  () => pbChangmenExtensions.value === true && pbWsShadowUi.value === true,
-);
+/** 影子旁显：跟 ingest 同一道门（globalThis / localStorage），Pinia 只负责触发重算 */
+const pbWsShadowUiEnabled = computed(() => {
+  void pbChangmenExtensions.value;
+  void pbWsShadowUi.value;
+  return isPbWsShadowUiAllowed();
+});
 
 const showLiveTimer = computed(() => {
   const lr = props.match.liveRound;
@@ -199,6 +202,7 @@ function pbShadowLabel(item: ViewBet["items"][0], side: BetSide): string | undef
   const oddId = side === "Home" ? item.homeId : item.awayId;
   const shadow = resolvePbWsShadow({
     oddId,
+    matchId: item.matchId,
     map: props.bet.round,
   });
   if (!shadow || shadow.source !== "M" || shadow.isLock || !(shadow.odds > 0))
@@ -212,7 +216,7 @@ function pbShadowClass(item: ViewBet["items"][0], side: BetSide): Record<string,
   if (!pbSourceSplitActive(item)) return {};
   void pbWsShadowTick.value;
   const oddId = side === "Home" ? item.homeId : item.awayId;
-  const shadow = resolvePbWsShadow({ oddId, map: props.bet.round });
+  const shadow = resolvePbWsShadow({ oddId, matchId: item.matchId, map: props.bet.round });
   const src = shadow?.source;
   return {
     "pb-ws-shadow--m": src === "M",
@@ -222,7 +226,7 @@ function pbShadowClass(item: ViewBet["items"][0], side: BetSide): Record<string,
 
 function pbWsShadowEntry(item: ViewBet["items"][0], side: BetSide) {
   const oddId = side === "Home" ? item.homeId : item.awayId;
-  return resolvePbWsShadow({ oddId, map: props.bet.round });
+  return resolvePbWsShadow({ oddId, matchId: item.matchId, map: props.bet.round });
 }
 
 function pbShadowOddId(item: ViewBet["items"][0], side: BetSide): string {
@@ -256,6 +260,7 @@ function pbWsShadowDiffers(item: ViewBet["items"][0], side: BetSide): boolean {
   const oddId = side === "Home" ? item.homeId : item.awayId;
   const shadow = resolvePbWsShadow({
     oddId,
+    matchId: item.matchId,
     map: props.bet.round,
   });
   if (!shadow || shadow.source !== "M" || shadow.isLock || !(shadow.odds > 0))
@@ -472,6 +477,7 @@ function onBetTitleDblClick() {
         <div
           :ref="bindOddsAnchor(item.type, 'Home')"
           class="item-odds home"
+          :data-pb-home-id="item.type === 'PB' ? item.homeId : undefined"
           :class="{
             'lock': !itemOdds(item, 'Home'),
             'target': matchStore.getBetTarget(item.type, bet.id) === 'Home',
@@ -518,6 +524,7 @@ function onBetTitleDblClick() {
         <div
           :ref="bindOddsAnchor(item.type, 'Away')"
           class="item-odds away"
+          :data-pb-home-id="item.type === 'PB' ? item.awayId : undefined"
           :class="{
             'lock': !itemOdds(item, 'Away'),
             'target': matchStore.getBetTarget(item.type, bet.id) === 'Away',

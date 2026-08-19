@@ -9,6 +9,7 @@ import {
   resolvePbWsShadow,
   savePbWsShadow,
   seedPbWsShadowFromHttp,
+  upsertPbWsShadowFromParsedMatch,
 } from "./wsShadowOdds";
 
 describe("pb wsShadowOdds", () => {
@@ -199,7 +200,7 @@ describe("pb wsShadowOdds", () => {
     ).toBe(1.11);
   });
 
-  test("shadow mirrors board: period absent from board is absent from shadow", () => {
+  test("shadow mirrors board layer: period absent from board is absent from byOddId", () => {
     replacePbWsShadowFromBoard([
       { eventId: 77, period: 0, betType: 1, home: "1.495", away: "2.550" },
       { eventId: 77, period: 3, betType: 1, home: "1.143", away: "5.39" },
@@ -231,8 +232,113 @@ describe("pb wsShadowOdds", () => {
     ).toBe(1.495);
   });
 
-  test("rememberPbRotEvent is no-op (no rot price steal)", () => {
+  test("rememberPbRotEvent does not invent prices", () => {
     rememberPbRotEvent(1, "99");
     expect(getPbWsShadow(selectionId(1, 0, "HOME"))).toBeUndefined();
+  });
+
+  test("unique rot+period aliases onto remembered sibling HomeID (not fo)", () => {
+    rememberPbRotEvent("111", "53830");
+    rememberPbRotEvent("222", "53830");
+    replacePbWsShadowFromBoard([
+      {
+        eventId: 111,
+        period: 0,
+        betType: 1,
+        rotNum: "53830",
+        home: "1.80",
+        away: "2.00",
+      },
+    ]);
+    expect(resolvePbWsShadow({ oddId: selectionId(111, 0, "HOME"), map: 0 })?.odds).toBe(1.8);
+    expect(resolvePbWsShadow({ oddId: selectionId(222, 0, "HOME"), map: 0 })?.odds).toBe(1.8);
+    expect(resolvePbWsShadow({ oddId: selectionId(222, 2, "HOME"), map: 2 })).toBeUndefined();
+  });
+
+  test("unique rot+period aliases when board rotNum empty but collect remembered", () => {
+    rememberPbRotEvent("111", "53830");
+    rememberPbRotEvent("222", "53830");
+    replacePbWsShadowFromBoard([
+      { eventId: 111, period: 0, betType: 1, home: "1.80", away: "2.00" },
+    ]);
+    expect(resolvePbWsShadow({ oddId: selectionId(222, 0, "HOME"), map: 0 })?.odds).toBe(1.8);
+  });
+
+  test("matchId fallback uses Matchs.PB at same period only", () => {
+    replacePbWsShadowFromBoard([
+      { eventId: 111, period: 0, betType: 1, home: "1.80", away: "2.00" },
+    ]);
+    expect(
+      resolvePbWsShadow({
+        oddId: selectionId(222, 0, "HOME"),
+        matchId: "111",
+        map: 0,
+      })?.odds,
+    ).toBe(1.8);
+    expect(
+      resolvePbWsShadow({
+        oddId: selectionId(222, 1, "HOME"),
+        matchId: "111",
+        map: 1,
+      }),
+    ).toBeUndefined();
+  });
+
+  test("two events same rot+period on board: no sibling alias", () => {
+    rememberPbRotEvent("111", "1");
+    rememberPbRotEvent("222", "1");
+    rememberPbRotEvent("333", "1");
+    replacePbWsShadowFromBoard([
+      { eventId: 111, period: 0, betType: 1, rotNum: "1", home: "1.80", away: "2.00" },
+      { eventId: 222, period: 0, betType: 1, rotNum: "1", home: "1.90", away: "2.10" },
+    ]);
+    expect(resolvePbWsShadow({ oddId: selectionId(111, 0, "HOME"), map: 0 })?.odds).toBe(1.8);
+    expect(resolvePbWsShadow({ oddId: selectionId(222, 0, "HOME"), map: 0 })?.odds).toBe(1.9);
+    expect(resolvePbWsShadow({ oddId: selectionId(333, 0, "HOME"), map: 0 })).toBeUndefined();
+  });
+
+  test("collect euro seeds periods the observe board does not have", () => {
+    upsertPbWsShadowFromParsedMatch({
+      matchId: "1634270069",
+      gameId: "lol",
+      gameCode: "lol",
+      gameName: "lol",
+      leagueName: "",
+      bo: 5,
+      startTime: 1,
+      isLive: true,
+      rotNum: "31386",
+      home: { id: "a", name: "A", englishName: "A" },
+      away: { id: "b", name: "B", englishName: "B" },
+      stages: [
+        {
+          stageId: 0,
+          label: "全场",
+          winHome: 3.56,
+          winAway: 1.28,
+          winHomeId: selectionId(1634270069, 0, "HOME"),
+          winAwayId: selectionId(1634270069, 0, "AWAY"),
+          winMarketId: "1634270069:0",
+          winLocked: false,
+          betName: "全场",
+        },
+        {
+          stageId: 3,
+          label: "地图3",
+          winHome: 3.56,
+          winAway: 1.28,
+          winHomeId: selectionId(1634270069, 3, "HOME"),
+          winAwayId: selectionId(1634270069, 3, "AWAY"),
+          winMarketId: "1634270069:3",
+          winLocked: false,
+          betName: "地图3",
+        },
+      ],
+    });
+    replacePbWsShadowFromBoard([
+      { eventId: 1634270069, period: 0, betType: 1, home: "3.600", away: "1.270" },
+    ]);
+    expect(resolvePbWsShadow({ oddId: selectionId(1634270069, 0, "HOME"), map: 0 })?.text).toBe("3.600");
+    expect(resolvePbWsShadow({ oddId: selectionId(1634270069, 3, "HOME"), map: 3 })?.odds).toBe(3.56);
   });
 });

@@ -267,6 +267,8 @@ export const useUserStore = defineStore("user", {
       const next = on === true;
       this.pbChangmenExtensions = next;
       writePbChangmenExtensionsLocal(next);
+      // 子开关未显式写过时跟总开关：开扩展即开影子
+      this.pbWsShadowUi = readPbWsShadowUiLocal();
       const { setPbChangmenExtensions, setPbWsShadowUiAllowed } = await import("@changmen/venue-adapter/pb");
       setPbChangmenExtensions(next);
       setPbWsShadowUiAllowed(next && this.pbWsShadowUi === true);

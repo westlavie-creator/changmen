@@ -49,12 +49,47 @@ async function mergePbWsStatus(status) {
   const cur = (await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY])) || {};
   const curStatus = cur?.[PB_WS_STATUS_KEY] || {};
   const curBoard = cur?.[PB_WS_BOARD_KEY];
+  const incomingClosed =
+    status?.phase === "off"
+    || status?.phase === "hook_stop"
+    || status?.phase === "ws_closed";
+  const incomingOpen =
+    status?.connected === true || Number(status?.readyState) === 1;
   const next = {
     ...curStatus,
     ...status,
     recent: curStatus.recent || [],
     updatedAt: Date.now(),
   };
+  // 多 frame：顶栏 euro/odds flush 没有 sports WS，不得把 iframe 的已连接打成断开
+  if (!incomingClosed && status?.socketSeen !== true && !incomingOpen) {
+    if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+      next.connected = true;
+      if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
+    } else if (!("connected" in (status || {}))) {
+      next.connected = curStatus.connected;
+      if (next.readyState == null) next.readyState = curStatus.readyState;
+    }
+    if (!status?.lastType && curStatus.lastType) {
+      next.lastType = curStatus.lastType;
+      next.lastDestination = curStatus.lastDestination;
+    }
+    next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
+    const curOut = Array.isArray(curStatus.subscribedOut) ? curStatus.subscribedOut : [];
+    const inOut = Array.isArray(status?.subscribedOut) ? status.subscribedOut : [];
+    if (curOut.length && inOut.length === 0) {
+      next.subscribedOut = curStatus.subscribedOut;
+      next.inboundDest = curStatus.inboundDest;
+      next.inboundTypeCount = curStatus.inboundTypeCount;
+      next.checklist = curStatus.checklist;
+    }
+  }
+  if (incomingClosed) {
+    next.connected = false;
+    if (status?.readyState != null) next.readyState = status.readyState;
+  } else if (incomingOpen) {
+    next.connected = true;
+  }
   // 勿用 undefined 冲掉已有 latestOdds（部分 status 帧不带盘口板）
   if (!Array.isArray(status?.latestOdds)) {
     if (Array.isArray(curStatus.latestOdds)) next.latestOdds = curStatus.latestOdds;
@@ -76,9 +111,12 @@ async function mergePbWsStatus(status) {
   }
   const patch = { [PB_WS_STATUS_KEY]: next };
   // 盘口板单独存一份，避免被其它 status 字段合并弄丢
+  const seqStale = Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq);
+  const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
   const keepIncomingBoard =
     Array.isArray(status?.latestOdds)
-    && !(Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq));
+    && (wipeBoard || status.latestOdds.length > 0)
+    && !seqStale;
   if (keepIncomingBoard) {
     patch[PB_WS_BOARD_KEY] = {
       cards: status.latestOdds,
@@ -205,13 +243,41 @@ async function handleExternalMessage(message, reply, sender) {
           ? observe.latestOdds
           : [];
       const tabId = Number(bag?.PB);
-      if (Number.isFinite(tabId) && tabId > 0) {
+      const tabIds = new Set();
+      if (Number.isFinite(tabId) && tabId > 0) tabIds.add(tabId);
+      try {
+        const tabs = await chrome.tabs.query({
+          url: ["*://*.part888.com/*", "*://*.ps3838.com/*"],
+        });
+        for (const t of tabs) {
+          if (t.id) tabIds.add(t.id);
+        }
+      } catch {
+        /* host / tabs 权限不足则只用 storage 里的 PB */
+      }
+      let observeOut = observe ? { ...observe, latestOdds } : { latestOdds };
+      for (const id of tabIds) {
         try {
-          const live = await chrome.tabs.sendMessage(tabId, { type: "pbWsObserveBoardGet" });
-          if (Array.isArray(live?.latestOdds) && live.latestOdds.length)
+          const live = await chrome.tabs.sendMessage(id, { type: "pbWsObserveBoardGet" });
+          if (!live || typeof live !== "object") continue;
+          if (Array.isArray(live.latestOdds) && live.latestOdds.length)
             latestOdds = live.latestOdds;
+          observeOut = { ...observeOut, latestOdds };
+          const liveOpen = live.connected === true || Number(live.readyState) === 1;
+          if (liveOpen) {
+            observeOut.connected = true;
+            if (live.readyState != null) observeOut.readyState = live.readyState;
+            if (live.phase) observeOut.phase = live.phase;
+            if (live.lastType) observeOut.lastType = live.lastType;
+            if (live.frameCount != null) observeOut.frameCount = live.frameCount;
+            break;
+          }
+          if (live.lastType) {
+            observeOut.lastType = live.lastType;
+            if (live.frameCount != null) observeOut.frameCount = live.frameCount;
+          }
         } catch {
-          /* tab 未就绪则用 storage */
+          /* 该 tab 未注入 content */
         }
       }
       reply({
@@ -219,9 +285,7 @@ async function handleExternalMessage(message, reply, sender) {
         uuid,
         response: {
           enabled: bag?.[PB_WS_ENABLED_KEY] !== false,
-          observe: observe
-            ? { ...observe, latestOdds }
-            : { latestOdds },
+          observe: observeOut,
         },
       });
       return;
@@ -251,6 +315,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message?.type === "pbWsObserveStatus") {
     void mergePbWsStatus(message.status || {}).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (message?.type === "pbWsObserveGet") {
+    void handleExternalMessage(message, sendResponse, sender);
     return true;
   }
   if (message?.type !== "setTab") return false;

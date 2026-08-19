@@ -56,6 +56,18 @@ async function bundleContent() {
   console.log("bundled content.js");
 }
 
+async function bundlePbWsContent() {
+  await esbuild.build({
+    entryPoints: [path.join(root, "src/content/pb-bridge-entry.js")],
+    outfile: path.join(root, "pb-ws-content.js"),
+    bundle: true,
+    format: "iife",
+    platform: "browser",
+    target: ["chrome109"],
+  });
+  console.log("bundled pb-ws-content.js");
+}
+
 async function bundleBackground() {
   await esbuild.build({
     entryPoints: [path.join(root, "src/background/index.js")],
@@ -71,4 +83,5 @@ async function bundleBackground() {
 await bundleBackground();
 await bundleSocketIo();
 await bundleContent();
+await bundlePbWsContent();
 syncVersionJson();

@@ -78,7 +78,7 @@ async function save() {
               placement="top"
               :show-after="200"
               popper-class="extensions-tab-tip"
-              content="仅 changmen 扩展模式下可用。主价不变。影子=官网 WS + SPA euro/odds。需扩展 1.3.31+ 并重载 part888 页。"
+              content="开总开关后默认开。主价不变。影子=官网 WS + SPA euro/odds。可单独关掉。需扩展 1.3.31+ 并重载 part888。"
             >
               <span class="extensions-tab__tip-label">PB WS 影子价</span>
             </el-tooltip>

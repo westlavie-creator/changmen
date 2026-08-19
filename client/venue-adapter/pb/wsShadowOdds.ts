@@ -5,9 +5,13 @@
  * - sports-websocket UPDATE_ODDS（与 updateOdds 同门控：truthy oddFm 才写；空不擦 → 板卡仍带旧字）
  * - 官网同源 euro/odds moneyLine（HTTP 全量：按 event 对齐 period 卡）
  *
- * 影子表 = 当前板的精确镜像（非空板整表重建）。不做 fo 种子、不做 rot 互拷。
+ * 影子表两层（get 时板优先，**不写 fo**）：
+ * - byOddId：观测板镜像（非空板只重建这一层）
+ * - fromCollect：采集 euro/odds 打底（板上没有的 period/event）
+ * 同 rotNum 且该 period 板上只有一个 event 时，把价拷到采集登记过的 sibling HomeID。
+ * 两 event 同 period 不拷。不做 fo 种子。
  */
-import { selectionId } from "./parse";
+import { selectionId, type PbParsedMatch } from "./parse";
 
 export type PbWsShadowSource = "H" | "M";
 
@@ -22,7 +26,15 @@ export type PbWsShadowEntry = {
 };
 
 type ShadowState = {
+  /** 观测板（SPA euro / WS）；get 时优先 */
   byOddId: Map<string, PbWsShadowEntry>;
+  /** 采集 euro/odds 打底（官网 HTTP，不写 fo）；板没有的 period/event 用这个 */
+  fromCollect: Map<string, PbWsShadowEntry>;
+  collectKeysByMatch: Map<string, Set<string>>;
+  /** rotNum → eventId；采集 + 板卡登记。仅用于影子别名，不写 fo */
+  rotToEvents: Map<string, Set<string>>;
+  /** eventId → rotNum；板上 rot 为空时用采集登记补 */
+  eventToRot: Map<string, string>;
   listeners: Set<() => void>;
   revision: number;
 };
@@ -34,9 +46,23 @@ function state(): ShadowState {
   if (!g[STATE_KEY]) {
     g[STATE_KEY] = {
       byOddId: new Map(),
+      fromCollect: new Map(),
+      collectKeysByMatch: new Map(),
+      rotToEvents: new Map(),
+      eventToRot: new Map(),
       listeners: new Set(),
       revision: 0,
     };
+  }
+  else {
+    if (!g[STATE_KEY].fromCollect)
+      g[STATE_KEY].fromCollect = new Map();
+    if (!g[STATE_KEY].collectKeysByMatch)
+      g[STATE_KEY].collectKeysByMatch = new Map();
+    if (!g[STATE_KEY].rotToEvents)
+      g[STATE_KEY].rotToEvents = new Map();
+    if (!g[STATE_KEY].eventToRot)
+      g[STATE_KEY].eventToRot = new Map();
   }
   return g[STATE_KEY]!;
 }
@@ -67,7 +93,9 @@ export function subscribePbWsShadow(listener: () => void): () => void {
 }
 
 export function getPbWsShadow(oddId: string): PbWsShadowEntry | undefined {
-  return state().byOddId.get(String(oddId));
+  const s = state();
+  const id = String(oddId);
+  return s.byOddId.get(id) || s.fromCollect.get(id);
 }
 
 export function parsePbSelectionId(
@@ -94,7 +122,7 @@ export type PbWsShadowResolveHit = {
   odds?: number;
   isLock?: boolean;
   source?: PbWsShadowSource;
-  via: "none" | "oddId";
+  via: "none" | "oddId" | "matchId";
   key?: string;
 };
 
@@ -114,8 +142,8 @@ function noteResolveHit(hit: PbWsShadowResolveHit): void {
 }
 
 /**
- * S1：只认 oddId（= HomeID/AwayID）精确键；period 与行不一致则空。
- * `matchId` 参数若传入一律忽略（兼容旧调用方）。
+ * S1：先认 oddId（HomeID/AwayID）。
+ * 未命中时：同 period+side 用 Matchs.PB（item.matchId）回退；period 不一致仍空。
  */
 export function resolvePbWsShadow(opts: {
   oddId: string;
@@ -153,9 +181,28 @@ export function resolvePbWsShadow(opts: {
     hit.odds = entry.odds;
     hit.isLock = entry.isLock;
     hit.source = entry.source;
+    noteResolveHit(hit);
+    return entry;
   }
+
+  // Matchs.PB 主 event 在板上、Sources.HomeID 是 sibling 时：同 period+side 才回退
+  const mid = String(opts.matchId ?? "").trim();
+  if (mid && /^\d+$/.test(mid) && Number(mid) > 0 && mid !== parsed.eventId) {
+    const alt = selectionId(mid, parsed.map, side);
+    const viaMatch = getPbWsShadow(alt);
+    if (viaMatch) {
+      hit.via = "matchId";
+      hit.key = alt;
+      hit.odds = viaMatch.odds;
+      hit.isLock = viaMatch.isLock;
+      hit.source = viaMatch.source;
+      noteResolveHit(hit);
+      return viaMatch;
+    }
+  }
+
   noteResolveHit(hit);
-  return entry;
+  return undefined;
 }
 
 export function savePbWsShadow(
@@ -187,20 +234,25 @@ export function seedPbWsShadowFromHttp(_oddId: string, _odds: number): void {
 
 export function clearPbWsShadow(): void {
   const s = state();
-  if (!s.byOddId.size) return;
+  if (!s.byOddId.size && !s.fromCollect.size)
+    return;
   s.byOddId.clear();
+  s.fromCollect.clear();
+  s.collectKeysByMatch.clear();
   notify();
 }
 
 export function listPbWsShadowIds(): string[] {
-  return [...state().byOddId.keys()];
+  const s = state();
+  return [...new Set([...s.byOddId.keys(), ...s.fromCollect.keys()])];
 }
 
 /** 调试：指定来源的 oddId 列表 */
 export function listPbWsShadowIdsBySource(source: PbWsShadowSource): string[] {
   const out: string[] = [];
-  for (const [id, e] of state().byOddId) {
-    if (e.source === source) out.push(id);
+  for (const id of listPbWsShadowIds()) {
+    if (getPbWsShadow(id)?.source === source)
+      out.push(id);
   }
   return out;
 }
@@ -210,20 +262,103 @@ export function countPbWsShadowBySource(): { H: number; M: number; other: number
   let H = 0;
   let M = 0;
   let other = 0;
-  for (const e of state().byOddId.values()) {
-    if (e.source === "H") H += 1;
-    else if (e.source === "M") M += 1;
-    else other += 1;
+  for (const id of listPbWsShadowIds()) {
+    const e = getPbWsShadow(id);
+    if (!e)
+      continue;
+    if (e.source === "H")
+      H += 1;
+    else if (e.source === "M")
+      M += 1;
+    else
+      other += 1;
   }
   return { H, M, other, total: H + M + other };
 }
 
-/** @deprecated 价格旁显不再用 rot 互拷；保留空实现以免旧 import 炸 */
+/**
+ * 登记 eventId↔rotNum（采集 euro/odds）。
+ * 影子在「同 rot、同 period 板上只有一个 event」时，把价拷到 sibling 的 HomeID 键。
+ * 不写 fo；两 event 同 period 则不拷（避免串盘）。
+ */
 export function rememberPbRotEvent(
-  _eventId: string | number,
-  _rotNum: string | undefined | null,
+  eventId: string | number,
+  rotNum: string | undefined | null,
 ): void {
-  /* no-op */
+  const eid = String(eventId ?? "").trim();
+  const rot = String(rotNum ?? "").trim();
+  if (!eid || !rot)
+    return;
+  const s = state();
+  let set = s.rotToEvents.get(rot);
+  if (!set) {
+    set = new Set();
+    s.rotToEvents.set(rot, set);
+  }
+  set.add(eid);
+  s.eventToRot.set(eid, rot);
+}
+
+/**
+ * 采集 euro/odds 打底影子（官网 HTTP，**不写 fo**）。
+ * 观测板 replace 只改 byOddId；get 时板优先，缺的 period/event 用本层。
+ */
+export function upsertPbWsShadowFromParsedMatch(row: PbParsedMatch): void {
+  const s = state();
+  const matchId = String(row.matchId || "").trim();
+  if (!matchId)
+    return;
+  const next = new Map<string, PbWsShadowEntry>();
+  const now = Date.now();
+  for (const stage of row.stages || []) {
+    if (stage.winLocked)
+      continue;
+    const period = Number(stage.stageId);
+    if (!Number.isFinite(period))
+      continue;
+    const put = (oddId: string, price: number) => {
+      if (!(price > 0) || !oddId)
+        return;
+      next.set(String(oddId), {
+        odds: price,
+        text: String(price),
+        isLock: false,
+        time: now,
+        source: "M",
+      });
+    };
+    put(stage.winHomeId, Number(stage.winHome));
+    put(stage.winAwayId, Number(stage.winAway));
+  }
+  const prev = s.collectKeysByMatch.get(matchId) ?? new Set<string>();
+  let changed = false;
+  for (const id of prev) {
+    if (!next.has(id)) {
+      s.fromCollect.delete(id);
+      changed = true;
+    }
+  }
+  for (const [id, entry] of next) {
+    const old = s.fromCollect.get(id);
+    if (!old || !sameEntry(old, entry)) {
+      s.fromCollect.set(id, entry);
+      changed = true;
+    }
+  }
+  s.collectKeysByMatch.set(matchId, new Set(next.keys()));
+  if (row.rotNum)
+    rememberPbRotEvent(matchId, row.rotNum);
+  if (changed)
+    notify();
+}
+
+/** 调试：板层 vs 采集层 oddId（FIND_M 用） */
+export function debugPbWsShadowLayers(): { board: string[]; collect: string[] } {
+  const s = state();
+  return {
+    board: [...s.byOddId.keys()],
+    collect: [...s.fromCollect.keys()],
+  };
 }
 
 export type PbWsBoardCard = {
@@ -270,9 +405,9 @@ function putSide(
 }
 
 /**
- * 影子 = 当前观测板镜像。
+ * 只重建观测板层 byOddId（不碰 fromCollect）。
  * - 空 cards：保持原表（poll 空板不闪断）
- * - 非空：整表重建为板上有展示价的格（板已按官网 WS 补丁 / euro 全量对齐）
+ * - 非空：整表重建为板上有展示价的格
  */
 export function replacePbWsShadowFromBoard(cards: PbWsBoardCard[] | null | undefined): void {
   if (!Array.isArray(cards) || !cards.length) return;
@@ -297,6 +432,54 @@ export function replacePbWsShadowFromBoard(cards: PbWsBoardCard[] | null | undef
     }
     if (takeAway) {
       putSide(next, eid, period, "AWAY", card.away, card.awayPriceAt, now);
+    }
+
+    const rot = String(card.rotNum || "").trim() || s.eventToRot.get(eid) || "";
+    if (rot)
+      rememberPbRotEvent(eid, rot);
+  }
+
+  // 同 rot 且该 period 板上只有一个 event：把价写到其它 sibling 的 selectionId（GetMatchs 常钉 pre event）
+  const rotPeriodOwners = new Map<string, Set<string>>();
+  for (const card of cards) {
+    const eid = String(card.eventId ?? "");
+    const period = Number(card.period);
+    const rot = String(card.rotNum || "").trim() || s.eventToRot.get(eid) || "";
+    if (!rot || !eid || !Number.isFinite(period))
+      continue;
+    if (!next.has(selectionId(eid, period, "HOME")) && !next.has(selectionId(eid, period, "AWAY")))
+      continue;
+    const pk = `${rot}|${period}`;
+    let owners = rotPeriodOwners.get(pk);
+    if (!owners) {
+      owners = new Set();
+      rotPeriodOwners.set(pk, owners);
+    }
+    owners.add(eid);
+  }
+  for (const card of cards) {
+    const srcEid = String(card.eventId ?? "");
+    const period = Number(card.period);
+    const rot = String(card.rotNum || "").trim() || s.eventToRot.get(srcEid) || "";
+    if (!rot || !Number.isFinite(period))
+      continue;
+    const owners = rotPeriodOwners.get(`${rot}|${period}`);
+    if (!owners || owners.size !== 1)
+      continue;
+    const siblings = s.rotToEvents.get(rot);
+    if (!siblings)
+      continue;
+    for (const sib of siblings) {
+      if (sib === srcEid)
+        continue;
+      const homeSrc = next.get(selectionId(srcEid, period, "HOME"));
+      const awaySrc = next.get(selectionId(srcEid, period, "AWAY"));
+      const homeAlias = selectionId(sib, period, "HOME");
+      const awayAlias = selectionId(sib, period, "AWAY");
+      if (homeSrc && !next.has(homeAlias))
+        next.set(homeAlias, { ...homeSrc });
+      if (awaySrc && !next.has(awayAlias))
+        next.set(awayAlias, { ...awaySrc });
     }
   }
 
@@ -328,6 +511,10 @@ export function replacePbWsShadowFromBoard(cards: PbWsBoardCard[] | null | undef
 export function resetPbWsShadowForTests(): void {
   const s = state();
   s.byOddId.clear();
+  s.fromCollect.clear();
+  s.collectKeysByMatch.clear();
+  s.rotToEvents.clear();
+  s.eventToRot.clear();
   s.revision = 0;
   s.listeners.clear();
 }

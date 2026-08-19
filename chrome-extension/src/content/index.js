@@ -4,7 +4,6 @@ import { maybeStartHgaPoll } from "./hga-poll.js";
 import { PLATFORMS, PLATFORM_LIST } from "./platforms.js";
 import { createProvider, PROVIDER_REGISTRY } from "./providers.js";
 import { initDexPage } from "./dex/init.js";
-import { initPbWsObserve } from "./pb/init.js";
 import { initStakePage } from "./stake/init.js";
 import { installTabProxyListener, registerTabHandler } from "./tab-proxy.js";
 import { sleep } from "./utils.js";
@@ -71,9 +70,6 @@ function bootstrap() {
   initDexPage((handler) => {
     registerTabHandler(PLATFORMS.Dex, handler);
   });
-
-  // [changmen 扩展] PB sports-websocket 观测；默认开（storage 非 false）
-  initPbWsObserve();
 
   const startDetect = () => void detectAndMountCollectUi();
   if (document.body) {

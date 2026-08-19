@@ -3309,12 +3309,42 @@
     const cur = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]) || {};
     const curStatus = cur?.[PB_WS_STATUS_KEY] || {};
     const curBoard = cur?.[PB_WS_BOARD_KEY];
+    const incomingClosed = status?.phase === "off" || status?.phase === "hook_stop" || status?.phase === "ws_closed";
+    const incomingOpen = status?.connected === true || Number(status?.readyState) === 1;
     const next = {
       ...curStatus,
       ...status,
       recent: curStatus.recent || [],
       updatedAt: Date.now()
     };
+    if (!incomingClosed && status?.socketSeen !== true && !incomingOpen) {
+      if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+        next.connected = true;
+        if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
+      } else if (!("connected" in (status || {}))) {
+        next.connected = curStatus.connected;
+        if (next.readyState == null) next.readyState = curStatus.readyState;
+      }
+      if (!status?.lastType && curStatus.lastType) {
+        next.lastType = curStatus.lastType;
+        next.lastDestination = curStatus.lastDestination;
+      }
+      next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
+      const curOut = Array.isArray(curStatus.subscribedOut) ? curStatus.subscribedOut : [];
+      const inOut = Array.isArray(status?.subscribedOut) ? status.subscribedOut : [];
+      if (curOut.length && inOut.length === 0) {
+        next.subscribedOut = curStatus.subscribedOut;
+        next.inboundDest = curStatus.inboundDest;
+        next.inboundTypeCount = curStatus.inboundTypeCount;
+        next.checklist = curStatus.checklist;
+      }
+    }
+    if (incomingClosed) {
+      next.connected = false;
+      if (status?.readyState != null) next.readyState = status.readyState;
+    } else if (incomingOpen) {
+      next.connected = true;
+    }
     if (!Array.isArray(status?.latestOdds)) {
       if (Array.isArray(curStatus.latestOdds)) next.latestOdds = curStatus.latestOdds;
       else delete next.latestOdds;
@@ -3331,7 +3361,9 @@
       if (!status.lastError) next.lastError = "";
     }
     const patch = { [PB_WS_STATUS_KEY]: next };
-    const keepIncomingBoard = Array.isArray(status?.latestOdds) && !(Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq));
+    const seqStale = Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq);
+    const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
+    const keepIncomingBoard = Array.isArray(status?.latestOdds) && (wipeBoard || status.latestOdds.length > 0) && !seqStale;
     if (keepIncomingBoard) {
       patch[PB_WS_BOARD_KEY] = {
         cards: status.latestOdds,
@@ -3436,11 +3468,38 @@
         const board = bag?.[PB_WS_BOARD_KEY];
         let latestOdds = Array.isArray(board?.cards) ? board.cards : Array.isArray(observe?.latestOdds) ? observe.latestOdds : [];
         const tabId = Number(bag?.PB);
-        if (Number.isFinite(tabId) && tabId > 0) {
+        const tabIds = /* @__PURE__ */ new Set();
+        if (Number.isFinite(tabId) && tabId > 0) tabIds.add(tabId);
+        try {
+          const tabs = await chrome.tabs.query({
+            url: ["*://*.part888.com/*", "*://*.ps3838.com/*"]
+          });
+          for (const t of tabs) {
+            if (t.id) tabIds.add(t.id);
+          }
+        } catch {
+        }
+        let observeOut = observe ? { ...observe, latestOdds } : { latestOdds };
+        for (const id of tabIds) {
           try {
-            const live = await chrome.tabs.sendMessage(tabId, { type: "pbWsObserveBoardGet" });
-            if (Array.isArray(live?.latestOdds) && live.latestOdds.length)
+            const live = await chrome.tabs.sendMessage(id, { type: "pbWsObserveBoardGet" });
+            if (!live || typeof live !== "object") continue;
+            if (Array.isArray(live.latestOdds) && live.latestOdds.length)
               latestOdds = live.latestOdds;
+            observeOut = { ...observeOut, latestOdds };
+            const liveOpen = live.connected === true || Number(live.readyState) === 1;
+            if (liveOpen) {
+              observeOut.connected = true;
+              if (live.readyState != null) observeOut.readyState = live.readyState;
+              if (live.phase) observeOut.phase = live.phase;
+              if (live.lastType) observeOut.lastType = live.lastType;
+              if (live.frameCount != null) observeOut.frameCount = live.frameCount;
+              break;
+            }
+            if (live.lastType) {
+              observeOut.lastType = live.lastType;
+              if (live.frameCount != null) observeOut.frameCount = live.frameCount;
+            }
           } catch {
           }
         }
@@ -3449,7 +3508,7 @@
           uuid,
           response: {
             enabled: bag?.[PB_WS_ENABLED_KEY] !== false,
-            observe: observe ? { ...observe, latestOdds } : { latestOdds }
+            observe: observeOut
           }
         });
         return;
@@ -3476,6 +3535,10 @@
     }
     if (message?.type === "pbWsObserveStatus") {
       void mergePbWsStatus(message.status || {}).then(() => sendResponse({ ok: true }));
+      return true;
+    }
+    if (message?.type === "pbWsObserveGet") {
+      void handleExternalMessage(message, sendResponse, sender);
       return true;
     }
     if (message?.type !== "setTab") return false;

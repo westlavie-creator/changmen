@@ -12,7 +12,10 @@ const plugRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const changmenRoot = path.dirname(plugRoot);
 const distRoot = path.join(changmenRoot, "dist");
 
-/** 扩展运行时需要的文件（不含 node_modules / src / scripts） */
+/**
+ * 扩展运行时需要的文件（不含 node_modules / src / scripts）。
+ * dex-intercept.js 由 manifest content_scripts 引用，漏打会导致 Chrome 拒绝加载。
+ */
 const RUNTIME_FILES = [
   "manifest.json",
   "background.js",
@@ -22,10 +25,14 @@ const RUNTIME_FILES = [
   "popup.js",
   "sidepanel.html",
   "pb-ws-hook.js",
+  "pb-ws-content.js",
+  "dex-intercept.js",
   "version.json",
   "extension-id.json",
 ];
 const RUNTIME_DIRS = ["assets", "vendor"];
+/** 源图，不进发行包 */
+const ASSET_SKIP = new Set(["jiraiya-icon-source.png"]);
 
 const EXTENSION_ID = "mogfpjihgoghabicofkbcmcidlcoofee";
 
@@ -34,11 +41,33 @@ function runBuild() {
   execSync("npm run build", { cwd: plugRoot, stdio: "inherit" });
 }
 
-function readVersion() {
-  const manifest = JSON.parse(
+function readManifest() {
+  return JSON.parse(
     fs.readFileSync(path.join(plugRoot, "manifest.json"), "utf8"),
   );
-  return manifest.version;
+}
+
+function readVersion() {
+  return readManifest().version;
+}
+
+/** 从 manifest 收集 Chrome 加载时必须存在的路径 */
+function collectManifestPaths(manifest) {
+  const files = new Set();
+  if (manifest.background?.service_worker) files.add(manifest.background.service_worker);
+  if (manifest.side_panel?.default_path) files.add(manifest.side_panel.default_path);
+  if (manifest.action?.default_popup) files.add(manifest.action.default_popup);
+  const defaultIcon = manifest.action?.default_icon;
+  if (typeof defaultIcon === "string") files.add(defaultIcon);
+  else if (defaultIcon) {
+    for (const p of Object.values(defaultIcon)) files.add(p);
+  }
+  for (const p of Object.values(manifest.icons || {})) files.add(p);
+  for (const cs of manifest.content_scripts || []) {
+    for (const p of cs.js || []) files.add(p);
+    for (const p of cs.css || []) files.add(p);
+  }
+  return files;
 }
 
 function stage(version) {
@@ -52,20 +81,28 @@ function stage(version) {
 
   for (const name of RUNTIME_FILES) {
     const src = path.join(plugRoot, name);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(outDir, name));
+    if (!fs.existsSync(src)) {
+      throw new Error(`缺少文件 ${name}，无法打包`);
     }
+    fs.copyFileSync(src, path.join(outDir, name));
   }
   for (const name of RUNTIME_DIRS) {
     const src = path.join(plugRoot, name);
     if (!fs.existsSync(src)) {
       throw new Error(`缺少目录 ${name}，请先 npm run build`);
     }
-    fs.cpSync(src, path.join(outDir, name), { recursive: true });
+    fs.cpSync(src, path.join(outDir, name), {
+      recursive: true,
+      filter: (p) => !ASSET_SKIP.has(path.basename(p)),
+    });
   }
 
-  if (!fs.existsSync(path.join(outDir, "manifest.json"))) {
-    throw new Error("打包失败：manifest.json 未生成");
+  const missing = [];
+  for (const rel of collectManifestPaths(readManifest())) {
+    if (!fs.existsSync(path.join(outDir, rel))) missing.push(rel);
+  }
+  if (missing.length) {
+    throw new Error(`打包失败：manifest 引用的文件未打入包：${missing.join(", ")}`);
   }
 
   return { outDir, folderName };

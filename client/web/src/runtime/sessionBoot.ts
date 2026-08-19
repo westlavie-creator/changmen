@@ -14,6 +14,8 @@ export async function bootSessionRuntime(): Promise<void> {
   const collectStore = useCollectStore();
   const userStore = useUserStore();
   await Promise.all([collectStore.init(), userStore.loadConfig()]);
+  // 采集 poll 启动前先把门控写上，避免首轮 50ms ingest 按默认关把影子表清掉
+  await userStore.syncPbCollectModeFromLocal();
   const { startCollectors } = await import("@/runtime/collectors");
   await startCollectors();
   const { primeStakeTabId } = await import("@changmen/venue-adapter/stake");

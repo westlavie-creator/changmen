@@ -40,6 +40,10 @@ import {
   pfMarketWsSourceModeLabel,
   type PfMarketWsSourceMode,
 } from "@changmen/venue-adapter/predictfun";
+import {
+  countPbWsShadowBySource,
+  isPbWsShadowUiAllowed,
+} from "@changmen/venue-adapter/pb";
 import { ElMessage } from "element-plus";
 
 const props = withDefaults(defineProps<{
@@ -187,10 +191,29 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   const label = names[entry.id] ?? entry.label;
   const lines: string[] = [label];
   switch (entry.status) {
-    case "connected": lines.push("已连接 · 实时推送中"); break;
-    case "connecting": lines.push("连接中..."); break;
-    case "error": lines.push("断开 · 正在重连..."); break;
-    default: lines.push("未连接");
+    case "connected":
+      lines.push("已连接 · 实时推送中");
+      break;
+    case "connecting":
+      lines.push("连接中...");
+      break;
+    case "error":
+      lines.push("断开 · 正在重连...");
+      break;
+    default:
+      lines.push("未连接");
+  }
+  if (entry.id === "pb") {
+    const dbg = (globalThis as { __CM_PB_SHADOW_DEBUG__?: Record<string, unknown> }).__CM_PB_SHADOW_DEBUG__;
+    const bySource = countPbWsShadowBySource();
+    lines.push(`影子开关：${isPbWsShadowUiAllowed() ? "开" : "关"}`);
+    if (dbg && typeof dbg === "object") {
+      const reason = String(dbg.reason || "");
+      const cards = dbg.cardCount != null ? Number(dbg.cardCount) : 0;
+      lines.push(`灌入：${reason || "—"} · 板=${Number.isFinite(cards) ? cards : 0} · M=${bySource.M}`);
+      if (reason === "prefs_shadow_off")
+        lines.push("用户中心 → 先开「PB changmen 扩展」再开「PB WS 影子价」；然后硬刷新本页");
+    }
   }
   if (entry.id === "pm-market") {
     lines.push(`当前选择：${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}`);

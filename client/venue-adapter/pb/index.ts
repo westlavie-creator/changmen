@@ -13,6 +13,7 @@ export {
   listPbWsShadowIdsBySource,
   rememberPbRotEvent,
   replacePbWsShadowFromBoard,
+  upsertPbWsShadowFromParsedMatch,
   resolvePbWsShadow,
   savePbWsShadow,
   seedPbWsShadowFromHttp,

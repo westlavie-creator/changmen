@@ -8,6 +8,8 @@ import {
   buildPbSaveBetRowsFromMatch,
   listPbStageFoEntries,
 } from "./shared/save_bets";
+import { isPbWsShadowUiAllowed } from "./wsStatusPoll";
+import { rememberPbRotEvent, upsertPbWsShadowFromParsedMatch } from "./wsShadowOdds";
 
 const PLATFORM = PLATFORMS.PB;
 
@@ -73,6 +75,10 @@ export function ingestAndReportPbParsedMatch(
   now = Date.now(),
   opts?: { writeFo?: boolean },
 ): { match: CollectMatchDto; bets: CollectBetDto[] } {
+  if (row.rotNum)
+    rememberPbRotEvent(row.matchId, row.rotNum);
+  if (isPbWsShadowUiAllowed())
+    upsertPbWsShadowFromParsedMatch(row);
   if (opts?.writeFo !== false)
     ingestPbParsedMatchToFo(row, now);
   else

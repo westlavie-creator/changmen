@@ -11,6 +11,14 @@ function mark(ok) {
   return ok ? '<span class="ok">✓</span>' : '<span class="miss">✗</span>';
 }
 
+function isWsLive(s) {
+  if (s.phase === "ws_closed" || s.phase === "off" || s.phase === "hook_stop") return false;
+  if (Number(s.readyState) === 3) return false;
+  if (s.connected === true || Number(s.readyState) === 1 || s.phase === "connected") return true;
+  const t = String(s.lastType || "");
+  return Number(s.frameCount) > 0 && /^(CONNECTED|PING|PONG|UPDATE_|FULL_)/.test(t);
+}
+
 function renderStatus(bag) {
   const enabled = bag?.[ENABLED_KEY] !== false;
   const s = bag?.[STATUS_KEY] || {};
@@ -21,13 +29,24 @@ function renderStatus(bag) {
     subsEl.innerHTML = "订阅：已关闭";
     return;
   }
+  const live = isWsLive(s);
+  const boardN = Array.isArray(s.latestOdds) ? s.latestOdds.length : 0;
+  const wsClosed = Number(s.readyState) === 3 || s.phase === "ws_closed";
+  const head = live
+    ? "已 CONNECTED"
+    : wsClosed
+      ? "WS 已断开"
+      : "连接中…";
   const parts = [
-    s.connected ? "已 CONNECTED" : "连接中…",
+    head,
+    s.phase ? `phase=${s.phase}` : null,
+    s.readyState != null ? `rs=${s.readyState}` : null,
     s.frameCount != null ? `帧=${s.frameCount}` : null,
     s.lastType ? `last=${s.lastType}` : null,
+    boardN ? `盘=${boardN}` : null,
     s.lastError ? `err=${s.lastError}` : null,
   ].filter(Boolean);
-  statusEl.className = s.lastError ? "status err" : s.connected ? "status ok" : "status";
+  statusEl.className = s.lastError || wsClosed ? "status err" : live ? "status ok" : "status";
   statusEl.textContent = `状态：${parts.join(" · ") || "等待 part888 页…"}`;
 
   const out = Array.isArray(s.subscribedOut) ? s.subscribedOut : [];
@@ -40,7 +59,17 @@ function renderStatus(bag) {
 }
 
 function refresh() {
-  chrome.storage.local.get([ENABLED_KEY, STATUS_KEY], renderStatus);
+  chrome.runtime.sendMessage({ type: "pbWsObserveGet" }, (res) => {
+    if (chrome.runtime.lastError) {
+      chrome.storage.local.get([ENABLED_KEY, STATUS_KEY], renderStatus);
+      return;
+    }
+    const payload = res?.response && typeof res.response === "object" ? res.response : res;
+    renderStatus({
+      [ENABLED_KEY]: payload?.enabled !== false,
+      [STATUS_KEY]: payload?.observe || {},
+    });
+  });
 }
 
 toggle.addEventListener("change", () => {

@@ -101,6 +101,7 @@
   font-weight:700;
   font-size:11px;
   opacity:1;
+  z-index:3;
 }
 /* 与主价有差：只改字色提醒，下划线仍保持蓝（可点语义） */
 .matchs .bet .item .item-odds .pb-ws-shadow--diff {
@@ -116,7 +117,7 @@
 }
 
 .matchs .bet .item .item-odds.lock:after {
-  content:"";position:absolute;left:0;right:0;top:0;bottom:0;background:#000c url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAmVBMVEUAAAAwQGgtRGIsRGQrQ2EvQWUsQ2QrQGUvRGMrQ2UuQWYuQGQtQ2IsQmUrQWMuQ2QtQWUsRGQtQmMuQ2UtQWMtQWQsQmUtQ2QsQmUtQmUtQWQuQmQtQmQtQWQtQ2QtQmQtQmUtQmQsQWMuQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmQtQmT///9jQUN8AAAAMXRSTlMAICIpKisuMDE1Nzg5Ojs9P0BVWFpmaGttfH2AkpSZrq/Cw8TFztDn6Ozt8fP29/z9zLAm3QAAAAFiS0dEMkDSTMgAAAB+SURBVBjTVc3bAoFAFEbhVSKnyFBUFHIuar//y7lQY+a/W9/F3gAwPFZV4aE3rZvy0tQTDbf3Apafa9+u7AEO4nQwlxggllkHgUQAkQS/XiWSK6VULkkIsBFjayAzIevhOfBeFpzhZEHrj1oLxHXsG7LbakjNLykwfvz77vMFsiIaB3L6tdYAAAAASUVORK5CYII=) no-repeat center center;border-radius:4px;
+  content:"";position:absolute;left:0;right:0;top:0;bottom:0;z-index:1;pointer-events:none;background:#000c url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAmVBMVEUAAAAwQGgtRGIsRGQrQ2EvQWUsQ2QrQGUvRGMrQ2UuQWYuQGQtQ2IsQmUrQWMuQ2QtQWUsRGQtQmMuQ2UtQWMtQWQsQmUtQ2QsQmUtQmUtQWQuQmQtQmQtQWQtQ2QtQmQtQmUtQmQsQWMuQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmUtQmQtQmQtQmQtQmQtQmQtQmT///9jQUN8AAAAMXRSTlMAICIpKisuMDE1Nzg5Ojs9P0BVWFpmaGttfH2AkpSZrq/Cw8TFztDn6Ozt8fP29/z9zLAm3QAAAAFiS0dEMkDSTMgAAAB+SURBVBjTVc3bAoFAFEbhVSKnyFBUFHIuar//y7lQY+a/W9/F3gAwPFZV4aE3rZvy0tQTDbf3Apafa9+u7AEO4nQwlxggllkHgUQAkQS/XiWSK6VULkkIsBFjayAzIevhOfBeFpzhZEHrj1oLxHXsG7LbakjNLykwfvz77vMFsiIaB3L6tdYAAAAASUVORK5CYII=) no-repeat center center;border-radius:4px;
 }
 
 .matchs .bet .item .item-odds.target {

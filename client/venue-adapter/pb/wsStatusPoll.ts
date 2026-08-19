@@ -9,6 +9,7 @@ import { reportVenueWsStatus, type VenueWsStatus } from "../shared/venueWsStatus
 import {
   clearPbWsShadow,
   countPbWsShadowBySource,
+  debugPbWsShadowLayers,
   getPbWsShadow,
   listPbWsShadowIds,
   listPbWsShadowIdsBySource,
@@ -20,25 +21,65 @@ import {
 const POLL_MS = 50;
 const PB_WS_ID = "pb";
 
-/** 用户扩展偏好：主站是否显示 WS 影子价（默认关） */
-let shadowUiAllowed = false;
+/**
+ * 运行时门控挂 globalThis，避免 Vite 分包 / HMR 让 poll 与 userStore 各持一份 `let`：
+ * poll 那份一直 false → 每 50ms `clearPbWsShadow()`，BetRow 永远看不到 M。
+ */
+const SHADOW_UI_GATE_KEY = "__CM_PB_WS_SHADOW_UI_ALLOWED__";
 
-/** 由 web userStore 在加载/保存扩展偏好时同步 */
+/** 与 `client/web/src/shared/pbExtensionsLocal.ts` / `pbWsShadowUiLocal.ts` 同键 */
+const PB_EXTENSIONS_LOCAL_KEY = "changmen:pbExtensions";
+const PB_WS_SHADOW_UI_LOCAL_KEY = "changmen:pbWsShadowUi";
+
+type ShadowUiGateHost = typeof globalThis & { [SHADOW_UI_GATE_KEY]?: boolean };
+
+function shadowUiGateHost(): ShadowUiGateHost {
+  return globalThis as ShadowUiGateHost;
+}
+
+function readShadowPrefsFromLocal(): boolean {
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls)
+      return false;
+    if (ls.getItem(PB_EXTENSIONS_LOCAL_KEY) !== "1")
+      return false;
+    const shadow = ls.getItem(PB_WS_SHADOW_UI_LOCAL_KEY);
+    if (shadow === "0")
+      return false;
+    return true;
+  }
+  catch {
+    return false;
+  }
+}
+
+/** 由 web userStore 在加载/保存扩展偏好时同步；未调用时回退本机 localStorage */
 export function setPbWsShadowUiAllowed(on: boolean): void {
   const next = on === true;
-  if (shadowUiAllowed === next) {
+  const g = shadowUiGateHost();
+  const prev = g[SHADOW_UI_GATE_KEY];
+  g[SHADOW_UI_GATE_KEY] = next;
+  if (prev === next) {
     // 关着也清一次：避免 false→false 早退时残留旁显表
     if (!next)
       clearPbWsShadow();
     return;
   }
-  shadowUiAllowed = next;
   if (!next)
     clearPbWsShadow();
 }
 
 export function isPbWsShadowUiAllowed(): boolean {
-  return shadowUiAllowed;
+  const gated = shadowUiGateHost()[SHADOW_UI_GATE_KEY];
+  if (typeof gated === "boolean")
+    return gated;
+  return readShadowPrefsFromLocal();
+}
+
+/** 单测：回到「未调用 setPbWsShadowUiAllowed」以便测 localStorage 回退 */
+export function resetPbWsShadowUiAllowedForTests(): void {
+  delete shadowUiGateHost()[SHADOW_UI_GATE_KEY];
 }
 
 type PbWsObserveBag = {
@@ -48,6 +89,8 @@ type PbWsObserveBag = {
     running?: boolean;
     phase?: string;
     lastError?: string;
+    lastType?: string;
+    frameCount?: number;
     readyState?: number;
     latestOdds?: PbWsBoardCard[];
   } | null;
@@ -57,8 +100,18 @@ type PbWsObserveBag = {
 export function mapObserveToStatus(bag: PbWsObserveBag | null | undefined): VenueWsStatus {
   if (!bag) return "disconnected";
   const o = bag.observe || {};
-  // 与 hook 一致：socket OPEN 即已连接（勿只信可能被 hook_start 写脏的 connected 布尔）
-  if (o.connected === true || o.readyState === 1)
+  if (o.phase === "ws_closed" || o.phase === "off" || o.phase === "hook_stop") {
+    if (o.lastError)
+      return "error";
+    return "disconnected";
+  }
+  if (o.readyState === 3)
+    return "error";
+  // socket OPEN、已收 CONNECTED/PING、或 phase=connected：都算已连
+  if (o.connected === true || o.readyState === 1 || o.phase === "connected")
+    return "connected";
+  const lastType = String(o.lastType || "");
+  if (Number(o.frameCount) > 0 && /^(CONNECTED|PING|PONG|UPDATE_|FULL_)/.test(lastType))
     return "connected";
   if (o.lastError)
     return "error";
@@ -73,6 +126,19 @@ export function mapObserveToStatus(bag: PbWsObserveBag | null | undefined): Venu
     return "connecting";
   }
   return "disconnected";
+}
+
+function periodsOf(ids: string[], eventId: string): number[] {
+  const set = new Set<number>();
+  for (const id of ids) {
+    const parts = id.split("|");
+    if (parts[0] !== eventId)
+      continue;
+    const n = Number(parts[1]);
+    if (Number.isFinite(n))
+      set.add(n);
+  }
+  return [...set].sort((a, b) => a - b);
 }
 
 /**
@@ -90,10 +156,39 @@ function installFindMHelper(): void {
     g.__CM_PB_FIND_M__ = () => {
       const bySource = countPbWsShadowBySource();
       const mapMIds = listPbWsShadowIdsBySource("M");
+      const layers = debugPbWsShadowLayers();
       const mapMEventIds = [
         ...new Set(mapMIds.map((id) => id.split("|")[0]!).filter(Boolean)),
       ];
 
+      const listedIds = [
+        ...document.querySelectorAll<HTMLElement>("[data-pb-home-id]"),
+      ]
+        .map((el) => String(el.dataset.pbHomeId || "").trim())
+        .filter(Boolean);
+      const listedEventIds = [
+        ...new Set(listedIds.map((id) => id.split("|")[0]!).filter(Boolean)),
+      ];
+      const overlapEventIds = mapMEventIds.filter((eid) => listedEventIds.includes(eid));
+      const overlapListedOddIds = listedIds.filter((id) =>
+        overlapEventIds.includes(id.split("|")[0]!),
+      );
+      const overlapMapMOddIds = mapMIds.filter((id) =>
+        overlapEventIds.includes(id.split("|")[0]!),
+      );
+      const overlapBoardOddIds = layers.board.filter((id) =>
+        overlapEventIds.includes(id.split("|")[0]!),
+      );
+      const overlapCollectOddIds = layers.collect.filter((id) =>
+        overlapEventIds.includes(id.split("|")[0]!),
+      );
+      const periodCompare = overlapEventIds.slice(0, 8).map((eid) => ({
+        eventId: eid,
+        listed: periodsOf(listedIds, eid),
+        mapM: periodsOf(mapMIds, eid),
+        board: periodsOf(layers.board, eid),
+        collect: periodsOf(layers.collect, eid),
+      }));
       const allShadows = [
         ...document.querySelectorAll<HTMLElement>(".pb-ws-shadow"),
       ];
@@ -108,9 +203,15 @@ function installFindMHelper(): void {
         return eid !== "" && mapMEventIds.includes(eid);
       });
 
+      const listedCells = [
+        ...document.querySelectorAll<HTMLElement>("[data-pb-home-id]"),
+      ].filter((el) => overlapEventIds.includes((el.dataset.pbHomeId || "").split("|")[0]!));
+
       const outline = (nodes: HTMLElement[], color: string) => {
         for (const el of nodes) {
-          const cell = el.closest(".item-odds") as HTMLElement | null;
+          const cell = el.classList.contains("item-odds")
+            ? el
+            : el.closest(".item-odds") as HTMLElement | null;
           if (!cell) continue;
           cell.style.outline = `2px solid ${color}`;
           cell.style.outlineOffset = "1px";
@@ -136,6 +237,11 @@ function installFindMHelper(): void {
         scrolled = true;
       } else if (bySource.M > 0) {
         focus = "not_in_list";
+        if (listedCells.length > 0) {
+          outline(listedCells, "#6aa6ff");
+          listedCells[0]!.scrollIntoView({ behavior: "smooth", block: "center" });
+          scrolled = true;
+        }
       }
 
       const tip =
@@ -144,7 +250,9 @@ function installFindMHelper(): void {
           : focus === "same_event_H"
             ? "列表里有同 event，但旁显已是 H（fo 比旧 WS 新）；等 part888 再推价应变回 M"
             : focus === "not_in_list"
-              ? `表有 M×${bySource.M}，当前列表没有这些 event。可搜/滚到：${mapMEventIds.slice(0, 6).join(", ")}`
+              ? overlapEventIds.length
+                ? `板上有 M 且列表有同 event（${overlapEventIds.slice(0, 4).join(", ")}）。listed vs map 的 period 见 periodCompare；无 .pb-ws-shadow 时已蓝描 [data-pb-home-id]`
+                : `表有 M×${bySource.M}，当前列表 event 对不上板。板：${mapMEventIds.slice(0, 6).join(", ")}；列表：${listedEventIds.slice(0, 6).join(", ") || "无 data-pb-home-id（硬刷主站）"}`
               : "影子表尚无 M：确认 part888 观测开着且有 UPDATE_ODDS";
 
       return {
@@ -152,8 +260,18 @@ function installFindMHelper(): void {
         visibleHOnMapMEvents: hNodesOnMapM.length,
         mapM: bySource.M,
         mapH: bySource.H,
+        boardN: layers.board.length,
+        collectN: layers.collect.length,
         sampleM: mapMIds.slice(0, 8),
         mapMEventIds: mapMEventIds.slice(0, 12),
+        listedEventIds: listedEventIds.slice(0, 12),
+        listedOddIds: listedIds.slice(0, 16),
+        overlapEventIds: overlapEventIds.slice(0, 12),
+        overlapListedOddIds: overlapListedOddIds.slice(0, 16),
+        overlapMapMOddIds: overlapMapMOddIds.slice(0, 16),
+        overlapBoardOddIds: overlapBoardOddIds.slice(0, 16),
+        overlapCollectOddIds: overlapCollectOddIds.slice(0, 16),
+        periodCompare,
         sample: mNodes.slice(0, 12).map((el) => (el.textContent || "").trim()),
         scrolled,
         focus,
@@ -182,6 +300,7 @@ function writeDebug(patch: Record<string, unknown>): void {
 
 /** 仅当用户开了影子价且扩展观测开才灌旁显；绝不写 fo */
 export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
+  const shadowUiAllowed = isPbWsShadowUiAllowed();
   if (!shadowUiAllowed) {
     clearPbWsShadow();
     writeDebug({
@@ -192,35 +311,46 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
     });
     return;
   }
-  if (!bag?.enabled) {
+  // 扩展默认开观测；仅显式 false 才清。`enabled` 缺失不得当成关（否则 CONNECTED 仍无 M）
+  if (bag?.enabled === false) {
     clearPbWsShadow();
     writeDebug({ shadowUiAllowed: true, enabled: false, reason: "observe_off", shadowIds: 0 });
     return;
   }
-  const o = bag.observe || {};
+  const o = bag?.observe || {};
   if (o.phase === "off") {
     clearPbWsShadow();
-    writeDebug({ shadowUiAllowed: true, enabled: true, reason: "phase_off", shadowIds: 0 });
+    writeDebug({ shadowUiAllowed: true, enabled: bag?.enabled !== false, reason: "phase_off", shadowIds: 0 });
     return;
   }
   const cards = o.latestOdds;
   if (!Array.isArray(cards) || !cards.length) {
     writeDebug({
       shadowUiAllowed: true,
-      enabled: true,
+      enabled: bag?.enabled !== false,
       reason: "empty_board_keep",
       phase: o.phase,
       connected: o.connected,
+      // 追加观测侧关键信息：帮助区分是“没收到 UPDATE_ODDS”还是“收到了但解析写不进 board”
+      frameCount: (o as { frameCount?: unknown }).frameCount,
+      readyState: (o as { readyState?: unknown }).readyState,
+      lastType: (o as { lastType?: unknown }).lastType,
+      lastDestination: (o as { lastDestination?: unknown }).lastDestination,
+      lastError: (o as { lastError?: unknown }).lastError,
+      inboundTypeCount: (o as { inboundTypeCount?: unknown }).inboundTypeCount,
+      inboundDest: (o as { inboundDest?: unknown }).inboundDest,
+      subscribedOut: (o as { subscribedOut?: unknown }).subscribedOut,
+      checklist: (o as { checklist?: unknown }).checklist,
       shadowIds: listPbWsShadowIds().length,
     });
     return;
   }
-  if (!shadowUiAllowed) {
+  if (!isPbWsShadowUiAllowed()) {
     clearPbWsShadow();
     return;
   }
   replacePbWsShadowFromBoard(cards);
-  if (!shadowUiAllowed) {
+  if (!isPbWsShadowUiAllowed()) {
     clearPbWsShadow();
     return;
   }
@@ -245,6 +375,20 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
       bySource.M === 0
         ? "board_ok_but_no_M_patches"
         : "M_exists_in_map__UI_shows_H_when_row_HomeID_event_not_in_board",
+    pricedCards: cards.filter((c) => (c.home && String(c.home).trim()) || (c.away && String(c.away).trim())).length,
+    listedEventIds: (() => {
+      try {
+        return [
+          ...new Set(
+            [...document.querySelectorAll<HTMLElement>("[data-pb-home-id]")]
+              .map((el) => String(el.dataset.pbHomeId || "").split("|")[0] || "")
+              .filter(Boolean),
+          ),
+        ].slice(0, 12);
+      } catch {
+        return [];
+      }
+    })(),
   });
 }
 

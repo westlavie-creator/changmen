@@ -11,7 +11,7 @@
   const EXPECTED = ["ODDS", "LEFT_MENU"];
   const OPTIONAL = ["SPECIAL_ODDS", "FAVOURITE_EVENTS", "TOURNAMENT_ODDS", "LIVE_SCORE", "CAROUSEL"];
 
-  let enabled = false;
+  let enabled = true;
   let frameCount = 0;
   let lastPostAt = 0;
   /** 板序号：storage 合并时丢掉过期快照 */
@@ -55,11 +55,35 @@
   /** 默认只显示全程/地图独赢；可由 content 发 cmd 改 */
   let filterMatchMapMl = true;
 
+  const SS_KEY = "cm-pb-ws-status";
+
   function post(payload) {
     try {
       window.postMessage({ source: SOURCE, ...payload }, "*");
     } catch {
       /* ignore */
+    }
+    try {
+      if (payload && payload.kind === "status") {
+        sessionStorage.setItem(SS_KEY, JSON.stringify({
+          at: Date.now(),
+          connected: payload.connected,
+          readyState: payload.readyState,
+          phase: payload.phase,
+          socketSeen: payload.socketSeen,
+          frameCount: payload.frameCount,
+          lastType: payload.lastType,
+          lastDestination: payload.lastDestination,
+          subscribedOut: payload.subscribedOut,
+          inboundDest: payload.inboundDest,
+          checklist: payload.checklist,
+          latestOdds: payload.latestOdds,
+          vssid: payload.vssid,
+          filterMatchMapMl: payload.filterMatchMapMl,
+        }));
+      }
+    } catch {
+      /* quota / private mode */
     }
   }
 
@@ -87,6 +111,7 @@
       latestOdds: boardSnapshot().map(slimBoardCard),
       boardSeq: (boardSeq += 1),
       filterMatchMapMl,
+      ...debugSnap(),
     };
   }
 
@@ -174,25 +199,55 @@
     return out;
   }
 
+  /** @type {WebSocket[]} */
+  const sportsSockets = [];
+
+  function rememberSports(ws) {
+    if (!ws || sportsSockets.includes(ws)) return;
+    sportsSockets.push(ws);
+  }
+
+  function pruneSports() {
+    for (let i = sportsSockets.length - 1; i >= 0; i--) {
+      const ws = sportsSockets[i];
+      if (!ws || typeof ws.readyState !== "number" || ws.readyState === 3)
+        sportsSockets.splice(i, 1);
+    }
+  }
+
+  function liveSports() {
+    pruneSports();
+    return sportsSockets.find((ws) => ws.readyState === 1) || null;
+  }
+
   /** 节流：普通 status；赔率板另走 scheduleBoardFlush（更勤） */
   function postStatusThrottled(extra, force) {
     const now = Date.now();
     if (!force && now - lastPostAt < 400) return;
     lastPostAt = now;
-    const open = lastSports?.readyState === WebSocket.OPEN;
-    // connected 只信 socket readyState；勿让 extra.connected:false（如 hook_start）盖掉已 OPEN
+    const live = liveSports();
     const rest = extra && typeof extra === "object" ? { ...extra } : {};
+    const explicitConnected = rest.connected === true;
     delete rest.connected;
-    post({
+    const socketSeen = sportsSockets.length > 0;
+    const open = (live != null && Number(live.readyState) === 1) || explicitConnected;
+    /** 无 sports WS 的 frame（常见：顶栏只拦 euro/odds）不得报 connected:false，否则盖掉真正挂 WS 的 iframe */
+    const payload = {
       kind: "status",
-      connected: open,
-      readyState: lastSports?.readyState,
+      socketSeen,
+      readyState: live != null ? live.readyState : (open ? 1 : undefined),
       frameCount,
       host: location.hostname,
       phase: "hooked",
       ...snapshotSubs(),
       ...rest,
-    });
+    };
+    if (open) payload.connected = true;
+    else if (socketSeen || rest.phase === "ws_closed" || rest.phase === "hook_stop") {
+      payload.connected = false;
+      if (rest.phase === "ws_closed" || rest.phase === "hook_stop") payload.socketSeen = true;
+    }
+    post(payload);
   }
 
   let boardFlushTimer = null;
@@ -245,6 +300,60 @@
 
   function isSportsUrl(url) {
     return /sports-websocket/i.test(String(url || ""));
+  }
+
+  /**
+   * 线上 WS 可能给 string / Blob / ArrayBuffer。
+   * 只要能解出文本就参与解析，避免“已连接但板为空”。
+   * @param {unknown} data
+   * @returns {Promise<string>}
+   */
+  async function wsDataToText(data) {
+    if (typeof data === "string") return data;
+    // Blob/ArrayBuffer 也是 typeof object：必须先解码，不能 JSON.stringify（会变成 "{}"）
+    try {
+      if (typeof Blob !== "undefined" && data instanceof Blob) {
+        return await data.text();
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      if (data instanceof ArrayBuffer) {
+        return new TextDecoder().decode(data);
+      }
+      if (ArrayBuffer.isView(data)) {
+        const view = data;
+        return new TextDecoder().decode(
+          view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength),
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+    // 少数环境 ev.data 已是 JSON 对象
+    if (data && typeof data === "object") {
+      try {
+        if (typeof data.type === "string") return JSON.stringify(data);
+      } catch {
+        /* ignore */
+      }
+    }
+    return "";
+  }
+
+  /** Debug counters：帮助定位 UPDATE_ODDS 为何不进入 board */
+  let debugDecodeEmpty = 0;
+  let debugDecodeErrors = 0;
+  let debugJsonParseErrors = 0;
+  let debugLastDataType = "";
+  function debugSnap() {
+    return {
+      debugDecodeEmpty,
+      debugDecodeErrors,
+      debugJsonParseErrors,
+      debugLastDataType,
+    };
   }
 
   function noteInbound(type, destination) {
@@ -593,6 +702,8 @@
           if (ml.unavailable) continue;
           const card = ensureMlBoardCard(eid, period, now);
           applyEventMeta(card, metaFor(eid));
+          const rot = event.rotNum ?? event.RotNum;
+          if (rot != null && String(rot).trim()) card.rotNum = String(rot).trim();
           if (event.live === true || event.isLive === true) card.live = true;
           const lineId = ml.lineId;
           if (writeBoardSide(card, "home", ml.homePrice, lineId, now)) n += 1;
@@ -719,30 +830,77 @@
 
   /**
    * @param {WebSocket} ws
-   * @param {"existing"|"new"} via
+   * @param {string} via
    */
   function attach(ws, via) {
     if (!ws || attached.has(ws)) return;
+    if (typeof ws.readyState === "number" && ws.readyState === 3) return;
     if (!isSportsUrl(ws.url)) return;
     attached.add(ws);
-    lastSports = ws;
+    rememberSports(ws);
+    if (ws.readyState === 1) lastSports = ws;
+    else if (!lastSports || lastSports.readyState !== 1) lastSports = ws;
     if (enabled) {
       postStatusThrottled({ phase: "hooked", via }, true);
     }
 
     ws.addEventListener("message", (ev) => {
-      // 绝不拦截/改写官网消息；只旁路观测
+      void handleWsMessage(ev);
+    });
+
+    ws.addEventListener("open", () => {
+      rememberSports(ws);
+      lastSports = ws;
+      if (enabled) {
+        postStatusThrottled({ phase: "connected", connected: true, via: `${via}_open` }, true);
+      }
+    });
+
+    ws.addEventListener("close", (ev) => {
+      if (!enabled) return;
       try {
-        const raw = typeof ev.data === "string" ? ev.data : "";
-        if (!raw || raw.length > 500000) {
+        pruneSports();
+        const official = pageSportsSocket();
+        if ((official && Number(official.readyState) === 1) || liveSports()) {
+          postStatusThrottled({ phase: "hooked", via: "peer_closed" }, true);
+          return;
+        }
+        subscribedOut.clear();
+        // 握手失败（从未 OPEN）不要钉死 ws_closed，心跳会按 __WS_INSTANCE__.current 重报
+        if (Number(ev.target && ev.target.readyState) === 3 && !liveSports()) {
+          postStatusThrottled({
+            phase: "hooked",
+            via: "closed",
+            lastClose: { code: ev.code, reason: String(ev.reason || ""), wasClean: !!ev.wasClean },
+          }, true);
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+
+  function handleWsMessage(ev) {
+    void (async () => {
+      try {
+        debugLastDataType = ev.data == null ? "null" : String(ev.data.constructor && ev.data.constructor.name || typeof ev.data);
+        const raw = await wsDataToText(ev.data);
+        if (!raw) {
+          debugDecodeEmpty += 1;
           if (enabled) postStatusThrottled({});
           return;
         }
-        const j = JSON.parse(raw);
+        let j;
+        try {
+          j = JSON.parse(raw);
+        } catch {
+          debugJsonParseErrors += 1;
+          if (enabled) postStatusThrottled({ ...debugSnap() }, true);
+          return;
+        }
         const type = j.type || "";
         const destination = j.destination || "";
 
-        // 无论观测开关：持续收队名（开观测时常只剩无 l 的 u 帧）
         try {
           if (type === "UPDATE_ODDS" || type === "FULL_ODDS") {
             if (j.odds?.l) rememberEventNames(j.odds.l);
@@ -765,6 +923,7 @@
         if (/LEFT_MENU/i.test(type) || destination === "LEFT_MENU") {
           refreshBoardMeta();
         }
+        // 能解出帧即这条 sports WS 是活的；勿再用 lastSports 包装对象的 readyState 误报断开
         if (type === "CONNECTED") {
           postStatusThrottled({
             phase: "connected",
@@ -775,93 +934,101 @@
           }, true);
           return;
         }
-        postStatusThrottled({ lastType: type, lastDestination: destination });
+        postStatusThrottled({
+          connected: true,
+          lastType: type,
+          lastDestination: destination,
+        });
       } catch {
+        debugDecodeErrors += 1;
         if (enabled) postStatusThrottled({});
       }
-    });
+    })();
+  }
 
-    const origSend = WebSocket.prototype.send;
-    ws.send = function cmPbWsSend(data) {
-      // 必须先保证官网 send 成功；观测包在 try 里，失败也不挡 PONG
-      try {
-        if (enabled) {
-          frameCount += 1;
-          const raw = typeof data === "string" ? data : "";
-          if (raw) {
-            try {
-              const j = JSON.parse(raw);
-              noteOutbound(j.type || "", j.destination || "");
-              if (j.type === "SUBSCRIBE" || j.type === "UNSUBSCRIBE") {
-                postStatusThrottled({ lastType: j.type, lastDestination: j.destination }, true);
-              }
-            } catch {
-              /* ignore parse */
-            }
-          }
-        }
-      } catch {
-        /* ignore observe errors */
+  function noteOutboundPayload(data) {
+    try {
+      const raw = typeof data === "string"
+        ? data
+        : (data && typeof data === "object" && typeof data.type === "string"
+          ? JSON.stringify(data)
+          : "");
+      if (!raw) return;
+      const j = JSON.parse(raw);
+      noteOutbound(j.type || "", j.destination || "");
+      if (j.type === "SUBSCRIBE" || j.type === "UNSUBSCRIBE") {
+        postStatusThrottled({ lastType: j.type, lastDestination: j.destination }, true);
       }
-      return origSend.call(this, data);
-    };
-
-    ws.addEventListener("close", (ev) => {
-      if (!enabled) return;
-      try {
-        subscribedOut.clear();
-        postStatusThrottled({
-          phase: "ws_closed",
-          connected: false,
-          readyState: WebSocket.CLOSED,
-          lastClose: { code: ev.code, reason: String(ev.reason || ""), wasClean: !!ev.wasClean },
-        }, true);
-      } catch {
-        /* ignore */
-      }
-    });
+    } catch {
+      /* ignore */
+    }
   }
 
   function tryAttachExisting() {
     try {
       const ref = window.__WS_INSTANCE__;
-      const ws =
-        ref && typeof ref.send === "function"
+      const cand =
+        ref && typeof ref.readyState === "number" && typeof ref.send === "function"
           ? ref
-          : ref && ref.current && typeof ref.current.send === "function"
+          : ref && ref.current && typeof ref.current.readyState === "number" && typeof ref.current.send === "function"
             ? ref.current
             : null;
-      if (ws) attach(ws, "existing");
+      if (cand) attach(cand, "existing");
     } catch {
       /* ignore */
     }
   }
 
   const NativeWS = window.WebSocket;
-  function WrappedWS(url, protocols) {
-    const ws = protocols !== undefined ? new NativeWS(url, protocols) : new NativeWS(url);
+  const nativeAdd = NativeWS.prototype.addEventListener;
+  NativeWS.prototype.addEventListener = function cmPbNativeAdd(type, fn, opt) {
     try {
-      if (isSportsUrl(url)) {
-        lastSports = ws;
-        // 始终挂接：关观测也要攒队名，否则开观测后只见 eventId
-        attach(ws, "new");
+      if (isSportsUrl(this.url)) attach(this, "addEventListener");
+    } catch {
+      /* ignore */
+    }
+    return nativeAdd.call(this, type, fn, opt);
+  };
+  const nativeSend = NativeWS.prototype.send;
+  NativeWS.prototype.send = function cmPbNativeSend(data) {
+    try {
+      if (isSportsUrl(this.url)) {
+        attach(this, "send");
+        if (enabled) {
+          frameCount += 1;
+          noteOutboundPayload(data);
+        }
       }
     } catch {
       /* ignore */
     }
-    return ws;
-  }
-  WrappedWS.prototype = NativeWS.prototype;
-  WrappedWS.CONNECTING = NativeWS.CONNECTING;
-  WrappedWS.OPEN = NativeWS.OPEN;
-  WrappedWS.CLOSING = NativeWS.CLOSING;
-  WrappedWS.CLOSED = NativeWS.CLOSED;
+    return nativeSend.call(this, data);
+  };
   try {
-    Object.defineProperty(WrappedWS, "name", { value: "WebSocket" });
+    const onmsg = Object.getOwnPropertyDescriptor(NativeWS.prototype, "onmessage");
+    if (onmsg && onmsg.set && onmsg.get) {
+      Object.defineProperty(NativeWS.prototype, "onmessage", {
+        configurable: true,
+        enumerable: onmsg.enumerable,
+        get() {
+          return onmsg.get.call(this);
+        },
+        set(fn) {
+          try {
+            if (isSportsUrl(this.url)) attach(this, "onmessage");
+          } catch {
+            /* ignore */
+          }
+          return onmsg.set.call(this, fn);
+        },
+      });
+    }
   } catch {
     /* ignore */
   }
-  window.WebSocket = WrappedWS;
+  // 不替换 window.WebSocket：react-use-websocket 用 instanceof WebSocket；
+  // 包一层会让官网握手失败并降级 HTTP（侧栏 rs=3、帧=0、盘>0）。
+  // 挂接只走 prototype.send / onmessage / addEventListener。
 
   const nativeFetch = window.fetch.bind(window);
   function requestUrlOf(input) {
@@ -921,6 +1088,31 @@
     return xhrSend.apply(this, args);
   };
 
+  let heartbeatTimer = null;
+  function ensureHeartbeat() {
+    if (heartbeatTimer != null) return;
+    heartbeatTimer = setInterval(() => {
+      if (!enabled) return;
+      try {
+        tryAttachExisting();
+        const cur = window.__WS_INSTANCE__ && window.__WS_INSTANCE__.current;
+        if (
+          cur
+          && typeof cur.readyState === "number"
+          && cur.readyState !== 3
+          && typeof cur.send === "function"
+        ) {
+          attach(cur, "heartbeat");
+        }
+        const live = liveSports();
+        if (live && Number(live.readyState) === 1) {
+          postStatusThrottled({ phase: "connected", connected: true, via: "heartbeat" }, true);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 1000);
+  }
   window.addEventListener("message", (ev) => {
     if (ev.source !== window) return;
     const data = ev.data;
@@ -930,27 +1122,18 @@
       if (typeof data.filterMatchMapMl === "boolean") {
         filterMatchMapMl = data.filterMatchMapMl;
       }
-      frameCount = 0;
       lastPostAt = 0;
-      subscribedOut.clear();
-      inboundDest.clear();
-      for (const k of Object.keys(inboundTypeCount)) delete inboundTypeCount[k];
-      // 不清 oddsBoard：start 晚于 SPA 首包 euro / 已挂接的 UPDATE_ODDS。
-      // 清空会丢掉官网已用来画格的快照，影子只剩后续 u 残片。
+      // 不清 frameCount / oddsBoard：start 晚于已挂接的 CONNECTED / UPDATE_ODDS。
       refreshBoardMeta();
-      postStatusThrottled({ phase: "hook_start" }, true);
       tryAttachExisting();
       if (lastSports) attach(lastSports, "existing");
-      let tries = 0;
-      const timer = setInterval(() => {
-        if (!enabled) {
-          clearInterval(timer);
-          return;
-        }
-        tryAttachExisting();
-        tries += 1;
-        if (tries >= 40 || (lastSports && attached.has(lastSports))) clearInterval(timer);
-      }, 500);
+      const live = liveSports();
+      if (live && Number(live.readyState) === 1) {
+        postStatusThrottled({ phase: "connected", connected: true, via: "start" }, true);
+      } else {
+        postStatusThrottled({ phase: "hook_start" }, true);
+      }
+      ensureHeartbeat();
       return;
     }
     if (data.cmd === "stop") {
@@ -975,4 +1158,5 @@
 
   // 页面已建连时尽早挂上，关观测也攒队名
   tryAttachExisting();
+  ensureHeartbeat();
 })();
