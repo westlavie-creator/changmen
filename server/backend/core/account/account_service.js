@@ -305,6 +305,14 @@ async function handleSaveAccounts(accounts, userId) {
       locked.totalBalance = locked.balance;
       locked.credit = 0;
     }
+    else if (locked.balance == null) {
+      // 非 PF：ACCOUNT 省略 balance 时不得把 players.total_balance 写成 0。
+      // 触发：PM vault 待解锁 gate 清 balance、migrate 后立刻 SaveAccounts、
+      // PlatformAccount 构造丢弃存库余额后再整包落库。显式 0 仍放行。
+      const keep = Number(player?.totalBalance ?? prev?.balance ?? prev?.totalBalance);
+      if (Number.isFinite(keep))
+        locked.balance = keep;
+    }
     return locked;
   });
   const dto = enforcePolymarketPersistDto(normalized);
