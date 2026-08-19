@@ -62,6 +62,13 @@ export async function runMainBetLoopTick(state: MainBetLoopState): Promise<void>
       .catch(() => {});
   }
 
+  // [changmen 扩展] EV 自动下注：不依赖套利开关；每轮最多一笔
+  if (user.extensionPrefs?.valueBet?.autoBet?.enabled === true) {
+    void import("@/extensions/valueBet/valueBetAutoBet")
+      .then(({ runValueBetAutoBetTick }) => runValueBetAutoBetTick())
+      .catch(() => {});
+  }
+
   if (now - matchStore.defaultOddsFetchedAt >= DEFAULT_ODDS_MS) {
     await matchStore.fetchMatchDefaultOdds();
   }

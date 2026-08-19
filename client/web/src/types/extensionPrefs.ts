@@ -1,3 +1,19 @@
+import {
+  DEFAULT_AUTO_BET_MAX_EDGE_PCT,
+  DEFAULT_AUTO_BET_MAX_ODDS,
+  DEFAULT_AUTO_BET_MAX_PER_MAP,
+  DEFAULT_AUTO_BET_MIN_EDGE_PCT,
+  DEFAULT_AUTO_BET_MIN_ODDS,
+  DEFAULT_MIN_EDGE_PCT,
+  clampValueBetEdgePctRange,
+  clampValueBetOddsRange,
+  normalizeValueBetCount,
+  normalizeValueBetEdgePct,
+  normalizeValueBetOdds,
+  normalizeValueBetSharp,
+  type ValueBetSharpPlatform,
+} from "@/extensions/valueBet/evConfig";
+
 /** [changmen 扩展] 高利润时放大总注（比例仍按 1/odds） */
 export interface StakeScaleByProfitPrefs {
   /** 是否启用 */
@@ -64,12 +80,43 @@ export function isLightUiTheme(theme: UiTheme): boolean {
 }
 
 /**
+ * [changmen 扩展] EV 金色标记 / 正 EV 自动下注配置（「界面」Tab）。
+ * 确认下单与角标共用 sharp / 正EV 阈值；自动下单用 autoBet，金额仍在参数配置。
+ */
+export interface ValueBetAutoBetPrefs {
+  /** 自动下注开关。默认关。开启后主循环扫描，不依赖套利开关。 */
+  enabled: boolean;
+  /** 软盘 edge 下限（含，百分比）。与金色正EV阈值独立。默认 3 */
+  minEdgePct: number;
+  /** 软盘 edge 上限（含，百分比）。默认 20 */
+  maxEdgePct: number;
+  /** 基准馆该侧赔率下限（含）。默认 1.3 */
+  minOdds: number;
+  /** 基准馆该侧赔率上限（含）。默认 10 */
+  maxOdds: number;
+  /**
+   * 同一比赛同一地图（ViewBet.round，含全场 0）最多下几笔 EV（确认+自动合计）。
+   * 默认 1；本机累计（多标签共用），刷新不清零。
+   */
+  maxPerMap: number;
+}
+
+export interface ValueBetMarkerPrefs {
+  sharp: ValueBetSharpPlatform;
+  /** 正 EV 阈值（百分比）。≥ 此值金色，并可点角标确认下单。默认 3 */
+  minEdgePct: number;
+  autoBet: ValueBetAutoBetPrefs;
+}
+
+/**
  * [changmen 扩展] Client_SaveData key=Extensions。
- * 界面皮肤 / BetRow UI 在用户中心「界面」Tab 编辑；其余在「扩展」Tab。
+ * 界面皮肤 / BetRow UI / EV 金色标记在用户中心「界面」Tab 编辑；其余在「扩展」Tab。
  */
 export interface ExtensionPrefs extends Record<string, unknown> {
   /** BetRow 套利划线、利润角标、赔率 flash、EV 标记（「界面」Tab） */
   betRowUi: boolean;
+  /** EV 金色标记基准与阈值（「界面」Tab） */
+  valueBet: ValueBetMarkerPrefs;
   /** 比例 9999 单边模式：本侧是否参与自动套利预检（仍不自动下单） */
   singleLeg9999Precheck: boolean;
   /**
@@ -117,9 +164,29 @@ export function createDefaultArbEarlyLockSell(): ArbEarlyLockSellPrefs {
   };
 }
 
+export function createDefaultValueBetAutoBetPrefs(): ValueBetAutoBetPrefs {
+  return {
+    enabled: false,
+    minEdgePct: DEFAULT_AUTO_BET_MIN_EDGE_PCT,
+    maxEdgePct: DEFAULT_AUTO_BET_MAX_EDGE_PCT,
+    minOdds: DEFAULT_AUTO_BET_MIN_ODDS,
+    maxOdds: DEFAULT_AUTO_BET_MAX_ODDS,
+    maxPerMap: DEFAULT_AUTO_BET_MAX_PER_MAP,
+  };
+}
+
+export function createDefaultValueBetMarkerPrefs(): ValueBetMarkerPrefs {
+  return {
+    sharp: "PB",
+    minEdgePct: DEFAULT_MIN_EDGE_PCT,
+    autoBet: createDefaultValueBetAutoBetPrefs(),
+  };
+}
+
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
+    valueBet: createDefaultValueBetMarkerPrefs(),
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
@@ -176,6 +243,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   const row = raw as Record<string, unknown>;
   return {
     betRowUi: row.betRowUi === true,
+    valueBet: normalizeValueBetMarkerPrefs(row.valueBet),
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
@@ -183,6 +251,40 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
     uiTheme: normalizeUiTheme(row.uiTheme),
     // pbWsShadowUi 仅本机 localStorage，故意不从 RDS / Extensions 读取或写回
+  };
+}
+
+function normalizeValueBetAutoBetPrefs(raw: unknown): ValueBetAutoBetPrefs {
+  const defaults = createDefaultValueBetAutoBetPrefs();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return defaults;
+  const row = raw as Record<string, unknown>;
+  const minEdgePct = normalizeValueBetEdgePct(row.minEdgePct, defaults.minEdgePct);
+  const maxEdgePct = normalizeValueBetEdgePct(row.maxEdgePct, defaults.maxEdgePct);
+  const edgeRange = clampValueBetEdgePctRange(minEdgePct, maxEdgePct);
+  const minOdds = normalizeValueBetOdds(row.minOdds, defaults.minOdds);
+  const maxOdds = normalizeValueBetOdds(row.maxOdds, defaults.maxOdds);
+  const range = clampValueBetOddsRange(minOdds, maxOdds);
+  return {
+    enabled: row.enabled === true,
+    minEdgePct: edgeRange.minEdgePct,
+    maxEdgePct: edgeRange.maxEdgePct,
+    minOdds: range.minOdds,
+    maxOdds: range.maxOdds,
+    maxPerMap: normalizeValueBetCount(row.maxPerMap, defaults.maxPerMap),
+  };
+}
+
+function normalizeValueBetMarkerPrefs(raw: unknown): ValueBetMarkerPrefs {
+  const defaults = createDefaultValueBetMarkerPrefs();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return defaults;
+  const row = raw as Record<string, unknown>;
+  const minEdgePct = normalizeValueBetEdgePct(row.minEdgePct, defaults.minEdgePct);
+  return {
+    sharp: normalizeValueBetSharp(row.sharp),
+    minEdgePct,
+    autoBet: normalizeValueBetAutoBetPrefs(row.autoBet),
   };
 }
 

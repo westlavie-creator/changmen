@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatValueBetLabel,
   readValueBetMoney,
+  resolveValueBetStake,
   valueBetSuggestedStake,
 } from "@/extensions/valueBet/valueBetStake";
 
@@ -31,5 +32,16 @@ describe("readValueBetMoney", () => {
   it("defaults to 100", () => {
     expect(readValueBetMoney(undefined)).toBe(100);
     expect(readValueBetMoney({ valueBetMoney: 80 })).toBe(80);
+  });
+});
+
+describe("resolveValueBetStake", () => {
+  it("returns 0 when amount is not configured", () => {
+    expect(resolveValueBetStake({ valueBetMoney: 0 })).toBe(0);
+  });
+
+  it("applies tenNumber rounding when enabled", () => {
+    expect(resolveValueBetStake({ valueBetMoney: 86, tenNumber: false })).toBe(86);
+    expect(resolveValueBetStake({ valueBetMoney: 86, tenNumber: true })).toBe(90);
   });
 });

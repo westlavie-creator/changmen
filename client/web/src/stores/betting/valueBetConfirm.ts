@@ -1,31 +1,20 @@
 import type { BetSide, ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
 import { ElMessageBox } from "element-plus";
-import { accountPassesMainBetFilter } from "@/domain/betting/betFilters";
-import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import {
   computeValueBetEdge,
   isValueBetPositiveEdge,
 } from "@/extensions/valueBet/computeValueBetEdge";
+import { coerceValueBetAutoBetRuntime, valueBetCalcOptsFromPrefs } from "@/extensions/valueBet/evConfig";
 import { readValueBetMoney } from "@/extensions/valueBet/valueBetStake";
-import { BetOption } from "@changmen/client-core/models/betOption";
-import { createValueBetLinkId, toFixed } from "@changmen/client-core/shared/format";
-import { manualBetToastSeconds } from "@/shared/betTiming";
-import { wait } from "@changmen/client-core/shared/wait";
+import { toFixed } from "@changmen/client-core/shared/format";
 import { useAccountStore } from "@/stores/accountStore";
 import {
   buildManualBetCheckFailureHtml,
   buildManualBetContextLines,
   buildManualBetOrderFailureHtml,
 } from "@/stores/betting/manualBetAlert";
-import {
-  bindArbLegOrder,
-  refreshOrderListAfterBind,
-} from "@/stores/betting/arbOrderBind";
-import { markSuccessfulBet } from "@/stores/betting/successMarkers";
-import { useMatchStore } from "@/stores/matchStore";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
+import { placeValueBetOrder } from "@/stores/betting/placeValueBet";
 import { useUserStore } from "@/stores/userStore";
-import { buildPolymarketMatchedBuyVenueOrderFromBet } from "@changmen/venue-adapter/polymarket";
 
 export interface ValueBetConfirmContext {
   setMessage: (msg: string) => void;
@@ -37,11 +26,12 @@ export function buildValueBetConfirmPromptMessage(
   item: ViewBetItem,
   side: BetSide,
   snap: { softOdds: number; fairOdds: number; edge: number },
+  sharp = "PB",
 ): string {
   const team = side === "Home" ? bet.homeName : bet.awayName;
   return [
     ...buildManualBetContextLines(match, bet, item, side, snap.softOdds),
-    `公允(PB)：${toFixed(snap.fairOdds, 3)}`,
+    `公允(${sharp})：${toFixed(snap.fairOdds, 3)}`,
     `Edge：+${(snap.edge * 100).toFixed(1)}% · ${team}`,
     "",
     "确认后按下方金额单边下单（非套利）。可修改金额。",
@@ -66,14 +56,15 @@ export async function runValueBetConfirm(
     return;
   }
 
-  const snap = computeValueBetEdge(bet, item, side);
-  if (!snap || !isValueBetPositiveEdge(snap.edge)) {
-    await ElMessageBox.alert("正 EV 已消失或不足 3%，请刷新后再试", "正 EV");
+  const calcOpts = valueBetCalcOptsFromPrefs(user.extensionPrefs?.valueBet);
+  const snap = computeValueBetEdge(bet, item, side, calcOpts);
+  if (!snap || !isValueBetPositiveEdge(snap.edge, calcOpts.minEdge)) {
+    const minPct = (calcOpts.minEdge * 100).toFixed(1).replace(/\.0$/, "");
+    await ElMessageBox.alert(`正 EV 已消失或不足 ${minPct}%，请刷新后再试`, "正 EV");
     return;
   }
 
   const accountStore = useAccountStore();
-  const matchStore = useMatchStore();
   const { setMessage } = ctx;
 
   const account = accountStore.getAccount(item.type, 0);
@@ -91,7 +82,7 @@ export async function runValueBetConfirm(
   let amount: number;
   try {
     const { value } = await ElMessageBox.prompt(
-      buildValueBetConfirmPromptMessage(match, bet, item, side, snap),
+      buildValueBetConfirmPromptMessage(match, bet, item, side, snap, calcOpts.sharp),
       "正 EV 下单",
       {
         confirmButtonText: "确定",
@@ -110,117 +101,95 @@ export async function runValueBetConfirm(
     return;
   }
 
-  // 确认后再次校验 edge，避免弹窗期间盘口变化
-  const snap2 = computeValueBetEdge(bet, item, side);
-  if (!snap2 || !isValueBetPositiveEdge(snap2.edge)) {
-    await ElMessageBox.alert("确认期间正 EV 已消失，已取消下单", "正 EV");
-    return;
-  }
+  const autoBet = user.extensionPrefs?.valueBet?.autoBet;
+  const placed = await placeValueBetOrder({
+    match,
+    bet,
+    item,
+    side,
+    amount,
+    calcOpts,
+    minEdge: calcOpts.minEdge,
+    mapLimit: autoBet?.enabled === true
+      ? coerceValueBetAutoBetRuntime(autoBet).maxPerMap
+      : undefined,
+  });
 
-  let option = new BetOption(match, bet, item, side, amount);
-  option.odds = snap2.softOdds;
-  if (isSingleLegRateAtOdds(account, snap2.softOdds)) {
-    await ElMessageBox.alert(
-      "该账号在此赔率区间为比例 9999 单边模式，请改比例或换账号后再试",
-      "提示",
-    );
-    return;
-  }
-  if (!accountPassesMainBetFilter(account, bet, match, option, matchStore)) {
-    await ElMessageBox.alert(`当前 ${item.type} 账号不满足买入条件`, "提示");
-    return;
-  }
-  const bal = account.getBalance();
-  if (bal !== undefined && bal < amount) {
-    await ElMessageBox.alert(`余额不足（${bal} < ${amount}）`, String(item.type));
-    return;
-  }
-
-  const toastSec = manualBetToastSeconds();
-  option = await accountStore.checkBetting(account, option);
-  if (!option.data) {
-    await ElMessageBox.alert(
-      buildManualBetCheckFailureHtml(
-        match,
-        bet,
-        item,
-        side,
-        snap2.softOdds,
-        amount,
-        option.checkError,
-      ),
-      `${item.type} 预检未通过`,
-      {
-        dangerouslyUseHTMLString: true,
-        customClass: "manual-bet-result-box",
-        confirmButtonText: "知道了",
-      },
-    );
-    return;
-  }
-
-  const linkId = createValueBetLinkId();
-  const result = await accountStore.betting(account, option, toastSec);
-  if (result?.success) {
-    // PM/PF pending：受理≠成交，等 betGateway settle 确认后再 mark
-    const skipMark = isPendingConfirmVenueProvider(account.provider) && result.pending;
-    if (!skipMark)
-      markSuccessfulBet(account, bet.id, side, option.odds);
-    // 方案 B：先入库再绑 💎；PM matched 已在 placeBet 用 POST 乐观落库
-    let bound = false;
-    try {
-      let orders: Awaited<ReturnType<typeof accountStore.updateVenueOrders>> = [];
-      const provider = String(account.provider ?? "");
-      const optimisticOk = Boolean(
-        (result.tip as { pmOptimisticSaved?: boolean } | null | undefined)?.pmOptimisticSaved,
+  if (!placed.ok) {
+    if (placed.code === "busy") {
+      await ElMessageBox.alert("正 EV 下单进行中，请稍后再试", "正 EV");
+      return;
+    }
+    if (placed.code === "muted") {
+      await ElMessageBox.alert("该地图已折叠，已取消下单", "正 EV");
+      return;
+    }
+    if (placed.code === "map_limit") {
+      await ElMessageBox.alert("该局已达「同图次数」，已取消下单", "正 EV");
+      return;
+    }
+    if (placed.code === "gone") {
+      await ElMessageBox.alert("确认期间正 EV 已消失，已取消下单", "正 EV");
+      return;
+    }
+    if (placed.code === "no_account") {
+      await ElMessageBox.alert("没有找到对应的账号", String(item.type));
+      return;
+    }
+    if (placed.code === "rate_9999") {
+      await ElMessageBox.alert(
+        "该账号在此赔率区间为比例 9999 单边模式，请改比例或换账号后再试",
+        "提示",
       );
-      if (result.pending || provider !== "Polymarket") {
-        await wait(result.orderId ? 400 : 1500);
-        orders = (await accountStore.updateVenueOrders(account)) ?? [];
-      }
-      else if (!optimisticOk) {
-        await wait(400);
-        orders = (await accountStore.updateVenueOrders(account, {
-          waitForOrderId: String(result.orderId ?? "").trim() || undefined,
-        })) ?? [];
-      }
-      else {
-        orders = (await accountStore.updateVenueOrders(account)) ?? [];
-        const oid = String(result.orderId ?? "").trim();
-        if (oid && !orders.some(o => String(o.orderId ?? "").trim() === oid)) {
-          const synthetic = await buildPolymarketMatchedBuyVenueOrderFromBet(option, result);
-          if (synthetic)
-            orders = [synthetic, ...orders];
-        }
-      }
-      bound = await bindArbLegOrder(linkId, account, result, orders, false);
-      refreshOrderListAfterBind();
+      return;
     }
-    catch {
-      bound = false;
+    if (placed.code === "filter") {
+      await ElMessageBox.alert(`当前 ${item.type} 账号不满足买入条件`, "提示");
+      return;
     }
-    setMessage(
-      result.pending
-        ? `正EV确认中 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
-        : bound
-          ? `正EV下单成功 ${item.type}@${option.odds} +${(snap2.edge * 100).toFixed(1)}%`
-          : `正EV下单成功 ${item.type}@${option.odds}（💎 标记稍后刷新）`,
-    );
-    // delayed：由 notifyPendingVenueConfirm 在 settle 确认后刷，避免早刷盖回旧余额
-    if (!result.pending)
-      void accountStore.refreshBalance(account);
-  }
-  else {
-    const message = result?.message || "下单失败";
+    if (placed.code === "balance") {
+      await ElMessageBox.alert(`余额不足（${placed.message} < ${amount}）`, String(item.type));
+      return;
+    }
+    if (placed.code === "check_fail") {
+      await ElMessageBox.alert(
+        buildManualBetCheckFailureHtml(
+          match,
+          bet,
+          item,
+          side,
+          placed.snap?.softOdds ?? snap.softOdds,
+          placed.amount ?? amount,
+          placed.message,
+        ),
+        `${item.type} 预检未通过`,
+        {
+          dangerouslyUseHTMLString: true,
+          customClass: "manual-bet-result-box",
+          confirmButtonText: "知道了",
+        },
+      );
+      return;
+    }
+    const message = placed.message || "下单失败";
     if (item.type === "Polymarket") {
-      ElMessageBox.alert(buildManualBetOrderFailureHtml(message), "下单失败", {
+      await ElMessageBox.alert(buildManualBetOrderFailureHtml(message), "下单失败", {
         dangerouslyUseHTMLString: true,
         customClass: "manual-bet-result-box",
         confirmButtonText: "知道了",
       });
     }
     else {
-      ElMessageBox.alert(message, "下单失败");
+      await ElMessageBox.alert(message, "下单失败");
     }
+    return;
   }
+
+  setMessage(
+    placed.pending
+      ? `正EV确认中 ${placed.type}@${placed.odds} +${(placed.edge * 100).toFixed(1)}%`
+      : placed.bound
+        ? `正EV下单成功 ${placed.type}@${placed.odds} +${(placed.edge * 100).toFixed(1)}%`
+        : `正EV下单成功 ${placed.type}@${placed.odds}（💎 标记稍后刷新）`,
+  );
 }

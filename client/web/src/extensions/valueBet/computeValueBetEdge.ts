@@ -1,7 +1,12 @@
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
-import { calcEdge, removVig } from "@/extensions/valueBet/evCalc";
-import { MIN_EDGE, SHARP_PLATFORM, SOFT_PLATFORMS } from "@/extensions/valueBet/evConfig";
 import type { PlatformId } from "@/types/esport";
+import { calcEdge, removVig } from "@/extensions/valueBet/evCalc";
+import {
+  MIN_EDGE,
+  SHARP_PLATFORM,
+  resolveSoftPlatforms,
+  type ValueBetCalcOpts,
+} from "@/extensions/valueBet/evConfig";
 
 export interface ValueBetEdgeSnapshot {
   softOdds: number;
@@ -11,18 +16,26 @@ export interface ValueBetEdgeSnapshot {
   sharpAway: number;
 }
 
-/** 相对 PB 重算单边 edge；不满足软庄/sharp 条件时返回 null */
+function resolveSharp(opts?: Pick<ValueBetCalcOpts, "sharp" | "softPlatforms"> | null) {
+  const sharp = opts?.sharp === "RAY" ? "RAY" : SHARP_PLATFORM;
+  const softPlatforms = opts?.softPlatforms ?? resolveSoftPlatforms(sharp);
+  return { sharp, softPlatforms };
+}
+
+/** 相对所选 sharp 基准重算单边 edge；不满足软庄/sharp 条件时返回 null */
 export function computeValueBetEdge(
   bet: ViewBet,
   item: ViewBetItem,
   side: BetSide,
+  opts?: Pick<ValueBetCalcOpts, "sharp" | "softPlatforms"> | null,
 ): ValueBetEdgeSnapshot | null {
-  if (item.type === SHARP_PLATFORM)
+  const { sharp, softPlatforms } = resolveSharp(opts);
+  if (item.type === sharp)
     return null;
-  if (!SOFT_PLATFORMS.includes(item.type as PlatformId))
+  if (!softPlatforms.includes(item.type as PlatformId))
     return null;
 
-  const sharpItem = bet.items.find(it => it.type === SHARP_PLATFORM);
+  const sharpItem = bet.items.find(it => it.type === sharp);
   if (!sharpItem)
     return null;
 
@@ -50,6 +63,6 @@ export function computeValueBetEdge(
   };
 }
 
-export function isValueBetPositiveEdge(edge: number): boolean {
-  return Number.isFinite(edge) && edge >= MIN_EDGE;
+export function isValueBetPositiveEdge(edge: number, minEdge = MIN_EDGE): boolean {
+  return Number.isFinite(edge) && edge >= minEdge;
 }

@@ -35,7 +35,7 @@ export interface UserConfig {
   singleBet: boolean;
   waitTime: Record<string, number>;
   /**
-   * [changmen 扩展] 正 EV（相对 PB）固定下注金额。
+   * [changmen 扩展] 正 EV（相对所选 sharp 基准）固定下注金额。
    * 点击金色角标确认下单时默认使用；不影响套利 betMoney。
    */
   valueBetMoney: number;

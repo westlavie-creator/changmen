@@ -8,8 +8,22 @@ const defaultStakeScale = {
   skipAccountRateOnScale: false,
 };
 
+const defaultValueBet = {
+  sharp: "PB" as const,
+  minEdgePct: 3,
+  autoBet: {
+    enabled: false,
+    minEdgePct: 3,
+    maxEdgePct: 20,
+    minOdds: 1.3,
+    maxOdds: 10,
+    maxPerMap: 1,
+  },
+};
+
 const defaultPrefs = {
   betRowUi: false,
+  valueBet: defaultValueBet,
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
@@ -21,6 +35,95 @@ const defaultPrefs = {
 describe("extensionPrefs", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("defaults valueBet marker prefs to PB / 3%", () => {
+    expect(createDefaultExtensionPrefs().valueBet).toEqual(defaultValueBet);
+    expect(normalizeExtensionPrefs({}).valueBet).toEqual(defaultValueBet);
+  });
+
+  it("accepts RAY as valueBet sharp and clamps out-of-range thresholds", () => {
+    expect(normalizeExtensionPrefs({
+      valueBet: { sharp: "RAY", minEdgePct: 5 },
+    }).valueBet).toEqual({
+      sharp: "RAY",
+      minEdgePct: 5,
+      autoBet: defaultValueBet.autoBet,
+    });
+    expect(normalizeExtensionPrefs({
+      valueBet: { sharp: "OB", minEdgePct: 99 },
+    }).valueBet).toEqual({
+      sharp: "PB",
+      minEdgePct: 20,
+      autoBet: defaultValueBet.autoBet,
+    });
+  });
+
+  it("drops legacy nearEdgePct from saved valueBet prefs", () => {
+    const vb = normalizeExtensionPrefs({
+      valueBet: { sharp: "PB", minEdgePct: 3, nearEdgePct: 8 },
+    }).valueBet;
+    expect(vb).toEqual({ sharp: "PB", minEdgePct: 3, autoBet: defaultValueBet.autoBet });
+    expect(vb).not.toHaveProperty("nearEdgePct");
+  });
+
+  it("defaults EV autoBet off with 3–20% / 1.3–10 odds", () => {
+    expect(createDefaultExtensionPrefs().valueBet.autoBet).toEqual(defaultValueBet.autoBet);
+    expect(normalizeExtensionPrefs({
+      valueBet: { sharp: "RAY", minEdgePct: 5 },
+    }).valueBet.autoBet).toEqual(defaultValueBet.autoBet);
+  });
+
+  it("reads EV autoBet prefs and clamps odds range", () => {
+    expect(normalizeExtensionPrefs({
+      valueBet: {
+        autoBet: { enabled: true, minEdgePct: 6, minOdds: 1.8, maxOdds: 2.4 },
+      },
+    }).valueBet.autoBet).toEqual({
+      enabled: true,
+      minEdgePct: 6,
+      maxEdgePct: 20,
+      minOdds: 1.8,
+      maxOdds: 2.4,
+      maxPerMap: 1,
+    });
+    expect(normalizeExtensionPrefs({
+      valueBet: {
+        autoBet: { enabled: true, minEdgePct: 4, minOdds: 2.5, maxOdds: 1.2 },
+      },
+    }).valueBet.autoBet).toEqual({
+      enabled: true,
+      minEdgePct: 4,
+      maxEdgePct: 20,
+      minOdds: 2.5,
+      maxOdds: 2.5,
+      maxPerMap: 1,
+    });
+  });
+
+  it("reads EV autoBet edge range and clamps inverted max", () => {
+    expect(normalizeExtensionPrefs({
+      valueBet: {
+        autoBet: { enabled: true, minEdgePct: 5, maxEdgePct: 8 },
+      },
+    }).valueBet.autoBet).toMatchObject({ minEdgePct: 5, maxEdgePct: 8 });
+    expect(normalizeExtensionPrefs({
+      valueBet: {
+        autoBet: { enabled: true, minEdgePct: 8, maxEdgePct: 3 },
+      },
+    }).valueBet.autoBet).toMatchObject({ minEdgePct: 8, maxEdgePct: 8 });
+  });
+
+  it("reads and clamps EV autoBet maxPerMap", () => {
+    expect(normalizeExtensionPrefs({
+      valueBet: { autoBet: { maxPerMap: 3 } },
+    }).valueBet.autoBet.maxPerMap).toBe(3);
+    expect(normalizeExtensionPrefs({
+      valueBet: { autoBet: { maxPerMap: 0 } },
+    }).valueBet.autoBet.maxPerMap).toBe(1);
+    expect(normalizeExtensionPrefs({
+      valueBet: { autoBet: { maxPerMap: 99 } },
+    }).valueBet.autoBet.maxPerMap).toBe(20);
   });
 
   it("defaults betRowUi to false and singleLeg9999Precheck to true", () => {

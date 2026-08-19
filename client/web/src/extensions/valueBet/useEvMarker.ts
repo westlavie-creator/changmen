@@ -2,8 +2,9 @@ import type { MaybeRefOrGetter } from "vue";
 import type { BetSide, ViewBet, ViewBetItem } from "@/models/match";
 import { computed, toValue } from "vue";
 import { useOddsStore } from "@/stores/oddsStore";
+import { useUserStore } from "@/stores/userStore";
 import { calcEdge, removVig } from "./evCalc";
-import { MIN_EDGE, NEAR_EDGE, SHARP_PLATFORM, SOFT_PLATFORMS } from "./evConfig";
+import { evMarkerFloor, valueBetCalcOptsFromPrefs } from "./evConfig";
 
 interface EvEntry {
   edge: number;
@@ -16,6 +17,8 @@ export function useEvMarker(
 ) {
   const active = computed(() => toValue(enabled) !== false);
   const oddsStore = useOddsStore();
+  const user = useUserStore();
+  const calcOpts = computed(() => valueBetCalcOptsFromPrefs(user.extensionPrefs?.valueBet));
 
   function readOdds(item: ViewBetItem, side: BetSide): number {
     const id = item.getItemId(side);
@@ -28,8 +31,10 @@ export function useEvMarker(
       return new Map<string, EvEntry>();
     const b = toValue(bet);
     const map = new Map<string, EvEntry>();
+    const { sharp, nearEdge, minEdge, softPlatforms } = calcOpts.value;
+    const floor = evMarkerFloor(nearEdge, minEdge);
 
-    const sharpItem = b.items.find(it => it.type === SHARP_PLATFORM);
+    const sharpItem = b.items.find(it => it.type === sharp);
     if (!sharpItem)
       return map;
 
@@ -43,9 +48,9 @@ export function useEvMarker(
       return map;
 
     for (const item of b.items) {
-      if (item.type === SHARP_PLATFORM)
+      if (item.type === sharp)
         continue;
-      if (!SOFT_PLATFORMS.includes(item.type))
+      if (!softPlatforms.includes(item.type))
         continue;
 
       for (const side of ["Home", "Away"] as BetSide[]) {
@@ -54,9 +59,8 @@ export function useEvMarker(
           continue;
         const fairOdds = side === "Home" ? fair.fairHome : fair.fairAway;
         const edge = calcEdge(softOdds, fairOdds);
-        if (edge > NEAR_EDGE) {
+        if (edge >= floor)
           map.set(`${item.type}:${side}`, { edge, fairOdds });
-        }
       }
     }
 
@@ -69,31 +73,30 @@ export function useEvMarker(
 
   function isPositiveEv(item: ViewBetItem, side: BetSide): boolean {
     const e = _get(item, side);
-    return !!e && e.edge >= MIN_EDGE;
+    return !!e && e.edge >= calcOpts.value.minEdge;
   }
 
   function isNearEv(item: ViewBetItem, side: BetSide): boolean {
     const e = _get(item, side);
-    return !!e && e.edge >= NEAR_EDGE && e.edge < MIN_EDGE;
+    return !!e && e.edge >= calcOpts.value.nearEdge && e.edge < calcOpts.value.minEdge;
   }
 
   function evLabel(item: ViewBetItem, side: BetSide): string | undefined {
     const e = _get(item, side);
-    if (!e || e.edge < NEAR_EDGE)
+    if (!e)
       return undefined;
-    // 第一期金额固定且仅配置用，角标只展示 edge%
     return `+${(e.edge * 100).toFixed(1)}%`;
   }
 
-  const hasPbBaseline = computed(() => {
+  const hasSharpBaseline = computed(() => {
     if (!active.value)
       return false;
     const b = toValue(bet);
-    const sharpItem = b.items.find(it => it.type === SHARP_PLATFORM);
+    const sharpItem = b.items.find(it => it.type === calcOpts.value.sharp);
     if (!sharpItem)
       return false;
     return !!readOdds(sharpItem, "Home") && !!readOdds(sharpItem, "Away");
   });
 
-  return { isPositiveEv, isNearEv, evLabel, hasPbBaseline };
+  return { isPositiveEv, isNearEv, evLabel, hasSharpBaseline };
 }

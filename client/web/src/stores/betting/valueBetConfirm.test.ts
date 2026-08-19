@@ -32,6 +32,18 @@ describe("buildValueBetConfirmPromptMessage", () => {
     expect(msg).toContain("+5.0%");
     expect(msg).toContain("非套利");
   });
+
+  it("labels fair odds with the selected sharp", () => {
+    const msg = buildValueBetConfirmPromptMessage(
+      { title: "A vs B" } as never,
+      { getBetName: () => "全场", homeName: "A", awayName: "B" } as never,
+      { type: "PB" } as never,
+      "Home",
+      { softOdds: 2.2, fairOdds: 1.95, edge: 0.05 },
+      "RAY",
+    );
+    expect(msg).toContain("公允(RAY)");
+  });
 });
 
 describe("valueBet linkId (scheme B)", () => {
