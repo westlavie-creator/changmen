@@ -135,6 +135,52 @@ async function save() {
             inactive-text="关"
           />
         </el-form-item>
+
+        <h3 class="extensions-tab__heading extensions-tab__heading--next">
+          Polymarket
+        </h3>
+
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="开：有 fo 的 PM 展示/扫描/FOK = 卖一 × 倍数（如 0.886×1.01）。无 fo 不打折。结算仍用成交价。关 = 现网。"
+            >
+              <span class="extensions-tab__tip-label">套利卖一缓冲</span>
+            </el-tooltip>
+          </template>
+          <el-switch
+            v-model="extensionPrefs.pmArbPriceBuffer.enabled"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
+            >
+              <span class="extensions-tab__tip-label">卖一倍数</span>
+            </el-tooltip>
+          </template>
+          <el-input-number
+            v-model="extensionPrefs.pmArbPriceBuffer.multiplier"
+            class="extensions-tab__num"
+            :min="1.01"
+            :max="1.1"
+            :step="0.01"
+            :precision="2"
+            :disabled="!extensionPrefs.pmArbPriceBuffer.enabled"
+            controls-position="right"
+          />
+        </el-form-item>
       </el-form>
 
       <div class="extensions-tab__panel">
@@ -290,52 +336,6 @@ async function save() {
               :max="500"
               :step="1"
               :precision="0"
-              controls-position="right"
-            />
-          </el-form-item>
-
-          <h3 class="extensions-tab__heading extensions-tab__heading--next">
-            Polymarket
-          </h3>
-
-          <el-form-item>
-            <template #label>
-              <el-tooltip
-                placement="top"
-                :show-after="200"
-                popper-class="extensions-tab-tip"
-                content="开：有 fo 的 PM 展示/扫描/FOK = 卖一 × 倍数（如 0.886×1.01）。无 fo 不打折。结算仍用成交价。关 = 现网。"
-              >
-                <span class="extensions-tab__tip-label">套利卖一缓冲</span>
-              </el-tooltip>
-            </template>
-            <el-switch
-              v-model="extensionPrefs.pmArbPriceBuffer.enabled"
-              inline-prompt
-              active-text="开"
-              inactive-text="关"
-            />
-          </el-form-item>
-
-          <el-form-item>
-            <template #label>
-              <el-tooltip
-                placement="top"
-                :show-after="200"
-                popper-class="extensions-tab-tip"
-                content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
-              >
-                <span class="extensions-tab__tip-label">卖一倍数</span>
-              </el-tooltip>
-            </template>
-            <el-input-number
-              v-model="extensionPrefs.pmArbPriceBuffer.multiplier"
-              class="extensions-tab__num"
-              :min="1.01"
-              :max="1.1"
-              :step="0.01"
-              :precision="2"
-              :disabled="!extensionPrefs.pmArbPriceBuffer.enabled"
               controls-position="right"
             />
           </el-form-item>
