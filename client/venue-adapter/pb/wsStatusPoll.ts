@@ -312,6 +312,7 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
     return;
   }
   // 扩展默认开观测；仅显式 false 才清。`enabled` 缺失不得当成关（否则 CONNECTED 仍无 M）
+  const observeEnabled = bag?.enabled !== false;
   if (bag?.enabled === false) {
     clearPbWsShadow();
     writeDebug({ shadowUiAllowed: true, enabled: false, reason: "observe_off", shadowIds: 0 });
@@ -320,14 +321,14 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
   const o = bag?.observe || {};
   if (o.phase === "off") {
     clearPbWsShadow();
-    writeDebug({ shadowUiAllowed: true, enabled: bag?.enabled !== false, reason: "phase_off", shadowIds: 0 });
+    writeDebug({ shadowUiAllowed: true, enabled: observeEnabled, reason: "phase_off", shadowIds: 0 });
     return;
   }
   const cards = o.latestOdds;
   if (!Array.isArray(cards) || !cards.length) {
     writeDebug({
       shadowUiAllowed: true,
-      enabled: bag?.enabled !== false,
+      enabled: observeEnabled,
       reason: "empty_board_keep",
       phase: o.phase,
       connected: o.connected,

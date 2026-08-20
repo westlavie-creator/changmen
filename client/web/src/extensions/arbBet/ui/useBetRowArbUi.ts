@@ -28,6 +28,8 @@ export function useBetRowArbUi(
   const legs = computed(() => {
     if (!active.value)
       return null;
+    void user.extensionPrefs.pmArbPriceBuffer.enabled;
+    void user.extensionPrefs.pmArbPriceBuffer.multiplier;
     const b = toValue(bet);
     const m = toValue(match);
     const providerKeys = providerKeysFromBetItems(b);

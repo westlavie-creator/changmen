@@ -65,7 +65,7 @@ const limitProvider = ref<PlatformId>();
 const limitItemIds = ref<string[]>([]);
 
 const betRowUiEnabled = useBetRowExtensionUiEnabled();
-const { pbWsShadowUi, pbChangmenExtensions } = storeToRefs(useUserStore());
+const { pbWsShadowUi, pbChangmenExtensions, extensionPrefs } = storeToRefs(useUserStore());
 /** 影子旁显：跟 ingest 同一道门（globalThis / localStorage），Pinia 只负责触发重算 */
 const pbWsShadowUiEnabled = computed(() => {
   void pbChangmenExtensions.value;
@@ -112,6 +112,8 @@ const evMarker = useEvMarker(() => props.bet, extensionsEnabled);
 
 const oddsByItemKey = computed(() => {
   void props.oddsDisplayTick;
+  void extensionPrefs.value.pmArbPriceBuffer.enabled;
+  void extensionPrefs.value.pmArbPriceBuffer.multiplier;
   // 电竞：MQTT/WS 只写 fo；靠 Pinia reactive Map 按 oddId 追踪 getOdds（勿用全局 foRevision 扇出）
   const out = new Map<string, { home: number; away: number }>();
   for (const item of props.bet.items) {

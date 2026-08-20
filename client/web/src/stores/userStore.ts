@@ -190,6 +190,12 @@ export const useUserStore = defineStore("user", {
       catch {
         /* adapter 未加载时忽略 */
       }
+      try {
+        await this.syncPmArbPriceBufferFromPrefs();
+      }
+      catch {
+        /* adapter 未加载时忽略 */
+      }
       this.follow = null;
       this.extrasLoaded = false;
       this.config = createDefaultUserConfig();
@@ -225,6 +231,7 @@ export const useUserStore = defineStore("user", {
       this.message = msg ?? {};
       this.extensionPrefs = normalizeExtensionPrefs(ext);
       await this.syncPbCollectModeFromLocal();
+      await this.syncPmArbPriceBufferFromPrefs();
       if (gen !== this.extrasLoadGen)
         return;
       this.follow = follow ?? null;
@@ -253,6 +260,12 @@ export const useUserStore = defineStore("user", {
       setPbWsShadowUiAllowed(this.pbChangmenExtensions === true && this.pbWsShadowUi === true);
     },
 
+    /** Extensions → venue-adapter PM 套利缓冲配置（供后续 FOK/展示接线） */
+    async syncPmArbPriceBufferFromPrefs() {
+      const { setPmArbPriceBufferPrefs } = await import("@changmen/venue-adapter/polymarket");
+      setPmArbPriceBufferPrefs(this.extensionPrefs.pmArbPriceBuffer);
+    },
+
     /** 本机缓存立即生效，不写 RDS */
     async setPbWsShadowUi(on: boolean) {
       const next = on === true;
@@ -279,6 +292,7 @@ export const useUserStore = defineStore("user", {
       this.extrasLoadGen += 1;
       // 失败减仓暂锁死：保存前再归一化，避免内存/旧 KV 把 enabled:true 写回
       this.extensionPrefs = normalizeExtensionPrefs(this.extensionPrefs);
+      await this.syncPmArbPriceBufferFromPrefs();
       const result = await saveClientDataDetailed(
         "Extensions",
         serializeExtensionPrefsForSave(this.extensionPrefs),

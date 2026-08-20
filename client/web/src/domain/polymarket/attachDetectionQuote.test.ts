@@ -1,8 +1,9 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { attachPolymarketDetectionQuote } from "@/domain/polymarket/attachDetectionQuote";
 import { useOddsStore } from "@/stores/oddsStore";
+import { resetPmArbPriceBufferPrefsForTests, setPmArbPriceBufferPrefs } from "@changmen/venue-adapter/polymarket";
 
 function pmOption(
   data: Record<string, unknown> | null = null,
@@ -19,6 +20,11 @@ function pmOption(
 describe("attachPolymarketDetectionQuote", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    resetPmArbPriceBufferPrefsForTests();
+  });
+
+  afterEach(() => {
+    resetPmArbPriceBufferPrefsForTests();
   });
 
   test("writes fo clobPrice when it matches option.odds", () => {
@@ -77,6 +83,24 @@ describe("attachPolymarketDetectionQuote", () => {
       detectionOdds: 1.47,
       detectionMaxPrice: 0.68,
       detectionClobPrice: 0.68,
+    });
+  });
+
+  test("buffer on writes execCap even when option.odds is effective", () => {
+    const fo = useOddsStore();
+    fo.save("Polymarket", {
+      id: "token-1",
+      odds: 1.128,
+      clobPrice: 0.886,
+      isLock: false,
+      time: Date.now(),
+    }, "mqtt");
+    setPmArbPriceBufferPrefs({ enabled: true, multiplier: 1.01 });
+    const option = pmOption(null, 1.117);
+    attachPolymarketDetectionQuote(option);
+    expect(option.data).toMatchObject({
+      detectionClobPrice: 0.8949,
+      detectionMaxPrice: 0.8949,
     });
   });
 });

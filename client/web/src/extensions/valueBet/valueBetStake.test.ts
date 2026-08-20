@@ -37,7 +37,7 @@ describe("readValueBetMoney", () => {
 
 describe("resolveValueBetStake", () => {
   it("returns 0 when amount is not configured", () => {
-    expect(resolveValueBetStake({ valueBetMoney: 0 })).toBe(0);
+    expect(resolveValueBetStake({ valueBetMoney: 0, tenNumber: false })).toBe(0);
   });
 
   it("applies tenNumber rounding when enabled", () => {

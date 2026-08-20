@@ -29,6 +29,7 @@ const defaultPrefs = {
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
   arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
+  pmArbPriceBuffer: { enabled: false, multiplier: 1.01 },
   uiTheme: "default" as const,
 };
 
@@ -243,6 +244,19 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({ uiTheme: "terminal" }).uiTheme).toBe("terminal");
     expect(normalizeExtensionPrefs({ uiTheme: "neon" }).uiTheme).toBe("default");
     expect(normalizeExtensionPrefs({}).uiTheme).toBe("default");
+  });
+
+  it("defaults pmArbPriceBuffer off at 1.01", () => {
+    expect(createDefaultExtensionPrefs().pmArbPriceBuffer).toEqual({
+      enabled: false,
+      multiplier: 1.01,
+    });
+    expect(normalizeExtensionPrefs({
+      pmArbPriceBuffer: { enabled: true, multiplier: 1.03 },
+    }).pmArbPriceBuffer).toEqual({ enabled: true, multiplier: 1.03 });
+    expect(normalizeExtensionPrefs({
+      pmArbPriceBuffer: { enabled: true, multiplier: 2 },
+    }).pmArbPriceBuffer.multiplier).toBe(1.01);
   });
 
   it("ignores legacy pbWsShadowUi from RDS Extensions payload", () => {

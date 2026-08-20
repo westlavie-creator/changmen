@@ -30,14 +30,15 @@ export function evaluateValueBetPlaceSafety(input: ValueBetPlaceSafetyInput): Va
     return "amount";
   if (!(Number.isFinite(input.minEdge) && Number.isFinite(input.edge) && input.edge >= input.minEdge))
     return "edge";
-  if (Number.isFinite(input.maxEdge) && input.edge > input.maxEdge)
+  const maxEdge = input.maxEdge;
+  if (maxEdge != null && Number.isFinite(maxEdge) && input.edge > maxEdge)
     return "edge";
   if (input.checkMute && input.muted)
     return "muted";
   if (input.checkMapLimit) {
     const maxPerMap = input.maxPerMap;
     const mapCount = input.mapCount ?? 0;
-    if (!(Number.isFinite(maxPerMap) && maxPerMap >= 1) || mapCount >= maxPerMap)
+    if (maxPerMap == null || !Number.isFinite(maxPerMap) || maxPerMap < 1 || mapCount >= maxPerMap)
       return "map_limit";
   }
   if (input.checkOddsRange) {
