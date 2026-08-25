@@ -7,8 +7,6 @@ import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
 const PREDICT_FUN_OFFICIAL_REFERRAL_URL = "https://predict.fun?ref=9F5AE";
-const PREDICT_FUN_SETTINGS_URL = "https://predict.fun/account/settings";
-const PREDICT_FUN_DEPOSIT_URL = "https://predict.fun/account/deposit";
 
 /** 场馆账号设置：场馆按钮分三行（电竞核心 / 其余 / 预测市场+DEX） */
 const PROVIDER_ROW1: PlatformId[] = ["OB", "RAY", "PB", "IA"];
@@ -546,32 +544,14 @@ function unlockRate() {
         </a>
       </el-form-item>
       <el-form-item v-if="form.provider === 'PredictFun'" label="官网入口：">
-        <div class="pf-official-links">
-          <a
-            class="poly-official-referral-link"
-            :href="PREDICT_FUN_OFFICIAL_REFERRAL_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {{ PREDICT_FUN_OFFICIAL_REFERRAL_URL }}
-          </a>
-          <a
-            class="poly-official-referral-link"
-            :href="PREDICT_FUN_DEPOSIT_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            充值页（复制「Predict 智能钱包」地址）
-          </a>
-          <a
-            class="poly-official-referral-link"
-            :href="PREDICT_FUN_SETTINGS_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            设置页（Export 导出 Privy 私钥）
-          </a>
-        </div>
+        <a
+          class="poly-official-referral-link"
+          :href="PREDICT_FUN_OFFICIAL_REFERRAL_URL"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ PREDICT_FUN_OFFICIAL_REFERRAL_URL }}
+        </a>
       </el-form-item>
       <el-form-item v-if="form.provider !== 'PredictFun'" label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />

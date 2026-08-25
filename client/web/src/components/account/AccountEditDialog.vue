@@ -1400,9 +1400,14 @@ function unlockRate() {
               {{ pfPrivyKeyHintText }}
             </span>
             <p class="poly-funder-deposit-hint">
-              打开
-              <a href="https://predict.fun/account/settings" target="_blank" rel="noopener noreferrer">账户设置</a>
-              → <strong>Export / 导出</strong> → 复制私钥。
+              <a
+                class="poly-official-referral-link"
+                href="https://predict.fun/account/settings"
+                target="_blank"
+                rel="noopener noreferrer"
+              >设置页（Export 导出 Privy 私钥）</a>
+              <br>
+              打开账户设置 → <strong>Export / 导出</strong> → 复制私钥。
               这是签名用的钥，对应的 EOA 地址一般<strong>不等于</strong>下面的智能钱包地址。
             </p>
           </el-form-item>
@@ -1414,9 +1419,14 @@ function unlockRate() {
               style="font-family: monospace; font-size: 12px"
             />
             <p class="poly-funder-deposit-hint">
-              打开
-              <a href="https://predict.fun/account/deposit" target="_blank" rel="noopener noreferrer">充值页</a>
-              ，复制标题为 <strong>「Predict 智能钱包」</strong> 的地址（文案：仅向此地址充值 USDT · BNB 链）。
+              <a
+                class="poly-official-referral-link"
+                href="https://predict.fun/account/deposit"
+                target="_blank"
+                rel="noopener noreferrer"
+              >充值页（复制「Predict 智能钱包」地址）</a>
+              <br>
+              打开充值页，复制标题为 <strong>「Predict 智能钱包」</strong> 的地址（文案：仅向此地址充值 USDT · BNB 链）。
               <br>
               <strong>不要</strong>复制下面的「智能路由地址」（跨链中转，不能当 Predict Account）。
               <br>
