@@ -67,6 +67,7 @@ function bucketsFor(provider: string, status: "Win" | "Lose") {
       count: row?.count ?? 0,
       avgAnchorOdds: row?.avg_anchor_odds ?? 0,
       avgOtherOdds: row?.avg_other_odds ?? 0,
+      profit: row?.profit ?? 0,
     };
   });
 }
@@ -88,6 +89,11 @@ function fmtOdds(n: number | undefined | null): string {
   if (n == null || Number.isNaN(n))
     return "-";
   return toFixed(n, 2);
+}
+
+function fmtMoney(n: number | undefined | null): string {
+  const v = n ?? 0;
+  return `${v >= 0 ? "+" : ""}${toFixed(v, 0)}`;
 }
 
 const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
@@ -147,7 +153,12 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
               {{ summaryFor(provider, status)!.count }} 单 ·
               {{ anchorProvider }} 均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_anchor_odds) }} ·
               对手均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_other_odds) }} ·
-              {{ fmtOdds(summaryFor(provider, status)!.min_anchor_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_anchor_odds) }}
+              {{ fmtOdds(summaryFor(provider, status)!.min_anchor_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_anchor_odds) }} ·
+              <span
+                :class="(summaryFor(provider, status)!.profit ?? 0) >= 0 ? 'text-green' : 'text-red'"
+              >
+                盈亏 {{ fmtMoney(summaryFor(provider, status)!.profit) }}
+              </span>
             </span>
             <span v-else class="ob-arb-panel__meta">0 单</span>
           </div>
@@ -183,6 +194,17 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
             <el-table-column label="对手均赔" width="80" align="right">
               <template #default="{ row }">
                 {{ row.count ? fmtOdds(row.avgOtherOdds) : "" }}
+              </template>
+            </el-table-column>
+            <el-table-column label="盈亏" min-width="90" align="right">
+              <template #default="{ row }">
+                <span
+                  v-if="row.count"
+                  :class="row.profit >= 0 ? 'text-green' : 'text-red'"
+                  :title="`该区间 ${anchorProvider} 侧订单真实盈亏（CNY）`"
+                >
+                  {{ fmtMoney(row.profit) }}
+                </span>
               </template>
             </el-table-column>
           </el-table>

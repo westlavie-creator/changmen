@@ -1477,50 +1477,70 @@ END`;
  * 数据分析：锚定平台（OB / RAY 等）套利腿 vs 其他平台 — 按赢/输分组的锚定赔率分布。
  * 口径：[changmen 扩展]（A8 无对应管理分析）。套利双腿（Link ≥ 1e12）中锚定侧已结算
  * 为 Win/Lose 的订单，按锚定侧下注赔率分桶，并显示同组对手腿均赔。
+ * 盈亏：订单级真实金额（每张锚定订单对每个对手平台只计一次，避免 JOIN 展开重复 SUM）；
+ * 沿用平台盈亏 CNY 口径（sqlOrderMoneyCny）。Win 为正 / Lose 为负。
  */
 export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvider = "OB") {
   const pool = getPgPool();
   if (!pool)
     return { buckets: [], summary: [] };
   try {
-    const params = [startMs, endMs, anchorProvider];
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, anchorProvider, fx];
     const uf = appendUserIdsFilter(params, userIds);
     const userFilter = uf ? uf.replace(/\buser_id\b/g, "a.user_id") : "";
-    const baseJoin = `
-      FROM orders a
-      JOIN orders o ON ABS(a.link) = ABS(o.link)
-        AND a.user_id = o.user_id
-        AND a.id <> o.id
-        AND a.provider = $3
-        AND o.provider <> $3
-      WHERE ABS(a.link) >= 1000000000000
-        AND a.create_at >= $1 AND a.create_at < $2
-        AND a.status IN ('Win', 'Lose')${userFilter}`;
+    const moneyCnyA = sqlOrderMoneyCny("a", "$4");
+    const pairCte = `
+      WITH pair_rows AS (
+        SELECT
+          a.id AS anchor_id,
+          a.status AS anchor_status,
+          a.odds AS anchor_odds,
+          ${ARB_ODDS_BUCKET_SQL} AS anchor_odds_bucket,
+          (${moneyCnyA}) AS anchor_money_cny,
+          o.provider AS other_provider,
+          AVG(o.odds)::float AS avg_other_odds
+        FROM orders a
+        JOIN orders o ON ABS(a.link) = ABS(o.link)
+          AND a.user_id = o.user_id
+          AND a.id <> o.id
+          AND a.provider = $3
+          AND o.provider <> $3
+        WHERE ABS(a.link) >= 1000000000000
+          AND a.create_at >= $1 AND a.create_at < $2
+          AND a.status IN ('Win', 'Lose')${userFilter}
+        GROUP BY a.id, a.status, a.odds, ${ARB_ODDS_BUCKET_SQL}, ${moneyCnyA}, o.provider
+      )
+    `;
     const { rows: buckets } = await pool.query(
-      `SELECT
-        o.provider AS other_provider,
-        a.status AS anchor_status,
-        ${ARB_ODDS_BUCKET_SQL} AS anchor_odds_bucket,
+      `${pairCte}
+      SELECT
+        other_provider,
+        anchor_status,
+        anchor_odds_bucket,
         COUNT(*)::int AS count,
-        AVG(a.odds)::float AS avg_anchor_odds,
-        AVG(o.odds)::float AS avg_other_odds
-      ${baseJoin}
-      GROUP BY o.provider, a.status, anchor_odds_bucket
-      ORDER BY o.provider, a.status, anchor_odds_bucket`,
+        AVG(anchor_odds)::float AS avg_anchor_odds,
+        AVG(avg_other_odds)::float AS avg_other_odds,
+        COALESCE(SUM(anchor_money_cny), 0)::float AS profit
+      FROM pair_rows
+      GROUP BY other_provider, anchor_status, anchor_odds_bucket
+      ORDER BY other_provider, anchor_status, anchor_odds_bucket`,
       params,
     );
     const { rows: summary } = await pool.query(
-      `SELECT
-        o.provider AS other_provider,
-        a.status AS anchor_status,
+      `${pairCte}
+      SELECT
+        other_provider,
+        anchor_status,
         COUNT(*)::int AS count,
-        AVG(a.odds)::float AS avg_anchor_odds,
-        AVG(o.odds)::float AS avg_other_odds,
-        MIN(a.odds)::float AS min_anchor_odds,
-        MAX(a.odds)::float AS max_anchor_odds
-      ${baseJoin}
-      GROUP BY o.provider, a.status
-      ORDER BY o.provider, a.status`,
+        AVG(anchor_odds)::float AS avg_anchor_odds,
+        AVG(avg_other_odds)::float AS avg_other_odds,
+        MIN(anchor_odds)::float AS min_anchor_odds,
+        MAX(anchor_odds)::float AS max_anchor_odds,
+        COALESCE(SUM(anchor_money_cny), 0)::float AS profit
+      FROM pair_rows
+      GROUP BY other_provider, anchor_status
+      ORDER BY other_provider, anchor_status`,
       params,
     );
     return { buckets: buckets || [], summary: summary || [] };

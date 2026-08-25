@@ -534,7 +534,7 @@ describe("fetchArbOddsAnalytics SQL", () => {
     queryMock.mockReset();
   });
 
-  it("parameterizes anchor provider as $3 and keeps bucket/alias columns", async () => {
+  it("parameterizes anchor provider as $3 with fx $4 and keeps bucket/alias/profit columns", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     const { fetchArbOddsAnalytics } = await import("./orders_store.js");
     const out = await fetchArbOddsAnalytics(1000, 2000, null, "RAY");
@@ -548,12 +548,16 @@ describe("fetchArbOddsAnalytics SQL", () => {
       expect(sql).toMatch(/a\.status IN \('Win', 'Lose'\)/);
       expect(sql).toMatch(/anchor_status/);
       expect(sql).toMatch(/other_provider/);
+      expect(sql).toMatch(/SUM\(anchor_money_cny\)/);
     }
     expect(bucketSql).toMatch(/anchor_odds_bucket/);
+    expect(bucketSql).toMatch(/GROUP BY a\.id/);
     expect(summarySql).toMatch(/min_anchor_odds/);
     expect(summarySql).toMatch(/max_anchor_odds/);
-    expect(bucketParams).toEqual([1000, 2000, "RAY"]);
-    expect(summaryParams).toEqual([1000, 2000, "RAY"]);
+    expect(bucketParams.slice(0, 3)).toEqual([1000, 2000, "RAY"]);
+    expect(summaryParams.slice(0, 3)).toEqual([1000, 2000, "RAY"]);
+    expect(typeof bucketParams[3]).toBe("number");
+    expect(typeof summaryParams[3]).toBe("number");
   });
 
   it("scopes user filter to anchor alias when userIds present", async () => {
@@ -563,9 +567,11 @@ describe("fetchArbOddsAnalytics SQL", () => {
     await fetchArbOddsAnalytics(1000, 2000, userIds, "OB");
     expect(queryMock).toHaveBeenCalledTimes(2);
     for (const [sql, params] of queryMock.mock.calls) {
-      expect(sql).toMatch(/a\.user_id = ANY\(\$4::uuid\[\]\)/);
+      expect(sql).toMatch(/a\.user_id = ANY\(\$5::uuid\[\]\)/);
       expect(sql).not.toMatch(/ob\.user_id/);
-      expect(params).toEqual([1000, 2000, "OB", userIds]);
+      expect(params.slice(0, 3)).toEqual([1000, 2000, "OB"]);
+      expect(typeof params[3]).toBe("number");
+      expect(params[4]).toEqual(userIds);
     }
   });
 });

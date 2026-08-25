@@ -441,6 +441,8 @@ export interface ArbOddsBucketRow {
   count: number;
   avg_anchor_odds: number;
   avg_other_odds: number;
+  /** 该区间锚定侧订单真实盈亏（CNY，订单级去重；Win 正 / Lose 负） */
+  profit: number;
 }
 
 export interface ArbOddsSummaryRow {
@@ -451,6 +453,8 @@ export interface ArbOddsSummaryRow {
   avg_other_odds: number;
   min_anchor_odds: number;
   max_anchor_odds: number;
+  /** 该组合锚定侧订单真实盈亏（CNY，订单级去重；Win 正 / Lose 负） */
+  profit: number;
 }
 
 export interface ArbOddsAnalyticsPayload {
