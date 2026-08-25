@@ -11,6 +11,7 @@ import https from "node:https";
 import tls from "node:tls";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { browserNodeBuiltins } from "./vite/plugins/browserNodeBuiltins";
 import { matcherDevRedirect } from "./vite/plugins/matcherDevRedirect";
 import {
   VENUE_ADAPTER_REL,
@@ -185,6 +186,8 @@ export default defineConfig(({ mode }) => {
   return {
   base: "/",
   plugins: [
+    // 须靠前：alias/optimizeDeps 影响 builder-relayer-client 预构建
+    browserNodeBuiltins(),
     vue(),
     AutoImport({
       resolvers: [elementPlusResolver],

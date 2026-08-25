@@ -1,3 +1,4 @@
+import "@/polyfills/nodeBuiltins";
 import "element-plus/theme-chalk/dark/css-vars.css";
 // 显式 `import { ElMessage } from "element-plus"` 不会走 unplugin 样式注入
 import "element-plus/es/components/message/style/css";
