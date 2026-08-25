@@ -123,11 +123,11 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
     </div>
 
     <p v-if="hasData" class="section-hint">
-      套利双腿（Link ≥ 1e12）中 {{ anchorProvider }} 一侧已结算为赢/输的订单；按 {{ anchorProvider }} 下注赔率分桶，并显示同组对手腿均赔。
+      与上方「套利配对」同一套双腿样本（剔卖单、去重）；仅两边均已 Win/Lose。按 {{ anchorProvider }} 赔率分桶；盈亏为双腿净利（可与配对表已结算对账）。
     </p>
 
     <div v-if="!hasData" class="analytics-empty">
-      暂无 {{ anchorProvider }} 套利赔率数据（需存在 {{ anchorProvider }} + 其他平台的双腿套利且 {{ anchorProvider }} 已赢/输结算）
+      暂无 {{ anchorProvider }} 套利赔率数据（需存在 {{ anchorProvider }} + 其他平台的已结算双腿套利）
     </div>
 
     <div
@@ -201,7 +201,7 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
                 <span
                   v-if="row.count"
                   :class="row.profit >= 0 ? 'text-green' : 'text-red'"
-                  :title="`该区间 ${anchorProvider} 侧订单真实盈亏（CNY）`"
+                  :title="`该区间套利对双腿净利（CNY，与配对表同口径）`"
                 >
                   {{ fmtMoney(row.profit) }}
                 </span>

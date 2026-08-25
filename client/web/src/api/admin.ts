@@ -376,6 +376,10 @@ export interface ArbPairRow {
   pair_count: number;
   /** 一胜一负 */
   hedge_ok: number;
+  /** provider_a 赢 / provider_b 输 */
+  a_win_b_lose: number;
+  /** provider_a 输 / provider_b 赢 */
+  a_lose_b_win: number;
   /** 两腿均为 Win/Lose */
   settled_pairs: number;
   both_win: number;
@@ -389,6 +393,10 @@ export interface ArbPairRow {
   net_profit: number;
   total_bet: number;
   profit_hedge: number;
+  /** A赢B输 双腿净利 */
+  profit_a_win_b_lose: number;
+  /** A输B赢 双腿净利 */
+  profit_a_lose_b_win: number;
   profit_reject: number;
   profit_both_lose: number;
   profit_both_win: number;
@@ -441,7 +449,7 @@ export interface ArbOddsBucketRow {
   count: number;
   avg_anchor_odds: number;
   avg_other_odds: number;
-  /** 该区间锚定侧订单真实盈亏（CNY，订单级去重；Win 正 / Lose 负） */
+  /** 该区间套利对双腿净利（CNY；与套利配对表同口径） */
   profit: number;
 }
 
@@ -453,7 +461,7 @@ export interface ArbOddsSummaryRow {
   avg_other_odds: number;
   min_anchor_odds: number;
   max_anchor_odds: number;
-  /** 该组合锚定侧订单真实盈亏（CNY，订单级去重；Win 正 / Lose 负） */
+  /** 该组合套利对双腿净利（CNY；与套利配对表同口径） */
   profit: number;
 }
 

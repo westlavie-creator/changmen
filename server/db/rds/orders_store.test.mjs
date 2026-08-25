@@ -522,6 +522,10 @@ describe("fetchArbPairAnalytics SQL", () => {
     expect(sql).toMatch(/pfSide/);
     expect(sql).toMatch(/ROW_NUMBER\(\)/);
     expect(sql).toMatch(/profit_hedge/);
+    expect(sql).toMatch(/profit_a_win_b_lose/);
+    expect(sql).toMatch(/profit_a_lose_b_win/);
+    expect(sql).toMatch(/a_win_b_lose/);
+    expect(sql).toMatch(/a_lose_b_win/);
     expect(sql).toMatch(/profit_reject/);
     expect(sql).toMatch(/hedge_ok/);
     expect(sql).toMatch(/settled_pairs/);
@@ -534,7 +538,7 @@ describe("fetchArbOddsAnalytics SQL", () => {
     queryMock.mockReset();
   });
 
-  it("parameterizes anchor provider as $3 with fx $4 and keeps bucket/alias/profit columns", async () => {
+  it("shares uniq CTE and sums pair net profit with settled both legs", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     const { fetchArbOddsAnalytics } = await import("./orders_store.js");
     const out = await fetchArbOddsAnalytics(1000, 2000, null, "RAY");
@@ -543,15 +547,21 @@ describe("fetchArbOddsAnalytics SQL", () => {
     const [bucketSql, bucketParams] = queryMock.mock.calls[0];
     const [summarySql, summaryParams] = queryMock.mock.calls[1];
     for (const sql of [bucketSql, summarySql]) {
+      expect(sql).toMatch(/pmSide/);
+      expect(sql).toMatch(/pfSide/);
+      expect(sql).toMatch(/ROW_NUMBER\(\)/);
+      expect(sql).toMatch(/FROM uniq a/);
+      expect(sql).toMatch(/JOIN uniq o/);
       expect(sql).toMatch(/a\.provider = \$3/);
       expect(sql).toMatch(/o\.provider <> \$3/);
       expect(sql).toMatch(/a\.status IN \('Win', 'Lose'\)/);
+      expect(sql).toMatch(/o\.status IN \('Win', 'Lose'\)/);
       expect(sql).toMatch(/anchor_status/);
       expect(sql).toMatch(/other_provider/);
-      expect(sql).toMatch(/SUM\(anchor_money_cny\)/);
+      expect(sql).toMatch(/SUM\(pair_money_cny\)/);
+      expect(sql).not.toMatch(/anchor_money_cny/);
     }
     expect(bucketSql).toMatch(/anchor_odds_bucket/);
-    expect(bucketSql).toMatch(/GROUP BY a\.id/);
     expect(summarySql).toMatch(/min_anchor_odds/);
     expect(summarySql).toMatch(/max_anchor_odds/);
     expect(bucketParams.slice(0, 3)).toEqual([1000, 2000, "RAY"]);
@@ -560,14 +570,14 @@ describe("fetchArbOddsAnalytics SQL", () => {
     expect(typeof summaryParams[3]).toBe("number");
   });
 
-  it("scopes user filter to anchor alias when userIds present", async () => {
+  it("scopes user filter to legs alias when userIds present", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     const { fetchArbOddsAnalytics } = await import("./orders_store.js");
     const userIds = ["u1", "u2"];
     await fetchArbOddsAnalytics(1000, 2000, userIds, "OB");
     expect(queryMock).toHaveBeenCalledTimes(2);
     for (const [sql, params] of queryMock.mock.calls) {
-      expect(sql).toMatch(/a\.user_id = ANY\(\$5::uuid\[\]\)/);
+      expect(sql).toMatch(/o\.user_id = ANY\(\$5::uuid\[\]\)/);
       expect(sql).not.toMatch(/ob\.user_id/);
       expect(params.slice(0, 3)).toEqual([1000, 2000, "OB"]);
       expect(typeof params[3]).toBe("number");

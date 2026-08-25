@@ -250,7 +250,7 @@ onMounted(async () => {
         套利配对
       </h3>
       <p class="analytics-section__hint">
-        口径：同 link 两馆<strong>买单</strong>一对一（已排除 PM/PF 卖单双计）。对冲率 = 一胜一负 / 两腿均已 Win·Lose。分项盈亏用于区分「锁利质量 / 拒单单边 / 双输」。
+        口径：同 link 两馆<strong>买单</strong>一对一（已排除 PM/PF 卖单双计）。对冲率 = 一胜一负 / 两腿均已 Win·Lose。结构按<strong>哪馆赢哪馆输</strong>分列；分项盈亏均为双腿净利。
       </p>
       <el-table v-if="pairs.length" :data="pairs" stripe size="small">
         <el-table-column label="平台组合" width="140" fixed>
@@ -266,12 +266,16 @@ onMounted(async () => {
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="结构" min-width="200">
+        <el-table-column label="结构" min-width="240">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
-                <span class="venue-cmp__name">对冲</span>
-                <span>{{ row.hedge_ok ?? 0 }}</span>
+                <span class="venue-cmp__name">{{ row.provider_a }} 赢 / {{ row.provider_b }} 输</span>
+                <span>{{ row.a_win_b_lose ?? 0 }}</span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_a }} 输 / {{ row.provider_b }} 赢</span>
+                <span>{{ row.a_lose_b_win ?? 0 }}</span>
               </div>
               <div class="venue-cmp__row">
                 <span class="venue-cmp__name">拒单组</span>
@@ -308,13 +312,19 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="分项盈亏" min-width="220">
+        <el-table-column label="分项盈亏" min-width="260">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
-                <span class="venue-cmp__name">对冲</span>
-                <span :class="(row.profit_hedge ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ signedMoney(row.profit_hedge) }}
+                <span class="venue-cmp__name">{{ row.provider_a }} 赢 / {{ row.provider_b }} 输</span>
+                <span :class="(row.profit_a_win_b_lose ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_a_win_b_lose) }}
+                </span>
+              </div>
+              <div class="venue-cmp__row">
+                <span class="venue-cmp__name">{{ row.provider_a }} 输 / {{ row.provider_b }} 赢</span>
+                <span :class="(row.profit_a_lose_b_win ?? 0) >= 0 ? 'text-green' : 'text-red'">
+                  {{ signedMoney(row.profit_a_lose_b_win) }}
                 </span>
               </div>
               <div class="venue-cmp__row">
@@ -535,7 +545,7 @@ onMounted(async () => {
 .venue-cmp__name {
   color: var(--el-text-color-secondary);
   font-size: 12px;
-  min-width: 48px;
+  min-width: 140px;
 }
 .analytics-empty { text-align: center; padding: 30px; color: var(--el-text-color-secondary); }
 .hourly-chart {

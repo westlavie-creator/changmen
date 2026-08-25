@@ -1248,6 +1248,44 @@ function appendUserIdsFilter(params, userIds) {
   return ` AND user_id = ANY($${params.length}::uuid[])`;
 }
 
+/**
+ * 套利分析共用 CTE：剔 PM/PF 卖单 + 每 (user, abs(link), provider) 一笔买单。
+ * 依赖 params：$1=startMs，$2=endMs。
+ * @param {string} userFilterOnO 已带 AND 的过滤，列须写成 o.user_id
+ */
+function sqlArbUniqCtes(userFilterOnO = "") {
+  return `legs AS (
+        SELECT o.*
+        FROM orders o
+        WHERE ABS(o.link) >= 1000000000000
+          AND o.create_at >= $1 AND o.create_at < $2
+          AND o.provider IS NOT NULL AND o.provider != ''
+          AND NOT (
+            o.provider = 'Polymarket'
+            AND LOWER(COALESCE(o.raw->>'pmSide', '')) = 'sell'
+          )
+          AND NOT (
+            o.provider = 'PredictFun'
+            AND LOWER(COALESCE(o.raw->>'pfSide', '')) = 'sell'
+          )
+          ${userFilterOnO}
+      ),
+      ranked AS (
+        SELECT legs.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY legs.user_id, ABS(legs.link), legs.provider
+            ORDER BY
+              CASE WHEN legs.status = 'Reject' THEN 1 ELSE 0 END ASC,
+              legs.create_at DESC,
+              legs.id DESC
+          ) AS rn
+        FROM legs
+      ),
+      uniq AS (
+        SELECT * FROM ranked WHERE rn = 1
+      )`;
+}
+
 /** 数据分析：按平台聚合盈亏统计 */
 export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
@@ -1286,7 +1324,7 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
  * 数据分析：套利配对统计（按 abs(link) 配两馆买单）。
  * - 排除 PM/PF 卖单，避免同一 link 与对馆笛卡尔双计
  * - 每 (user, abs(link), provider) 只取一笔：优先非 Reject，再取最新买单
- * - 分项：对冲成功 / 双赢 / 双输 / 拒单组 / 未结算，便于调策略
+ * - 分项：对冲方向（A赢B输 / A输B赢）/ 双赢 / 双输 / 拒单组 / 未结算
  */
 export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
@@ -1296,47 +1334,21 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
     const fx = getExchange(Currency.USDT);
     const params = [startMs, endMs, fx];
     const uf = appendUserIdsFilter(params, userIds);
+    const userFilterOnO = uf ? uf.replace(/\buser_id\b/g, "o.user_id") : "";
     const moneyA = sqlOrderMoneyCny("a", "$3");
     const moneyB = sqlOrderMoneyCny("b", "$3");
     const betA = sqlOrderBetCny("a", "$3");
     const betB = sqlOrderBetCny("b", "$3");
     const settled = `(status_a IN ('Win','Lose') AND status_b IN ('Win','Lose'))`;
-    const hedgeOk = `((status_a = 'Win' AND status_b = 'Lose') OR (status_a = 'Lose' AND status_b = 'Win'))`;
+    const aWinBLose = `(status_a = 'Win' AND status_b = 'Lose')`;
+    const aLoseBWin = `(status_a = 'Lose' AND status_b = 'Win')`;
+    const hedgeOk = `(${aWinBLose} OR ${aLoseBWin})`;
     const hasReject = `(status_a = 'Reject' OR status_b = 'Reject')`;
     const pending = `(NOT ${hasReject} AND (status_a = 'None' OR status_b = 'None'
       OR status_a = 'Pending' OR status_b = 'Pending'
       OR status_a = 'Return' OR status_b = 'Return'))`;
     const { rows } = await pool.query(
-      `WITH legs AS (
-        SELECT o.*
-        FROM orders o
-        WHERE ABS(o.link) >= 1000000000000
-          AND o.create_at >= $1 AND o.create_at < $2
-          AND o.provider IS NOT NULL AND o.provider != ''
-          AND NOT (
-            o.provider = 'Polymarket'
-            AND LOWER(COALESCE(o.raw->>'pmSide', '')) = 'sell'
-          )
-          AND NOT (
-            o.provider = 'PredictFun'
-            AND LOWER(COALESCE(o.raw->>'pfSide', '')) = 'sell'
-          )
-          ${uf ? uf.replace("user_id", "o.user_id") : ""}
-      ),
-      ranked AS (
-        SELECT legs.*,
-          ROW_NUMBER() OVER (
-            PARTITION BY legs.user_id, ABS(legs.link), legs.provider
-            ORDER BY
-              CASE WHEN legs.status = 'Reject' THEN 1 ELSE 0 END ASC,
-              legs.create_at DESC,
-              legs.id DESC
-          ) AS rn
-        FROM legs
-      ),
-      uniq AS (
-        SELECT * FROM ranked WHERE rn = 1
-      ),
+      `WITH ${sqlArbUniqCtes(userFilterOnO)},
       pairs AS (
         SELECT
           a.provider AS provider_a, b.provider AS provider_b,
@@ -1352,6 +1364,8 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
         provider_a, provider_b,
         COUNT(*)::int AS pair_count,
         COUNT(*) FILTER (WHERE ${hedgeOk})::int AS hedge_ok,
+        COUNT(*) FILTER (WHERE ${aWinBLose})::int AS a_win_b_lose,
+        COUNT(*) FILTER (WHERE ${aLoseBWin})::int AS a_lose_b_win,
         COUNT(*) FILTER (WHERE ${settled})::int AS settled_pairs,
         COUNT(*) FILTER (WHERE status_a = 'Win' AND status_b = 'Win')::int AS both_win,
         COUNT(*) FILTER (WHERE status_a = 'Lose' AND status_b = 'Lose')::int AS both_lose,
@@ -1364,6 +1378,8 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
         COALESCE(SUM(money_a + money_b), 0)::float AS net_profit,
         COALESCE(SUM(bet_a + bet_b), 0)::float AS total_bet,
         COALESCE(SUM(money_a + money_b) FILTER (WHERE ${hedgeOk}), 0)::float AS profit_hedge,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE ${aWinBLose}), 0)::float AS profit_a_win_b_lose,
+        COALESCE(SUM(money_a + money_b) FILTER (WHERE ${aLoseBWin}), 0)::float AS profit_a_lose_b_win,
         COALESCE(SUM(money_a + money_b) FILTER (WHERE ${hasReject}), 0)::float AS profit_reject,
         COALESCE(SUM(money_a + money_b) FILTER (WHERE status_a = 'Lose' AND status_b = 'Lose'), 0)::float AS profit_both_lose,
         COALESCE(SUM(money_a + money_b) FILTER (WHERE status_a = 'Win' AND status_b = 'Win'), 0)::float AS profit_both_win,
@@ -1475,10 +1491,8 @@ END`;
 
 /**
  * 数据分析：锚定平台（OB / RAY 等）套利腿 vs 其他平台 — 按赢/输分组的锚定赔率分布。
- * 口径：[changmen 扩展]（A8 无对应管理分析）。套利双腿（Link ≥ 1e12）中锚定侧已结算
- * 为 Win/Lose 的订单，按锚定侧下注赔率分桶，并显示同组对手腿均赔。
- * 盈亏：订单级真实金额（每张锚定订单对每个对手平台只计一次，避免 JOIN 展开重复 SUM）；
- * 沿用平台盈亏 CNY 口径（sqlOrderMoneyCny）。Win 为正 / Lose 为负。
+ * 口径：[changmen 扩展]。与 fetchArbPairAnalytics 共用 legs/uniq（剔卖单 + 去重）；
+ * 仅两边均已 Win/Lose 的套利对；按锚定侧赔率分桶；盈亏为双腿净利（CNY）。
  */
 export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvider = "OB") {
   const pool = getPgPool();
@@ -1488,28 +1502,27 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
     const fx = getExchange(Currency.USDT);
     const params = [startMs, endMs, anchorProvider, fx];
     const uf = appendUserIdsFilter(params, userIds);
-    const userFilter = uf ? uf.replace(/\buser_id\b/g, "a.user_id") : "";
+    const userFilterOnO = uf ? uf.replace(/\buser_id\b/g, "o.user_id") : "";
     const moneyCnyA = sqlOrderMoneyCny("a", "$4");
+    const moneyCnyO = sqlOrderMoneyCny("o", "$4");
     const pairCte = `
-      WITH pair_rows AS (
+      WITH ${sqlArbUniqCtes(userFilterOnO)},
+      pair_rows AS (
         SELECT
           a.id AS anchor_id,
           a.status AS anchor_status,
           a.odds AS anchor_odds,
           ${ARB_ODDS_BUCKET_SQL} AS anchor_odds_bucket,
-          (${moneyCnyA}) AS anchor_money_cny,
+          (${moneyCnyA}) + (${moneyCnyO}) AS pair_money_cny,
           o.provider AS other_provider,
-          AVG(o.odds)::float AS avg_other_odds
-        FROM orders a
-        JOIN orders o ON ABS(a.link) = ABS(o.link)
+          o.odds::float AS other_odds
+        FROM uniq a
+        JOIN uniq o ON ABS(a.link) = ABS(o.link)
           AND a.user_id = o.user_id
-          AND a.id <> o.id
           AND a.provider = $3
           AND o.provider <> $3
-        WHERE ABS(a.link) >= 1000000000000
-          AND a.create_at >= $1 AND a.create_at < $2
-          AND a.status IN ('Win', 'Lose')${userFilter}
-        GROUP BY a.id, a.status, a.odds, ${ARB_ODDS_BUCKET_SQL}, ${moneyCnyA}, o.provider
+        WHERE a.status IN ('Win', 'Lose')
+          AND o.status IN ('Win', 'Lose')
       )
     `;
     const { rows: buckets } = await pool.query(
@@ -1520,8 +1533,8 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
         anchor_odds_bucket,
         COUNT(*)::int AS count,
         AVG(anchor_odds)::float AS avg_anchor_odds,
-        AVG(avg_other_odds)::float AS avg_other_odds,
-        COALESCE(SUM(anchor_money_cny), 0)::float AS profit
+        AVG(other_odds)::float AS avg_other_odds,
+        COALESCE(SUM(pair_money_cny), 0)::float AS profit
       FROM pair_rows
       GROUP BY other_provider, anchor_status, anchor_odds_bucket
       ORDER BY other_provider, anchor_status, anchor_odds_bucket`,
@@ -1534,10 +1547,10 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
         anchor_status,
         COUNT(*)::int AS count,
         AVG(anchor_odds)::float AS avg_anchor_odds,
-        AVG(avg_other_odds)::float AS avg_other_odds,
+        AVG(other_odds)::float AS avg_other_odds,
         MIN(anchor_odds)::float AS min_anchor_odds,
         MAX(anchor_odds)::float AS max_anchor_odds,
-        COALESCE(SUM(anchor_money_cny), 0)::float AS profit
+        COALESCE(SUM(pair_money_cny), 0)::float AS profit
       FROM pair_rows
       GROUP BY other_provider, anchor_status
       ORDER BY other_provider, anchor_status`,
