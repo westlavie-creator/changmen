@@ -776,7 +776,8 @@ export async function deleteTeam(id) {
   return { id: tid };
 }
 
-export async function getPlatformAnalytics(body = {}, caller = null) {
+/** 数据分析 / 正 EV 分析共用：解析日/月/全部时间窗 */
+function resolveAnalyticsRange(body = {}) {
   let startMs, endMs;
   // form-urlencoded：all=true 会变成字符串 "true"
   const allFlag = body.all === true || body.all === 1 || body.all === "1"
@@ -805,14 +806,21 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     startMs = d.getTime();
     endMs = startMs + 86400000;
   }
-  let userIds;
-  if (caller && !isAdminUser(caller)) {
-    const allProfiles = await sb.fetchProfilesAdmin();
-    const visibleIds = resolveVisibleUserIds(caller, allProfiles);
-    if (visibleIds)
-      userIds = [...visibleIds];
-  }
-  const [platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds, valueBet] = await Promise.all([
+  return { startMs, endMs };
+}
+
+async function resolveAnalyticsUserIds(caller) {
+  if (!caller || isAdminUser(caller))
+    return undefined;
+  const allProfiles = await sb.fetchProfilesAdmin();
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  return visibleIds ? [...visibleIds] : undefined;
+}
+
+export async function getPlatformAnalytics(body = {}, caller = null) {
+  const { startMs, endMs } = resolveAnalyticsRange(body);
+  const userIds = await resolveAnalyticsUserIds(caller);
+  const [platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs, userIds),
     sb.fetchArbPairAnalytics(startMs, endMs, userIds),
     sb.fetchGameAnalytics(startMs, endMs, userIds),
@@ -820,9 +828,16 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     sb.fetchAccountAnalytics(startMs, endMs, userIds),
     sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "OB"),
     sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "RAY"),
-    sb.fetchValueBetOrderAnalytics(startMs, endMs, userIds),
   ]);
-  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds, valueBet };
+  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds };
+}
+
+/** [changmen 扩展] 正 EV 历史统计（场馆 × 赔率区间） */
+export async function getValueBetOrderAnalytics(body = {}, caller = null) {
+  const { startMs, endMs } = resolveAnalyticsRange(body);
+  const userIds = await resolveAnalyticsUserIds(caller);
+  const valueBet = await sb.fetchValueBetOrderAnalytics(startMs, endMs, userIds);
+  return { startMs, endMs, ...valueBet };
 }
 
 export async function getPolymarketBuilderDashboard(body = {}, caller = null) {

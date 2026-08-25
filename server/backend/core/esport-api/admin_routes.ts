@@ -210,6 +210,9 @@ export async function handleAdminAction(
     case "Client_AdminPlatformAnalytics": {
       return ok(await adminService.getPlatformAnalytics(body, ctx.user));
     }
+    case "Client_AdminValueBetAnalytics": {
+      return ok(await adminService.getValueBetOrderAnalytics(body, ctx.user));
+    }
     case "Client_AdminPolymarketBuilder": {
       return ok(await adminService.getPolymarketBuilderDashboard(body, ctx.user));
     }

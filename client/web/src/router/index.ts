@@ -74,6 +74,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/ev-analytics",
+      name: "admin-ev-analytics",
+      component: () => import("@/views/AdminValueBetAnalyticsView.vue"),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: "/admin/polymarket-builder",
       name: "admin-polymarket-builder",
       component: () => import("@/views/AdminPolymarketBuilderView.vue"),

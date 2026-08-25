@@ -481,6 +481,8 @@ export interface ValueBetOddsBucketRow extends ValueBetProviderRow {
 }
 
 export interface ValueBetOrderAnalyticsPayload {
+  startMs?: number;
+  endMs?: number;
   byProvider: ValueBetProviderRow[];
   byOddsBucket: ValueBetOddsBucketRow[];
 }
@@ -495,12 +497,15 @@ export interface PlatformAnalyticsPayload {
   accounts: AccountAnalyticsRow[];
   obArbOdds?: ArbOddsAnalyticsPayload;
   rayArbOdds?: ArbOddsAnalyticsPayload;
-  /** [changmen 扩展] 正 EV（link 编码）历史统计 */
-  valueBet?: ValueBetOrderAnalyticsPayload;
 }
 
 export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {
   return unwrap(await post<PlatformAnalyticsPayload>("Client_AdminPlatformAnalytics", body));
+}
+
+/** [changmen 扩展] 正 EV 历史：场馆 × 赔率区间 */
+export async function getAdminValueBetAnalytics(body: Record<string, unknown> = {}) {
+  return unwrap(await post<ValueBetOrderAnalyticsPayload>("Client_AdminValueBetAnalytics", body));
 }
 
 export interface PolymarketBuilderTradeRow {

@@ -44,6 +44,12 @@ const navItems: AdminNavItem[] = [
     to: { name: "admin-analytics" },
   },
   {
+    name: "admin-ev-analytics",
+    label: "正EV分析",
+    icon: "am-icon-star",
+    to: { name: "admin-ev-analytics" },
+  },
+  {
     name: "admin-polymarket-builder",
     label: "Poly Builder",
     icon: "am-icon-flash",
