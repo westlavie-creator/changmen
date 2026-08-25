@@ -164,9 +164,9 @@ export async function signPredictFunUserMarketBuy(params: {
   assertPredictMarketTradable(market);
 
   // approvals：失败时给出明确错误（需 Privy EOA 有 BNB）
-  if (typeof (session.orderBuilder as { setApprovals?: () => Promise<{ success?: boolean }> }).setApprovals === "function") {
+  if (typeof session.orderBuilder.setApprovals === "function") {
     try {
-      const appr = await (session.orderBuilder as { setApprovals: () => Promise<{ success?: boolean }> }).setApprovals();
+      const appr = await session.orderBuilder.setApprovals();
       if (appr && appr.success === false)
         throw new Error("Predict.fun approvals 未成功（请确认 Privy 地址有少量 BNB 作 gas）");
     }
@@ -194,19 +194,7 @@ export async function signPredictFunUserMarketBuy(params: {
   };
 
   const slippageBps = params.maxSlippageBps ?? DEFAULT_PF_USER_SLIPPAGE_BPS;
-  const orderBuilder = session.orderBuilder as {
-    getMarketOrderAmounts: (input: unknown, book: unknown) => {
-      makerAmount: bigint;
-      takerAmount: bigint;
-      pricePerShare: bigint;
-      slippageBps: bigint;
-      isMinAmountOut: boolean;
-    };
-    buildOrder: (strategy: string, opts: unknown) => unknown;
-    buildTypedData: (order: unknown, opts: unknown) => unknown;
-    signTypedDataOrder: (typed: unknown) => Promise<Record<string, unknown>>;
-    buildTypedDataHash: (typed: unknown) => string;
-  };
+  const orderBuilder = session.orderBuilder;
 
   const amounts = orderBuilder.getMarketOrderAmounts(
     {
@@ -321,19 +309,7 @@ export async function signPredictFunUserMarketSell(params: {
   };
 
   const slippageBps = params.maxSlippageBps ?? DEFAULT_PF_USER_SLIPPAGE_BPS;
-  const orderBuilder = session.orderBuilder as {
-    getMarketOrderAmounts: (input: unknown, book: unknown) => {
-      makerAmount: bigint;
-      takerAmount: bigint;
-      pricePerShare: bigint;
-      slippageBps: bigint;
-      isMinAmountOut: boolean;
-    };
-    buildOrder: (strategy: string, opts: unknown) => unknown;
-    buildTypedData: (order: unknown, opts: unknown) => unknown;
-    signTypedDataOrder: (typed: unknown) => Promise<Record<string, unknown>>;
-    buildTypedDataHash: (typed: unknown) => string;
-  };
+  const orderBuilder = session.orderBuilder;
 
   const amounts = orderBuilder.getMarketOrderAmounts(
     {

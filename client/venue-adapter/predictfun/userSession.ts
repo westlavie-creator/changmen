@@ -17,11 +17,25 @@ import {
   resolvePredictFunPrivyPrivateKey,
 } from "./credentials";
 
-export interface PredictFunUserSession {
-  orderBuilder: {
-    balanceOf: (token?: "USDT", address?: string) => Promise<bigint>;
-    signPredictAccountMessage?: (message: string) => Promise<string>;
+export interface PredictFunOrderBuilderLike {
+  balanceOf: (token?: "USDT", address?: string) => Promise<bigint>;
+  signPredictAccountMessage?: (message: string) => Promise<string>;
+  setApprovals?: () => Promise<{ success?: boolean }>;
+  getMarketOrderAmounts: (input: unknown, book: unknown) => {
+    makerAmount: bigint;
+    takerAmount: bigint;
+    pricePerShare: bigint;
+    slippageBps: bigint;
+    isMinAmountOut: boolean;
   };
+  buildOrder: (strategy: string, opts: unknown) => unknown;
+  buildTypedData: (order: unknown, opts: unknown) => unknown;
+  signTypedDataOrder: (typed: unknown) => Promise<Record<string, unknown>>;
+  buildTypedDataHash: (typed: unknown) => string;
+}
+
+export interface PredictFunUserSession {
+  orderBuilder: PredictFunOrderBuilderLike;
   maker: string;
   privyAddress: string;
   getJwt: () => Promise<string>;
@@ -105,7 +119,7 @@ async function ensureUserBuilder(
   };
   builderCache = {
     key,
-    orderBuilder: orderBuilder as PredictFunUserSession["orderBuilder"],
+    orderBuilder: orderBuilder as unknown as PredictFunOrderBuilderLike,
     maker: predictAccount,
     privyAddress,
     signMessage,
