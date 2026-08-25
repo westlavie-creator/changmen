@@ -29,6 +29,9 @@ export function mergePredictFunLogicalSave(prevRow, prevRaw, merged, money, bet_
   keepPrevStr("pfOrderHash");
   keepPrevStr("pfApiOrderId");
   keepPrevStr("pfOfficialStatus");
+  // 自签标记：sync 漏传时禁止冲掉（否则会当 house 误入账本）
+  if (merged.pfUserSigned !== true && prevRaw.pfUserSigned === true)
+    merged.pfUserSigned = true;
   // 拒单未成交：禁止把旧意向 pfSharesWei 补回（成交份额只认官网）
   if (!isUnfilledReject)
     keepPrevStr("pfSharesWei");

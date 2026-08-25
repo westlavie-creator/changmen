@@ -27,4 +27,23 @@ describe("mergePredictFunLogicalSave reject share clear", () => {
     expect(raw.pfSide).toBe("buy");
     expect(raw.pfNotionalUsdt).toBe(29.41);
   });
+
+  it("keeps pfUserSigned from prev when sync omits it", () => {
+    const { raw } = mergePredictFunLogicalSave(
+      { money: 0, bet_money: 10 },
+      {
+        pfUserSigned: true,
+        pfSide: "buy",
+        pfOrderHash: "0xabc",
+      },
+      {
+        status: "none",
+        pfSide: "buy",
+        pfOrderHash: "0xabc",
+      },
+      0,
+      10,
+    );
+    expect(raw.pfUserSigned).toBe(true);
+  });
 });

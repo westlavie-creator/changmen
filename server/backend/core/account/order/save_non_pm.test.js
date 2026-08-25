@@ -34,4 +34,23 @@ describe("finalizeNonPolymarketSave reject share clear", () => {
     expect(raw.pfShares).toBe(42);
     expect(raw.pfHoldShares).toBe(40);
   });
+
+  it("open + empty pfSellOrderId clears stale sell hash", () => {
+    const { raw } = finalizeNonPolymarketSave(
+      {
+        status: "None",
+        pfSellState: "open",
+        pfSellOrderId: "",
+        pfClearSellOrderId: true,
+      },
+      {
+        pfSellState: "closing",
+        pfSellOrderId: "0xdead",
+      },
+      0,
+      10,
+    );
+    expect(raw.pfSellOrderId).toBeUndefined();
+    expect(raw.pfClearSellOrderId).toBeUndefined();
+  });
 });

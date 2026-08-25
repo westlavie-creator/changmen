@@ -22,6 +22,13 @@ export function isPfUserSignedOrder(raw) {
   return raw?.pfUserSigned === true || raw?.PfUserSigned === true;
 }
 
+/** sync / upsert 时带回自签标记，避免 OrderData 映射冲掉 raw */
+export function pfUserSignedSavePatch(rdsRow) {
+  if (isPfUserSignedOrder(rdsRow))
+    return { pfUserSigned: true };
+  return {};
+}
+
 /**
  * @param {unknown} raw
  * @returns {InternalPfSellState}

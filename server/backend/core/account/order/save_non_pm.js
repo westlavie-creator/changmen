@@ -52,8 +52,24 @@ export function finalizeNonPolymarketSave(merged, prevRaw, money, bet_money) {
     if (Number.isFinite(prevShares) && prevShares > 0)
       merged.pfChangmenCodeFeeShares = prevShares;
   }
-  if (!String(merged.pfSellOrderId ?? "").trim() && String(prevRaw.pfSellOrderId ?? "").trim())
+  // FOK 卖出未成交回滚：显式清空 pfSellOrderId（勿 keepPrev 旧 hash）
+  const clearSellOrderId = merged.pfClearSellOrderId === true
+    || (
+      String(merged.pfSellState ?? "").toLowerCase() === "open"
+      && Object.prototype.hasOwnProperty.call(merged, "pfSellOrderId")
+      && !String(merged.pfSellOrderId ?? "").trim()
+    );
+  if (
+    !clearSellOrderId
+    && !String(merged.pfSellOrderId ?? "").trim()
+    && String(prevRaw.pfSellOrderId ?? "").trim()
+  ) {
     merged.pfSellOrderId = prevRaw.pfSellOrderId;
+  }
+  if (clearSellOrderId) {
+    delete merged.pfSellOrderId;
+    delete merged.pfClearSellOrderId;
+  }
   if (
     !(Number.isFinite(Number(merged.pfSellProceeds)) && Number(merged.pfSellProceeds) >= 0)
     && Number.isFinite(Number(prevRaw.pfSellProceeds))

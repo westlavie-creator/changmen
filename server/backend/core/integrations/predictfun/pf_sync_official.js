@@ -12,7 +12,7 @@ import {
 } from "./pf_changmen_code_fee.js";
 import { resolvePfChangmenBuyFeeRateBps, resolvePfChangmenSellFeeRateBps } from "./house_credentials.js";
 import { roundUsdt } from "./pf_ledger.js";
-import { readPfLedgerState, isPfUserSignedOrder, readInternalPfSellState } from "./pf_lifecycle.js";
+import { readPfLedgerState, isPfUserSignedOrder, readInternalPfSellState, pfUserSignedSavePatch } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
   loadPfOrdersStrict,
@@ -74,6 +74,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         pfOfficialStatus: official?.status ?? rdsRow?.pfOfficialStatus,
         pfOrderHash: rdsPfHash(rdsRow),
         pfApiOrderId: rdsPfApiOrderId(rdsRow),
+        ...pfUserSignedSavePatch(rdsRow),
       };
       delete clearRow.pfShares;
       delete clearRow.pfSharesWei;
@@ -101,7 +102,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
             pfLedgerState: "credited",
             pfPendingCreditUsdt: 0,
             pfRefundedAt: Date.now(),
-            pfUserSigned: true,
+            ...pfUserSignedSavePatch(fresh),
           }], userId);
           return {
             venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput({
@@ -162,7 +163,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         pfLedgerState: userSigned || !(stake > 0) ? "credited" : "pending_credit",
         pfPendingCreditUsdt: userSigned || !(stake > 0) ? 0 : stake,
         ...((userSigned || !(stake > 0)) ? { pfRefundedAt: Date.now() } : {}),
-        ...(userSigned ? { pfUserSigned: true } : {}),
+        ...pfUserSignedSavePatch(fresh),
       };
       // 未成交：清空意向/残留成交份额（merge 对 reject 亦不再回填）
       delete rejectRow.pfShares;
@@ -223,6 +224,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
     })();
     const buyFeeReady = isSellRow || feeRateBps <= 0 || hasWalletFeeSignal(official)
       || feeWeiReady
+      // 自签：官网 OrderData 无 fee 字段；FILLED+amountFilled 即可写 hold（fee 在 wallet events）
       || isPfUserSignedOrder(rdsRow);
     // fee 齐后再扣 Changmencodefee，并写入 hold
     if (!isSellRow && buyFeeReady) {
@@ -281,6 +283,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       ...(notional != null ? { pfNotionalUsdt: notional } : {}),
       ...feePatch,
       ...(feeRateBps >= 0 ? { pfFeeRateBps: feeRateBps } : {}),
+      ...pfUserSignedSavePatch(rdsRow),
     }], userId);
       if (!isSellRow && !buyFeeReady) {
         // 官方已 FILLED，但手续费未齐：对编排仍为 timeout，继续 GetOrder 轮询
@@ -438,6 +441,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         }),
         ...(needFillCost ? { pfFillCostUsdt: fillCost } : {}),
         ...feePatch,
+        ...pfUserSignedSavePatch(rdsRow),
       }], userId);
     }
   }
@@ -448,6 +452,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       pfOfficialStatus: official?.status,
       pfOrderHash: rdsPfHash(rdsRow),
       pfApiOrderId: rdsPfApiOrderId(rdsRow),
+      ...pfUserSignedSavePatch(rdsRow),
     }], userId);
   }
 

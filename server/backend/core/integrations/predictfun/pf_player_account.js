@@ -91,6 +91,8 @@ function mapPfOrderRows(rows) {
         const n = Number(raw.pfPendingCreditUsdt);
         return Number.isFinite(n) && n >= 0 ? n : undefined;
       })(),
+      // 自签门闩：必须回读，否则 sync/settle 会当 house 误入 total_balance
+      pfUserSigned: raw.pfUserSigned === true ? true : undefined,
     };
   });
 }

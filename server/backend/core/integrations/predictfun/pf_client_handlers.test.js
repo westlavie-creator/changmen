@@ -118,10 +118,20 @@ vi.mock("../../account/order_store.js", () => ({
 
 vi.mock("@changmen/db", () => {
   const fetchOrdersByPlayer = vi.fn(async () => []);
+  const fetchPlayersByIds = vi.fn(async (ids) => (ids || []).map(id => ({
+    id: Number(id),
+    playerId: Number(id),
+    venueMemberId: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+    accountData: {
+      token: JSON.stringify({
+        predictAccount: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+      }),
+    },
+  })));
   return {
     fetchOrdersByPlayer,
-    // [P0-4 D5] Strict 与 lenient 共用同一 mock，既有用例无需逐条改
     fetchOrdersByPlayerStrict: (...args) => fetchOrdersByPlayer(...args),
+    fetchPlayersByIds,
   };
 });
 
@@ -344,7 +354,11 @@ describe("pf_client_handlers", () => {
       jwt: "user.jwt",
       createOrderBody: {
         data: {
-          order: { hash: "0xhash1" },
+          order: {
+            hash: "0xhash1",
+            maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+          },
           strategy: "MARKET",
           isFillOrKill: true,
         },
@@ -425,7 +439,11 @@ describe("pf_client_handlers", () => {
       orderHash: "0xsell1",
       createOrderBody: {
         data: {
-          order: { hash: "0xsell1" },
+          order: {
+            hash: "0xsell1",
+            maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+          },
           strategy: "MARKET",
           isFillOrKill: true,
         },

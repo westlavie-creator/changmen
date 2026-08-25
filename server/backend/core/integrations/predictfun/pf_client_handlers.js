@@ -41,6 +41,10 @@ import { resolvePfOrderLabels } from "./pf_order_labels.js";
 import { roundUsdt } from "./pf_ledger.js";
 import { executePfUserSignedSell } from "./pf_exec_user_sell.js";
 import { isPfSellClosing } from "./pf_lifecycle.js";
+import {
+  assertSignedOrderMatchesPredictAccount,
+  loadPfPlayerPredictAccount,
+} from "./pf_account_bind.js";
 
 export { settleResolvedPfOrdersForPlayer };
 
@@ -197,6 +201,11 @@ export async function handlePfSubmitOrder(body, userId) {
     return { ok: false, msg: "marketId / tokenId 必填" };
 
   try {
+    const predictAccount = await loadPfPlayerPredictAccount(gate.playerId);
+    const bound = assertSignedOrderMatchesPredictAccount(createOrderBody, predictAccount);
+    if (!bound.ok)
+      return bound;
+
     const result = await predictFunPost("/v1/orders", createOrderBody, jwt);
     if (!isPredictFunOrderAccepted(result)) {
       const code = String(result?.data?.code ?? "").trim();
@@ -211,6 +220,7 @@ export async function handlePfSubmitOrder(body, userId) {
     const pfOrderHash = String(
       body?.orderHash
       ?? createOrderBody?.data?.order?.hash
+      ?? result?.data?.orderHash
       ?? "",
     ).trim();
     const pfApiOrderId = String(result?.data?.orderId ?? "").trim();
@@ -253,7 +263,14 @@ export async function handlePfSubmitOrder(body, userId) {
       pfFeeRateBps: Number(body?.feeRateBps) >= 0 ? Number(body.feeRateBps) : undefined,
       pfUserSigned: true,
     };
-    await upsertPfServerOrder(gate.playerId, [pendingRow], userId);
+    const saved = await upsertPfServerOrder(gate.playerId, [pendingRow], userId);
+    if (!saved) {
+      return {
+        ok: false,
+        msg: `官网已受理但落库失败，请用 GetOrder 补齐（orderHash=${pfOrderHash || orderId}）`,
+        info: { orderId, pfOrderHash, pfApiOrderId, pending: true },
+      };
+    }
 
     return {
       ok: true,
