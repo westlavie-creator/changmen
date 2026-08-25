@@ -6,6 +6,7 @@ import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
+const PREDICT_FUN_OFFICIAL_REFERRAL_URL = "https://predict.fun?ref=9F5AE";
 const PREDICT_FUN_SETTINGS_URL = "https://predict.fun/account/settings";
 const PREDICT_FUN_DEPOSIT_URL = "https://predict.fun/account/deposit";
 
@@ -546,6 +547,14 @@ function unlockRate() {
       </el-form-item>
       <el-form-item v-if="form.provider === 'PredictFun'" label="官网入口：">
         <div class="pf-official-links">
+          <a
+            class="poly-official-referral-link"
+            :href="PREDICT_FUN_OFFICIAL_REFERRAL_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ PREDICT_FUN_OFFICIAL_REFERRAL_URL }}
+          </a>
           <a
             class="poly-official-referral-link"
             :href="PREDICT_FUN_DEPOSIT_URL"
