@@ -19,10 +19,12 @@ const monthKey = ref((() => {
 })());
 
 const loading = ref(false);
+const errorMsg = ref("");
 const valueBet = ref<ValueBetOrderAnalyticsPayload | null>(null);
 
 async function fetchData() {
   loading.value = true;
+  errorMsg.value = "";
   try {
     const body: Record<string, unknown>
       = rangeMode.value === "all"
@@ -32,8 +34,9 @@ async function fetchData() {
           : { date: dateKey.value };
     valueBet.value = await getAdminValueBetAnalytics(body);
   }
-  catch {
+  catch (err) {
     valueBet.value = { byProvider: [], byOddsBucket: [] };
+    errorMsg.value = err instanceof Error ? err.message : String(err);
   }
   finally {
     loading.value = false;
@@ -91,6 +94,15 @@ onMounted(async () => {
       </el-button>
     </div>
 
+    <el-alert
+      v-if="errorMsg"
+      type="error"
+      :title="errorMsg"
+      show-icon
+      :closable="false"
+      class="ev-alert"
+    />
+
     <AdminValueBetStatsSection :data="valueBet" />
   </AdminLayout>
 </template>
@@ -102,5 +114,8 @@ onMounted(async () => {
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+}
+.ev-alert {
+  margin-bottom: 12px;
 }
 </style>

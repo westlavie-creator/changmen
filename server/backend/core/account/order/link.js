@@ -5,7 +5,7 @@
 import * as sb from "@changmen/db";
 import {
   backendBindLinkFromCreateAt,
-  isArbBindLink,
+  isConfirmedClientBindLink,
   placeholderLinkFromCreateAt,
 } from "@changmen/db";
 import { toDateKey } from "./date_key.js";
@@ -298,8 +298,8 @@ export function resolveSaveOrderLink(
   const boundLink = boundFromRow
     ? (Number(boundFromRow.link) || 0)
     : (Number(linkByOrderId.get(orderId)) || 0);
-  // 已绑套利 Link：SaveOrder 同步不覆盖（Bind 确认后保持稳定）
-  if (isArbBindLink(boundLink))
+  // 已绑套利 / 正 EV / 9999：SaveOrder 同步不覆盖（Bind 确认后保持稳定）
+  if (isConfirmedClientBindLink(boundLink))
     return boundLink;
 
   // [changmen 扩展] 客户端拉单时附带最终 linkId，缩短 create_at-1 占位窗口

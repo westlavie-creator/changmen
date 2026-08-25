@@ -171,6 +171,9 @@ function fmtMoney(n: number | undefined | null): string {
 
     <div v-if="!hasData" class="analytics-empty">
       暂无正 EV 下注数据
+      <p class="analytics-empty__hint">
+        仅统计订单页带 💎 的正 EV 绑单（ABS(link)≥7e15）。可先点工具栏「全部」；若订单页也无 💎，多半是绑单后被拉单覆盖（已修，新单生效）。
+      </p>
     </div>
 
     <template v-else>
@@ -329,6 +332,13 @@ function fmtMoney(n: number | undefined | null): string {
 .analytics-empty {
   text-align: center;
   padding: 30px;
+  color: var(--el-text-color-secondary);
+}
+.analytics-empty__hint {
+  margin: 10px auto 0;
+  max-width: 420px;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--el-text-color-secondary);
 }
 </style>

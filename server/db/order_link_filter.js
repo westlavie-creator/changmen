@@ -181,6 +181,25 @@ export function isArbBindLink(link) {
   return Number.isFinite(n) && n >= ARB_LINK_MIN;
 }
 
+/** 正 EV 单边：`-(VALUE_BET_LINK_BASE + ts)`（与 client-core isValueBetLink 对齐） */
+export function isValueBetLink(link) {
+  const n = Number(link);
+  return Number.isFinite(n) && n < 0 && Math.abs(n) >= VALUE_BET_LINK_BASE;
+}
+
+/** 比例 9999 单边：负时间戳且非正 EV */
+export function isSingleLegRateLink(link) {
+  const n = Number(link);
+  return Number.isFinite(n) && n < 0 && Math.abs(n) < VALUE_BET_LINK_BASE;
+}
+
+/**
+ * SaveOrder 已确认的客户端分组 link（套利 / 正 EV / 9999），同步时不得被场馆占位覆盖。
+ */
+export function isConfirmedClientBindLink(link) {
+  return isArbBindLink(link) || isValueBetLink(link) || isSingleLegRateLink(link);
+}
+
 /** 套利 linkId 与场馆 create_at 允许偏差（SaveOrderBind 用 Date.now()，通常 ≤ 数秒） */
 export const ARB_LINK_CREATE_AT_TOLERANCE_MS = 90_000;
 

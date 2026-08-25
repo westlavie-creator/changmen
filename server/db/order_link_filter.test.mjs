@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
   ARB_LINK_MIN,
+  VALUE_BET_LINK_BASE,
   backendBindLinkFromCreateAt,
   CLIENT_ORDER_LIST_SQL,
   canRebindLinkNewerToOlder,
@@ -9,6 +10,7 @@ import {
   normalizeOrderMatchKey,
   parseBetMapLabel,
   isArbBindLink,
+  isConfirmedClientBindLink,
   isBackendBindPlaceholderLink,
   isClientOrderListVisible,
   isCreateAtPlaceholderLink,
@@ -16,6 +18,8 @@ import {
   isInsertTimePlaceholderLink,
   isOrderListVisible,
   isPbHashOrder,
+  isSingleLegRateLink,
+  isValueBetLink,
   orderLinkSortKey,
   orderVisibleSqlAnd,
   placeholderLinkFromCreateAt,
@@ -124,6 +128,20 @@ describe("order_link_filter", () => {
   it("isArbBindLink requires ms-scale link", () => {
     assert.equal(isArbBindLink(1_000_000_000_001), true);
     assert.equal(isArbBindLink(12345), false);
+  });
+
+  it("classifies value-bet and 9999 links", () => {
+    const ts = 1_756_000_000_000;
+    const vb = -(VALUE_BET_LINK_BASE + ts);
+    const single = -ts;
+    assert.equal(isValueBetLink(vb), true);
+    assert.equal(isSingleLegRateLink(vb), false);
+    assert.equal(isValueBetLink(single), false);
+    assert.equal(isSingleLegRateLink(single), true);
+    assert.equal(isConfirmedClientBindLink(vb), true);
+    assert.equal(isConfirmedClientBindLink(single), true);
+    assert.equal(isConfirmedClientBindLink(ts), true);
+    assert.equal(isConfirmedClientBindLink(12345), false);
   });
 
   it("shouldAllowOrderBind refuses far link overwriting near arb link", () => {
