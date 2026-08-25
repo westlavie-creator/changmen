@@ -1550,7 +1550,7 @@ export async function fetchValueBetOrderAnalytics(startMs, endMs, userIds) {
 /**
  * 数据分析：锚定平台（OB / RAY 等）套利腿 vs 其他平台 — 按赢/输分组的锚定赔率分布。
  * 口径：[changmen 扩展]。与 fetchArbPairAnalytics 共用 legs/uniq（剔卖单 + 去重）；
- * 仅两边均已 Win/Lose 的套利对；按锚定侧赔率分桶；盈亏为双腿净利（CNY）。
+ * 仅一胜一负对冲（不含双赢/双输）；按锚定侧赔率分桶；盈亏为双腿净利（CNY）。
  */
 export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvider = "OB") {
   const pool = getPgPool();
@@ -1573,16 +1573,24 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
           ${ARB_ODDS_BUCKET_SQL} AS anchor_odds_bucket,
           (${moneyCnyA}) + (${moneyCnyO}) AS pair_money_cny,
           o.provider AS other_provider,
+          o.status AS other_status,
           o.odds::float AS other_odds
         FROM uniq a
         JOIN uniq o ON ABS(a.link) = ABS(o.link)
           AND a.user_id = o.user_id
           AND a.provider = $3
           AND o.provider <> $3
-        WHERE a.status IN ('Win', 'Lose')
-          AND o.status IN ('Win', 'Lose')
+        WHERE (
+            (a.status = 'Win' AND o.status = 'Lose')
+            OR (a.status = 'Lose' AND o.status = 'Win')
+          )
       )
     `;
+    const otherOutcomeAggs = `
+        COUNT(*) FILTER (WHERE other_status = 'Win')::int AS other_wins,
+        COUNT(*) FILTER (WHERE other_status = 'Lose')::int AS other_losses,
+        COALESCE(SUM(pair_money_cny) FILTER (WHERE other_status = 'Win'), 0)::float AS profit_other_win,
+        COALESCE(SUM(pair_money_cny) FILTER (WHERE other_status = 'Lose'), 0)::float AS profit_other_lose`;
     const { rows: buckets } = await pool.query(
       `${pairCte}
       SELECT
@@ -1592,7 +1600,8 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
         COUNT(*)::int AS count,
         AVG(anchor_odds)::float AS avg_anchor_odds,
         AVG(other_odds)::float AS avg_other_odds,
-        COALESCE(SUM(pair_money_cny), 0)::float AS profit
+        COALESCE(SUM(pair_money_cny), 0)::float AS profit,
+        ${otherOutcomeAggs}
       FROM pair_rows
       GROUP BY other_provider, anchor_status, anchor_odds_bucket
       ORDER BY other_provider, anchor_status, anchor_odds_bucket`,
@@ -1608,7 +1617,8 @@ export async function fetchArbOddsAnalytics(startMs, endMs, userIds, anchorProvi
         AVG(other_odds)::float AS avg_other_odds,
         MIN(anchor_odds)::float AS min_anchor_odds,
         MAX(anchor_odds)::float AS max_anchor_odds,
-        COALESCE(SUM(pair_money_cny), 0)::float AS profit
+        COALESCE(SUM(pair_money_cny), 0)::float AS profit,
+        ${otherOutcomeAggs}
       FROM pair_rows
       GROUP BY other_provider, anchor_status
       ORDER BY other_provider, anchor_status`,

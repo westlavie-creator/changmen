@@ -451,6 +451,14 @@ export interface ArbOddsBucketRow {
   avg_other_odds: number;
   /** 该区间套利对双腿净利（CNY；与套利配对表同口径） */
   profit: number;
+  /** 对手腿 Win 单量（在锚定侧已为本行 status 的前提下） */
+  other_wins: number;
+  /** 对手腿 Lose 单量 */
+  other_losses: number;
+  /** 对手 Win 时的双腿净利 */
+  profit_other_win: number;
+  /** 对手 Lose 时的双腿净利 */
+  profit_other_lose: number;
 }
 
 export interface ArbOddsSummaryRow {
@@ -463,6 +471,10 @@ export interface ArbOddsSummaryRow {
   max_anchor_odds: number;
   /** 该组合套利对双腿净利（CNY；与套利配对表同口径） */
   profit: number;
+  other_wins: number;
+  other_losses: number;
+  profit_other_win: number;
+  profit_other_lose: number;
 }
 
 export interface ArbOddsAnalyticsPayload {

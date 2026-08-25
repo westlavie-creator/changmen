@@ -72,10 +72,6 @@ function pairHedgeRate(p: ArbPairRow): string {
   return settled ? `${toFixed(((p.hedge_ok ?? 0) / settled) * 100, 1)}%` : "-";
 }
 
-function pairRejectRate(p: ArbPairRow): string {
-  return p.pair_count ? `${toFixed(((p.has_reject ?? 0) / p.pair_count) * 100, 1)}%` : "-";
-}
-
 function signedMoney(n: number | undefined): string {
   const v = n ?? 0;
   return `${v >= 0 ? "+" : ""}${toFixed(v, 0)}`;
@@ -250,15 +246,20 @@ onMounted(async () => {
         套利配对
       </h3>
       <p class="analytics-section__hint">
-        口径：同 link 两馆<strong>买单</strong>一对一（已排除 PM/PF 卖单双计）。对冲率 = 一胜一负 / 两腿均已 Win·Lose。结构按<strong>哪馆赢哪馆输</strong>分列；分项盈亏均为双腿净利。
+        同 link 两馆买单一对一（已剔 PM/PF 卖单）。对冲率 = 一胜一负 / 已结算。
+        「双方胜负」为方向单量与双腿净利；「场馆盈亏」为各馆单腿合计。
       </p>
       <el-table v-if="pairs.length" :data="pairs" stripe size="small">
-        <el-table-column label="平台组合" width="140" fixed>
+        <el-table-column label="平台组合" width="150" fixed>
           <template #default="{ row }">
-            {{ row.provider_a }} + {{ row.provider_b }}
+            <div class="pair-venues">
+              <span>{{ row.provider_a }}</span>
+              <span class="pair-venues__sep">×</span>
+              <span>{{ row.provider_b }}</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column prop="pair_count" label="配对数" width="70" align="right" />
+        <el-table-column prop="pair_count" label="配对数" width="72" align="right" />
         <el-table-column label="对冲率" width="72" align="right">
           <template #default="{ row }">
             <span :title="`一胜一负 ${row.hedge_ok ?? 0} / 已结算 ${row.settled_pairs ?? 0}`">
@@ -266,89 +267,64 @@ onMounted(async () => {
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="结构" min-width="240">
+        <el-table-column label="双方胜负" min-width="320">
           <template #default="{ row }">
-            <div class="venue-cmp">
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }} 赢 / {{ row.provider_b }} 输</span>
-                <span>{{ row.a_win_b_lose ?? 0 }}</span>
+            <div class="pair-outcome">
+              <div class="pair-outcome__head">
+                <span class="pair-outcome__col-label">方向</span>
+                <span class="pair-outcome__col-num">单量</span>
+                <span class="pair-outcome__col-num">双腿净利</span>
               </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }} 输 / {{ row.provider_b }} 赢</span>
-                <span>{{ row.a_lose_b_win ?? 0 }}</span>
-              </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">拒单组</span>
-                <span :class="{ 'text-warn': (row.has_reject ?? 0) > 0 }">
-                  {{ row.has_reject ?? 0 }}（{{ pairRejectRate(row) }}）
-                </span>
-              </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">双输/双赢</span>
-                <span>
-                  <span class="text-red">{{ row.both_lose ?? 0 }}</span>
-                  /
-                  <span :class="{ 'text-warn': (row.both_win ?? 0) > 0 }">{{ row.both_win ?? 0 }}</span>
-                </span>
-              </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">未结算</span>
-                <span>{{ row.pending_pairs ?? 0 }}</span>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="场馆拒单" min-width="160">
-          <template #default="{ row }">
-            <div class="venue-cmp">
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }}</span>
-                <span :class="{ 'text-warn': (row.rejects_a ?? 0) > 0 }">{{ row.rejects_a ?? 0 }}</span>
-              </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_b }}</span>
-                <span :class="{ 'text-warn': (row.rejects_b ?? 0) > 0 }">{{ row.rejects_b ?? 0 }}</span>
-              </div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="分项盈亏" min-width="260">
-          <template #default="{ row }">
-            <div class="venue-cmp">
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }} 赢 / {{ row.provider_b }} 输</span>
-                <span :class="(row.profit_a_win_b_lose ?? 0) >= 0 ? 'text-green' : 'text-red'">
+              <div class="pair-outcome__row">
+                <span class="pair-outcome__name">{{ row.provider_a }} 赢 · {{ row.provider_b }} 输</span>
+                <span class="pair-outcome__col-num">{{ row.a_win_b_lose ?? 0 }}</span>
+                <span
+                  class="pair-outcome__col-num"
+                  :class="(row.profit_a_win_b_lose ?? 0) >= 0 ? 'text-green' : 'text-red'"
+                >
                   {{ signedMoney(row.profit_a_win_b_lose) }}
                 </span>
               </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">{{ row.provider_a }} 输 / {{ row.provider_b }} 赢</span>
-                <span :class="(row.profit_a_lose_b_win ?? 0) >= 0 ? 'text-green' : 'text-red'">
+              <div class="pair-outcome__row">
+                <span class="pair-outcome__name">{{ row.provider_a }} 输 · {{ row.provider_b }} 赢</span>
+                <span class="pair-outcome__col-num">{{ row.a_lose_b_win ?? 0 }}</span>
+                <span
+                  class="pair-outcome__col-num"
+                  :class="(row.profit_a_lose_b_win ?? 0) >= 0 ? 'text-green' : 'text-red'"
+                >
                   {{ signedMoney(row.profit_a_lose_b_win) }}
                 </span>
               </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">拒单组</span>
-                <span :class="(row.profit_reject ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ signedMoney(row.profit_reject) }}
+              <div class="pair-outcome__row pair-outcome__row--muted">
+                <span class="pair-outcome__name">
+                  拒单
+                  <span
+                    v-if="(row.has_reject ?? 0) > 0"
+                    class="pair-outcome__hint"
+                    :title="`${row.provider_a} 拒 ${row.rejects_a ?? 0} · ${row.provider_b} 拒 ${row.rejects_b ?? 0}`"
+                  >
+                    （{{ row.provider_a }} {{ row.rejects_a ?? 0 }} / {{ row.provider_b }} {{ row.rejects_b ?? 0 }}）
+                  </span>
+                </span>
+                <span class="pair-outcome__col-num" :class="{ 'text-warn': (row.has_reject ?? 0) > 0 }">
+                  {{ row.has_reject ?? 0 }}
+                </span>
+                <span
+                  class="pair-outcome__col-num"
+                  :class="(row.profit_reject ?? 0) >= 0 ? 'text-green' : 'text-red'"
+                >
+                  {{ (row.has_reject ?? 0) > 0 ? signedMoney(row.profit_reject) : "—" }}
                 </span>
               </div>
-              <div class="venue-cmp__row">
-                <span class="venue-cmp__name">双输</span>
-                <span :class="(row.profit_both_lose ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ signedMoney(row.profit_both_lose) }}
-                </span>
-              </div>
-              <div v-if="(row.both_win ?? 0) > 0" class="venue-cmp__row">
-                <span class="venue-cmp__name">双赢</span>
-                <span :class="(row.profit_both_win ?? 0) >= 0 ? 'text-green' : 'text-red'">
-                  {{ signedMoney(row.profit_both_win) }}
-                </span>
+              <div class="pair-outcome__row pair-outcome__row--muted">
+                <span class="pair-outcome__name">未结算</span>
+                <span class="pair-outcome__col-num">{{ row.pending_pairs ?? 0 }}</span>
+                <span class="pair-outcome__col-num">—</span>
               </div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="场馆盈亏" min-width="180">
+        <el-table-column label="场馆盈亏" min-width="160">
           <template #default="{ row }">
             <div class="venue-cmp">
               <div class="venue-cmp__row">
@@ -366,14 +342,14 @@ onMounted(async () => {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="总买入额" width="100" align="right">
+        <el-table-column label="总买入" width="90" align="right">
           <template #default="{ row }">
             {{ toFixed(row.total_bet, 0) }}
           </template>
         </el-table-column>
-        <el-table-column label="净利润" min-width="100">
+        <el-table-column label="净利润" width="100" align="right">
           <template #default="{ row }">
-            <span :class="row.net_profit >= 0 ? 'text-green' : 'text-red'">
+            <span class="pair-net" :class="row.net_profit >= 0 ? 'text-green' : 'text-red'">
               {{ signedMoney(row.net_profit) }}
             </span>
           </template>
@@ -545,7 +521,58 @@ onMounted(async () => {
 .venue-cmp__name {
   color: var(--el-text-color-secondary);
   font-size: 12px;
-  min-width: 140px;
+  min-width: 72px;
+}
+.pair-venues {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.pair-venues__sep {
+  color: var(--el-text-color-secondary);
+  font-weight: 400;
+}
+.pair-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+.pair-outcome__head,
+.pair-outcome__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.6fr) 52px 72px;
+  align-items: baseline;
+  gap: 8px;
+}
+.pair-outcome__head {
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+  border-bottom: 1px dashed var(--el-border-color-extra-light);
+}
+.pair-outcome__col-label { text-align: left; }
+.pair-outcome__col-num { text-align: right; }
+.pair-outcome__name {
+  color: var(--el-text-color-regular);
+  min-width: 0;
+}
+.pair-outcome__hint {
+  color: var(--el-text-color-secondary);
+  font-weight: 400;
+}
+.pair-outcome__row--muted .pair-outcome__name {
+  color: var(--el-text-color-secondary);
+}
+.pair-net {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .analytics-empty { text-align: center; padding: 30px; color: var(--el-text-color-secondary); }
 .hourly-chart {

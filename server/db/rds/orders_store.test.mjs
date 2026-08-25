@@ -554,10 +554,13 @@ describe("fetchArbOddsAnalytics SQL", () => {
       expect(sql).toMatch(/JOIN uniq o/);
       expect(sql).toMatch(/a\.provider = \$3/);
       expect(sql).toMatch(/o\.provider <> \$3/);
-      expect(sql).toMatch(/a\.status IN \('Win', 'Lose'\)/);
-      expect(sql).toMatch(/o\.status IN \('Win', 'Lose'\)/);
+      expect(sql).toMatch(/a\.status = 'Win' AND o\.status = 'Lose'/);
+      expect(sql).toMatch(/a\.status = 'Lose' AND o\.status = 'Win'/);
       expect(sql).toMatch(/anchor_status/);
       expect(sql).toMatch(/other_provider/);
+      expect(sql).toMatch(/other_status/);
+      expect(sql).toMatch(/other_wins/);
+      expect(sql).toMatch(/profit_other_win/);
       expect(sql).toMatch(/SUM\(pair_money_cny\)/);
       expect(sql).not.toMatch(/anchor_money_cny/);
     }

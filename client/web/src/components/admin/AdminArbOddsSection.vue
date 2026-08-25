@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ArbOddsAnalyticsPayload } from "@/api/admin";
+import type { ArbOddsAnalyticsPayload, ArbOddsSummaryRow } from "@/api/admin";
 import { computed, ref } from "vue";
 import { toFixed } from "@changmen/client-core/shared/format";
 
@@ -54,6 +54,26 @@ function summaryFor(provider: string, status: "Win" | "Lose") {
   return filteredSummary.value.find(r => r.other_provider === provider && r.anchor_status === status);
 }
 
+/** 双方胜负：优先用 other_*；缺字段时回退到 count/profit（对冲-only API） */
+function outcomeStructure(provider: string) {
+  const win = summaryFor(provider, "Win");
+  const lose = summaryFor(provider, "Lose");
+  return [
+    {
+      key: "a_win_b_lose",
+      label: `${props.anchorProvider} 赢 / ${provider} 输`,
+      count: win?.other_losses ?? win?.count ?? 0,
+      profit: win?.profit_other_lose ?? win?.profit ?? 0,
+    },
+    {
+      key: "a_lose_b_win",
+      label: `${props.anchorProvider} 输 / ${provider} 赢`,
+      count: lose?.other_wins ?? lose?.count ?? 0,
+      profit: lose?.profit_other_win ?? lose?.profit ?? 0,
+    },
+  ];
+}
+
 function bucketsFor(provider: string, status: "Win" | "Lose") {
   const byBucket = new Map(
     filteredBuckets.value
@@ -62,12 +82,19 @@ function bucketsFor(provider: string, status: "Win" | "Lose") {
   );
   return ARB_ODDS_BUCKETS.map((bucket) => {
     const row = byBucket.get(bucket);
+    // API 已过滤为对冲；优先 other_*，否则用 count/profit
+    const count = status === "Win"
+      ? (row?.other_losses ?? row?.count ?? 0)
+      : (row?.other_wins ?? row?.count ?? 0);
+    const profit = status === "Win"
+      ? (row?.profit_other_lose ?? row?.profit ?? 0)
+      : (row?.profit_other_win ?? row?.profit ?? 0);
     return {
       bucket,
-      count: row?.count ?? 0,
+      count,
       avgAnchorOdds: row?.avg_anchor_odds ?? 0,
       avgOtherOdds: row?.avg_other_odds ?? 0,
-      profit: row?.profit ?? 0,
+      profit,
     };
   });
 }
@@ -94,6 +121,27 @@ function fmtOdds(n: number | undefined | null): string {
 function fmtMoney(n: number | undefined | null): string {
   const v = n ?? 0;
   return `${v >= 0 ? "+" : ""}${toFixed(v, 0)}`;
+}
+
+function panelTitle(status: "Win" | "Lose"): string {
+  return status === "Win"
+    ? `${props.anchorProvider} 赢`
+    : `${props.anchorProvider} 输`;
+}
+
+function hedgeSummary(row: ArbOddsSummaryRow | undefined, status: "Win" | "Lose") {
+  if (!row)
+    return { count: 0, profit: 0 };
+  if (status === "Win") {
+    return {
+      count: row.other_losses ?? row.count ?? 0,
+      profit: row.profit_other_lose ?? row.profit ?? 0,
+    };
+  }
+  return {
+    count: row.other_wins ?? row.count ?? 0,
+    profit: row.profit_other_win ?? row.profit ?? 0,
+  };
 }
 
 const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
@@ -123,7 +171,8 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
     </div>
 
     <p v-if="hasData" class="section-hint">
-      与上方「套利配对」同一套双腿样本（剔卖单、去重）；仅两边均已 Win/Lose。按 {{ anchorProvider }} 赔率分桶；盈亏为双腿净利（可与配对表已结算对账）。
+      与上方「套利配对」同一套已结算双腿。「双方胜负」只统计一胜一负对冲；下方按 {{ anchorProvider }} 赔率分桶。
+      <strong>双腿净利</strong> = {{ anchorProvider }} + 对手两腿合计（{{ anchorProvider }} 输且对冲成功时仍可能为正）。
     </p>
 
     <div v-if="!hasData" class="analytics-empty">
@@ -139,6 +188,26 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
         {{ anchorProvider }} vs {{ provider }}
       </h4>
 
+      <div class="outcome-strip">
+        <div class="outcome-strip__label">
+          双方胜负
+        </div>
+        <div
+          v-for="row in outcomeStructure(provider)"
+          :key="row.key"
+          class="outcome-strip__item"
+        >
+          <span class="outcome-strip__name">{{ row.label }}</span>
+          <span class="outcome-strip__count">{{ row.count }} 单</span>
+          <span
+            class="outcome-strip__profit"
+            :class="row.profit >= 0 ? 'text-green' : 'text-red'"
+          >
+            {{ fmtMoney(row.profit) }}
+          </span>
+        </div>
+      </div>
+
       <div class="ob-arb-grid">
         <div
           v-for="status in (['Win', 'Lose'] as const)"
@@ -147,19 +216,24 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
         >
           <div class="ob-arb-panel__head">
             <span class="ob-arb-panel__label" :class="status === 'Win' ? 'text-green' : 'text-red'">
-              {{ anchorProvider }} {{ status === "Win" ? "赢" : "输" }}
+              {{ panelTitle(status) }}
+              <template v-if="status === 'Win'"> · {{ provider }} 输</template>
+              <template v-else> · {{ provider }} 赢</template>
             </span>
-            <span v-if="summaryFor(provider, status)" class="ob-arb-panel__meta">
-              {{ summaryFor(provider, status)!.count }} 单 ·
-              {{ anchorProvider }} 均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_anchor_odds) }} ·
-              对手均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_other_odds) }} ·
-              {{ fmtOdds(summaryFor(provider, status)!.min_anchor_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_anchor_odds) }} ·
-              <span
-                :class="(summaryFor(provider, status)!.profit ?? 0) >= 0 ? 'text-green' : 'text-red'"
-              >
-                盈亏 {{ fmtMoney(summaryFor(provider, status)!.profit) }}
+            <template v-if="hedgeSummary(summaryFor(provider, status), status).count">
+              <span class="ob-arb-panel__meta">
+                {{ hedgeSummary(summaryFor(provider, status), status).count }} 单 ·
+                {{ anchorProvider }} 均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_anchor_odds) }} ·
+                对手均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_other_odds) }} ·
+                {{ fmtOdds(summaryFor(provider, status)!.min_anchor_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_anchor_odds) }} ·
+                双腿净利
+                <span
+                  :class="hedgeSummary(summaryFor(provider, status), status).profit >= 0 ? 'text-green' : 'text-red'"
+                >
+                  {{ fmtMoney(hedgeSummary(summaryFor(provider, status), status).profit) }}
+                </span>
               </span>
-            </span>
+            </template>
             <span v-else class="ob-arb-panel__meta">0 单</span>
           </div>
 
@@ -175,7 +249,7 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
                 {{ row.count || "" }}
               </template>
             </el-table-column>
-            <el-table-column label="分布" min-width="160">
+            <el-table-column label="分布" min-width="140">
               <template #default="{ row }">
                 <div v-if="row.count" class="dist-bar-bg">
                   <div
@@ -196,12 +270,12 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
                 {{ row.count ? fmtOdds(row.avgOtherOdds) : "" }}
               </template>
             </el-table-column>
-            <el-table-column label="盈亏" min-width="90" align="right">
+            <el-table-column label="双腿净利" min-width="90" align="right">
               <template #default="{ row }">
                 <span
                   v-if="row.count"
                   :class="row.profit >= 0 ? 'text-green' : 'text-red'"
-                  :title="`该区间套利对双腿净利（CNY，与配对表同口径）`"
+                  title="一胜一负对冲的双腿净利（不含双赢/双输）"
                 >
                   {{ fmtMoney(row.profit) }}
                 </span>
@@ -244,6 +318,33 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
   font-size: 13px;
   font-weight: 600;
 }
+.outcome-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.outcome-strip__label {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+.outcome-strip__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.outcome-strip__name {
+  color: var(--el-text-color-secondary);
+}
+.outcome-strip__count {
+  color: var(--el-text-color-regular);
+}
 .ob-arb-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -254,9 +355,8 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
 }
 .ob-arb-panel__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   margin-bottom: 8px;
 }
 .ob-arb-panel__label { font-weight: 600; }
