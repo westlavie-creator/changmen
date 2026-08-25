@@ -812,15 +812,16 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     if (visibleIds)
       userIds = [...visibleIds];
   }
-  const [platforms, pairs, games, hourly, accounts, obArbOdds] = await Promise.all([
+  const [platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs, userIds),
     sb.fetchArbPairAnalytics(startMs, endMs, userIds),
     sb.fetchGameAnalytics(startMs, endMs, userIds),
     sb.fetchHourlyAnalytics(startMs, endMs, userIds),
     sb.fetchAccountAnalytics(startMs, endMs, userIds),
-    sb.fetchObArbOddsAnalytics(startMs, endMs, userIds),
+    sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "OB"),
+    sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "RAY"),
   ]);
-  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds };
+  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds };
 }
 
 export async function getPolymarketBuilderDashboard(body = {}, caller = null) {

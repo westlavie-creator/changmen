@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import type { ObArbOddsAnalyticsPayload } from "@/api/admin";
+import type { ArbOddsAnalyticsPayload } from "@/api/admin";
 import { computed, ref } from "vue";
 import { toFixed } from "@changmen/client-core/shared/format";
 
-const props = defineProps<{
-  data: ObArbOddsAnalyticsPayload | null | undefined;
-}>();
+const props = withDefaults(defineProps<{
+  data: ArbOddsAnalyticsPayload | null | undefined;
+  /** 锚定平台（OB / RAY） */
+  anchorProvider: string;
+}>(), {
+  anchorProvider: "OB",
+});
 
-const OB_ODDS_BUCKETS = [
+const ARB_ODDS_BUCKETS = [
   "1.00-1.49",
   "1.50-1.99",
   "2.00-2.49",
@@ -47,21 +51,21 @@ const providersToShow = computed(() => {
 });
 
 function summaryFor(provider: string, status: "Win" | "Lose") {
-  return filteredSummary.value.find(r => r.other_provider === provider && r.ob_status === status);
+  return filteredSummary.value.find(r => r.other_provider === provider && r.anchor_status === status);
 }
 
 function bucketsFor(provider: string, status: "Win" | "Lose") {
   const byBucket = new Map(
     filteredBuckets.value
-      .filter(r => r.other_provider === provider && r.ob_status === status)
-      .map(r => [r.ob_odds_bucket, r]),
+      .filter(r => r.other_provider === provider && r.anchor_status === status)
+      .map(r => [r.anchor_odds_bucket, r]),
   );
-  return OB_ODDS_BUCKETS.map((bucket) => {
+  return ARB_ODDS_BUCKETS.map((bucket) => {
     const row = byBucket.get(bucket);
     return {
       bucket,
       count: row?.count ?? 0,
-      avgObOdds: row?.avg_ob_odds ?? 0,
+      avgAnchorOdds: row?.avg_anchor_odds ?? 0,
       avgOtherOdds: row?.avg_other_odds ?? 0,
     };
   });
@@ -93,7 +97,7 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
   <div class="analytics-section">
     <div class="section-head">
       <h3 class="analytics-section__title">
-        OB 套利赔率分布
+        {{ anchorProvider }} 套利赔率分布
       </h3>
       <el-select
         v-if="otherProviders.length"
@@ -113,11 +117,11 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
     </div>
 
     <p v-if="hasData" class="section-hint">
-      套利双腿（Link ≥ 1e12）中 OB 一侧已结算为赢/输的订单；按 OB 下注赔率分桶，并显示同组对手腿均赔。
+      套利双腿（Link ≥ 1e12）中 {{ anchorProvider }} 一侧已结算为赢/输的订单；按 {{ anchorProvider }} 下注赔率分桶，并显示同组对手腿均赔。
     </p>
 
     <div v-if="!hasData" class="analytics-empty">
-      暂无 OB 套利赔率数据（需存在 OB + 其他平台的双腿套利且 OB 已赢/输结算）
+      暂无 {{ anchorProvider }} 套利赔率数据（需存在 {{ anchorProvider }} + 其他平台的双腿套利且 {{ anchorProvider }} 已赢/输结算）
     </div>
 
     <div
@@ -126,7 +130,7 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
       class="ob-arb-block"
     >
       <h4 class="ob-arb-block__title">
-        OB vs {{ provider }}
+        {{ anchorProvider }} vs {{ provider }}
       </h4>
 
       <div class="ob-arb-grid">
@@ -137,13 +141,13 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
         >
           <div class="ob-arb-panel__head">
             <span class="ob-arb-panel__label" :class="status === 'Win' ? 'text-green' : 'text-red'">
-              OB {{ status === "Win" ? "赢" : "输" }}
+              {{ anchorProvider }} {{ status === "Win" ? "赢" : "输" }}
             </span>
             <span v-if="summaryFor(provider, status)" class="ob-arb-panel__meta">
               {{ summaryFor(provider, status)!.count }} 单 ·
-              OB 均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_ob_odds) }} ·
+              {{ anchorProvider }} 均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_anchor_odds) }} ·
               对手均赔 {{ fmtOdds(summaryFor(provider, status)!.avg_other_odds) }} ·
-              {{ fmtOdds(summaryFor(provider, status)!.min_ob_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_ob_odds) }}
+              {{ fmtOdds(summaryFor(provider, status)!.min_anchor_odds) }}–{{ fmtOdds(summaryFor(provider, status)!.max_anchor_odds) }}
             </span>
             <span v-else class="ob-arb-panel__meta">0 单</span>
           </div>
@@ -154,7 +158,7 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
             size="small"
             :show-header="true"
           >
-            <el-table-column prop="bucket" label="OB 赔率区间" width="110" />
+            <el-table-column prop="bucket" :label="`${anchorProvider} 赔率区间`" width="110" />
             <el-table-column label="单量" width="60" align="right">
               <template #default="{ row }">
                 {{ row.count || "" }}
@@ -171,9 +175,9 @@ const hasData = computed(() => (props.data?.summary?.length ?? 0) > 0);
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="OB 均赔" width="80" align="right">
+            <el-table-column :label="`${anchorProvider} 均赔`" width="80" align="right">
               <template #default="{ row }">
-                {{ row.count ? fmtOdds(row.avgObOdds) : "" }}
+                {{ row.count ? fmtOdds(row.avgAnchorOdds) : "" }}
               </template>
             </el-table-column>
             <el-table-column label="对手均赔" width="80" align="right">

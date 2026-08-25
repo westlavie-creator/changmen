@@ -433,28 +433,29 @@ export interface AccountAnalyticsRow {
   total_profit: number;
 }
 
-export interface ObArbOddsBucketRow {
+export interface ArbOddsBucketRow {
   other_provider: string;
-  ob_status: "Win" | "Lose";
-  ob_odds_bucket: string;
+  /** 锚定平台（OB/RAY）一侧结算状态 */
+  anchor_status: "Win" | "Lose";
+  anchor_odds_bucket: string;
   count: number;
-  avg_ob_odds: number;
+  avg_anchor_odds: number;
   avg_other_odds: number;
 }
 
-export interface ObArbOddsSummaryRow {
+export interface ArbOddsSummaryRow {
   other_provider: string;
-  ob_status: "Win" | "Lose";
+  anchor_status: "Win" | "Lose";
   count: number;
-  avg_ob_odds: number;
+  avg_anchor_odds: number;
   avg_other_odds: number;
-  min_ob_odds: number;
-  max_ob_odds: number;
+  min_anchor_odds: number;
+  max_anchor_odds: number;
 }
 
-export interface ObArbOddsAnalyticsPayload {
-  buckets: ObArbOddsBucketRow[];
-  summary: ObArbOddsSummaryRow[];
+export interface ArbOddsAnalyticsPayload {
+  buckets: ArbOddsBucketRow[];
+  summary: ArbOddsSummaryRow[];
 }
 
 export interface PlatformAnalyticsPayload {
@@ -465,7 +466,8 @@ export interface PlatformAnalyticsPayload {
   games: GameAnalyticsRow[];
   hourly: HourlyAnalyticsRow[];
   accounts: AccountAnalyticsRow[];
-  obArbOdds?: ObArbOddsAnalyticsPayload;
+  obArbOdds?: ArbOddsAnalyticsPayload;
+  rayArbOdds?: ArbOddsAnalyticsPayload;
 }
 
 export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {

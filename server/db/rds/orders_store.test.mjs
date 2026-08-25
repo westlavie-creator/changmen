@@ -528,3 +528,44 @@ describe("fetchArbPairAnalytics SQL", () => {
     expect(sql).toMatch(/FROM uniq a/);
   });
 });
+
+describe("fetchArbOddsAnalytics SQL", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("parameterizes anchor provider as $3 and keeps bucket/alias columns", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchArbOddsAnalytics } = await import("./orders_store.js");
+    const out = await fetchArbOddsAnalytics(1000, 2000, null, "RAY");
+    expect(out).toEqual({ buckets: [], summary: [] });
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [bucketSql, bucketParams] = queryMock.mock.calls[0];
+    const [summarySql, summaryParams] = queryMock.mock.calls[1];
+    for (const sql of [bucketSql, summarySql]) {
+      expect(sql).toMatch(/a\.provider = \$3/);
+      expect(sql).toMatch(/o\.provider <> \$3/);
+      expect(sql).toMatch(/a\.status IN \('Win', 'Lose'\)/);
+      expect(sql).toMatch(/anchor_status/);
+      expect(sql).toMatch(/other_provider/);
+    }
+    expect(bucketSql).toMatch(/anchor_odds_bucket/);
+    expect(summarySql).toMatch(/min_anchor_odds/);
+    expect(summarySql).toMatch(/max_anchor_odds/);
+    expect(bucketParams).toEqual([1000, 2000, "RAY"]);
+    expect(summaryParams).toEqual([1000, 2000, "RAY"]);
+  });
+
+  it("scopes user filter to anchor alias when userIds present", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchArbOddsAnalytics } = await import("./orders_store.js");
+    const userIds = ["u1", "u2"];
+    await fetchArbOddsAnalytics(1000, 2000, userIds, "OB");
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    for (const [sql, params] of queryMock.mock.calls) {
+      expect(sql).toMatch(/a\.user_id = ANY\(\$4::uuid\[\]\)/);
+      expect(sql).not.toMatch(/ob\.user_id/);
+      expect(params).toEqual([1000, 2000, "OB", userIds]);
+    }
+  });
+});
