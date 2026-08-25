@@ -87,13 +87,24 @@ function ensureLoaded(): void {
   mergeCounts(readStored());
 }
 
+/**
+ * Re-read local/session storage into memory.
+ * Needed before place-time gates: Web Locks handoff is a microtask, while
+ * cross-tab `storage` events are tasks — without this, tab B can still see
+ * count=0 after tab A already filled and released the lock.
+ */
+export function syncValueBetMapCountsFromStorage(): void {
+  ensureLoaded();
+  mergeCounts(readStored());
+}
+
 export function getValueBetMapCount(matchId: number, round: number): number {
   ensureLoaded();
   return counts.get(valueBetMapKey(matchId, round)) ?? 0;
 }
 
 export function recordValueBetMapFill(matchId: number, round: number): number {
-  ensureLoaded();
+  syncValueBetMapCountsFromStorage();
   const key = valueBetMapKey(matchId, round);
   const next = (counts.get(key) ?? 0) + 1;
   counts.set(key, next);
@@ -111,4 +122,20 @@ export function resetValueBetMapCountForTests(): void {
   catch {
     /* ignore */
   }
+}
+
+/** Simulate a tab that has not yet received the cross-tab `storage` event. */
+export function detachValueBetMapCountMemoryForTests(): void {
+  loaded = false;
+  counts.clear();
+}
+
+/**
+ * Simulate in-memory already loaded but missing a peer tab's write
+ * (storage event still queued as a macrotask).
+ */
+export function staleValueBetMapCountMemoryForTests(): void {
+  loaded = true;
+  listening = true;
+  counts.clear();
 }
