@@ -24,6 +24,7 @@ declare module 'vue' {
     AdminUserAccountsColumn: typeof import('./src/components/admin/AdminUserAccountsColumn.vue')['default']
     AdminUserDetail: typeof import('./src/components/admin/AdminUserDetail.vue')['default']
     AdminUserOrdersColumn: typeof import('./src/components/admin/AdminUserOrdersColumn.vue')['default']
+    AdminValueBetStatsSection: typeof import('./src/components/admin/AdminValueBetStatsSection.vue')['default']
     AppDialog: typeof import('./src/components/ui/AppDialog.vue')['default']
     AppHeader: typeof import('./src/components/layout/AppHeader.vue')['default']
     AppSidebar: typeof import('./src/components/layout/AppSidebar.vue')['default']

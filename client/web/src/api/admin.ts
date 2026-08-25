@@ -470,6 +470,21 @@ export interface ArbOddsAnalyticsPayload {
   summary: ArbOddsSummaryRow[];
 }
 
+/** 正 EV 单边：按场馆汇总（含均赔） */
+export interface ValueBetProviderRow extends PlatformAnalyticsRow {
+  avg_odds: number;
+}
+
+/** 正 EV 单边：场馆 × 赔率区间 */
+export interface ValueBetOddsBucketRow extends ValueBetProviderRow {
+  odds_bucket: string;
+}
+
+export interface ValueBetOrderAnalyticsPayload {
+  byProvider: ValueBetProviderRow[];
+  byOddsBucket: ValueBetOddsBucketRow[];
+}
+
 export interface PlatformAnalyticsPayload {
   startMs: number;
   endMs: number;
@@ -480,6 +495,8 @@ export interface PlatformAnalyticsPayload {
   accounts: AccountAnalyticsRow[];
   obArbOdds?: ArbOddsAnalyticsPayload;
   rayArbOdds?: ArbOddsAnalyticsPayload;
+  /** [changmen 扩展] 正 EV（link 编码）历史统计 */
+  valueBet?: ValueBetOrderAnalyticsPayload;
 }
 
 export async function getAdminPlatformAnalytics(body: Record<string, unknown> = {}) {

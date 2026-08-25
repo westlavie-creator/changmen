@@ -585,3 +585,44 @@ describe("fetchArbOddsAnalytics SQL", () => {
     }
   });
 });
+
+describe("fetchValueBetOrderAnalytics SQL", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("filters ABS(link) >= VALUE_BET_LINK_BASE and groups by provider / odds bucket", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchValueBetOrderAnalytics } = await import("./orders_store.js");
+    const { VALUE_BET_LINK_BASE } = await import("../order_link_filter.js");
+    const out = await fetchValueBetOrderAnalytics(1000, 2000, null);
+    expect(out).toEqual({ byProvider: [], byOddsBucket: [] });
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    const [providerSql, providerParams] = queryMock.mock.calls[0];
+    const [bucketSql, bucketParams] = queryMock.mock.calls[1];
+    for (const sql of [providerSql, bucketSql]) {
+      expect(sql).toMatch(/ABS\(link\) >= \$4/);
+      expect(sql).toMatch(/AVG\(odds\)/);
+      expect(sql).toMatch(/total_profit/);
+      expect(sql).toMatch(/pmSide/);
+    }
+    expect(providerSql).toMatch(/GROUP BY provider/);
+    expect(bucketSql).toMatch(/odds_bucket/);
+    expect(bucketSql).toMatch(/GROUP BY odds_bucket, provider/);
+    expect(bucketSql).toMatch(/1\.00-1\.49/);
+    expect(providerParams.slice(0, 4)).toEqual([1000, 2000, expect.any(Number), VALUE_BET_LINK_BASE]);
+    expect(bucketParams.slice(0, 4)).toEqual([1000, 2000, expect.any(Number), VALUE_BET_LINK_BASE]);
+  });
+
+  it("appends userIds filter as $5", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchValueBetOrderAnalytics } = await import("./orders_store.js");
+    const userIds = ["u1"];
+    await fetchValueBetOrderAnalytics(1000, 2000, userIds);
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    for (const [sql, params] of queryMock.mock.calls) {
+      expect(sql).toMatch(/user_id = ANY\(\$5::uuid\[\]\)/);
+      expect(params[4]).toEqual(userIds);
+    }
+  });
+});

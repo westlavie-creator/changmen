@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AccountAnalyticsRow, ArbOddsAnalyticsPayload, ArbPairRow, GameAnalyticsRow, HourlyAnalyticsRow, PlatformAnalyticsRow } from "@/api/admin";
+import type { AccountAnalyticsRow, ArbOddsAnalyticsPayload, ArbPairRow, GameAnalyticsRow, HourlyAnalyticsRow, PlatformAnalyticsRow, ValueBetOrderAnalyticsPayload } from "@/api/admin";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/api/admin";
 import AdminArbOddsSection from "@/components/admin/AdminArbOddsSection.vue";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminValueBetStatsSection from "@/components/admin/AdminValueBetStatsSection.vue";
 import { todayKey } from "@/shared/dateKey";
 import { toFixed } from "@changmen/client-core/shared/format";
 import { useUserStore } from "@/stores/userStore";
@@ -31,6 +32,7 @@ const hourly = ref<HourlyAnalyticsRow[]>([]);
 const accounts = ref<AccountAnalyticsRow[]>([]);
 const obArbOdds = ref<ArbOddsAnalyticsPayload | null>(null);
 const rayArbOdds = ref<ArbOddsAnalyticsPayload | null>(null);
+const valueBet = ref<ValueBetOrderAnalyticsPayload | null>(null);
 
 const totalOrders = computed(() => platforms.value.reduce((s, p) => s + p.total_orders, 0));
 const totalProfit = computed(() => platforms.value.reduce((s, p) => s + p.total_profit, 0));
@@ -103,6 +105,7 @@ async function fetchData() {
     accounts.value = data.accounts ?? [];
     obArbOdds.value = data.obArbOdds ?? { buckets: [], summary: [] };
     rayArbOdds.value = data.rayArbOdds ?? { buckets: [], summary: [] };
+    valueBet.value = data.valueBet ?? { byProvider: [], byOddsBucket: [] };
   }
   catch {
     platforms.value = [];
@@ -112,6 +115,7 @@ async function fetchData() {
     accounts.value = [];
     obArbOdds.value = { buckets: [], summary: [] };
     rayArbOdds.value = { buckets: [], summary: [] };
+    valueBet.value = { byProvider: [], byOddsBucket: [] };
   }
   finally {
     loading.value = false;
@@ -386,6 +390,8 @@ onMounted(async () => {
 
     <AdminArbOddsSection :data="obArbOdds" anchor-provider="OB" />
     <AdminArbOddsSection :data="rayArbOdds" anchor-provider="RAY" />
+
+    <AdminValueBetStatsSection :data="valueBet" />
 
     <!-- Game dimension -->
     <div v-if="games.length" class="analytics-section">
