@@ -8,7 +8,11 @@ import {
   type ValueBetEdgeSnapshot,
 } from "@/extensions/valueBet/computeValueBetEdge";
 import { calcEdge } from "@/extensions/valueBet/evCalc";
-import { getValueBetMapCount, recordValueBetMapFill } from "@/extensions/valueBet/valueBetMapCount";
+import {
+  getValueBetMapCount,
+  recordValueBetMapFill,
+  syncValueBetMapCountsFromStorage,
+} from "@/extensions/valueBet/valueBetMapCount";
 import {
   evaluateValueBetPlaceSafety,
   type ValueBetPlaceBlock,
@@ -90,19 +94,16 @@ export interface PlaceValueBetParams {
 /**
  * [changmen 扩展] 正 EV 单边落单（确认 / 自动共用）。
  * 不弹窗；调用方按 code 提示。成功后记同图次数并绑 💎。
+ *
+ * Web Locks：跨标签串行。勿在 request 失败时「再下一单」——callback 若在
+ * betting 已成功后抛错（如 sessionStorage 配额），catch 重试会双倍下注。
  */
 const PLACE_LOCK_NAME = "changmen-valueBetPlace";
 
 export async function placeValueBetOrder(params: PlaceValueBetParams): Promise<PlaceValueBetResult> {
   const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
-  if (locks?.request) {
-    try {
-      return await locks.request(PLACE_LOCK_NAME, () => placeValueBetOrderLocked(params));
-    }
-    catch {
-      return placeValueBetOrderLocked(params);
-    }
-  }
+  if (locks?.request)
+    return await locks.request(PLACE_LOCK_NAME, () => placeValueBetOrderLocked(params));
   return placeValueBetOrderLocked(params);
 }
 
@@ -134,6 +135,8 @@ function evaluateLivePlaceSafety(
 ): ValueBetPlaceBlock | null {
   const { match, bet, side, amount, minEdge, autoGate, mapLimit } = params;
   const maxPerMap = autoGate?.maxPerMap ?? mapLimit;
+  // Cross-tab: prefer storage over in-memory until `storage` event arrives.
+  syncValueBetMapCountsFromStorage();
   return evaluateValueBetPlaceSafety({
     amount,
     edge: snap.edge,
@@ -226,9 +229,16 @@ async function placeValueBetOrderUnlocked(params: PlaceValueBetParams): Promise<
 
   recordValueBetMapFill(match.id, bet.round);
 
-  const skipMark = isPendingConfirmVenueProvider(account.provider) && result.pending;
-  if (!skipMark)
-    markSuccessfulBet(account, bet.id, side, option.odds);
+  // Markers use sessionStorage; quota/SecurityError must not fail a filled order
+  // (and must never trigger any outer "retry place" path).
+  try {
+    const skipMark = isPendingConfirmVenueProvider(account.provider) && result.pending;
+    if (!skipMark)
+      markSuccessfulBet(account, bet.id, side, option.odds);
+  }
+  catch {
+    /* ignore */
+  }
 
   let bound = false;
   try {

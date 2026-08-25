@@ -12,6 +12,7 @@ import {
   isPolymarketPostFillConfirmed,
   coercePolymarketFokPollOutcome,
   isPolymarketDelayLookupPending,
+  isPolymarketMatchedSizePending,
   isPolymarketRestingNoFill,
 } from "./orderStatus";
 import { settlePolymarketDelayedOrder } from "./orderSettlement";
@@ -129,6 +130,27 @@ describe("interpretPolymarketOrderRow", () => {
 
   it("pending for delayed status", () => {
     expect(interpretPolymarketOrderRow({ status: "delayed" })).toBe("pending");
+  });
+});
+
+describe("isPolymarketMatchedSizePending", () => {
+  it("true when MATCHED but size and trades still empty", () => {
+    expect(isPolymarketMatchedSizePending({ status: "MATCHED", size_matched: "0" })).toBe(true);
+    expect(isPolymarketMatchedSizePending({ status: "matched" })).toBe(true);
+  });
+
+  it("false once size or associate_trades present", () => {
+    expect(isPolymarketMatchedSizePending({ status: "matched", size_matched: "2" })).toBe(false);
+    expect(isPolymarketMatchedSizePending({
+      status: "matched",
+      size_matched: "0",
+      associate_trades: ["t1"],
+    })).toBe(false);
+  });
+
+  it("false for resting / empty rows", () => {
+    expect(isPolymarketMatchedSizePending({ status: "live", size_matched: "0" })).toBe(false);
+    expect(isPolymarketMatchedSizePending(null)).toBe(false);
   });
 });
 

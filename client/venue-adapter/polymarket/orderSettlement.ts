@@ -9,6 +9,7 @@ import {
   fetchPolymarketOrderRow,
   interpretPolymarketOrderRow,
   isPolymarketDelayLookupPending,
+  isPolymarketMatchedSizePending,
   isPolymarketRestingNoFill,
   pollPolymarketDelayedOrder,
 } from "./orderStatus";
@@ -82,7 +83,10 @@ export async function finalizePolymarketFokRestingOrder(
   if (opening === "unfilled")
     return { outcome: "unfilled", row: last };
 
-  const needsGrace = isPolymarketRestingNoFill(last) || isPolymarketDelayLookupPending(last);
+  // matched 无份额 / 挂簿 / 404：先等 trades 与 size，勿立刻 cancel
+  const needsGrace = isPolymarketRestingNoFill(last)
+    || isPolymarketDelayLookupPending(last)
+    || isPolymarketMatchedSizePending(last);
   if (needsGrace) {
     const graceDeadline = Date.now() + graceMs;
     while (Date.now() < graceDeadline) {
@@ -95,10 +99,42 @@ export async function finalizePolymarketFokRestingOrder(
         return { outcome: "matched", row: last };
       if (state === "unfilled")
         return { outcome: "unfilled", row: last };
-      if (!isPolymarketRestingNoFill(last) && !isPolymarketDelayLookupPending(last))
+      if (
+        !isPolymarketRestingNoFill(last)
+        && !isPolymarketDelayLookupPending(last)
+        && !isPolymarketMatchedSizePending(last)
+      ) {
         break;
+      }
       await wait(graceIntervalMs);
     }
+  }
+
+  // CLOB 已 MATCHED：只等份额，禁止当 FOK 挂簿去撤（撤了仍可能已成交 → 假 unfilled / 错补单）
+  if (isPolymarketMatchedSizePending(last)) {
+    for (let i = 0; i < postCancelAttempts; i++) {
+      const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
+      if (traded)
+        return traded;
+      last = await fetchPolymarketOrderRow(account, orderId);
+      const state = interpretPolymarketOrderRow(last);
+      if (state === "matched")
+        return { outcome: "matched", row: last };
+      if (state === "unfilled")
+        return { outcome: "unfilled", row: last };
+      if (!isPolymarketMatchedSizePending(last))
+        break;
+      if (i < postCancelAttempts - 1)
+        await wait(postCancelIntervalMs);
+    }
+    const traded = await lookupTradeMatched(account, orderId, side, lookbackMs);
+    if (traded)
+      return traded;
+    last = await fetchPolymarketOrderRow(account, orderId);
+    if (interpretPolymarketOrderRow(last) === "matched" || isPolymarketMatchedSizePending(last))
+      return { outcome: "matched", row: last };
+    if (interpretPolymarketOrderRow(last) === "unfilled")
+      return { outcome: "unfilled", row: last };
   }
 
   try {
@@ -118,6 +154,9 @@ export async function finalizePolymarketFokRestingOrder(
       return { outcome: "matched", row: last };
     if (state === "unfilled")
       return { outcome: "unfilled", row: last };
+    // cancel 竞态：行已变 MATCHED 但份额仍滞后 → 按已成交，勿再当拒单
+    if (isPolymarketMatchedSizePending(last))
+      return { outcome: "matched", row: last };
     if (i < postCancelAttempts - 1)
       await wait(postCancelIntervalMs);
   }
@@ -127,7 +166,7 @@ export async function finalizePolymarketFokRestingOrder(
     return traded;
   last = await fetchPolymarketOrderRow(account, orderId);
   const state = interpretPolymarketOrderRow(last);
-  if (state === "matched")
+  if (state === "matched" || isPolymarketMatchedSizePending(last))
     return { outcome: "matched", row: last };
   return { outcome: "unfilled", row: last };
 }
