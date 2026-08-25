@@ -92,6 +92,26 @@ export function isPolymarketDelayLookupPending(
   return !row || Object.keys(row).length === 0;
 }
 
+/**
+ * CLOB 已回报 MATCHED 但 size_matched / associate_trades 仍空（接口滞后常见）。
+ * FOK 收尾须继续等份额/trades，**禁止**当挂簿去 cancel，也**禁止**收成 unfilled。
+ */
+export function isPolymarketMatchedSizePending(
+  row: PolymarketOrderRow | null | undefined,
+): boolean {
+  if (!row || Object.keys(row).length === 0)
+    return false;
+  const status = String(row.status ?? "").trim().toLowerCase();
+  if (status !== "matched")
+    return false;
+  if (parseMatchedSize(row) > 0)
+    return false;
+  const trades = row.associate_trades;
+  if (Array.isArray(trades) && trades.length > 0)
+    return false;
+  return true;
+}
+
 /** GET /data/order/{id} 行解读（对齐官方 Order Lifecycle） */
 export function interpretPolymarketOrderRow(
   row: PolymarketOrderRow | null | undefined,

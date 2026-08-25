@@ -161,6 +161,39 @@ describe("finalizePolymarketFokRestingOrder", () => {
     expect(pmCancelOrder).toHaveBeenCalledWith(acc, "0xhang");
     expect(out.outcome).toBe("unfilled");
   });
+
+  it("MATCHED with lagged size_matched=0 → matched, never cancel/unfilled", async () => {
+    fetchPolymarketOrderRow.mockResolvedValue({ status: "MATCHED", size_matched: "0" });
+    fetchPolymarketConfirmedTradeForOrder.mockResolvedValue(null);
+
+    const out = await finalizePolymarketFokRestingOrder(
+      acc,
+      "0xmatched-lag",
+      { status: "MATCHED", size_matched: "0" },
+      { graceMs: 0, graceIntervalMs: 0, postCancelAttempts: 2, postCancelIntervalMs: 0 },
+    );
+
+    expect(pmCancelOrder).not.toHaveBeenCalled();
+    expect(out.outcome).toBe("matched");
+    expect(out.row?.status).toBe("MATCHED");
+  });
+
+  it("MATCHED size lag then size appears during grace → matched", async () => {
+    fetchPolymarketOrderRow
+      .mockResolvedValueOnce({ status: "MATCHED", size_matched: "0" })
+      .mockResolvedValue({ status: "MATCHED", size_matched: "5" });
+
+    const out = await finalizePolymarketFokRestingOrder(
+      acc,
+      "0xsize-lag",
+      { status: "MATCHED", size_matched: "0" },
+      { graceMs: 80, graceIntervalMs: 20, postCancelAttempts: 1 },
+    );
+
+    expect(out.outcome).toBe("matched");
+    expect(out.row?.size_matched).toBe("5");
+    expect(pmCancelOrder).not.toHaveBeenCalled();
+  });
 });
 
 describe("settlePolymarketDelayedOrder FOK resting", () => {
