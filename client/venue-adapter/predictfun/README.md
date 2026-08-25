@@ -132,13 +132,34 @@ PM2：`changmen-predictfun-collector`（见 `deploy/ecosystem.config.cjs`）。
 
 
 
-## 用户开号（产品约定）
+## 用户开号（官网资料驱动）
 
-- **用户自己添加**：场馆选 PredictFun → 账号名自动=登录名，token 固定 `{ "mode": "house" }`，无需私钥
-- **管理端**：`/admin/predictfun-members`（仅管理员）查看/开通 PF 会员、改额度；通用「子账号」页不管开号
-- `accountId`/`playerId` 仍是 RDS `players.id`；下单走 VPS 主号代下
+用户添加 PredictFun 账号时，只填官网鉴权所需两样（见 [How to authenticate](https://dev.predict.fun/doc-663127)）：
 
-## 下注（VPS house 代下）
+| 字段 | 来源 | 落库 |
+|------|------|------|
+| Privy 钱包私钥 | [Account Settings](https://predict.fun/account/settings) 导出 | 仅本机 pmVault，不上报 |
+| Predict Account | 同页充值 / deposit 地址（「Predict 智能钱包」） | token `{ "predictAccount": "0x…" }` |
+
+- **不填**：API Key（平台共用 `PREDICT_FUN_API_KEY` / `VITE_PREDICT_FUN_API_KEY`）、JWT（运行时签发，内存缓存约 50min）
+- **余额**：浏览器 `OrderBuilder.balanceOf` 读智能钱包链上 USDT；刷新时顺带校验 JWT
+- **预检 / 下单**：浏览器拉 orderbook → 签 MARKET FOK → `Pf_SubmitOrder(mode=userSigned)` VPS 仅中继 `POST /v1/orders`（用户 JWT，不代签、不扣 total_balance）
+- **卖出**：浏览器签 MARKET FOK SELL → `Pf_SubmitSell(mode=userSigned)` 中继；关买单写盈亏，**不**入 `total_balance`
+- **查单**：`Pf_GetOrder` / `Pf_GetOrders` 对自签单须带用户 JWT（house JWT 看不到用户订单）
+- **已下线**：`{ "mode": "house" }`、管理端开通/充值、Changmencodefee、house 代签热路径
+- 首次下单前浏览器 best-effort `setApprovals`（Privy EOA 需有少量 BNB）
+
+## 下注（用户自签 + VPS 中继）
+
+- 浏览器：`checkBet` → `checkPredictFunUserBuy`；`betting` → `signPredictFunUserMarketBuy` + `pfSubmitSignedOrder`
+- VPS：`handlePfSubmitOrder(mode=userSigned)` → `POST /v1/orders` + `upsertPfServerOrder`（不扣 total_balance）
+- 确认：仍走 `Pf_GetOrder` / `Pf_GetOrders`（客户端附带用户 JWT）
+- **卖出**：`signPredictFunUserMarketSell` + `pfSubmitSignedSell` → `Pf_SubmitSell(mode=userSigned)`；关买单写盈亏，不入账本
+- **结算**：自签单只改订单 win/lose，**不**写入 `total_balance`；不再 house redeem
+
+## 下注（原 VPS house 代下 — 已下线）
+
+以下为历史说明，**当前不可用**：
 
 - 浏览器：`checkBet` → `Pf_CheckBet`；`betting` → `Pf_SubmitOrder`（changmen JWT + `playerId`）
 - 确认：`getOrders` → `Pf_GetOrders`（只读对齐；**不**再 `Client_SaveOrder`）；`resolveLegOutcome`（仅 PF provider）轮询 `Pf_GetOrder`

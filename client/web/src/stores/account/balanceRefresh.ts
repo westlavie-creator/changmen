@@ -5,7 +5,6 @@ import { updateBalance } from "@/api/vt";
 import { getAdapter } from "@/runtime/venueAdapters";
 import { Currency } from "@/shared/currency";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
-import { resolveAccountCurrency } from "@changmen/shared/currency";
 
 function a8RefreshDelayMs() {
   return 120_000 + Math.random() * 60_000;
@@ -64,25 +63,10 @@ function noteAuthFailure(account: PlatformAccount, msg: string) {
  */
 async function fetchVenueBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
   const providerId = String(account.provider ?? "").toLowerCase();
-  // PredictFun：余额以 RDS total_balance 为准，经 Pf_RefreshBalance 读取；禁止 Client_UpdateBalance
+  // PredictFun：链上 USDT（OrderBuilder.balanceOf）为展示真源；不再读中转 total_balance
   if (providerId === "predictfun") {
-    if (!account.accountId)
-      return undefined;
-    const { refreshPfBalance } = await import("@/api/account");
-    const info = await refreshPfBalance(account.accountId);
-    if (!info || info.balance == null)
-      return undefined;
-    if (info.totalProfit != null)
-      account.totalProfit = Number(info.totalProfit) || 0;
-    if (info.unsettle != null)
-      account.unsettle = Number(info.unsettle) || 0;
-    if (info.orderCount != null)
-      account.orderCount = Number(info.orderCount) || 0;
-    account.credit = 0;
-    return {
-      balance: Number(info.balance),
-      currency: resolveAccountCurrency(account.provider, info.currency ?? account.currency),
-    };
+    const provider = getAdapter(account.provider)?.provider;
+    return provider?.getBalance?.(account);
   }
   if (providerId === "polymarket" && account.accountId) {
     const { refreshPmBalance } = await import("@/api/account");
@@ -125,7 +109,7 @@ export async function refreshAccountBalance(
   const hadBalance = account.balance !== undefined;
   try {
     const providerId = String(account.provider ?? "").toLowerCase();
-    if (providerId === "polymarket" && account.accountId) {
+    if ((providerId === "polymarket" || providerId === "predictfun") && account.accountId) {
       const { normalizePmVaultUserId, pmAccountShowsUnlockPending } = await import("@/security/pmVault");
       const { useUserStore } = await import("@/stores/userStore");
       const uid = normalizePmVaultUserId(useUserStore().userId);
@@ -144,9 +128,11 @@ export async function refreshAccountBalance(
       account.errorCount = 0;
       // [changmen 扩展] venueMemberId / venueAccountName 仅账号保存时写入，Io.f 余额刷新不改写（对齐 A8 uv.updateBalance）
 
-      const providerId = String(account.provider ?? "").toLowerCase();
-      // PredictFun：RDS 已是真相；勿 Client_UpdateBalance 回写
-      if (providerId === "predictfun") {
+      const refreshProviderId = String(account.provider ?? "").toLowerCase();
+      // PredictFun：余额只展示链上 USDT；勿 Client_UpdateBalance（服务端仍拒中转账本回写）
+      if (refreshProviderId === "predictfun") {
+        account.credit = 0;
+        account.currency = result.currency ?? Currency.USDT;
         try {
           const { useMessageStore } = await import("@/stores/messageStore");
           const msg = useMessageStore();

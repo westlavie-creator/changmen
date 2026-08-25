@@ -12,7 +12,7 @@ import {
 } from "./pf_changmen_code_fee.js";
 import { resolvePfChangmenBuyFeeRateBps, resolvePfChangmenSellFeeRateBps } from "./house_credentials.js";
 import { roundUsdt } from "./pf_ledger.js";
-import { readPfLedgerState } from "./pf_lifecycle.js";
+import { readPfLedgerState, isPfUserSignedOrder, readInternalPfSellState } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
   loadPfOrdersStrict,
@@ -36,6 +36,7 @@ import {
 } from "./pf_fee.js";
 import {
   fetchHousePredictOrderResolved,
+  fetchPredictOrderByHash,
   hasWalletFeeSignal,
   isOpenChangmenOrderStatus,
   mapPredictOrderToVenueOrder,
@@ -51,6 +52,15 @@ import { upsertPfServerOrder } from "./pf_server_order.js";
 export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official) {
   let settlement = settlementFromPredictOfficialStatus(official?.status);
   let venueOrder = mapPredictOrderToVenueOrder(official, rdsToMapInput(rdsRow));
+
+  // closing 买单若带着卖单官方态进来：勿当买单 fill 改写；由 SubmitSell / GetOrder resume 关单
+  if (readInternalPfSellState(rdsRow) === "closing") {
+    return {
+      venueOrder: mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)),
+      refunded: false,
+      settlement: settlement === "filled" ? "timeout" : settlement,
+    };
+  }
 
   // 已是 Reject：清掉残留意向份额；pending_credit 继续补退款
   if (String(rdsOrderStatus(rdsRow)).toLowerCase() === "reject") {
@@ -79,6 +89,25 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         if (rdsAlreadyRefunded(fresh)) {
           return {
             venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh)),
+            refunded: false,
+            settlement: "unfilled",
+          };
+        }
+        // 用户自签：从未扣 total_balance，禁止「退款」入账
+        if (isPfUserSignedOrder(fresh)) {
+          await upsertPfServerOrder(playerId, [{
+            ...mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh)),
+            status: "reject",
+            pfLedgerState: "credited",
+            pfPendingCreditUsdt: 0,
+            pfRefundedAt: Date.now(),
+            pfUserSigned: true,
+          }], userId);
+          return {
+            venueOrder: mapPredictOrderToVenueOrder(official, rdsToMapInput({
+              ...fresh,
+              status: "reject",
+            })),
             refunded: false,
             settlement: "unfilled",
           };
@@ -121,6 +150,7 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       });
 
       const stake = rdsBetMoney(fresh);
+      const userSigned = isPfUserSignedOrder(fresh);
       const nextVenue = mapPredictOrderToVenueOrder(official, rdsToMapInput(fresh));
       const rejectRow = {
         ...nextVenue,
@@ -128,9 +158,11 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         pfOfficialStatus: official?.status,
         pfOrderHash: rdsPfHash(fresh),
         pfApiOrderId: rdsPfApiOrderId(fresh),
-        pfLedgerState: stake > 0 ? "pending_credit" : "credited",
-        pfPendingCreditUsdt: stake > 0 ? stake : 0,
-        ...(stake > 0 ? {} : { pfRefundedAt: Date.now() }),
+        // 自签：无中转扣款，直接 credited；house：pending_credit 后退款
+        pfLedgerState: userSigned || !(stake > 0) ? "credited" : "pending_credit",
+        pfPendingCreditUsdt: userSigned || !(stake > 0) ? 0 : stake,
+        ...((userSigned || !(stake > 0)) ? { pfRefundedAt: Date.now() } : {}),
+        ...(userSigned ? { pfUserSigned: true } : {}),
       };
       // 未成交：清空意向/残留成交份额（merge 对 reject 亦不再回填）
       delete rejectRow.pfShares;
@@ -142,7 +174,10 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
         throw new Error("拒单落库失败");
 
       let refunded = false;
-      if (stake > 0) {
+      if (userSigned) {
+        refunded = false;
+      }
+      else if (stake > 0) {
         const creditResult = await applyPendingPfLedgerCredit(playerId, userId, {
           ...fresh,
           ...nextVenue,
@@ -187,7 +222,8 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       return /^\d+$/.test(wei) && BigInt(wei) > 0n;
     })();
     const buyFeeReady = isSellRow || feeRateBps <= 0 || hasWalletFeeSignal(official)
-      || feeWeiReady;
+      || feeWeiReady
+      || isPfUserSignedOrder(rdsRow);
     // fee 齐后再扣 Changmencodefee，并写入 hold
     if (!isSellRow && buyFeeReady) {
       const storedBuyBps = readChangmenCodeFeeRateBps(rdsRow);
@@ -418,9 +454,31 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
   return { venueOrder, refunded: false, settlement };
 }
 
-export async function lookupOfficialOrder(rdsRow, orderId) {
-  const hash = rdsRow ? (rdsPfHash(rdsRow) || orderId) : orderId;
-  // ????/?????REST + wallet hint???? waitForHouseOrderTerminal ???
+export async function lookupOfficialOrder(rdsRow, orderId, opts = {}) {
+  const jwt = String(opts?.jwt ?? "").trim();
+  const sellState = String(rdsRow?.pfSellState ?? rdsRow?.PfSellState ?? "").trim().toLowerCase();
+  const sellHash = String(rdsRow?.pfSellOrderId ?? rdsRow?.PfSellOrderId ?? "").trim();
+  // closing 查卖单；否则查买单（与旧 house 一致）
+  const hash = (sellState === "closing" && sellHash)
+    ? sellHash
+    : (rdsRow ? (rdsPfHash(rdsRow) || orderId) : orderId);
+
+  // 有用户 jwt：只走 REST（等同旧 house 的 Get-by-hash，换钥匙）
+  if (jwt) {
+    let official = await fetchPredictOrderByHash(hash, jwt);
+    if (official)
+      return official;
+    const apiId = rdsRow ? rdsPfApiOrderId(rdsRow) : "";
+    if (apiId && apiId !== hash)
+      official = await fetchPredictOrderByHash(apiId, jwt);
+    return official;
+  }
+
+  // 自签单必须带 jwt；无 jwt 时不要用 house 钥匙去查
+  if (isPfUserSignedOrder(rdsRow))
+    return null;
+
+  // 仅历史 house 中转单：仍可用 house JWT + wallet hint
   let official = await fetchHousePredictOrderResolved(hash);
   if (official)
     return official;

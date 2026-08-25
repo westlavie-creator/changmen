@@ -6,6 +6,8 @@ import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
 const POLYMARKET_OFFICIAL_REFERRAL_URL = "https://polymarket.com/?r=f43e";
+const PREDICT_FUN_SETTINGS_URL = "https://predict.fun/account/settings";
+const PREDICT_FUN_DEPOSIT_URL = "https://predict.fun/account/deposit";
 
 /** 场馆账号设置：场馆按钮分三行（电竞核心 / 其余 / 预测市场+DEX） */
 const PROVIDER_ROW1: PlatformId[] = ["OB", "RAY", "PB", "IA"];
@@ -65,23 +67,15 @@ function fieldDisabled(extra = false) {
   return props.readonly || extra;
 }
 
-const isPredictFunHouse = () => form.value.provider === "PredictFun";
-
 function venueIdentityTitle() {
-  if (isPredictFunHouse())
-    return "changmen 子账号（下单归属；Predict.fun 由运营主号代下）";
   return "场馆返回的真实账号信息（查余额后更新）";
 }
 
 function displayVenueAccountName() {
-  if (isPredictFunHouse())
-    return form.value.playerName.trim() || "—";
   return form.value.venueAccountName || "—";
 }
 
 function displayVenueMemberId() {
-  if (isPredictFunHouse())
-    return form.value.playerName.trim() || "—";
   return form.value.venueMemberId || "—";
 }
 
@@ -122,7 +116,7 @@ function unlockRate() {
       <div class="account-edit-panel__col account-edit-panel__col--left">
     <el-form-item label="平台：">
       <el-row :gutter="10" align="middle">
-        <el-col :span="form.provider === 'PredictFun' ? 16 : 8">
+        <el-col :span="8">
           <el-autocomplete
             v-if="fetchPlatforms && !readonly"
             v-model="form.platformName"
@@ -132,7 +126,7 @@ function unlockRate() {
           />
           <el-input v-else v-model="form.platformName" :disabled="fieldDisabled()" />
         </el-col>
-        <el-col v-if="form.provider !== 'PredictFun'" :span="8">
+        <el-col :span="8">
           <el-input
             v-model="form.playerName"
             placeholder="选填，空则用场馆账号"
@@ -501,7 +495,7 @@ function unlockRate() {
         <span class="account-edit-panel__provider-locked-name">{{ form.provider }}</span>
         <div class="account-edit-panel__venue" :title="venueIdentityTitle()">
           <span class="account-edit-panel__venue-item">
-            <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
+            <span class="account-edit-panel__venue-label">场馆账号</span>
             <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
           </span>
           <span class="account-edit-panel__venue-item">
@@ -529,7 +523,7 @@ function unlockRate() {
         </el-radio-group>
         <div class="account-edit-panel__venue account-edit-panel__venue--below" :title="venueIdentityTitle()">
           <span class="account-edit-panel__venue-item">
-            <span class="account-edit-panel__venue-label">{{ form.provider === 'PredictFun' ? '会员账号' : '场馆账号' }}</span>
+            <span class="account-edit-panel__venue-label">场馆账号</span>
             <span class="account-edit-panel__venue-value">{{ displayVenueAccountName() }}</span>
           </span>
           <span class="account-edit-panel__venue-item">
@@ -549,6 +543,26 @@ function unlockRate() {
         >
           {{ POLYMARKET_OFFICIAL_REFERRAL_URL }}
         </a>
+      </el-form-item>
+      <el-form-item v-if="form.provider === 'PredictFun'" label="官网入口：">
+        <div class="pf-official-links">
+          <a
+            class="poly-official-referral-link"
+            :href="PREDICT_FUN_DEPOSIT_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            充值页（复制「Predict 智能钱包」地址）
+          </a>
+          <a
+            class="poly-official-referral-link"
+            :href="PREDICT_FUN_SETTINGS_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            设置页（Export 导出 Privy 私钥）
+          </a>
+        </div>
       </el-form-item>
       <el-form-item v-if="form.provider !== 'PredictFun'" label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
@@ -756,5 +770,12 @@ function unlockRate() {
 .poly-official-referral-link {
   color: var(--el-color-primary);
   word-break: break-all;
+}
+
+.pf-official-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.45;
 }
 </style>

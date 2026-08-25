@@ -1,9 +1,9 @@
 /**
- * Polymarket token JSON：落库 DTO + 内存 merge/extract（方案 C）
+ * Polymarket / PredictFun token JSON：落库 DTO + 内存 merge/extract（方案 C）
  *
- * 发往服务端 / RDS：只保留 walletAddress / funder / signatureType / apiCreds。
+ * Polymarket 发往服务端：walletAddress / funder / signatureType / apiCreds。
+ * PredictFun 发往服务端：仅 predictAccount。
  * 服务端 Save 若仍见到私钥材料会直接拒绝。
- * POLY_* 请求头由 apiCreds 现算，不落库 polyHeaders。
  */
 
 const MAX_TOKEN_UNWRAP = 8;
@@ -20,7 +20,7 @@ function decodeBase64Utf8(text: string): string | undefined {
 }
 
 function isPrivateKeyPropName(key: string): boolean {
-  return /^private_?key$/i.test(key);
+  return /^private_?key$/i.test(key) || /^privy_?private_?key$/i.test(key);
 }
 
 function looksLikeRawPrivateKey(text: string): boolean {
@@ -243,15 +243,48 @@ export function toPolymarketPersistToken(raw: string | undefined | null): string
   return JSON.stringify(out);
 }
 
+/** PredictFun 落库：仅 predictAccount */
+export function toPredictFunPersistToken(raw: string | undefined | null): string {
+  if (raw == null)
+    return "";
+  const text = String(raw).trim();
+  if (!text)
+    return "";
+  if (looksLikeRawPrivateKey(text))
+    return "";
+  const obj = resolveConfigObject(text);
+  if (!obj)
+    return "";
+  const predictAccount = pickEthAddress(
+    obj.predictAccount ?? obj.predict_account ?? obj.walletAddress ?? obj.address ?? "",
+  );
+  if (!predictAccount)
+    return "";
+  return JSON.stringify({ predictAccount });
+}
+
 /** @deprecated 使用 toPolymarketPersistToken */
 export const stripPrivateKeyFromToken = toPolymarketPersistToken;
 
-/** 内存合并：在白名单投影上写回 privateKey（仅会话内） */
+/** 内存合并：在白名单投影上写回私钥（仅会话内） */
 export function mergePrivateKeyIntoToken(
   raw: string | undefined | null,
   privateKey: string,
+  provider?: unknown,
 ): string {
   const pk = privateKey.trim();
+  if (isPredictFunProvider(provider)) {
+    const base = toPredictFunPersistToken(raw);
+    const obj = parseTokenObject(base) ?? {};
+    obj.privyPrivateKey = pk;
+    for (const k of Object.keys(obj)) {
+      if (k !== "privyPrivateKey" && isPrivateKeyPropName(k))
+        delete obj[k];
+    }
+    delete obj.mode;
+    delete obj.house;
+    return JSON.stringify(obj);
+  }
   const base = toPolymarketPersistToken(raw);
   const obj = parseTokenObject(base) ?? {};
   obj.privateKey = pk;
@@ -269,4 +302,23 @@ export function accountTokenHasPrivateKey(raw: string | undefined | null): boole
 export function isPolymarketProvider(provider: unknown): boolean {
   const p = String(provider ?? "").trim().toLowerCase();
   return p === "polymarket" || p === "pm";
+}
+
+export function isPredictFunProvider(provider: unknown): boolean {
+  const p = String(provider ?? "").trim().toLowerCase();
+  return p === "predictfun" || p === "predict.fun" || p === "pf";
+}
+
+/** 本机加密仓覆盖的场馆（私钥不上报） */
+export function isVaultKeyProvider(provider: unknown): boolean {
+  return isPolymarketProvider(provider) || isPredictFunProvider(provider);
+}
+
+export function toPersistTokenForProvider(
+  provider: unknown,
+  raw: string | undefined | null,
+): string {
+  if (isPredictFunProvider(provider))
+    return toPredictFunPersistToken(raw);
+  return toPolymarketPersistToken(raw);
 }

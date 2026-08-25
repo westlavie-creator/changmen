@@ -1,14 +1,26 @@
-/** Predict.fun 语义 API → changmen esport（VPS house 代下） */
+/** Predict.fun → changmen esport：浏览器 prepareSession 拿 jwt，VPS 只中继 */
 
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { VenueOrder } from "../contract";
 import { changmenPmEsportCall } from "@changmen/client-core/shared/platformHttp";
+import { preparePredictFunUserSession } from "./userSession";
 
 function requirePlayerId(account: PlatformAccount): number {
   const id = account.accountId;
   if (id == null || !Number(id))
     throw new Error("PredictFun 账号未保存（无 playerId）");
   return Number(id);
+}
+
+/** 与旧 house「服务端自取 JWT」对应：现改由浏览器 session 取 */
+async function userJwtOrEmpty(account: PlatformAccount): Promise<string> {
+  try {
+    const session = await preparePredictFunUserSession(account);
+    return await session.getJwt();
+  }
+  catch {
+    return "";
+  }
 }
 
 export interface PfCheckBetRequest {
@@ -130,6 +142,53 @@ export async function pfCheckBet(
   });
 }
 
+export interface PfSubmitSignedOrderRequest {
+  jwt: string;
+  createOrderBody: unknown;
+  marketId: string;
+  tokenId: string;
+  apiBetMoney: number;
+  detectionMaxPrice: number;
+  detectionOdds?: number;
+  bookPrice?: number;
+  bookOdds?: number;
+  makerUsdt?: number;
+  sharesWei?: string;
+  feeRateBps?: number;
+  orderHash?: string;
+  match?: string;
+  bet?: string;
+  item?: string;
+}
+
+/** 浏览器已签 MARKET FOK → VPS 仅中继官网（不代签、不碰用户钥） */
+export async function pfSubmitSignedOrder(
+  account: PlatformAccount,
+  req: PfSubmitSignedOrderRequest,
+): Promise<PfSubmitOrderResult> {
+  return pfEsportCall<PfSubmitOrderResult>("Pf_SubmitOrder", {
+    playerId: requirePlayerId(account),
+    mode: "userSigned",
+    jwt: req.jwt,
+    createOrderBody: req.createOrderBody,
+    marketId: req.marketId,
+    tokenId: req.tokenId,
+    apiBetMoney: req.apiBetMoney,
+    detectionMaxPrice: req.detectionMaxPrice,
+    detectionOdds: req.detectionOdds,
+    bookPrice: req.bookPrice,
+    bookOdds: req.bookOdds,
+    makerUsdt: req.makerUsdt,
+    sharesWei: req.sharesWei,
+    feeRateBps: req.feeRateBps,
+    orderHash: req.orderHash,
+    match: req.match,
+    bet: req.bet,
+    item: req.item,
+  });
+}
+
+/** @deprecated house 代签已下线；请用 pfSubmitSignedOrder */
 export async function pfSubmitOrder(
   account: PlatformAccount,
   req: PfCheckBetRequest,
@@ -161,7 +220,39 @@ export interface PfSubmitSellResult {
   playerId: number;
 }
 
-/** 1:1 全卖指定买单 */
+export interface PfSubmitSignedSellRequest {
+  buyOrderId: string;
+  jwt: string;
+  createOrderBody: PfSubmitSignedOrderRequest["createOrderBody"];
+  orderHash?: string;
+  bookPrice?: number;
+  bookOdds?: number;
+  proceedsUsdt?: number;
+  sharesWei?: string;
+  feeRateBps?: number;
+}
+
+/** 浏览器已签 MARKET FOK SELL → VPS 中继；不代签、不入 total_balance */
+export async function pfSubmitSignedSell(
+  account: PlatformAccount,
+  req: PfSubmitSignedSellRequest,
+): Promise<PfSubmitSellResult> {
+  return pfEsportCall<PfSubmitSellResult>("Pf_SubmitSell", {
+    playerId: requirePlayerId(account),
+    mode: "userSigned",
+    buyOrderId: String(req.buyOrderId ?? "").trim(),
+    jwt: req.jwt,
+    createOrderBody: req.createOrderBody,
+    orderHash: req.orderHash,
+    bookPrice: req.bookPrice,
+    bookOdds: req.bookOdds,
+    proceedsUsdt: req.proceedsUsdt,
+    sharesWei: req.sharesWei,
+    feeRateBps: req.feeRateBps,
+  });
+}
+
+/** @deprecated house 代卖已下线；请用 pfSubmitSignedSell */
 export async function pfSubmitSell(
   account: PlatformAccount,
   buyOrderId: string,
@@ -176,15 +267,19 @@ export async function pfGetOrder(
   account: PlatformAccount,
   orderId: string,
 ): Promise<PfGetOrderResult> {
+  const jwt = await userJwtOrEmpty(account);
   return pfEsportCall<PfGetOrderResult>("Pf_GetOrder", {
     playerId: requirePlayerId(account),
     orderId: String(orderId ?? "").trim(),
+    ...(jwt ? { jwt } : {}),
   });
 }
 
 export async function pfGetOrders(account: PlatformAccount): Promise<VenueOrder[]> {
+  const jwt = await userJwtOrEmpty(account);
   const info = await pfEsportCall<PfGetOrdersResult>("Pf_GetOrders", {
     playerId: requirePlayerId(account),
+    ...(jwt ? { jwt } : {}),
   });
   return Array.isArray(info?.orders) ? info.orders : [];
 }

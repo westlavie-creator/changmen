@@ -32,7 +32,7 @@ const riskKey = ref(0);
 
 const account = computed(() => accountStore.findAccount(props.accountId));
 
-/** PredictFun：真余额在 total_balance；A8 授信/充提公式不适用 */
+/** PredictFun：链上 USDT 为展示真源；A8 授信/充提公式不适用 */
 const isPredictFun = computed(
   () => String(account.value?.provider ?? "").trim() === "PredictFun",
 );
@@ -215,7 +215,7 @@ async function onInfoClosed() {
 
       <div v-if="isPredictFun" class="tip">
         <el-alert
-          title="PredictFun：余额为中转账本真钱；上方充提仅可选备注，不加减余额、无授信。"
+          title="PredictFun：余额为链上 USDT（刷余额可见）；上方充提仅可选备注，不加减余额、无授信。"
           type="info"
           show-icon
           :closable="false"

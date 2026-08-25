@@ -16,10 +16,10 @@ function accountWithToken(token: string): PlatformAccount {
   } as PlatformAccount;
 }
 
-describe("predictfun masterAccount (模式 A)", () => {
-  it("exports house mode constant", () => {
+describe("predictfun masterAccount (house 已下线)", () => {
+  it("exports house mode constant but mode flag is off", () => {
     expect(PREDICT_FUN_ACCOUNT_MODE).toBe("house");
-    expect(isPredictFunHouseMode()).toBe(true);
+    expect(isPredictFunHouseMode()).toBe(false);
   });
 
   it("resolves master credentials from account token with private key", () => {

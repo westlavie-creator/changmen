@@ -24,12 +24,6 @@ const navItems: AdminNavItem[] = [
   { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" } },
   { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" } },
   { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" } },
-  {
-    name: "admin-predictfun-members",
-    label: "PF 会员",
-    icon: "am-icon-user",
-    to: { name: "admin-predictfun-members" },
-  },
   { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" } },
   {
     name: "admin-maintenance",
@@ -78,7 +72,6 @@ const navItems: AdminNavItem[] = [
 const ADMIN_ONLY_NAV = new Set([
   "admin-polymarket-builder",
   "admin-accounts",
-  "admin-predictfun-members",
   "admin-maintenance",
 ]);
 

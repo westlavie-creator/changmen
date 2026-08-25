@@ -1,4 +1,5 @@
 import type { PlatformProvider, ResolveLegOutcomeOpts, VenueOrder } from "../contract";
+import type { AccountBalanceResult } from "../contract";
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
@@ -7,10 +8,8 @@ import { getVenueOddsEntry } from "@changmen/client-core/bridge/oddsAccess";
 import { PLATFORMS } from "../shared/platforms";
 
 import {
-  pfCheckBet,
   pfGetOrders,
-  pfSubmitOrder,
-  type PfCheckBetResult,
+  pfSubmitSignedOrder,
 } from "./pfClientApi";
 import {
   detectionMaxPriceFromOdds,
@@ -24,6 +23,18 @@ import {
   lookupPredictFunMarketIdByToken,
   rememberPredictFunTokenMarketIds,
 } from "./marketIndex";
+import {
+  preparePredictFunUserSession,
+  predictFunUsdtFromWei,
+} from "./userSession";
+import {
+  parsePredictFunTokenConfig,
+  resolvePredictFunPredictAccount,
+} from "./credentials";
+import {
+  checkPredictFunUserBuy,
+  signPredictFunUserMarketBuy,
+} from "./userBuy";
 
 const PLATFORM = PLATFORMS.PredictFun;
 /** check 结果复用窗：缩短以压受理前盘口漂移 */
@@ -128,7 +139,17 @@ function isPredictFunBuyCheckData(data: unknown): data is PredictFunBuyCheckData
 
 function applyCheckResult(
   option: BetOption,
-  checked: PfCheckBetResult,
+  checked: {
+    tokenId: string;
+    marketId: string;
+    bookOdds: number;
+    bookPrice: number;
+    bookFetchedAt: number;
+    feeRateBps: number;
+    isNegRisk: boolean;
+    isYieldBearing: boolean;
+    playerId?: number;
+  },
   detectionOdds: number,
   apiBetMoney: number,
   execMaxPrice: number,
@@ -164,6 +185,33 @@ export function isPredictFunOrderAccepted(
 }
 
 export const predictFunProvider: PlatformProvider = {
+  async getBalance(account: PlatformAccount): Promise<AccountBalanceResult | undefined> {
+    try {
+      const session = await preparePredictFunUserSession(account);
+      // 顺带校验 API 鉴权（JWT 内存缓存）；失败不挡链上余额，但打日志
+      try {
+        await session.getJwt();
+      }
+      catch (err) {
+        console.warn("[PredictFun] JWT 签发失败（余额仍可读链上 USDT）", err);
+      }
+      const wei = await session.orderBuilder.balanceOf("USDT", session.maker);
+      const balance = predictFunUsdtFromWei(wei);
+      const predictAccount = resolvePredictFunPredictAccount(parsePredictFunTokenConfig(account.token))
+        || session.maker;
+      return {
+        balance,
+        currency: "USDT",
+        venueMemberId: predictAccount,
+        venueAccountName: predictAccount,
+      };
+    }
+    catch (err) {
+      console.warn("[PredictFun] getBalance failed", err);
+      return undefined;
+    }
+  },
+
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
     const tokenId = String(option.itemId ?? "").trim();
     const marketId = await ensureMarketId(option, tokenId);
@@ -194,7 +242,8 @@ export const predictFunProvider: PlatformProvider = {
         return option;
       }
 
-      const checked = await pfCheckBet(account, {
+      const checked = await checkPredictFunUserBuy({
+        account,
         marketId,
         tokenId,
         apiBetMoney,
@@ -228,12 +277,31 @@ export const predictFunProvider: PlatformProvider = {
     const display = buildPfOrderDisplayLabels(option);
 
     try {
-      const submitted = await pfSubmitOrder(account, {
+      const signed = await signPredictFunUserMarketBuy({
+        account,
+        marketId: check.marketId,
+        tokenId,
+        apiBetMoney,
+        maxPrice,
+        feeRateBps: check.feeRateBps,
+        isNegRisk: check.isNegRisk,
+        isYieldBearing: check.isYieldBearing,
+      });
+
+      const submitted = await pfSubmitSignedOrder(account, {
+        jwt: signed.jwt,
+        createOrderBody: signed.createOrderBody,
         marketId: check.marketId,
         tokenId,
         apiBetMoney,
         detectionMaxPrice: maxPrice,
         detectionOdds,
+        bookPrice: signed.bookPrice,
+        bookOdds: signed.bookOdds,
+        makerUsdt: signed.makerUsdt,
+        sharesWei: signed.sharesWei,
+        feeRateBps: signed.feeRateBps,
+        orderHash: signed.orderHash,
         match: display.match,
         bet: display.bet,
         item: display.item,

@@ -48,6 +48,7 @@ export {
   deletePolymarketSellOrders,
   fetchAccountAnalytics,
   fetchArbOddsAnalytics,
+  fetchValueBetOrderAnalytics,
   fetchPolymarketOrderAnalytics,
   fetchPolymarketOrdersInRange,
   fetchPolymarketOrderStatsInRange,

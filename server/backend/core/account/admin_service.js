@@ -578,9 +578,9 @@ export async function updateAdminAccountFields(userId, accountId, patch = {}, ca
   const isPf = String(row.provider || row.Provider || "") === "PredictFun"
     || String(row.platformName || "").toLowerCase().includes("predict");
 
-  // PF：余额只能走 rechargeAdminPredictFunMember（增量+流水）；禁止绝对值改 balance/credit
+  // PF：会员充值已下线；禁止经此绝对值改 balance/credit
   if (isPf && ("balance" in fields || "credit" in fields))
-    throw new Error("PredictFun 请使用「充值」入账，不可直接改会员余额");
+    throw new Error("PredictFun 会员充值已下线，不可直接改余额");
   if ("credit" in fields)
     updates.credit = Number(fields.credit) || 0;
   if ("maxBalance" in fields)
@@ -812,7 +812,7 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     if (visibleIds)
       userIds = [...visibleIds];
   }
-  const [platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds] = await Promise.all([
+  const [platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds, valueBet] = await Promise.all([
     sb.fetchPlatformAnalytics(startMs, endMs, userIds),
     sb.fetchArbPairAnalytics(startMs, endMs, userIds),
     sb.fetchGameAnalytics(startMs, endMs, userIds),
@@ -820,8 +820,9 @@ export async function getPlatformAnalytics(body = {}, caller = null) {
     sb.fetchAccountAnalytics(startMs, endMs, userIds),
     sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "OB"),
     sb.fetchArbOddsAnalytics(startMs, endMs, userIds, "RAY"),
+    sb.fetchValueBetOrderAnalytics(startMs, endMs, userIds),
   ]);
-  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds };
+  return { startMs, endMs, platforms, pairs, games, hourly, accounts, obArbOdds, rayArbOdds, valueBet };
 }
 
 export async function getPolymarketBuilderDashboard(body = {}, caller = null) {

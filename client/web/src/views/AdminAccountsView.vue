@@ -427,7 +427,7 @@ onMounted(async () => {
         </p>
         <el-form label-width="96px">
           <el-form-item v-if="isPredictFunRow(editTarget)" label="余额">
-            <span>{{ fmtMoney(editTarget.balance) }}（请到「PredictFun 会员」页充值入账）</span>
+            <span>{{ fmtMoney(editTarget.balance) }}（PredictFun 会员充值已下线）</span>
           </el-form-item>
           <el-form-item v-else label="授信">
             <el-input-number v-model="editForm.balance" :min="0" :step="100" controls-position="right" />

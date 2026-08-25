@@ -1,25 +1,16 @@
 /**
- * Predict.fun 语义 API：Pf_CheckBet / Pf_SubmitOrder / Pf_GetOrder / Pf_GetOrders / Pf_RefreshBalance
+ * Predict.fun 语义 API（浏览器自签 + VPS 中继）
  *
- * 中转模型：用户 ↔ changmen 账本 ↔ PF 官网（house）。
- * 用户可见生命周期见 `pf_lifecycle.js`（仅 pending/open/closed/settled/reject）。
- * `closing` / `pending_credit` 仅为崩溃恢复标记，不进入用户 DTO。
+ * 与旧 house 路径同一套官网协议：JWT 鉴权 + 已签 MARKET 单。
+ * 差别只有钥匙在谁手里：
+ *   - 旧：VPS 持 house Privy → 服务端自签 JWT / 代签下单 / 自查 GetOrder
+ *   - 现：浏览器持用户 Privy → 客户端签单并带 jwt；VPS 只 POST/GET 中继，不碰钥、不碰 total_balance
  *
- * 会员余额真相：`players.total_balance`（不用 A8 credit）。
- * 订单确认：官方 GET /v1/orders/{hash}（JWT）；拒单退还 stake。
+ * Pf_CheckBet：预检已在浏览器；本接口仅提示升级。
  */
 
 import { assertPlayerOwnedByUser, isPredictFunPlayerRow } from "../../account/player_ownership.js";
-import { isPredictFunHouseConfigured, resolvePfHouseMaxStakeUsdt } from "./house_credentials.js";
-import {
-  assertPfAvailableBalance,
-} from "./pf_ledger.js";
-import {
-  estimateHouseMarketBuyMakerUsdt,
-  isValidPredictClobPrice,
-  resolveExecutableBuy,
-  withHouseOrderLock,
-} from "./pf_order_service.js";
+import { PF_MEMBERSHIP_REMOVED_MSG } from "../../account/admin_pf.js";
 import {
   loadPfOrdersStrict,
   publishPfBalanceKnown,
@@ -28,28 +19,31 @@ import {
 } from "./pf_player_account.js";
 import {
   findPfOrderInList,
+  rdsOrderKey,
   rdsOrderStatus,
   rdsPfHash,
   rdsToMapInput,
 } from "./pf_order_row.js";
 import { syncOfficialOrderToRds, lookupOfficialOrder } from "./pf_sync_official.js";
-import { preparePfBuyOutsideLock, executePfBuyInLock } from "./pf_exec_buy.js";
-import { executePfSellInLock } from "./pf_exec_sell.js";
 import { settleResolvedPfOrdersForPlayer } from "./pf_exec_settle.js";
-import { redeemHouseResolvedPositions } from "./pf_house_redeem.js";
 import { mapPredictOrderToVenueOrder } from "./pf_orders.js";
 import {
   listPfStuckOrdersForPlayer,
-  recoverPfStuckOrdersForPlayer,
 } from "./pf_recover_stuck.js";
 import {
   toUserPfGetOrderInfo,
-  toUserPfSubmitOrderInfo,
-  toUserPfSubmitSellInfo,
   toUserPfVenueOrders,
 } from "./pf_user_dto.js";
+import { predictFunPost } from "./pf_api.js";
+import { isPredictFunOrderAccepted } from "./pf_order_service.js";
+import { upsertPfServerOrder } from "./pf_server_order.js";
+import { resolvePfOrderLabels } from "./pf_order_labels.js";
+import { roundUsdt } from "./pf_ledger.js";
+import { executePfUserSignedSell } from "./pf_exec_user_sell.js";
+import { isPfSellClosing } from "./pf_lifecycle.js";
 
 export { settleResolvedPfOrdersForPlayer };
+
 function requirePlayerId(body) {
   const playerId = body?.playerId;
   if (playerId == null || String(playerId).trim() === "")
@@ -57,51 +51,9 @@ function requirePlayerId(body) {
   return { ok: true, playerId };
 }
 
-function parseIntent(body) {
-  const tokenId = String(body?.tokenId ?? "").trim();
-  const marketId = String(body?.marketId ?? "").trim();
-  const apiBetMoney = Number(body?.apiBetMoney);
-  const detectionMaxPrice = Number(body?.detectionMaxPrice ?? body?.maxPrice);
-  const detectionOdds = Number(body?.detectionOdds);
-  const slippageBpsRaw = body?.slippageBps;
-  const slippageBps = slippageBpsRaw == null || slippageBpsRaw === ""
-    ? undefined
-    : BigInt(String(slippageBpsRaw));
-
-  if (!tokenId)
-    return { ok: false, msg: "tokenId 必填" };
-  if (!marketId)
-    return { ok: false, msg: "marketId 必填" };
-  if (!Number.isFinite(apiBetMoney) || apiBetMoney <= 0)
-    return { ok: false, msg: "apiBetMoney 无效" };
-  if (!isValidPredictClobPrice(detectionMaxPrice))
-    return { ok: false, msg: "detectionMaxPrice 无效" };
-
-  const maxStake = resolvePfHouseMaxStakeUsdt();
-  if (apiBetMoney > maxStake + 1e-9)
-    return { ok: false, msg: `单笔超过上限 ${maxStake} USDT` };
-
-  return {
-    ok: true,
-    tokenId,
-    marketId,
-    apiBetMoney: Math.round(apiBetMoney * 100) / 100,
-    detectionMaxPrice,
-    detectionOdds: Number.isFinite(detectionOdds) && detectionOdds > 1 ? detectionOdds : 0,
-    slippageBps,
-    display: {
-      match: String(body?.match ?? body?.Match ?? "").trim(),
-      bet: String(body?.bet ?? body?.Bet ?? "").trim(),
-      item: String(body?.item ?? body?.Item ?? "").trim(),
-    },
-  };
-}
-
-async function assertPfPlayer(body, userId, { requireHouse = true } = {}) {
+async function assertPfPlayer(body, userId) {
   if (!userId)
     return { ok: false, msg: "请先登录" };
-  if (requireHouse && !isPredictFunHouseConfigured())
-    return { ok: false, msg: "VPS 未配置 Predict.fun 主号（API Key + 私钥）" };
 
   const pid = requirePlayerId(body);
   if (!pid.ok)
@@ -118,6 +70,69 @@ async function assertPfPlayer(body, userId, { requireHouse = true } = {}) {
 }
 
 /**
+ * 单笔对齐：closing 则 resume 关卖；否则 jwt? REST Get-by-hash :（仅历史 house 行）house 查。
+ * @returns {{ venueOrder: object, refunded: boolean, settlement: string, found: boolean }}
+ */
+async function alignPfOrderWithOfficial(playerId, userId, rdsRow, jwt) {
+  const orderKey = rdsOrderKey(rdsRow) || rdsPfHash(rdsRow);
+
+  // 卖出确认中：与旧 house resume_closing 同语义，只是 JWT 换成用户的
+  if (isPfSellClosing(rdsRow)) {
+    if (!jwt) {
+      return {
+        venueOrder: mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)),
+        refunded: false,
+        settlement: "timeout",
+        found: false,
+      };
+    }
+    try {
+      await executePfUserSignedSell({
+        playerId,
+        userId,
+        buyOrderId: orderKey,
+        jwt,
+      });
+      const refreshed = await loadPfOrdersStrict(playerId, userId);
+      const closed = findPfOrderInList(refreshed, orderKey) ?? rdsRow;
+      return {
+        venueOrder: mapPredictOrderToVenueOrder(null, rdsToMapInput(closed)),
+        refunded: false,
+        settlement: "filled",
+        found: true,
+      };
+    }
+    catch (err) {
+      console.warn("[Pf] sell closing resume", orderKey, err);
+      return {
+        venueOrder: mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)),
+        refunded: false,
+        settlement: "timeout",
+        found: false,
+      };
+    }
+  }
+
+  const official = await lookupOfficialOrder(rdsRow, orderKey, { jwt });
+  if (!official) {
+    return {
+      venueOrder: mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)),
+      refunded: false,
+      settlement: "timeout",
+      found: false,
+    };
+  }
+
+  const synced = await syncOfficialOrderToRds(playerId, userId, rdsRow, official);
+  return {
+    venueOrder: synced.venueOrder,
+    refunded: synced.refunded,
+    settlement: synced.settlement,
+    found: true,
+  };
+}
+
+/**
  * Pf_RefreshBalance — 用户刷新余额的主路径：
  * 1) VPS 扫官网赛果 / 卡住卖单
  * 2) 写 RDS
@@ -125,24 +140,16 @@ async function assertPfPlayer(body, userId, { requireHouse = true } = {}) {
  * 不依赖管理端拉单，也不做 VPS 后台定时扫。
  */
 export async function handlePfRefreshBalance(body, userId) {
-  const gate = await assertPfPlayer(body, userId, { requireHouse: false });
+  const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
   try {
-    // 结算不强制 house 私钥；拉市场只需 API Key（与采集同源）
+    // 结算不强制 house；卡住卖单补偿依赖 house，会员下线后跳过
     try {
       await settleResolvedPfOrdersForPlayer(gate.playerId, userId);
     }
     catch (err) {
       console.warn("[Pf_RefreshBalance] settle skipped", err);
-    }
-    try {
-      const stuck = await recoverPfStuckOrdersForPlayer(gate.playerId, userId);
-      if (stuck.closing.some(r => !r.ok))
-        console.warn("[Pf_RefreshBalance] closing recover partial", stuck.closing);
-    }
-    catch (err) {
-      console.warn("[Pf_RefreshBalance] stuck recover skipped", err);
     }
     const owned = await assertPlayerOwnedByUser(gate.playerId, userId);
     const player = owned.ok ? owned.player : gate.player;
@@ -155,61 +162,108 @@ export async function handlePfRefreshBalance(body, userId) {
   }
 }
 
-/** Pf_CheckBet */
-export async function handlePfCheckBet(body, userId) {
+/** Pf_CheckBet — 预检已迁浏览器（checkPredictFunUserBuy）；保留 stub 提示 */
+export async function handlePfCheckBet(_body, _userId) {
+  return {
+    ok: false,
+    msg: "PredictFun 预检已改在浏览器执行；请升级客户端后重试",
+  };
+}
+
+/**
+ * Pf_SubmitOrder — 浏览器已签 MARKET FOK 中继。
+ * body.mode === "userSigned"：jwt + createOrderBody → POST /v1/orders；不代签、不扣 total_balance。
+ * 其它 mode：会员中转已下线。
+ */
+export async function handlePfSubmitOrder(body, userId) {
+  const mode = String(body?.mode ?? "").trim();
+  if (mode !== "userSigned")
+    return { ok: false, msg: PF_MEMBERSHIP_REMOVED_MSG };
+
   const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
 
-  const intent = parseIntent(body);
-  if (!intent.ok)
-    return intent;
+  const jwt = String(body?.jwt ?? "").trim();
+  const createOrderBody = body?.createOrderBody;
+  if (!jwt)
+    return { ok: false, msg: "jwt 必填（用户 Predict Account 鉴权）" };
+  if (!createOrderBody || typeof createOrderBody !== "object")
+    return { ok: false, msg: "createOrderBody 必填（浏览器已签订单）" };
+
+  const marketId = String(body?.marketId ?? "").trim();
+  const tokenId = String(body?.tokenId ?? "").trim();
+  if (!marketId || !tokenId)
+    return { ok: false, msg: "marketId / tokenId 必填" };
 
   try {
-    const balance = await resolvePfBalance(gate.player, userId, gate.playerId);
-    const resolved = await resolveExecutableBuy({
-      tokenId: intent.tokenId,
-      marketId: intent.marketId,
-      detectionOdds: intent.detectionOdds,
-      maxPrice: intent.detectionMaxPrice,
-      apiBetMoney: intent.apiBetMoney,
+    const result = await predictFunPost("/v1/orders", createOrderBody, jwt);
+    if (!isPredictFunOrderAccepted(result)) {
+      const code = String(result?.data?.code ?? "").trim();
+      return {
+        ok: false,
+        msg: code
+          ? `Predict.fun 下单未受理（code: ${code}）`
+          : "Predict.fun 下单未受理",
+      };
+    }
+
+    const pfOrderHash = String(
+      body?.orderHash
+      ?? createOrderBody?.data?.order?.hash
+      ?? "",
+    ).trim();
+    const pfApiOrderId = String(result?.data?.orderId ?? "").trim();
+    const orderId = pfOrderHash || pfApiOrderId;
+    const bookOdds = Number(body?.bookOdds) || 0;
+    const bookPrice = Number(body?.bookPrice) || 0;
+    const apiBetMoney = Number(body?.apiBetMoney) || 0;
+    const makerUsdt = Number(body?.makerUsdt);
+    const stake = roundUsdt(
+      Number.isFinite(makerUsdt) && makerUsdt > 0 ? makerUsdt : apiBetMoney,
+    );
+    const labels = resolvePfOrderLabels({
+      marketId,
+      tokenId,
+      fromClient: {
+        match: body?.match,
+        bet: body?.bet,
+        item: body?.item,
+      },
     });
-    // 名义 maker 可高于 apiBetMoney；预检按名义验余额，与提交扣款一致
-    const est = await estimateHouseMarketBuyMakerUsdt({
-      tokenId: intent.tokenId,
-      marketId: intent.marketId,
-      apiBetMoney: intent.apiBetMoney,
-      maxPrice: intent.detectionMaxPrice,
-      maxSlippageBps: intent.slippageBps,
-      yesBook: resolved.yesBook,
-      market: resolved.market,
-    });
-    const chargeUsdt = Math.max(intent.apiBetMoney, Number(est.makerUsdt) || 0);
-    const maxStake = resolvePfHouseMaxStakeUsdt();
-    if (chargeUsdt > maxStake + 1e-9)
-      return { ok: false, msg: `单笔名义超过上限 ${maxStake} USDT（名义 ${roundUsdt(chargeUsdt)}）` };
-    const avail = assertPfAvailableBalance(balance, chargeUsdt, { label: "名义" });
-    if (!avail.ok)
-      return avail;
+    const pendingRow = {
+      orderId,
+      provider: "PredictFun",
+      match: labels.match,
+      bet: labels.bet,
+      item: labels.item,
+      odds: bookOdds,
+      betMoney: stake,
+      money: 0,
+      status: "Pending",
+      createAt: Date.now(),
+      pfMarketId: marketId,
+      pfTokenId: tokenId,
+      pfBookPrice: bookPrice > 0 ? bookPrice : undefined,
+      pfNotionalUsdt: stake,
+      pfOrderHash,
+      pfApiOrderId,
+      pfSide: "buy",
+      pfSellState: "open",
+      pfFeeRateBps: Number(body?.feeRateBps) >= 0 ? Number(body.feeRateBps) : undefined,
+      pfUserSigned: true,
+    };
+    await upsertPfServerOrder(gate.playerId, [pendingRow], userId);
 
     return {
       ok: true,
       info: {
-        tokenId: intent.tokenId,
-        marketId: intent.marketId,
-        apiBetMoney: intent.apiBetMoney,
-        makerUsdt: est.makerUsdt,
-        detectionOdds: intent.detectionOdds,
-        detectionMaxPrice: intent.detectionMaxPrice,
-        bookPrice: resolved.bookPrice,
-        bookOdds: resolved.bookOdds,
-        bookFetchedAt: resolved.bookFetchedAt,
-        feeRateBps: resolved.feeRateBps,
-        isNegRisk: resolved.isNegRisk,
-        isYieldBearing: resolved.isYieldBearing,
-        side: "BUY",
+        orderId,
+        code: result?.data?.code ?? "accepted",
+        bookPrice,
+        bookOdds,
         playerId: gate.playerId,
-        availableBalance: avail.balance,
+        pending: true,
       },
     };
   }
@@ -218,63 +272,9 @@ export async function handlePfCheckBet(body, userId) {
   }
 }
 
-/** Pf_SubmitOrder — 成功后记订单并扣减 total_balance */
-export async function handlePfSubmitOrder(body, userId) {
-  const gate = await assertPfPlayer(body, userId);
-  if (!gate.ok)
-    return gate;
-
-  const intent = parseIntent(body);
-  if (!intent.ok)
-    return intent;
-
-  try {
-    const balanceBefore = await resolvePfBalance(gate.player, userId, gate.playerId);
-    const softAvail = assertPfAvailableBalance(balanceBefore, intent.apiBetMoney);
-    if (!softAvail.ok)
-      return softAvail;
-
-    console.info(
-      `[Pf_SubmitOrder] start player=${gate.playerId} market=${intent.marketId} stake=${intent.apiBetMoney}`,
-    );
-
-    const prepared = await preparePfBuyOutsideLock(intent, balanceBefore);
-    if (!prepared.ok)
-      return prepared;
-
-    const submitted = await withHouseOrderLock(() => executePfBuyInLock({
-      playerId: gate.playerId,
-      userId,
-      intent,
-      fresh0: prepared.fresh0,
-      chargeUsdt: prepared.chargeUsdt,
-    }));
-    console.info(`[Pf_SubmitOrder] lock_done player=${gate.playerId} market=${intent.marketId}`);
-
-    return {
-      ok: true,
-      info: toUserPfSubmitOrderInfo({
-        orderId: submitted.orderId,
-        code: submitted.out.result?.data?.code ?? null,
-        bookPrice: submitted.out.bookPrice || submitted.fresh.bookPrice,
-        bookOdds: submitted.bookOdds || submitted.out.bookOdds || submitted.fresh.bookOdds,
-        playerId: gate.playerId,
-        pending: true,
-        balance: submitted.published.ok ? submitted.published.info.balance : submitted.balance,
-        totalProfit: submitted.published.ok ? submitted.published.info.totalProfit : undefined,
-      }),
-    };
-  }
-  catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[Pf_SubmitOrder] fail market=${intent?.marketId || "?"} ${msg}`);
-    return { ok: false, msg };
-  }
-}
-
 /** Pf_SettleOpenOrders — 主动结算已 RESOLVED 市场的未结单 */
 export async function handlePfSettleOpenOrders(body, userId) {
-  const gate = await assertPfPlayer(body, userId, { requireHouse: false });
+  const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
   try {
@@ -319,38 +319,24 @@ export async function handlePfGetOrder(body, userId) {
 
     const list = await loadPfOrdersStrict(gate.playerId, userId);
     const rdsRow = findPfOrderInList(list, orderId);
-
-    // 用户只认 changmen RDS：无本人订单则拒绝，禁止 house 代查任意 hash
-    if (!rdsRow) {
+    if (!rdsRow)
       return { ok: false, msg: "订单不存在或不属于当前账号" };
-    }
 
-    const official = await lookupOfficialOrder(rdsRow, orderId);
-
-    if (!official) {
-      const venueOrder = mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow));
-      return {
-        ok: true,
-        info: toUserPfGetOrderInfo({
-          orderId,
-          found: false,
-          settlement: "timeout",
-          order: venueOrder,
-          refunded: false,
-        }),
-      };
-    }
-
-    const synced = await syncOfficialOrderToRds(gate.playerId, userId, rdsRow, official);
+    const aligned = await alignPfOrderWithOfficial(
+      gate.playerId,
+      userId,
+      rdsRow,
+      String(body?.jwt ?? "").trim(),
+    );
 
     return {
       ok: true,
       info: toUserPfGetOrderInfo({
-        orderId: synced.venueOrder.orderId || orderId,
-        found: true,
-        settlement: synced.settlement,
-        order: synced.venueOrder,
-        refunded: synced.refunded,
+        orderId: aligned.venueOrder.orderId || orderId,
+        found: aligned.found,
+        settlement: aligned.settlement,
+        order: aligned.venueOrder,
+        refunded: aligned.refunded,
       }),
     };
   }
@@ -360,13 +346,15 @@ export async function handlePfGetOrder(body, userId) {
 }
 
 /**
- * Pf_GetOrders — 对本玩家 RDS 订单逐条按 hash 对齐官方状态（含拒单退款）
+ * Pf_GetOrders — 对本玩家 RDS 订单逐条按 hash 对齐官方状态
  * 官方列表 filter 仅 OPEN/FILLED，故未结单须逐条 Get-by-hash。
  */
 export async function handlePfGetOrders(body, userId) {
   const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
+
+  const jwt = String(body?.jwt ?? "").trim();
 
   try {
     const list = await loadPfOrdersStrict(gate.playerId, userId);
@@ -380,7 +368,6 @@ export async function handlePfGetOrders(body, userId) {
         continue;
       }
 
-      // 已终态（Win/Lose/Reject）不再打官方，避免限流
       const st = String(rdsOrderStatus(rdsRow)).toLowerCase();
       if (st === "win" || st === "lose" || st === "reject" || st === "return") {
         orders.push(mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)));
@@ -388,15 +375,10 @@ export async function handlePfGetOrders(body, userId) {
       }
 
       try {
-        const official = await lookupOfficialOrder(rdsRow, hash);
-        if (!official) {
-          orders.push(mapPredictOrderToVenueOrder(null, rdsToMapInput(rdsRow)));
-          continue;
-        }
-        const synced = await syncOfficialOrderToRds(gate.playerId, userId, rdsRow, official);
-        if (synced.refunded)
+        const aligned = await alignPfOrderWithOfficial(gate.playerId, userId, rdsRow, jwt);
+        if (aligned.refunded)
           refundedCount += 1;
-        orders.push(synced.venueOrder);
+        orders.push(aligned.venueOrder);
       }
       catch (err) {
         console.warn("[Pf_GetOrders] hash lookup failed", hash, err);
@@ -410,7 +392,6 @@ export async function handlePfGetOrders(body, userId) {
     try {
       settleStats = await settleResolvedPfOrdersForPlayer(gate.playerId, userId);
       if (settleStats.settled > 0) {
-        // 结算后重载列表，保证返回含 Win/Lose
         const refreshed = await loadPfOrdersStrict(gate.playerId, userId);
         orders.length = 0;
         for (const rdsRow of refreshed) {
@@ -439,47 +420,43 @@ export async function handlePfGetOrders(body, userId) {
 }
 
 /**
- * Pf_SubmitSell — 1:1 全卖指定买单（house SELL FOK）
- * body: { playerId, buyOrderId }
+ * Pf_SubmitSell — 浏览器已签 MARKET FOK 卖出中继。
+ * body.mode === "userSigned"：jwt + createOrderBody（或 resume_closing 仅 jwt）。
  */
 export async function handlePfSubmitSell(body, userId) {
+  const mode = String(body?.mode ?? "").trim();
+  if (mode !== "userSigned")
+    return { ok: false, msg: PF_MEMBERSHIP_REMOVED_MSG };
+
   const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
 
-  const buyOrderId = String(body?.buyOrderId ?? body?.orderId ?? "").trim();
+  const buyOrderId = String(body?.buyOrderId ?? "").trim();
   if (!buyOrderId)
     return { ok: false, msg: "buyOrderId 必填" };
 
   try {
-    const sold = await withHouseOrderLock(() => executePfSellInLock({
+    const info = await executePfUserSignedSell({
       playerId: gate.playerId,
       userId,
       buyOrderId,
-    }));
-    return { ok: true, info: toUserPfSubmitSellInfo({ ...sold, playerId: gate.playerId }) };
+      jwt: String(body?.jwt ?? "").trim(),
+      createOrderBody: body?.createOrderBody,
+      orderHash: body?.orderHash,
+      bookPrice: body?.bookPrice,
+      bookOdds: body?.bookOdds,
+      proceedsUsdt: body?.proceedsUsdt,
+    });
+    return { ok: true, info };
   }
   catch (err) {
     return { ok: false, msg: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export async function handlePfHouseRedeemResolved(body, userId) {
-  if (!userId)
-    return { ok: false, msg: "请先登录" };
-  if (!isPredictFunHouseConfigured())
-    return { ok: false, msg: "VPS 未配置 Predict.fun 主号" };
-  try {
-    const marketId = body?.marketId != null ? String(body.marketId).trim() : "";
-    const result = await redeemHouseResolvedPositions({
-      marketId: marketId || undefined,
-      force: Boolean(body?.force),
-    });
-    return { ok: true, info: result };
-  }
-  catch (err) {
-    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
-  }
+export async function handlePfHouseRedeemResolved(_body, _userId) {
+  return { ok: false, msg: PF_MEMBERSHIP_REMOVED_MSG };
 }
 
 /**
@@ -488,11 +465,11 @@ export async function handlePfHouseRedeemResolved(body, userId) {
  */
 export async function handlePfRecoverStuckOrders(body, userId) {
   const dryRun = Boolean(body?.dryRun);
-  const gate = await assertPfPlayer(body, userId, { requireHouse: !dryRun });
+  const gate = await assertPfPlayer(body, userId);
   if (!gate.ok)
     return gate;
   try {
-    if (body?.dryRun) {
+    if (dryRun) {
       const listed = await listPfStuckOrdersForPlayer(gate.playerId, userId);
       return {
         ok: true,
@@ -503,22 +480,7 @@ export async function handlePfRecoverStuckOrders(body, userId) {
         },
       };
     }
-    const recovered = await recoverPfStuckOrdersForPlayer(gate.playerId, userId);
-    return {
-      ok: true,
-      info: {
-        dryRun: false,
-        playerId: gate.playerId,
-        pendingCredit: recovered.pendingCredit,
-        closing: recovered.closing.map((row) => ({
-          buyOrderId: row.buyOrderId,
-          ok: row.ok,
-          msg: row.msg,
-          sellOrderId: row.info?.sellOrderId,
-          proceedsUsdt: row.info?.proceedsUsdt,
-        })),
-      },
-    };
+    return { ok: false, msg: PF_MEMBERSHIP_REMOVED_MSG };
   }
   catch (err) {
     return { ok: false, msg: err instanceof Error ? err.message : String(err) };

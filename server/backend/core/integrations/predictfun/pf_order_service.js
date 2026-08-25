@@ -214,20 +214,9 @@ export function _resetExecutableBuyCacheForTests() {
   executableBuyCache.clear();
 }
 
-/** 进程启动预热：SDK + approvals + JWT，避免首单 10s+ */
+/** 进程启动预热已下线（用户自签不依赖 house OrderBuilder） */
 export async function warmPfHouseSession() {
-  try {
-    if (!resolvePredictFunHouseCredentials()?.privateKey)
-      return { ok: false, skipped: true };
-    const t0 = Date.now();
-    await prepareHouseSigner();
-    console.info(`[Pf_House] warm ok +${Date.now() - t0}ms`);
-    return { ok: true };
-  }
-  catch (err) {
-    console.warn("[Pf_House] warm failed:", err instanceof Error ? err.message : err);
-    return { ok: false, msg: err instanceof Error ? err.message : String(err) };
-  }
+  return { ok: false, skipped: true, removed: true };
 }
 
 export async function resolveExecutableBuy({

@@ -4,7 +4,7 @@
 
 import { reactive, shallowRef } from "vue";
 import type { PlatformAccount } from "@/models/platformAccount";
-import { extractPrivateKeyFromToken, isPolymarketProvider } from "./tokenStrip";
+import { extractPrivateKeyFromToken, isVaultKeyProvider } from "./tokenStrip";
 import {
   getCachedPrivateKey,
   hasVault,
@@ -28,7 +28,7 @@ export function pmAccountShowsUnlockPending(
   currentUserId?: unknown,
 ): boolean {
   void pmVaultSessionRev.value;
-  if (!isPolymarketProvider(account.provider))
+  if (!isVaultKeyProvider(account.provider))
     return false;
   const accountId = Number(account.accountId);
   if (!accountId)
@@ -70,7 +70,7 @@ export async function refreshPmVaultAccountUi(
       /* IndexedDB 不可用 */
     }
     for (const acc of accounts) {
-      if (!isPolymarketProvider(acc.provider) || !acc.accountId)
+      if (!isVaultKeyProvider(acc.provider) || !acc.accountId)
         continue;
       if (extractPrivateKeyFromToken(acc.token))
         ids.add(Number(acc.accountId));
@@ -81,7 +81,7 @@ export async function refreshPmVaultAccountUi(
 }
 
 /**
- * [changmen 扩展] 待解锁 PM 不写 balance，编排层按 balance===undefined 自然跳过（不改 accountPicker）。
+ * [changmen 扩展] 待解锁 vault 场馆不写 balance，编排层按 balance===undefined 自然跳过（不改 accountPicker）。
  */
 export function applyPmVaultBalanceGate(
   accounts: PlatformAccount[],
@@ -106,7 +106,7 @@ export async function refreshPmVaultAccountUiFromStore(): Promise<void> {
     const uid = normalizePmVaultUserId(userId);
     if (uid && isPmVaultUnlocked(uid)) {
       for (const acc of store.accounts) {
-        if (!isPolymarketProvider(acc.provider) || !acc.accountId)
+        if (!isVaultKeyProvider(acc.provider) || !acc.accountId)
           continue;
         if (pmAccountShowsUnlockPending(acc, uid))
           continue;

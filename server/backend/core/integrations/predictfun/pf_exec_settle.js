@@ -4,7 +4,7 @@
 
 import { assertPlayerOwnedByUser } from "../../account/player_ownership.js";
 import { roundUsdt } from "./pf_ledger.js";
-import { isPfSellBlockedForSettle } from "./pf_lifecycle.js";
+import { isPfSellBlockedForSettle, isPfUserSignedOrder } from "./pf_lifecycle.js";
 import {
   applyPendingPfLedgerCredit,
   loadPfOrdersStrict,
@@ -21,7 +21,6 @@ import {
 import { withHouseOrderLock } from "./pf_order_service.js";
 import { fetchPredictMarket } from "./pf_api.js";
 import { computePfSettlement, resolvePfMarketOutcome } from "./pf_settle.js";
-import { tryRedeemHouseMarketAfterSettle } from "./pf_house_redeem.js";
 import { mapPredictOrderToVenueOrder } from "./pf_orders.js";
 import { upsertPfServerOrder } from "./pf_server_order.js";
 
@@ -106,6 +105,9 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
         return;
 
       const creditUsdt = computed.balanceDelta > 0 ? roundUsdt(computed.balanceDelta) : 0;
+      const userSigned = isPfUserSignedOrder(fresh);
+      // 自签：盈亏只记订单 money；链上 USDT 已是真源，禁止写入 total_balance
+      const ledgerCredit = userSigned ? 0 : creditUsdt;
       const venue = mapPredictOrderToVenueOrder(null, rdsToMapInput(fresh));
       const saved = await upsertPfServerOrder(playerId, [{
         ...venue,
@@ -115,13 +117,14 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
         pfSettledAt: Date.now(),
         pfMarketStatus: market.status,
         pfOutcomeStatus: outcome,
-        pfLedgerState: creditUsdt > 0 ? "pending_credit" : "credited",
-        pfPendingCreditUsdt: creditUsdt,
+        pfLedgerState: ledgerCredit > 0 ? "pending_credit" : "credited",
+        pfPendingCreditUsdt: ledgerCredit,
+        ...(userSigned ? { pfUserSigned: true } : {}),
       }], userId);
       if (!saved)
         return;
 
-      if (creditUsdt > 0) {
+      if (ledgerCredit > 0) {
         const creditResult = await applyPendingPfLedgerCredit(playerId, userId, {
           ...fresh,
           ...venue,
@@ -129,7 +132,7 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
           money: computed.money,
           pfSellState: "settled",
           pfLedgerState: "pending_credit",
-          pfPendingCreditUsdt: creditUsdt,
+          pfPendingCreditUsdt: ledgerCredit,
         });
         if (!creditResult.ok)
           console.warn("[Pf_Settle] credit pending after settle", key);
@@ -153,9 +156,7 @@ export async function settleResolvedPfOrdersForPlayer(playerId, userId) {
       wins += 1;
     else
       losses += 1;
-
-    if (outcome === "win")
-      await tryRedeemHouseMarketAfterSettle(marketId);
+    // house redeem 已随会员中转下线；用户自签仓位由用户自行 redeem
   }
 
   return { settled, wins, losses, balanceDelta: balanceDeltaTotal };

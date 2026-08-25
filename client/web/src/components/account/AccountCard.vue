@@ -43,6 +43,10 @@ async function promptPmVaultUnlock() {
 function formatBalance(value?: number) {
   if (value === undefined || Number.isNaN(value))
     return "";
+  const currency = String(props.account.currency || "").toUpperCase();
+  // USDT/USD：保留两位；其余馆对齐 A8 整数展示
+  if (currency === "USDT" || currency === "USD")
+    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return Math.floor(value).toLocaleString();
 }
 

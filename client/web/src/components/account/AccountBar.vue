@@ -28,9 +28,9 @@ function openMoney(account: PlatformAccount) {
 async function refreshOne(account: PlatformAccount) {
   await account.updateBalance();
   await account.updateOrders();
-  if (String(account.provider) === "PredictFun" && account.balance != null) {
+  if (String(account.provider) === "PredictFun" && account.balance != null && !account.balanceStale) {
     const { ElMessage } = await import("element-plus");
-    ElMessage.success(`余额已刷新：${account.balance} USDT`);
+    ElMessage.success(`余额已刷新：${Number(account.balance).toFixed(2)} USDT`);
   }
 }
 

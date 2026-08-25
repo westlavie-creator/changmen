@@ -9,6 +9,8 @@ export * from "./bet";
 export * from "./collect";
 export * from "./credentials";
 export * from "./masterAccount";
+export * from "./userSession";
+export * from "./userBuy";
 export * from "./marketIndex";
 export * from "./pfDetection";
 export * from "./legOutcome";

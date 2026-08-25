@@ -52,7 +52,7 @@ function looksLikeRawPrivateKey(text) {
 }
 
 function isPrivateKeyPropName(key) {
-  return /^private_?key$/i.test(String(key));
+  return /^private_?key$/i.test(String(key)) || /^privy_?private_?key$/i.test(String(key));
 }
 
 /** 仅接受标准 ETH 地址 */
@@ -202,9 +202,36 @@ export function toPolymarketPersistToken(token) {
 /** @deprecated 使用 toPolymarketPersistToken */
 export const stripPolymarketPrivateKeyFromToken = toPolymarketPersistToken;
 
+/** PredictFun 落库：仅 predictAccount */
+export function toPredictFunPersistToken(token) {
+  if (token == null)
+    return token === null ? undefined : "";
+  if (typeof token !== "string")
+    return "";
+  const text = token.trim();
+  if (!text)
+    return token;
+  if (looksLikeRawPrivateKey(text))
+    return "";
+  const obj = resolveConfigObject(text);
+  if (!obj)
+    return "";
+  const predictAccount = pickEthAddress(
+    obj.predictAccount ?? obj.predict_account ?? obj.walletAddress ?? obj.address ?? "",
+  );
+  if (!predictAccount)
+    return "";
+  return JSON.stringify({ predictAccount });
+}
+
 function isPolymarketRow(row) {
   const provider = String(row?.provider ?? row?.Provider ?? row?.platform ?? row?.Platform ?? "").toLowerCase();
   return provider === "polymarket" || provider === "pm";
+}
+
+function isPredictFunRow(row) {
+  const provider = String(row?.provider ?? row?.Provider ?? row?.platform ?? row?.Platform ?? "").toLowerCase();
+  return provider === "predictfun" || provider === "predict.fun" || provider === "pf";
 }
 
 /**
@@ -215,14 +242,25 @@ export function enforcePolymarketPersistDto(accounts) {
   if (!Array.isArray(accounts))
     return { ok: true };
   for (const row of accounts) {
-    if (!row || typeof row !== "object" || !isPolymarketRow(row))
+    if (!row || typeof row !== "object")
       continue;
     const raw = row.token ?? row.Token;
-    if (raw != null && polymarketTokenHasPrivateKeyMaterial(String(raw))) {
-      return {
-        ok: false,
-        msg: "Polymarket token 禁止包含私钥；请使用本机钱包仓，仅提交 walletAddress/funder/apiCreds/signatureType",
-      };
+    if (isPolymarketRow(row)) {
+      if (raw != null && polymarketTokenHasPrivateKeyMaterial(String(raw))) {
+        return {
+          ok: false,
+          msg: "Polymarket token 禁止包含私钥；请使用本机钱包仓，仅提交 walletAddress/funder/apiCreds/signatureType",
+        };
+      }
+      continue;
+    }
+    if (isPredictFunRow(row)) {
+      if (raw != null && polymarketTokenHasPrivateKeyMaterial(String(raw))) {
+        return {
+          ok: false,
+          msg: "PredictFun token 禁止包含私钥；请使用本机钱包仓，仅提交 predictAccount",
+        };
+      }
     }
   }
   projectPolymarketAccountTokens(accounts);
@@ -239,12 +277,21 @@ export function projectPolymarketAccountTokens(accounts) {
 }
 
 export function projectPolymarketAccountRow(row) {
-  if (!row || typeof row !== "object" || !isPolymarketRow(row))
+  if (!row || typeof row !== "object")
     return row;
-  if (row.token != null)
-    row.token = toPolymarketPersistToken(row.token);
-  if (row.Token != null)
-    row.Token = toPolymarketPersistToken(row.Token);
+  if (isPolymarketRow(row)) {
+    if (row.token != null)
+      row.token = toPolymarketPersistToken(row.token);
+    if (row.Token != null)
+      row.Token = toPolymarketPersistToken(row.Token);
+    return row;
+  }
+  if (isPredictFunRow(row)) {
+    if (row.token != null)
+      row.token = toPredictFunPersistToken(row.token);
+    if (row.Token != null)
+      row.Token = toPredictFunPersistToken(row.Token);
+  }
   return row;
 }
 

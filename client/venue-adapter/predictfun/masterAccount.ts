@@ -1,8 +1,6 @@
 /**
- * Predict.fun 模式 A（主号 / house）：全站套利下单由 **VPS** 持 B 号私钥代签。
- * changmen 用户无需在 predict.fun 开户；用户 PlatformAccount 仅用于玩家/订单归属。
- *
- * 浏览器侧不再读取 VITE_* 私钥（防泄露）。联调若需本地验签，仅用管理员账号 token 回退（不推荐生产）。
+ * Predict.fun 主号 / house 中转已下线。
+ * `isPredictFunHouseMode()` 恒为 false；用户需自有账号下注（后续接入）。
  */
 
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
@@ -15,6 +13,7 @@ import {
   type PredictFunTokenConfig,
 } from "./credentials";
 
+/** @deprecated 会员中转已下线；保留常量避免旧 import 断裂 */
 export const PREDICT_FUN_ACCOUNT_MODE = "house" as const;
 
 export interface PredictFunMasterCredentials {
@@ -43,7 +42,6 @@ function credentialsFromConfig(
 
 /**
  * @deprecated 浏览器下单已废弃；下单走 Pf_*。仅保留给运维脚本/测试探测。
- * 生产勿再通过 VITE_* 注入私钥。
  */
 export function resolvePredictFunMasterCredentials(
   account?: PlatformAccount,
@@ -52,11 +50,12 @@ export function resolvePredictFunMasterCredentials(
   return credentialsFromConfig(cfg, "account");
 }
 
+/** 会员中转已下线 */
 export function isPredictFunHouseMode(): boolean {
-  return true;
+  return false;
 }
 
-/** 用户侧账号是否仅需占位（无 predict.fun 凭证） */
+/** 用户侧账号是否为旧 house 占位（无 predict.fun 凭证） */
 export function isPredictFunHousePlaceholderAccount(account: PlatformAccount): boolean {
   const cfg = parsePredictFunTokenConfig(account.token);
   if (cfg.house === true || String(cfg.mode ?? "").toLowerCase() === "house")

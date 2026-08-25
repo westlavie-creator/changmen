@@ -3,6 +3,7 @@ import {
   extractPrivateKeyFromToken,
   mergePrivateKeyIntoToken,
   stripPrivateKeyFromToken,
+  toPredictFunPersistToken,
 } from "./tokenStrip";
 import {
   createVerifier,
@@ -119,6 +120,26 @@ describe("pmVault tokenStrip allowlist", () => {
     const merged = mergePrivateKeyIntoToken(base, `0x${"22".repeat(32)}`);
     expect(extractPrivateKeyFromToken(merged)).toBe(`0x${"22".repeat(32)}`);
     expect(JSON.parse(merged).funder).toBe(F);
+  });
+
+  it("PredictFun persist keeps only predictAccount and strips privy key", () => {
+    const acc = `0x${"aa".repeat(20)}`;
+    const raw = JSON.stringify({
+      predictAccount: acc,
+      privyPrivateKey: `0x${"bb".repeat(32)}`,
+      mode: "house",
+    });
+    expect(JSON.parse(toPredictFunPersistToken(raw))).toEqual({ predictAccount: acc });
+    expect(extractPrivateKeyFromToken(raw)).toBe(`0x${"bb".repeat(32)}`);
+    const merged = mergePrivateKeyIntoToken(
+      toPredictFunPersistToken(raw),
+      `0x${"cc".repeat(32)}`,
+      "PredictFun",
+    );
+    expect(JSON.parse(merged)).toEqual({
+      predictAccount: acc,
+      privyPrivateKey: `0x${"cc".repeat(32)}`,
+    });
   });
 });
 

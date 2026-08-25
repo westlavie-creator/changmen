@@ -39,6 +39,16 @@ import {
   resolvePolymarketSignerAddress,
 } from "@changmen/venue-adapter/polymarket";
 import {
+  buildPredictFunMemoryToken,
+  buildPredictFunPersistToken,
+  isValidPredictFunAddress,
+  isValidPredictFunPrivateKey,
+  normalizePredictFunPrivateKey,
+  parsePredictFunTokenConfig,
+  resolvePredictFunPredictAccount,
+  resolvePredictFunPrivyPrivateKey,
+} from "@changmen/venue-adapter/predictfun";
+import {
   ensurePmVaultSetup,
   ensurePmVaultUnlocked,
   extractPrivateKeyFromToken,
@@ -61,8 +71,7 @@ function readStoredVenueMemberId(row: { venueMemberId?: string; venueId?: string
  * [changmen 扩展] 已实现 venueMemberId 回写的场馆。
  * 其它场馆保持 A8：粘贴凭证即可保存，不强制余额/会员 ID。
  */
-const VENUE_MEMBER_ID_PROVIDERS = new Set(["OB", "RAY", "PB", "Polymarket"]);
-const PREDICT_FUN_HOUSE_TOKEN = JSON.stringify({ mode: "house" });
+const VENUE_MEMBER_ID_PROVIDERS = new Set(["OB", "RAY", "PB", "Polymarket", "PredictFun"]);
 
 function requiresVenueMemberId(provider: unknown): boolean {
   return VENUE_MEMBER_ID_PROVIDERS.has(String(provider ?? "").trim());
@@ -134,6 +143,27 @@ const polyDerivingAddresses = ref(false);
 /** 地址推导 / apiCreds 异步防串写 */
 let polyAsyncOpSeq = 0;
 
+/** PredictFun：官网 Privy 钥 + Predict Account（充值地址） */
+const pfPrivyPrivateKey = ref("");
+const pfPredictAccount = ref("");
+const pfLocalKeyStatus = ref<"none" | "stored" | "ready">("none");
+let pfLocalKeyHintSeq = 0;
+const pfLocalKeyReady = computed(() => pfLocalKeyStatus.value !== "none");
+const pfPrivyKeyPlaceholder = computed(() => {
+  if (pfLocalKeyStatus.value === "ready")
+    return "Privy 私钥已就绪（不显示明文）；留空沿用，或粘贴新钥覆盖";
+  if (pfLocalKeyStatus.value === "stored")
+    return "本机已存加密 Privy 钥（未解锁）；解锁后可用，或粘贴新钥覆盖";
+  return "从 predict.fun 设置页 Export 导出的 Privy 私钥";
+});
+const pfPrivyKeyHintText = computed(() => {
+  if (pfLocalKeyStatus.value === "ready")
+    return "Privy 私钥仅存本机加密仓，页面不回显。";
+  if (pfLocalKeyStatus.value === "stored")
+    return "本机仓有该账号 Privy 钥，但当前未解锁。";
+  return "";
+});
+
 interface PlatformSuggestion { value: string; link: string }
 
 let form = reactive<AccountEditFormState>(
@@ -141,18 +171,6 @@ let form = reactive<AccountEditFormState>(
     new PlatformAccount({ accountId: 0, playerName: "", provider: "Polymarket" }),
   ),
 );
-
-function applyPredictFunHouseDefaults() {
-  form.platformName = form.platformName.trim() || "PredictFun";
-  form.token = PREDICT_FUN_HOUSE_TOKEN;
-  form.gateway = "";
-  form.referer = "";
-  form.userAgent = "";
-  form.cookie = "";
-  const loginName = String(userStore.userName || "").trim();
-  if (loginName)
-    form.playerName = loginName;
-}
 
 function applyPbIdentityFromToken(token: string | undefined) {
   const identity = parsePbVenueIdentity(token);
@@ -197,8 +215,19 @@ function resetForm(acc?: PlatformAccount) {
     form.gateway ||= "https://clob.polymarket.com";
     form.referer ||= "https://polymarket.com/zh";
   }
-  if (form.provider === "PredictFun")
-    applyPredictFunHouseDefaults();
+  if (form.provider === "PredictFun") {
+    form.platformName = form.platformName.trim() || "PredictFun";
+    form.gateway = "";
+    form.referer = "";
+    form.userAgent = "";
+    form.cookie = "";
+    syncPredictFunFieldsFromToken(form.token);
+  }
+  else {
+    pfPrivyPrivateKey.value = "";
+    pfPredictAccount.value = "";
+    pfLocalKeyStatus.value = "none";
+  }
   syncPolymarketFieldsFromToken(form.token);
   if (form.provider === "PB" && !form.venueMemberId)
     applyPbIdentityFromToken(form.token);
@@ -245,6 +274,44 @@ function syncPolymarketFieldsFromToken(token: string) {
   polyAdvancedMode.value = sig !== "3" && sig !== "";
 }
 
+function syncPredictFunFieldsFromToken(token: string) {
+  const cfg = parsePredictFunTokenConfig(token);
+  pfPredictAccount.value = resolvePredictFunPredictAccount(cfg);
+  const addr = pfPredictAccount.value.trim();
+  if (isValidPredictFunAddress(addr)) {
+    form.venueMemberId = addr;
+    form.venueAccountName = addr;
+    if (!form.playerName.trim() || form.playerName.trim() === "River")
+      form.playerName = addr;
+  }
+  // 不回显 Privy 钥
+  pfPrivyPrivateKey.value = "";
+  const uid = String(userStore.userId || "");
+  const aid = Number(props.account?.accountId) || 0;
+  const unlocked = Boolean(uid && isPmVaultUnlocked(uid));
+  const fromToken = Boolean(resolvePredictFunPrivyPrivateKey(cfg) || extractPrivateKeyFromToken(token));
+  const fromVaultMem = Boolean(unlocked && aid && getCachedPrivateKey(aid));
+  if (fromToken || fromVaultMem)
+    pfLocalKeyStatus.value = "ready";
+  else if (uid && aid) {
+    const seq = ++pfLocalKeyHintSeq;
+    void vaultHasKey(uid, aid).then((has) => {
+      if (seq !== pfLocalKeyHintSeq)
+        return;
+      if (fromToken || fromVaultMem || (has && isPmVaultUnlocked(uid)))
+        pfLocalKeyStatus.value = "ready";
+      else if (has)
+        pfLocalKeyStatus.value = "stored";
+      else
+        pfLocalKeyStatus.value = "none";
+    });
+  }
+  else {
+    pfLocalKeyHintSeq += 1;
+    pfLocalKeyStatus.value = "none";
+  }
+}
+
 async function resolvePolymarketPrivateKeyForSave(): Promise<string> {
   const typed = polyPrivateKey.value.trim();
   if (typed)
@@ -274,7 +341,11 @@ async function resolvePolymarketPrivateKeyForSave(): Promise<string> {
   return cached;
 }
 
-async function ensurePrivateKeyInVault(accountId: number, privateKey: string): Promise<void> {
+async function ensurePrivateKeyInVault(
+  accountId: number,
+  privateKey: string,
+  addressHint = "",
+): Promise<void> {
   const uid = String(userStore.userId || "");
   if (!uid || uid === "0")
     throw new Error("未登录，无法保存本机私钥");
@@ -288,7 +359,7 @@ async function ensurePrivateKeyInVault(accountId: number, privateKey: string): P
     if (!ok)
       throw new Error("请先解锁本机钱包");
   }
-  await putPrivateKeyInVault(uid, accountId, privateKey, polyWalletAddress.value);
+  await putPrivateKeyInVault(uid, accountId, privateKey, addressHint || polyWalletAddress.value);
 }
 
 /** 新建 PM 账号：在 CreateTagPlatform 之前先设密/解锁，避免账号已建但仓未就绪 */
@@ -415,8 +486,14 @@ watch(
       syncPolymarketFieldsFromToken(form.token);
       void refreshPolymarketRelayerStatus();
     }
-    if (p === "PredictFun")
-      applyPredictFunHouseDefaults();
+    if (p === "PredictFun") {
+      form.platformName = form.platformName.trim() || "PredictFun";
+      form.gateway = "";
+      form.referer = "";
+      form.userAgent = "";
+      form.cookie = "";
+      syncPredictFunFieldsFromToken(form.token);
+    }
   },
 );
 
@@ -727,17 +804,60 @@ async function onDerivePolymarketAddresses() {
   }
 }
 
+async function resolvePredictFunPrivyKeyForSave(): Promise<string> {
+  const typed = pfPrivyPrivateKey.value.trim();
+  if (typed) {
+    const normalized = normalizePredictFunPrivateKey(typed);
+    if (!isValidPredictFunPrivateKey(normalized))
+      throw new Error("Privy 私钥格式无效（须为 0x + 64 hex）");
+    return normalized;
+  }
+  const fromForm = resolvePredictFunPrivyPrivateKey(parsePredictFunTokenConfig(form.token))
+    || extractPrivateKeyFromToken(form.token);
+  if (fromForm)
+    return normalizePredictFunPrivateKey(fromForm);
+  const fromAccount = resolvePredictFunPrivyPrivateKey(parsePredictFunTokenConfig(props.account?.token))
+    || extractPrivateKeyFromToken(props.account?.token);
+  if (fromAccount)
+    return normalizePredictFunPrivateKey(fromAccount);
+  const uid = String(userStore.userId || "");
+  const aid = Number(props.account?.accountId) || 0;
+  if (!uid || !aid)
+    throw new Error("Privy 私钥必填（设置页 Export 导出）");
+  if (!isPmVaultUnlocked(uid)) {
+    if (!(await vaultHasKey(uid, aid)))
+      throw new Error("Privy 私钥必填（设置页 Export 导出）");
+    const unlocked = await ensurePmVaultUnlocked(uid);
+    if (!unlocked)
+      throw new Error("请先解锁本机钱包");
+  }
+  const cached = getCachedPrivateKey(aid);
+  if (!cached)
+    throw new Error("本机钱包无该账号 Privy 钥，请重新导入");
+  return normalizePredictFunPrivateKey(cached);
+}
+
+async function ensurePredictFunToken(): Promise<string> {
+  const predictAccount = pfPredictAccount.value.trim();
+  if (!isValidPredictFunAddress(predictAccount))
+    throw new Error("Predict 智能钱包地址必填（充值页复制，勿用智能路由地址）");
+  const privyPrivateKey = await resolvePredictFunPrivyKeyForSave();
+  // 上报仅 predictAccount；内存钥在 save 路径写入 vault + 会话 token
+  form.token = buildPredictFunMemoryToken({ predictAccount, privyPrivateKey });
+  form.venueMemberId = predictAccount;
+  form.venueAccountName = predictAccount;
+  return buildPredictFunPersistToken(predictAccount);
+}
+
 async function buildPatch(): Promise<Partial<AccountRecord> & {
   platformName: string;
   playerName: string;
   provider: AccountRecord["provider"];
 }> {
-  if (form.provider === "PredictFun")
-    applyPredictFunHouseDefaults();
   const token = form.provider === "Polymarket"
     ? await ensurePolymarketToken()
     : form.provider === "PredictFun"
-      ? PREDICT_FUN_HOUSE_TOKEN
+      ? await ensurePredictFunToken()
       : form.token.trim() || undefined;
   return {
     platformName: form.platformName.trim(),
@@ -948,6 +1068,14 @@ async function save() {
         polyPrivateKey.value = "";
         polyLocalKeyStatus.value = "ready";
       }
+      if (form.provider === "PredictFun") {
+        const pk = await resolvePredictFunPrivyKeyForSave();
+        const predictAccount = pfPredictAccount.value.trim();
+        await ensurePrivateKeyInVault(Number(acc.accountId), pk, predictAccount);
+        acc.token = buildPredictFunMemoryToken({ predictAccount, privyPrivateKey: pk });
+        pfPrivyPrivateKey.value = "";
+        pfLocalKeyStatus.value = "ready";
+      }
       await accountStore.saveAccounts();
       ElMessage.success("账号设置已保存");
       emit("close");
@@ -969,6 +1097,7 @@ async function save() {
     // [A8 可证实] 新建：createTagPlatform({ loading }) → 关弹窗 → createAccount
     // 关弹窗前先固定私钥：close 会清 editDialogAccount，不能再靠 props/输入框二次 resolve
     let pmCreatePrivateKey = "";
+    let pfCreatePrivyKey = "";
     if (form.provider === "Polymarket") {
       await ensurePmVaultReadyBeforeCreate();
       pmCreatePrivateKey = polyPrivateKey.value.trim()
@@ -977,6 +1106,14 @@ async function save() {
       if (!pmCreatePrivateKey)
         throw new Error("Polymarket 私钥必填");
       patch.token = buildPolyToken(pmCreatePrivateKey);
+    }
+    if (form.provider === "PredictFun") {
+      await ensurePmVaultReadyBeforeCreate();
+      pfCreatePrivyKey = await resolvePredictFunPrivyKeyForSave();
+      const predictAccount = pfPredictAccount.value.trim();
+      patch.token = buildPredictFunPersistToken(predictAccount);
+      if (!patch.playerName.trim())
+        patch.playerName = predictAccount;
     }
     if (bindVenueMember && venue?.venueMemberId)
       patch.venueMemberId = venue.venueMemberId;
@@ -992,6 +1129,16 @@ async function save() {
       patch.token = buildPolyToken(pmCreatePrivateKey);
       polyPrivateKey.value = "";
       polyLocalKeyStatus.value = "ready";
+    }
+    if (form.provider === "PredictFun" && created.playerId && pfCreatePrivyKey) {
+      const predictAccount = pfPredictAccount.value.trim();
+      await ensurePrivateKeyInVault(Number(created.playerId), pfCreatePrivyKey, predictAccount);
+      patch.token = buildPredictFunMemoryToken({
+        predictAccount,
+        privyPrivateKey: pfCreatePrivyKey,
+      });
+      pfPrivyPrivateKey.value = "";
+      pfLocalKeyStatus.value = "ready";
     }
     ElMessage.success("账号设置已保存");
     emit("close");
@@ -1220,11 +1367,51 @@ function unlockRate() {
       </template>
 
       <template v-if="form.provider === 'PredictFun'" #token>
-        <el-form-item label="下单模式：">
-          <span class="pf-house-hint">
-            运营主号代下（house）；账号名使用登录名「{{ userStore.userName || "—" }}」，无需填写 Token / 私钥
-          </span>
-        </el-form-item>
+        <fieldset class="poly-token-fieldset">
+          <legend>Predict.fun 凭证（均必填）</legend>
+          <p class="poly-credential-readonly-hint">
+            与官网一致：需要 <strong>Privy 私钥</strong> + <strong>Predict 智能钱包地址</strong>。
+            API Key / JWT 不用填。私钥仅存本机加密仓，不会上传到服务器。
+          </p>
+          <el-form-item label="Privy 私钥：">
+            <el-input
+              v-model="pfPrivyPrivateKey"
+              show-password
+              autocomplete="off"
+              :placeholder="pfPrivyKeyPlaceholder"
+              :disabled="readonly"
+              style="font-family: monospace; font-size: 12px"
+            />
+            <span v-if="pfLocalKeyReady && !pfPrivyPrivateKey.trim()" class="poly-credential-hint">
+              {{ pfPrivyKeyHintText }}
+            </span>
+            <p class="poly-funder-deposit-hint">
+              打开
+              <a href="https://predict.fun/account/settings" target="_blank" rel="noopener noreferrer">账户设置</a>
+              → <strong>Export / 导出</strong> → 复制私钥。
+              这是签名用的钥，对应的 EOA 地址一般<strong>不等于</strong>下面的智能钱包地址。
+            </p>
+          </el-form-item>
+          <el-form-item label="Predict 智能钱包：">
+            <el-input
+              v-model="pfPredictAccount"
+              placeholder="0x… 充值页「Predict 智能钱包」地址"
+              :disabled="readonly"
+              style="font-family: monospace; font-size: 12px"
+            />
+            <p class="poly-funder-deposit-hint">
+              打开
+              <a href="https://predict.fun/account/deposit" target="_blank" rel="noopener noreferrer">充值页</a>
+              ，复制标题为 <strong>「Predict 智能钱包」</strong> 的地址（文案：仅向此地址充值 USDT · BNB 链）。
+              <br>
+              <strong>不要</strong>复制下面的「智能路由地址」（跨链中转，不能当 Predict Account）。
+              <br>
+              该地址<strong>只收 BNB 链 USDT</strong>；其它链/币种请走智能路由，但表单仍只填智能钱包地址。
+              <br>
+              另外：导出 Privy 钥后，其对应地址上需有少量 <strong>BNB</strong>（作 gas / approvals），不要往智能钱包地址充 BNB。
+            </p>
+          </el-form-item>
+        </fieldset>
       </template>
 
       <template v-if="adminTargetUserId && account && allowMultiplyEdit" #footer>
@@ -1290,12 +1477,6 @@ function unlockRate() {
   margin-left: 10px;
   color: var(--el-text-color-secondary);
   font-size: 12px;
-}
-
-.pf-house-hint {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 .poly-credential-readonly-hint {

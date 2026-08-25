@@ -1,29 +1,26 @@
 /**
- * PredictFun 中转：用户可见生命周期（刻意保持简单）
+ * PredictFun 订单生命周期（用户可见状态 + 内部恢复标记）
  *
- * 产品模型：用户 ↔ changmen 账本 ↔ PF 官网（house 执行器）
- * 用户只认 changmen 处理后的结果；官网过程态不外泄。
+ * 用户自签（pfUserSigned）：余额真源在官网链上，禁止 total_balance 扣款/退款/结算入账。
+ * 历史 house 中转单：仍可能走 pending_credit → total_balance（清退前兼容）。
  *
  * ── 用户可见（API / 工作台）────────────────────────────────
  *   status:    pending | none | win | lose | reject
  *   pfSellState: open | closed | settled
  *
- *   pending  = 已扣款、持仓未就绪（等成交/fee）
- *   open     = 可卖 / 可等到期结算（有 pfHoldShares）
- *   closed   = 已卖出
- *   settled  = 市场到期结算
- *   reject   = 未成交，应退款
- *
  * ── 内部恢复标记（raw 可存，不进用户 DTO）────────────────
- *   closing         = 卖出已在官网成交，fee/落库未完成（对外仍算 open，可重试卖出）
- *   pending_credit  = 终态已写，入账未完成（对外已是 closed/settled/reject）
- *
- * 禁止再把官网 FILLED / fee 迟到等过程态暴露成用户状态。
+ *   closing         = 卖出已在官网成交，fee/落库未完成
+ *   pending_credit  = 终态已写，入账未完成（仅非 userSigned）
  */
 
 /** @typedef {"open"|"closed"|"settled"} UserPfSellState */
 /** @typedef {"open"|"closing"|"closed"|"settled"|""} InternalPfSellState */
 /** @typedef {"pending_credit"|"credited"|""} PfLedgerState */
+
+/** 浏览器自签单：不碰中转账本 */
+export function isPfUserSignedOrder(raw) {
+  return raw?.pfUserSigned === true || raw?.PfUserSigned === true;
+}
 
 /**
  * @param {unknown} raw

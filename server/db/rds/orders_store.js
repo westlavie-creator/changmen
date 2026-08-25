@@ -3,6 +3,7 @@
  */
 
 import {
+  VALUE_BET_LINK_BASE,
   canRebindLinkNewerToOlder,
   shouldAllowOrderBind,
   shouldFireOrderBoundHook,
@@ -1479,15 +1480,72 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
   }
 }
 
-const ARB_ODDS_BUCKET_SQL = `CASE
-  WHEN a.odds < 1.5 THEN '1.00-1.49'
-  WHEN a.odds < 2.0 THEN '1.50-1.99'
-  WHEN a.odds < 2.5 THEN '2.00-2.49'
-  WHEN a.odds < 3.0 THEN '2.50-2.99'
-  WHEN a.odds < 4.0 THEN '3.00-3.99'
-  WHEN a.odds < 6.0 THEN '4.00-5.99'
+/** 赔率分桶（与套利/正 EV 统计共用） */
+function sqlOddsBucketExpr(col = "odds") {
+  return `CASE
+  WHEN ${col} < 1.5 THEN '1.00-1.49'
+  WHEN ${col} < 2.0 THEN '1.50-1.99'
+  WHEN ${col} < 2.5 THEN '2.00-2.49'
+  WHEN ${col} < 3.0 THEN '2.50-2.99'
+  WHEN ${col} < 4.0 THEN '3.00-3.99'
+  WHEN ${col} < 6.0 THEN '4.00-5.99'
   ELSE '6.00+'
 END`;
+}
+
+const ARB_ODDS_BUCKET_SQL = sqlOddsBucketExpr("a.odds");
+
+/**
+ * 数据分析：正 EV 单边订单 — 按场馆 / 赔率区间聚合。
+ * 识别：ABS(link) >= VALUE_BET_LINK_BASE（与 client-core isValueBetLink 对齐）。
+ * 口径：[changmen 扩展]。金额 CNY 与 fetchPlatformAnalytics 一致。
+ */
+export async function fetchValueBetOrderAnalytics(startMs, endMs, userIds) {
+  const pool = getPgPool();
+  if (!pool)
+    return { byProvider: [], byOddsBucket: [] };
+  try {
+    const fx = getExchange(Currency.USDT);
+    const params = [startMs, endMs, fx, VALUE_BET_LINK_BASE];
+    const uf = appendUserIdsFilter(params, userIds);
+    const moneyCny = sqlOrderMoneyCny("", "$3");
+    const betCny = sqlOrderBetCny("", "$3");
+    const oddsBucket = sqlOddsBucketExpr("odds");
+    const where = `create_at >= $1 AND create_at < $2
+         AND provider IS NOT NULL AND provider != ''
+         AND ABS(link) >= $4${uf}`;
+    const aggSelect = `
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
+        COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
+        COUNT(*) FILTER (WHERE status = 'Reject')::int AS rejects,
+        COUNT(*) FILTER (WHERE status = 'None')::int AS pending,
+        COALESCE(SUM(${betCny}), 0)::float AS total_bet,
+        COALESCE(SUM(${moneyCny}), 0)::float AS total_profit,
+        AVG(odds)::float AS avg_odds`;
+    const { rows: byProvider } = await pool.query(
+      `SELECT provider,${aggSelect}
+       FROM orders
+       WHERE ${where}
+       GROUP BY provider
+       ORDER BY total_orders DESC`,
+      params,
+    );
+    const { rows: byOddsBucket } = await pool.query(
+      `SELECT ${oddsBucket} AS odds_bucket, provider,${aggSelect}
+       FROM orders
+       WHERE ${where}
+       GROUP BY odds_bucket, provider
+       ORDER BY odds_bucket, provider`,
+      params,
+    );
+    return { byProvider: byProvider || [], byOddsBucket: byOddsBucket || [] };
+  }
+  catch (err) {
+    console.warn("[rds] fetchValueBetOrderAnalytics:", err.message);
+    return { byProvider: [], byOddsBucket: [] };
+  }
+}
 
 /**
  * 数据分析：锚定平台（OB / RAY 等）套利腿 vs 其他平台 — 按赢/输分组的锚定赔率分布。

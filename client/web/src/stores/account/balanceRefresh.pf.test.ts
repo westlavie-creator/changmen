@@ -10,6 +10,7 @@ const refreshPfBalance = vi.hoisted(() => vi.fn(async () => ({
   orderCount: 3,
 })));
 const getBalance = vi.hoisted(() => vi.fn());
+const pmAccountShowsUnlockPending = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/api/vt", () => ({
   updateBalance,
@@ -26,6 +27,15 @@ vi.mock("@/runtime/venueAdapters", () => ({
   }),
 }));
 
+vi.mock("@/security/pmVault", () => ({
+  normalizePmVaultUserId: (v: unknown) => String(v || ""),
+  pmAccountShowsUnlockPending,
+}));
+
+vi.mock("@/stores/userStore", () => ({
+  useUserStore: () => ({ userId: "u1" }),
+}));
+
 vi.mock("@/stores/messageStore", () => ({
   useMessageStore: () => ({
     balanceMessage: vi.fn(),
@@ -38,9 +48,11 @@ describe("refreshAccountBalance PredictFun", () => {
     updateBalance.mockClear();
     refreshPfBalance.mockClear();
     getBalance.mockReset();
+    pmAccountShowsUnlockPending.mockReturnValue(false);
   });
 
-  it("reads RDS via Pf_RefreshBalance and never Client_UpdateBalance", async () => {
+  it("reads official USDT via provider.getBalance and never Client_UpdateBalance", async () => {
+    getBalance.mockResolvedValue({ balance: 1.06, currency: "USDT" });
     const { refreshAccountBalance } = await import("./balanceRefresh");
     const acc = new PlatformAccount({
       accountId: 42,
@@ -50,9 +62,27 @@ describe("refreshAccountBalance PredictFun", () => {
 
     await refreshAccountBalance({} as never, acc);
 
-    expect(refreshPfBalance).toHaveBeenCalledWith(42);
-    expect(acc.balance).toBe(88.5);
+    expect(getBalance).toHaveBeenCalled();
+    expect(refreshPfBalance).not.toHaveBeenCalled();
+    expect(acc.balance).toBe(1.06);
+    expect(acc.currency).toBe("USDT");
     expect(updateBalance).not.toHaveBeenCalled();
+  });
+
+  it("skips balance when vault unlock pending", async () => {
+    pmAccountShowsUnlockPending.mockReturnValue(true);
+    const { refreshAccountBalance } = await import("./balanceRefresh");
+    const acc = new PlatformAccount({
+      accountId: 42,
+      playerName: "pf",
+      provider: "PredictFun",
+    });
+    acc.balance = 9;
+
+    await refreshAccountBalance({} as never, acc);
+
+    expect(getBalance).not.toHaveBeenCalled();
+    expect(acc.balance).toBeUndefined();
   });
 });
 
@@ -60,6 +90,7 @@ describe("refreshAccountBalance keep last good", () => {
   beforeEach(() => {
     updateBalance.mockClear();
     getBalance.mockReset();
+    pmAccountShowsUnlockPending.mockReturnValue(false);
   });
 
   it("keeps previous balance and marks stale on transient failure", async () => {

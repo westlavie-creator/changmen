@@ -68,15 +68,11 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
         if (!acc.platformName && acc.platformId) {
           acc.platformName = store.getPlatformName(acc.platformId, acc.platformName);
         }
-        // PredictFun：余额来自 players.total_balance，不用 credit
+        // PredictFun：展示真源是链上 USDT（刷余额时写入）；加载时不沿用中转 total_balance
         if (String(acc.provider) === "PredictFun") {
           acc.currency = resolveAccountCurrency(acc.provider, acc.currency);
           acc.credit = 0;
-          const fromRow = Number(
-            (row as { balance?: number; totalBalance?: number }).balance
-            ?? (row as { totalBalance?: number }).totalBalance,
-          );
-          acc.balance = Number.isFinite(fromRow) ? fromRow : 0;
+          acc.balance = undefined;
         }
         return acc;
       });
@@ -90,6 +86,28 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
       catch {
         /* vault 未解锁时跳过迁移 */
       }
+    }
+    // 本机 VITE_ 主号凭证：补齐 PF 会话 token（不落库；地址须与 env 一致）
+    try {
+      const { applyPredictFunEnvFallbackToToken, resolvePredictFunPredictAccount, parsePredictFunTokenConfig }
+        = await import("@changmen/venue-adapter/predictfun");
+      for (const acc of store.accounts) {
+        if (String(acc.provider) !== "PredictFun")
+          continue;
+        const next = applyPredictFunEnvFallbackToToken(acc.token);
+        if (next)
+          acc.token = next;
+        const addr = resolvePredictFunPredictAccount(parsePredictFunTokenConfig(acc.token));
+        if (addr) {
+          if (!acc.venueMemberId)
+            acc.venueMemberId = addr;
+          if (!acc.venueAccountName)
+            acc.venueAccountName = addr;
+        }
+      }
+    }
+    catch {
+      /* adapter 未就绪 */
     }
     void warmPolymarketUserWsFromAccounts(store.accounts);
     if (userId) {

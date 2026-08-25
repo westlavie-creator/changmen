@@ -91,6 +91,35 @@ export async function fetchPredictOrderByHash(hash, jwt) {
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 用户 JWT 轮询 Get-by-hash 至终态（无 house wallet events）。
+ * @param {string} hash
+ * @param {string} jwt
+ * @param {{ attempts?: number, intervalMs?: number }} [opts]
+ */
+export async function waitForPredictOrderTerminal(hash, jwt, opts = {}) {
+  const key = String(hash ?? "").trim();
+  const token = String(jwt ?? "").trim();
+  if (!key || !token)
+    return null;
+  const attempts = Math.max(1, Number(opts.attempts) || 25);
+  const intervalMs = Math.max(50, Number(opts.intervalMs) || 300);
+  let last = null;
+  for (let i = 0; i < attempts; i += 1) {
+    last = await fetchPredictOrderByHash(key, token);
+    if (last && isPredictOfficialTerminal(last.status))
+      return last;
+    if (i + 1 >= attempts)
+      break;
+    await sleep(intervalMs);
+  }
+  return last;
+}
+
 /**
  * GET /v1/orders?status=OPEN|FILLED
  * @returns {Promise<object[]>}
@@ -162,12 +191,6 @@ export async function fetchHousePredictOrderResolved(hashOrId, opts = {}) {
 
   // REST 滞后：用 wallet stub（不再二次 REST）
   return officialStubFromWalletHint(hint) || official;
-}
-
-function sleep(ms) {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms);
-  });
 }
 
 /**

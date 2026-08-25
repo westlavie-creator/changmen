@@ -2,9 +2,13 @@ export {
   extractPrivateKeyFromToken,
   mergePrivateKeyIntoToken,
   toPolymarketPersistToken,
+  toPredictFunPersistToken,
+  toPersistTokenForProvider,
   stripPrivateKeyFromToken,
   accountTokenHasPrivateKey,
   isPolymarketProvider,
+  isPredictFunProvider,
+  isVaultKeyProvider,
 } from "./tokenStrip";
 export {
   mergeVaultKeysIntoAccounts,

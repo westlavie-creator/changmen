@@ -1,11 +1,13 @@
 /**
- * [changmen 扩展] 订单栏 PF 卖出：1:1 全卖指定买单（house 代卖）
- * 用户只认 changmen RDS：回款/盈亏以落库为准（已扣 Changmencodefee），前端不推算官网手续费。
+ * [changmen 扩展] 订单栏 PF 卖出：浏览器自签 MARKET FOK → VPS 中继。
  */
 import { ElMessage } from "element-plus";
 import { shallowRef } from "vue";
 import type { OrderRow } from "@/types/order";
-import { pfSubmitSell } from "@changmen/venue-adapter/predictfun";
+import {
+  pfSubmitSignedSell,
+  signPredictFunUserMarketSell,
+} from "@changmen/venue-adapter/predictfun";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 
@@ -40,6 +42,13 @@ export function canManualSellPfBuy(row: OrderRow): boolean {
   const st = String(row.Status ?? "None");
   if (st !== "None")
     return false;
+  const hold = Number(row.PfHoldShares);
+  if (!(Number.isFinite(hold) && hold > 0))
+    return false;
+  const marketId = String(row.PfMarketId ?? "").trim();
+  const tokenId = String(row.PfTokenId ?? "").trim();
+  if (!marketId || !tokenId)
+    return false;
   return true;
 }
 
@@ -59,7 +68,7 @@ export async function confirmAndSellPfBuyOrder(row: OrderRow): Promise<boolean> 
     const { ElMessageBox } = await import("element-plus");
     try {
       await ElMessageBox.confirm(
-        "市价全卖该买单对应份额？",
+        "市价全卖该买单对应份额？（自有账号签名，回款进链上 USDT）",
         "PredictFun 卖出",
         { type: "warning", confirmButtonText: "卖出", cancelButtonText: "取消" },
       );
@@ -75,7 +84,28 @@ export async function confirmAndSellPfBuyOrder(row: OrderRow): Promise<boolean> 
       return false;
     }
 
-    const result = await pfSubmitSell(account, orderId);
+    const marketId = String(row.PfMarketId ?? "").trim();
+    const tokenId = String(row.PfTokenId ?? "").trim();
+    const holdShares = Number(row.PfHoldShares);
+    const signed = await signPredictFunUserMarketSell({
+      account,
+      marketId,
+      tokenId,
+      holdShares,
+      feeRateBps: Number(row.PfFeeRateBps) >= 0 ? Number(row.PfFeeRateBps) : undefined,
+    });
+
+    const result = await pfSubmitSignedSell(account, {
+      buyOrderId: orderId,
+      jwt: signed.jwt,
+      createOrderBody: signed.createOrderBody,
+      orderHash: signed.orderHash,
+      bookPrice: signed.bookPrice,
+      bookOdds: signed.bookOdds,
+      proceedsUsdt: signed.proceedsUsdt,
+      sharesWei: signed.sharesWei,
+      feeRateBps: signed.feeRateBps,
+    });
     await useOrderStore().fetchOrders();
     try {
       await accountStore.refreshBalance(account);

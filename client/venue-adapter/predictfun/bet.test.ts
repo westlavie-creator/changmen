@@ -8,12 +8,18 @@ import {
 import { parsePredictFunTokenConfig, resolvePredictFunPrivateKey } from "./credentials";
 import { isPredictFunOrderAccepted } from "./bet";
 
-const pfCheckBet = vi.hoisted(() => vi.fn());
-const pfSubmitOrder = vi.hoisted(() => vi.fn());
+const checkPredictFunUserBuy = vi.hoisted(() => vi.fn());
+const signPredictFunUserMarketBuy = vi.hoisted(() => vi.fn());
+const pfSubmitSignedOrder = vi.hoisted(() => vi.fn());
+
+vi.mock("./userBuy", () => ({
+  checkPredictFunUserBuy,
+  signPredictFunUserMarketBuy,
+}));
 
 vi.mock("./pfClientApi", () => ({
-  pfCheckBet,
-  pfSubmitOrder,
+  pfSubmitSignedOrder,
+  pfGetOrders: vi.fn(async () => []),
 }));
 
 describe("predictfun bet helpers", () => {
@@ -58,7 +64,6 @@ describe("predictfun bet helpers", () => {
   });
 
   it("does not treat buffered detectionMaxPrice as raw clob", () => {
-    // exec 限价已 buffer，不能再当 fo 原价去 match
     const option = {
       odds: 1.818,
       data: {
@@ -72,10 +77,10 @@ describe("predictfun bet helpers", () => {
   });
 });
 
-describe("predictfun provider uses Pf_*", () => {
-  it("checkBet calls Pf_CheckBet via pfCheckBet", async () => {
-    pfCheckBet.mockReset();
-    pfCheckBet.mockResolvedValueOnce({
+describe("predictfun provider user path", () => {
+  it("checkBet uses browser checkPredictFunUserBuy", async () => {
+    checkPredictFunUserBuy.mockReset();
+    checkPredictFunUserBuy.mockResolvedValueOnce({
       tokenId: "tok",
       marketId: "830202",
       apiBetMoney: 10,
@@ -91,8 +96,16 @@ describe("predictfun provider uses Pf_*", () => {
       playerId: 42,
     });
 
+    vi.resetModules();
     const { predictFunProvider } = await import("./bet");
-    const account = { accountId: 42, provider: "PredictFun", token: '{"mode":"house"}' } as never;
+    const account = {
+      accountId: 42,
+      provider: "PredictFun",
+      token: JSON.stringify({
+        predictAccount: `0x${"aa".repeat(20)}`,
+        privyPrivateKey: `0x${"bb".repeat(32)}`,
+      }),
+    } as never;
     const option = {
       itemId: "tok",
       betMoney: 10,
@@ -102,7 +115,7 @@ describe("predictfun provider uses Pf_*", () => {
     } as never;
 
     const out = await predictFunProvider.checkBet(account, option);
-    expect(pfCheckBet).toHaveBeenCalledOnce();
+    expect(checkPredictFunUserBuy).toHaveBeenCalledOnce();
     expect(out.checkError).toBeFalsy();
     expect(out.odds).toBe(2.5);
     expect(out.data?.bookPrice).toBe(0.4);

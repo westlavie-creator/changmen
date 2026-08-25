@@ -9,40 +9,35 @@ vi.mock("@changmen/storage/json_file_store.js", () => ({
   },
 }));
 
-describe("pf_changmen_fee_config", () => {
+describe("pf_changmen_fee_config (会员下线)", () => {
   beforeEach(() => {
     mem.clear();
     vi.resetModules();
     vi.unstubAllEnvs();
   });
 
-  it("falls back to env when no file", async () => {
+  it("always returns 0 fee regardless of env", async () => {
     vi.stubEnv("PF_CHANGMEN_BUY_FEE_RATE_BPS", "50");
     vi.stubEnv("PF_CHANGMEN_SELL_FEE_RATE_BPS", "150");
     const mod = await import("./pf_changmen_fee_config.js");
-    expect(mod.resolvePfChangmenBuyFeeRateBps()).toBe(50);
-    expect(mod.resolvePfChangmenSellFeeRateBps()).toBe(150);
-    expect(mod.resolvePfChangmenFeeRateBps()).toBe(150);
+    expect(mod.resolvePfChangmenBuyFeeRateBps()).toBe(0);
+    expect(mod.resolvePfChangmenSellFeeRateBps()).toBe(0);
+    expect(mod.resolvePfChangmenFeeRateBps()).toBe(0);
+    expect(mod.getPfChangmenFeeConfig()).toMatchObject({
+      buyFeeRateBps: 0,
+      sellFeeRateBps: 0,
+      removed: true,
+    });
   });
 
-  it("save then read buy/sell bps", async () => {
+  it("save is no-op and stays at 0", async () => {
     const mod = await import("./pf_changmen_fee_config.js");
     const saved = mod.savePfChangmenFeeConfig({
       buyFeeRatePercent: 1.5,
       sellFeeRatePercent: 2,
     });
-    expect(saved.buyFeeRateBps).toBe(150);
-    expect(saved.sellFeeRateBps).toBe(200);
-    expect(mod.getPfChangmenFeeConfig().buyFeeRateBps).toBe(150);
-    expect(mod.getPfChangmenFeeConfig().sellFeeRateBps).toBe(200);
-  });
-
-  it("file overrides env", async () => {
-    vi.stubEnv("PF_CHANGMEN_BUY_FEE_RATE_BPS", "10");
-    vi.stubEnv("PF_CHANGMEN_SELL_FEE_RATE_BPS", "20");
-    const mod = await import("./pf_changmen_fee_config.js");
-    mod.savePfChangmenFeeConfig({ buyFeeRateBps: 300, sellFeeRateBps: 400 });
-    expect(mod.resolvePfChangmenBuyFeeRateBps()).toBe(300);
-    expect(mod.resolvePfChangmenSellFeeRateBps()).toBe(400);
+    expect(saved.buyFeeRateBps).toBe(0);
+    expect(saved.sellFeeRateBps).toBe(0);
+    expect(mod.getPfChangmenFeeConfig().buyFeeRateBps).toBe(0);
   });
 });

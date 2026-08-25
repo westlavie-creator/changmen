@@ -68,6 +68,29 @@ describe("pm persist DTO contract", () => {
     });
   });
 
+  it("enforce rejects PredictFun rows still carrying privy key", () => {
+    const acc = `0x${"aa".repeat(20)}`;
+    const bad = [
+      {
+        provider: "PredictFun",
+        token: JSON.stringify({ predictAccount: acc, privyPrivateKey: pk }),
+      },
+    ];
+    const rejected = enforcePolymarketPersistDto(bad);
+    expect(rejected.ok).toBe(false);
+    expect(String(rejected.msg || "")).toMatch(/PredictFun.*私钥/);
+
+    const good = [
+      {
+        provider: "PredictFun",
+        token: JSON.stringify({ predictAccount: acc, mode: "house", junk: 1 }),
+      },
+    ];
+    const ok = enforcePolymarketPersistDto(good);
+    expect(ok.ok).toBe(true);
+    expect(JSON.parse(good[0].token)).toEqual({ predictAccount: acc });
+  });
+
   it("Get/Admin projection still cleans legacy dirty rows", () => {
     const list = [
       {

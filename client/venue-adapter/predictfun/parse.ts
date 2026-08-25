@@ -75,6 +75,28 @@ export function bestAskFromPredictBook(book: PredictOrderbookData | undefined): 
   return Number.isFinite(best) && best < 1 ? best : 0;
 }
 
+/** [Predict 官方] Yes 侧 best bid 在 bids[0] */
+export function bestBidFromPredictBook(book: PredictOrderbookData | undefined): number {
+  const bids = book?.bids ?? [];
+  const first = bids[0];
+  if (Array.isArray(first)) {
+    const price = Number(first[0]);
+    const size = Number(first[1]);
+    if (Number.isFinite(price) && price > 0 && price < 1 && (!Number.isFinite(size) || size > 0))
+      return price;
+  }
+  let best = 0;
+  for (const level of bids) {
+    if (!Array.isArray(level))
+      continue;
+    const price = Number(level[0]);
+    const size = Number(level[1]);
+    if (Number.isFinite(price) && price > best && price < 1 && (!Number.isFinite(size) || size > 0))
+      best = price;
+  }
+  return best > 0 ? best : 0;
+}
+
 /**
  * [Predict 官方] Yes + No = 1（按 market.decimalPrecision 取整）；禁止裸 `1 - price`。
  * @see https://dev.predict.fun/understanding-the-orderbook-685654m0
