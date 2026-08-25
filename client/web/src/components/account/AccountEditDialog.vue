@@ -921,13 +921,17 @@ function resolvePlayerNameForSave(
 async function probeVenueIdentityForSave(
   patch: Awaited<ReturnType<typeof buildPatch>>,
 ): Promise<AccountBalanceResult> {
+  // PredictFun：patch.token 是落库 DTO（仅 predictAccount）；探测须用 form.token（含 Privy）
+  const probeToken = form.provider === "PredictFun" && String(form.token || "").trim()
+    ? form.token.trim()
+    : patch.token;
   const probe = new PlatformAccount({
     accountId: props.account?.accountId || 0,
     playerName: patch.playerName || form.playerName || "probe",
     provider: patch.provider,
     platformName: patch.platformName,
     gateway: patch.gateway,
-    token: patch.token,
+    token: probeToken,
     referer: patch.referer,
     userAgent: patch.userAgent,
     proxyId: patch.proxyId,
@@ -935,10 +939,20 @@ async function probeVenueIdentityForSave(
   const provider = getAdapter(probe.provider)?.provider;
   if (!provider?.getBalance)
     throw new Error(`${probe.provider} 不支持余额查询，无法保存`);
-  const result = await provider.getBalance(probe);
+  let result: AccountBalanceResult | undefined;
+  try {
+    result = await provider.getBalance(probe);
+  }
+  catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(msg || "获取余额失败，请检查 Privy 私钥 / Predict 智能钱包后重试");
+  }
   if (!result)
-    throw new Error("获取余额失败，请检查网关/Token 后重试");
-
+    throw new Error(
+      form.provider === "PredictFun"
+        ? "获取余额失败，请检查 Privy 私钥 / Predict 智能钱包后重试"
+        : "获取余额失败，请检查网关/Token 后重试",
+    );
   const venueMemberId = String(result.venueMemberId || "").trim();
   const venueAccountName = String(result.venueAccountName || "").trim() || venueMemberId;
   if (!venueMemberId)

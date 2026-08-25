@@ -208,7 +208,8 @@ export const predictFunProvider: PlatformProvider = {
     }
     catch (err) {
       console.warn("[PredictFun] getBalance failed", err);
-      return undefined;
+      // 保存探测需要真实错误文案；勿吞成 undefined
+      throw err instanceof Error ? err : new Error(String(err));
     }
   },
 
