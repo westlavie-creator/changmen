@@ -19,7 +19,7 @@ export function checkHomeSlotConsistency(row, nativeByPlatformMap = {}) {
           && String(src.AwayID) === String(map0.AwayID)) {
           continue;
         }
-        // 决胜局拷贝后 Map0 可能已剥除该馆（PM）：对照 Map0 原生盘 + Reverse
+        // 决胜局拷贝后 Map0 可能已剥除该馆（PM / PredictFun）：对照 Map0 原生盘 + Reverse
         const map0Native = nativeByPlatformMap[`${platform}:0`];
         if (mapNum !== 0 && map0Native) {
           const shouldSwap = reverse.has(platform);

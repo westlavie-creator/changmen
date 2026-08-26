@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertSignedOrderMatchesPredictAccount,
+  assertSignedSellMatchesBuy,
   resolvePfPredictAccountAddress,
 } from "./pf_account_bind.js";
 
@@ -34,5 +35,17 @@ describe("pf_account_bind", () => {
       },
     }, acc);
     expect(ok.ok).toBe(true);
+  });
+
+  it("rejects sell body with BUY side or token mismatch", () => {
+    expect(assertSignedSellMatchesBuy({
+      data: { order: { side: 0, tokenId: "tok" } },
+    }, { tokenId: "tok" }).ok).toBe(false);
+    expect(assertSignedSellMatchesBuy({
+      data: { order: { side: 1, tokenId: "other" } },
+    }, { tokenId: "tok" }).ok).toBe(false);
+    expect(assertSignedSellMatchesBuy({
+      data: { order: { side: 1, tokenId: "tok" } },
+    }, { tokenId: "tok" }).ok).toBe(true);
   });
 });

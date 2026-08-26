@@ -139,12 +139,16 @@ export async function executePfUserSignedSell(params) {
 
       const {
         assertSignedOrderMatchesPredictAccount,
+        assertSignedSellMatchesBuy,
         loadPfPlayerPredictAccount,
       } = await import("./pf_account_bind.js");
       const predictAccount = await loadPfPlayerPredictAccount(playerId);
       const bound = assertSignedOrderMatchesPredictAccount(createOrderBody, predictAccount);
       if (!bound.ok)
         throw new Error(bound.msg);
+      const sellBound = assertSignedSellMatchesBuy(createOrderBody, { tokenId, holdShares });
+      if (!sellBound.ok)
+        throw new Error(sellBound.msg);
 
       const result = await predictFunPost("/v1/orders", createOrderBody, jwt);
       if (!isPredictFunOrderAccepted(result)) {
@@ -197,44 +201,47 @@ export async function executePfUserSignedSell(params) {
     const settlement = settlementFromPredictOfficialStatus(officialFilled?.status);
     if (settlement !== "filled") {
       const st = String(officialFilled?.status ?? "timeout").toUpperCase();
-      // 官网 FOK 未成交（CANCELLED/EXPIRED/…）或超时：回滚 closing → open，允许重新签卖
+      // 仅终态未成交（CANCELLED/EXPIRED/INVALIDATED）回滚 closing→open。
+      // 超时（仍 OPEN / 未知）必须保留 closing + sellHash：否则官网卖单可能随后 FILLED，
+      // RDS 却已 open → 用户重卖或市场结算误伤持仓。
       // @see https://dev.predict.fun/orderdata-14037505d0 OrderStatus
-      try {
-        await upsertPfServerOrder(playerId, [{
-          orderId: rdsOrderKey(buy),
-          provider: "PredictFun",
-          match: buy.match ?? buy.Match,
-          bet: buy.bet ?? buy.Bet,
-          item: buy.item ?? buy.Item,
-          odds: Number(buy.Odds ?? buy.odds) || 0,
-          betMoney: rdsBetMoney(buy),
-          money: Number(buy.Money ?? buy.money) || 0,
-          status: "none",
-          createAt: Number(buy.CreateAt ?? buy.createAt) || Date.now(),
-          link: buy.Link ?? buy.link,
-          pfMarketId: marketId,
-          pfTokenId: tokenId,
-          pfOrderHash: rdsPfHash(buy),
-          pfApiOrderId: rdsPfApiOrderId(buy),
-          pfSharesWei: buy.pfSharesWei ? String(buy.pfSharesWei) : undefined,
-          pfShares: Number(buy.pfShares) > 0 ? Number(buy.pfShares) : undefined,
-          pfHoldShares: holdShares,
-          pfBookPrice: buy.pfBookPrice,
-          pfSide: "buy",
-          pfSellState: "open",
-          pfNotionalUsdt: buy.pfNotionalUsdt,
-          pfUserSigned: true,
-          pfSellOrderId: "",
-          pfClearSellOrderId: true,
-        }], userId);
-      }
-      catch (rollbackErr) {
-        console.warn("[Pf_Sell] closing rollback failed", sellHash, rollbackErr);
+      if (settlement === "unfilled") {
+        try {
+          await upsertPfServerOrder(playerId, [{
+            orderId: rdsOrderKey(buy),
+            provider: "PredictFun",
+            match: buy.match ?? buy.Match,
+            bet: buy.bet ?? buy.Bet,
+            item: buy.item ?? buy.Item,
+            odds: Number(buy.Odds ?? buy.odds) || 0,
+            betMoney: rdsBetMoney(buy),
+            money: Number(buy.Money ?? buy.money) || 0,
+            status: "none",
+            createAt: Number(buy.CreateAt ?? buy.createAt) || Date.now(),
+            link: buy.Link ?? buy.link,
+            pfMarketId: marketId,
+            pfTokenId: tokenId,
+            pfOrderHash: rdsPfHash(buy),
+            pfApiOrderId: rdsPfApiOrderId(buy),
+            pfSharesWei: buy.pfSharesWei ? String(buy.pfSharesWei) : undefined,
+            pfShares: Number(buy.pfShares) > 0 ? Number(buy.pfShares) : undefined,
+            pfHoldShares: holdShares,
+            pfBookPrice: buy.pfBookPrice,
+            pfSide: "buy",
+            pfSellState: "open",
+            pfNotionalUsdt: buy.pfNotionalUsdt,
+            pfUserSigned: true,
+            pfSellOrderId: "",
+            pfClearSellOrderId: true,
+          }], userId);
+        }
+        catch (rollbackErr) {
+          console.warn("[Pf_Sell] closing rollback failed", sellHash, rollbackErr);
+        }
+        throw new Error(`Predict.fun 卖出未成交（${st}），可重新卖出`);
       }
       throw new Error(
-        settlement === "unfilled"
-          ? `Predict.fun 卖出未成交（${st}），可重新卖出`
-          : `Predict.fun 卖出确认超时（status=${st}），可重新卖出`,
+        `Predict.fun 卖出确认超时（status=${st}），请稍后 GetOrder/重试卖出以恢复确认（勿重复签新卖单）`,
       );
     }
 

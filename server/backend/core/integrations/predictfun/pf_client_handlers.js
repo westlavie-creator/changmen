@@ -206,6 +206,16 @@ export async function handlePfSubmitOrder(body, userId) {
     if (!bound.ok)
       return bound;
 
+    const orderToken = String(createOrderBody?.data?.order?.tokenId ?? "").trim();
+    if (orderToken && orderToken !== tokenId) {
+      return { ok: false, msg: "已签单 tokenId 与请求 tokenId 不一致" };
+    }
+    const orderSide = createOrderBody?.data?.order?.side;
+    const isBuy = orderSide === 0 || orderSide === "0" || String(orderSide).toUpperCase() === "BUY";
+    if (orderSide != null && orderSide !== "" && !isBuy) {
+      return { ok: false, msg: "买入中继已签单 side 须为 BUY" };
+    }
+
     const result = await predictFunPost("/v1/orders", createOrderBody, jwt);
     if (!isPredictFunOrderAccepted(result)) {
       const code = String(result?.data?.code ?? "").trim();

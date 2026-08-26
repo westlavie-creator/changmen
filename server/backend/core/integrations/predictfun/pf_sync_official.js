@@ -30,9 +30,11 @@ import {
 import { extractBuyFillCostUsdt, extractBuyFillShares, extractBuyNotionalUsdt, extractSellFill } from "./pf_fill.js";
 import {
   applyChangmenBuyFeeToHoldShares,
+  estimateSharesFeeWei,
   netSellProceedsAfterChangmenFee,
   netSellProceedsAfterCollateralFee,
   resolvePfFeeSavePatch,
+  weiToSharesDecimal,
 } from "./pf_fee.js";
 import {
   fetchHousePredictOrderResolved,
@@ -222,10 +224,32 @@ export async function syncOfficialOrderToRds(playerId, userId, rdsRow, official)
       const wei = String(feePatch.pfFeeAmountWei ?? "").trim();
       return /^\d+$/.test(wei) && BigInt(wei) > 0n;
     })();
+    // 自签无 wallet events：feeRateBps=0 时可直接用 amountFilled；
+    // feeRateBps>0 时不可把毛仓当 hold（SHARES 费会让卖单 FOK 超卖失败）——用 bps 上限估扣。
+    const userSignedNoWalletFee = isPfUserSignedOrder(rdsRow)
+      && !hasWalletFeeSignal(official)
+      && !feeWeiReady;
+    if (
+      !isSellRow
+      && userSignedNoWalletFee
+      && feeRateBps > 0
+      && fill.sharesWei > 0n
+    ) {
+      const estFeeWei = estimateSharesFeeWei(fill.sharesWei, feeRateBps);
+      if (estFeeWei > 0n && estFeeWei < fill.sharesWei) {
+        feePatch.pfFeeAmountWei = String(estFeeWei);
+        feePatch.pfFeeType = "SHARES";
+        const holdWei = fill.sharesWei - estFeeWei;
+        feePatch.pfHoldSharesWei = String(holdWei);
+        feePatch.pfHoldShares = weiToSharesDecimal(holdWei);
+      }
+    }
     const buyFeeReady = isSellRow || feeRateBps <= 0 || hasWalletFeeSignal(official)
       || feeWeiReady
-      // 自签：官网 OrderData 无 fee 字段；FILLED+amountFilled 即可写 hold（fee 在 wallet events）
-      || isPfUserSignedOrder(rdsRow);
+      || (userSignedNoWalletFee && (
+        feeRateBps <= 0
+        || (String(feePatch.pfFeeAmountWei ?? "").trim() !== "" && Number(feePatch.pfHoldShares) > 0)
+      ));
     // fee 齐后再扣 Changmencodefee，并写入 hold
     if (!isSellRow && buyFeeReady) {
       const storedBuyBps = readChangmenCodeFeeRateBps(rdsRow);

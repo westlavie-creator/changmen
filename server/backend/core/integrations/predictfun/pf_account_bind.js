@@ -95,3 +95,31 @@ export function assertSignedOrderMatchesPredictAccount(createOrderBody, predictA
 
   return { ok: true };
 }
+
+/**
+ * 卖出中继：已签单须为 SELL，且 tokenId 与买单持仓一致（防错绑/错边关仓）。
+ * @param {object} createOrderBody
+ * @param {{ tokenId: string, holdShares?: number }} buy
+ * @returns {{ ok: true } | { ok: false, msg: string }}
+ */
+export function assertSignedSellMatchesBuy(createOrderBody, buy) {
+  const order = createOrderBody?.data?.order;
+  if (!order || typeof order !== "object")
+    return { ok: false, msg: "createOrderBody.data.order 必填" };
+
+  const side = order.side;
+  const isSell = side === 1 || side === "1" || String(side).toUpperCase() === "SELL";
+  if (!isSell)
+    return { ok: false, msg: "已签单 side 须为 SELL" };
+
+  const expectedToken = String(buy?.tokenId ?? "").trim();
+  const orderToken = String(order.tokenId ?? "").trim();
+  if (expectedToken && orderToken && expectedToken !== orderToken) {
+    return {
+      ok: false,
+      msg: "已签卖单 tokenId 与买单持仓不一致",
+    };
+  }
+
+  return { ok: true };
+}
