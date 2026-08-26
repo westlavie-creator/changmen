@@ -358,6 +358,8 @@ describe("pf_client_handlers", () => {
             hash: "0xhash1",
             maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
             signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            side: 0,
+            tokenId: "tok",
           },
           strategy: "MARKET",
           isFillOrKill: true,
@@ -443,6 +445,8 @@ describe("pf_client_handlers", () => {
             hash: "0xsell1",
             maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
             signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            side: 1,
+            tokenId: "tok",
           },
           strategy: "MARKET",
           isFillOrKill: true,
@@ -471,6 +475,75 @@ describe("pf_client_handlers", () => {
     expect(buyClosed.pfUserSigned).toBe(true);
     expect(buyClosed.pfLedgerState).toBe("credited");
     expect(buyClosed.money).toBe(3.75);
+  });
+
+  it("SubmitSell timeout keeps closing (does not clear sell hash)", async () => {
+    const { predictFunPost } = await import("./pf_api.js");
+    const { upsertPfServerOrder } = await import("./pf_server_order.js");
+    const { waitForPredictOrderTerminal } = await import("./pf_orders.js");
+
+    sb.fetchOrdersByPlayer.mockResolvedValue([{
+      order_id: "0xbuy-timeout",
+      status: "None",
+      bet_money: 10,
+      money: 0,
+      odds: 2.5,
+      create_at: 1,
+      match: "A vs B",
+      item: "主队",
+      link: 0,
+      raw: {
+        pfOrderHash: "0xbuy-timeout",
+        pfMarketId: "830202",
+        pfTokenId: "tok",
+        pfHoldShares: 25,
+        pfSide: "buy",
+        pfSellState: "open",
+        pfUserSigned: true,
+        pfNotionalUsdt: 10,
+      },
+    }]);
+    predictFunPost.mockResolvedValueOnce({
+      success: true,
+      data: { orderId: "sell-api-timeout", code: "accepted" },
+    });
+    waitForPredictOrderTerminal.mockResolvedValueOnce({
+      status: "OPEN",
+      order: { hash: "0xsell-timeout", side: 1 },
+    });
+    upsertPfServerOrder.mockClear();
+
+    const r = await handlePfSubmitSell({
+      playerId: 42,
+      mode: "userSigned",
+      jwt: "user.jwt",
+      buyOrderId: "0xbuy-timeout",
+      orderHash: "0xsell-timeout",
+      createOrderBody: {
+        data: {
+          order: {
+            hash: "0xsell-timeout",
+            maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+            side: 1,
+            tokenId: "tok",
+          },
+          strategy: "MARKET",
+          isFillOrKill: true,
+        },
+      },
+    }, "u1");
+
+    expect(r.ok).toBe(false);
+    expect(String(r.msg)).toMatch(/超时|恢复确认/);
+    const openRollback = upsertPfServerOrder.mock.calls.find(
+      (c) => Array.isArray(c[1]) && c[1].some((o) => o.pfSellState === "open" && o.pfClearSellOrderId),
+    );
+    expect(openRollback).toBeUndefined();
+    const closingRow = upsertPfServerOrder.mock.calls.find(
+      (c) => Array.isArray(c[1]) && c[1].some((o) => o.pfSellState === "closing"),
+    );
+    expect(closingRow).toBeTruthy();
   });
 
   it("getOrder rejects unknown orderId without house lookup", async () => {

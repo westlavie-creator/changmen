@@ -59,6 +59,32 @@ export function weiToSharesDecimal(wei) {
 }
 
 /**
+ * 用户自签无 wallet fee 时：按 market.feeRateBps 估 SHARES 手续费（上限口径，宁少卖勿超卖）。
+ * 实际 taker fee 随价变化，可能 ≤ 此值；多扣的份额留在链上，可再次卖出/赎回。
+ * @param {bigint|string|number} fillWei
+ * @param {number} feeRateBps
+ * @returns {bigint}
+ */
+export function estimateSharesFeeWei(fillWei, feeRateBps) {
+  let fill = 0n;
+  try {
+    fill = typeof fillWei === "bigint" ? fillWei : BigInt(String(fillWei ?? "0"));
+  }
+  catch {
+    return 0n;
+  }
+  if (fill <= 0n)
+    return 0n;
+  const bps = Number(feeRateBps);
+  if (!(Number.isFinite(bps) && bps > 0))
+    return 0n;
+  const capped = BigInt(Math.min(10_000, Math.floor(bps)));
+  if (capped <= 0n)
+    return 0n;
+  return (fill * capped) / 10000n;
+}
+
+/**
  * 官网持仓 wei：成交份额 wei − SHARES 手续费 wei。
  * @returns {bigint|undefined}
  */

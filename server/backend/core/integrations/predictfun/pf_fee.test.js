@@ -90,6 +90,14 @@ describe("pf_fee", () => {
     })).toBe(44.125);
   });
 
+  it("estimates SHARES fee wei from feeRateBps (conservative haircut)", async () => {
+    const { estimateSharesFeeWei } = await import("./pf_fee.js");
+    expect(estimateSharesFeeWei(10_000n, 200)).toBe(200n);
+    expect(estimateSharesFeeWei("44125000000000000000", 180)).toBe(794250000000000000n);
+    expect(estimateSharesFeeWei(0n, 200)).toBe(0n);
+    expect(estimateSharesFeeWei(100n, 0)).toBe(0n);
+  });
+
   it("prefers official fee then keeps rds fee; writes pfHoldShares", () => {
     expect(resolvePfFeeSavePatch({
       pfWalletFee: { amountWei: "1000000000000000000", type: "COLLATERAL" },
