@@ -14,6 +14,8 @@ const idMap = {
   "IA:ia-k27": GB_K27,
   "Polymarket:pm-nip": GB_NIP,
   "Polymarket:pm-k27": GB_K27,
+  "PredictFun:pf-nip": GB_NIP,
+  "PredictFun:pf-k27": GB_K27,
   "PB:pb-nip": GB_NIP,
   "PB:pb-k27": GB_K27,
   "PB:pb-nip@cs2": GB_NIP,
@@ -84,6 +86,17 @@ export const pmPm = {
   BO: 3,
 };
 
+export const pmPf = {
+  SourceMatchID: "pf1",
+  Home: "Ninjas in Pyjamas",
+  Away: "K27",
+  HomeID: "pf-nip",
+  AwayID: "pf-k27",
+  SourceGameID: "3",
+  StartTime: 1_800_000_000_000,
+  BO: 3,
+};
+
 export const pmIa = {
   SourceMatchID: "ia1",
   Home: "NiP",
@@ -122,6 +135,7 @@ export const rawOb = raw("OB", "oid-nip", "oid-k27", "m0");
 export const rawRay = raw("RAY", "roid-nip", "roid-k27", "r0");
 export const rawRayFlipped = raw("RAY", "roid-k27", "roid-nip", "r0");
 export const rawPm = raw("Polymarket", "pmid-nip", "pmid-k27", "p0");
+export const rawPf = raw("PredictFun", "pfid-nip", "pfid-k27", "pf0");
 export const rawIa = raw("IA", "iaoid-nip", "iaoid-k27", "i0");
 
 /** platform_bets 形状：`Platform:sid` → bet rows */
@@ -134,9 +148,11 @@ export function makeBets(table) {
         ? "ray1"
         : platform === "Polymarket"
           ? "pm1"
-          : platform === "IA"
-            ? "ia1"
-            : "x1";
+          : platform === "PredictFun"
+            ? "pf1"
+            : platform === "IA"
+              ? "ia1"
+              : "x1";
     const key = `${platform}:${sid}`;
     const betName = platform === "RAY"
       ? "全场胜负"
