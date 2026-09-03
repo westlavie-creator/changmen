@@ -12,8 +12,8 @@ import {
   canFoldMap,
   clearMapMute,
   isMapMuteActive,
-  isMapMuteGlobal,
   mapBetMuteGlobal,
+  mapBetMuteGlobalOpenKeys,
   mapBetMuteKeys,
   toggleMapMute,
 } from "@/extensions/mapBetMute";
@@ -57,6 +57,7 @@ const BET_SIDES: BetSide[] = ["Home", "Away"];
 
 const muteKeysRef = mapBetMuteKeys();
 const muteGlobalRef = mapBetMuteGlobal();
+const muteGlobalOpenRef = mapBetMuteGlobalOpenKeys();
 
 const oddsStore = useOddsStore();
 const matchStore = useMatchStore();
@@ -83,20 +84,17 @@ const showLiveTimer = computed(() => {
 
 /** [changmen 扩展] 全场与各地图非 live 可折叠；live 与折叠按钮互斥 */
 const canFold = computed(() => canFoldMap(props.bet.round) && !showLiveTimer.value);
-const globalMuted = computed(() => {
-  void muteGlobalRef.value;
-  return isMapMuteGlobal();
-});
 const mapMuted = computed(() => {
   void muteKeysRef.value;
   void muteGlobalRef.value;
+  void muteGlobalOpenRef.value;
   return isMapMuteActive(props.match.id, props.bet.round, props.match.liveRound);
 });
 const bettingEnabled = computed(() => props.allowBetting && !mapMuted.value);
 
 function onToggleMapMute(e: MouseEvent) {
   e.stopPropagation();
-  if (!canFold.value || globalMuted.value)
+  if (!canFold.value)
     return;
   toggleMapMute(props.match.id, props.bet.round);
 }
@@ -457,10 +455,7 @@ function onBetTitleDblClick() {
       v-if="canFold"
       type="button"
       class="map-mute-toggle"
-      :disabled="globalMuted"
-      :title="globalMuted
-        ? '全局折叠中，请先关总开关'
-        : (mapMuted ? '展开并允许下注' : '折叠并禁止下注')"
+      :title="mapMuted ? '展开并允许下注' : '折叠并禁止下注'"
       :aria-pressed="mapMuted"
       @click="onToggleMapMute"
     >

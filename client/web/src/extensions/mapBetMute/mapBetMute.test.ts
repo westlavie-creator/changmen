@@ -3,6 +3,7 @@ import {
   MIN_FOLDABLE_MAP,
   MAP_BET_MUTE_SESSION_KEY,
   MAP_BET_MUTE_GLOBAL_SESSION_KEY,
+  MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY,
   canFoldMap,
   clearMapMute,
   isMapMuteActive,
@@ -121,26 +122,51 @@ describe("mapBetMute", () => {
     expect(isMapMuteActive(100, 0, 3)).toBe(true);
   });
 
-  it("turning global off clears all per-row mutes", () => {
+  it("turning global off clears all per-row mutes and exceptions", () => {
     toggleMapMute(100, 0);
     toggleMapMute(100, 2);
     toggleMapMute(101, 1);
     setMapMuteGlobal(true);
-    expect(isMapMuted(100, 0)).toBe(true);
+    expect(toggleMapMute(100, 1)).toBe(false);
+    expect(JSON.parse(sessionStorage.getItem(MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY)!)).toEqual([
+      muteKey(100, 1),
+    ]);
     expect(setMapMuteGlobal(false)).toBe(false);
     expect(isMapMuteGlobal()).toBe(false);
     expect(isMapMuted(100, 0)).toBe(false);
     expect(isMapMuted(100, 2)).toBe(false);
     expect(isMapMuted(101, 1)).toBe(false);
     expect(isMapMuteActive(100, 0, 0)).toBe(false);
+    expect(isMapMuteActive(100, 1, 0)).toBe(false);
     expect(sessionStorage.getItem(MAP_BET_MUTE_SESSION_KEY)).toBeNull();
     expect(sessionStorage.getItem(MAP_BET_MUTE_GLOBAL_SESSION_KEY)).toBeNull();
+    expect(sessionStorage.getItem(MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY)).toBeNull();
   });
 
-  it("per-row toggle no-ops while global is on", () => {
+  it("per-row toggle can open and re-fold while global is on", () => {
     setMapMuteGlobal(true);
-    expect(toggleMapMute(100, 1)).toBe(true);
-    expect(isMapMuted(100, 1)).toBe(false);
     expect(isMapMuteActive(100, 1, 0)).toBe(true);
+    expect(toggleMapMute(100, 1)).toBe(false);
+    expect(isMapMuteActive(100, 1, 0)).toBe(false);
+    expect(isMapMuteActive(100, 2, 0)).toBe(true);
+    expect(toggleMapMute(100, 1)).toBe(true);
+    expect(isMapMuteActive(100, 1, 0)).toBe(true);
+  });
+
+  it("clearMapMute under global keeps map open after live", () => {
+    setMapMuteGlobal(true);
+    expect(isMapMuteActive(100, 2, 0)).toBe(true);
+    clearMapMute(100, 2);
+    expect(isMapMuteActive(100, 2, 0)).toBe(false);
+  });
+
+  it("turning global on clears prior exceptions", () => {
+    setMapMuteGlobal(true);
+    toggleMapMute(100, 1);
+    expect(isMapMuteActive(100, 1, 0)).toBe(false);
+    setMapMuteGlobal(false);
+    setMapMuteGlobal(true);
+    expect(isMapMuteActive(100, 1, 0)).toBe(true);
+    expect(sessionStorage.getItem(MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY)).toBeNull();
   });
 });

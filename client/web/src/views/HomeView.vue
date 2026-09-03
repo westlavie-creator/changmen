@@ -154,8 +154,8 @@ async function logout() {
               class="map-mute-global-toggle"
               :class="{ 'is-on': mapMuteGlobalOn }"
               :title="mapMuteGlobalOn
-                ? '展开全部盘口并允许下注（会清空单行折叠）'
-                : '折叠全部比赛的全场与各地图并禁止下注'"
+                ? '展开全部盘口（会清空单行折叠/例外）；各图仍可单独开关'
+                : '默认折叠全部比赛的全场与各地图；各图仍可单独展开'"
               :aria-pressed="mapMuteGlobalOn"
               @click="onToggleMapMuteGlobal"
             >
