@@ -389,6 +389,51 @@ describe("pf_client_handlers", () => {
     expect(row.status).toBe("Pending");
   });
 
+  it("SubmitOrder accepts form-urlencoded JSON-string createOrderBody", async () => {
+    const { predictFunPost } = await import("./pf_api.js");
+    const { upsertPfServerOrder } = await import("./pf_server_order.js");
+    predictFunPost.mockResolvedValueOnce({
+      success: true,
+      data: { orderId: "ord-str", code: "accepted" },
+    });
+    upsertPfServerOrder.mockResolvedValueOnce(true);
+
+    const createOrderBody = {
+      data: {
+        order: {
+          hash: "0xhash-str",
+          maker: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+          signer: "0xC22eAe5aF78A221b8A27f217C8f37C08D530eE62",
+        },
+        strategy: "MARKET",
+        isFillOrKill: true,
+      },
+    };
+
+    const r = await handlePfSubmitOrder({
+      playerId: 42,
+      mode: "userSigned",
+      jwt: "user.jwt",
+      // 对齐客户端 toEsportPostBody：嵌套对象被 stringify
+      createOrderBody: JSON.stringify(createOrderBody),
+      marketId: "830202",
+      tokenId: "tok",
+      apiBetMoney: 5,
+      bookPrice: 0.4,
+      bookOdds: 2.5,
+      makerUsdt: 5,
+      orderHash: "0xhash-str",
+    }, "u1");
+
+    expect(r.ok).toBe(true);
+    expect(r.info.orderId).toBe("0xhash-str");
+    expect(predictFunPost).toHaveBeenCalledWith(
+      "/v1/orders",
+      createOrderBody,
+      "user.jwt",
+    );
+  });
+
   it("SubmitSell userSigned relays, closes buy, skips ledger credit", async () => {
     const { predictFunPost } = await import("./pf_api.js");
     const { upsertPfServerOrder } = await import("./pf_server_order.js");

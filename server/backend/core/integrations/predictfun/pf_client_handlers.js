@@ -48,6 +48,29 @@ import {
 
 export { settleResolvedPfOrdersForPlayer };
 
+/**
+ * esport form-urlencoded 会把嵌套对象 JSON.stringify 成字符串（见 toEsportPostBody）。
+ * 与 PM parseBodyField 同语义：字符串则 parse，已是对象则原样。
+ */
+export function parseEsportJsonField(raw) {
+  if (raw == null || raw === "")
+    return undefined;
+  if (typeof raw === "object")
+    return raw;
+  const text = String(raw).trim();
+  if (!text)
+    return undefined;
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      return JSON.parse(text);
+    }
+    catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 function requirePlayerId(body) {
   const playerId = body?.playerId;
   if (playerId == null || String(playerId).trim() === "")
@@ -189,7 +212,7 @@ export async function handlePfSubmitOrder(body, userId) {
     return gate;
 
   const jwt = String(body?.jwt ?? "").trim();
-  const createOrderBody = body?.createOrderBody;
+  const createOrderBody = parseEsportJsonField(body?.createOrderBody);
   if (!jwt)
     return { ok: false, msg: "jwt 必填（用户 Predict Account 鉴权）" };
   if (!createOrderBody || typeof createOrderBody !== "object")
@@ -459,7 +482,7 @@ export async function handlePfSubmitSell(body, userId) {
       userId,
       buyOrderId,
       jwt: String(body?.jwt ?? "").trim(),
-      createOrderBody: body?.createOrderBody,
+      createOrderBody: parseEsportJsonField(body?.createOrderBody),
       orderHash: body?.orderHash,
       bookPrice: body?.bookPrice,
       bookOdds: body?.bookOdds,
