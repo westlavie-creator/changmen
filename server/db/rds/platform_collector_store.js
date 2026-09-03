@@ -5,11 +5,14 @@
 import { _writeRds, _writeRdsAsync, getPgPool } from "./common.js";
 
 /**
- * PB 采集常只拉 live，且 SaveMatch 为全量快照；单轮残缺/空列表会把 platform_matches
- * 整批 orphan 进 history，MATCHER 上表现为 PB 一会有一会没有。
- * 对 PB：空快照不清空；缺席场次仅在 synced_at 超过宽限后才 orphan。
+ * SaveMatch 为全量快照；单轮残缺/空列表会把 platform_matches 整批 orphan 进 history，
+ * MATCHER 上表现为盘口一会有一会没有（PB 先修；OB/RAY 同症）。
+ * sticky 馆：空快照不清空；缺席场次仅在 synced_at 超过宽限后才 orphan。
  */
 export const PB_SNAPSHOT_ORPHAN_GRACE_MS = 5 * 60 * 1000;
+
+/** @type {ReadonlySet<string>} */
+const STICKY_PLATFORM_MATCH_SNAPSHOTS = new Set(["PB", "OB", "RAY"]);
 
 /**
  * RDS `_writeRds` 同 key 会 coalesce。采集一轮 = 1 次 matches + N 次 bets，
@@ -29,12 +32,12 @@ export function collectorTimersWriteKey(platform) {
 }
 
 export function isStickyPlatformMatchSnapshot(platform) {
-  return String(platform || "").trim() === "PB";
+  return STICKY_PLATFORM_MATCH_SNAPSHOTS.has(String(platform || "").trim());
 }
 
 export function shouldIgnoreEmptyPlatformMatchSnapshot(platform) {
   const plat = String(platform || "").trim();
-  // Polymarket：VPS 独占，清理走 prune；PB：防误清
+  // Polymarket：VPS 独占，清理走 prune；PB/OB/RAY：防误清
   return plat === "Polymarket" || isStickyPlatformMatchSnapshot(plat);
 }
 
@@ -672,7 +675,7 @@ function mapPlatformMatchRows(provider, matchs) {
 /** fire-and-forget：按平台 upsert 本批比赛。
  * 非 Polymarket：并删除本批之外的孤儿行；[] = 空快照全清。
  * Polymarket：只 upsert（VPS 独占）；[] 忽略；清理用 prunePolymarketPlatformMatches。
- * PB：[] 忽略；缺席行仅在 synced_at 超过 PB_SNAPSHOT_ORPHAN_GRACE_MS 后 orphan。
+ * sticky（PB/OB/RAY）：[] 忽略；缺席行仅在 synced_at 超过 PB_SNAPSHOT_ORPHAN_GRACE_MS 后 orphan。
  * @param {string} provider
  * @param {object[]} matchs
  * @param {{ alsoKeepSourceMatchIds?: string[] }} [opts]

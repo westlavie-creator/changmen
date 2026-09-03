@@ -16,27 +16,30 @@ import {
   getRdsWriteQueueStats,
 } from "./common.js";
 
-describe("PB sticky platform_matches snapshot", () => {
-  it("marks only PB as sticky", () => {
+describe("sticky platform_matches snapshot (PB/OB/RAY)", () => {
+  it("marks PB/OB/RAY as sticky", () => {
     assert.equal(isStickyPlatformMatchSnapshot("PB"), true);
-    assert.equal(isStickyPlatformMatchSnapshot("OB"), false);
+    assert.equal(isStickyPlatformMatchSnapshot("OB"), true);
+    assert.equal(isStickyPlatformMatchSnapshot("RAY"), true);
     assert.equal(isStickyPlatformMatchSnapshot("Polymarket"), false);
+    assert.equal(isStickyPlatformMatchSnapshot("IA"), false);
   });
 
-  it("ignores empty snapshot for Polymarket and PB", () => {
+  it("ignores empty snapshot for Polymarket and sticky venues", () => {
     assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("PB"), true);
+    assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("OB"), true);
+    assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("RAY"), true);
     assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("Polymarket"), true);
-    assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("OB"), false);
-    assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("RAY"), false);
+    assert.equal(shouldIgnoreEmptyPlatformMatchSnapshot("IA"), false);
   });
 
-  it("PB orphan cutoff is now - grace; others immediate", () => {
+  it("sticky orphan cutoff is now - grace; others immediate", () => {
     const now = 1_700_000_000_000;
-    assert.equal(platformMatchOrphanCutoffMs("OB", now), null);
-    assert.equal(
-      platformMatchOrphanCutoffMs("PB", now),
-      now - PB_SNAPSHOT_ORPHAN_GRACE_MS,
-    );
+    const grace = now - PB_SNAPSHOT_ORPHAN_GRACE_MS;
+    assert.equal(platformMatchOrphanCutoffMs("PB", now), grace);
+    assert.equal(platformMatchOrphanCutoffMs("OB", now), grace);
+    assert.equal(platformMatchOrphanCutoffMs("RAY", now), grace);
+    assert.equal(platformMatchOrphanCutoffMs("IA", now), null);
     assert.equal(PB_SNAPSHOT_ORPHAN_GRACE_MS, 5 * 60 * 1000);
   });
 

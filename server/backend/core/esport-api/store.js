@@ -216,7 +216,7 @@ export function saveMatches(provider, matchs) {
   const list = Array.isArray(matchs) ? matchs : [];
   const prev = _matches[provider] || {};
   // [A8 可证实] SaveMatch 为全量快照：空数组 = 该平台当前无可见赛（与 collectStore 对齐）
-  // [changmen 扩展] PB：空快照忽略（与 RDS sticky 一致），避免 MATCHER 整馆闪没
+  // [changmen 扩展] PB/OB/RAY：空快照忽略（与 RDS sticky 一致），避免 MATCHER 整馆闪没
   if (!list.length && sb.shouldIgnoreEmptyPlatformMatchSnapshot?.(plat)) {
     console.warn(`[esport-api] ignore API_SaveMatch([]) for ${plat} (sticky snapshot)`);
     return;
@@ -241,7 +241,7 @@ export function saveMatches(provider, matchs) {
   }
   const next = { ...batch };
   const alsoKeepSourceMatchIds = [];
-  // PB：宽限内缺席行留在采集内存；RDS 只 upsert 本批，alsoKeep 防误删（不刷新 sticky synced_at）
+  // sticky：宽限内缺席行留在采集内存；RDS 只 upsert 本批，alsoKeep 防误删（不刷新 sticky synced_at）
   if (sb.isStickyPlatformMatchSnapshot?.(plat)) {
     const graceMs = Number(sb.PB_SNAPSHOT_ORPHAN_GRACE_MS) || 5 * 60 * 1000;
     for (const [sid, row] of Object.entries(prev)) {
