@@ -24,6 +24,13 @@ describe("resolveSoftPlatforms", () => {
     expect(soft).toContain("PB");
     expect(soft).toContain("OB");
   });
+
+  it("excludes OB and includes PB/RAY when sharp is OB", () => {
+    const soft = resolveSoftPlatforms("OB");
+    expect(soft).not.toContain("OB");
+    expect(soft).toContain("PB");
+    expect(soft).toContain("RAY");
+  });
 });
 
 describe("valueBetCalcOptsFromPrefs", () => {
@@ -41,6 +48,13 @@ describe("valueBetCalcOptsFromPrefs", () => {
     expect(opts.minEdge).toBe(0.05);
     expect(opts.nearEdge).toBe(0.01);
     expect(opts.softPlatforms).toEqual(resolveSoftPlatforms("RAY"));
+  });
+
+  it("reads OB baseline", () => {
+    const opts = valueBetCalcOptsFromPrefs({ sharp: "OB", minEdgePct: 4 });
+    expect(opts.sharp).toBe("OB");
+    expect(opts.minEdge).toBe(0.04);
+    expect(opts.softPlatforms).toEqual(resolveSoftPlatforms("OB"));
   });
 
   it("caps near at minEdge when 正EV is below 1%", () => {

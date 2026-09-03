@@ -7,6 +7,7 @@ import {
   createDefaultValueBetMarkerPrefs,
   type UiTheme,
 } from "@/types/extensionPrefs";
+import { VALUE_BET_SHARP_OPTIONS } from "@/extensions/valueBet/evConfig";
 import { useUserStore } from "@/stores/userStore";
 
 const user = useUserStore();
@@ -103,11 +104,12 @@ async function save() {
               v-model="extensionPrefs.valueBet.sharp"
               size="large"
             >
-              <el-radio-button value="PB">
-                PB
-              </el-radio-button>
-              <el-radio-button value="RAY">
-                RAY
+              <el-radio-button
+                v-for="p in VALUE_BET_SHARP_OPTIONS"
+                :key="p"
+                :value="p"
+              >
+                {{ p }}
               </el-radio-button>
             </el-radio-group>
           </div>

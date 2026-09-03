@@ -29,6 +29,13 @@ describe("computeValueBetEdge sharp baseline", () => {
     expect(pbHome).not.toBeNull();
     expect(computeValueBetEdge(bet as never, ob as never, "Home", opts)).not.toBeNull();
   });
+
+  it("with OB as sharp, can mark PB/RAY and not OB", () => {
+    const opts = valueBetCalcOptsFromPrefs({ sharp: "OB" });
+    expect(computeValueBetEdge(bet as never, ob as never, "Home", opts)).toBeNull();
+    expect(computeValueBetEdge(bet as never, pb as never, "Home", opts)).not.toBeNull();
+    expect(computeValueBetEdge(bet as never, ray as never, "Home", opts)).not.toBeNull();
+  });
 });
 
 describe("isValueBetPositiveEdge", () => {

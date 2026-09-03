@@ -1,7 +1,7 @@
 import type { PlatformId } from "@/types/esport";
 
 /** [changmen 扩展] EV 金色标记 / 正 EV 确认可用的 sharp 基准 */
-export const VALUE_BET_SHARP_OPTIONS = ["PB", "RAY"] as const;
+export const VALUE_BET_SHARP_OPTIONS = ["PB", "RAY", "OB"] as const;
 export type ValueBetSharpPlatform = (typeof VALUE_BET_SHARP_OPTIONS)[number];
 
 export const DEFAULT_SHARP_PLATFORM: ValueBetSharpPlatform = "PB";
@@ -19,8 +19,8 @@ export const MIN_EDGE = DEFAULT_MIN_EDGE_PCT / 100;
 export const NEAR_EDGE = DEFAULT_NEAR_EDGE_PCT / 100;
 
 /**
- * 可被标记的软盘候选。所选基准从中剔除；另一基准（PB↔RAY）可作为软盘。
- * 名单沿用现网白名单，另加 PB 以便 RAY 作基准时能标 PB。
+ * 可被标记的软盘候选。所选基准从中剔除；其它基准（PB/RAY/OB）可作为软盘。
+ * 名单沿用现网白名单，含 PB 以便非 PB 作基准时能标 PB。
  */
 export const VALUE_BET_SOFT_CANDIDATES: readonly PlatformId[] = [
   "OB",
@@ -47,7 +47,9 @@ export interface ValueBetCalcOpts {
 }
 
 export function normalizeValueBetSharp(raw: unknown): ValueBetSharpPlatform {
-  return raw === "RAY" ? "RAY" : "PB";
+  return (VALUE_BET_SHARP_OPTIONS as readonly string[]).includes(raw as string)
+    ? (raw as ValueBetSharpPlatform)
+    : DEFAULT_SHARP_PLATFORM;
 }
 
 export function normalizeValueBetEdgePct(raw: unknown, fallback: number): number {

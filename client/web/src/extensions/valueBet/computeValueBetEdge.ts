@@ -3,7 +3,7 @@ import type { PlatformId } from "@/types/esport";
 import { calcEdge, removVig } from "@/extensions/valueBet/evCalc";
 import {
   MIN_EDGE,
-  SHARP_PLATFORM,
+  normalizeValueBetSharp,
   resolveSoftPlatforms,
   type ValueBetCalcOpts,
 } from "@/extensions/valueBet/evConfig";
@@ -17,7 +17,7 @@ export interface ValueBetEdgeSnapshot {
 }
 
 function resolveSharp(opts?: Pick<ValueBetCalcOpts, "sharp" | "softPlatforms"> | null) {
-  const sharp = opts?.sharp === "RAY" ? "RAY" : SHARP_PLATFORM;
+  const sharp = normalizeValueBetSharp(opts?.sharp);
   const softPlatforms = opts?.softPlatforms ?? resolveSoftPlatforms(sharp);
   return { sharp, softPlatforms };
 }

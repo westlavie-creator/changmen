@@ -43,7 +43,7 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({}).valueBet).toEqual(defaultValueBet);
   });
 
-  it("accepts RAY as valueBet sharp and clamps out-of-range thresholds", () => {
+  it("accepts RAY/OB as valueBet sharp and clamps out-of-range thresholds", () => {
     expect(normalizeExtensionPrefs({
       valueBet: { sharp: "RAY", minEdgePct: 5 },
     }).valueBet).toEqual({
@@ -52,7 +52,14 @@ describe("extensionPrefs", () => {
       autoBet: defaultValueBet.autoBet,
     });
     expect(normalizeExtensionPrefs({
-      valueBet: { sharp: "OB", minEdgePct: 99 },
+      valueBet: { sharp: "OB", minEdgePct: 4 },
+    }).valueBet).toEqual({
+      sharp: "OB",
+      minEdgePct: 4,
+      autoBet: defaultValueBet.autoBet,
+    });
+    expect(normalizeExtensionPrefs({
+      valueBet: { sharp: "IA", minEdgePct: 99 },
     }).valueBet).toEqual({
       sharp: "PB",
       minEdgePct: 20,
