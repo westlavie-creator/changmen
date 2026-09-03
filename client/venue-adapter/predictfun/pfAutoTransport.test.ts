@@ -7,6 +7,7 @@ import {
 import { getPfMarketWsSourceMode, resetPfMarketWsSourceModeForTests } from "./pfMarketWsMode";
 import { resolvePfHttpMode, setPfHttpModeForTests } from "./pfTransportMode";
 import * as reachability from "./pfOfficialReachability";
+import * as transport from "./transport";
 
 describe("pfAutoTransport", () => {
   beforeEach(() => {
@@ -26,7 +27,8 @@ describe("pfAutoTransport", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses official WS + direct HTTP when market WS probe succeeds", async () => {
+  it("uses official WS + direct HTTP when market WS probe succeeds and browser has API key", async () => {
+    vi.spyOn(transport, "resolvePredictFunApiKey").mockReturnValue("test-key");
     vi.spyOn(reachability, "probePredictFunOfficialReachable").mockResolvedValue({
       reachable: true,
       httpOk: true,
@@ -38,6 +40,21 @@ describe("pfAutoTransport", () => {
     expect(result.httpMode).toBe("direct");
     expect(getPfMarketWsSourceMode()).toBe("official");
     expect(resolvePfHttpMode()).toBe("direct");
+  });
+
+  it("keeps official WS but forces vps HTTP when WS ok and browser lacks API key", async () => {
+    vi.spyOn(transport, "resolvePredictFunApiKey").mockReturnValue("");
+    vi.spyOn(reachability, "probePredictFunOfficialReachable").mockResolvedValue({
+      reachable: true,
+      httpOk: false,
+      marketWsOk: true,
+    });
+
+    const result = await applyPfAutoTransportOnLogin();
+    expect(result.applied).toBe(true);
+    expect(result.httpMode).toBe("vps");
+    expect(getPfMarketWsSourceMode()).toBe("official");
+    expect(resolvePfHttpMode()).toBe("vps");
   });
 
   it("falls back to changmen/vps when probe fails", async () => {

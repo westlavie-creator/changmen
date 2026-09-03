@@ -5,6 +5,7 @@ import {
   predictFunHttpGet,
   resolvePredictFunApiKey,
 } from "./transport";
+import { resolvePfHttpMode } from "./pfTransportMode";
 
 export { resolvePredictFunApiKey } from "./transport";
 
@@ -101,15 +102,33 @@ export async function fetchPredictOrderbook(marketId: string | number): Promise<
   const id = String(marketId ?? "").trim();
   if (!id)
     return null;
+  const apiKey = resolvePredictFunApiKey();
+  // 官方主网 orderbook 强制 x-api-key；无 Key 时 direct 必 401，错误曾被吞成「orderbook 为空」
+  if (!apiKey && resolvePfHttpMode() === "direct") {
+    throw new Error(
+      `Predict.fun orderbook 需要 API Key（market ${id}；当前 HTTP=direct 且未配置 VITE_PREDICT_FUN_API_KEY，请改 VPS 中继或补 Key）`,
+    );
+  }
   try {
-    const res = await predictFunHttpGet<{ success?: boolean; data?: PredictOrderbookData }>(
+    const res = await predictFunHttpGet<{ success?: boolean; data?: PredictOrderbookData; message?: string; error?: string }>(
       `${PREDICT_FUN_API}/v1/markets/${encodeURIComponent(id)}/orderbook`,
       predictHeaders(),
     );
-    return res?.data ?? null;
+    if (res?.data)
+      return res.data;
+    const hint = String(res?.message || res?.error || "").trim();
+    throw new Error(
+      hint
+        ? `Predict.fun orderbook 无 data（market ${id}）：${hint}`
+        : `Predict.fun orderbook 无 data（market ${id}）`,
+    );
   }
-  catch {
-    return null;
+  catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // 已带 market 上下文则原样抛，避免双重包装
+    if (/orderbook/i.test(msg) && msg.includes(id))
+      throw err instanceof Error ? err : new Error(msg);
+    throw new Error(`Predict.fun orderbook 拉取失败（market ${id}）：${msg}`);
   }
 }
 

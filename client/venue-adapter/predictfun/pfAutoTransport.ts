@@ -1,6 +1,7 @@
 import { getPfMarketWsSourceMode, setPfMarketWsSourceMode, type PfMarketWsSourceMode } from "./pfMarketWsMode";
 import { probePredictFunOfficialReachable } from "./pfOfficialReachability";
 import { resolvePfHttpMode, setPfHttpMode, type PfHttpMode } from "./pfTransportMode";
+import { resolvePredictFunApiKey } from "./transport";
 
 const PF_TRANSPORT_MANUAL_OVERRIDE_KEY = "changmen:pf:transport-manual-override";
 
@@ -66,13 +67,28 @@ function applyModes(marketWsOk: boolean): Omit<
   PfAutoTransportApplyResult,
   "applied" | "skippedManualOverride"
 > {
-  if (marketWsOk) {
+  // 主网 REST（含预检 orderbook）强制 x-api-key。浏览器无 VITE_ Key 时勿走 direct，
+  // 否则 401 被吞成「orderbook 为空」；改 VPS 中继，由服务端注入 PREDICT_FUN_API_KEY。
+  const browserHasApiKey = Boolean(resolvePredictFunApiKey());
+
+  if (marketWsOk && browserHasApiKey) {
     // 对齐 PM：官方 WS 可达则直连行情；HTTP 走浏览器直连官方（无 PF 插件档）
     setPfHttpMode("direct");
     setPfMarketWsSourceMode("official");
     return {
       reachable: true,
       httpMode: "direct",
+      marketWsMode: "official",
+    };
+  }
+
+  if (marketWsOk && !browserHasApiKey) {
+    // WS 可官方，但 REST 无 Key → HTTP 仍走 VPS（服务端带 Key）
+    setPfHttpMode("vps");
+    setPfMarketWsSourceMode("official");
+    return {
+      reachable: true,
+      httpMode: "vps",
       marketWsMode: "official",
     };
   }

@@ -319,6 +319,32 @@ function upstreamHeadersForNodeHttp(targetUrl, headersObj) {
   return entries.map(([key, value]) => [key, String(value)]);
 }
 
+function isPredictFunUpstream(targetUrl) {
+  try {
+    const host = new URL(String(targetUrl || "")).hostname.toLowerCase();
+    return host === "api.predict.fun" || host === "api-testnet.predict.fun";
+  }
+  catch {
+    return false;
+  }
+}
+
+function injectPredictFunApiKey(headers, targetUrl) {
+  if (!isPredictFunUpstream(targetUrl))
+    return headers;
+  const hasKey = Boolean(
+    headerValue(headers["x-api-key"])
+    || headerValue(headers["X-Api-Key"])
+    || headerValue(headers["X-API-KEY"]),
+  );
+  if (hasKey)
+    return headers;
+  const serverKey = String(process.env.PREDICT_FUN_API_KEY || process.env.VITE_PREDICT_FUN_API_KEY || "").trim();
+  if (!serverKey)
+    return headers;
+  return { ...headers, "x-api-key": serverKey };
+}
+
 function forwardHeaders(req, targetUrl) {
   if (isPolymarketUpstream(targetUrl))
     return forwardPolymarketHeaders(req, targetUrl);
@@ -362,7 +388,8 @@ function forwardHeaders(req, targetUrl) {
   catch {
     /* ignore */
   }
-  return out;
+  // 浏览器未带 Key 时，用 VPS PREDICT_FUN_API_KEY 补齐（预检 orderbook 主网强制鉴权）
+  return injectPredictFunApiKey(out, targetUrl);
 }
 
 const RELAY_PATH = "/esport/http-relay";

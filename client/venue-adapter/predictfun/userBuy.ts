@@ -97,6 +97,7 @@ export async function checkPredictFunUserBuy(params: {
     fetchPredictOrderbook(marketId),
     fetchPredictMarket(marketId),
   ]);
+  // fetchPredictOrderbook 失败会抛错；此处仅兜底空对象
   if (!yesBook)
     throw new Error(`Predict.fun orderbook 为空（market ${marketId}）`);
   assertPredictMarketTradable(market);

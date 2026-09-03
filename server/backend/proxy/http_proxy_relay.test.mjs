@@ -19,4 +19,11 @@ describe("http_proxy_relay polymarket headers", () => {
     expect(source).toMatch(/@polymarket\/clob-client/);
     expect(source).toMatch(/isPolymarketUpstream\(targetUrl\)[\s\S]*mergePolymarketUpstreamHeaders/);
   });
+
+  test("Predict.fun 上游缺 x-api-key 时注入 PREDICT_FUN_API_KEY", () => {
+    expect(source).toMatch(/injectPredictFunApiKey/);
+    expect(source).toMatch(/isPredictFunUpstream/);
+    expect(source).toMatch(/PREDICT_FUN_API_KEY/);
+    expect(source).toMatch(/return injectPredictFunApiKey\(out, targetUrl\)/);
+  });
 });
