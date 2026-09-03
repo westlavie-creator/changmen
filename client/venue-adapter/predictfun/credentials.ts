@@ -5,6 +5,8 @@
  * @see https://dev.predict.fun/doc-663127
  */
 
+import { Wallet } from "ethers";
+
 export interface PredictFunTokenConfig {
   /** @deprecated 旧会员占位；保存时剔除 */
   mode?: string;
@@ -66,6 +68,22 @@ export function resolvePredictFunPrivyPrivateKey(config: PredictFunTokenConfig):
   if (!key)
     return "";
   return normalizePredictFunPrivateKey(key);
+}
+
+/**
+ * 由 Privy 私钥推导 EOA 地址（充 BNB / gas 用；≠ Predict 智能钱包）。
+ * 无效钥返回空串。
+ */
+export function resolvePredictFunPrivyAddressFromPrivateKey(raw: string): string {
+  const pk = normalizePredictFunPrivateKey(raw);
+  if (!isValidPredictFunPrivateKey(pk))
+    return "";
+  try {
+    return String(new Wallet(pk).address || "").trim();
+  }
+  catch {
+    return "";
+  }
 }
 
 export function resolvePredictFunPredictAccount(config: PredictFunTokenConfig): string {

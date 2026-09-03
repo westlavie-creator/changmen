@@ -46,6 +46,7 @@ import {
   normalizePredictFunPrivateKey,
   parsePredictFunTokenConfig,
   resolvePredictFunPredictAccount,
+  resolvePredictFunPrivyAddressFromPrivateKey,
   resolvePredictFunPrivyPrivateKey,
 } from "@changmen/venue-adapter/predictfun";
 import {
@@ -146,8 +147,11 @@ let polyAsyncOpSeq = 0;
 /** PredictFun：官网 Privy 钥 + Predict Account（充值地址） */
 const pfPrivyPrivateKey = ref("");
 const pfPredictAccount = ref("");
+/** 由 Privy 私钥推导的 EOA（充 BNB）；无私钥时为空 */
+const pfPrivyAddress = ref("");
 const pfLocalKeyStatus = ref<"none" | "stored" | "ready">("none");
 let pfLocalKeyHintSeq = 0;
+let pfPrivyAddressSeq = 0;
 const pfLocalKeyReady = computed(() => pfLocalKeyStatus.value !== "none");
 const pfPrivyKeyPlaceholder = computed(() => {
   if (pfLocalKeyStatus.value === "ready")
@@ -163,6 +167,57 @@ const pfPrivyKeyHintText = computed(() => {
     return "本机仓有该账号 Privy 钥，但当前未解锁。";
   return "";
 });
+
+function setPfPrivyAddressFromKey(raw: string) {
+  pfPrivyAddress.value = resolvePredictFunPrivyAddressFromPrivateKey(raw);
+}
+
+/** 从输入框 / 内存 token / 已解锁 vault 缓存推导 Privy EOA（不回显私钥、不弹解锁） */
+function refreshPfPrivyAddressDisplay() {
+  const seq = ++pfPrivyAddressSeq;
+  const typed = pfPrivyPrivateKey.value.trim();
+  if (typed) {
+    setPfPrivyAddressFromKey(typed);
+    return;
+  }
+  const fromForm = resolvePredictFunPrivyPrivateKey(parsePredictFunTokenConfig(form.token))
+    || extractPrivateKeyFromToken(form.token);
+  if (fromForm) {
+    setPfPrivyAddressFromKey(fromForm);
+    return;
+  }
+  const fromAccount = resolvePredictFunPrivyPrivateKey(parsePredictFunTokenConfig(props.account?.token))
+    || extractPrivateKeyFromToken(props.account?.token);
+  if (fromAccount) {
+    setPfPrivyAddressFromKey(fromAccount);
+    return;
+  }
+  const uid = String(userStore.userId || "");
+  const aid = Number(props.account?.accountId) || 0;
+  if (uid && aid && isPmVaultUnlocked(uid)) {
+    const cached = getCachedPrivateKey(aid);
+    if (cached) {
+      setPfPrivyAddressFromKey(cached);
+      return;
+    }
+  }
+  if (seq !== pfPrivyAddressSeq)
+    return;
+  pfPrivyAddress.value = "";
+}
+
+async function copyPfPrivyAddress() {
+  const addr = pfPrivyAddress.value.trim();
+  if (!addr)
+    return;
+  try {
+    await navigator.clipboard.writeText(addr);
+    ElMessage.success("已复制 Privy 地址");
+  }
+  catch {
+    ElMessage.error("复制失败");
+  }
+}
 
 interface PlatformSuggestion { value: string; link: string }
 
@@ -226,6 +281,7 @@ function resetForm(acc?: PlatformAccount) {
   else {
     pfPrivyPrivateKey.value = "";
     pfPredictAccount.value = "";
+    pfPrivyAddress.value = "";
     pfLocalKeyStatus.value = "none";
   }
   syncPolymarketFieldsFromToken(form.token);
@@ -310,6 +366,7 @@ function syncPredictFunFieldsFromToken(token: string) {
     pfLocalKeyHintSeq += 1;
     pfLocalKeyStatus.value = "none";
   }
+  refreshPfPrivyAddressDisplay();
 }
 
 async function resolvePolymarketPrivateKeyForSave(): Promise<string> {
@@ -503,6 +560,15 @@ watch(
     if (form.provider !== "Polymarket" || polyAdvancedMode.value)
       return;
     syncPolymarketWalletAddressFromPrivateKey();
+  },
+);
+
+watch(
+  () => pfPrivyPrivateKey.value,
+  () => {
+    if (form.provider !== "PredictFun")
+      return;
+    refreshPfPrivyAddressDisplay();
   },
 );
 
@@ -1089,6 +1155,7 @@ async function save() {
         acc.token = buildPredictFunMemoryToken({ predictAccount, privyPrivateKey: pk });
         pfPrivyPrivateKey.value = "";
         pfLocalKeyStatus.value = "ready";
+        refreshPfPrivyAddressDisplay();
       }
       await accountStore.saveAccounts();
       ElMessage.success("账号设置已保存");
@@ -1153,6 +1220,7 @@ async function save() {
       });
       pfPrivyPrivateKey.value = "";
       pfLocalKeyStatus.value = "ready";
+      refreshPfPrivyAddressDisplay();
     }
     ElMessage.success("账号设置已保存");
     emit("close");
@@ -1411,6 +1479,29 @@ function unlockRate() {
               这是签名用的钥，对应的 EOA 地址一般<strong>不等于</strong>下面的智能钱包地址。
             </p>
           </el-form-item>
+          <el-form-item label="Privy 地址：">
+            <div class="pf-privy-address-row">
+              <el-input
+                :model-value="pfPrivyAddress"
+                :placeholder="pfLocalKeyStatus === 'stored'
+                  ? '请先解锁本机钱包以显示'
+                  : '粘贴 Privy 私钥后自动推导（充 BNB 用）'"
+                readonly
+                style="font-family: monospace; font-size: 12px; flex: 1"
+              />
+              <el-button
+                v-if="pfPrivyAddress"
+                plain
+                @click="copyPfPrivyAddress"
+              >
+                复制
+              </el-button>
+            </div>
+            <p class="poly-funder-deposit-hint">
+              官网设置页通常<strong>不直接展示</strong>此地址；由 Privy 私钥推导。
+              请向此地址充少量 <strong>BNB</strong>（gas / approvals），<strong>不要</strong>往下面的智能钱包充 BNB。
+            </p>
+          </el-form-item>
           <el-form-item label="Predict 智能钱包：">
             <el-input
               v-model="pfPredictAccount"
@@ -1431,8 +1522,6 @@ function unlockRate() {
               <strong>不要</strong>复制下面的「智能路由地址」（跨链中转，不能当 Predict Account）。
               <br>
               该地址<strong>只收 BNB 链 USDT</strong>；其它链/币种请走智能路由，但表单仍只填智能钱包地址。
-              <br>
-              另外：导出 Privy 钥后，其对应地址上需有少量 <strong>BNB</strong>（作 gas / approvals），不要往智能钱包地址充 BNB。
             </p>
           </el-form-item>
         </fieldset>
@@ -1522,6 +1611,13 @@ function unlockRate() {
 }
 
 .poly-funder-input {
+  width: 100%;
+}
+
+.pf-privy-address-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   width: 100%;
 }
 

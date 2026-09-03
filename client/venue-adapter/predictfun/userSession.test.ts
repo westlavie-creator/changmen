@@ -1,6 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Wallet } from "ethers";
 
+import { resolvePredictFunPrivyAddressFromPrivateKey } from "./credentials";
 import { predictFunUsdtFromWei } from "./userSession";
+
+describe("resolvePredictFunPrivyAddressFromPrivateKey", () => {
+  it("derives EOA from Privy private key", () => {
+    const pk = `0x${"22".repeat(32)}`;
+    expect(resolvePredictFunPrivyAddressFromPrivateKey(pk)).toBe(new Wallet(pk).address);
+    expect(resolvePredictFunPrivyAddressFromPrivateKey("")).toBe("");
+    expect(resolvePredictFunPrivyAddressFromPrivateKey("not-a-key")).toBe("");
+  });
+});
 
 describe("predictFunUsdtFromWei", () => {
   it("converts 18-decimal wei to USDT with 2dp", () => {
