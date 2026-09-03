@@ -153,11 +153,13 @@ describe("mapBetMute", () => {
     expect(isMapMuteActive(100, 1, 0)).toBe(true);
   });
 
-  it("clearMapMute under global keeps map open after live", () => {
+  it("clearMapMute under global does not permanently open after live ends", () => {
     setMapMuteGlobal(true);
-    expect(isMapMuteActive(100, 2, 0)).toBe(true);
-    clearMapMute(100, 2);
-    expect(isMapMuteActive(100, 2, 0)).toBe(false);
+    expect(isMapMuteActive(100, 2, 2)).toBe(false); // live 放行
+    clearMapMute(100, 2); // BetRow 进入 live 时调用；不得写入例外
+    expect(sessionStorage.getItem(MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY)).toBeNull();
+    expect(isMapMuteActive(100, 2, 0)).toBe(true); // live 结束后仍全局折叠
+    expect(isMapMuteActive(100, 2, 3)).toBe(true);
   });
 
   it("turning global on clears prior exceptions", () => {

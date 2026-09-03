@@ -178,26 +178,22 @@ export function isMapMuteActive(
 }
 
 /**
- * 清除某局折叠（进入 live 时调用，避免结束后残留 mute）。
- * 全局模式下写入例外展开，使 live 结束后仍保持展开。
+ * 清除某局单行 mute（进入 live 时调用，避免结束后残留 mute 表项）。
+ * 全局模式勿写入例外展开：live 已由 isMapMuteActive(liveRound===round) 放行；
+ * 若此处永久 open，live 结束后自动套利/EV 会继续打「全局折叠」下的局。
+ * 用户要展开某盘：用 toggleMapMute。
  */
 export function clearMapMute(matchId: number, round: number): void {
   ensureMapBetMuteLoaded();
   if (!canFoldMap(round))
     return;
   const key = muteKey(matchId, round);
-  if (mutedKeys.value.has(key)) {
-    const next = new Set(mutedKeys.value);
-    next.delete(key);
-    mutedKeys.value = next;
-    writeSessionKeySet(MAP_BET_MUTE_SESSION_KEY, next);
-  }
-  if (globalMuteAll.value && !globalOpenKeys.value.has(key)) {
-    const next = new Set(globalOpenKeys.value);
-    next.add(key);
-    globalOpenKeys.value = next;
-    writeSessionKeySet(MAP_BET_MUTE_GLOBAL_OPEN_SESSION_KEY, next);
-  }
+  if (!mutedKeys.value.has(key))
+    return;
+  const next = new Set(mutedKeys.value);
+  next.delete(key);
+  mutedKeys.value = next;
+  writeSessionKeySet(MAP_BET_MUTE_SESSION_KEY, next);
 }
 
 /**
