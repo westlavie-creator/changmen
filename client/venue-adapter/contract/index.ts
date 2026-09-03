@@ -69,6 +69,10 @@ export interface PolymarketVenueOrderExtras {
    */
   pmRejectReason?: "unfilled" | "api_failed";
   /**
+   * [changmen 扩展] 拒单金额单位已对齐（U→CNY）标记；回填脚本幂等用。
+   */
+  pmRejectMoneyFixedAt?: number;
+  /**
    * [changmen 扩展] Phase 1 仓位卖出事件（写在买单上；服务端按 id 幂等合并）。
    * 盈亏权威仍为 pmSellProceeds / money 等聚合字段。
    */

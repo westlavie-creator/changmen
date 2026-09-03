@@ -234,8 +234,11 @@ describe("buildPolymarketExecutionRejectVenueOrder", () => {
     });
     expect(order.status).toBe("reject");
     expect(order.orderId).toBe("pm-rej-42-1700000000123-api_failed");
-    expect(order.betMoney).toBe(12.5);
+    // ctx.betMoney 为场馆 USDC → 落库 CNY + pmStakeUsdc
+    expect(order.pmStakeUsdc).toBe(12.5);
+    expect(order.betMoney).toBeCloseTo(12.5 * 6.7, 5);
     expect(order.money).toBe(0);
+    expect(order.reward).toBe(0);
     expect(order.link).toBe(99);
     expect(order.pmRejectReason).toBe("api_failed");
     expect(order.pmSide).toBe("buy");
@@ -252,6 +255,8 @@ describe("buildPolymarketExecutionRejectVenueOrder", () => {
     });
     expect(order.orderId).toBe("0xabc");
     expect(order.pmRejectReason).toBe("unfilled");
+    expect(order.pmStakeUsdc).toBe(5);
+    expect(order.betMoney).toBeCloseTo(5 * 6.7, 5);
   });
 
   it("prefers response.orderID when result.orderId missing", () => {
@@ -262,6 +267,21 @@ describe("buildPolymarketExecutionRejectVenueOrder", () => {
     });
     const order = buildPolymarketExecutionRejectVenueOrder(acc, result, "api_failed");
     expect(order.orderId).toBe("0xfrom-resp");
+  });
+
+  it("prefers POST makerAmount USDC over ctx.betMoney", () => {
+    const acc = { provider: "Polymarket", accountId: 7 } as never;
+    const result = Object.assign(new BetResult("Polymarket", true), {
+      orderId: "0xmaker",
+      beginTime: 100,
+      request: { order: { makerAmount: "5880000", side: "BUY" } },
+    });
+    const order = buildPolymarketExecutionRejectVenueOrder(acc, result, "unfilled", {
+      betMoney: 0.88,
+      odds: 9.09,
+    });
+    expect(order.pmStakeUsdc).toBe(5.88);
+    expect(order.betMoney).toBeCloseTo(5.88 * 6.7, 5);
   });
 });
 

@@ -51,12 +51,16 @@ describe("persistPolymarketExecutionReject", () => {
     expect(out?.status).toBe("reject");
     expect(out?.orderId).toBe("pm-rej-9-1700000000000-api_failed");
     expect(out?.item).toBe("Alpha");
-    expect(out?.betMoney).toBe(10);
+    // option.betMoney=10 为场馆 USDC → 落库 CNY + pmStakeUsdc
+    expect(out?.pmStakeUsdc).toBe(10);
+    expect(out?.betMoney).toBeCloseTo(10 * 6.7, 5);
     expect(out?.link).toBe(55);
     expect(out?.pmRejectReason).toBe("api_failed");
     expect(saveOrders).toHaveBeenCalledTimes(1);
     expect(saveOrders.mock.calls[0][0]).toBe(account);
     expect(saveOrders.mock.calls[0][1][0].orderId).toBe(out!.orderId);
+    expect(saveOrders.mock.calls[0][1][0].pmStakeUsdc).toBe(10);
+    expect(saveOrders.mock.calls[0][1][0].betMoney).toBeCloseTo(67, 5);
   });
 
   it("maps Away to awayName on reject", async () => {

@@ -1,5 +1,6 @@
 import type { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
+import { scaleUsdtToCnyDisplay } from "@changmen/shared/currency";
 import type { VenueOrder } from "../contract";
 import { parseTokenConfig, resolveApiCreds } from "./l2Auth";
 import { pmGetOrder } from "./pmClientApi";
@@ -269,6 +270,10 @@ export function applyPolymarketSettlementToResult(
 export type PolymarketExecutionRejectReason = "unfilled" | "api_failed";
 
 export interface PolymarketRejectOrderContext {
+  /**
+   * 场馆 USDC（checkBetting 换算后 / POST makerAmount）。
+   * 落库前会写入 pmStakeUsdc，并把 betMoney scale 成 CNY。
+   */
   betMoney?: number;
   odds?: number;
   game?: string;
@@ -297,6 +302,32 @@ export function resolvePolymarketRejectOrderId(
   const ts = Number.isFinite(begin) && begin > 0 ? begin : Date.now();
   const player = Number(account.accountId) || 0;
   return `pm-rej-${player}-${ts}-${reason}`;
+}
+
+function round4Usdc(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+/**
+ * 拒单本金（USDC）：优先 POST body makerAmount（BUY 抵押），否则 ctx.betMoney（已是场馆 U）。
+ */
+export function resolvePolymarketRejectStakeUsdc(
+  result: BetResult,
+  ctx: PolymarketRejectOrderContext = {},
+): number {
+  const req = result.request as {
+    order?: { makerAmount?: string | number; side?: string };
+  } | undefined;
+  const makerRaw = Number(req?.order?.makerAmount);
+  if (Number.isFinite(makerRaw) && makerRaw > 0) {
+    const fromMaker = makerRaw >= 1000 ? makerRaw / 1_000_000 : makerRaw;
+    if (fromMaker > 0)
+      return round4Usdc(fromMaker);
+  }
+  const fromCtx = Number(ctx.betMoney);
+  if (Number.isFinite(fromCtx) && fromCtx > 0)
+    return round4Usdc(fromCtx);
+  return 0;
 }
 
 /** 已调用 CLOB POST 后的失败（非预检/凭证/盘口挡单） */
@@ -357,12 +388,15 @@ export function buildPolymarketExecutionRejectVenueOrder(
   const betLabel = reason === "api_failed"
     ? (String(ctx.bet ?? "").trim() || "下单未成交")
     : (String(ctx.bet ?? "").trim() || "FOK未成交");
+  // ctx.betMoney / makerAmount 为场馆 USDC；对齐成交单：pmStakeUsdc=U，betMoney=CNY
+  const stakeUsdc = resolvePolymarketRejectStakeUsdc(result, ctx);
+  const betMoneyCny = stakeUsdc > 0 ? scaleUsdtToCnyDisplay(stakeUsdc) : 0;
   return {
     provider: account.provider,
     orderId: resolvePolymarketRejectOrderId(account, result, reason),
     odds: Number(ctx.odds) > 0 ? Number(ctx.odds) : 0,
     createAt,
-    betMoney: Number(ctx.betMoney) > 0 ? Number(ctx.betMoney) : 0,
+    betMoney: betMoneyCny,
     reward: 0,
     money: 0,
     status: "reject",
@@ -373,6 +407,9 @@ export function buildPolymarketExecutionRejectVenueOrder(
     pmSide: "buy",
     pmOrigin: "changmen",
     pmRejectReason: reason,
+    ...(stakeUsdc > 0 ? { pmStakeUsdc: stakeUsdc } : {}),
     ...(Number(ctx.link) ? { link: Number(ctx.link) } : {}),
+    // 回填脚本幂等标记（经 raw 落库）
+    pmRejectMoneyFixedAt: Date.now(),
   };
 }
