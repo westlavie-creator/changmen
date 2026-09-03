@@ -45,6 +45,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* [changmen 扩展] 全局折叠全场 + 各地图 */
+.home-main .match-search-row .map-mute-global-toggle {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 10px;
+  margin: 0;
+  border: 1px solid var(--cm-border-color, hsla(0, 0%, 100%, 0.25));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cm-color-muted, #aaa);
+  font-size: 12px;
+  line-height: 26px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.home-main .match-search-row .map-mute-global-toggle:hover {
+  color: var(--cm-color-text, #fff);
+  border-color: var(--cm-color-text, hsla(0, 0%, 100%, 0.5));
+}
+.home-main .match-search-row .map-mute-global-toggle.is-on {
+  color: var(--cm-color-warning, #e6a23c);
+  border-color: color-mix(in srgb, var(--cm-color-warning, #e6a23c) 55%, transparent);
+}
+
 .home-main .sport-tab-row {
   display: flex;
   flex: 0 0 auto;

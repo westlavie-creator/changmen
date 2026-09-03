@@ -22,8 +22,11 @@
   min-width:22px;height:18px;padding:0 4px;margin:0;border:1px solid hsla(0,0%,100%,.35);
   border-radius:3px;background:#000a;color:#fff;font-size:11px;line-height:16px;cursor:pointer;
 }
-.matchs .bet .map-mute-toggle:hover {
+.matchs .bet .map-mute-toggle:hover:not(:disabled) {
   border-color:hsla(0,0%,100%,.7);background:#000c;
+}
+.matchs .bet .map-mute-toggle:disabled {
+  opacity:.45;cursor:not-allowed;
 }
 .matchs .bet:has(.map-mute-toggle) .bet-title {
   padding-right:28px;

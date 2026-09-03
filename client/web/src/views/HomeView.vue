@@ -12,6 +12,10 @@ import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import MakeupCalcBar from "@/components/user/MakeupCalcBar.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import {
+  mapBetMuteGlobal,
+  toggleMapMuteGlobal,
+} from "@/extensions/mapBetMute";
+import {
   mountAppSession,
   stopAppSession,
 } from "@/runtime/appSession";
@@ -35,6 +39,14 @@ const {
 
 const searchQuery = ref("");
 const { extensionReady, extensionChecked, refreshExtension } = useExtensionGate();
+
+/** [changmen 扩展] 全局折叠：所有比赛全场 + 各地图 */
+const muteGlobalRef = mapBetMuteGlobal();
+const mapMuteGlobalOn = computed(() => muteGlobalRef.value);
+
+function onToggleMapMuteGlobal() {
+  toggleMapMuteGlobal();
+}
 
 /** 新标签打开体育页，本页电竞 runtime 继续跑 */
 function openSportsInNewTab() {
@@ -137,6 +149,18 @@ async function logout() {
             <span class="match-count" :title="`当前列表 ${filteredMatchs.length} 场`">
               {{ matchCountLabel }}
             </span>
+            <button
+              type="button"
+              class="map-mute-global-toggle"
+              :class="{ 'is-on': mapMuteGlobalOn }"
+              :title="mapMuteGlobalOn
+                ? '展开全部盘口并允许下注（会清空单行折叠）'
+                : '折叠全部比赛的全场与各地图并禁止下注'"
+              :aria-pressed="mapMuteGlobalOn"
+              @click="onToggleMapMuteGlobal"
+            >
+              {{ mapMuteGlobalOn ? "开" : "关" }} 全部盘口
+            </button>
             <MakeupCalcBar />
             <el-button
               class="sports-open-btn"
