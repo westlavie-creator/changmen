@@ -35,6 +35,8 @@ const extensionPrefs = vi.hoisted(() => ({
   betRowUi: false,
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
+  valueBetSoftPlatforms: ["OB", "RAY", "IA", "SABA", "IMT", "Polymarket", "PB"],
+  arbAllowedPlatforms: null as string[] | null,
   stakeScaleByProfit: {
     enabled: false,
     minImplied: 1.05,
@@ -130,6 +132,7 @@ const arbSources: BetRowDto["Sources"] = {
 describe("prepareArbAttempt early return (A8 静默 continue)", () => {
   beforeEach(() => {
     loseOrderIds.clear();
+    extensionPrefs.arbAllowedPlatforms = null;
     extensionPrefs.stakeScaleByProfit.enabled = false;
     extensionPrefs.stakeScaleByProfit.minImplied = 1.05;
     extensionPrefs.stakeScaleByProfit.multiplier = 2;
@@ -191,11 +194,33 @@ describe("prepareArbAttempt early return (A8 静默 continue)", () => {
 
     expect(config.betMoney).toBe(60);
   });
+
+  it("filters providerKeys by arbAllowedPlatforms before getOrderOptions", async () => {
+    extensionPrefs.arbAllowedPlatforms = ["PB"];
+    const bet = makeBet(arbSources);
+    const config = { ...createDefaultUserConfig(), profit: 1.03, minOdds: 1.01 };
+    const spy = vi.spyOn(bet, "getOrderOptions").mockReturnValue(undefined);
+
+    await prepareArbAttempt({
+      match,
+      bet,
+      config,
+      setMessage: () => {},
+    });
+
+    expect(spy).toHaveBeenCalledWith(
+      match,
+      config,
+      expect.any(Array),
+      ["PB"],
+    );
+  });
 });
 
 describe("prepareArbAttempt stakeScaleByProfit [changmen 扩展]", () => {
   beforeEach(() => {
     loseOrderIds.clear();
+    extensionPrefs.arbAllowedPlatforms = null;
     extensionPrefs.stakeScaleByProfit.enabled = true;
     extensionPrefs.stakeScaleByProfit.minImplied = 1.05;
     extensionPrefs.stakeScaleByProfit.multiplier = 2;

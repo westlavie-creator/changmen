@@ -56,7 +56,10 @@ export async function runValueBetConfirm(
     return;
   }
 
-  const calcOpts = valueBetCalcOptsFromPrefs(user.extensionPrefs?.valueBet);
+  const calcOpts = valueBetCalcOptsFromPrefs({
+    ...user.extensionPrefs?.valueBet,
+    softPlatforms: user.extensionPrefs?.valueBetSoftPlatforms,
+  });
   const snap = computeValueBetEdge(bet, item, side, calcOpts);
   if (!snap || !isValueBetPositiveEdge(snap.edge, calcOpts.minEdge)) {
     const minPct = (calcOpts.minEdge * 100).toFixed(1).replace(/\.0$/, "");

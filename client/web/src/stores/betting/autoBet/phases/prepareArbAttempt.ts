@@ -24,6 +24,7 @@ import { syncActiveBetBegin } from "@/stores/betting/activeBetRunSync";
 import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
+import { filterArbProviderKeys } from "@/types/extensionPrefs";
 import { useUserStore } from "@/stores/userStore";
 
 /** 选腿、选号、比例 9999 单边 / linkId；失败时 return null（A8 静默 continue） */
@@ -34,6 +35,7 @@ export async function prepareArbAttempt(
   const matchStore = useMatchStore();
   const accountStore = useAccountStore();
   const loseStore = useLoseOrderStore();
+  const userStore = useUserStore();
 
   bet.items.forEach(item => item.updateOdds());
 
@@ -53,7 +55,9 @@ export async function prepareArbAttempt(
       = Math.floor(Math.random() * (config.maxMoney - config.minMoney + 1)) + config.minMoney;
   }
 
-  const providerKeys = [...accountStore.getProviders(config.betMoney).keys()] as PlatformId[];
+  const funded = [...accountStore.getProviders(config.betMoney).keys()] as PlatformId[];
+  // [changmen 扩展] 扩展 Tab 套利场馆白名单；null = 不限制（现网）
+  const providerKeys = filterArbProviderKeys(funded, userStore.extensionPrefs.arbAllowedPlatforms);
 
   const options = bet.getOrderOptions(match, config, accounts, providerKeys);
   if (!options || options.length !== 2) {
@@ -71,7 +75,7 @@ export async function prepareArbAttempt(
     legA,
     legB,
     implied,
-    useUserStore().extensionPrefs.stakeScaleByProfit,
+    userStore.extensionPrefs.stakeScaleByProfit,
   );
   const detectionLegs = buildArbProgressLegPair(legA, legB);
   setArbExecutionTraceMeta(trace, {
@@ -82,7 +86,7 @@ export async function prepareArbAttempt(
   });
   trace?.event("检测", `平台 ${providerKeys.join("、")}`);
   if (stakeScale !== 1) {
-    const scalePrefs = useUserStore().extensionPrefs.stakeScaleByProfit;
+    const scalePrefs = userStore.extensionPrefs.stakeScaleByProfit;
     const scaleDetail = scalePrefs.skipAccountRateOnScale
       ? `利润达阈值，注码 ×${stakeScale}（忽略账号比例）`
       : `利润达阈值，注码 ×${stakeScale}`;
@@ -180,7 +184,7 @@ export async function prepareArbAttempt(
 
   if (singleLegByRate) {
     trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
-    const prefs = useUserStore().extensionPrefs;
+    const prefs = userStore.extensionPrefs;
     const liveSide = resolve9999LiveSide(accountA, accountB);
     const stake = applyValueBetMoneyTo9999LiveLeg({
       singleLegByRate,
@@ -207,7 +211,7 @@ export async function prepareArbAttempt(
 
   const { checkAccountA, checkAccountB } = resolveSingleLegCheckAccounts({
     singleLegByRate,
-    precheck9999Leg: useUserStore().extensionPrefs.singleLeg9999Precheck,
+    precheck9999Leg: userStore.extensionPrefs.singleLeg9999Precheck,
     accountA,
     accountB,
     legA,

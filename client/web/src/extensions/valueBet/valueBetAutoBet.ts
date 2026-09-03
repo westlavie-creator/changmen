@@ -158,7 +158,10 @@ export async function runValueBetAutoBetTick(): Promise<void> {
       return;
 
     const matchStore = useMatchStore();
-    const calcOpts = valueBetCalcOptsFromPrefs(user.extensionPrefs?.valueBet);
+    const calcOpts = valueBetCalcOptsFromPrefs({
+      ...user.extensionPrefs?.valueBet,
+      softPlatforms: user.extensionPrefs?.valueBetSoftPlatforms,
+    });
     const gate = coerceValueBetAutoBetRuntime(autoBet);
     const autoGate = {
       minEdge: gate.minEdge,

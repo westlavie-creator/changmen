@@ -1,3 +1,4 @@
+import type { PlatformId } from "@/types/esport";
 import {
   DEFAULT_AUTO_BET_MAX_EDGE_PCT,
   DEFAULT_AUTO_BET_MAX_ODDS,
@@ -5,13 +6,21 @@ import {
   DEFAULT_AUTO_BET_MIN_EDGE_PCT,
   DEFAULT_AUTO_BET_MIN_ODDS,
   DEFAULT_MIN_EDGE_PCT,
+  createDefaultValueBetSoftPlatforms,
   clampValueBetEdgePctRange,
   clampValueBetOddsRange,
   normalizeValueBetCount,
   normalizeValueBetEdgePct,
   normalizeValueBetOdds,
   normalizeValueBetSharp,
+  normalizeValueBetSoftPlatforms,
   type ValueBetSharpPlatform,
+} from "@/extensions/valueBet/evConfig";
+import { ALL_PLATFORMS } from "@/types/userConfig";
+
+export {
+  createDefaultValueBetSoftPlatforms,
+  normalizeValueBetSoftPlatforms,
 } from "@/extensions/valueBet/evConfig";
 
 /** [changmen 扩展] 高利润时放大总注（比例仍按 1/odds） */
@@ -121,13 +130,25 @@ export interface ValueBetMarkerPrefs {
 
 /**
  * [changmen 扩展] Client_SaveData key=Extensions。
- * 界面皮肤 / BetRow UI / EV 金色标记在用户中心「界面」Tab 编辑；其余在「扩展」Tab。
+ * 界面皮肤 / BetRow UI / EV sharp·阈值在用户中心「界面」Tab；
+ * EV 软盘 / 套利场馆白名单及其余扩展项在「扩展」Tab。
  */
 export interface ExtensionPrefs extends Record<string, unknown> {
   /** BetRow 套利划线、利润角标、赔率 flash、EV 标记（「界面」Tab） */
   betRowUi: boolean;
   /** EV 金色标记基准与阈值（「界面」Tab） */
   valueBet: ValueBetMarkerPrefs;
+  /**
+   * EV 可标记/下注的软盘（「扩展」Tab）。
+   * normalize 后永非空；运行时再剔除 sharp。默认 = VALUE_BET_SOFT_CANDIDATES。
+   */
+  valueBetSoftPlatforms: PlatformId[];
+  /**
+   * 自动套利允许场馆（「扩展」Tab）。
+   * null = 不限制（现网：凡有余额够本金的馆都参与）；非空 = 与 getProviders 求交。
+   * 空数组在 normalize 时升为 null，禁止静默全关。
+   */
+  arbAllowedPlatforms: PlatformId[] | null;
   /** 比例 9999 单边模式：本侧是否参与自动套利预检（仍不自动下单） */
   singleLeg9999Precheck: boolean;
   /**
@@ -196,10 +217,44 @@ export function createDefaultValueBetMarkerPrefs(): ValueBetMarkerPrefs {
   };
 }
 
+/**
+ * 套利白名单：null/缺省/非数组/过滤后空 → null（不限制）。
+ * 不把空数组当「全关」。
+ */
+export function normalizeArbAllowedPlatforms(raw: unknown): PlatformId[] | null {
+  if (raw == null)
+    return null;
+  if (!Array.isArray(raw))
+    return null;
+  const allowed = new Set<string>(ALL_PLATFORMS);
+  const out: PlatformId[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "string" || !allowed.has(item) || seen.has(item))
+      continue;
+    seen.add(item);
+    out.push(item as PlatformId);
+  }
+  return out.length > 0 ? out : null;
+}
+
+/** 自动套利 providerKeys：null/空 = 透传 funded。 */
+export function filterArbProviderKeys(
+  funded: readonly PlatformId[],
+  allowed: PlatformId[] | null | undefined,
+): PlatformId[] {
+  if (allowed == null || allowed.length === 0)
+    return [...funded];
+  const set = new Set(allowed);
+  return funded.filter(p => set.has(p));
+}
+
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,
     valueBet: createDefaultValueBetMarkerPrefs(),
+    valueBetSoftPlatforms: createDefaultValueBetSoftPlatforms(),
+    arbAllowedPlatforms: null,
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
@@ -272,6 +327,8 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   return {
     betRowUi: row.betRowUi === true,
     valueBet: normalizeValueBetMarkerPrefs(row.valueBet),
+    valueBetSoftPlatforms: normalizeValueBetSoftPlatforms(row.valueBetSoftPlatforms),
+    arbAllowedPlatforms: normalizeArbAllowedPlatforms(row.arbAllowedPlatforms),
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),

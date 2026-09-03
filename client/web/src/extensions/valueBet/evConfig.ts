@@ -36,6 +36,39 @@ export function resolveSoftPlatforms(sharp: PlatformId): PlatformId[] {
   return VALUE_BET_SOFT_CANDIDATES.filter(p => p !== sharp);
 }
 
+export function createDefaultValueBetSoftPlatforms(): PlatformId[] {
+  return [...VALUE_BET_SOFT_CANDIDATES];
+}
+
+/** EV 软盘：只保留候选表内 id，按候选表顺序；空/脏 → 全候选。 */
+export function normalizeValueBetSoftPlatforms(raw: unknown): PlatformId[] {
+  const defaults = createDefaultValueBetSoftPlatforms();
+  if (!Array.isArray(raw))
+    return defaults;
+  const allowed = new Set<string>(VALUE_BET_SOFT_CANDIDATES);
+  const picked = new Set<string>();
+  for (const item of raw) {
+    if (typeof item === "string" && allowed.has(item))
+      picked.add(item);
+  }
+  const ordered = VALUE_BET_SOFT_CANDIDATES.filter(p => picked.has(p));
+  return ordered.length > 0 ? [...ordered] : defaults;
+}
+
+/**
+ * 从已 normalize 的软盘 prefs 剔 sharp；剔空则回退 resolveSoftPlatforms(sharp)。
+ */
+export function resolveSoftPlatformsFromAllowed(
+  sharp: PlatformId,
+  allowed: readonly PlatformId[] | null | undefined,
+): PlatformId[] {
+  const base = allowed?.length
+    ? VALUE_BET_SOFT_CANDIDATES.filter(p => allowed.includes(p))
+    : [...VALUE_BET_SOFT_CANDIDATES];
+  const soft = base.filter(p => p !== sharp);
+  return soft.length > 0 ? soft : resolveSoftPlatforms(sharp);
+}
+
 /** sharp=PB 时的软盘名单（与改前白名单一致：不含 PB） */
 export const SOFT_PLATFORMS: PlatformId[] = resolveSoftPlatforms(DEFAULT_SHARP_PLATFORM);
 
@@ -70,15 +103,20 @@ export function clampValueBetNearEdgePct(nearEdgePct: number, minEdgePct: number
 export function valueBetCalcOptsFromPrefs(prefs?: {
   sharp?: unknown;
   minEdgePct?: unknown;
+  /** 已选软盘；缺省 = 全候选。调用方传 extensionPrefs.valueBetSoftPlatforms */
+  softPlatforms?: unknown;
 } | null): ValueBetCalcOpts {
   const sharp = normalizeValueBetSharp(prefs?.sharp);
   const minEdgePct = normalizeValueBetEdgePct(prefs?.minEdgePct, DEFAULT_MIN_EDGE_PCT);
   const nearEdgePct = clampValueBetNearEdgePct(DEFAULT_NEAR_EDGE_PCT, minEdgePct);
+  const allowed = normalizeValueBetSoftPlatforms(
+    prefs?.softPlatforms === undefined ? VALUE_BET_SOFT_CANDIDATES : prefs.softPlatforms,
+  );
   return {
     sharp,
     minEdge: minEdgePct / 100,
     nearEdge: nearEdgePct / 100,
-    softPlatforms: resolveSoftPlatforms(sharp),
+    softPlatforms: resolveSoftPlatformsFromAllowed(sharp, allowed),
   };
 }
 

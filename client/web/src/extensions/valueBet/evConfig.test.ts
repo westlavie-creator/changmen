@@ -7,8 +7,10 @@ import {
   evMarkerFloor,
   normalizeValueBetOdds,
   resolveSoftPlatforms,
+  resolveSoftPlatformsFromAllowed,
   valueBetCalcOptsFromPrefs,
 } from "@/extensions/valueBet/evConfig";
+import { filterArbProviderKeys } from "@/types/extensionPrefs";
 
 describe("resolveSoftPlatforms", () => {
   it("excludes PB and keeps RAY when sharp is PB", () => {
@@ -68,6 +70,44 @@ describe("valueBetCalcOptsFromPrefs", () => {
     const opts = valueBetCalcOptsFromPrefs({ minEdgePct: 99 });
     expect(opts.minEdge).toBe(0.2);
     expect(opts.nearEdge).toBe(0.01);
+  });
+
+  it("honors softPlatforms subset and excludes sharp", () => {
+    const opts = valueBetCalcOptsFromPrefs({
+      sharp: "PB",
+      softPlatforms: ["IA", "OB", "PB"],
+    });
+    // 顺序跟 VALUE_BET_SOFT_CANDIDATES 一致
+    expect(opts.softPlatforms).toEqual(["OB", "IA"]);
+  });
+
+  it("falls back when softPlatforms is only the sharp venue", () => {
+    const opts = valueBetCalcOptsFromPrefs({
+      sharp: "PB",
+      softPlatforms: ["PB"],
+    });
+    expect(opts.softPlatforms).toEqual(resolveSoftPlatforms("PB"));
+  });
+});
+
+describe("resolveSoftPlatformsFromAllowed", () => {
+  it("filters to allowed then excludes sharp", () => {
+    expect(resolveSoftPlatformsFromAllowed("RAY", ["OB", "RAY", "IA"])).toEqual(["OB", "IA"]);
+  });
+
+  it("falls back when allowed is only sharp", () => {
+    expect(resolveSoftPlatformsFromAllowed("OB", ["OB"])).toEqual(resolveSoftPlatforms("OB"));
+  });
+});
+
+describe("filterArbProviderKeys", () => {
+  it("passes through when allowed is null or empty", () => {
+    expect(filterArbProviderKeys(["PB", "RAY"], null)).toEqual(["PB", "RAY"]);
+    expect(filterArbProviderKeys(["PB", "RAY"], [])).toEqual(["PB", "RAY"]);
+  });
+
+  it("intersects funded with allowlist", () => {
+    expect(filterArbProviderKeys(["PB", "RAY", "OB"], ["OB", "PB"])).toEqual(["PB", "OB"]);
   });
 });
 

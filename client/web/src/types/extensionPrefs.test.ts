@@ -24,6 +24,8 @@ const defaultValueBet = {
 const defaultPrefs = {
   betRowUi: false,
   valueBet: defaultValueBet,
+  valueBetSoftPlatforms: ["OB", "RAY", "IA", "SABA", "IMT", "Polymarket", "PB"],
+  arbAllowedPlatforms: null,
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
   stakeScaleByProfit: defaultStakeScale,
@@ -269,5 +271,43 @@ describe("extensionPrefs", () => {
   it("ignores legacy pbWsShadowUi from RDS Extensions payload", () => {
     expect(normalizeExtensionPrefs({ pbWsShadowUi: true })).toEqual(defaultPrefs);
     expect("pbWsShadowUi" in normalizeExtensionPrefs({ pbWsShadowUi: true })).toBe(false);
+  });
+
+  it("defaults valueBetSoftPlatforms to full soft candidate list", () => {
+    expect(createDefaultExtensionPrefs().valueBetSoftPlatforms).toEqual(
+      defaultPrefs.valueBetSoftPlatforms,
+    );
+    expect(normalizeExtensionPrefs({}).valueBetSoftPlatforms).toEqual(
+      defaultPrefs.valueBetSoftPlatforms,
+    );
+  });
+
+  it("normalizes valueBetSoftPlatforms: drops unknown, keeps candidate order, empty→default", () => {
+    expect(normalizeExtensionPrefs({
+      valueBetSoftPlatforms: ["IA", "Nope", "OB", "IA"],
+    }).valueBetSoftPlatforms).toEqual(["OB", "IA"]);
+    expect(normalizeExtensionPrefs({
+      valueBetSoftPlatforms: [],
+    }).valueBetSoftPlatforms).toEqual(defaultPrefs.valueBetSoftPlatforms);
+    expect(normalizeExtensionPrefs({
+      valueBetSoftPlatforms: ["PredictFun"],
+    }).valueBetSoftPlatforms).toEqual(defaultPrefs.valueBetSoftPlatforms);
+  });
+
+  it("defaults arbAllowedPlatforms to null (unrestricted)", () => {
+    expect(createDefaultExtensionPrefs().arbAllowedPlatforms).toBeNull();
+    expect(normalizeExtensionPrefs({}).arbAllowedPlatforms).toBeNull();
+  });
+
+  it("normalizes arbAllowedPlatforms: empty/invalid → null; keeps known ids", () => {
+    expect(normalizeExtensionPrefs({
+      arbAllowedPlatforms: [],
+    }).arbAllowedPlatforms).toBeNull();
+    expect(normalizeExtensionPrefs({
+      arbAllowedPlatforms: "PB",
+    }).arbAllowedPlatforms).toBeNull();
+    expect(normalizeExtensionPrefs({
+      arbAllowedPlatforms: ["PB", "Nope", "RAY", "PB"],
+    }).arbAllowedPlatforms).toEqual(["PB", "RAY"]);
   });
 });

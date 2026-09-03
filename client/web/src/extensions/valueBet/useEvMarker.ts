@@ -18,7 +18,10 @@ export function useEvMarker(
   const active = computed(() => toValue(enabled) !== false);
   const oddsStore = useOddsStore();
   const user = useUserStore();
-  const calcOpts = computed(() => valueBetCalcOptsFromPrefs(user.extensionPrefs?.valueBet));
+  const calcOpts = computed(() => valueBetCalcOptsFromPrefs({
+    ...user.extensionPrefs?.valueBet,
+    softPlatforms: user.extensionPrefs?.valueBetSoftPlatforms,
+  }));
 
   function readOdds(item: ViewBetItem, side: BetSide): number {
     const id = item.getItemId(side);
