@@ -87,6 +87,17 @@ export function createDefaultPmArbPriceBufferPrefs(): PmArbPriceBufferPrefs {
   return { enabled: false, multiplier: 1.01 };
 }
 
+/** [changmen 扩展] PF 套利：卖一 × multiplier（展示 + 限价；见 PF_ARB_PRICE_BUFFER_PLAN.md） */
+export interface PfArbPriceBufferPrefs {
+  enabled: boolean;
+  /** 卖一倍数；默认 1.01 */
+  multiplier: number;
+}
+
+export function createDefaultPfArbPriceBufferPrefs(): PfArbPriceBufferPrefs {
+  return { enabled: false, multiplier: 1.01 };
+}
+
 /** [changmen 扩展] 控制台显示皮肤；不改 DOM 结构，仅换 CSS 令牌 */
 export type UiTheme = "default" | "brutal" | "paper" | "terminal";
 
@@ -164,6 +175,8 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   arbEarlyLockSell: ArbEarlyLockSellPrefs;
   /** PM 套利：有 fo 时读打折档（展示/扫描/对冲/FOK）；无 fo 不打折；默认关 = 现网 */
   pmArbPriceBuffer: PmArbPriceBufferPrefs;
+  /** PF 套利：有 fo 时读打折档（展示/扫描/对冲/限价）；无 fo 不打折；默认关 = 裸限价 */
+  pfArbPriceBuffer: PfArbPriceBufferPrefs;
   /**
    * 控制台 UI 皮肤（「界面」Tab）。
    * default = 现有深色；brutal = 粗边框；paper = 浅纸感；terminal = 终端风。
@@ -261,6 +274,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     arbFailAutoSell: createDefaultArbFailAutoSell(),
     arbEarlyLockSell: createDefaultArbEarlyLockSell(),
     pmArbPriceBuffer: createDefaultPmArbPriceBufferPrefs(),
+    pfArbPriceBuffer: createDefaultPfArbPriceBufferPrefs(),
     uiTheme: "default",
   };
 }
@@ -320,6 +334,20 @@ function normalizePmArbPriceBuffer(raw: unknown): PmArbPriceBufferPrefs {
   };
 }
 
+function normalizePfArbPriceBuffer(raw: unknown): PfArbPriceBufferPrefs {
+  const defaults = createDefaultPfArbPriceBufferPrefs();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return defaults;
+  const row = raw as Record<string, unknown>;
+  const multiplier = Number(row.multiplier);
+  return {
+    enabled: row.enabled === true,
+    multiplier: Number.isFinite(multiplier) && multiplier >= 1.01 && multiplier <= 1.1
+      ? Math.round(multiplier * 1000) / 1000
+      : defaults.multiplier,
+  };
+}
+
 export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     return createDefaultExtensionPrefs();
@@ -335,6 +363,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
     arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
     pmArbPriceBuffer: normalizePmArbPriceBuffer(row.pmArbPriceBuffer),
+    pfArbPriceBuffer: normalizePfArbPriceBuffer(row.pfArbPriceBuffer),
     uiTheme: normalizeUiTheme(row.uiTheme),
     // pbWsShadowUi 仅本机 localStorage，故意不从 RDS / Extensions 读取或写回
   };

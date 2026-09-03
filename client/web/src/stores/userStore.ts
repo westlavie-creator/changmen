@@ -192,6 +192,7 @@ export const useUserStore = defineStore("user", {
       }
       try {
         await this.syncPmArbPriceBufferFromPrefs();
+        await this.syncPfArbPriceBufferFromPrefs();
       }
       catch {
         /* adapter 未加载时忽略 */
@@ -232,6 +233,7 @@ export const useUserStore = defineStore("user", {
       this.extensionPrefs = normalizeExtensionPrefs(ext);
       await this.syncPbCollectModeFromLocal();
       await this.syncPmArbPriceBufferFromPrefs();
+      await this.syncPfArbPriceBufferFromPrefs();
       if (gen !== this.extrasLoadGen)
         return;
       this.follow = follow ?? null;
@@ -266,6 +268,12 @@ export const useUserStore = defineStore("user", {
       setPmArbPriceBufferPrefs(this.extensionPrefs.pmArbPriceBuffer);
     },
 
+    /** Extensions → venue-adapter PF 套利缓冲配置（展示/限价接线） */
+    async syncPfArbPriceBufferFromPrefs() {
+      const { setPfArbPriceBufferPrefs } = await import("@changmen/venue-adapter/predictfun");
+      setPfArbPriceBufferPrefs(this.extensionPrefs.pfArbPriceBuffer);
+    },
+
     /** 本机缓存立即生效，不写 RDS */
     async setPbWsShadowUi(on: boolean) {
       const next = on === true;
@@ -293,6 +301,7 @@ export const useUserStore = defineStore("user", {
       // 失败减仓暂锁死：保存前再归一化，避免内存/旧 KV 把 enabled:true 写回
       this.extensionPrefs = normalizeExtensionPrefs(this.extensionPrefs);
       await this.syncPmArbPriceBufferFromPrefs();
+      await this.syncPfArbPriceBufferFromPrefs();
       const result = await saveClientDataDetailed(
         "Extensions",
         serializeExtensionPrefsForSave(this.extensionPrefs),

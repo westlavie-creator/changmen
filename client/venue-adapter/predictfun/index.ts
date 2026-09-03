@@ -13,6 +13,7 @@ export * from "./userSession";
 export * from "./userBuy";
 export * from "./marketIndex";
 export * from "./pfDetection";
+export * from "./pfArbPriceBufferMode";
 export * from "./legOutcome";
 export * from "./pfClientApi";
 export * from "./pfTransportMode";

@@ -30,6 +30,8 @@ export function useBetRowArbUi(
       return null;
     void user.extensionPrefs.pmArbPriceBuffer.enabled;
     void user.extensionPrefs.pmArbPriceBuffer.multiplier;
+    void user.extensionPrefs.pfArbPriceBuffer.enabled;
+    void user.extensionPrefs.pfArbPriceBuffer.multiplier;
     const b = toValue(bet);
     const m = toValue(match);
     const providerKeys = providerKeysFromBetItems(b);

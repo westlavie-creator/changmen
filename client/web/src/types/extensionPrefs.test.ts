@@ -32,6 +32,7 @@ const defaultPrefs = {
   arbFailAutoSell: { enabled: false },
   arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
   pmArbPriceBuffer: { enabled: false, multiplier: 1.01 },
+  pfArbPriceBuffer: { enabled: false, multiplier: 1.01 },
   uiTheme: "default" as const,
 };
 
@@ -266,6 +267,19 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({
       pmArbPriceBuffer: { enabled: true, multiplier: 2 },
     }).pmArbPriceBuffer.multiplier).toBe(1.01);
+  });
+
+  it("defaults pfArbPriceBuffer off at 1.01", () => {
+    expect(createDefaultExtensionPrefs().pfArbPriceBuffer).toEqual({
+      enabled: false,
+      multiplier: 1.01,
+    });
+    expect(normalizeExtensionPrefs({
+      pfArbPriceBuffer: { enabled: true, multiplier: 1.03 },
+    }).pfArbPriceBuffer).toEqual({ enabled: true, multiplier: 1.03 });
+    expect(normalizeExtensionPrefs({
+      pfArbPriceBuffer: { enabled: true, multiplier: 2 },
+    }).pfArbPriceBuffer.multiplier).toBe(1.01);
   });
 
   it("ignores legacy pbWsShadowUi from RDS Extensions payload", () => {

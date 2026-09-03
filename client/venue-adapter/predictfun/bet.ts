@@ -162,9 +162,9 @@ function applyCheckResult(
     marketId: checked.marketId,
     odds: checked.bookOdds,
     detectionOdds,
-    // 执行限价（已 buffer）：submit 必须原样复用，禁止再 resolve+buffer
+    // 执行限价（可配倍数或裸价）：submit 必须原样复用，禁止再 resolve 改限价
     detectionMaxPrice: execMaxPrice,
-    // 原始检测价：供 fo 同档判断 / 展示，勿与 exec 混用
+    // 检测锁价（attach / raw）：供 fo 同档判断；勿与其它字段混用
     detectionClobPrice: rawMaxPrice,
     bookPrice: checked.bookPrice,
     betMoney: option.betMoney,
@@ -270,7 +270,7 @@ export const predictFunProvider: PlatformProvider = {
 
     const tokenId = String(option.itemId ?? "").trim();
     const detectionOdds = resolveDetectionOdds(option);
-    // 与预检同一执行限价，禁止再次 resolve+buffer 造成 check/submit 漂移
+    // 与预检同一执行限价，禁止再次 resolve 造成 check/submit 漂移
     const maxPrice = isValidPredictClobPrice(Number(check.detectionMaxPrice))
       ? Number(check.detectionMaxPrice)
       : resolvePredictFunDetectionMaxPrice(option, detectionOdds);

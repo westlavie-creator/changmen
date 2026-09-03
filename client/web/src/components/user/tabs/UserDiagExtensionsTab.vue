@@ -360,6 +360,52 @@ async function save() {
             controls-position="right"
           />
         </el-form-item>
+
+        <h3 class="extensions-tab__heading extensions-tab__heading--next">
+          PredictFun
+        </h3>
+
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="开：有 fo 的 PF 展示/扫描/限价 = 卖一 × 倍数。无 fo 不打折。已删除硬编码 30bps；关 = 裸限价。结算仍用成交价。"
+            >
+              <span class="extensions-tab__tip-label">套利卖一缓冲</span>
+            </el-tooltip>
+          </template>
+          <el-switch
+            v-model="extensionPrefs.pfArbPriceBuffer.enabled"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
+            >
+              <span class="extensions-tab__tip-label">卖一倍数</span>
+            </el-tooltip>
+          </template>
+          <el-input-number
+            v-model="extensionPrefs.pfArbPriceBuffer.multiplier"
+            class="extensions-tab__num"
+            :min="1.01"
+            :max="1.1"
+            :step="0.01"
+            :precision="2"
+            :disabled="!extensionPrefs.pfArbPriceBuffer.enabled"
+            controls-position="right"
+          />
+        </el-form-item>
       </el-form>
 
       <div class="extensions-tab__panel">

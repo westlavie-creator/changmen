@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   detectionMaxPriceFromOdds,
-  applyPredictFunExecMaxPriceBuffer,
   isValidPredictClobPrice,
   resolvePredictFunDetectionMaxPrice,
 } from "./pfDetection";
@@ -48,9 +47,7 @@ describe("predictfun bet helpers", () => {
       odds: 1.818,
       data: { detectionClobPrice: 0.55 },
     } as never;
-    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(
-      applyPredictFunExecMaxPriceBuffer(0.55),
-    );
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(0.55);
   });
 
   it("ignores stale fo clob when display odds disagree", () => {
@@ -59,21 +56,19 @@ describe("predictfun bet helpers", () => {
       data: { detectionClobPrice: 0.6203 },
     } as never;
     expect(resolvePredictFunDetectionMaxPrice(option, 1.587)).toBe(
-      applyPredictFunExecMaxPriceBuffer(detectionMaxPriceFromOdds(1.587)),
+      detectionMaxPriceFromOdds(1.587),
     );
   });
 
-  it("does not treat buffered detectionMaxPrice as raw clob", () => {
+  it("does not treat detectionMaxPrice as raw clob", () => {
     const option = {
       odds: 1.818,
       data: {
-        detectionMaxPrice: applyPredictFunExecMaxPriceBuffer(0.55),
+        detectionMaxPrice: 0.5517,
         detectionClobPrice: 0.55,
       },
     } as never;
-    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(
-      applyPredictFunExecMaxPriceBuffer(0.55),
-    );
+    expect(resolvePredictFunDetectionMaxPrice(option, 1.818)).toBe(0.55);
   });
 });
 

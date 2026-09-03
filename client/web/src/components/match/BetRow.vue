@@ -114,6 +114,8 @@ const oddsByItemKey = computed(() => {
   void props.oddsDisplayTick;
   void extensionPrefs.value.pmArbPriceBuffer.enabled;
   void extensionPrefs.value.pmArbPriceBuffer.multiplier;
+  void extensionPrefs.value.pfArbPriceBuffer.enabled;
+  void extensionPrefs.value.pfArbPriceBuffer.multiplier;
   // 电竞：MQTT/WS 只写 fo；靠 Pinia reactive Map 按 oddId 追踪 getOdds（勿用全局 foRevision 扇出）
   const out = new Map<string, { home: number; away: number }>();
   for (const item of props.bet.items) {

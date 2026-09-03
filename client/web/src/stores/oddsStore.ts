@@ -19,6 +19,10 @@ import {
   isPmArbPriceBufferActive,
   pmEffectiveOddsFromFoEntry,
 } from "@changmen/venue-adapter/polymarket";
+import {
+  isPfArbPriceBufferActive,
+  pfEffectiveOddsFromFoEntry,
+} from "@changmen/venue-adapter/predictfun";
 
 /** 写入赔率缓存的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";
@@ -173,7 +177,7 @@ export const useOddsStore = defineStore("odds", {
      * - 有缓存且 isLock：返回 0（**不用** fallback 顶替锁盘）
      * - 有缓存且未锁：返回格式化后的 row.odds
      * - Polymarket / PredictFun：truncateOddsTo3（1/price 截断）；其它馆 formatDisplayOdds（四舍五入）
-     * - [changmen 扩展] 仅 PM + 有 fo + 开关开：读打折档；**写入仍是真价**。无 fo 不打折（与 A8 fallback 相同）
+     * - [changmen 扩展] 仅 PM/PF + 有 fo + 各自开关开：读打折档；**写入仍是真价**。无 fo 不打折
      */
     getOdds(platform: PlatformId, oddsId: string, fallback = 0): number {
       const row = this.data.get(platform)?.get(String(oddsId));
@@ -184,6 +188,8 @@ export const useOddsStore = defineStore("odds", {
         return 0;
       if (platform === PLATFORMS.Polymarket && isPmArbPriceBufferActive())
         return pmEffectiveOddsFromFoEntry(row);
+      if (platform === PLATFORMS.PredictFun && isPfArbPriceBufferActive())
+        return pfEffectiveOddsFromFoEntry(row);
       return useTrunc ? truncateOddsTo3(row.odds) : formatDisplayOdds(row.odds);
     },
 
