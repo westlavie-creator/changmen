@@ -26,4 +26,12 @@ describe("http_proxy_relay polymarket headers", () => {
     expect(source).toMatch(/PREDICT_FUN_API_KEY/);
     expect(source).toMatch(/return injectPredictFunApiKey\(out, targetUrl\)/);
   });
+
+  test("Predict.fun 上游在注入 Key 前校验 changmen JWT（非 presence-only）", () => {
+    expect(source).toMatch(/requirePredictFunRelayAuth/);
+    expect(source).toMatch(/getUserByToken/);
+    expect(source).toMatch(/http-relay token invalid/);
+    // Authorization 不能单独充当 changmen 会话（可能是 Predict.fun 用户 JWT）
+    expect(source).toMatch(/headerValue\(req\.headers\.token\)/);
+  });
 });
