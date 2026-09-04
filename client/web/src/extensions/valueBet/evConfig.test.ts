@@ -81,12 +81,23 @@ describe("valueBetCalcOptsFromPrefs", () => {
     expect(opts.softPlatforms).toEqual(["OB", "IA"]);
   });
 
-  it("falls back when softPlatforms is only the sharp venue", () => {
+  it("does not expand to all softs when allowlist is only the sharp venue", () => {
     const opts = valueBetCalcOptsFromPrefs({
       sharp: "PB",
       softPlatforms: ["PB"],
     });
-    expect(opts.softPlatforms).toEqual(resolveSoftPlatforms("PB"));
+    expect(opts.softPlatforms).toEqual([]);
+  });
+
+  it("keeps soft=[OB] until sharp switches to OB, then empties (no silent full reopen)", () => {
+    expect(valueBetCalcOptsFromPrefs({
+      sharp: "PB",
+      softPlatforms: ["OB"],
+    }).softPlatforms).toEqual(["OB"]);
+    expect(valueBetCalcOptsFromPrefs({
+      sharp: "OB",
+      softPlatforms: ["OB"],
+    }).softPlatforms).toEqual([]);
   });
 });
 
@@ -95,8 +106,14 @@ describe("resolveSoftPlatformsFromAllowed", () => {
     expect(resolveSoftPlatformsFromAllowed("RAY", ["OB", "RAY", "IA"])).toEqual(["OB", "IA"]);
   });
 
-  it("falls back when allowed is only sharp", () => {
-    expect(resolveSoftPlatformsFromAllowed("OB", ["OB"])).toEqual(resolveSoftPlatforms("OB"));
+  it("returns empty when explicit allowlist is only sharp (do not reopen all softs)", () => {
+    expect(resolveSoftPlatformsFromAllowed("OB", ["OB"])).toEqual([]);
+    expect(resolveSoftPlatformsFromAllowed("PB", ["PB"])).toEqual([]);
+  });
+
+  it("still uses full candidate list when allowlist is absent", () => {
+    expect(resolveSoftPlatformsFromAllowed("OB", null)).toEqual(resolveSoftPlatforms("OB"));
+    expect(resolveSoftPlatformsFromAllowed("OB", undefined)).toEqual(resolveSoftPlatforms("OB"));
   });
 });
 

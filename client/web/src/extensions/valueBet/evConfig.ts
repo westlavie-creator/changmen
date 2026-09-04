@@ -56,17 +56,24 @@ export function normalizeValueBetSoftPlatforms(raw: unknown): PlatformId[] {
 }
 
 /**
- * 从已 normalize 的软盘 prefs 剔 sharp；剔空则回退 resolveSoftPlatforms(sharp)。
+ * 从已 normalize 的软盘 prefs 剔 sharp。
+ * - allowed 缺省/空：全候选剔 sharp（与改前一致）
+ * - allowed 非空但剔 sharp 后为空：返回 []（禁止软盘），**不得**回退全表
+ *   否则「仅勾了基准馆」或「软盘=OB 后把基准改成 OB」会静默放开全部软盘 → 正 EV 自动误下。
  */
 export function resolveSoftPlatformsFromAllowed(
   sharp: PlatformId,
   allowed: readonly PlatformId[] | null | undefined,
 ): PlatformId[] {
-  const base = allowed?.length
-    ? VALUE_BET_SOFT_CANDIDATES.filter(p => allowed.includes(p))
+  const hasExplicitAllowlist = Array.isArray(allowed) && allowed.length > 0;
+  const base = hasExplicitAllowlist
+    ? VALUE_BET_SOFT_CANDIDATES.filter(p => allowed!.includes(p))
     : [...VALUE_BET_SOFT_CANDIDATES];
   const soft = base.filter(p => p !== sharp);
-  return soft.length > 0 ? soft : resolveSoftPlatforms(sharp);
+  if (soft.length > 0)
+    return soft;
+  // 显式白名单剔空 → 无软盘（安全）；未传白名单 → 默认全候选剔 sharp
+  return hasExplicitAllowlist ? [] : resolveSoftPlatforms(sharp);
 }
 
 /** sharp=PB 时的软盘名单（与改前白名单一致：不含 PB） */

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import net from "node:net";
 import { URL } from "node:url";
 import zlib from "node:zlib";
+import store from "../core/esport-api/store.js";
 import { resolvePmRelayL2Headers } from "./pm_relay_l2.js";
 
 const require = createRequire(import.meta.url);
@@ -345,6 +346,25 @@ function injectPredictFunApiKey(headers, targetUrl) {
   return { ...headers, "x-api-key": serverKey };
 }
 
+/**
+ * Predict.fun 上游会注入 PREDICT_FUN_API_KEY：必须校验 changmen JWT（`token` 头），
+ * 不能像 HTTP_RELAY_REQUIRE_TOKEN 那样只检查「有没有字符串」。
+ * Authorization 可能是 Predict.fun 用户 JWT，不能当 changmen 会话用。
+ * @returns {Promise<{ ok: true } | { ok: false, status: number, msg: string }>}
+ */
+async function requirePredictFunRelayAuth(req, targetUrl) {
+  if (!isPredictFunUpstream(targetUrl))
+    return { ok: true };
+  const token = headerValue(req.headers.token);
+  if (!token)
+    return { ok: false, status: 401, msg: "http-relay token required" };
+  const user = await store.getUserByToken(token);
+  const userId = String(user?.id ?? user?.userId ?? "").trim();
+  if (!userId)
+    return { ok: false, status: 401, msg: "http-relay token invalid" };
+  return { ok: true };
+}
+
 function forwardHeaders(req, targetUrl) {
   if (isPolymarketUpstream(targetUrl))
     return forwardPolymarketHeaders(req, targetUrl);
@@ -422,6 +442,13 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
     return true;
   }
 
+  // 注入 PREDICT_FUN_API_KEY 前必须通过有效 changmen JWT（防未登录盗用主网 Key）
+  const pfAuth = await requirePredictFunRelayAuth(req, targetUrl);
+  if (!pfAuth.ok) {
+    sendRelayError(res, pfAuth.status, pfAuth.msg);
+    return true;
+  }
+
   const dispatcher = createDispatcher(req.headers["x-proxy"]);
   const requestBody = req.method !== "GET" && req.method !== "HEAD" ? await readRequestBody(req) : undefined;
   const bodyText = requestBody ? requestBody.toString("utf8") : "";
@@ -484,4 +511,10 @@ async function tryHttpProxyRelay(req, res, baseOrigin) {
   }
 }
 
-export { RELAY_PATH, tryHttpProxyRelay };
+export {
+  RELAY_PATH,
+  tryHttpProxyRelay,
+  isPredictFunUpstream,
+  injectPredictFunApiKey,
+  requirePredictFunRelayAuth,
+};
