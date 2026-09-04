@@ -1,18 +1,149 @@
 const ICON_SIZE_PX = 56;
+const DRAG_THRESHOLD_PX = 6;
+const POS_KEY = "gamebetCollectIconPos";
 const ICON_URL = () => chrome.runtime.getURL("assets/icon128.png");
 
+function clamp(n, min, max) {
+  return Math.min(max, Math.max(min, n));
+}
+
 /** 与 A8 共用 class 时会被其 content.css 覆盖位置，故仅用 Gamebet 专用 class + 内联 !important */
-function applyFloatPosition(el, { top, right, width, height }) {
+function applyFloatPosition(el, { top, right, left, width, height }) {
   el.style.setProperty("position", "fixed", "important");
-  el.style.setProperty("top", top, "important");
-  el.style.setProperty("right", right, "important");
-  el.style.setProperty("left", "auto", "important");
+  if (top != null) el.style.setProperty("top", typeof top === "number" ? `${top}px` : top, "important");
+  if (left != null) {
+    el.style.setProperty("left", typeof left === "number" ? `${left}px` : left, "important");
+    el.style.setProperty("right", "auto", "important");
+  } else if (right != null) {
+    el.style.setProperty("right", typeof right === "number" ? `${right}px` : right, "important");
+    el.style.setProperty("left", "auto", "important");
+  }
   el.style.setProperty("bottom", "auto", "important");
   el.style.setProperty("transform", "none", "important");
   el.style.setProperty("margin", "0", "important");
-  el.style.setProperty("width", width, "important");
-  el.style.setProperty("height", height, "important");
+  if (width != null) el.style.setProperty("width", width, "important");
+  if (height != null) el.style.setProperty("height", height, "important");
   el.style.setProperty("z-index", "2147483646", "important");
+}
+
+function clampIconPos(left, top) {
+  return {
+    left: clamp(left, 0, Math.max(0, window.innerWidth - ICON_SIZE_PX)),
+    top: clamp(top, 0, Math.max(0, window.innerHeight - ICON_SIZE_PX)),
+  };
+}
+
+function defaultIconPos() {
+  return clampIconPos(window.innerWidth - ICON_SIZE_PX - 20, 20);
+}
+
+function readSavedPos() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(POS_KEY, (bag) => {
+        const pos = bag?.[POS_KEY];
+        if (pos && Number.isFinite(Number(pos.left)) && Number.isFinite(Number(pos.top))) {
+          resolve(clampIconPos(Number(pos.left), Number(pos.top)));
+          return;
+        }
+        resolve(null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function savePos(left, top) {
+  try {
+    chrome.storage.local.set({ [POS_KEY]: clampIconPos(left, top) });
+  } catch {
+    /* ignore */
+  }
+}
+
+function applyIconPos(el, left, top) {
+  const pos = clampIconPos(left, top);
+  applyFloatPosition(el, {
+    left: pos.left,
+    top: pos.top,
+    width: `${ICON_SIZE_PX}px`,
+    height: `${ICON_SIZE_PX}px`,
+  });
+  return pos;
+}
+
+function enableIconDrag(icon) {
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  icon.addEventListener("pointerdown", (event) => {
+    if (event.button != null && event.button !== 0) return;
+    const rect = icon.getBoundingClientRect();
+    dragging = true;
+    moved = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+    icon.classList.add("dragging");
+    icon.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  icon.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (!moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    moved = true;
+    applyIconPos(icon, startLeft + dx, startTop + dy);
+  });
+
+  const endDrag = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    icon.classList.remove("dragging");
+    if (moved) {
+      const rect = icon.getBoundingClientRect();
+      savePos(rect.left, rect.top);
+      icon.dataset.gamebetDragged = "1";
+    }
+    try {
+      icon.releasePointerCapture(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  icon.addEventListener("pointerup", endDrag);
+  icon.addEventListener("pointercancel", endDrag);
+
+  icon.addEventListener("click", (event) => {
+    if (icon.dataset.gamebetDragged !== "1") return;
+    delete icon.dataset.gamebetDragged;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+}
+
+function placePanelNearIcon(panel, icon) {
+  const rect = icon.getBoundingClientRect();
+  const width = Math.min(640, window.innerWidth - 40);
+  let left = rect.right - width;
+  left = clamp(left, 20, Math.max(20, window.innerWidth - width - 20));
+  let top = rect.bottom + 12;
+  if (top > window.innerHeight - 80) top = Math.max(20, rect.top - 12);
+  applyFloatPosition(panel, {
+    left,
+    top,
+    width: `${width}px`,
+    height: "auto",
+  });
 }
 
 /**
@@ -28,29 +159,28 @@ export async function mountCollectIcon(provider) {
   icon.type = "button";
   icon.classList.add("gamebet-collect-float");
   icon.dataset.gamebetPlugin = "collect";
-  icon.title = "Gamebet 采集凭证";
+  icon.title = "拖动可移动；点击打开采集凭证";
   icon.setAttribute("aria-label", "Gamebet 采集凭证");
-  applyFloatPosition(icon, {
-    top: "20px",
-    right: "20px",
-    width: `${ICON_SIZE_PX}px`,
-    height: `${ICON_SIZE_PX}px`,
-  });
+  const saved = await readSavedPos();
+  const start = saved || defaultIconPos();
+  applyIconPos(icon, start.left, start.top);
   icon.style.backgroundImage = `url("${ICON_URL()}")`;
 
   document.body.appendChild(icon);
+  enableIconDrag(icon);
+
+  window.addEventListener("resize", () => {
+    const rect = icon.getBoundingClientRect();
+    const pos = applyIconPos(icon, rect.left, rect.top);
+    savePos(pos.left, pos.top);
+  });
 
   icon.addEventListener("click", async () => {
     icon.classList.add("hide");
     const panel = document.createElement("div");
     panel.classList.add("gamebet-collect-panel");
     panel.dataset.gamebetPlugin = "collect-panel";
-    applyFloatPosition(panel, {
-      top: "88px",
-      right: "20px",
-      width: "min(640px, calc(100vw - 40px))",
-      height: "auto",
-    });
+    placePanelNearIcon(panel, icon);
     panel.style.setProperty("z-index", "2147483647", "important");
     document.body.appendChild(panel);
 
@@ -115,6 +245,6 @@ export async function mountCollectIcon(provider) {
     });
   });
 
-  console.info("[Gamebet] 采集图标已挂载（右上角）");
+  console.info("[Gamebet] 采集图标已挂载（可拖动）");
   return true;
 }

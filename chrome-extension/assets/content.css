@@ -18,7 +18,9 @@
 .gamebet-collect-float {
   appearance: none;
   -webkit-appearance: none;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 50%;
   background-color: rgba(26, 45, 74, 0.92);
@@ -32,6 +34,11 @@
 
 .gamebet-collect-float:hover {
   opacity: 1;
+}
+
+.gamebet-collect-float.dragging {
+  cursor: grabbing;
+  animation: none;
 }
 
 .gamebet-collect-float.hide {
