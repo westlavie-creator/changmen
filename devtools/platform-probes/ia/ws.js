@@ -15,7 +15,7 @@ export const DEFAULT_A8_WS = "";
 export class IaWsClient {
   constructor(options = {}) {
     this.wsBase = options.wsBase || process.env.IA_WS_URL || "";
-    this.gateway = options.gateway || process.env.IA_GATEWAY || "https://ilustre-analytics.org";
+    this.gateway = options.gateway || process.env.IA_GATEWAY || "https://pc.ilustre-analytics.org";
     this.reconnectMinMs = options.reconnectMinMs || 2000;
     this.reconnectMaxMs = options.reconnectMaxMs || 8000;
     this.socket = null;

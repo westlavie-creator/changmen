@@ -11,16 +11,21 @@ describe("iaForwardDefinition", () => {
     assert.equal(iaForwardDefinition.browserPath, "/esport/ws-forward/IA");
   });
 
-  it("upstream targets official socket.ajj123.net with ilustre Origin", () => {
-    const { url, options } = iaForwardDefinition.buildUpstream("https://ilustre-analytics.org");
+  it("upstream targets official socket.ajj123.net with pc Origin", () => {
+    const { url, options } = iaForwardDefinition.buildUpstream();
     assert.equal(url, IA_OFFICIAL_WS);
     assert.equal(options.path, IA_OFFICIAL_WS_PATH);
-    assert.deepEqual(options.extraHeaders, { Origin: "https://ilustre-analytics.org" });
+    assert.deepEqual(options.extraHeaders, { Origin: "https://pc.ilustre-analytics.org" });
     assert.deepEqual(options.auth, { token: "123" });
   });
 
+  it("remaps legacy apex gateway to pc Origin", () => {
+    const { options } = iaForwardDefinition.buildUpstream("https://ilustre-analytics.org");
+    assert.equal(options.extraHeaders.Origin, "https://pc.ilustre-analytics.org");
+  });
+
   it("strips trailing slash from gateway Origin", () => {
-    const { options } = iaForwardDefinition.buildUpstream("https://ilustre-analytics.org/");
-    assert.equal(options.extraHeaders.Origin, "https://ilustre-analytics.org");
+    const { options } = iaForwardDefinition.buildUpstream("https://pc.ilustre-analytics.org/");
+    assert.equal(options.extraHeaders.Origin, "https://pc.ilustre-analytics.org");
   });
 });

@@ -3,7 +3,7 @@
  * 与 changmen/gamebet_frontend/console/index.js AccountInfo 无关。
  */
 export const IA_A8_COLLECT = {
-  gateway: "https://ilustre-analytics.org",
+  gateway: "https://pc.ilustre-analytics.org",
   token: "",
   betName: "([全场].+获胜$)|([地图\\d].+获胜者$)",
   games: ["1", "2", "3", "16", "43"],

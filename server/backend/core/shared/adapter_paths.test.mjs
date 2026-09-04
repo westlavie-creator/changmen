@@ -83,7 +83,7 @@ describe("adapter_paths", () => {
     const { getIaA8CollectCredentials } = requirePlatform("IA", "node", "collect_credentials.js");
     const creds = getIaA8CollectCredentials();
     expect(creds.provider).toBe("IA");
-    expect(creds.gateway).toBe("https://ilustre-analytics.org");
+    expect(creds.gateway).toBe("https://pc.ilustre-analytics.org");
   });
 
   it("requirePlatform loads PB session module (ESM backend)", () => {

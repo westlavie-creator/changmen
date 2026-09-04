@@ -9,7 +9,7 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
 }));
 
 const platform: CollectPlatformInfo = {
-  Gateway: "https://ilustre-analytics.org",
+  Gateway: "https://pc.ilustre-analytics.org",
   Token: "",
   BetName: "([全场].+获胜$)|([地图\\d].+获胜者$)",
 };

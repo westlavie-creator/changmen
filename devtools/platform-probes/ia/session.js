@@ -3,7 +3,7 @@ import path from "node:path";
 import { ESPORT_DATA_DIR } from "@changmen/storage/paths.js";
 import { getActivePlatformGameIds } from "@changmen/shared/catalog/game_catalog";
 
-export const DEFAULT_GATEWAY = "https://ilustre-analytics.org";
+export const DEFAULT_GATEWAY = "https://pc.ilustre-analytics.org";
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");
 
