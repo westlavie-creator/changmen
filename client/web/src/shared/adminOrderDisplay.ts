@@ -10,6 +10,7 @@ import {
 import {
   alignPredictionSellLinksToBuys,
   countPrimaryOrderRows,
+  filterOrdersBelongingToDate,
   groupOrdersByLink,
   isPredictionSellRow,
   orderLinkMapEntries,
@@ -108,6 +109,25 @@ export function adminOrderToOrderRow(
     PfChangmenCodeFeeUsdt: row.pfChangmenCodeFeeUsdt,
     PositionEvents: row.positionEvents,
   };
+}
+
+function adminOrderHomeKey(row: AdminOrderRow): string {
+  return `${Number(row.linkId) || 0}|${String(row.orderId ?? "").trim().toLowerCase()}|${Number(row.createAt) || 0}`;
+}
+
+/** 管理端按日列表：同 Link 整组只留在开弓日（不依赖后端是否已重启） */
+export function filterAdminOrdersBelongingToDate(
+  list: AdminOrderRow[],
+  dateKey: string,
+): AdminOrderRow[] {
+  if (!dateKey)
+    return list || [];
+  const mapped = (list || []).map(row => adminOrderToOrderRow(row));
+  const kept = new Set(
+    filterOrdersBelongingToDate(mapped, dateKey).map(r =>
+      `${Number(r.Link) || 0}|${String(r.OrderID ?? "").trim().toLowerCase()}|${Number(r.CreateAt) || 0}`),
+  );
+  return (list || []).filter(row => kept.has(adminOrderHomeKey(row)));
 }
 
 export function adminPlayerLabel(

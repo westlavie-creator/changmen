@@ -15,6 +15,37 @@ export function orderLinkSortKey(link) {
   return n;
 }
 
+/** PostgreSQL：把 Link 还原成开弓毫秒（正 EV 去掉 7e15 基线） */
+export function sqlLinkHomeTsExpr(linkExpr = "link") {
+  return `(CASE WHEN ABS(${linkExpr}) >= ${VALUE_BET_LINK_BASE} THEN ABS(${linkExpr}) - ${VALUE_BET_LINK_BASE} ELSE ABS(${linkExpr}) END)`;
+}
+
+/**
+ * 按日/按月列表归属 SQL：[start, end) 毫秒。
+ * 时间戳 Link（套利 / 9999 / 正 EV）跟开弓时间；否则回退 create_at。
+ * 这样开弓日没有成交、次日才补单时，开弓日仍能捞到种子。
+ */
+export function sqlOrderBelongsToRange(startParam, endParam, opts = {}) {
+  const alias = opts.alias ? `${String(opts.alias).replace(/\.$/, "")}.` : "";
+  const link = `${alias}link`;
+  const createAt = `${alias}create_at`;
+  const home = sqlLinkHomeTsExpr(link);
+  const s = `$${Number(startParam)}`;
+  const e = `$${Number(endParam)}`;
+  return `((ABS(${link}) >= ${ARB_LINK_MIN} AND ${home} >= ${s} AND ${home} < ${e})`
+    + ` OR ((${link} IS NULL OR ABS(${link}) < ${ARB_LINK_MIN}) AND ${createAt} >= ${s} AND ${createAt} < ${e}))`;
+}
+
+/** 与 sqlOrderBelongsToRange 同一套规则（单测 / 文档） */
+export function orderBelongsToMsRange(link, createAt, start, end) {
+  const n = Math.abs(Number(link)) || 0;
+  const ts = n >= VALUE_BET_LINK_BASE ? n - VALUE_BET_LINK_BASE : n;
+  if (ts >= ARB_LINK_MIN)
+    return ts >= start && ts < end;
+  const at = Number(createAt) || 0;
+  return at >= start && at < end;
+}
+
 /**
  * [changmen 扩展] 手动改绑：仅允许把较新的 Link 改到较老的 Link。
  * from !== to 且双方非 0。

@@ -705,7 +705,7 @@ describe("listByDatePage link siblings", () => {
   const sellDay = "2026-07-19";
   const buyYday = {
     order_id: "0xbuyYday",
-    link: 1_781_300_000_999,
+    link: buyAt,
     create_at: buyAt,
     player_id: 47,
     provider: "Polymarket",
@@ -716,7 +716,7 @@ describe("listByDatePage link siblings", () => {
   };
   const sellToday = {
     order_id: "0xsellToday",
-    link: 1_781_300_000_999,
+    link: buyAt,
     create_at: sellAt,
     player_id: 47,
     provider: "Polymarket",
@@ -754,7 +754,7 @@ describe("listByDatePage link siblings", () => {
   });
 
   it("on buy day merges cross-day sell even when sell.link diverges (by pmBuyOrderId)", async () => {
-    const buyLink = 1_781_300_000_200;
+    const buyLink = buyAt;
     const sellWrongLink = 1_781_300_000_100;
     const buy = {
       ...buyYday,
@@ -778,7 +778,7 @@ describe("listByDatePage link siblings", () => {
   });
 
   it("on sell day pulls parent buy by pmBuyOrderId then hides (belongs to buy day)", async () => {
-    const buyLink = 1_781_300_000_200;
+    const buyLink = buyAt;
     const sellWrongLink = 1_781_300_000_100;
     const buy = {
       ...buyYday,
@@ -802,7 +802,7 @@ describe("listByDatePage link siblings", () => {
   });
 
   it("PF: on buy day merges cross-day sell by pfBuyOrderId", async () => {
-    const buyLink = 1_781_300_000_200;
+    const buyLink = buyAt;
     const pfBuy = {
       order_id: "0xpfbuyYday",
       link: buyLink,
@@ -880,7 +880,31 @@ describe("listByDatePage link siblings", () => {
     expect(s2.link).toBe(b2.link);
   });
 
-  it("keeps cross-day arb siblings when there is no PM sell", async () => {
+  it("books a next-day-only fill on the Link bind day", async () => {
+    const link = Date.parse("2026-09-04T23:46:13+08:00");
+    const fill = Date.parse("2026-09-05T00:08:27+08:00");
+    const pm = {
+      order_id: "pm-makeup",
+      link,
+      create_at: fill,
+      player_id: 1,
+      provider: "Polymarket",
+      bet_money: 279,
+      money: 321,
+      status: "Win",
+      raw: { pmSide: "buy" },
+    };
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [pm], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([pm]);
+    const home = await listByDatePage("2026-09-04", "user-1", 1, 1024);
+    expect(home.list.map(r => r.OrderID)).toEqual(["pm-makeup"]);
+
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [pm], total: 1 });
+    const later = await listByDatePage("2026-09-05", "user-1", 1, 1024);
+    expect(later.list).toEqual([]);
+  });
+
+  it("books cross-day arb on placeholder Link using earliest create_at", async () => {
     const ydayAt = Date.parse("2026-07-18T12:00:00+08:00");
     const todayAt = Date.parse("2026-07-19T12:00:00+08:00");
     const ob = {
@@ -907,8 +931,13 @@ describe("listByDatePage link siblings", () => {
     };
     fetchOrdersByDatePage.mockResolvedValue({ rows: [pm], total: 1 });
     fetchOrdersByLinks.mockResolvedValue([ob, pm]);
-    const { list } = await listByDatePage("2026-07-19", "user-1", 1, 1024);
-    expect(list.map(r => r.OrderID).sort()).toEqual(["ob-1", "pm-1"]);
+    const later = await listByDatePage("2026-07-19", "user-1", 1, 1024);
+    expect(later.list.map(r => r.OrderID)).toEqual([]);
+
+    fetchOrdersByDatePage.mockResolvedValue({ rows: [ob], total: 1 });
+    fetchOrdersByLinks.mockResolvedValue([ob, pm]);
+    const earlier = await listByDatePage("2026-07-18", "user-1", 1, 1024);
+    expect(earlier.list.map(r => r.OrderID).sort()).toEqual(["ob-1", "pm-1"]);
   });
 });
 

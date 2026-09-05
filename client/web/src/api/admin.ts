@@ -14,6 +14,7 @@ import type { TradeRemoteAccount } from "@/realtime/userChannel";
 import type { MonthReportPayload } from "@/types/monthReport";
 
 import { post, unwrap } from "@/api/client";
+import { filterAdminOrdersBelongingToDate } from "@/shared/adminOrderDisplay";
 
 export async function getAdminDashboard(date?: string) {
   return unwrap(await post<AdminDashboard>("Client_AdminDashboard", date ? { date } : {}));
@@ -58,7 +59,9 @@ export async function getAdminOrdersAll(body: Record<string, unknown> = {}) {
     if (pageIndex > 50)
       break;
   }
-  return { date: dateKey, list: all, total: all.length };
+  const homeDate = String(body.date || dateKey || "");
+  const list = homeDate ? filterAdminOrdersBelongingToDate(all, homeDate) : all;
+  return { date: dateKey || homeDate, list, total: list.length };
 }
 
 /** 拉取当日全部订单（优先矩阵 API；旧后端无此 action 时分页兜底） */

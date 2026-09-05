@@ -4,9 +4,11 @@ import {
   adminOrderToOrderRow,
   adminPlayerLabel,
   countAdminPrimaryOrders,
+  filterAdminOrdersBelongingToDate,
   groupAdminOrderEntries,
   mergeAdminAccountsWithOrderHistory,
 } from "./adminOrderDisplay";
+import { toOrderDateKeyLocal } from "./orderLink";
 import {
   pmBuyLifecycleTagText,
   pmOrderStakeDisplayCny,
@@ -258,5 +260,35 @@ describe("adminOrderDisplay", () => {
         pfBuyOrderId: "pf-buy",
       }),
     ])).toBe(2);
+  });
+
+  it("filterAdminOrdersBelongingToDate keeps cross-day arb on Link bind day only", () => {
+    const link = Date.parse("2026-09-04T23:46:13+08:00");
+    const yday = Date.parse("2026-09-04T23:46:19+08:00");
+    const today = Date.parse("2026-09-05T00:08:27+08:00");
+    const ydayKey = toOrderDateKeyLocal(link);
+    const todayKey = toOrderDateKeyLocal(today);
+    const rows = [
+      order({
+        id: 1,
+        orderId: "ray",
+        provider: "RAY",
+        linkId: link,
+        createAt: yday,
+        money: -264,
+      }),
+      order({
+        id: 2,
+        orderId: "pm",
+        provider: "Polymarket",
+        pmSide: "buy",
+        linkId: link,
+        createAt: today,
+        money: 321,
+      }),
+    ];
+    expect(filterAdminOrdersBelongingToDate(rows, ydayKey).map(r => r.orderId).sort())
+      .toEqual(["pm", "ray"]);
+    expect(filterAdminOrdersBelongingToDate(rows, todayKey)).toEqual([]);
   });
 });

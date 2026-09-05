@@ -7,6 +7,9 @@ vi.mock("@changmen/db", () => ({
   fetchOrdersForProfitAggregate: vi.fn(),
   fetchProfiles: vi.fn(),
   fetchPlayersByIdsIncludingDeleted: vi.fn(async () => []),
+  fetchOrdersByLinks: vi.fn(async () => []),
+  fetchOrdersByUserOrderIds: vi.fn(async () => []),
+  fetchPredictionSellsByBuyOrderIds: vi.fn(async () => []),
   placeholderLinkFromCreateAt: (ca) => ca,
   backendBindLinkFromCreateAt: vi.fn(),
 }));
@@ -190,6 +193,55 @@ describe("listUserProfitRank", () => {
     // -100 + 55.7 + 200??? order_id ?????
     expect(rows[0].Money).toBeCloseTo(155.7, 4);
     expect(rows[0].Count).toBe(3);
+  });
+
+  it("books cross-day arb P&L on the Link bind day", async () => {
+    const sb = await import("@changmen/db");
+    const ydayAt = Date.parse("2026-09-04T23:46:19+08:00");
+    const todayAt = Date.parse("2026-09-05T00:08:27+08:00");
+    const ray = {
+      id: 1,
+      user_id: "u1",
+      order_id: "ray-1",
+      link: 1_788_536_773_449,
+      create_at: ydayAt,
+      provider: "RAY",
+      status: "Lose",
+      money: -264,
+      bet_money: 264,
+    };
+    const pm = {
+      id: 2,
+      user_id: "u1",
+      order_id: "pm-1",
+      link: 1_788_536_773_449,
+      create_at: todayAt,
+      provider: "Polymarket",
+      status: "Win",
+      money: 321,
+      bet_money: 279,
+      raw: { pmSide: "buy" },
+    };
+    vi.mocked(sb.fetchProfiles).mockResolvedValue([
+      { id: "u1", user_name: "GB18", is_admin: false, role: "user" },
+    ]);
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([ray]);
+    vi.mocked(sb.fetchOrdersByLinks).mockResolvedValue([ray, pm]);
+    const home = await listUserProfitRank("2026-09-04");
+    expect(home).toHaveLength(1);
+    expect(home[0].Money).toBe(57);
+    expect(home[0].Count).toBe(2);
+
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([pm]);
+    vi.mocked(sb.fetchOrdersByLinks).mockResolvedValue([ray, pm]);
+    const later = await listUserProfitRank("2026-09-05");
+    expect(later).toHaveLength(0);
+
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([pm]);
+    vi.mocked(sb.fetchOrdersByLinks).mockResolvedValue([pm]);
+    const bindDayMakeupOnly = await listUserProfitRank("2026-09-04");
+    expect(bindDayMakeupOnly).toHaveLength(1);
+    expect(bindDayMakeupOnly[0].Money).toBe(321);
   });
 });
 

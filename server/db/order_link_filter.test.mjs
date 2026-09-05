@@ -20,9 +20,11 @@ import {
   isPbHashOrder,
   isSingleLegRateLink,
   isValueBetLink,
+  orderBelongsToMsRange,
   orderLinkSortKey,
   orderVisibleSqlAnd,
   placeholderLinkFromCreateAt,
+  sqlOrderBelongsToRange,
   placeholderLinkFromInsertAt,
   shouldAllowOrderBind,
   shouldFireOrderBoundHook,
@@ -59,6 +61,44 @@ describe("order_link_filter", () => {
     assert.equal(isOrderListVisible(12345, "OB"), true);
     assert.equal(isOrderListVisible(12345, "PB"), false);
     assert.equal(isOrderListVisible(-1, "RAY"), true);
+  });
+
+  it("orderBelongsToMsRange uses Link bind time for timestamp links", () => {
+    const bind = Date.parse("2026-09-04T23:46:13+08:00");
+    const fill = Date.parse("2026-09-05T00:08:27+08:00");
+    const dayStart = Date.parse("2026-09-04T00:00:00+08:00");
+    const dayEnd = Date.parse("2026-09-05T00:00:00+08:00");
+    const nextStart = dayEnd;
+    const nextEnd = Date.parse("2026-09-06T00:00:00+08:00");
+    assert.equal(orderBelongsToMsRange(bind, fill, dayStart, dayEnd), true);
+    assert.equal(orderBelongsToMsRange(bind, fill, nextStart, nextEnd), false);
+  });
+
+  it("orderBelongsToMsRange falls back to create_at for small placeholder links", () => {
+    const fill = Date.parse("2026-09-05T00:08:27+08:00");
+    const dayStart = Date.parse("2026-09-04T00:00:00+08:00");
+    const dayEnd = Date.parse("2026-09-05T00:00:00+08:00");
+    const nextStart = dayEnd;
+    const nextEnd = Date.parse("2026-09-06T00:00:00+08:00");
+    assert.equal(orderBelongsToMsRange(42, fill, dayStart, dayEnd), false);
+    assert.equal(orderBelongsToMsRange(42, fill, nextStart, nextEnd), true);
+  });
+
+  it("orderBelongsToMsRange decodes value-bet links", () => {
+    const ts = Date.parse("2026-09-04T12:00:00+08:00");
+    const vb = -(VALUE_BET_LINK_BASE + ts);
+    const dayStart = Date.parse("2026-09-04T00:00:00+08:00");
+    const dayEnd = Date.parse("2026-09-05T00:00:00+08:00");
+    assert.equal(orderBelongsToMsRange(vb, ts + 86400000, dayStart, dayEnd), true);
+  });
+
+  it("sqlOrderBelongsToRange uses Link home then create_at fallback", () => {
+    const sql = sqlOrderBelongsToRange(2, 3);
+    assert.match(sql, /ABS\(link\) >= 1000000000000/);
+    assert.match(sql, /7000000000000000/);
+    assert.match(sql, /\$2/);
+    assert.match(sql, /\$3/);
+    assert.match(sql, /create_at >= \$2 AND create_at < \$3/);
   });
 
   it("placeholderLinkFromCreateAt uses create_at ms", () => {

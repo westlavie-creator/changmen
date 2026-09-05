@@ -23,6 +23,7 @@ import {
   orderLinkLegend,
   orderListDisplayBlocks,
   orderListDisplayRows,
+  orderGroupHomeTs,
   orderProfitDateTs,
   sortOrdersByLinkDesc,
   toOrderDateKeyLocal,
@@ -736,16 +737,37 @@ describe("orderLink A8 parity", () => {
     expect(filterOrdersBelongingToDate(rows, sellDay)).toEqual([]);
   });
 
-  it("filterOrdersBelongingToDate keeps cross-day arb siblings when no PM sell", () => {
+  it("filterOrdersBelongingToDate books cross-day arb on Link bind day only", () => {
     const yday = Date.parse("2026-07-18T12:00:00+08:00");
     const today = Date.parse("2026-07-19T12:00:00+08:00");
+    const ydayKey = toOrderDateKeyLocal(yday);
     const todayKey = toOrderDateKeyLocal(today);
     const rows = [
       { OrderID: "ob", Link: 7, Type: "OB", CreateAt: yday, Money: 5 },
-      { OrderID: "pm", Link: 7, Type: "Polymarket", PmSide: "buy" as const, CreateAt: today, Money: 0 },
+      { OrderID: "pm", Link: 7, Type: "Polymarket", PmSide: "buy" as const, CreateAt: today, Money: 321 },
     ];
-    expect(filterOrdersBelongingToDate(rows, todayKey).map(r => r.OrderID).sort())
+    expect(orderGroupHomeTs(rows)).toBe(yday);
+    expect(orderProfitDateTs(rows[1]!, rows)).toBe(yday);
+    expect(filterOrdersBelongingToDate(rows, ydayKey).map(r => r.OrderID).sort())
       .toEqual(["ob", "pm"]);
+    expect(filterOrdersBelongingToDate(rows, todayKey)).toEqual([]);
+  });
+
+  it("midnight makeup arb stays on the Link bind day even without the first leg", () => {
+    const link = 1_788_536_773_449;
+    const pmAt = Date.parse("2026-09-05T00:08:27+08:00");
+    const pmOnly = [{
+      OrderID: "pm",
+      Link: link,
+      Type: "Polymarket",
+      PmSide: "buy" as const,
+      CreateAt: pmAt,
+      Money: 321,
+    }];
+    expect(orderGroupHomeTs(pmOnly)).toBe(link);
+    expect(filterOrdersBelongingToDate(pmOnly, "2026-09-04").map(r => r.OrderID))
+      .toEqual(["pm"]);
+    expect(filterOrdersBelongingToDate(pmOnly, "2026-09-05")).toEqual([]);
   });
 
   it("computeOrderGroupProfit includes buy Money on partial close (new model)", () => {

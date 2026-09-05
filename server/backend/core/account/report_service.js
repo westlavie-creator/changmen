@@ -1,5 +1,6 @@
 import * as sb from "@changmen/db";
-import { toDateKey } from "./order_store.js";
+import { mergePredictionBuySellSiblings, toDateKey } from "./order_store.js";
+import { forEachBookedProfitGroup } from "./order/group_home.js";
 import { isPredictionSellForCount } from "./order/kinds.js";
 import {
   betMoneyForProfitAggregate,
@@ -56,21 +57,22 @@ export async function getMonthReport(month, userId, userIds) {
     byDate.set(key, emptyReportRow(key));
   }
 
-  const orders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
-  for (const o of dedupeOrdersByUserOrderId(orders)) {
-    if (String(o.status || "") === "Reject")
-      continue;
-    const key = toDateKey(o.create_at);
-    const row = byDate.get(key);
+  const monthOrders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
+  const merged = await mergePredictionBuySellSiblings(monthOrders || []);
+  forEachBookedProfitGroup(dedupeOrdersByUserOrderId(merged), (group, homeKey) => {
+    const row = byDate.get(homeKey);
     if (!row)
-      continue;
-    row.Profit += moneyForProfitAggregate(o);
-    // 笔数 / 流水均不计 PM/PF 卖单（卖=仓位事件，bet_money 为回款镜像）
-    if (!isPredictionSellForCount(o)) {
-      row.BetMoney += betMoneyForProfitAggregate(o);
-      row.OrderCount += 1;
+      return;
+    for (const o of group) {
+      if (String(o.status || "") === "Reject")
+        continue;
+      row.Profit += moneyForProfitAggregate(o);
+      if (!isPredictionSellForCount(o)) {
+        row.BetMoney += betMoneyForProfitAggregate(o);
+        row.OrderCount += 1;
+      }
     }
-  }
+  });
 
   const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined, userIds);
   for (const log of moneyLogs || []) {

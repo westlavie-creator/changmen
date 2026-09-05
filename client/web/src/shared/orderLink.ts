@@ -5,6 +5,9 @@ import { formatLinkId, isSingleLegLink, orderLinkSortKey, toFixed } from "@chang
 import { Currency, getExchange } from "@changmen/shared/currency";
 import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
 
+/** 与 @changmen/db ARB_LINK_MIN 对齐：SaveOrderBind 的 Date.now() 毫秒时间戳 */
+const ARB_LINK_MIN = 1_000_000_000_000;
+
 /** [A8 可证实] 展示/筛选用 Link 数值；分组键见 `groupOrdersByLink` 直接用 `S.Link` */
 export function linkIdGroupKey(link: number | null | undefined): number {
   const n = Number(link);
@@ -383,47 +386,35 @@ export function toOrderDateKeyLocal(ts: number): string {
 }
 
 /**
- * [changmen 扩展] 订单归账时间戳：PM/PF 卖单跟对应买单 CreateAt，
- * 使跨日卖出在买单日展示并计入当日盈亏。
+ * Link 组归属时间：优先用 Link 还原的开弓时间戳。
+ * 不是毫秒时间戳的占位 Link 才回退到主腿最早 CreateAt。
+ */
+export function orderGroupHomeTs(rows: OrderRow[]): number {
+  const linkTs = orderLinkSortKey(rows[0]?.Link);
+  if (linkTs >= ARB_LINK_MIN)
+    return linkTs;
+  const primary = rows.filter(r => !isPredictionSellRow(r));
+  const pool = primary.length ? primary : rows;
+  const times = pool.map(r => Number(r.CreateAt) || 0).filter(n => n > 0);
+  return times.length ? Math.min(...times) : 0;
+}
+
+/**
+ * [changmen 扩展] 订单归账时间戳：同 Link 整组跟开弓日（Link 时间戳）。
+ * 单行即可判定，跨日补单不必先并对腿。
  */
 export function orderProfitDateTs(row: OrderRow, peers: OrderRow[]): number {
-  if (isPolymarketOrderRow(row) && row.PmSide === "sell") {
-    const buyId = String(row.PmBuyOrderId ?? "").trim().toLowerCase();
-    if (buyId) {
-      const buy = peers.find(r =>
-        isPolymarketOrderRow(r)
-        && r.PmSide !== "sell"
-        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
-      );
-      const buyAt = Number(buy?.CreateAt) || 0;
-      if (buyAt > 0)
-        return buyAt;
-    }
-    const link = Number(row.Link) || 0;
-    const buyAts = peers
-      .filter(r =>
-        isPolymarketOrderRow(r)
-        && r.PmSide !== "sell"
-        && (link === 0 || (Number(r.Link) || 0) === link),
-      )
-      .map(r => Number(r.CreateAt) || 0)
-      .filter(n => n > 0);
-    if (buyAts.length)
-      return Math.min(...buyAts);
-  }
-  if (isPredictFunOrderRow(row) && row.PfSide === "sell") {
-    const buyId = String(row.PfBuyOrderId ?? "").trim().toLowerCase();
-    if (buyId) {
-      const buy = peers.find(r =>
-        isPredictFunOrderRow(r)
-        && r.PfSide !== "sell"
-        && String(r.OrderID ?? "").trim().toLowerCase() === buyId,
-      );
-      const buyAt = Number(buy?.CreateAt) || 0;
-      if (buyAt > 0)
-        return buyAt;
-    }
-  }
+  const aligned = peers.length ? alignPredictionSellLinksToBuys(peers) : [row];
+  const link = effectiveOrderLink(row, aligned);
+  const linkTs = orderLinkSortKey(link);
+  if (linkTs >= ARB_LINK_MIN)
+    return linkTs;
+  const group = link !== 0
+    ? aligned.filter(p => effectiveOrderLink(p, aligned) === link)
+    : [row];
+  const home = orderGroupHomeTs(group);
+  if (home > 0)
+    return home;
   return Number(row.CreateAt) || 0;
 }
 
@@ -439,31 +430,26 @@ export function orderBelongsToDateKey(
 }
 
 /**
- * 按日展示过滤：
- * - 含 PM/PF 卖单的 Link 组：整组跟买单日（卖出日不再出现）
- * - 无预测卖单：保留跨日 sibling 整组（套利腿不拆）
+ * 按日展示过滤：一组只住 Link 开弓日（不拆腿，也不在两天各出现一次）。
  */
 export function filterOrdersBelongingToDate(
   list: OrderRow[],
   dateKey: string,
 ): OrderRow[] {
-  // 先对齐卖单 Link，避免 sell.link≠buy.link 时按错误组分日
   const groups = groupOrdersByEffectiveLink(list);
   const out: OrderRow[] = [];
-  for (const rows of groups.values()) {
-    const predSells = rows.filter(isPredictionSellRow);
-    if (predSells.length) {
-      const anchors = predSells
-        .map(s => orderProfitDateTs(s, rows))
-        .filter(n => n > 0);
-      if (anchors.length) {
-        const anchorDay = toOrderDateKeyLocal(Math.min(...anchors));
-        if (anchorDay !== dateKey)
-          continue;
+  for (const [link, rows] of groups) {
+    if (link === 0) {
+      for (const r of rows) {
+        const at = Number(r.CreateAt) || 0;
+        if (!at || toOrderDateKeyLocal(at) === dateKey)
+          out.push(r);
       }
-      out.push(...rows);
       continue;
     }
+    const home = orderGroupHomeTs(rows);
+    if (home > 0 && toOrderDateKeyLocal(home) !== dateKey)
+      continue;
     out.push(...rows);
   }
   return out;

@@ -266,7 +266,7 @@ export default defineConfig(({ mode }) => {
     proxy,
   },
   test: {
-    setupFiles: ["src/test/vitestSetupCore.ts"],
+    setupFiles: ["src/test/vitestPolyfillLocalStorage.ts", "src/test/vitestSetupCore.ts"],
     include: [
       "src/**/*.{test,spec}.{js,mjs,ts}",
       `${venueAdapterVitestGlob}/**/*.{test,spec}.{js,mjs,ts}`,

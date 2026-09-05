@@ -10,25 +10,23 @@ import {
 } from "@changmen/db";
 import { toDateKey } from "./date_key.js";
 import { parseNum } from "./dto.js";
+import { groupHomeTsFromRaw, groupRawOrdersForProfit } from "./group_home.js";
 import {
   isPredictionBuyRawRow,
-  isPredictionSellRawRow,
-  orderRaw,
   predictionSellBuyIdFromRaw,
   predictionSellMetaFromSave,
 } from "./kinds.js";
 
 function mergeRawOrderRowsById(...lists) {
   const byId = new Map();
+  let anon = 0;
   for (const list of lists) {
     for (const r of list || []) {
       const oid = String(r?.order_id ?? "").trim().toLowerCase();
-      if (!oid)
-        continue;
-      // 必须带 user_id：全站 enrich 时不同用户可能撞同一场馆 order_id
-      //（删号重加 / 账号误同步），只按 order_id 会吞掉他户订单。
       const uid = String(r?.user_id ?? "").trim();
-      const key = uid ? `${uid}|${oid}` : oid;
+      const key = oid
+        ? (uid ? `${uid}|${oid}` : oid)
+        : `__anon:${anon++}`;
       byId.set(key, r);
     }
   }
@@ -80,66 +78,13 @@ export function alignRawPredictionSellLinksToBuys(rows) {
   });
 }
 
-function orderProfitDateTsFromRaw(row, peers) {
-  const raw = orderRaw(row);
-  const provider = String(row?.provider || "").trim();
-  const buyId = predictionSellBuyIdFromRaw(row).toLowerCase();
-  if (buyId) {
-    const buy = peers.find(p => String(p?.order_id || "").trim().toLowerCase() === buyId);
-    const buyAt = Number(buy?.create_at) || 0;
-    if (buyAt > 0)
-      return buyAt;
-  }
-  // 无 buyId 时：同 link 找买单（PM / PF 对称）
-  const isPmSell = provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell";
-  const isPfSell = provider === "PredictFun" && String(raw.pfSide || "").toLowerCase() === "sell";
-  if (isPmSell || isPfSell) {
-    const link = Number(row.link) || 0;
-    const buyAts = peers
-      .filter((p) => {
-        const pr = orderRaw(p);
-        const pProv = String(p?.provider || "").trim();
-        if (isPmSell) {
-          return pProv === "Polymarket"
-            && String(pr.pmSide || "").toLowerCase() !== "sell"
-            && (link === 0 || (Number(p.link) || 0) === link);
-        }
-        return pProv === "PredictFun"
-          && String(pr.pfSide || "").toLowerCase() !== "sell"
-          && (link === 0 || (Number(p.link) || 0) === link);
-      })
-      .map(p => Number(p.create_at) || 0)
-      .filter(n => n > 0);
-    if (buyAts.length)
-      return Math.min(...buyAts);
-  }
-  return Number(row?.create_at) || 0;
-}
-
 function filterRawOrdersBelongingToDate(rows, dateKey) {
   const list = alignRawPredictionSellLinksToBuys(rows || []);
-  const byLink = new Map();
-  for (const r of list) {
-    const link = Number(r.link) || 0;
-    if (!byLink.has(link))
-      byLink.set(link, []);
-    byLink.get(link).push(r);
-  }
   const out = [];
-  for (const group of byLink.values()) {
-    const predSells = group.filter(isPredictionSellRawRow);
-    if (predSells.length) {
-      const anchors = predSells
-        .map(s => orderProfitDateTsFromRaw(s, group))
-        .filter(n => n > 0);
-      if (anchors.length) {
-        const anchorDay = toDateKey(Math.min(...anchors));
-        if (anchorDay !== dateKey)
-          continue;
-      }
-      out.push(...group);
+  for (const group of groupRawOrdersForProfit(list)) {
+    const homeTs = groupHomeTsFromRaw(group);
+    if (homeTs > 0 && toDateKey(homeTs) !== dateKey)
       continue;
-    }
     out.push(...group);
   }
   return out;
@@ -231,7 +176,7 @@ export async function mergePredictionBuySellSiblings(dayRows, opts = {}) {
     .sort((a, b) => (Number(b.create_at) || 0) - (Number(a.create_at) || 0));
 }
 
-/** 按日列表：buyId/Link sibling 并入后归买单日 */
+/** 按日列表：并入同 Link 对腿后，整组只留在 Link 开弓日 */
 export async function enrichOrdersBelongingToDate(dayRows, dateKey, opts = {}) {
   const merged = await mergePredictionBuySellSiblings(dayRows, opts);
   return filterRawOrdersBelongingToDate(merged, dateKey);

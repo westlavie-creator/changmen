@@ -147,7 +147,7 @@ export async function listByDatePage(date, userId, pageIndex = 1, pageSize = 102
   const page = Math.max(1, Number(pageIndex) || 1);
   const size = Math.max(1, Number(pageSize) || 1024);
   const { rows } = await sb.fetchOrdersByDatePage(target, userId, page, size);
-  // [changmen 扩展] 同 Link + buyId 跨日并入；卖单归买单日
+  // [changmen 扩展] 同 Link + buyId 跨日并入；整组只留在 Link 开弓日
   const merged = await enrichOrdersBelongingToDate(rows || [], target, { userId });
   const list = await attachPlayerDisplayToClientOrders(merged.map(toClientOrder));
   return { list, total: list.length };
@@ -280,10 +280,14 @@ function stringToHashNumber(value) {
 
 /** 排行榜：按登录用户聚合当日 orders（非按 player_id / 平台账号）；管理员不参与 */
 export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
-  const [orders, profiles] = await Promise.all([
+  const [dayOrders, profiles] = await Promise.all([
     sb.fetchOrdersForProfitAggregate(dateKey),
     sb.fetchProfiles(),
   ]);
+  const userIds = [...new Set(
+    (dayOrders || []).map(o => String(o.user_id || "").trim()).filter(Boolean),
+  )];
+  const orders = await enrichOrdersBelongingToDate(dayOrders || [], dateKey, { userIds });
   const adminIds = new Set(
     (profiles || []).filter(p => isAdminUser(p)).map(p => String(p.id)),
   );

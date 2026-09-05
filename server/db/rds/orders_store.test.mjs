@@ -36,6 +36,7 @@ describe("orders_store read SQL", () => {
     const [sql] = queryMock.mock.calls[0];
     expect(sql).not.toMatch(/link\s*<\s*create_at/i);
     expect(sql).not.toMatch(/changmen_bet/i);
+    expect(sql).toMatch(/ABS\(link\) >= 1000000000000/);
   });
 
   it("fetchOrdersByPlayer returns all orders (no filter)", async () => {
@@ -113,6 +114,8 @@ describe("orders_store read SQL", () => {
     expect(queryMock).toHaveBeenCalledTimes(2);
     const [listSql] = queryMock.mock.calls[1];
     expect(listSql).toMatch(/LIMIT \$4 OFFSET \$5/);
+    expect(listSql).toMatch(/ABS\(link\) >= 1000000000000/);
+    expect(listSql).toMatch(/create_at >= \$2 AND create_at < \$3/);
   });
 
   it("fetchOrdersByPlayerOrderIds filters by order_id list", async () => {

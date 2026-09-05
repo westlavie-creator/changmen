@@ -87,8 +87,7 @@ export async function loadEmbeddedUserOrders(userId: string, date: string) {
   const page = await getAdminOrdersAll({ userId, date });
   const raw = (page.list ?? []).map(row => adminOrderToOrderRow(row, accountStore.accounts));
   const dateKey = date || page.date || todayKey();
-  // 后端 Client_AdminOrders 已 enrichOrdersBelongingToDate（跨日 sibling）；
-  // 此处再按买单日过滤 + Link 对齐，与侧栏一致
+  // 后端已 enrich 并对 Link 开弓日过滤；此处再滤一次 + Link 对齐，与侧栏一致
   const list = filterOrdersBelongingToDate(raw, dateKey);
   orderStore.orders = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink(list));
   orderStore.orderDate = dateKey;

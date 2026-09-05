@@ -7,6 +7,7 @@ import {
   canRebindLinkNewerToOlder,
   shouldAllowOrderBind,
   shouldFireOrderBoundHook,
+  sqlOrderBelongsToRange,
 } from "../order_link_filter.js";
 import { Currency, getExchange } from "@changmen/shared/currency";
 import { _jsonb, getPgPool } from "./common.js";
@@ -536,7 +537,7 @@ export async function fetchOrdersByDate(date, userId) {
   try {
     const { rows } = await pool.query(
       `SELECT * FROM orders
-       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
+       WHERE user_id = $1 AND ${sqlOrderBelongsToRange(2, 3)}
        ORDER BY create_at DESC`,
       [String(userId), dayStart, dayEnd],
     );
@@ -561,14 +562,14 @@ export async function fetchOrdersByDatePage(date, userId, pageIndex = 1, pageSiz
     const params = [String(userId), dayStart, dayEnd];
     const countRes = await pool.query(
       `SELECT COUNT(*)::int AS n FROM orders
-       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3`,
+       WHERE user_id = $1 AND ${sqlOrderBelongsToRange(2, 3)}`,
       params,
     );
     const total = countRes.rows[0]?.n ?? 0;
     params.push(size, offset);
     const { rows } = await pool.query(
       `SELECT * FROM orders
-       WHERE user_id = $1 AND create_at >= $2 AND create_at < $3
+       WHERE user_id = $1 AND ${sqlOrderBelongsToRange(2, 3)}
        ORDER BY create_at DESC
        LIMIT $4 OFFSET $5`,
       params,
@@ -886,7 +887,7 @@ export async function fetchOrdersAdminStats(dateKey) {
     return { count: 0, money: 0, betMoney: 0 };
   try {
     const { rows } = await pool.query(
-      `SELECT money, bet_money, status, provider, raw FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT money, bet_money, status, provider, raw FROM orders WHERE ${sqlOrderBelongsToRange(1, 2)}`,
       [dayStart, dayEnd],
     );
     const fx = getExchange(Currency.USDT);
@@ -937,7 +938,7 @@ export async function fetchOrdersAdminPage({
     return { rows: [], total: 0 };
   try {
     const params = [dayStart, dayEnd];
-    let where = `create_at >= $1 AND create_at < $2`;
+    let where = sqlOrderBelongsToRange(1, 2);
     if (userId) {
       params.push(String(userId));
       where += ` AND user_id = $${params.length}`;
@@ -1035,7 +1036,7 @@ export async function fetchOrdersAdminAll({ dateKey, provider, limit = 5000, use
     return [];
   try {
     const params = [dayStart, dayEnd];
-    let where = `create_at >= $1 AND create_at < $2`;
+    let where = sqlOrderBelongsToRange(1, 2);
     if (Array.isArray(userIds) && userIds.length) {
       params.push(userIds);
       where += ` AND user_id = ANY($${params.length}::uuid[])`;
@@ -1065,8 +1066,8 @@ export async function fetchOrdersForMonthAggregate(monthKey, userId, userIds) {
     return [];
   try {
     const params = [monthStart, monthEnd];
-    let sql = `SELECT id, user_id, order_id, create_at, money, bet_money, status, provider, raw
-               FROM orders WHERE create_at >= $1 AND create_at < $2`;
+    let sql = `SELECT id, user_id, order_id, link, create_at, money, bet_money, status, provider, raw
+               FROM orders WHERE ${sqlOrderBelongsToRange(1, 2)}`;
     if (userId) {
       params.push(String(userId));
       sql += ` AND user_id = $${params.length}`;
@@ -1092,8 +1093,8 @@ export async function fetchOrdersForProfitAggregate(dateKey) {
     return [];
   try {
     const { rows } = await pool.query(
-      `SELECT id, user_id, player_id, order_id, money, bet_money, status, provider, raw
-       FROM orders WHERE create_at >= $1 AND create_at < $2`,
+      `SELECT id, user_id, player_id, order_id, link, create_at, money, bet_money, status, provider, raw
+       FROM orders WHERE ${sqlOrderBelongsToRange(1, 2)}`,
       [dayStart, dayEnd],
     );
     return rows || [];

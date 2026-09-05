@@ -101,7 +101,7 @@ export const useOrderStore = defineStore("order", {
         const page = await getOrderList({ date: this.orderDate, pageSize: 1024 });
         if (!page)
           return false;
-        // PM 卖单归买单日：后端已滤；前端再滤一次防脏数据（滤前对齐卖单 Link）
+        // 后端已按 Link 开弓日取数并过滤；前端再滤一次防脏数据
         const list = filterOrdersBelongingToDate(page.list ?? [], this.orderDate);
         this.orders = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink(list));
         this.updateTodayProfit(list);
@@ -123,7 +123,7 @@ export const useOrderStore = defineStore("order", {
     updateTodayProfit(list: OrderRow[]) {
       const accountStore = useAccountStore();
       const today = this.orderDate;
-      /** 展示可含跨日 sibling；盈亏只计归账日落在当日的行（PM 卖单跟买单日） */
+      /** 展示已按 Link 开弓日过滤；盈亏与列表同一天 */
       const inDay = list.filter(r => orderBelongsToDateKey(r, today, list));
       const moneyOf = (r: OrderRow) => polymarketMoneyForAggregate(r, inDay);
       const byPlayer = new Map<number, OrderRow[]>();

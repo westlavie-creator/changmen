@@ -56,6 +56,9 @@ vi.mock("@changmen/db", () => ({
       { create_at: new Date("2026-06-15T09:00:00").getTime(), type: "Recharge", money: 200 },
     ];
   }),
+  fetchOrdersByLinks: vi.fn(async () => []),
+  fetchOrdersByUserOrderIds: vi.fn(async () => []),
+  fetchPredictionSellsByBuyOrderIds: vi.fn(async () => []),
 }));
 
 describe("getMonthReport", () => {
@@ -108,5 +111,85 @@ describe("getMonthReport", () => {
     expect(report.total.Profit).toBe(0);
     expect(report.total.OrderCount).toBe(0);
     expect(report.total.Deposit).toBe(0);
+  });
+
+  it("books cross-day arb on the Link bind day", async () => {
+    const sb = await import("@changmen/db");
+    const yday = Date.parse("2026-06-13T23:46:00");
+    const next = Date.parse("2026-06-14T00:08:00");
+    vi.mocked(sb.fetchOrdersForMonthAggregate).mockResolvedValueOnce([
+      {
+        user_id: "u1",
+        order_id: "ray",
+        link: 99,
+        create_at: yday,
+        money: -264,
+        bet_money: 264,
+        status: "Lose",
+        provider: "RAY",
+      },
+      {
+        user_id: "u1",
+        order_id: "pm",
+        link: 99,
+        create_at: next,
+        money: 321,
+        bet_money: 279,
+        status: "Win",
+        provider: "Polymarket",
+        raw: { pmSide: "buy" },
+      },
+    ]);
+    vi.mocked(sb.fetchMoneyLogsForMonthAggregate).mockResolvedValueOnce([]);
+    const report = await getMonthReport("2026-06");
+    const day13 = report.list.find(r => r.Date === "2026-06-13");
+    const day14 = report.list.find(r => r.Date === "2026-06-14");
+    expect(day13.Profit).toBe(57);
+    expect(day13.OrderCount).toBe(2);
+    expect(day14.Profit).toBe(0);
+    expect(day14.OrderCount).toBe(0);
+  });
+
+  it("books a next-month fill on the Link bind day of the bind month", async () => {
+    const sb = await import("@changmen/db");
+    const bind = Date.parse("2026-08-31T23:50:00+08:00");
+    const fill = Date.parse("2026-09-01T00:10:00+08:00");
+    vi.mocked(sb.fetchOrdersForMonthAggregate).mockResolvedValueOnce([
+      {
+        user_id: "u1",
+        order_id: "pm",
+        link: bind,
+        create_at: fill,
+        money: 321,
+        bet_money: 279,
+        status: "Win",
+        provider: "Polymarket",
+        raw: { pmSide: "buy" },
+      },
+    ]);
+    vi.mocked(sb.fetchMoneyLogsForMonthAggregate).mockResolvedValueOnce([]);
+    const aug = await getMonthReport("2026-08");
+    const day31 = aug.list.find(r => r.Date === "2026-08-31");
+    expect(day31.Profit).toBe(321);
+    expect(day31.OrderCount).toBe(1);
+
+    vi.mocked(sb.fetchOrdersForMonthAggregate).mockResolvedValueOnce([
+      {
+        user_id: "u1",
+        order_id: "pm",
+        link: bind,
+        create_at: fill,
+        money: 321,
+        bet_money: 279,
+        status: "Win",
+        provider: "Polymarket",
+        raw: { pmSide: "buy" },
+      },
+    ]);
+    vi.mocked(sb.fetchMoneyLogsForMonthAggregate).mockResolvedValueOnce([]);
+    const sep = await getMonthReport("2026-09");
+    const day1 = sep.list.find(r => r.Date === "2026-09-01");
+    expect(day1.Profit).toBe(0);
+    expect(day1.OrderCount).toBe(0);
   });
 });
