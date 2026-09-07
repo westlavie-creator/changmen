@@ -3,9 +3,40 @@
  * 禁止 import 电竞 team_db / fetchAllCanonicalTeams。
  */
 import mlbAliasesRaw from "./sport_mlb_aliases.json" with { type: "json" };
+import footballAliasesRaw from "./sport_football_aliases.json" with { type: "json" };
+
+const FOOTBALL_GAMES = new Set([
+  "soccer",
+  "football",
+  "unknown_fb",
+  "epl",
+  "lal",
+  "bun",
+  "fl1",
+  "sea",
+  "ucl",
+  "uel",
+  "uecl",
+  "mls",
+  "ere",
+  "por",
+  "uef",
+  "fif",
+  "mex",
+  "bra",
+  "arg",
+  "copa",
+  "jap",
+  "afc",
+  "caf",
+  "chi",
+  "chi2",
+]);
 
 /** @type {Map<string, string>|null} */
 let mlbMap = null;
+/** @type {Map<string, string>|null} */
+let footballMap = null;
 
 function loadMlbMap() {
   if (mlbMap)
@@ -20,6 +51,25 @@ function loadMlbMap() {
       mlbMap.set(key, val);
   }
   return mlbMap;
+}
+
+function loadFootballMap() {
+  if (footballMap)
+    return footballMap;
+  footballMap = new Map();
+  for (const [k, v] of Object.entries(footballAliasesRaw)) {
+    if (k.startsWith("_"))
+      continue;
+    const key = String(k).trim().toLowerCase();
+    const val = String(v).trim().toLowerCase();
+    if (key && val)
+      footballMap.set(key, val);
+  }
+  return footballMap;
+}
+
+function isFootballGame(gameCode) {
+  return FOOTBALL_GAMES.has(String(gameCode || "").toLowerCase());
 }
 
 /** 与 sport 合并对齐：去撇号后再折叠空白，避免 A's → "a s"。 */
@@ -45,6 +95,10 @@ export function resolveSportTeamKey(name, gameCode = "mlb") {
   const game = String(gameCode || "mlb").toLowerCase();
   if (game === "mlb") {
     const map = loadMlbMap();
+    return map.get(n) || n;
+  }
+  if (isFootballGame(game)) {
+    const map = loadFootballMap();
     return map.get(n) || n;
   }
   return n;

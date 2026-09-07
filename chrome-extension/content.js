@@ -194,7 +194,9 @@
         panel.classList.remove("loading");
       }
       const row = (label, name) => `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
+      const sportHint = config.sessionId ? '<div class="gamebet-collect-panel-hint">\u5F53\u524D\uFF1A\u4F53\u80B2\uFF08\u8D34\u5230\u8DB3\u7403\u91C7\u96C6\u4F1A\u8BDD\uFF0C\u52FF\u5199\u5165\u7535\u7ADE\uFF09</div>' : "";
       panel.innerHTML = [
+        sportHint,
         row("\u7F51\u5173", "gateway"),
         row("token", "token"),
         ...config.sessionId ? [row("sessionId", "sessionId")] : [],
@@ -3659,6 +3661,26 @@
     }
     return hosts[0] || null;
   }
+  function discoverObSportWsUrl(performanceLike = globalThis.performance, storage = globalThis.localStorage) {
+    try {
+      for (const key of ["mqttUrl", "wsUrl", "MQTT_URL", "mqtt_url"]) {
+        const v = String(storage?.getItem?.(key) || "").trim();
+        if (/^wss?:\/\//i.test(v))
+          return v;
+      }
+    } catch {
+    }
+    try {
+      const entries = performanceLike?.getEntriesByType?.("resource") || [];
+      for (const entry of entries) {
+        const name = String(entry?.name || "");
+        if (/^wss?:\/\//i.test(name) && /mqtt|\/ws|websocket/i.test(name))
+          return name;
+      }
+    } catch {
+    }
+    return "";
+  }
   function findObSportIframeHref(doc = document) {
     try {
       const frames = doc.querySelectorAll?.("iframe[src]") || [];
@@ -3676,8 +3698,9 @@
     }
     return null;
   }
-  function buildObSportConfig(entry, gateway) {
+  function buildObSportConfig(entry, gateway, wsUrl = "") {
     const gate = gateway ? String(gateway).replace(/\/$/, "") : "";
+    const push = String(wsUrl || "").trim();
     const payload = {
       provider: "OB",
       kind: "sport",
@@ -3685,7 +3708,8 @@
       token: entry.token,
       sessionId: entry.sessionId,
       api: entry.api,
-      referer: entry.referer
+      referer: entry.referer,
+      ...push ? { wsUrl: push } : {}
     };
     return {
       provider: "OB",
@@ -3923,8 +3947,8 @@
         const entry = parseObSportEntry(href);
         if (!entry) return void 0;
         const gateway = await resolveObSportGateway(entry);
-        if (!gateway) return void 0;
-        return buildObSportConfig(entry, gateway);
+        const wsUrl = discoverObSportWsUrl();
+        return buildObSportConfig(entry, gateway || "", wsUrl);
       }
     },
     [PLATFORMS.RAY]: class RayProvider {

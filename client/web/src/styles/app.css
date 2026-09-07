@@ -161,6 +161,40 @@
   overflow: hidden;
 }
 
+/* 足球采集条包在 sport-board 外，必须接上同一条 flex 高，否则 .matchs 无法内部滚动 */
+.home-main .football-board {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-main .football-board .ob-sport-session {
+  flex: 0 0 auto;
+}
+
+.home-main .football-board .football-board-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.home-main .football-board .match-search-row,
+.home-main .football-board .match-search,
+.home-main .football-board .sport-toolbar__error {
+  flex: 0 0 auto;
+}
+
+.home-main .football-board .matchs,
+.home-main .football-board .match-empty {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
 .home-main .sport-board .match-search-row,
 .home-main .sport-board .match-search,
 .home-main .sport-board .sport-toolbar__error {

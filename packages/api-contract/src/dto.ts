@@ -164,6 +164,10 @@ export interface BetSourceDto {
   HomeOdds: number;
   AwayOdds: number;
   Status?: string;
+  /** [changmen 扩展] 体育 1X2 平局欧赔；电竞路径不使用 */
+  DrawOdds?: number;
+  /** [changmen 扩展] 体育 OB 平局 oid，供体育 WS 订阅 */
+  DrawID?: string;
   /** [changmen 扩展] PredictFun orderbook marketId（与 onChainId HomeID 不同） */
   HomeMarketID?: string;
   AwayMarketID?: string;

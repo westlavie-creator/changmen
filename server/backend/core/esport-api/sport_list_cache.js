@@ -72,6 +72,21 @@ export function readSportListCache(cacheKey) {
 }
 
 /**
+ * 删掉该 cacheKey 的磁盘快照（进程内存由调用方自行清空）。
+ * @param {string} cacheKey
+ */
+export function clearSportListCache(cacheKey) {
+  const filePath = sportListCachePath(cacheKey);
+  try {
+    if (fs.existsSync(filePath))
+      fs.unlinkSync(filePath);
+  }
+  catch (err) {
+    console.warn("[sportListCache] clear failed", cacheKey, err?.message || err);
+  }
+}
+
+/**
  * @param {string} cacheKey
  * @param {object[]} rows
  * @param {number} [at]

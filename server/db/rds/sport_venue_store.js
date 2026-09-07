@@ -71,7 +71,11 @@ export async function upsertSportVenueMatches(rows) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
-  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  const raw = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  const byKey = new Map();
+  for (const r of raw)
+    byKey.set(`${r.sport}|${r.venue}|${r.source_match_id}`, r);
+  const list = [...byKey.values()];
   if (!list.length)
     return;
   await pool.query(
@@ -117,7 +121,11 @@ export async function upsertSportVenueBets(rows) {
   const pool = getPgPool();
   if (!pool)
     throw new Error("DATABASE_URL 未配置");
-  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  const raw = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  const byKey = new Map();
+  for (const r of raw)
+    byKey.set(`${r.sport}|${r.venue}|${r.source_match_id}|${r.source_bet_id}`, r);
+  const list = [...byKey.values()];
   if (!list.length)
     return;
   await pool.query(

@@ -616,4 +616,164 @@ assert.equal(ids[0], encodeSportBetId(matchId, 1));
 assert.equal(ids[10], encodeSportBetId(matchId, 11));
 assert.notEqual(encodeSportBetId(matchId, 11), encodeSportBetId(matchId + 1, 1));
 
+// 足球：OB 中文队名与 PM 英文经 alias 合场
+const obPm = [{
+  ID: 820_000_001,
+  Title: "Manchester City vs Liverpool",
+  Game: "epl",
+  StartTime: t,
+  Matchs: { Polymarket: "pm-epl" },
+  Bets: [{
+    Map: 0,
+    MarketCode: "moneyline",
+    Line: null,
+    HomeName: "Manchester City",
+    AwayName: "Liverpool",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket", BetID: "pm", HomeID: "1", AwayID: "2",
+        HomeOdds: 1.8, AwayOdds: 4.2, Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 820_000_002,
+  Title: "曼城 vs 利物浦",
+  Game: "epl",
+  StartTime: t,
+  Matchs: { OB: "ob-mid" },
+  Bets: [{
+    Map: 0,
+    MarketCode: "moneyline",
+    Line: null,
+    HomeName: "曼城",
+    AwayName: "利物浦",
+    Sources: {
+      OB: {
+        Type: "OB", BetID: "ob", HomeID: "h", AwayID: "a",
+        HomeOdds: 1.75, AwayOdds: 4.1, DrawOdds: 3.6, DrawID: "d1",
+        Status: "Normal",
+      },
+    },
+  }],
+}];
+const obMerged = mergeSportClientMatchDtoList("football", obPm);
+assert.equal(obMerged.multiVenueCount, 1);
+assert.equal(obMerged.dtos.length, 1);
+assert.deepEqual(Object.keys(obMerged.dtos[0].Matchs).sort(), ["OB", "Polymarket"]);
+assert.equal(obMerged.dtos[0].Bets[0].Sources.OB.DrawOdds, 3.6);
+
+const t1330 = Date.parse("2026-09-07T13:30:00+08:00");
+const totalsOnlyNamed = [{
+  ID: 1,
+  Title: "重庆铜梁龙 vs 上海申花",
+  Game: "unknown_fb",
+  StartTime: t1330,
+  Matchs: { OB: "m-cs" },
+  Bets: [{
+    Map: 0, MarketCode: "totals", Line: 2.5, Name: "大小 2.5",
+    HomeName: "大", AwayName: "小",
+    Sources: {
+      OB: {
+        Type: "OB", BetID: "t1", HomeID: "1", AwayID: "2",
+        HomeOdds: 1.9, AwayOdds: 1.9, Status: "Normal",
+      },
+    },
+  }],
+}];
+const recovered = mergeSportClientMatchDtoList("football", totalsOnlyNamed);
+assert.equal(recovered.dtos.length, 1);
+assert.equal(recovered.dtos[0].Title, "重庆铜梁龙 vs 上海申花");
+assert.equal(recovered.dtos[0].Bets[0].HomeName, "大");
+
+const htCollapsed = [
+  {
+    ID: 2, Title: "甲队 vs 乙队", Game: "unknown_fb", StartTime: t1330,
+    Matchs: { OB: "m-a" },
+    Bets: [{
+      Map: 0, MarketCode: "ht_totals", Line: 1.5, HomeName: "大", AwayName: "小",
+      Sources: {
+        OB: {
+          Type: "OB", BetID: "ha", HomeID: "1", AwayID: "2",
+          HomeOdds: 1.8, AwayOdds: 1.8, Status: "Normal",
+        },
+      },
+    }],
+  },
+  {
+    ID: 3, Title: "丙队 vs 丁队", Game: "unknown_fb", StartTime: t1330,
+    Matchs: { OB: "m-b" },
+    Bets: [{
+      Map: 0, MarketCode: "ht_totals", Line: 1.5, HomeName: "大", AwayName: "小",
+      Sources: {
+        OB: {
+          Type: "OB", BetID: "hb", HomeID: "3", AwayID: "4",
+          HomeOdds: 1.85, AwayOdds: 1.85, Status: "Normal",
+        },
+      },
+    }],
+  },
+];
+const split = mergeSportClientMatchDtoList("football", htCollapsed);
+assert.equal(split.dtos.length, 2);
+assert.ok(split.dtos.every(d => !/大 vs 小/.test(d.Title)));
+assert.deepEqual(split.dtos.map(d => d.Title).sort(), ["丙队 vs 丁队", "甲队 vs 乙队"]);
+
+const orphanOu = [{
+  ID: 4, Title: "大 vs 小", Game: "unknown_fb", StartTime: t1330,
+  Matchs: { OB: "m-x" },
+  Bets: [{
+    Map: 0, MarketCode: "totals", Line: 2.5, HomeName: "大", AwayName: "小",
+    Sources: {
+      OB: {
+        Type: "OB", BetID: "x", HomeID: "1", AwayID: "2",
+        HomeOdds: 1.9, AwayOdds: 1.9, Status: "Normal",
+      },
+    },
+  }],
+}];
+assert.equal(mergeSportClientMatchDtoList("football", orphanOu).dtos.length, 0);
+
+// 让球 / 大小分属不同 sourceMatchId 时仍并成一场（PM More Markets）
+const splitAhOu = [{
+  ID: 501,
+  Title: "河王FC vs 火鹰FC",
+  Game: "unknown_fb",
+  StartTime: t1330,
+  Matchs: { Polymarket: "pm-ah" },
+  Bets: [{
+    Map: 0, MarketCode: "spreads", Line: 0.25, Name: "让球 +0.25",
+    HomeName: "河王FC", AwayName: "火鹰FC",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket", BetID: "ah", HomeID: "h", AwayID: "a",
+        HomeOdds: 1.86, AwayOdds: 1.74, Status: "Normal",
+      },
+    },
+  }],
+}, {
+  ID: 502,
+  Title: "河王FC vs 火鹰FC",
+  Game: "unknown_fb",
+  StartTime: t1330,
+  Matchs: { Polymarket: "pm-ou" },
+  Bets: [{
+    Map: 0, MarketCode: "totals", Line: 9.25, Name: "大小 9.25",
+    HomeName: "大", AwayName: "小",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket", BetID: "ou", HomeID: "o", AwayID: "u",
+        HomeOdds: 2.22, AwayOdds: 1.42, Status: "Normal",
+      },
+    },
+  }],
+}];
+const collapsedAhOu = mergeSportClientMatchDtoList("football", splitAhOu);
+assert.equal(collapsedAhOu.dtos.length, 1);
+assert.equal(collapsedAhOu.dtos[0].Title, "河王FC vs 火鹰FC");
+assert.deepEqual(
+  collapsedAhOu.dtos[0].Bets.map(b => `${b.MarketCode}:${b.Line}`).sort(),
+  ["spreads:0.25", "totals:9.25"],
+);
+
 console.log("sport_merge.smoke: ok");

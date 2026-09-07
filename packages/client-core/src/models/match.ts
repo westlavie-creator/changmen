@@ -25,6 +25,11 @@ export class ViewBetItem {
   homeSubscribeId = "";
   awaySubscribeId = "";
   /**
+   * [changmen 扩展] 体育 1X2 平局；电竞路径保持 0，BetRow 不展示第三格。
+   */
+  fallbackDrawOdds = 0;
+  drawSubscribeId = "";
+  /**
    * [changmen 扩展] PB Sources.LineID（moneyLine.lineId）。
    * 旧 GetMatchs 无此字段时为 0；下注回退本机 lineCache。
    */

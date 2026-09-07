@@ -103,6 +103,37 @@ export function discoverObSportGateway(performanceLike = globalThis.performance)
 }
 
 /**
+ * 体育 PC 页嗅探推送地址（localStorage / performance 里的 wss）。
+ * 未嗅到则空，前端 OB-S 保持未连，列表仍走 HTTP 快照。
+ * @param {Performance} [performanceLike]
+ * @param {Storage} [storage]
+ */
+export function discoverObSportWsUrl(performanceLike = globalThis.performance, storage = globalThis.localStorage) {
+  try {
+    for (const key of ["mqttUrl", "wsUrl", "MQTT_URL", "mqtt_url"]) {
+      const v = String(storage?.getItem?.(key) || "").trim();
+      if (/^wss?:\/\//i.test(v))
+        return v;
+    }
+  }
+  catch {
+    /* ignore */
+  }
+  try {
+    const entries = performanceLike?.getEntriesByType?.("resource") || [];
+    for (const entry of entries) {
+      const name = String(entry?.name || "");
+      if (/^wss?:\/\//i.test(name) && /mqtt|\/ws|websocket/i.test(name))
+        return name;
+    }
+  }
+  catch {
+    /* ignore */
+  }
+  return "";
+}
+
+/**
  * @param {Document} doc
  * @returns {string|null}
  */
@@ -129,9 +160,11 @@ export function findObSportIframeHref(doc = document) {
 /**
  * @param {object} entry parseObSportEntry 结果
  * @param {string|null} gateway
+ * @param {string} [wsUrl]
  */
-export function buildObSportConfig(entry, gateway) {
+export function buildObSportConfig(entry, gateway, wsUrl = "") {
   const gate = gateway ? String(gateway).replace(/\/$/, "") : "";
+  const push = String(wsUrl || "").trim();
   const payload = {
     provider: "OB",
     kind: "sport",
@@ -140,6 +173,7 @@ export function buildObSportConfig(entry, gateway) {
     sessionId: entry.sessionId,
     api: entry.api,
     referer: entry.referer,
+    ...(push ? { wsUrl: push } : {}),
   };
   return {
     provider: "OB",

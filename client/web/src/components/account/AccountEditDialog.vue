@@ -5,13 +5,16 @@ import { resolveAccountMultiply } from "@changmen/shared/account_multiply";
 import { ElLoading, ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, reactive, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import {
   createAccountEditFormStateFromPlatformAccount,
 } from "@/components/account/accountEditFormState";
 import {
+  isSportObCollectCredential,
   normalizePolymarketApiCreds,
   normalizePolymarketTokenObject,
   parsePastedAccountCredential,
+  parsePastedObject,
   parsePolymarketTokenObject,
 } from "@/components/account/accountCredentialParse";
 import {
@@ -25,6 +28,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import { getApiBase } from "@/config/apiBase";
 import { getToken } from "@/api/client";
+import { saveLocalSportObSessionFromPaste } from "@/runtime/obSportSessionLocal";
+import { clearObFootballClientCache } from "@/runtime/obSportFootballFetch";
 import {
   createOrDerivePolymarketApiCreds,
   type PolymarketApiCreds,
@@ -91,6 +96,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ close: []; multiplySaved: [multiply: number] }>();
+
+const route = useRoute();
+const onSportsWorkspace = computed(() => String(route.path || "").startsWith("/sports"));
 
 const accountStore = useAccountStore();
 const userStore = useUserStore();
@@ -627,7 +635,21 @@ async function applyPaste() {
     return;
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
-    const parsed = parsePastedAccountCredential(pasteRaw.value.trim());
+    const raw = pasteRaw.value.trim();
+    const pastedObj = parsePastedObject(raw);
+    if (isSportObCollectCredential(pastedObj)) {
+      if (!onSportsWorkspace.value) {
+        ElMessage.error("这是体育采集会话，请到足球页用快速填充，不要写入电竞账号");
+        return;
+      }
+      saveLocalSportObSessionFromPaste(raw);
+      clearObFootballClientCache();
+      pasteRaw.value = "";
+      ElMessage.success("已写入本机足球 OB 采集会话（未改账号、未上传服务器）");
+      emit("close");
+      return;
+    }
+    const parsed = parsePastedAccountCredential(raw);
     if (!parsed) {
       ElMessage.error("解析失败");
       return;
@@ -1545,7 +1567,9 @@ function unlockRate() {
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"
-            placeholder="通过插件获取到的数据快速填充进入"
+            :placeholder="onSportsWorkspace
+              ? '体育 OB「数据」写入足球采集；电竞账号凭证仍填账号'
+              : '通过插件获取到的数据快速填充进入'"
             @change="applyPaste"
           >
             <template #append>

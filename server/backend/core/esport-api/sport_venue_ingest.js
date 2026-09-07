@@ -14,6 +14,7 @@ export function clientMatchDtosToSportVenueRows(sport, list) {
   const sportKey = String(sport);
   const now = Date.now();
   const seenMatch = new Set();
+  const seenBet = new Set();
 
   for (const m of list || []) {
     for (const bet of m?.Bets || []) {
@@ -53,11 +54,16 @@ export function clientMatchDtosToSportVenueRows(sport, list) {
           });
         }
 
+        const sourceBetId = String(src.BetID || bet.ID || `${sourceMatchId}-ml`);
+        const bk = `${mk}|${sourceBetId}`;
+        if (seenBet.has(bk))
+          continue;
+        seenBet.add(bk);
         bets.push({
           sport: sportKey,
           venue,
           source_match_id: sourceMatchId,
-          source_bet_id: String(src.BetID || bet.ID || `${sourceMatchId}-ml`),
+          source_bet_id: sourceBetId,
           map: Number(bet.Map) || 0,
           market_code: String(bet.MarketCode || "moneyline"),
           line: bet.Line != null && Number.isFinite(Number(bet.Line)) ? Number(bet.Line) : null,

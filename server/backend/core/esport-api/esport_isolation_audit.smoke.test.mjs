@@ -13,7 +13,7 @@ const buildStart = store.indexOf("export async function buildMatchList");
 const buildEnd = store.indexOf("export async function buildBaseballMatchList");
 assert.ok(buildStart >= 0 && buildEnd > buildStart);
 const buildMatchList = store.slice(buildStart, buildEnd);
-assert.equal(/sport_merge|sport_gamma|football_gamma|sport_predictfun|sport_football|MarketCode|lineMarkets/.test(buildMatchList), false);
+assert.equal(/sport_merge|sport_gamma|football_gamma|sport_predictfun|sport_football|sport_ob|MarketCode|lineMarkets/.test(buildMatchList), false);
 assert.match(buildMatchList, /loadClientMatchesFromDb/);
 
 const matchTs = fs.readFileSync(path.join(root, "packages/client-core/src/models/match.ts"), "utf8");
@@ -44,5 +44,20 @@ for (const rel of [
     assert.equal(/sport_football_markets|lineMarkets/.test(src), false, rel);
   }
 }
+
+const footballBuildStart = store.indexOf("export async function buildFootballMatchList");
+const footballBuildEnd = store.indexOf("export async function buildTennisMatchList");
+assert.ok(footballBuildStart >= 0 && footballBuildEnd > footballBuildStart);
+const footballBuild = store.slice(footballBuildStart, footballBuildEnd);
+assert.equal(/sport_ob_football_fetch/.test(footballBuild), false, "GetFootballMatchs must not fetch OB HTTP");
+assert.match(footballBuild, /football_gamma_fetch/);
+assert.match(footballBuild, /sport_predictfun_fetch/);
+
+const routerTs = fs.readFileSync(path.join(root, "server/backend/core/esport-api/router.ts"), "utf8");
+const marketsCase = routerTs.indexOf('case "Client_GetFootballMatchMarkets"');
+assert.ok(marketsCase >= 0);
+const marketsSlice = routerTs.slice(marketsCase, marketsCase + 120);
+assert.match(marketsSlice, /return ok\(\[\]\)/);
+assert.equal(/sport_ob_football_fetch/.test(marketsSlice), false, "GetFootballMatchMarkets must not fetch OB HTTP");
 
 console.log("esport_isolation_audit.smoke: ok");

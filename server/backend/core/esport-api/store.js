@@ -594,24 +594,33 @@ export async function buildBaseballMatchList() {
   return list;
 }
 
-/** 足球：同上；不碰电竞 client_matches / mainBetLoop。 */
+/** 足球：VPS 只拉 PM∥PF → 合场。OB 由用户 Chrome 扩展本机拉，不走这条热路径。不碰电竞 client_matches / mainBetLoop。 */
 export async function buildFootballMatchList() {
   const { fetchFootballAsClientMatchDtos } = await import("./football_gamma_fetch.js");
   const { fetchPredictFunFootballAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
   const list = await concatSportReadOnlyLists(
-    [fetchFootballAsClientMatchDtos(), fetchPredictFunFootballAsClientMatchDtos()],
+    [
+      fetchFootballAsClientMatchDtos(),
+      fetchPredictFunFootballAsClientMatchDtos(),
+    ],
     "GetFootballMatchs",
   );
   try {
     const { ingestAndMergeSportLists } = await import("./sport_merge.js");
+    const { sanitizeFootballMatchList } = await import("./sport_football_markets.js");
     const merged = await ingestAndMergeSportLists("football", list);
-    if (merged?.length)
-      return merged;
+    return sanitizeFootballMatchList(merged?.length ? merged : list);
   }
   catch (err) {
     console.warn("[GetFootballMatchs] sport merge fallback to concat", err?.message || err);
+    try {
+      const { sanitizeFootballMatchList } = await import("./sport_football_markets.js");
+      return sanitizeFootballMatchList(list);
+    }
+    catch {
+      return list;
+    }
   }
-  return list;
 }
 
 /** 网球：同上（ATP+WTA 单打）；不碰电竞 client_matches / mainBetLoop。 */

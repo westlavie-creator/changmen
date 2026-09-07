@@ -47,7 +47,7 @@ import {
 import { ElMessage } from "element-plus";
 
 const props = withDefaults(defineProps<{
-  /** esport：显示 PM-M；sports：显示 PM-S（体育独立 MARKET hub） */
+  /** esport：显示 PM-M；sports：显示 PM-S / OB-S（体育独立推送） */
   workspace?: "esport" | "sports";
 }>(), {
   workspace: "esport",
@@ -74,6 +74,7 @@ const VENUE_WS_SECOND_ROW_IDS = new Set([
   "dex",
   "lm-market",
   "sx-market",
+  "ob-sport",
 ]);
 
 const venueWsPb = computed(() =>
@@ -88,10 +89,12 @@ const venueWsSecondRow = computed(() =>
   venueWsStatuses.value.filter((entry) => {
     if (!VENUE_WS_SECOND_ROW_IDS.has(entry.id))
       return false;
-    // 电竞页只看 PM-M；体育页只看 PM-S（避免闲置电竞角标误导）
+    // 电竞页只看 PM-M；体育页只看 PM-S / OB-S（避免闲置电竞角标误导）
     if (props.workspace === "sports" && entry.id === "pm-market")
       return false;
     if (props.workspace !== "sports" && entry.id === "pm-sport-market")
+      return false;
+    if (props.workspace !== "sports" && entry.id === "ob-sport")
       return false;
     return true;
   }),
@@ -186,7 +189,7 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     "sx-market": "SX Bet Market WS（best_odds Centrifugo）",
     "dex": "DexSport WS",
     "cm-hub": "Changmen 实时 Hub（Socket.IO / pm_sport）",
-    "pb": "平博 PB sports-websocket（扩展观测旁路；赔率主路径仍为 euro/odds HTTP）",
+    "ob-sport": "OB 体育推送（足球实时赔率 · 独立于电竞 MQTT）",
   };
   const label = names[entry.id] ?? entry.label;
   const lines: string[] = [label];
@@ -341,7 +344,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S）"
+    aria-label="直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S / OB-S）"
   >
     <div class="direct-realtime-row direct-realtime-row--primary">
       <span

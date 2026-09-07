@@ -35,6 +35,8 @@ const STEPS = [
   mjs("esport-api: sport_list_cache", "server/backend/core/esport-api/sport_list_cache.smoke.test.mjs"),
   mjs("esport-api: sport_predictfun_fetch", "server/backend/core/esport-api/sport_predictfun_fetch.smoke.test.mjs"),
   mjs("esport-api: sport_football_markets", "server/backend/core/esport-api/sport_football_markets.smoke.test.mjs"),
+  mjs("esport-api: sport_ob_odds", "server/backend/core/esport-api/sport_ob_odds.smoke.test.mjs"),
+  mjs("esport-api: sport_ob_session", "server/backend/core/esport-api/sport_ob_session.smoke.test.mjs"),
   mjs("esport-api: sport_venue_ingest", "server/backend/core/esport-api/sport_venue_ingest.smoke.test.mjs"),
   mjs("esport-api: sport_merge", "server/backend/core/esport-api/sport_merge.smoke.test.mjs"),
   mjs("esport-api: esport_isolation_audit", "server/backend/core/esport-api/esport_isolation_audit.smoke.test.mjs"),

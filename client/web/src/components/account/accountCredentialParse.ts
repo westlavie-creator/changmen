@@ -8,9 +8,25 @@ export interface PastedAccountCredential {
   gateway?: string | string[];
 }
 
-export function parsePastedAccountCredential(raw: string): PastedAccountCredential | undefined {
-  const parsed = tryParseJson(raw) ?? tryParseJson(decodeBase64Utf8(raw));
+export function isSportObCollectCredential(parsed: Record<string, unknown> | undefined): boolean {
   if (!parsed)
+    return false;
+  if (String(parsed.kind || "").toLowerCase() === "sport")
+    return true;
+  const token = String(parsed.token || "").trim();
+  const sessionId = String(parsed.sessionId || "").trim();
+  return Boolean(sessionId && token && /^[0-9a-f]{16,}$/i.test(token) && !/^\d+$/.test(token));
+}
+
+export function parsePastedObject(raw: string): Record<string, unknown> | undefined {
+  return tryParseJson(raw) ?? tryParseJson(decodeBase64Utf8(raw));
+}
+
+export function parsePastedAccountCredential(raw: string): PastedAccountCredential | undefined {
+  const parsed = parsePastedObject(raw);
+  if (!parsed)
+    return undefined;
+  if (isSportObCollectCredential(parsed))
     return undefined;
   if (parsed.provider) {
     const credential = parsed as PastedAccountCredential;

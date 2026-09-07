@@ -10,6 +10,7 @@ const {
   parseObEsportEntry,
   parseObSportEntry,
   discoverObSportGateway,
+  discoverObSportWsUrl,
   buildObEsportConfig,
   buildObSportConfig,
 } = await import("./src/content/ob-entry.js");
@@ -48,6 +49,14 @@ assert.equal(sportData.kind, "sport");
 assert.equal(sportData.sessionId, sport.sessionId);
 assert.deepEqual(sportData.gateway, ["https://api.937kddt.com"]);
 
+const sportNoGw = buildObSportConfig(sport, "");
+assert.equal(sportNoGw.gateway, "");
+assert.equal(sportNoGw.token, sport.token);
+assert.equal(sportNoGw.sessionId, sport.sessionId);
+const sportNoGwData = JSON.parse(Buffer.from(sportNoGw.data, "base64").toString("utf8"));
+assert.equal(sportNoGwData.kind, "sport");
+assert.deepEqual(sportNoGwData.gateway, []);
+
 const perf = {
   getEntriesByType: () => [
     { name: "https://cdn.example.com/app.js" },
@@ -55,6 +64,13 @@ const perf = {
   ],
 };
 assert.equal(discoverObSportGateway(perf), "https://api.937kddt.com");
+assert.equal(
+  discoverObSportWsUrl({ getEntriesByType: () => [{ name: "wss://mqtt.example:8084/mqtt" }] }, { getItem: () => "" }),
+  "wss://mqtt.example:8084/mqtt",
+);
+const sportCfgWs = buildObSportConfig(sport, "https://api.937kddt.com", "wss://push.example/ws");
+const sportDataWs = JSON.parse(Buffer.from(sportCfgWs.data, "base64").toString("utf8"));
+assert.equal(sportDataWs.wsUrl, "wss://push.example/ws");
 
 // 纯数字 token + 无合法 addr → 不是体育
 assert.equal(

@@ -1,0 +1,225 @@
+import { footballMarketTitle } from "@/runtime/footballMarketRows";
+import { footballRowHasQuotes, type FootballObMarketRow } from "@/runtime/footballObMarkets";
+
+export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
+export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht" | "goals" | "cs" | "corners" | "other";
+
+/** 列表从左到右的分类列，全部同时展开 */
+export const FOOTBALL_BOOK_COLUMNS: { id: FootballBookColumnId; label: string }[] = [
+  { id: "ml", label: "独赢" },
+  { id: "ah", label: "让球" },
+  { id: "ou", label: "大小" },
+  { id: "ht", label: "半场" },
+  { id: "goals", label: "进球" },
+  { id: "cs", label: "波胆" },
+  { id: "corners", label: "角球" },
+  { id: "other", label: "其他" },
+];
+
+export type FootballBookKind = "ml" | "ah" | "ou" | "grid";
+
+export type FootballBookSection = {
+  key: string;
+  title: string;
+  kind: FootballBookKind;
+  rows: FootballObMarketRow[];
+};
+
+export type FootballBookColumn = {
+  id: FootballBookColumnId;
+  label: string;
+  sections: FootballBookSection[];
+};
+
+const COMPACT_LINE_CAP = 3;
+const KIND_ORDER: Record<FootballBookKind, number> = { ml: 0, ah: 1, ou: 2, grid: 3 };
+
+export function splitFootballTeams(title: string): { home: string; away: string } {
+  const parts = String(title || "").split(/\s+vs\.?\s+/i);
+  const home = String(parts[0] || "").trim() || "主";
+  const away = String(parts.slice(1).join(" vs ") || "").trim() || "客";
+  return { home, away };
+}
+
+export function formatFootballLine(line: number | null | undefined): string {
+  const n = Number(line);
+  if (!Number.isFinite(n))
+    return "";
+  if (n > 0)
+    return `+${n}`;
+  return String(n);
+}
+
+export function footballRowKind(row: FootballObMarketRow): FootballBookKind {
+  const code = String(row.MarketCode || "").toLowerCase();
+  const name = String(row.Name || "");
+  if (code.includes("moneyline") || /独赢|胜负/.test(name))
+    return "ml";
+  if (code.includes("spreads") || /让球/.test(name))
+    return "ah";
+  if (code.includes("totals") || /大小/.test(name))
+    return "ou";
+  return "grid";
+}
+
+function isHalf(row: FootballObMarketRow): boolean {
+  const code = String(row.MarketCode || "").toLowerCase();
+  const name = String(row.Name || "");
+  return code.startsWith("ht_") || /半场|上半/.test(name);
+}
+
+function isCorrectScore(row: FootballObMarketRow): boolean {
+  return /波胆|正确比分/.test(String(row.Name || ""));
+}
+
+function isCorners(row: FootballObMarketRow): boolean {
+  return /角球/.test(String(row.Name || ""));
+}
+
+function isGoals(row: FootballObMarketRow): boolean {
+  const name = String(row.Name || "");
+  if (isCorrectScore(row) || isCorners(row))
+    return false;
+  const kind = footballRowKind(row);
+  if (kind === "ml" || kind === "ah")
+    return false;
+  if (kind === "ou" && /大小/.test(name) && !/总进球|进球数/.test(name))
+    return false;
+  return /进球|单双|双方|净胜|零失球|最先|最后得分/.test(name);
+}
+
+function sectionTitle(kind: FootballBookKind, half: boolean, fallback: string): string {
+  const prefix = half ? "半场" : "全场";
+  if (kind === "ml")
+    return `${prefix}独赢`;
+  if (kind === "ah")
+    return isCorners({ Name: fallback } as FootballObMarketRow) ? `${prefix}角球让球` : `${prefix}让球`;
+  if (kind === "ou")
+    return isCorners({ Name: fallback } as FootballObMarketRow) ? `${prefix}角球大小` : `${prefix}大小`;
+  return footballMarketTitle({ Name: fallback, MarketCode: "", Line: null })
+    .replace(/\s*[+-]?\d+(?:\.\d+)?\s*$/, "")
+    .trim() || fallback || "盘口";
+}
+
+function inTab(row: FootballObMarketRow, tab: FootballBookTab): boolean {
+  const kind = footballRowKind(row);
+  const half = isHalf(row);
+  const cs = isCorrectScore(row);
+  const corners = isCorners(row);
+  const goals = isGoals(row);
+  if (tab === "all")
+    return true;
+  if (tab === "ht")
+    return half && !cs;
+  if (tab === "cs")
+    return cs;
+  if (tab === "corners")
+    return corners;
+  if (tab === "goals")
+    return goals && !half;
+  if (tab === "hot")
+    return !half && !cs && !corners && (kind === "ml" || kind === "ah" || kind === "ou");
+  if (tab === "ahou")
+    return !half && !corners && (kind === "ah" || kind === "ou");
+  return !half && !cs && !corners && !goals && kind === "grid";
+}
+
+function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean {
+  const kind = footballRowKind(row);
+  const half = isHalf(row);
+  const cs = isCorrectScore(row);
+  const corners = isCorners(row);
+  const goals = isGoals(row);
+  if (col === "ht")
+    return half && !cs;
+  if (col === "cs")
+    return cs;
+  if (col === "corners")
+    return corners;
+  if (col === "goals")
+    return goals && !half;
+  if (col === "ml")
+    return !half && kind === "ml";
+  if (col === "ah")
+    return !half && !corners && kind === "ah";
+  if (col === "ou")
+    return !half && !corners && kind === "ou";
+  return !half && !cs && !corners && !goals && kind === "grid";
+}
+
+function capCompactLines(rows: FootballObMarketRow[]): FootballObMarketRow[] {
+  if (rows.length <= COMPACT_LINE_CAP)
+    return rows;
+  return [...rows]
+    .sort((a, b) => Math.abs(Number(a.Line) || 0) - Math.abs(Number(b.Line) || 0))
+    .slice(0, COMPACT_LINE_CAP)
+    .sort((a, b) => (Number(a.Line) || 0) - (Number(b.Line) || 0));
+}
+
+function collectSections(
+  rows: FootballObMarketRow[],
+  pred: (row: FootballObMarketRow) => boolean,
+  compact = false,
+): FootballBookSection[] {
+  const list = (rows || []).filter(r => footballRowHasQuotes(r) && pred(r));
+  const byKey = new Map<string, FootballBookSection>();
+  const order: string[] = [];
+  for (const row of list) {
+    const kind = footballRowKind(row);
+    const half = isHalf(row);
+    const corners = isCorners(row);
+    const key = kind === "grid"
+      ? `grid|${row.hpid || ""}|${row.Name || ""}`
+      : `${half ? "ht" : "ft"}|${corners ? "cr" : "mn"}|${kind}`;
+    let sec = byKey.get(key);
+    if (!sec) {
+      sec = {
+        key,
+        title: sectionTitle(kind, half, String(row.Name || "")),
+        kind,
+        rows: [],
+      };
+      byKey.set(key, sec);
+      order.push(key);
+    }
+    sec.rows.push(row);
+  }
+  for (const sec of byKey.values()) {
+    if (sec.kind === "ah" || sec.kind === "ou") {
+      sec.rows.sort((a, b) => (Number(a.Line) || 0) - (Number(b.Line) || 0));
+      if (compact)
+        sec.rows = capCompactLines(sec.rows);
+    }
+  }
+  return order
+    .map(k => byKey.get(k)!)
+    .filter(s => s.rows.length)
+    .sort((a, b) => {
+      const ha = a.key.startsWith("ht") ? 1 : 0;
+      const hb = b.key.startsWith("ht") ? 1 : 0;
+      if (ha !== hb)
+        return ha - hb;
+      return (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9);
+    });
+}
+
+/**
+ * 按玩法整块分组（全场让球多线同一节），而不是每条线一张卡。
+ */
+export function groupFootballBook(
+  rows: FootballObMarketRow[],
+  tab: FootballBookTab,
+): FootballBookSection[] {
+  return collectSections(rows, r => inTab(r, tab), tab === "hot");
+}
+
+/** 从左到右的分类列，空列不返回。 */
+export function groupFootballColumns(rows: FootballObMarketRow[]): FootballBookColumn[] {
+  return FOOTBALL_BOOK_COLUMNS
+    .map(col => ({
+      id: col.id,
+      label: col.label,
+      sections: collectSections(rows, r => inColumn(r, col.id)),
+    }))
+    .filter(col => col.sections.length > 0);
+}

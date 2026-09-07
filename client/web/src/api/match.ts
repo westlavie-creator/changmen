@@ -99,6 +99,43 @@ export async function getFootballMatchs(userName: string) {
   return data.info;
 }
 
+/** 足球 OB 单场全玩法（展开用；不进电竞 GetMatchs） */
+export async function getFootballMatchMarkets(mid: string) {
+  const data = await post<unknown[]>(
+    "Client_GetFootballMatchMarkets",
+    { mid },
+  );
+  if (data.success !== 1)
+    throw new Error(data.msg || "Client_GetFootballMatchMarkets failed");
+  return Array.isArray(data.info) ? data.info : [];
+}
+
+export type SportObSessionInfo = {
+  configured: boolean;
+  token?: string;
+  sessionId?: string;
+  gateway?: string;
+  referer?: string;
+  wsUrl?: string;
+  tokenMasked?: string;
+  sessionIdMasked?: string;
+  updatedAt?: number;
+};
+
+export async function getSportObSession() {
+  const data = await post<SportObSessionInfo>("Client_GetSportObSession", {});
+  if (data.success !== 1)
+    throw new Error(data.msg || "Client_GetSportObSession failed");
+  return data.info ?? { configured: false };
+}
+
+export async function updateSportObSession(body: Record<string, unknown>) {
+  const data = await post<SportObSessionInfo>("API_UpdateSportObSession", body);
+  if (data.success !== 1)
+    throw new Error(data.msg || "API_UpdateSportObSession failed");
+  return data.info ?? { configured: false };
+}
+
 /** 网球列表（独立 action；不进电竞 GetMatchs / 套利主循环） */
 export async function getTennisMatchs(userName: string) {
   const data = await post<ClientMatchDto[]>(

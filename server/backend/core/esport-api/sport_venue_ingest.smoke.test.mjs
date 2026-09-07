@@ -74,6 +74,35 @@ assert.ok(matches.every(m => m.sport === "baseball"));
 assert.ok(matches.every(m => m.venue === "Polymarket" || m.venue === "PredictFun"));
 assert.ok(!matches.some(m => "platform" in m));
 
+const dupList = [{
+  ID: 9,
+  Title: "A vs B",
+  Game: "epl",
+  StartTime: 1_700_000_000_000,
+  Matchs: { OB: "5450099" },
+  Bets: [
+    {
+      ID: 91,
+      Map: 0,
+      Name: "全场胜负",
+      HomeName: "A",
+      AwayName: "B",
+      Sources: { OB: { Type: "OB", BetID: "5450099", HomeOdds: 0, AwayOdds: 0, Status: "Locked" } },
+    },
+    {
+      ID: 92,
+      Map: 0,
+      Name: "让球",
+      HomeName: "A",
+      AwayName: "B",
+      Sources: { OB: { Type: "OB", BetID: "5450099", HomeOdds: 1.8, AwayOdds: 2.0, Status: "Normal" } },
+    },
+  ],
+}];
+const dup = clientMatchDtosToSportVenueRows("football", dupList);
+assert.equal(dup.matches.length, 1);
+assert.equal(dup.bets.length, 1);
+
 const k1 = sportPairKey("Yankees", "Red Sox", 1_700_000_000_000);
 const k2 = sportPairKey("Red Sox", "Yankees", 1_700_000_000_000);
 assert.equal(k1, k2);

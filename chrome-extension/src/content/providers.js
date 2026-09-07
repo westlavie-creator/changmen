@@ -5,6 +5,7 @@ import {
   buildObEsportConfig,
   buildObSportConfig,
   discoverObSportGateway,
+  discoverObSportWsUrl,
   findObSportIframeHref,
   parseObEsportEntry,
   parseObSportEntry,
@@ -168,9 +169,10 @@ export const PROVIDER_REGISTRY = {
       const href = this._sportHref || location.href;
       const entry = parseObSportEntry(href);
       if (!entry) return undefined;
+      // 无网关也先交 token+sessionId，网关可后补；禁止因嗅探超时丢掉体育凭证
       const gateway = await resolveObSportGateway(entry);
-      if (!gateway) return undefined;
-      return buildObSportConfig(entry, gateway);
+      const wsUrl = discoverObSportWsUrl();
+      return buildObSportConfig(entry, gateway || "", wsUrl);
     }
   },
 

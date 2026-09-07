@@ -13,6 +13,9 @@ import {
 } from "@changmen/venue-adapter/predictfun";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
+import { startObSportWs, type ObSportSessionLite } from "@/runtime/obSportWs";
+import { SPORT_OB_SESSION_UPDATED } from "@/runtime/sportObSessionEvents";
 
 /** 与电竞 Polymarket 采集窗一致：过去 6h + 未来 1h */
 const SPORT_LIVE_PAST_MS = 6 * 3600 * 1000;
@@ -22,6 +25,7 @@ export const SPORT_SUBSCRIBE_HARD_CAP = 100;
 
 const PM = "Polymarket";
 const PF = "PredictFun";
+const OB = "OB";
 
 function decimalOddsFromProbability(price: number): number {
   if (!Number.isFinite(price) || price <= 0 || price >= 1)
@@ -38,6 +42,7 @@ function startTimeAllowed(startMs: number, now = Date.now()): boolean {
 export interface SportSubscribePick {
   polymarketAssetIds: string[];
   predictFunMarketIds: string[];
+  obOids: string[];
 }
 
 /**
@@ -56,6 +61,7 @@ export function pickSportSubscribeIds(
 
   const pm = new Set<string>();
   const pf = new Set<string>();
+  const ob = new Set<string>();
   let used = 0;
 
   const tryAdd = (set: Set<string>, id: string) => {
@@ -87,6 +93,11 @@ export function pickSportSubscribeIds(
           tryAdd(pf, home);
           tryAdd(pf, away);
         }
+        else if (item.type === OB) {
+          tryAdd(ob, home);
+          tryAdd(ob, away);
+          tryAdd(ob, String(item.drawSubscribeId || "").trim());
+        }
       }
     }
   }
@@ -94,6 +105,7 @@ export function pickSportSubscribeIds(
   return {
     polymarketAssetIds: [...pm],
     predictFunMarketIds: [...pf],
+    obOids: [...ob],
   };
 }
 
@@ -109,6 +121,9 @@ function patchItemFallback(item: ViewBetItem, subscribeId: string, decimalOdds: 
     item.fallbackHomeOdds = decimalOdds;
   if (awayKey && subscribeId === awayKey)
     item.fallbackAwayOdds = decimalOdds;
+  const drawKey = String(item.drawSubscribeId || "").trim();
+  if (drawKey && subscribeId === drawKey)
+    item.fallbackDrawOdds = decimalOdds;
 }
 
 function applyQuoteToMatches(
@@ -140,6 +155,26 @@ export type SportLiveOddsSession = {
 export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportLiveOddsSession {
   const sportOdds = useSportOddsStore();
   let stopped = false;
+  let obSession: ObSportSessionLite | null = null;
+
+  const obWs = startObSportWs(
+    () => obSession,
+    (oid, decimalOdds) => {
+      if (stopped)
+        return;
+      sportOdds.save(OB, oid, decimalOdds);
+      applyQuoteToMatches(getMatches(), OB, oid, decimalOdds);
+    },
+  );
+
+  async function loadObSession() {
+    try {
+      obSession = readLocalSportObSession();
+    }
+    catch {
+      obSession = null;
+    }
+  }
 
   // 先连体育 hub，避免无 token 时 PM-S 一直灰；有列表后再 set asset
   ensurePolymarketSportMarketConnection();
@@ -150,26 +185,34 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     const pick = pickSportSubscribeIds(getMatches());
     setPolymarketSportAssetIds(pick.polymarketAssetIds, force);
     setPredictFunSportMarketIds(pick.predictFunMarketIds, force);
+    void loadObSession().then(() => {
+      if (!stopped)
+        obWs.sync(pick.obOids);
+    });
 
     // 列表重刷后用缓存价回写 fallback，避免 30s 快照盖掉实时价
     const matches = getMatches();
     for (const m of matches) {
       for (const bet of m.bets) {
         for (const item of bet.items) {
-          if (item.type !== PM && item.type !== PF)
+          if (item.type !== PM && item.type !== PF && item.type !== OB)
             continue;
           const homeKey = String(item.homeSubscribeId || "").trim();
           const awayKey = String(item.awaySubscribeId || "").trim();
-          if (!homeKey && !awayKey)
+          const drawKey = String(item.drawSubscribeId || "").trim();
+          if (!homeKey && !awayKey && !drawKey)
             continue;
-          if (homeKey && homeKey === awayKey)
+          if (item.type === PF && homeKey && homeKey === awayKey)
             continue;
           const h = homeKey ? sportOdds.get(item.type, homeKey) : 0;
           const a = awayKey ? sportOdds.get(item.type, awayKey) : 0;
+          const d = drawKey ? sportOdds.get(item.type, drawKey) : 0;
           if (h > 0)
             item.fallbackHomeOdds = h;
           if (a > 0)
             item.fallbackAwayOdds = a;
+          if (d > 0)
+            item.fallbackDrawOdds = d;
         }
       }
     }
@@ -205,6 +248,16 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
       sync(true);
   });
 
+  const onSportObSession = () => {
+    if (!stopped)
+      void loadObSession().then(() => {
+        if (!stopped)
+          sync(true);
+      });
+  };
+  if (typeof window !== "undefined")
+    window.addEventListener(SPORT_OB_SESSION_UPDATED, onSportObSession);
+
   sync();
 
   return {
@@ -217,6 +270,9 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
       unPf();
       unPmBound();
       unPfBound();
+      if (typeof window !== "undefined")
+        window.removeEventListener(SPORT_OB_SESSION_UPDATED, onSportObSession);
+      obWs.stop();
       sportOdds.clear();
       clearPolymarketSportHub();
       setPredictFunSportMarketIds([]);

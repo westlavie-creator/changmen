@@ -139,6 +139,71 @@ export function stripFootballHandicapSuffix(name) {
     .trim();
 }
 
+const OUTCOME_LABEL_RE = /^(大|小|大球|小球|over|under|o\/u)$/i;
+
+/** 大小球选项名，不能当队名/比赛标题 */
+export function isFootballOutcomeLabelName(name) {
+  return OUTCOME_LABEL_RE.test(String(name || "").trim());
+}
+
+/** totals / ht_totals / 其它 *_totals */
+export function isFootballTotalsMarketCode(code) {
+  const c = String(code || "").toLowerCase();
+  return c === MARKET_TOTALS || c.endsWith("_totals");
+}
+
+/**
+ * 从 "主 vs 客" 标题取队名；标题本身是「大 vs 小」则返回 null。
+ * @param {string} title
+ * @returns {{ home: string, away: string }|null}
+ */
+export function parseFootballTitleTeams(title) {
+  const t = baseFootballEventTitle(title);
+  const parts = t.split(/\s+vs\.?\s+/i);
+  if (parts.length < 2)
+    return null;
+  const home = stripFootballHandicapSuffix(parts[0]) || String(parts[0] || "").trim();
+  const away = stripFootballHandicapSuffix(parts.slice(1).join(" vs "))
+    || String(parts.slice(1).join(" vs ") || "").trim();
+  if (!home || !away)
+    return null;
+  if (isFootballOutcomeLabelName(home) || isFootballOutcomeLabelName(away))
+    return null;
+  return { home, away };
+}
+
+/**
+ * 丢掉「大 vs 小」这种把大小球选项当成队名的壳场；能从胜负盘还原队名则改标题。
+ * @param {object[]} list
+ */
+export function sanitizeFootballMatchList(list) {
+  const out = [];
+  for (const m of list || []) {
+    if (!m || typeof m !== "object")
+      continue;
+    if (parseFootballTitleTeams(m.Title)) {
+      out.push(m);
+      continue;
+    }
+    const bet = (m.Bets || []).find((b) => {
+      const h = String(b?.HomeName || "").trim();
+      const a = String(b?.AwayName || "").trim();
+      if (!h || !a)
+        return false;
+      if (isFootballOutcomeLabelName(h) || isFootballOutcomeLabelName(a))
+        return false;
+      if (isFootballTotalsMarketCode(b.MarketCode))
+        return false;
+      return true;
+    });
+    if (bet) {
+      out.push({ ...m, Title: `${bet.HomeName} vs ${bet.AwayName}` });
+      continue;
+    }
+  }
+  return out;
+}
+
 /**
  * @param {string} title
  */
@@ -213,19 +278,22 @@ export function marketBetKey(marketCode, line) {
  * @param {number|null|undefined} line
  */
 export function displayBetName(marketCode, line) {
-  const code = String(marketCode || "").toLowerCase();
+  const raw = String(marketCode || "").toLowerCase();
+  const ht = raw.startsWith("ht_");
+  const code = ht ? raw.slice(3) : raw;
+  const prefix = ht ? "半场" : "";
   if (code === MARKET_SPREADS) {
     const n = Number(line);
     if (!Number.isFinite(n))
-      return "让球";
+      return `${prefix}让球`;
     const sign = n > 0 ? `+${n}` : String(n);
-    return `让球 ${sign}`;
+    return `${prefix}让球 ${sign}`;
   }
   if (code === MARKET_TOTALS) {
     const n = Number(line);
-    return Number.isFinite(n) ? `大小 ${n}` : "大小球";
+    return Number.isFinite(n) ? `${prefix}大小 ${n}` : `${prefix}大小球`;
   }
-  return "全场胜负";
+  return ht ? "半场胜负" : "全场胜负";
 }
 
 /**
@@ -304,6 +372,28 @@ export function selectFootballDisplayBets(bets) {
   }
   out.push(...spreads);
   out.push(...totals);
+  const htMoney = list.filter(b => String(b.MarketCode || "").toLowerCase() === `ht_${MARKET_MONEYLINE}`);
+  const htSpreads = list
+    .filter(b => String(b.MarketCode) === `ht_${MARKET_SPREADS}`)
+    .slice()
+    .sort((a, b) => Number(a.Line) - Number(b.Line));
+  const htTotals = list
+    .filter(b => String(b.MarketCode) === `ht_${MARKET_TOTALS}`)
+    .slice()
+    .sort((a, b) => Number(a.Line) - Number(b.Line));
+  if (htMoney.length)
+    out.push(htMoney[0]);
+  out.push(...htSpreads);
+  out.push(...htTotals);
+  const kept = new Set(out);
+  for (const b of list) {
+    if (kept.has(b))
+      continue;
+    if (String(b.MarketCode || "").startsWith("ob:")) {
+      out.push(b);
+      kept.add(b);
+    }
+  }
   return out;
 }
 

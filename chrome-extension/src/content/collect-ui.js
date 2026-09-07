@@ -208,7 +208,12 @@ export async function mountCollectIcon(provider) {
     const row = (label, name) =>
       `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
 
+    const sportHint = config.sessionId
+      ? '<div class="gamebet-collect-panel-hint">当前：体育（贴到足球采集会话，勿写入电竞）</div>'
+      : "";
+
     panel.innerHTML = [
+      sportHint,
       row("网关", "gateway"),
       row("token", "token"),
       ...(config.sessionId ? [row("sessionId", "sessionId")] : []),

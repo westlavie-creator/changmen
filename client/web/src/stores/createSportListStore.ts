@@ -37,6 +37,7 @@ function applySportListSourceOdds(views: ViewMatch[], list: ClientMatchDto[]): V
         const locked = String(src.Status ?? "").toLowerCase() === "locked";
         item.fallbackHomeOdds = locked ? 0 : (Number(src.HomeOdds) || 0);
         item.fallbackAwayOdds = locked ? 0 : (Number(src.AwayOdds) || 0);
+        item.fallbackDrawOdds = locked ? 0 : (Number(src.DrawOdds) || 0);
         item.sourceStatus = String(src.Status ?? "Normal");
         // [changmen 扩展] WS 订阅键：PF 必须用 marketId；缺省则空（勿把 onChainId 当 market 订）
         if (item.type === "PredictFun") {
@@ -49,6 +50,7 @@ function applySportListSourceOdds(views: ViewMatch[], list: ClientMatchDto[]): V
           item.homeSubscribeId = String(src.HomeID || "");
           item.awaySubscribeId = String(src.AwayID || "");
         }
+        item.drawSubscribeId = String(src.DrawID || "").trim();
       }
     }
   }

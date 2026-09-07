@@ -24,13 +24,17 @@ import {
   UNKNOWN_FOOTBALL_GAME,
   displayBetName,
   encodeSportBetId,
+  isFootballOutcomeLabelName,
+  isFootballTotalsMarketCode,
   marketBetKey,
   orientSpreadLine,
+  parseFootballTitleTeams,
   selectFootballDisplayBets,
+  sanitizeFootballMatchList,
   stripFootballHandicapSuffix,
 } from "./sport_football_markets.js";
 
-const VENUE_PRIORITY = ["Polymarket", "PredictFun"];
+const VENUE_PRIORITY = ["Polymarket", "PredictFun", "OB"];
 
 /** 足球兜底腿配对用中性键；真实联赛仍按各自 Game 硬隔离（软挂已关，见 FOOTBALL_FALLBACK_GAMES） */
 const FOOTBALL_SOFT_PAIR_GAME = "_fb_soft";
@@ -155,6 +159,10 @@ function buildSourceFromDto(leg, src) {
     out.HomeMarketID = String(src.HomeMarketID);
   if (src.AwayMarketID != null && String(src.AwayMarketID))
     out.AwayMarketID = String(src.AwayMarketID);
+  if (src.DrawOdds != null && Number(src.DrawOdds) > 0)
+    out.DrawOdds = Number(src.DrawOdds);
+  if (src.DrawID != null && String(src.DrawID))
+    out.DrawID = String(src.DrawID);
   return out;
 }
 
@@ -210,6 +218,7 @@ function extractLegs(list) {
           sourceMatchId,
           home: String(bet.HomeName || ""),
           away: String(bet.AwayName || ""),
+          matchTitle: String(m.Title || ""),
           startTime: m.StartTime != null ? Number(m.StartTime) : 0,
           game: m.Game != null ? String(m.Game) : null,
           marketCode,
@@ -233,7 +242,6 @@ export function mergeSportClientMatchDtoList(sport, list) {
   const legs = extractLegs(list);
   /** @type {Map<string, object[]>} */
   const groups = new Map();
-  const singletons = [];
 
   for (const leg of legs) {
     const game = gameCodeForSport(sportKey, leg.game);
@@ -246,9 +254,14 @@ export function mergeSportClientMatchDtoList(sport, list) {
       leg.home = home;
       leg.away = away;
     }
-    // 大小球 Home/Away 为 大/小，配对用同场 moneyline 队名：从同 match 的 moneyline leg 取
-    const pairHome = leg.marketCode === MARKET_TOTALS ? null : home;
-    const pairAway = leg.marketCode === MARKET_TOTALS ? null : away;
+    // 大小球 Home/Away 为 大/小（含 ht_totals）；不能拿去 pairKey，否则同时段未分类场会并成「大 vs 小」
+    const totalsLike = isFootball && (
+      isFootballTotalsMarketCode(leg.marketCode)
+      || isFootballOutcomeLabelName(home)
+      || isFootballOutcomeLabelName(away)
+    );
+    const pairHome = totalsLike ? null : home;
+    const pairAway = totalsLike ? null : away;
     let key = null;
     if (pairHome && pairAway)
       key = sportTeams.pairKey(pairHome, pairAway, leg.startTime, pairGame);
@@ -261,14 +274,21 @@ export function mergeSportClientMatchDtoList(sport, list) {
       if (attach) {
         const ah = isFootball ? (stripFootballHandicapSuffix(attach.home) || attach.home) : attach.home;
         const aa = isFootball ? (stripFootballHandicapSuffix(attach.away) || attach.away) : attach.away;
-        key = sportTeams.pairKey(ah, aa, attach.startTime || leg.startTime, pairGame);
-        leg.home = ah;
-        leg.away = aa;
+        if (ah && aa && !isFootballOutcomeLabelName(ah) && !isFootballOutcomeLabelName(aa)) {
+          key = sportTeams.pairKey(ah, aa, attach.startTime || leg.startTime, pairGame);
+          leg.home = ah;
+          leg.away = aa;
+        }
       }
     }
+    // PM/PF 让球、大小常是不同 event id；标题已是「主 vs 客」时按队名+开球时间并进同一场
+    if (!key && isFootball) {
+      const fromTitle = parseFootballTitleTeams(leg.matchTitle);
+      if (fromTitle)
+        key = sportTeams.pairKey(fromTitle.home, fromTitle.away, leg.startTime, pairGame);
+    }
     if (!key) {
-      singletons.push(leg);
-      continue;
+      key = `solo|${leg.venue}|${leg.sourceMatchId}`;
     }
     if (!groups.has(key))
       groups.set(key, []);
@@ -310,7 +330,20 @@ export function mergeSportClientMatchDtoList(sport, list) {
     if (byVenueAnchor.size > 1)
       multiVenueCount += 1;
 
-    const anchor = orderedAnchors[0];
+    let anchor = orderedAnchors[0];
+    if (isFootball) {
+      const needTeams = !anchor.home || !anchor.away
+        || isFootballOutcomeLabelName(anchor.home)
+        || isFootballOutcomeLabelName(anchor.away);
+      if (needTeams) {
+        const fromTitle = parseFootballTitleTeams(
+          groupLegs.map(l => l.matchTitle).find(t => parseFootballTitleTeams(t)) || "",
+        );
+        if (!fromTitle)
+          return;
+        anchor = { ...anchor, home: fromTitle.home, away: fromTitle.away };
+      }
+    }
     const game = isFootball
       ? preferFootballGame(groupLegs, gameCodeForSport(sportKey, anchor.game))
       : gameCodeForSport(sportKey, anchor.game);
@@ -392,7 +425,7 @@ export function mergeSportClientMatchDtoList(sport, list) {
 
       betSeq += 1;
       const betId = encodeSportBetId(id, betSeq);
-      const isTotals = marketCode === MARKET_TOTALS;
+      const isTotals = isFootballTotalsMarketCode(marketCode);
       bets.push({
         ID: betId,
         MatchID: id,
@@ -458,11 +491,14 @@ export function mergeSportClientMatchDtoList(sport, list) {
 
   for (const [pairKey, groupLegs] of groups)
     emitGroup(pairKey, groupLegs);
-  for (const leg of singletons)
-    emitGroup(null, [leg]);
 
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
-  return { dtos, dbRows, linkUpdates, multiVenueCount };
+  return {
+    dtos: isFootball ? sanitizeFootballMatchList(dtos) : dtos,
+    dbRows,
+    linkUpdates,
+    multiVenueCount,
+  };
 }
 
 /**
@@ -530,6 +566,9 @@ function persistSportInBackground(sport, list, dbRows, linkUpdates) {
 export async function ingestAndMergeSportLists(sport, list) {
   const { dtos, dbRows, linkUpdates, multiVenueCount } = mergeSportClientMatchDtoList(sport, list);
   persistSportInBackground(sport, list, dbRows, linkUpdates);
+  // 足球：始终返回合场结果。否则 multiVenue=0 时 API 走原始并列，合场侧对「大 vs 小」的修复到不了页面。
+  if (String(sport) === "football" && dtos.length)
+    return dtos;
   if (multiVenueCount > 0 && dtos.length)
     return dtos;
   return null;

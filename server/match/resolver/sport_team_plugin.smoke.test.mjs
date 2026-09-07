@@ -30,4 +30,14 @@ assert.equal(
   plugin.pairKey("Red Sox", "NY Yankees", t, "mlb"),
 );
 
+assert.equal(resolveSportTeamKey("曼城", "epl"), "manchester city");
+assert.equal(resolveSportTeamKey("Manchester City", "epl"), "manchester city");
+assert.equal(
+  sportPairKeyResolved("曼城", "利物浦", t, "epl"),
+  sportPairKeyResolved("Manchester City", "Liverpool", t, "epl"),
+);
+const footPlugin = createSportTeamPlugin({ games: ["epl", "chi"] });
+assert.equal(footPlugin.resolveKey("曼城", "epl"), "manchester city");
+assert.equal(footPlugin.resolveKey("上海申花", "chi"), "shanghai shenhua");
+
 console.log("sport_team_plugin.smoke: ok");

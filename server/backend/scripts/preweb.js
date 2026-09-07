@@ -5,8 +5,11 @@
  *
  * 环境变量：
  *   SKIP_APP_BUILD=1   跳过构建（仅调试 API / 代理，前端可能 404）
+ *   FORCE_APP_BUILD=1  turbo run dev 时仍打生产包（默认跳过）
  *
- * 日常开发推荐 dev.bat（Win: backend 3700 + Vite 5274 / 其它: 3456 + 5174），无需每次 prebuild。
+ * 日常开发推荐 BAT\dev.bat（Win: backend 3700 + Vite 5274），无需每次 prebuild。
+ * `turbo run dev` / `npm run dev` 会并行起 Vite；再 app:build 会在 Windows 上
+ * 抢写 client/web/components.d.ts（EUNKNOWN / errno -4094）。
  */
 
 import { spawnSync } from "node:child_process";
@@ -29,8 +32,11 @@ function run(cmd, args, opts = {}) {
   }
 }
 
-if (process.env.SKIP_APP_BUILD === "1") {
-  console.log("[preweb] SKIP_APP_BUILD=1，跳过 app:build");
+const skipAppBuild = process.env.SKIP_APP_BUILD === "1"
+  || (Boolean(process.env.TURBO_HASH) && process.env.FORCE_APP_BUILD !== "1");
+
+if (skipAppBuild) {
+  console.log("[preweb] 跳过 app:build（Vite/turbo dev 已提供前端；FORCE_APP_BUILD=1 可强制构建）");
 }
 else {
   console.log("[preweb] 构建新控制台 client/web → / …");

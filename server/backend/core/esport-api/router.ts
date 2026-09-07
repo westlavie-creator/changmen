@@ -527,6 +527,11 @@ async function handleCoreAction(
       const upParsed = UpdatePlatformRequest.safeParse(body);
       if (!upParsed.success)
         return fail("provider required");
+      if (String(upParsed.data.provider || "").toUpperCase() === "OB") {
+        const { looksLikeSportObCollectPaste } = await import("./sport_ob_session.js");
+        if (looksLikeSportObCollectPaste({ ...body, ...upParsed.data }))
+          return fail("体育 OB 会话请贴到足球页，勿写入电竞采集");
+      }
       const prev = store.getPlatform(upParsed.data.provider) || {};
       const next = store.setPlatform(upParsed.data.provider, {
         gateway: upParsed.data.gateway ?? prev.gateway ?? "",
@@ -596,6 +601,27 @@ async function handleCoreAction(
         console.error("[GetFootballMatchs]", err?.message || err);
         return fail(err?.message || "GetFootballMatchs failed");
       }
+    case "Client_GetFootballMatchMarkets":
+      return ok([]);
+    case "Client_GetSportObSession": {
+      const { publicSportObSession } = await import("./sport_ob_session.js");
+      return ok(publicSportObSession());
+    }
+    case "API_UpdateSportObSession": {
+      const sess = await import("./sport_ob_session.js");
+      const { clearObFootballMatchCache } = await import("./sport_ob_football_fetch.js");
+      if (body.clear === true || body.data === "") {
+        sess.clearSportObSession();
+        clearObFootballMatchCache();
+        return ok(sess.publicSportObSession());
+      }
+      const parsed = sess.parseSportObSessionInput(body.data ?? body);
+      if (!parsed.ok)
+        return fail(parsed.msg);
+      sess.writeSportObSession(parsed.session);
+      clearObFootballMatchCache();
+      return ok(sess.publicSportObSession());
+    }
     case "Client_GetTennisMatchs":
       try {
         return ok(await store.buildTennisMatchList());

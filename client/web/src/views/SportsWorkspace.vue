@@ -10,7 +10,6 @@ import BaseballBoard from "@/components/match/BaseballBoard.vue";
 import BasketballBoard from "@/components/match/BasketballBoard.vue";
 import FootballBoard from "@/components/match/FootballBoard.vue";
 import TennisBoard from "@/components/match/TennisBoard.vue";
-import ActiveBetRunView from "@/components/order/ActiveBetRunView.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
 import { mountSportsSession, stopSportsSession } from "@/runtime/sportsSession";
 import { useAccountStore } from "@/stores/accountStore";
@@ -87,7 +86,6 @@ function onSportTab(v: string | number | boolean | undefined) {
         </p>
       </el-header>
       <el-main class="home-main">
-        <ActiveBetRunView />
         <div class="sport-tab-row">
           <el-radio-group :model-value="sport" size="small" class="sport-tab" @update:model-value="onSportTab">
             <el-radio-button value="football">

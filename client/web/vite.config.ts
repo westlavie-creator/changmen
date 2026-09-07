@@ -128,7 +128,7 @@ function venueChunkName(id: string): string | undefined {
   return `venue-${dir}`;
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "");
   const apiTarget = String(env.VITE_API_PROXY || process.env.VITE_API_PROXY || "")
     .trim()
@@ -191,11 +191,12 @@ export default defineConfig(({ mode }) => {
     vue(),
     AutoImport({
       resolvers: [elementPlusResolver],
-      dts: path.resolve(WEB_ROOT, "auto-imports.d.ts"),
+      // production build 勿写 dts：Windows 上与并行的 vite dev 抢 components.d.ts 会 EUNKNOWN
+      dts: command === "build" ? false : path.resolve(WEB_ROOT, "auto-imports.d.ts"),
     }),
     Components({
       resolvers: [elementPlusResolver],
-      dts: path.resolve(WEB_ROOT, "components.d.ts"),
+      dts: command === "build" ? false : path.resolve(WEB_ROOT, "components.d.ts"),
     }),
     matcherDevRedirect(),
     mode === "analyze"

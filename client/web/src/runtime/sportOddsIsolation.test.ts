@@ -57,6 +57,10 @@ describe("sport / esport UI isolation", () => {
     expect(src).toMatch(/clearPolymarketSportHub/);
     expect(src).toMatch(/onPolymarketSportHubBound/);
     expect(src).toMatch(/onPredictFunSportHubBound/);
+    expect(src).toMatch(/startObSportWs/);
+    expect(src).toMatch(/SPORT_OB_SESSION_UPDATED/);
+    expect(src).not.toMatch(/from\s+["']@changmen\/venue-adapter\/ob["']/);
+    expect(src).not.toMatch(/ws-forward\/OB/);
   });
 
   test("sportLiveOdds does not import fo / saveVenueOdds", () => {
@@ -66,10 +70,11 @@ describe("sport / esport UI isolation", () => {
     expect(src).not.toMatch(/from\s+["'][^"']*oddsAccess["']/);
   });
 
-  test("sportLiveOdds / SportMatchBoard do not import venue collect modules", () => {
+  test("sportLiveOdds / sport boards do not import venue collect modules", () => {
     const live = readFileSync(join(root, "runtime/sportLiveOdds.ts"), "utf8");
     const board = readFileSync(join(root, "components/match/SportMatchBoard.vue"), "utf8");
-    for (const src of [live, board]) {
+    const football = readFileSync(join(root, "components/football/FootballMatchBoard.vue"), "utf8");
+    for (const src of [live, board, football]) {
       expect(src).not.toMatch(/polymarket\/collect/);
       expect(src).not.toMatch(/predictfun\/collect/);
       expect(src).not.toMatch(/startPolymarketCollector/);
@@ -84,10 +89,116 @@ describe("sport / esport UI isolation", () => {
     expect(src).toMatch(/betRowUiEnabled\.value && bettingEnabled\.value/);
   });
 
+  test("esport HomeView is unchanged: MatchCard + matchStore + fo BetRow, no football board", () => {
+    const home = readFileSync(join(root, "views/HomeView.vue"), "utf8");
+    const card = readFileSync(join(root, "components/match/MatchCard.vue"), "utf8");
+    const row = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
+    const store = readFileSync(join(root, "stores/matchStore.ts"), "utf8");
+    expect(home).toMatch(/from "@\/components\/match\/MatchCard\.vue"/);
+    expect(home).toMatch(/<MatchCard v-for="m in filteredMatchs"/);
+    expect(home).not.toMatch(/odds-display-tick/);
+    expect(home).toMatch(/<DirectRealtimeBadge \/>/);
+    expect(home).toMatch(/ActiveBetRunView/);
+    expect(home).toMatch(/MakeupCalcBar/);
+    expect(home).toMatch(/useMatchStore/);
+    expect(home).not.toMatch(/FootballBoard|FootballMatchCard|FootballObExpand|useFootballStore|sportOddsStore/);
+    expect(card).toMatch(/BetRow/);
+    expect(card).toMatch(/v-html="match.title"/);
+    expect(row).toMatch(/useOddsStore/);
+    expect(row).not.toMatch(/itemDrawOdds/);
+    expect(row).not.toMatch(/fallbackDrawOdds/);
+    expect(store).toMatch(/getMatchs/);
+    expect(store).not.toMatch(/getFootballMatchs/);
+    expect(store).not.toMatch(/getFootballMatchMarkets/);
+  });
+
   test("MatchCard / BetRow default allowBetting true (Vue boolean cast gotcha)", () => {
     const card = readFileSync(join(root, "components/match/MatchCard.vue"), "utf8");
     const row = readFileSync(join(root, "components/match/BetRow.vue"), "utf8");
     expect(card).toMatch(/allowBetting:\s*true/);
     expect(row).toMatch(/allowBetting:\s*true/);
+    expect(card).not.toMatch(/hideBets/);
+  });
+
+  test("football board is independent of esport MatchCard / BetRow / MakeupCalc", () => {
+    const board = readFileSync(join(root, "components/match/FootballBoard.vue"), "utf8");
+    const list = readFileSync(join(root, "components/football/FootballMatchBoard.vue"), "utf8");
+    const card = readFileSync(join(root, "components/football/FootballMatchCard.vue"), "utf8");
+    const book = readFileSync(join(root, "components/football/FootballMarketBook.vue"), "utf8");
+    const workspace = readFileSync(join(root, "views/SportsWorkspace.vue"), "utf8");
+    const home = readFileSync(join(root, "views/HomeView.vue"), "utf8");
+    const layout = readFileSync(join(root, "runtime/footballMarketLayout.ts"), "utf8");
+    expect(board).toMatch(/FootballMatchBoard/);
+    expect(board).not.toMatch(/SportMatchBoard/);
+    expect(board).not.toMatch(/hide-bets/);
+    expect(list).toMatch(/FootballMatchCard/);
+    expect(list).toMatch(/FootballMarketBook/);
+    expect(list).toMatch(/useFootballStore/);
+    expect(list).toMatch(/useSportOddsStore/);
+    expect(list).toMatch(/filterSportBoardMatches/);
+    expect(list).toMatch(/搜索队名 \/ 联赛/);
+    expect(list).not.toMatch(/@\/components\/match\/MatchCard/);
+    expect(list).not.toMatch(/BetRow/);
+    expect(list).not.toMatch(/MakeupCalcBar/);
+    expect(card).not.toMatch(/BetRow/);
+    expect(card).not.toMatch(/v-html/);
+    expect(card).not.toMatch(/class="bets/);
+    expect(card).not.toMatch(/pmSportDisplay/);
+    expect(card).not.toMatch(/ESPORT_GAME_ICONS/);
+    expect(workspace).not.toMatch(/ActiveBetRunView/);
+    expect(home).not.toMatch(/FootballObExpand/);
+    expect(home).not.toMatch(/FootballMatchCard/);
+    expect(list).toMatch(/leagueGroups/);
+    expect(card).not.toMatch(/收起/);
+    expect(book).toMatch(/fb-book__cols/);
+    expect(book).toMatch(/groupFootballColumns/);
+    expect(book).toMatch(/mergeFootballBookRows/);
+    expect(book).not.toMatch(/class="bet"/);
+    expect(book).not.toMatch(/BetRow/);
+    const section = readFileSync(join(root, "components/football/FootballMarketSection.vue"), "utf8");
+    expect(section).toMatch(/PlatformIcon/);
+    expect(section).not.toMatch(/BetRow/);
+    expect(section).not.toMatch(/useOddsStore/);
+    expect(layout).toMatch(/独赢/);
+    expect(layout).toMatch(/FOOTBALL_BOOK_COLUMNS/);
+  });
+
+  test("sports workspace shows OB-S status, not esport MQTT forward", () => {
+    const badge = readFileSync(join(root, "components/layout/DirectRealtimeBadge.vue"), "utf8");
+    const bar = readFileSync(join(root, "components/match/FootballObSessionBar.vue"), "utf8");
+    const ws = readFileSync(join(root, "runtime/obSportWs.ts"), "utf8");
+    expect(badge).toMatch(/ob-sport/);
+    expect(badge).toMatch(/OB-S/);
+    expect(bar).toMatch(/OB_SPORT_WS_ID/);
+    expect(bar).toMatch(/WS 已连接/);
+    expect(ws).toMatch(/reportVenueWsStatus/);
+    expect(ws).not.toMatch(/ws-forward\/OB/);
+    expect(ws).not.toMatch(/from\s+["']@changmen\/venue-adapter\/ob["']/);
+  });
+
+  test("football OB HTTP stays on client plugin, not VPS session APIs", () => {
+    const fetchSrc = readFileSync(join(root, "runtime/obSportFootballFetch.ts"), "utf8");
+    const markets = readFileSync(join(root, "runtime/footballObMarkets.ts"), "utf8");
+    const bar = readFileSync(join(root, "components/match/FootballObSessionBar.vue"), "utf8");
+    const live = readFileSync(join(root, "runtime/sportLiveOdds.ts"), "utf8");
+    const dialog = readFileSync(join(root, "components/account/AccountEditDialog.vue"), "utf8");
+    const footballStore = readFileSync(join(root, "stores/footballStore.ts"), "utf8");
+    expect(fetchSrc).toMatch(/a8PluginPost/);
+    expect(fetchSrc).not.toMatch(/Client_GetFootballMatchMarkets/);
+    expect(fetchSrc).not.toMatch(/venue-adapter\/ob/);
+    expect(markets).toMatch(/fetchObFootballMatchMarkets/);
+    expect(markets).not.toMatch(/getFootballMatchMarkets/);
+    expect(bar).toMatch(/saveLocalSportObSessionFromPaste/);
+    expect(bar).not.toMatch(/updateSportObSession/);
+    expect(bar).not.toMatch(/getSportObSession/);
+    expect(live).toMatch(/readLocalSportObSession/);
+    expect(live).not.toMatch(/getSportObSession/);
+    expect(dialog).toMatch(/saveLocalSportObSessionFromPaste/);
+    expect(dialog).not.toMatch(/updateSportObSession/);
+    expect(footballStore).toMatch(/fetchObFootballAsClientMatchDtos/);
+    expect(footballStore).toMatch(/getFootballMatchs/);
+    expect(footballStore).toMatch(/mergeFootballClientLists/);
+    expect(footballStore).not.toMatch(/updateSportObSession/);
+    expect(footballStore).not.toMatch(/getSportObSession/);
   });
 });
