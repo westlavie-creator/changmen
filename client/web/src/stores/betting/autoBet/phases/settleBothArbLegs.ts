@@ -7,7 +7,6 @@ import type {
 } from "@/stores/betting/autoBet/phases/types";
 import { isArbLegPlaceNeedsSettle } from "@/stores/betting/autoBet/phases/types";
 import {
-  legRejectWaitSec,
   maxLegRejectWaitSec,
   showRejectDetectionTip,
 } from "@/stores/betting/autoBet/rejectWait";
@@ -17,6 +16,7 @@ import { enqueuePendingOrderBind } from "@/stores/betting/pendingOrderBind";
 import { syncActiveBetLegSettleResult, syncActiveBetPhase } from "@/stores/betting/activeBetRunSync";
 import { useAccountStore } from "@/stores/accountStore";
 import { isPendingConfirmVenueProvider, isPolymarketProvider } from "@changmen/shared/account_multiply";
+import { wait } from "@changmen/client-core/shared/wait";
 
 export interface ArbLegSettleSnapshot {
   ordersA: VenueOrder[];
@@ -53,7 +53,7 @@ function emptySettleSnapshot(
   };
 }
 
-/** 成功腿：刷余额、Oe tip、并行 settle + 绑单 */
+/** 成功腿：刷余额、空等 max(waitTime??5)、依次 updateOrders（对齐 A8） */
 export async function settleBothArbLegs(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
@@ -99,7 +99,7 @@ export async function settleBothArbLegs(
   const maxWait = maxLegRejectWaitSec(config, successAccounts);
   // wait=0（含纯 PM）：无 A8 拒单倒计时，相位用「确认场馆结果」避免误导
   if (maxWait > 0) {
-    trace?.event("拒单", `各腿并行检测 / 最长 ${maxWait}s（场馆层）`);
+    trace?.event("拒单", `空等 ${maxWait}s 后依次拉单`);
     syncActiveBetPhase(bet.id, "settling", "拒单检测", maxWait);
     void showRejectDetectionTip(waitSec);
   }
@@ -108,96 +108,86 @@ export async function settleBothArbLegs(
     syncActiveBetPhase(bet.id, "settling", "确认场馆结果");
   }
 
-  const legTasks: Promise<void>[] = [];
-
   // API 失败 / 未下单腿：不上场馆 settle，只回编排态（避免误标「未拒单」）
   if (accountA && !isArbLegPlaceNeedsSettle(placeOutcomeA))
     syncActiveBetLegSettleResult(bet.id, "A", false, false);
   if (accountB && !isArbLegPlaceNeedsSettle(placeOutcomeB))
     syncActiveBetLegSettleResult(bet.id, "B", false, false);
 
-  if (resultA?.success && accountA) {
-    legTasks.push((async () => {
-      const synced = await settleArbLegUntilTerminal(accountA, resultA, {
-        rejectWaitSec: legRejectWaitSec(config, accountA.provider),
-        pendingBindLinkId: linkId,
-        betOption: legA,
-      });
+  const settleOne = async (side: "A" | "B"): Promise<void> => {
+    const account = side === "A" ? accountA : accountB;
+    const result = side === "A" ? resultA : resultB;
+    const leg = side === "A" ? legA : legB;
+    const placeOutcome = side === "A" ? placeOutcomeA : placeOutcomeB;
+    if (!account || !result)
+      return;
+    const synced = await settleArbLegUntilTerminal(account, result, {
+      // 编排层已空等 max；场馆层不再 sleep（A8 一次 wait 后立刻 updateOrders）
+      rejectWaitSec: 0,
+      pendingBindLinkId: linkId,
+      betOption: leg,
+    });
+    if (side === "A") {
       snapshot.ordersA = synced.orders;
       snapshot.rejectA = synced.rejected;
       snapshot.pendingConfirmA = synced.pendingConfirm;
-      syncActiveBetLegSettleResult(bet.id, "A", true, snapshot.rejectA, {
-        pendingConfirm: snapshot.pendingConfirmA,
-        provider: accountA.provider,
-        pendingDetail: placeOutcomeA === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认",
-      });
-      const orderIdA = resolveArbBindOrderId(snapshot.ordersA, resultA, snapshot.rejectA);
-      if (await bindArbLegOrder(linkId, accountA, resultA, snapshot.ordersA, snapshot.rejectA))
-        snapshot.boundLegLabels.push(legA.type);
-      else if (orderIdA) {
-        snapshot.bindFailedLegLabels.push(legA.type);
-        snapshot.bindFailedSides.push("A");
-        enqueuePendingOrderBind({
-          linkId,
-          provider: resultA.provider,
-          accountId: accountA.accountId,
-          orderId: orderIdA,
-          betId: bet.id,
-          side: "A",
-        });
-      }
-      // [changmen 扩展] PM/PF delayed：仅在 settle 已确认（非仍 pending）后补刷；void 不挡并行
-      if (
-        isPendingConfirmVenueProvider(accountA.provider)
-        && resultA.pending
-        && !synced.pendingConfirm
-      ) {
-        void accountStore.refreshBalance(accountA);
-      }
-    })());
-  }
-
-  if (resultB?.success && accountB) {
-    legTasks.push((async () => {
-      const synced = await settleArbLegUntilTerminal(accountB, resultB, {
-        rejectWaitSec: legRejectWaitSec(config, accountB.provider),
-        pendingBindLinkId: linkId,
-        betOption: legB,
-      });
+    }
+    else {
       snapshot.ordersB = synced.orders;
       snapshot.rejectB = synced.rejected;
       snapshot.pendingConfirmB = synced.pendingConfirm;
-      syncActiveBetLegSettleResult(bet.id, "B", true, snapshot.rejectB, {
-        pendingConfirm: snapshot.pendingConfirmB,
-        provider: accountB.provider,
-        pendingDetail: placeOutcomeB === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认",
+    }
+    const rejected = synced.rejected;
+    syncActiveBetLegSettleResult(bet.id, side, true, rejected, {
+      pendingConfirm: synced.pendingConfirm,
+      provider: account.provider,
+      pendingDetail: placeOutcome === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认",
+    });
+    const orderId = resolveArbBindOrderId(synced.orders, result, rejected);
+    if (await bindArbLegOrder(linkId, account, result, synced.orders, rejected))
+      snapshot.boundLegLabels.push(leg.type);
+    else if (orderId) {
+      snapshot.bindFailedLegLabels.push(leg.type);
+      snapshot.bindFailedSides.push(side);
+      enqueuePendingOrderBind({
+        linkId,
+        provider: result.provider,
+        accountId: account.accountId,
+        orderId,
+        betId: bet.id,
+        side,
       });
-      const orderIdB = resolveArbBindOrderId(snapshot.ordersB, resultB, snapshot.rejectB);
-      if (await bindArbLegOrder(linkId, accountB, resultB, snapshot.ordersB, snapshot.rejectB))
-        snapshot.boundLegLabels.push(legB.type);
-      else if (orderIdB) {
-        snapshot.bindFailedLegLabels.push(legB.type);
-        snapshot.bindFailedSides.push("B");
-        enqueuePendingOrderBind({
-          linkId,
-          provider: resultB.provider,
-          accountId: accountB.accountId,
-          orderId: orderIdB,
-          betId: bet.id,
-          side: "B",
-        });
-      }
-      if (
-        isPendingConfirmVenueProvider(accountB.provider)
-        && resultB.pending
-        && !synced.pendingConfirm
-      ) {
-        void accountStore.refreshBalance(accountB);
-      }
-    })());
-  }
+    }
+    if (
+      isPendingConfirmVenueProvider(account.provider)
+      && result.pending
+      && !synced.pendingConfirm
+    ) {
+      void accountStore.refreshBalance(account);
+    }
+  };
 
-  await Promise.all(legTasks);
+  const settleA = Boolean(resultA?.success && accountA);
+  const settleB = Boolean(resultB?.success && accountB);
+  const pendingA = settleA && isPendingConfirmVenueProvider(accountA!.provider);
+  const pendingB = settleB && isPendingConfirmVenueProvider(accountB!.provider);
+  const a8A = settleA && !pendingA;
+  const a8B = settleB && !pendingB;
+
+  const pendingTasks: Promise<void>[] = [];
+  if (pendingA)
+    pendingTasks.push(settleOne("A"));
+  if (pendingB)
+    pendingTasks.push(settleOne("B"));
+
+  // [A8 可证实] 成功腿 waitTime??5 取 max，空等后再依次 updateOrders
+  if (maxWait > 0 && (a8A || a8B))
+    await wait(maxWait * 1000);
+  if (a8A)
+    await settleOne("A");
+  if (a8B)
+    await settleOne("B");
+  await Promise.all(pendingTasks);
 
   // 仅对已交场馆 settle 的腿报告拒单结果；API 失败/未下单不伪造成「未拒单」
   const rejectLine = (side: "A" | "B") => {

@@ -3,9 +3,11 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { sortVenueOrdersNewestFirst } from "@changmen/venue-adapter/contract";
 import { wait } from "@changmen/client-core/shared/wait";
-import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { getProvider } from "@/runtime/providers";
 import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
+import { canAppearArbOrderDuringRejectWait } from "@/stores/betting/autoBet/appearArbOrderGate";
+
+export { canAppearArbOrderDuringRejectWait } from "@/stores/betting/autoBet/appearArbOrderGate";
 
 /** 拒单等待期间对单轮询间隔。首轮立即拉，不空等。 */
 export const ARB_EARLY_APPEAR_INTERVAL_MS = 500;
@@ -64,15 +66,14 @@ export function appearArbOrderBudgetMs(rejectWaitSec?: number): number {
 }
 
 /**
- * [changmen 扩展] 套利 A8 馆（RAY 等）POST 成功后，在拒单等待窗口内并行拉单。
- * 对上本腿才 save + 刷侧栏；不改 5s 拒单判定。
+ * [A8 可证实] 拒单等待是空等。本函数保留对单逻辑，入口 `canAppearArbOrderDuringRejectWait` 恒为 false。
  */
 export function appearArbOrderDuringRejectWait(opts: AppearArbOrderOpts): Promise<boolean> {
   const linkId = Number(opts.linkId);
   const itemId = String(opts.option?.itemId ?? "").trim();
   if (!Number.isFinite(linkId) || linkId === 0 || !opts.option)
     return Promise.resolve(false);
-  if (isPendingConfirmVenueProvider(opts.account.provider))
+  if (!canAppearArbOrderDuringRejectWait(opts.account.provider))
     return Promise.resolve(false);
 
   const key = appearArbOrderInflightKey(Number(opts.account.accountId) || 0, linkId, itemId);

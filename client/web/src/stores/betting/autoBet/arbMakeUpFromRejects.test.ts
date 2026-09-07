@@ -149,7 +149,7 @@ describe("applyArbMakeUpFromRejects", () => {
     expect(enqueueMakeUpOrder).toHaveBeenCalled();
   });
 
-  it("ignores polluted leg betMoney when venue order is available", async () => {
+  it("uses success leg option stake/odds (A8 Ly), not venue order", async () => {
     const placed = basePlaced();
     placed.legB.betMoney = 30;
     placed.legB.odds = 1.35;
@@ -167,8 +167,8 @@ describe("applyArbMakeUpFromRejects", () => {
 
     expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        betMoney: 70,
-        betOdds: 4.095,
+        betMoney: 30,
+        betOdds: 1.35,
       }),
     );
   });

@@ -44,19 +44,6 @@ export async function settleArbLeg(
     ? { rejectWaitSec: rejectWaitSecOrOpts }
     : rejectWaitSecOrOpts;
   const pendingBindOrderId = String(result?.orderId ?? "").trim() || undefined;
-  // [changmen 扩展] RAY 等 A8 馆 POST 无 orderId：拒单等待期间并行对单，先露侧栏。
-  if (opts.pendingBindLinkId && opts.betOption) {
-    const option = opts.betOption;
-    const linkId = opts.pendingBindLinkId;
-    void import("@/stores/betting/autoBet/appearArbOrderDuringRejectWait")
-      .then(({ appearArbOrderDuringRejectWait }) => appearArbOrderDuringRejectWait({
-        account,
-        option,
-        linkId,
-        rejectWaitSec: opts.rejectWaitSec,
-      }))
-      .catch(() => {});
-  }
   // [changmen 扩展] 首轮拉单已带最终 Link 落库（venueOrders.stampPendingBindLink），
   // 侧栏无需等不确定重拉 / 另一腿 settle。PF 不经 Client_SaveOrder，跳过。
   const canRefreshEarly = Boolean(opts.pendingBindLinkId)

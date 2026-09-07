@@ -43,6 +43,10 @@ vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
   showRejectDetectionTip,
 }));
 
+vi.mock("@changmen/client-core/shared/wait", () => ({
+  wait: vi.fn(async () => {}),
+}));
+
 vi.mock("@/stores/betting/autoBet/arbLegSettle", () => ({
   settleArbLeg,
   settleArbLegUntilTerminal: settleArbLeg,
@@ -191,9 +195,11 @@ function mockDualLegVenueSync(
   legA: { orders: VenueOrder[]; rejected: boolean; pendingConfirm?: boolean },
   legB: { orders: VenueOrder[]; rejected: boolean; pendingConfirm?: boolean },
 ) {
-  settleArbLeg
-    .mockResolvedValueOnce(packLegSync(legA))
-    .mockResolvedValueOnce(packLegSync(legB));
+  settleArbLeg.mockImplementation(async (account: { accountId?: number }) => {
+    if (Number(account.accountId) === 1)
+      return packLegSync(legA);
+    return packLegSync(legB);
+  });
 }
 
 function expectMakeUpVenue(ordersA: VenueOrder[], ordersB: VenueOrder[]) {
@@ -234,7 +240,7 @@ describe("finalizeArbBet makeup enqueue", () => {
     expect(settleArbLeg).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "OB" }),
       expect.anything(),
-      expect.objectContaining({ rejectWaitSec: 3, pendingBindLinkId: expect.any(Number) }),
+      expect.objectContaining({ rejectWaitSec: 0, pendingBindLinkId: expect.any(Number) }),
     );
     expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
       params,

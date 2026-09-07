@@ -87,26 +87,20 @@ describe("appearArbOrderDuringRejectWait", () => {
     refreshOrderListAfterBind.mockReset();
   });
 
-  it("saves matched RAY order and refreshes sidebar before reject wait ends", async () => {
-    getOrders
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([order({ orderId: "ray-88" })]);
-    const { appearArbOrderDuringRejectWait } = await import("./appearArbOrderDuringRejectWait");
-
+  it("skips all venues so first getOrders is A8 updateOrders after wait", async () => {
+    const { appearArbOrderDuringRejectWait, canAppearArbOrderDuringRejectWait }
+      = await import("./appearArbOrderDuringRejectWait");
+    expect(canAppearArbOrderDuringRejectWait("RAY")).toBe(false);
+    expect(canAppearArbOrderDuringRejectWait("PB")).toBe(false);
     const ok = await appearArbOrderDuringRejectWait({
       account: account(),
       option: option(),
       linkId: 42,
       rejectWaitSec: 5,
     });
-
-    expect(ok).toBe(true);
-    expect(updateVenueOrders).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: "RAY" }),
-      expect.objectContaining({ pendingBindLinkId: 42, pendingBindOrderId: "ray-88" }),
-    );
-    expect(refreshOrderListAfterBind).toHaveBeenCalledOnce();
-    expect(getOrders).toHaveBeenCalledTimes(2);
+    expect(ok).toBe(false);
+    expect(getOrders).not.toHaveBeenCalled();
+    expect(updateVenueOrders).not.toHaveBeenCalled();
   });
 
   it("skips PM / PF", async () => {
@@ -119,25 +113,5 @@ describe("appearArbOrderDuringRejectWait", () => {
     });
     expect(ok).toBe(false);
     expect(getOrders).not.toHaveBeenCalled();
-  });
-
-  it("dedupes inflight polls for the same leg", async () => {
-    let resolveFirst: ((orders: VenueOrder[]) => void) | undefined;
-    getOrders.mockImplementationOnce(() => new Promise<VenueOrder[]>((resolve) => {
-      resolveFirst = resolve;
-    }));
-    const { appearArbOrderDuringRejectWait } = await import("./appearArbOrderDuringRejectWait");
-    const args = {
-      account: account(),
-      option: option(),
-      linkId: 42,
-      rejectWaitSec: 5,
-    };
-    const a = appearArbOrderDuringRejectWait(args);
-    const b = appearArbOrderDuringRejectWait(args);
-    resolveFirst?.([order({ orderId: "ray-1" })]);
-    expect(await a).toBe(true);
-    expect(await b).toBe(true);
-    expect(getOrders).toHaveBeenCalledTimes(1);
   });
 });

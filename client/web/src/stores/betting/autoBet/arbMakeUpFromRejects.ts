@@ -1,3 +1,5 @@
+import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
@@ -5,6 +7,26 @@ import { arbMakeUpSides } from "@/stores/betting/autoBet/arbMakeUpPair";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
 import { resolveMakeUpSuccessReference } from "@/stores/betting/makeUpReference";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
+
+/** [A8 可证实] LoseOrder 用成功腿 option 的 betMoney/odds，不用场馆实单 */
+function a8SuccessLegRef(leg: BetOption): { betMoney: number; betOdds: number } {
+  return {
+    betMoney: Math.round(Number(leg.betMoney) || 0),
+    betOdds: Number(leg.odds) || 0,
+  };
+}
+
+function makeupSuccessRef(
+  leg: BetOption,
+  orders: VenueOrder[],
+  rejected: boolean,
+  account?: PlatformAccount,
+  orderId?: string | null,
+): { betMoney: number; betOdds: number } {
+  if (account && isPendingConfirmVenueProvider(account.provider))
+    return resolveMakeUpSuccessReference(leg, orders, rejected, account, orderId);
+  return a8SuccessLegRef(leg);
+}
 
 export interface ArbMakeUpVenueContext {
   ordersA: VenueOrder[];
@@ -129,7 +151,7 @@ export async function applyArbMakeUpFromRejects(
   );
 
   if (side === "enqueueB" && accountA) {
-    const successRef = resolveMakeUpSuccessReference(
+    const successRef = makeupSuccessRef(
       legA,
       venue.ordersA,
       rejectA,
@@ -152,7 +174,7 @@ export async function applyArbMakeUpFromRejects(
     });
   }
   else if (side === "enqueueA" && accountB) {
-    const successRef = resolveMakeUpSuccessReference(
+    const successRef = makeupSuccessRef(
       legB,
       venue.ordersB,
       rejectB,
