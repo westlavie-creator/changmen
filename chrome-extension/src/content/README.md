@@ -12,7 +12,7 @@
 | `collect-ui.js` | 浮动图标 + 凭证复制面板 |
 | `providers.js` | 各馆 Check/GetConfig；A8 11 馆对齐 + OB 体育/Dex/Polymarket 扩展；PB 复制前校验内层 X-U |
 | `pb-credential.js` | PB localStorage 快照完整性（会话类型 + 内层 X-U），供 GetConfig 拦截残缺复制；判定说明见 `client/web/docs/platforms/PB.md` |
-| `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId`；电竞 referer 对齐 A8 `https://host/` |
+| `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId`（官网试玩仅 token，hash 后读 sessionStorage）；电竞 referer 对齐 A8 `https://host/` |
 | `hga-poll.js` | HGA 注单轮询上报（对齐 A8 `Ie`） |
 | `tab-proxy.js` | 带 `options.tabId` 的消息转发到 Stake handler |
 | `stake/init.js` | stake.com：setTab + GraphQL WS + A8 Socket.IO |

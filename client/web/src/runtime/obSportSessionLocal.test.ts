@@ -70,4 +70,29 @@ describe("obSportSessionLocal", () => {
       expect(parsed.session.sessionId).toBe("53660752045779641317887613834871");
     }
   });
+
+  it("accepts official panda sports trial URL without api/sessionId", () => {
+    const href =
+      "https://user-pc-new.dbgaming.com/?token=e9734a4d633b350be25b428556622ca2f161b633&gr=common";
+    const parsed = parseSportObSessionInput(href);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.session.token).toBe("e9734a4d633b350be25b428556622ca2f161b633");
+      expect(parsed.session.referer).toBe("https://user-pc-new.dbgaming.com/");
+    }
+  });
+
+  it("accepts kind=sport plugin blob without sessionId", () => {
+    const payload = {
+      provider: "OB",
+      kind: "sport",
+      gateway: ["https://api.dbsporxxxw1box.com"],
+      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      referer: "https://user-pc-new.dbgaming.com/",
+    };
+    const parsed = parseSportObSessionInput(payload);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok)
+      expect(parsed.session.gateway).toBe("https://api.dbsporxxxw1box.com");
+  });
 });

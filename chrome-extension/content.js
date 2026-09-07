@@ -194,7 +194,7 @@
         panel.classList.remove("loading");
       }
       const row = (label, name) => `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
-      const sportHint = config.sessionId ? '<div class="gamebet-collect-panel-hint">\u5F53\u524D\uFF1A\u4F53\u80B2\uFF08\u8D34\u5230\u8DB3\u7403\u91C7\u96C6\u4F1A\u8BDD\uFF0C\u52FF\u5199\u5165\u7535\u7ADE\uFF09</div>' : "";
+      const sportHint = config.sessionId || config.kind === "sport" ? '<div class="gamebet-collect-panel-hint">\u5F53\u524D\uFF1A\u4F53\u80B2\uFF08\u8D34\u5230\u8DB3\u7403\u91C7\u96C6\u4F1A\u8BDD\uFF0C\u52FF\u5199\u5165\u7535\u7ADE\uFF09</div>' : "";
       panel.innerHTML = [
         sportHint,
         row("\u7F51\u5173", "gateway"),
@@ -3581,6 +3581,59 @@
   }
 
   // src/content/ob-entry.js
+  function isObSportHexToken(token) {
+    const t = String(token || "").trim();
+    return /^[0-9a-f]{16,}$/i.test(t) && !/^\d+$/.test(t);
+  }
+  function storageGet(store, key) {
+    try {
+      return store?.getItem?.(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  function unwrapTySdkValue(raw) {
+    if (raw == null) return "";
+    const s = String(raw).trim();
+    if (!s) return "";
+    try {
+      const parsed = JSON.parse(s);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && "value" in parsed) {
+        return parsed.value;
+      }
+      return parsed;
+    } catch {
+      return s;
+    }
+  }
+  function asNonEmptyString(value) {
+    if (typeof value === "string" || typeof value === "number") {
+      const s = String(value).trim();
+      return s || "";
+    }
+    return "";
+  }
+  function originSlash(href) {
+    try {
+      const u = new URL(href);
+      return `${u.protocol}//${u.host}/`;
+    } catch {
+      return "";
+    }
+  }
+  function hrefFromQuery(search, pageHref) {
+    const raw = String(search || "").trim();
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    const q = raw.replace(/^[?#]/, "");
+    if (!/(?:^|&)token=/i.test(`&${q}`)) return "";
+    try {
+      const page = new URL(pageHref || "https://user-pc-new.invalid/");
+      return `${page.origin}/?${q}`;
+    } catch {
+      return `https://user-pc-new.invalid/?${q}`;
+    }
+  }
   function parseObEsportEntry(href) {
     let url;
     try {
@@ -3622,18 +3675,118 @@
     const token = (url.searchParams.get("token") || "").trim();
     const api = url.searchParams.get("api");
     const sessionId = (url.searchParams.get("sessionId") || "").trim();
-    if (!token || api == null || api === "" || !sessionId) return null;
-    if (!/^[0-9a-f]{16,}$/i.test(token) || /^\d+$/.test(token)) return null;
+    if (!token || !isObSportHexToken(token)) return null;
     return {
       kind: "sport",
       token,
       sessionId,
-      api,
+      api: api == null ? "" : api,
       referer: `${url.protocol}//${url.host}/`,
       href: url.href
     };
   }
-  function discoverObSportGateway(performanceLike = globalThis.performance) {
+  function readStoreString(stores, keys) {
+    for (const store of stores) {
+      if (!store) continue;
+      for (const key of keys) {
+        const unwrapped = unwrapTySdkValue(storageGet(store, key));
+        const text = asNonEmptyString(unwrapped);
+        if (text) return text;
+      }
+    }
+    return "";
+  }
+  function readObSportHexToken(sessionStore, localStore) {
+    const stores = [sessionStore, localStore];
+    for (const store of stores) {
+      if (!store) continue;
+      for (const key of ["token", "TY_SDK_TOKEN"]) {
+        const text = asNonEmptyString(unwrapTySdkValue(storageGet(store, key)));
+        if (isObSportHexToken(text)) return text;
+      }
+    }
+    return "";
+  }
+  function readObSportUserId(sessionStore, localStore) {
+    return readStoreString([sessionStore, localStore], ["sessionId", "TY_SDK_USER_ID"]);
+  }
+  function readObSportSearchBlob(sessionStore, localStore) {
+    return readStoreString(
+      [sessionStore, localStore],
+      ["LOCATION_SEARCH", "TY_SDK_LOCATION_SEARCH"]
+    );
+  }
+  function looksLikeObSportClient(href, sessionStore, localStore) {
+    try {
+      if (/user-pc-new/i.test(new URL(href || "https://invalid.invalid/").hostname)) return true;
+    } catch {
+    }
+    for (const store of [sessionStore, localStore]) {
+      if (!store) continue;
+      for (const key of ["TY_SDK_TOKEN", "TY_SDK_USER_ID", "TY_SDK_DOMAIN_API_01", "TY_SDK_BEST_API"]) {
+        if (storageGet(store, key)) return true;
+      }
+    }
+    return false;
+  }
+  function enrichObSportEntry(entry, sessionStore, localStore, pageHref) {
+    if (!entry) return null;
+    const token = isObSportHexToken(entry.token) ? entry.token : readObSportHexToken(sessionStore, localStore);
+    if (!isObSportHexToken(token)) return null;
+    const uid = readObSportUserId(sessionStore, localStore);
+    const sessionId = String(entry.sessionId || uid || "").trim();
+    const referer = originSlash(pageHref) || entry.referer || "";
+    return {
+      ...entry,
+      kind: "sport",
+      token,
+      sessionId,
+      uid: uid || sessionId,
+      api: entry.api || "",
+      referer,
+      href: entry.href || pageHref
+    };
+  }
+  function resolveObSportPageEntry(opts = {}) {
+    const href = opts.href ?? (typeof location !== "undefined" ? location.href : "");
+    const sessionStore = opts.sessionStorage ?? (typeof sessionStorage !== "undefined" ? sessionStorage : null);
+    const localStore = opts.localStorage ?? (typeof localStorage !== "undefined" ? localStorage : null);
+    const fromHref = parseObSportEntry(href);
+    if (fromHref) return enrichObSportEntry(fromHref, sessionStore, localStore, href);
+    const search = readObSportSearchBlob(sessionStore, localStore);
+    const fromSearch = search ? parseObSportEntry(hrefFromQuery(search, href)) : null;
+    if (fromSearch) return enrichObSportEntry(fromSearch, sessionStore, localStore, href);
+    const token = readObSportHexToken(sessionStore, localStore);
+    if (!token || !looksLikeObSportClient(href, sessionStore, localStore)) return null;
+    return enrichObSportEntry({
+      kind: "sport",
+      token,
+      sessionId: "",
+      api: "",
+      referer: originSlash(href),
+      href
+    }, sessionStore, localStore, href);
+  }
+  function discoverObSportGatewayFromStorage(sessionStore, localStore) {
+    const stores = [
+      sessionStore ?? (typeof sessionStorage !== "undefined" ? sessionStorage : null),
+      localStore ?? (typeof localStorage !== "undefined" ? localStorage : null)
+    ];
+    for (const store of stores) {
+      if (!store) continue;
+      const best = unwrapTySdkValue(storageGet(store, "TY_SDK_BEST_API"));
+      const bestUrl = asNonEmptyString(best).replace(/\/$/, "");
+      if (/^https?:\/\//i.test(bestUrl)) return bestUrl;
+      const list = unwrapTySdkValue(storageGet(store, "TY_SDK_DOMAIN_API_01"));
+      const rows = Array.isArray(list) ? list : [];
+      for (const row of rows) {
+        const api = asNonEmptyString(row?.api).replace(/\/$/, "");
+        if (/^https?:\/\//i.test(api)) return api;
+      }
+    }
+    return null;
+  }
+  function discoverObSportGateway(performanceLike = globalThis.performance, sessionStore, localStore) {
     const hosts = [];
     const seen = /* @__PURE__ */ new Set();
     try {
@@ -3659,7 +3812,8 @@
       }
     } catch {
     }
-    return hosts[0] || null;
+    if (hosts[0]) return hosts[0];
+    return discoverObSportGatewayFromStorage(sessionStore, localStore);
   }
   function discoverObSportWsUrl(performanceLike = globalThis.performance, storage = globalThis.localStorage) {
     try {
@@ -3701,22 +3855,26 @@
   function buildObSportConfig(entry, gateway, wsUrl = "") {
     const gate = gateway ? String(gateway).replace(/\/$/, "") : "";
     const push = String(wsUrl || "").trim();
+    const sessionId = String(entry.sessionId || entry.uid || "").trim();
+    const uid = String(entry.uid || entry.sessionId || "").trim();
     const payload = {
       provider: "OB",
       kind: "sport",
       gateway: gate ? [gate] : [],
       token: entry.token,
-      sessionId: entry.sessionId,
-      api: entry.api,
+      sessionId,
+      ...uid ? { uid } : {},
+      api: entry.api || "",
       referer: entry.referer,
       ...push ? { wsUrl: push } : {}
     };
     return {
       provider: "OB",
+      kind: "sport",
       gateway: gate,
       token: entry.token,
       referer: entry.referer,
-      sessionId: entry.sessionId,
+      sessionId,
       data: globalThis.btoa(JSON.stringify(payload))
     };
   }
@@ -3918,10 +4076,10 @@
           this._kind = "esport";
           return true;
         }
-        const sportSelf = parseObSportEntry(location.href);
+        const sportSelf = resolveObSportPageEntry() || parseObSportEntry(location.href);
         if (sportSelf) {
           this._kind = "sport";
-          this._sportHref = location.href;
+          this._sportHref = sportSelf.href || location.href;
           const gw = discoverObSportGateway();
           if (gw) await publishObSportGatewayHint(sportSelf, gw);
           else ensureObSportGatewayPublisher(sportSelf);
@@ -3943,8 +4101,7 @@
           if (!entry2) return void 0;
           return buildObEsportConfig(entry2);
         }
-        const href = this._sportHref || location.href;
-        const entry = parseObSportEntry(href);
+        const entry = resolveObSportPageEntry() || parseObSportEntry(this._sportHref) || parseObSportEntry(location.href);
         if (!entry) return void 0;
         const gateway = await resolveObSportGateway(entry);
         const wsUrl = discoverObSportWsUrl();

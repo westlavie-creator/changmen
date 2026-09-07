@@ -78,7 +78,7 @@ Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\de
 | 名称 | 电竞预测大师 | gamebet / じらいや |
 | 协议 | Zn 消息 | 相同（含 ModifyHeader / setStore）；setTab 响应含 `value`/`tabId` |
 | 采集挂载 | 任意 frame，全量馆 Check | **同左**（已对齐）；另保留 OB 体育 / Polymarket / Dex |
-| OB 体育凭证 | 无 | 有（`token+api+sessionId`） |
+| OB 体育凭证 | 无 | 有（商户壳 `token+api+sessionId`；官网试玩 `token` + sessionStorage） |
 | Stake | setTab + GraphQL WS + 推 A8 聚合机 | setTab + GraphQL WS **同 A8**；聚合 Socket **已移除**（no-op） |
 | ModifyHeader | webRequest 改 UA | MV3 **declarativeNetRequest**（能力等价） |
 | 存储 | `storage.sync` | `storage.local`（Electron/MV3 兼容；键形状同 A8） |

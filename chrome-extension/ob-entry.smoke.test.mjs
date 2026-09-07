@@ -10,9 +10,11 @@ const {
   parseObEsportEntry,
   parseObSportEntry,
   discoverObSportGateway,
+  discoverObSportGatewayFromStorage,
   discoverObSportWsUrl,
   buildObEsportConfig,
   buildObSportConfig,
+  resolveObSportPageEntry,
 } = await import("./src/content/ob-entry.js");
 
 const esportAddr = Buffer.from(
@@ -56,6 +58,69 @@ assert.equal(sportNoGw.sessionId, sport.sessionId);
 const sportNoGwData = JSON.parse(Buffer.from(sportNoGw.data, "base64").toString("utf8"));
 assert.equal(sportNoGwData.kind, "sport");
 assert.deepEqual(sportNoGwData.gateway, []);
+
+const trialHref =
+  "https://user-pc-new.dbgaming.com/?token=e9734a4d633b350be25b428556622ca2f161b633&gr=common";
+const trial = parseObSportEntry(trialHref);
+assert.equal(trial?.kind, "sport");
+assert.equal(trial?.token, "e9734a4d633b350be25b428556622ca2f161b633");
+assert.equal(trial?.sessionId, "");
+assert.equal(parseObEsportEntry(trialHref), null);
+assert.equal(
+  parseObSportEntry("https://user-pc-new.dbgaming.com/#/home"),
+  null,
+);
+
+function memStore(map) {
+  return {
+    getItem: (key) => (Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null),
+  };
+}
+
+const trialStore = memStore({
+  token: "e9734a4d633b350be25b428556622ca2f161b633",
+  TY_SDK_TOKEN: JSON.stringify({
+    value: "e9734a4d633b350be25b428556622ca2f161b633",
+    time: 1,
+    expire: null,
+  }),
+  TY_SDK_USER_ID: JSON.stringify({ value: "1005698264027308032", time: 1, expire: null }),
+  LOCATION_SEARCH:
+    "token=e9734a4d633b350be25b428556622ca2f161b633&gr=common&topic=https://sandbox-topic.dbsporxxxw1box.com&lang=zh",
+  TY_SDK_BEST_API: JSON.stringify({ value: "https://api.dbsportxxx278gwf4.com", time: 1, expire: null }),
+  TY_SDK_DOMAIN_API_01: JSON.stringify({
+    value: [{ api: "https://api.dbsporxxxw1box.com", group: "COMMON" }],
+    time: 1,
+    expire: null,
+  }),
+});
+const trialPage = resolveObSportPageEntry({
+  href: "https://user-pc-new.dbgaming.com/#/home",
+  sessionStorage: trialStore,
+  localStorage: memStore({}),
+});
+assert.equal(trialPage?.token, "e9734a4d633b350be25b428556622ca2f161b633");
+assert.equal(trialPage?.sessionId, "1005698264027308032");
+assert.equal(trialPage?.referer, "https://user-pc-new.dbgaming.com/");
+assert.equal(
+  discoverObSportGatewayFromStorage(trialStore, memStore({})),
+  "https://api.dbsportxxx278gwf4.com",
+);
+
+const trialCfg = buildObSportConfig(trialPage, "https://api.dbsporxxxw1box.com");
+assert.equal(trialCfg.kind, "sport");
+assert.equal(trialCfg.sessionId, "1005698264027308032");
+const trialData = JSON.parse(Buffer.from(trialCfg.data, "base64").toString("utf8"));
+assert.equal(trialData.uid, "1005698264027308032");
+
+assert.equal(
+  resolveObSportPageEntry({
+    href: "https://example.com/#/home",
+    sessionStorage: memStore({ token: "e9734a4d633b350be25b428556622ca2f161b633" }),
+    localStorage: memStore({}),
+  }),
+  null,
+);
 
 const perf = {
   getEntriesByType: () => [

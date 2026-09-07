@@ -78,7 +78,7 @@ function parseSportObHref(text: string): Record<string, unknown> | null {
       }
     }
   }
-  if (!url && /token=/i.test(raw) && /sessionId=/i.test(raw)) {
+  if (!url && /token=/i.test(raw)) {
     try {
       const q = raw.includes("?") ? raw.slice(raw.indexOf("?")) : `?${raw.replace(/^[&?]/, "")}`;
       url = new URL(`https://sport-ob.invalid/${q}`);
@@ -92,7 +92,7 @@ function parseSportObHref(text: string): Record<string, unknown> | null {
   const token = (url.searchParams.get("token") || "").trim();
   const sessionId = (url.searchParams.get("sessionId") || "").trim();
   const api = url.searchParams.get("api");
-  if (!token || !sessionId || api == null || api === "")
+  if (!token)
     return null;
   if (!/^[0-9a-f]{16,}$/i.test(token) || /^\d+$/.test(token))
     return null;
@@ -141,9 +141,11 @@ export function looksLikeSportObCollect(parsed: unknown): boolean {
   if (String(row.kind || "").toLowerCase() === "sport")
     return true;
   const token = String(row.token || "").trim();
-  const sessionId = String(row.sessionId || "").trim();
-  if (sessionId && token && /^[0-9a-f]{16,}$/i.test(token) && !/^\d+$/.test(token))
-    return true;
+  const sessionId = String(row.sessionId || row.uid || "").trim();
+  if (token && /^[0-9a-f]{16,}$/i.test(token) && !/^\d+$/.test(token)) {
+    if (sessionId || row.gateway || row.referer || row.api != null)
+      return true;
+  }
   return false;
 }
 
@@ -173,7 +175,7 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
   if (looksLikeEsportObCollect(parsed))
     return { ok: false, msg: "这是电竞 OB 凭证，请贴到电竞采集，勿写入足球会话" };
   const token = String(parsed.token || "").trim();
-  const sessionId = String(parsed.sessionId || "").trim();
+  const sessionId = String(parsed.sessionId || parsed.uid || "").trim();
   const gateway = firstGateway(parsed.gateway);
   if (!token)
     return { ok: false, msg: "缺少 token" };
@@ -181,7 +183,8 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
     return { ok: false, msg: "这是电竞 OB token，请贴到电竞采集" };
   if (!/^[0-9a-f]{16,}$/i.test(token))
     return { ok: false, msg: "体育 OB token 应为十六进制" };
-  if (!sessionId)
+  const isSportKind = String(parsed.kind || "").toLowerCase() === "sport";
+  if (!sessionId && !isSportKind)
     return { ok: false, msg: "缺少 sessionId" };
   const session: SportObSessionLocal = {
     kind: "sport",

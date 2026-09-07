@@ -9,6 +9,7 @@ import {
   findObSportIframeHref,
   parseObEsportEntry,
   parseObSportEntry,
+  resolveObSportPageEntry,
 } from "./ob-entry.js";
 import { validatePbLocalStorageSnapshot } from "./pb-credential.js";
 
@@ -137,10 +138,10 @@ export const PROVIDER_REGISTRY = {
         return true;
       }
 
-      const sportSelf = parseObSportEntry(location.href);
+      const sportSelf = resolveObSportPageEntry() || parseObSportEntry(location.href);
       if (sportSelf) {
         this._kind = "sport";
-        this._sportHref = location.href;
+        this._sportHref = sportSelf.href || location.href;
         const gw = discoverObSportGateway();
         if (gw) await publishObSportGatewayHint(sportSelf, gw);
         else ensureObSportGatewayPublisher(sportSelf);
@@ -166,10 +167,11 @@ export const PROVIDER_REGISTRY = {
         return buildObEsportConfig(entry);
       }
 
-      const href = this._sportHref || location.href;
-      const entry = parseObSportEntry(href);
+      const entry = resolveObSportPageEntry()
+        || parseObSportEntry(this._sportHref)
+        || parseObSportEntry(location.href);
       if (!entry) return undefined;
-      // 无网关也先交 token+sessionId，网关可后补；禁止因嗅探超时丢掉体育凭证
+      // 无网关也先交 token（试玩可无 sessionId），网关可后补
       const gateway = await resolveObSportGateway(entry);
       const wsUrl = discoverObSportWsUrl();
       return buildObSportConfig(entry, gateway || "", wsUrl);
