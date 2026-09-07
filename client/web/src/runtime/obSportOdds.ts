@@ -4,6 +4,11 @@
 
 export const OB_FOOTBALL_ID_BASE = 820_000_000;
 
+/**
+ * OB 足球玩法 ID（hpid）。名称来自详情 `hpsPns`（hpid→hpn），不是赔率形状。
+ * 同一 hpid 下多条 `hl` 用 `hv` 区分盘口线：独赢平手 hv 空/0，让球独赢 hv 为 ±N。
+ * 九游分类接口 `getCategoryList`：hpid 1/17 在「所有投注」，不在「让球&大小」（那是 4/2/19/18…）。
+ */
 export const OB_HPID_MARKET: Record<string, { marketCode: string; period: string }> = {
   1: { marketCode: "moneyline", period: "ft" },
   17: { marketCode: "moneyline", period: "ht" },
@@ -146,8 +151,30 @@ export function playsFromObMatchRow(row: unknown): Record<string, unknown>[] {
   return plays;
 }
 
+export function resolveObPlayMarketCode(
+  hpid: string,
+  spec: { marketCode: string; period: string } | undefined,
+): string {
+  if (!spec)
+    return `ob:${hpid || "x"}`;
+  if (spec.period === "q")
+    return `ob:${hpid || "x"}`;
+  if (spec.period === "ht")
+    return `ht_${spec.marketCode}`;
+  return spec.marketCode;
+}
+
+export function isCompleteOb1x2(
+  selections: Array<{ side?: string; odds?: number }>,
+): boolean {
+  const home = selections.some(s => s.side === "home" && Number(s.odds) > 0);
+  const away = selections.some(s => s.side === "away" && Number(s.odds) > 0);
+  return home && away;
+}
+
 export type ObPlaySelectionRow = {
   hpid: string;
+  hid?: string;
   marketCode: string;
   period: string;
   name: string;
@@ -158,7 +185,7 @@ export type ObPlaySelectionRow = {
 export function extractObPlaySelections(play: Record<string, unknown>): ObPlaySelectionRow[] {
   const hpid = String(play.hpid ?? play.hpId ?? "");
   const spec = OB_HPID_MARKET[hpid];
-  const marketCode = spec?.marketCode || `ob:${hpid || "x"}`;
+  const marketCode = resolveObPlayMarketCode(hpid, spec);
   const period = spec?.period || "";
   const name = String(play.hpn || play.title || play.n || marketCode);
   const rows: ObPlaySelectionRow[] = [];
@@ -174,9 +201,19 @@ export function extractObPlaySelections(play: Record<string, unknown>): ObPlaySe
         name: String(ol.on || ol.otn || ol.na || side),
       };
     });
-    rows.push({ hpid, marketCode, period, name, line, selections });
+    if (spec?.marketCode === "moneyline" && !isCompleteOb1x2(selections))
+      continue;
+    rows.push({
+      hpid,
+      hid: String(hl.hid ?? ""),
+      marketCode,
+      period,
+      name,
+      line,
+      selections,
+    });
   }
-  if (!rows.length) {
+  if (!rows.length && spec?.marketCode !== "moneyline") {
     rows.push({
       hpid,
       marketCode,
@@ -187,6 +224,28 @@ export function extractObPlaySelections(play: Record<string, unknown>): ObPlaySe
     });
   }
   return rows;
+}
+
+export function obPlayRowKey(row: ObPlaySelectionRow): string {
+  const hid = String(row.hid || "");
+  if (hid)
+    return `${row.hpid}|${hid}`;
+  const oids = (row.selections || []).map(s => s.oid).filter(Boolean).join(",");
+  return `${row.hpid}|${row.line ?? ""}|${oids}`;
+}
+
+/** hps 主盘 + hpsAdd 加线会各给一条同 hpid；用 hid/hv 去重，不要靠赔率猜玩法。 */
+export function dedupeObPlaySelectionRows(rows: ObPlaySelectionRow[]): ObPlaySelectionRow[] {
+  const out: ObPlaySelectionRow[] = [];
+  const seen = new Set<string>();
+  for (const row of rows || []) {
+    const key = obPlayRowKey(row);
+    if (seen.has(key))
+      continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
 }
 
 function pickSide(selections: ObPlaySelectionRow["selections"], side: string) {
@@ -207,44 +266,44 @@ export function listBetsFromObPlayData(playData: unknown[]): Array<{
   drawOdds: number;
 }> {
   const plays = Array.isArray(playData) ? playData : [];
-  const bets = [];
+  const extracted: ObPlaySelectionRow[] = [];
   for (const play of plays) {
     if (!play || typeof play !== "object")
       continue;
-    const hpid = String((play as { hpid?: unknown }).hpid ?? "");
+    extracted.push(...extractObPlaySelections(play as Record<string, unknown>));
+  }
+  const bets = [];
+  for (const row of dedupeObPlaySelectionRows(extracted)) {
+    const hpid = row.hpid;
     const spec = OB_HPID_MARKET[hpid];
-    for (const row of extractObPlaySelections(play as Record<string, unknown>)) {
-      const live = row.selections.filter(s => s.oid || s.odds > 0);
-      if (live.length < 2)
-        continue;
-      if (!spec && live.length > 3)
-        continue;
-      const totalsLike = spec?.marketCode === "totals"
-        || live.some(s => s.side === "over" || s.side === "under");
-      const home = pickSide(row.selections, totalsLike ? "over" : "home")
-        || row.selections[0]
-        || { oid: "", odds: 0, side: "home" as const, name: "" };
-      const away = pickSide(row.selections, totalsLike ? "under" : "away")
-        || row.selections[1]
-        || { oid: "", odds: 0, side: "away" as const, name: "" };
-      const draw = pickSide(row.selections, "draw");
-      const marketCode = spec
-        ? (spec.period === "ht" ? `ht_${spec.marketCode}` : spec.marketCode)
-        : `ob:${hpid || "x"}`;
-      bets.push({
-        marketCode,
-        line: spec?.marketCode === "moneyline" ? null : row.line,
-        name: row.name,
-        period: spec?.period || "",
-        hpid,
-        homeOid: home.oid,
-        awayOid: away.oid,
-        drawOid: draw?.oid || "",
-        homeOdds: home.odds,
-        awayOdds: away.odds,
-        drawOdds: draw?.odds || 0,
-      });
-    }
+    const live = row.selections.filter(s => s.oid || s.odds > 0);
+    if (live.length < 2)
+      continue;
+    if (!spec && live.length > 3)
+      continue;
+    const totalsLike = spec?.marketCode === "totals"
+      || live.some(s => s.side === "over" || s.side === "under");
+    const home = pickSide(row.selections, totalsLike ? "over" : "home")
+      || row.selections[0]
+      || { oid: "", odds: 0, side: "home" as const, name: "" };
+    const away = pickSide(row.selections, totalsLike ? "under" : "away")
+      || row.selections[1]
+      || { oid: "", odds: 0, side: "away" as const, name: "" };
+    const draw = pickSide(row.selections, "draw");
+    const marketCode = resolveObPlayMarketCode(hpid, spec);
+    bets.push({
+      marketCode,
+      line: row.line,
+      name: row.name,
+      period: spec?.period || "",
+      hpid,
+      homeOid: home.oid,
+      awayOid: away.oid,
+      drawOid: draw?.oid || "",
+      homeOdds: home.odds,
+      awayOdds: away.odds,
+      drawOdds: draw?.odds || 0,
+    });
   }
   return bets;
 }

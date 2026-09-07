@@ -1,4 +1,5 @@
 import type { ViewMatch } from "@/models/match";
+import { footballLeagueLabel } from "@/runtime/footballLeague";
 
 /** 足球页默认开赛窗口：现在起 6 小时内 */
 export const FOOTBALL_UPCOMING_MS = 6 * 3600 * 1000;
@@ -38,6 +39,8 @@ export function matchMatchesSearch(match: ViewMatch, query: string): boolean {
   if (String(match.title || "").toLowerCase().includes(q))
     return true;
   if (String(match.game || "").toLowerCase().includes(q))
+    return true;
+  if (footballLeagueLabel(match.game).toLowerCase().includes(q))
     return true;
   return match.bets.some(
     b => String(b.homeName || "").toLowerCase().includes(q)

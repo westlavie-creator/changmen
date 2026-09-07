@@ -58,11 +58,11 @@ function locked(n: number) {
     <div v-if="section.kind === 'ml'" class="fb-sec__body">
       <div
         v-for="row in section.rows"
-        :key="`${row.hpid}-${row.MarketCode}`"
+        :key="`${row.hpid}-${row.MarketCode}-${row.Line}`"
         class="fb-sec__block"
       >
         <div class="fb-sec__cols fb-sec__cols--ml">
-          <span />
+          <span class="fb-sec__line">{{ row.Line != null && Number(row.Line) !== 0 ? formatFootballLine(row.Line) : "" }}</span>
           <span>{{ home }}</span>
           <span>和</span>
           <span>{{ away }}</span>
@@ -219,7 +219,7 @@ function locked(n: number) {
 }
 .fb-sec__cols--ml,
 .fb-sec__venue--ml {
-  grid-template-columns: 22px 1fr 1fr 1fr;
+  grid-template-columns: 36px 1fr 1fr 1fr;
 }
 .fb-sec__cols--ah,
 .fb-sec__venue--ah,

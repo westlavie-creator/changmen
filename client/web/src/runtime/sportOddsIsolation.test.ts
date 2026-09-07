@@ -149,6 +149,11 @@ describe("sport / esport UI isolation", () => {
     expect(home).not.toMatch(/FootballObExpand/);
     expect(home).not.toMatch(/FootballMatchCard/);
     expect(list).toMatch(/leagueGroups/);
+    expect(list).toMatch(/groupFootballMatchesByLeague/);
+    expect(list).toMatch(/leagueFilter/);
+    expect(card).toMatch(/footballLeagueTag/);
+    expect(card).toMatch(/game-tag/);
+    expect(card).not.toMatch(/showLeague/);
     expect(card).not.toMatch(/收起/);
     expect(book).toMatch(/fb-book__cols/);
     expect(book).toMatch(/groupFootballColumns/);

@@ -176,4 +176,69 @@ describe("viewBetsToMarketRows", () => {
     expect(merged[0].Venues?.map(v => v.venue)).toEqual(["Polymarket", "OB"]);
     expect(merged[0].Venues?.find(v => v.venue === "OB")?.Selections?.[0]?.Odds).toBe(1.85);
   });
+
+  it("does not add a second OB moneyline when detail only has draw", () => {
+    const merged = mergeFootballBookRows(
+      [{
+        Name: "全场胜负",
+        MarketCode: "moneyline",
+        Line: null,
+        Venues: [{
+          venue: "OB",
+          Selections: [
+            { Name: "主胜", Side: "home", Odds: 1.94 },
+            { Name: "平", Side: "draw", Odds: 3 },
+            { Name: "客胜", Side: "away", Odds: 3.7 },
+          ],
+        }],
+      }],
+      [{
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: 0,
+        Selections: [
+          { Name: "平", Side: "draw", Odds: 5.2 },
+        ],
+      }],
+    );
+    expect(merged.filter(r => r.MarketCode === "moneyline")).toHaveLength(1);
+    expect(merged[0].Venues).toHaveLength(1);
+    expect(merged[0].Venues?.[0]?.Selections?.find(s => s.Side === "home")?.Odds).toBe(1.94);
+  });
+
+  it("does not collapse even 1X2 with European handicap lines", () => {
+    const merged = mergeFootballBookRows(
+      [
+        {
+          Name: "全场胜负",
+          MarketCode: "moneyline",
+          Line: null,
+          Venues: [{
+            venue: "OB",
+            Selections: [
+              { Name: "主胜", Side: "home", Odds: 2.05 },
+              { Name: "平", Side: "draw", Odds: 3.4 },
+              { Name: "客胜", Side: "away", Odds: 3.2 },
+            ],
+          }],
+        },
+        {
+          Name: "全场独赢",
+          MarketCode: "moneyline",
+          Line: -1,
+          Venues: [{
+            venue: "OB",
+            Selections: [
+              { Name: "主胜", Side: "home", Odds: 5.8 },
+              { Name: "平", Side: "draw", Odds: 1.2 },
+              { Name: "客胜", Side: "away", Odds: 8.1 },
+            ],
+          }],
+        },
+      ],
+      [],
+    );
+    expect(merged).toHaveLength(2);
+    expect(merged.map(r => r.Line)).toEqual([null, -1]);
+  });
 });

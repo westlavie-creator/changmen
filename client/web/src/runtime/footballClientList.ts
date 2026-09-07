@@ -1,4 +1,5 @@
 import type { ClientMatchDto } from "@/types/esport";
+import { pickBetterFootballGame } from "@/runtime/footballLeague";
 
 function junkTitle(title: string): boolean {
   const parts = String(title || "").split(/\s+vs\.?\s+/i);
@@ -66,6 +67,7 @@ export function mergeFootballClientLists(
       continue;
     }
     overlayMatch(hit, row);
+    hit.Game = pickBetterFootballGame(hit.Game, row.Game);
   }
   return out;
 }

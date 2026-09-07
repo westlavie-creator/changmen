@@ -100,4 +100,10 @@ describe("mergeFootballClientLists", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].Bets?.map(b => b.MarketCode).sort()).toEqual(["spreads", "totals"]);
   });
+
+  it("keeps a catalog league when the other venue is unknown_fb", () => {
+    const pm = dto({ Game: "unknown_fb" });
+    const ob = dto({ Game: "epl" });
+    expect(mergeFootballClientLists([pm], [ob])[0].Game).toBe("epl");
+  });
 });

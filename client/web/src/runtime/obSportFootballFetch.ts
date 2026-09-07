@@ -5,11 +5,13 @@ import type { ClientMatchDto } from "@/types/esport";
 import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { decodeObSportPbPayload } from "@/runtime/obSportCodec";
 import {
+  dedupeObPlaySelectionRows,
   extractObPlaySelections,
   listBetsFromObPlayData,
   OB_FOOTBALL_ID_BASE,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
+import { resolveObFootballGame } from "@/runtime/footballLeague";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 
 const PLUGIN_REQUIRED = "足球 OB 需要「じらいや」扩展代发（同一 Chrome 不必打开九游）";
@@ -25,18 +27,6 @@ const LIST_ODDS_PATH = "/yewu11/v1/w/structureMatchBaseInfoByMidsPB";
 const DETAIL_ODDS_PATH = "/yewu11/v1/w/getMatchBaseInfoByOddsPB";
 const CATEGORY_PATH = "/yewu11/v1/w/category/getCategoryList";
 const PLAY_ODDS_PATH = "/yewu11/v1/w/getOddsFromPlayPB";
-
-const OB_TID_GAME: Record<string, string> = {
-  180: "epl",
-  320: "lal",
-  276: "bun",
-  79: "fl1",
-  239: "sea",
-  6344: "chi",
-  563: "mls",
-  262: "uel",
-  8120: "uecl",
-};
 
 type ClientMarketRow = {
   hpid?: string;
@@ -199,6 +189,7 @@ type ScheduleMeta = {
   mid: string;
   tid: string;
   tn: string;
+  tnjc: string;
   startTime: number;
   home?: string;
   away?: string;
@@ -222,6 +213,7 @@ function collectFootballMatches(decoded: unknown): ScheduleMeta[] {
     const midsRaw = t.mids ?? t.mid;
     const tid = String(t.tid ?? t.tournamentId ?? t.id ?? "");
     const tn = String(t.tn ?? t.nameText ?? t.n ?? "");
+    const tnjc = String(t.tnjc ?? t.shortName ?? "");
     const mgt = t.mgt ?? t.startTime ?? t.mgtStr;
     const midList = Array.isArray(midsRaw)
       ? midsRaw.map(String)
@@ -230,7 +222,7 @@ function collectFootballMatches(decoded: unknown): ScheduleMeta[] {
       continue;
     for (const mid of midList) {
       if (!byMid.has(mid))
-        byMid.set(mid, { mid, tid, tn, startTime: Number(mgt) || 0 });
+        byMid.set(mid, { mid, tid, tn, tnjc, startTime: Number(mgt) || 0 });
     }
     const nested = asArray(t.mls || t.matches || t.ms);
     for (const m of nested) {
@@ -247,6 +239,7 @@ function collectFootballMatches(decoded: unknown): ScheduleMeta[] {
         mid,
         tid: String(row.tid ?? tid),
         tn: String(row.tn ?? tn),
+        tnjc: String(row.tnjc ?? tnjc),
         startTime: Number(row.mgt ?? row.mgtStr ?? row.startTime ?? mgt) || 0,
         home: String(row.mhn ?? row.home ?? ""),
         away: String(row.man ?? row.away ?? ""),
@@ -359,27 +352,8 @@ function displayBetName(marketCode: string, line: number | null | undefined) {
   return ht ? "半场胜负" : "全场胜负";
 }
 
-function resolveLeague(tid: string, tn: string): string {
-  if (OB_TID_GAME[tid])
-    return OB_TID_GAME[tid];
-  const raw = tn.toLowerCase();
-  const table: Array<[RegExp, string]> = [
-    [/欧冠|champions\s+league|\bucl\b/u, "ucl"],
-    [/欧协联|conference\s+league/u, "uecl"],
-    [/欧洲联赛|europa\s+league|\buel\b/u, "uel"],
-    [/英超|premier\s+league|\bepl\b/u, "epl"],
-    [/西甲|la\s*liga/u, "lal"],
-    [/德甲|bundesliga/u, "bun"],
-    [/法甲|ligue\s*1/u, "fl1"],
-    [/意甲|serie\s*a/u, "sea"],
-    [/中超|chinese\s+super/u, "chi"],
-    [/\bmls\b|美职联/u, "mls"],
-  ];
-  for (const [re, code] of table) {
-    if (re.test(raw))
-      return code;
-  }
-  return "unknown_fb";
+function resolveLeague(tid: string, tn: string, tnjc = ""): string {
+  return resolveObFootballGame(tid, tn, tnjc);
 }
 
 function isFootballListMarket(code: string) {
@@ -403,7 +377,8 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown>): ClientM
     return null;
   const tid = String(oddsRow.tid || meta.tid || "");
   const tn = String(oddsRow.tn || meta.tn || "");
-  const game = resolveLeague(tid, tn);
+  const tnjc = String(oddsRow.tnjc || meta.tnjc || "");
+  const game = resolveLeague(tid, tn, tnjc);
   const startTime = startTimeMs(oddsRow.mgt || oddsRow.mgtStr || meta.startTime);
   const playData = playsFromObMatchRow(oddsRow);
   const listBets = listBetsFromObPlayData(playData);
@@ -482,8 +457,11 @@ function mergeMarketRows(lists: ClientMarketRow[][]): ClientMarketRow[] {
 function marketsFromRow(_mid: string, row: Record<string, unknown> | null): ClientMarketRow[] {
   if (!row)
     return [];
+  const extracted = dedupeObPlaySelectionRows(
+    playsFromObMatchRow(row).flatMap(p => extractObPlaySelections(p)),
+  ).filter(r => r.selections.length);
   return mergeMarketRows([
-    playsFromObMatchRow(row).flatMap(p => extractObPlaySelections(p)).filter(r => r.selections.length).map(r => ({
+    extracted.map(r => ({
       hpid: r.hpid,
       MarketCode: r.marketCode,
       Name: r.name,

@@ -83,14 +83,13 @@ function selectionsFromItem(
   const code = String(bet.marketCode || "");
   const name = bet.getBetName();
   const isTotals = isTotalsCode(code) || /大小/.test(name);
-  const hasDraw = Number(item.fallbackDrawOdds) > 0;
   if (isTotals) {
     return [
       { Name: "大", Side: "over", Odds: itemOdds(item, "home", live) },
       { Name: "小", Side: "under", Odds: itemOdds(item, "away", live) },
     ];
   }
-  if (isMoneyline(code) || hasDraw) {
+  if (isMoneyline(code)) {
     return [
       { Name: "主胜", Side: "home", Odds: itemOdds(item, "home", live) },
       { Name: "平", Side: "draw", Odds: itemOdds(item, "draw", live) },
@@ -108,7 +107,18 @@ function sortVenues(venues: FootballVenueOdds[]) {
 }
 
 function listMarketKey(code: string, line: number | null | undefined) {
-  return `${String(code || "moneyline").toLowerCase()}|${line ?? ""}`;
+  const c = String(code || "moneyline").toLowerCase();
+  const n = Number(line);
+  const ml = c === "moneyline" || c === "ht_moneyline" || c.endsWith("_moneyline");
+  if (ml && Number.isFinite(n) && n !== 0)
+    return `${c}|${n}`;
+  if (ml)
+    return `${c}|`;
+  return `${c}|${line ?? ""}`;
+}
+
+function quoteCount(selections: FootballSelection[] | undefined) {
+  return (selections || []).filter(s => Number(s.Odds) > 0).length;
 }
 
 function bookRowKey(row: FootballObMarketRow): string {
@@ -161,17 +171,40 @@ export function viewBetsToMarketRows(
   return out;
 }
 
-/** OB 详情叠到列表行上，不覆盖 PM/PF。 */
+/** OB 详情叠到列表行上，不覆盖 PM/PF。同 key 的列表行先并成一场。 */
 export function mergeFootballBookRows(
   listRows: FootballObMarketRow[],
   obRows: FootballObMarketRow[],
 ): FootballObMarketRow[] {
-  const out: FootballObMarketRow[] = (listRows || []).map(row => ({
-    ...row,
-    Selections: [...(row.Selections || [])],
-    Venues: (row.Venues || []).map(v => ({ venue: v.venue, Selections: [...(v.Selections || [])] })),
-  }));
-  const index = new Map(out.map(row => [bookRowKey(row), row]));
+  const index = new Map<string, FootballObMarketRow>();
+  const out: FootballObMarketRow[] = [];
+  for (const row of listRows || []) {
+    const copy: FootballObMarketRow = {
+      ...row,
+      Selections: [...(row.Selections || [])],
+      Venues: (row.Venues || []).map(v => ({ venue: v.venue, Selections: [...(v.Selections || [])] })),
+    };
+    const key = bookRowKey(copy);
+    const hit = index.get(key);
+    if (!hit) {
+      out.push(copy);
+      index.set(key, copy);
+      continue;
+    }
+    for (const v of copy.Venues || []) {
+      const ix = hit.Venues!.findIndex(x => x.venue === v.venue);
+      if (ix >= 0) {
+        if (quoteCount(v.Selections) >= quoteCount(hit.Venues![ix].Selections))
+          hit.Venues![ix] = v;
+      }
+      else {
+        hit.Venues!.push(v);
+      }
+    }
+    sortVenues(hit.Venues!);
+    if (!hit.Selections?.length)
+      hit.Selections = copy.Selections;
+  }
   for (const ob of obRows || []) {
     const selections = [...(ob.Selections || [])];
     if (!selections.length)
@@ -190,10 +223,13 @@ export function mergeFootballBookRows(
       continue;
     }
     const ix = hit.Venues!.findIndex(v => v.venue === "OB");
-    if (ix >= 0)
-      hit.Venues![ix] = obVenue;
-    else
+    if (ix >= 0) {
+      if (quoteCount(selections) >= quoteCount(hit.Venues![ix].Selections))
+        hit.Venues![ix] = obVenue;
+    }
+    else {
       hit.Venues!.push(obVenue);
+    }
     sortVenues(hit.Venues!);
     if (ob.hpid)
       hit.hpid = ob.hpid;

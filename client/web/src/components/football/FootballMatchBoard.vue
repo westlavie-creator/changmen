@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FootballMarketBook from "@/components/football/FootballMarketBook.vue";
 import FootballMatchCard from "@/components/football/FootballMatchCard.vue";
-import type { ViewMatch } from "@/models/match";
+import { groupFootballMatchesByLeague } from "@/runtime/footballLeague";
 import {
   FOOTBALL_LIVE_LOOKBACK_MS,
   FOOTBALL_UPCOMING_MS,
@@ -13,7 +13,6 @@ import {
 } from "@/runtime/sportLiveOdds";
 import { useFootballStore } from "@/stores/footballStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
-import { getGameDisplayName } from "@changmen/shared/catalog/game_catalog.browser";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
@@ -22,6 +21,7 @@ const { matchs, loading, error } = storeToRefs(football);
 const { tick: oddsDisplayTick } = storeToRefs(useSportOddsStore());
 
 const searchQuery = ref("");
+const leagueFilter = ref("");
 const nowTick = ref(Date.now());
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 let liveSession: SportLiveOddsSession | null = null;
@@ -36,26 +36,35 @@ const displayedMatchs = computed(() => {
   });
 });
 
+const leagueTabs = computed(() => {
+  return groupFootballMatchesByLeague(displayedMatchs.value).map(g => ({
+    key: g.key,
+    label: g.league,
+    n: g.matches.length,
+  }));
+});
+
+const leagueGroups = computed(() => {
+  const groups = groupFootballMatchesByLeague(displayedMatchs.value);
+  const want = leagueFilter.value;
+  if (!want)
+    return groups;
+  return groups.filter(g => g.key === want);
+});
+
 const matchCountLabel = computed(() => {
   const total = matchs.value.length;
-  const shown = displayedMatchs.value.length;
+  const shown = leagueGroups.value.reduce((n, g) => n + g.matches.length, 0);
   if (shown !== total)
     return `${shown} / ${total} 场`;
   return `${shown} 场`;
 });
 
-const leagueGroups = computed(() => {
-  const map = new Map<string, ViewMatch[]>();
-  for (const m of displayedMatchs.value) {
-    const league = getGameDisplayName(m.game || "") || "其他";
-    let list = map.get(league);
-    if (!list) {
-      list = [];
-      map.set(league, list);
-    }
-    list.push(m);
-  }
-  return [...map.entries()].map(([league, matches]) => ({ league, matches }));
+watch(displayedMatchs, () => {
+  if (!leagueFilter.value)
+    return;
+  if (!leagueTabs.value.some(t => t.key === leagueFilter.value))
+    leagueFilter.value = "";
 });
 
 onMounted(() => {
@@ -104,10 +113,34 @@ watch(
     <p v-if="error" class="sport-toolbar__error">
       {{ error }}
     </p>
+    <div v-if="leagueTabs.length" class="football-league-tabs" role="tablist" aria-label="按联赛筛选">
+      <button
+        type="button"
+        class="football-league-tab"
+        :class="{ 'is-on': !leagueFilter }"
+        role="tab"
+        :aria-selected="!leagueFilter"
+        @click="leagueFilter = ''"
+      >
+        全部 {{ displayedMatchs.length }}
+      </button>
+      <button
+        v-for="tab in leagueTabs"
+        :key="tab.key"
+        type="button"
+        class="football-league-tab"
+        :class="{ 'is-on': leagueFilter === tab.key }"
+        role="tab"
+        :aria-selected="leagueFilter === tab.key"
+        @click="leagueFilter = leagueFilter === tab.key ? '' : tab.key"
+      >
+        {{ tab.label }} {{ tab.n }}
+      </button>
+    </div>
     <div v-if="displayedMatchs.length" class="matchs">
       <section
         v-for="group in leagueGroups"
-        :key="group.league"
+        :key="group.key"
         class="football-league"
       >
         <div class="football-league__head">
@@ -171,6 +204,28 @@ watch(
 }
 .sport-toolbar :deep(.el-button) {
   margin-left: auto;
+}
+.football-league-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.football-league-tab {
+  border: 1px solid #334155;
+  border-radius: 999px;
+  background: #1a2332;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.football-league-tab.is-on {
+  border-color: #3b82f6;
+  background: #1e3a5f;
+  color: #fff;
 }
 .football-league {
   margin: 0 10px 12px;

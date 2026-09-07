@@ -117,6 +117,76 @@ describe("footballMarketLayout", () => {
     expect(groupFootballColumns(rows).map(c => c.label)).toEqual(["独赢", "让球", "波胆"]);
   });
 
+  it("does not put a draw-only OB line into 独赢", () => {
+    const rows = [
+      row({
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: null,
+        Selections: [
+          { Name: "主胜", Side: "home", Odds: 1.94 },
+          { Name: "平", Side: "draw", Odds: 3 },
+          { Name: "客胜", Side: "away", Odds: 3.7 },
+        ],
+      }),
+      row({
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: 0,
+        Selections: [
+          { Name: "平", Side: "draw", Odds: 5.2 },
+        ],
+      }),
+    ];
+    const ml = groupFootballColumns(rows).find(c => c.id === "ml");
+    expect(ml?.sections[0]?.rows).toHaveLength(1);
+    expect(ml?.sections[0]?.rows[0]?.Selections?.find(s => s.Side === "draw")?.Odds).toBe(3);
+  });
+
+  it("keeps hpid-1 handicap lines in 独赢 and labels each hv", () => {
+    const rows = [
+      row({
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: null,
+        hpid: "1",
+        Selections: [
+          { Name: "主胜", Side: "home", Odds: 2.05 },
+          { Name: "平", Side: "draw", Odds: 3.4 },
+          { Name: "客胜", Side: "away", Odds: 3.2 },
+        ],
+      }),
+      row({
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: -1,
+        hpid: "1",
+        Selections: [
+          { Name: "主胜", Side: "home", Odds: 5.8 },
+          { Name: "平", Side: "draw", Odds: 1.2 },
+          { Name: "客胜", Side: "away", Odds: 8.1 },
+        ],
+      }),
+      row({
+        Name: "全场独赢",
+        MarketCode: "moneyline",
+        Line: -2,
+        hpid: "1",
+        Selections: [
+          { Name: "主胜", Side: "home", Odds: 5 },
+          { Name: "平", Side: "draw", Odds: 1.28 },
+          { Name: "客胜", Side: "away", Odds: 6.9 },
+        ],
+      }),
+    ];
+    const cols = groupFootballColumns(rows);
+    const ml = cols.find(c => c.id === "ml");
+    expect(cols.find(c => c.id === "ah")).toBeUndefined();
+    expect(ml?.sections).toHaveLength(1);
+    expect(ml?.sections[0]?.title).toBe("全场独赢");
+    expect(ml?.sections[0]?.rows.map(r => r.Line)).toEqual([-2, -1, null]);
+  });
+
   it("puts 双方都进球 in 进球, not 热门", () => {
     const rows = [
       row({

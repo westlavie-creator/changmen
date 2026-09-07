@@ -1,5 +1,5 @@
 import { footballMarketTitle } from "@/runtime/footballMarketRows";
-import { footballRowHasQuotes, type FootballObMarketRow } from "@/runtime/footballObMarkets";
+import { footballRowHasQuotes, footballRowVenues, type FootballObMarketRow } from "@/runtime/footballObMarkets";
 
 export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
 export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht" | "goals" | "cs" | "corners" | "other";
@@ -52,12 +52,18 @@ export function formatFootballLine(line: number | null | undefined): string {
 
 export function footballRowKind(row: FootballObMarketRow): FootballBookKind {
   const code = String(row.MarketCode || "").toLowerCase();
-  const name = String(row.Name || "");
-  if (code.includes("moneyline") || /独赢|胜负/.test(name))
+  if (code === "moneyline" || code === "ht_moneyline" || code.endsWith("_moneyline"))
     return "ml";
-  if (code.includes("spreads") || /让球/.test(name))
+  if (code === "spreads" || code === "ht_spreads" || code.endsWith("_spreads"))
     return "ah";
-  if (code.includes("totals") || /大小/.test(name))
+  if (code === "totals" || code === "ht_totals" || code.endsWith("_totals"))
+    return "ou";
+  const name = String(row.Name || "");
+  if (/独赢|胜负/.test(name) && !/让球/.test(name))
+    return "ml";
+  if (/让球/.test(name) && !/大小/.test(name))
+    return "ah";
+  if (/大小/.test(name))
     return "ou";
   return "grid";
 }
@@ -65,7 +71,8 @@ export function footballRowKind(row: FootballObMarketRow): FootballBookKind {
 function isHalf(row: FootballObMarketRow): boolean {
   const code = String(row.MarketCode || "").toLowerCase();
   const name = String(row.Name || "");
-  return code.startsWith("ht_") || /半场|上半/.test(name);
+  const period = String(row.Period || "").toLowerCase();
+  return code.startsWith("ht_") || period === "ht" || /半场|上半/.test(name);
 }
 
 function isCorrectScore(row: FootballObMarketRow): boolean {
@@ -124,6 +131,15 @@ function inTab(row: FootballObMarketRow, tab: FootballBookTab): boolean {
   return !half && !cs && !corners && !goals && kind === "grid";
 }
 
+function rowHas1x2(row: FootballObMarketRow): boolean {
+  return footballRowVenues(row).some((v) => {
+    const sels = v.Selections || [];
+    const home = sels.some(s => String(s.Side || "").toLowerCase() === "home" && Number(s.Odds) > 0);
+    const away = sels.some(s => String(s.Side || "").toLowerCase() === "away" && Number(s.Odds) > 0);
+    return home && away;
+  });
+}
+
 function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean {
   const kind = footballRowKind(row);
   const half = isHalf(row);
@@ -139,7 +155,7 @@ function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean 
   if (col === "goals")
     return goals && !half;
   if (col === "ml")
-    return !half && kind === "ml";
+    return !half && kind === "ml" && rowHas1x2(row);
   if (col === "ah")
     return !half && !corners && kind === "ah";
   if (col === "ou")
@@ -185,9 +201,9 @@ function collectSections(
     sec.rows.push(row);
   }
   for (const sec of byKey.values()) {
-    if (sec.kind === "ah" || sec.kind === "ou") {
+    if (sec.kind === "ah" || sec.kind === "ou" || sec.kind === "ml") {
       sec.rows.sort((a, b) => (Number(a.Line) || 0) - (Number(b.Line) || 0));
-      if (compact)
+      if (compact && sec.kind !== "ml")
         sec.rows = capCompactLines(sec.rows);
     }
   }

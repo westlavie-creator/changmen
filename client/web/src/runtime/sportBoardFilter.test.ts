@@ -54,4 +54,15 @@ describe("sportBoardFilter", () => {
     const def = filterSportBoardMatches([junk, ok], { horizonMs: FOOTBALL_UPCOMING_MS, now });
     expect(def.map(m => m.id)).toEqual([1]);
   });
+
+  it("search matches the Chinese league label, not just the catalog code", () => {
+    const epl = match(1, "Arsenal vs Chelsea", now + 3600_000, "epl");
+    const lal = match(2, "Barca vs Madrid", now + 3600_000, "lal");
+    const searched = filterSportBoardMatches([epl, lal], {
+      query: "英超",
+      horizonMs: FOOTBALL_UPCOMING_MS,
+      now,
+    });
+    expect(searched.map(m => m.id)).toEqual([1]);
+  });
 });
