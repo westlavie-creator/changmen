@@ -48,6 +48,20 @@ function fmtOdds(n: number) {
 function locked(n: number) {
   return !(n > 0);
 }
+
+function mlHomeLine(row: FootballObMarketRow) {
+  const n = Number(row.Line);
+  if (!Number.isFinite(n) || n === 0)
+    return "";
+  return ` ${formatFootballLine(n)}`;
+}
+
+function mlAwayLine(row: FootballObMarketRow) {
+  const n = Number(row.Line);
+  if (!Number.isFinite(n) || n === 0)
+    return "";
+  return ` ${formatFootballLine(-n)}`;
+}
 </script>
 
 <template>
@@ -62,10 +76,10 @@ function locked(n: number) {
         class="fb-sec__block"
       >
         <div class="fb-sec__cols fb-sec__cols--ml">
-          <span class="fb-sec__line">{{ row.Line != null && Number(row.Line) !== 0 ? formatFootballLine(row.Line) : "" }}</span>
-          <span>{{ home }}</span>
+          <span />
+          <span>{{ home }}{{ mlHomeLine(row) }}</span>
           <span>和</span>
-          <span>{{ away }}</span>
+          <span>{{ away }}{{ mlAwayLine(row) }}</span>
         </div>
         <div
           v-for="v in venues(row)"
@@ -219,7 +233,7 @@ function locked(n: number) {
 }
 .fb-sec__cols--ml,
 .fb-sec__venue--ml {
-  grid-template-columns: 36px 1fr 1fr 1fr;
+  grid-template-columns: 22px 1fr 1fr 1fr;
 }
 .fb-sec__cols--ah,
 .fb-sec__venue--ah,

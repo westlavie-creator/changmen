@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeObPlaySelectionRows,
   extractObPlaySelections,
+  parseObHandicapLine,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
 
@@ -63,6 +64,26 @@ describe("extractObPlaySelections moneyline", () => {
     expect(rows.map(r => r.line)).toEqual([0, -1, -2]);
     expect(rows.every(r => r.marketCode === "moneyline" && r.hpid === "1")).toBe(true);
     expect(rows[1]?.selections.find(s => s.side === "draw")?.odds).toBe(1.2);
+  });
+
+  it("parses European handicap score hv like 1-0 as home -1", () => {
+    expect(parseObHandicapLine("1-0")).toBe(-1);
+    expect(parseObHandicapLine("0-1")).toBe(1);
+    expect(parseObHandicapLine("2:0")).toBe(-2);
+    expect(parseObHandicapLine("-1")).toBe(-1);
+    const rows = extractObPlaySelections({
+      hpid: "1",
+      hpn: "全场独赢",
+      hl: [{
+        hv: "1-0",
+        ol: [
+          { on: "主胜", ov: 4.7, oid: "h" },
+          { on: "和", ov: 1.27, oid: "d" },
+          { on: "客胜", ov: 8, oid: "a" },
+        ],
+      }],
+    });
+    expect(rows[0]?.line).toBe(-1);
   });
 });
 

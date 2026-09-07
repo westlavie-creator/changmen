@@ -5,9 +5,9 @@
 export const OB_FOOTBALL_ID_BASE = 820_000_000;
 
 /**
- * OB 足球玩法 ID（hpid）。名称来自详情 `hpsPns`（hpid→hpn），不是赔率形状。
- * 同一 hpid 下多条 `hl` 用 `hv` 区分盘口线：独赢平手 hv 空/0，让球独赢 hv 为 ±N。
- * 九游分类接口 `getCategoryList`：hpid 1/17 在「所有投注」，不在「让球&大小」（那是 4/2/19/18…）。
+ * OB 足球玩法 ID（hpid）。名称来自详情 `hpsPns`（hpid→hpn），不是赔率形状、也不是有没有 hv。
+ * 同一 hpid 下多条 `hl` 用 `hv` 区分盘口线（独赢平手 hv 空/0，其它 1X2 线 hv 为 ±N 或 1-0）。
+ * 九游 `getCategoryList`：hpid 1/17 在「所有投注」= 独赢；「让球&大小」才是 4/2/19/18。
  */
 export const OB_HPID_MARKET: Record<string, { marketCode: string; period: string }> = {
   1: { marketCode: "moneyline", period: "ft" },
@@ -41,6 +41,13 @@ export function parseObHandicapLine(hv: unknown): number | null {
   const s = String(hv ?? "").trim();
   if (!s)
     return null;
+  const score = s.match(/^(-?\d+(?:\.\d+)?)\s*[-:]\s*(-?\d+(?:\.\d+)?)$/);
+  if (score) {
+    const home = Number(score[1]);
+    const away = Number(score[2]);
+    if (Number.isFinite(home) && Number.isFinite(away))
+      return round3(away - home);
+  }
   const parts = s.split("/").map(x => Number(String(x).trim())).filter(Number.isFinite);
   if (parts.length === 2)
     return round3((parts[0] + parts[1]) / 2);
@@ -191,7 +198,7 @@ export function extractObPlaySelections(play: Record<string, unknown>): ObPlaySe
   const rows: ObPlaySelectionRow[] = [];
   for (const hl of playLines(play)) {
     const ols = Array.isArray(hl.ol) ? hl.ol as Record<string, unknown>[] : [];
-    const line = parseObHandicapLine(hl.hv ?? play.hv);
+    const line = parseObHandicapLine(hl.hv ?? hl.hsw ?? hl.hs ?? play.hv);
     const selections = ols.map((ol, i) => {
       const side = classifyObOutcome(ol, i, ols.length);
       return {

@@ -42,6 +42,30 @@ describe("footballMarketLayout", () => {
     ]);
   });
 
+  it("classifies by OB hpid, not by whether the 独赢 line has hv", () => {
+    expect(footballRowKind({
+      Name: "全场独赢",
+      MarketCode: "moneyline",
+      Line: -1,
+      hpid: "1",
+      Selections: [
+        { Name: "主胜", Side: "home", Odds: 4.7 },
+        { Name: "平", Side: "draw", Odds: 1.27 },
+        { Name: "客胜", Side: "away", Odds: 8 },
+      ],
+    })).toBe("ml");
+    expect(footballRowKind({
+      Name: "全场让球",
+      MarketCode: "spreads",
+      Line: -0.5,
+      hpid: "4",
+      Selections: [
+        { Name: "主", Side: "home", Odds: 1.9 },
+        { Name: "客", Side: "away", Odds: 1.9 },
+      ],
+    })).toBe("ah");
+  });
+
   it("groups 让球 lines into one 全场让球 section, 独赢 first", () => {
     const rows = [
       row({ Name: "全场让球", MarketCode: "spreads", Line: -0.5, hpid: "4" }),
@@ -143,7 +167,7 @@ describe("footballMarketLayout", () => {
     expect(ml?.sections[0]?.rows[0]?.Selections?.find(s => s.Side === "draw")?.Odds).toBe(3);
   });
 
-  it("keeps hpid-1 handicap lines in 独赢 and labels each hv", () => {
+  it("keeps every hpid-1 1X2 line in 独赢, never in 让球", () => {
     const rows = [
       row({
         Name: "全场独赢",
@@ -182,6 +206,7 @@ describe("footballMarketLayout", () => {
     const cols = groupFootballColumns(rows);
     const ml = cols.find(c => c.id === "ml");
     expect(cols.find(c => c.id === "ah")).toBeUndefined();
+    expect(cols.find(c => c.id === "other")).toBeUndefined();
     expect(ml?.sections).toHaveLength(1);
     expect(ml?.sections[0]?.title).toBe("全场独赢");
     expect(ml?.sections[0]?.rows.map(r => r.Line)).toEqual([-2, -1, null]);

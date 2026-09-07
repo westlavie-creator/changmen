@@ -1,5 +1,6 @@
 import { footballMarketTitle } from "@/runtime/footballMarketRows";
 import { footballRowHasQuotes, footballRowVenues, type FootballObMarketRow } from "@/runtime/footballObMarkets";
+import { OB_HPID_MARKET } from "@/runtime/obSportOdds";
 
 export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
 export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht" | "goals" | "cs" | "corners" | "other";
@@ -51,6 +52,14 @@ export function formatFootballLine(line: number | null | undefined): string {
 }
 
 export function footballRowKind(row: FootballObMarketRow): FootballBookKind {
+  const hpid = String(row.hpid || "");
+  const spec = hpid ? OB_HPID_MARKET[hpid] : undefined;
+  if (spec?.marketCode === "moneyline")
+    return "ml";
+  if (spec?.marketCode === "spreads")
+    return "ah";
+  if (spec?.marketCode === "totals")
+    return "ou";
   const code = String(row.MarketCode || "").toLowerCase();
   if (code === "moneyline" || code === "ht_moneyline" || code.endsWith("_moneyline"))
     return "ml";
