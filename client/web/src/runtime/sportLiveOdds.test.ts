@@ -53,7 +53,7 @@ function makeMatch(opts: {
 }
 
 describe("pickSportSubscribeIds", () => {
-  test("filters outside past6h/future2h window", () => {
+  test("subscribes every match on the board list", () => {
     const now = 1_700_000_000_000;
     const ok = makeMatch({ id: 1, startAt: now + 30 * 60_000, pmHome: "t1", pmAway: "t2" });
     const old = makeMatch({
@@ -64,12 +64,28 @@ describe("pickSportSubscribeIds", () => {
     });
     const later = makeMatch({
       id: 3,
-      startAt: now + 3 * 3600_000,
+      startAt: now + 7 * 3600_000,
       pmHome: "later1",
       pmAway: "later2",
     });
     const pick = pickSportSubscribeIds([ok, old, later], 100, now);
-    expect(pick.polymarketAssetIds.sort()).toEqual(["t1", "t2"]);
+    expect(pick.polymarketAssetIds.sort()).toEqual(["later1", "later2", "old1", "old2", "t1", "t2"]);
+  });
+
+  test("C8 follows listed overlay matches even outside the OB 2h board window", () => {
+    const now = 1_700_000_000_000;
+    const later = makeMatch({
+      id: 3,
+      startAt: now + 5 * 3600_000,
+      pmHome: "later1",
+      pmAway: "later2",
+      obMid: "5650999",
+      obHome: "oid-later",
+    });
+    const pick = pickSportSubscribeIds([later], 100, now);
+    expect(pick.polymarketAssetIds.sort()).toEqual(["later1", "later2"]);
+    expect(pick.obMids).toEqual(["5650999"]);
+    expect(pick.obOids.sort()).toEqual(["oid-later", "oid-later-a"]);
   });
 
   test("hard cap limits total tokens across PM+PF", () => {
@@ -143,7 +159,7 @@ describe("pickSportSubscribeIds", () => {
 
   test("caps OB C8 mids so subscribe dump cannot freeze the page", () => {
     const now = 1_700_000_000_000;
-    const matches = Array.from({ length: 40 }, (_, i) =>
+    const matches = Array.from({ length: 80 }, (_, i) =>
       makeMatch({
         id: i,
         startAt: now + i * 1000,
@@ -153,5 +169,27 @@ describe("pickSportSubscribeIds", () => {
     );
     const pick = pickSportSubscribeIds(matches, 100, now, SPORT_OB_MID_CAP);
     expect(pick.obMids).toHaveLength(SPORT_OB_MID_CAP);
+  });
+
+  test("prefers in-play OB mids over soon-to-kick upcoming when C8 is capped", () => {
+    const now = 1_700_000_000_000;
+    const live = [30, 60, 90].map((mins, i) =>
+      makeMatch({
+        id: 100 + i,
+        startAt: now - mins * 60_000,
+        obMid: String(5600001 + i),
+        obHome: `live-${i}`,
+      }),
+    );
+    const upcoming = Array.from({ length: 20 }, (_, i) =>
+      makeMatch({
+        id: i,
+        startAt: now + (i + 1) * 60_000,
+        obMid: String(5700000 + i),
+        obHome: `up-${i}`,
+      }),
+    );
+    const pick = pickSportSubscribeIds([...upcoming, ...live], 100, now, 5);
+    expect(pick.obMids).toEqual(["5600001", "5600002", "5600003", "5700000", "5700001"]);
   });
 });

@@ -19,13 +19,13 @@ import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { startObSportWs, isObSportC8Mid, type ObSportSessionLite } from "@/runtime/obSportWs";
 import { SPORT_OB_SESSION_UPDATED } from "@/runtime/sportObSessionEvents";
 
-/** 与足球列表窗对齐：过去 6h + 未来 2h */
-const SPORT_LIVE_PAST_MS = 6 * 3600 * 1000;
-const SPORT_LIVE_FUTURE_MS = 2 * 3600 * 1000;
 /** 体育侧硬顶；与电竞 token 合并订，控制 WS 帧量 */
 export const SPORT_SUBSCRIBE_HARD_CAP = 100;
-/** C8 订太多 mid 会在连上后倾泻 C105，整页卡死几秒。只订最近若干场。 */
-export const SPORT_OB_MID_CAP = 16;
+/**
+ * C8 按场（mid）订，一场已经带上全场/半场让球+大小（hpid 1,2,4,17,18,19），不是按盘口条数。
+ * 连上时 C105 会倾泻，板上 OB 场次太多时仍截断，滚球优先。
+ */
+export const SPORT_OB_MID_CAP = 64;
 
 const PM = "Polymarket";
 const PF = "PredictFun";
@@ -37,10 +37,15 @@ function decimalOddsFromProbability(price: number): number {
   return truncateOddsTo3(1 / price);
 }
 
-function startTimeAllowed(startMs: number, now = Date.now()): boolean {
-  if (!Number.isFinite(startMs) || startMs <= 0)
-    return false;
-  return startMs >= now - SPORT_LIVE_PAST_MS && startMs <= now + SPORT_LIVE_FUTURE_MS;
+/** 滚球必须先拿到 C8；|start-now| 会让 10 分钟后开赛的场挤掉已开 70 分钟的场。 */
+function compareObMidCandidates(a: { start: number }, b: { start: number }, now: number): number {
+  const aLive = a.start <= now ? 0 : 1;
+  const bLive = b.start <= now ? 0 : 1;
+  if (aLive !== bLive)
+    return aLive - bLive;
+  if (aLive === 0)
+    return Math.abs(a.start - now) - Math.abs(b.start - now);
+  return a.start - b.start;
 }
 
 export interface SportSubscribePick {
@@ -51,8 +56,8 @@ export interface SportSubscribePick {
 }
 
 /**
- * 从当前板列表挑出要订的 token（时间窗 + 硬顶）。
- * 按 |StartTime - now| 近者优先。
+ * 订当前板上传入的场次（时间窗由列表过滤负责，这里不再裁一遍）。
+ * 超硬顶时 PM/PF 按 |StartTime - now| 近者优先；OB C8 滚球优先，再补最近未开赛。
  */
 export function pickSportSubscribeIds(
   matches: ViewMatch[],
@@ -62,14 +67,25 @@ export function pickSportSubscribeIds(
 ): SportSubscribePick {
   const scored = matches
     .map(m => ({ m, start: Number(m.startAt) || 0 }))
-    .filter(x => startTimeAllowed(x.start, now))
     .sort((a, b) => Math.abs(a.start - now) - Math.abs(b.start - now));
 
   const pm = new Set<string>();
   const pf = new Set<string>();
   const ob = new Set<string>();
-  const obMids = new Set<string>();
+  const obMids: string[] = [];
+  const seenMids = new Set<string>();
   let used = 0;
+
+  const obCandidates = scored
+    .map(({ m, start }) => ({ mid: String(m.providers?.OB ?? "").trim(), start }))
+    .filter(x => isObSportC8Mid(x.mid))
+    .sort((a, b) => compareObMidCandidates(a, b, now));
+  for (const c of obCandidates) {
+    if (seenMids.has(c.mid) || obMids.length >= midCap)
+      continue;
+    seenMids.add(c.mid);
+    obMids.push(c.mid);
+  }
 
   const tryAdd = (set: Set<string>, id: string) => {
     const s = String(id || "").trim();
@@ -82,9 +98,6 @@ export function pickSportSubscribeIds(
   };
 
   for (const { m } of scored) {
-    const obMid = String(m.providers?.OB ?? "").trim();
-    if (obMid && isObSportC8Mid(obMid) && obMids.size < midCap)
-      obMids.add(obMid);
     if (used >= cap)
       continue;
     for (const bet of m.bets) {
@@ -116,7 +129,7 @@ export function pickSportSubscribeIds(
     polymarketAssetIds: [...pm],
     predictFunMarketIds: [...pf],
     obOids: [...ob],
-    obMids: [...obMids],
+    obMids,
   };
 }
 
