@@ -3,6 +3,8 @@ import { footballLeagueKey, footballLeagueLabel } from "@/runtime/footballLeague
 
 /** 足球页 OB 未开赛窗口：现在起未来 2 小时（今日菜单场次太多，必须裁） */
 export const FOOTBALL_UPCOMING_MS = 2 * 3600 * 1000;
+/** 预测市场未开赛窗口：与服务端 FOOTBALL_LIST_FUTURE_MS 对齐，覆盖傍晚场、不含跨日几天后的盘 */
+export const FOOTBALL_PM_UPCOMING_MS = 6 * 3600 * 1000;
 /** 已开赛保留：足球 90 分钟+中场+补时，按开赛后 4 小时内仍算进行中 */
 export const FOOTBALL_LIVE_LOOKBACK_MS = 4 * 3600 * 1000;
 
@@ -31,7 +33,7 @@ export function matchInUpcomingWindow(
   return t >= now - lookbackMs && t <= now + horizonMs;
 }
 
-/** 仅纯 OB 场次走 2h/滚球窗口。PM/PF 用服务端 4h+6h，板上不再二次裁。 */
+/** 仅纯 OB 场次走 2h/滚球窗口。带 PM/PF 的场走 6h。 */
 export function matchUsesObUpcomingWindow(match: ViewMatch): boolean {
   const keys = Object.keys(match.providers || {}).map(k => String(k).trim()).filter(Boolean);
   if (!keys.length)
@@ -71,7 +73,8 @@ export function sortSportBoardMatchesByStartTime(matches: ViewMatch[]): ViewMatc
 }
 
 /**
- * 默认：纯 OB 未来 2 小时未开赛 + 开赛后 4 小时内（滚球）；带 PM/PF 的场不二次裁。
+ * 默认：纯 OB 未来 2 小时未开赛 + 开赛后 4 小时内（滚球）；
+ * 带 PM/PF 的场未来 6 小时（服务端同窗；板上再裁一次，避免 7 天缓存把几天后的盘漏进来）。
  * 有搜索词时不裁窗口。结果按开赛时间排序。
  */
 export function filterSportBoardMatches(
@@ -80,6 +83,7 @@ export function filterSportBoardMatches(
     query?: string;
     horizonMs?: number;
     lookbackMs?: number;
+    pmHorizonMs?: number;
     now?: number;
   } = {},
 ): ViewMatch[] {
@@ -94,8 +98,11 @@ export function filterSportBoardMatches(
     return sortSportBoardMatchesByStartTime(searched);
   const now = opts.now ?? Date.now();
   const lookback = opts.lookbackMs ?? FOOTBALL_LIVE_LOOKBACK_MS;
-  return sortSportBoardMatchesByStartTime(searched.filter(m => (
-    !matchUsesObUpcomingWindow(m)
-    || matchInUpcomingWindow(m.startAt, now, horizon, lookback)
-  )));
+  const pmHorizon = Number(opts.pmHorizonMs) > 0
+    ? Number(opts.pmHorizonMs)
+    : FOOTBALL_PM_UPCOMING_MS;
+  return sortSportBoardMatchesByStartTime(searched.filter((m) => {
+    const upcoming = matchUsesObUpcomingWindow(m) ? horizon : pmHorizon;
+    return matchInUpcomingWindow(m.startAt, now, upcoming, lookback);
+  }));
 }

@@ -39,11 +39,13 @@ describe("sportBoardFilter", () => {
     expect(def.map(m => m.id)).toEqual([3]);
   });
 
-  it("does not crop Polymarket / PredictFun to the OB 2h window", () => {
-    const pmLater = match(5, "Cagliari vs Lecce", now + 10 * 3600_000, "sea", { Polymarket: "pm1" });
-    const pfLater = match(6, "Al Khaleej vs Al Riyadh", now + 6 * 3600_000, "spl", { PredictFun: "pf1" });
+  it("keeps Polymarket / PredictFun in 6h, not days later", () => {
+    const pmSoon = match(5, "Cagliari vs Lecce", now + 1 * 3600_000, "sea", { Polymarket: "pm1" });
+    const pfSix = match(6, "Al Khaleej vs Al Riyadh", now + 6 * 3600_000, "spl", { PredictFun: "pf1" });
+    const pmTen = match(8, "Gamba Osaka vs FC Tokyo", now + 10 * 3600_000, "jap", { Polymarket: "pm2" });
+    const pmDays = match(9, "Gamba Osaka vs FC Tokyo", now + 4 * 24 * 3600_000, "jap", { Polymarket: "pm3" });
     const obLater = match(7, "OB later vs Team", now + 10 * 3600_000, "epl", { OB: "mid-1" });
-    const def = filterSportBoardMatches([pmLater, pfLater, obLater], { horizonMs: FOOTBALL_UPCOMING_MS, now });
+    const def = filterSportBoardMatches([pmSoon, pfSix, pmTen, pmDays, obLater], { horizonMs: FOOTBALL_UPCOMING_MS, now });
     expect(def.map(m => m.id).sort((a, b) => a - b)).toEqual([5, 6]);
   });
 

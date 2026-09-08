@@ -153,7 +153,7 @@ watch(
   min-width: 0;
   background: hsla(0, 0%, 100%, 0.04);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 .fb-book__col-head {
   padding: 8px 10px;

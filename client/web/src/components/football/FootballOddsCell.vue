@@ -59,7 +59,7 @@ const locked = computed(() => !(display.value.odds > 0));
   justify-content: center;
   gap: 4px;
   min-height: 28px;
-  min-width: 0;
+  min-width: 48px;
   padding: 4px 6px;
   border-radius: 6px;
   background: hsla(210, 40%, 50%, 0.16);
@@ -82,6 +82,9 @@ const locked = computed(() => !(display.value.odds > 0));
   font-size: 13px;
   font-weight: 700;
   color: #fff;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 .odds-src {
   font-size: 9px;

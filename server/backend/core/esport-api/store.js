@@ -615,7 +615,8 @@ export async function buildFootballMatchList() {
   try {
     const { ingestAndMergeSportLists } = await import("./sport_merge.js");
     const merged = await ingestAndMergeSportLists("football", cropped);
-    return sanitizeFootballMatchList(merged?.length ? merged : cropped);
+    const out = sanitizeFootballMatchList(merged?.length ? merged : cropped);
+    return cropSportMatchListWindow(out, FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS);
   }
   catch (err) {
     console.warn("[GetFootballMatchs] sport merge fallback to concat", err?.message || err);

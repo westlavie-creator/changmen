@@ -235,15 +235,15 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
 }
 .fb-sec__cols--ml,
 .fb-sec__venue--ml {
-  grid-template-columns: 22px 1fr 1fr 1fr;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 .fb-sec__cols--ah,
 .fb-sec__venue--ah,
 .fb-sec__cols--ou,
 .fb-sec__venue--ou {
-  grid-template-columns: 22px 1fr 1fr;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr);
 }
-.fb-sec__cols span {
+.fb-sec__cols--ah > span:not(:first-child) {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -272,6 +272,9 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
   font-weight: 600;
   color: #93c5fd;
   text-align: left;
+  overflow: visible;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .fb-sec__grid-block {
   display: grid;
