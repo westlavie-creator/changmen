@@ -6,7 +6,7 @@ import FootballMarketBook from "@/components/football/FootballMarketBook.vue";
 import type { ViewMatch } from "@/models/match";
 import { onMounted, onUnmounted, ref } from "vue";
 
-const props = defineProps<{
+defineProps<{
   match: ViewMatch;
 }>();
 
