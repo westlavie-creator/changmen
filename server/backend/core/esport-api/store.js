@@ -605,21 +605,21 @@ export async function buildFootballMatchList() {
     ],
     "GetFootballMatchs",
   );
+  const {
+    cropSportMatchListWindow,
+    sanitizeFootballMatchList,
+    FOOTBALL_LIST_PAST_MS,
+    FOOTBALL_LIST_FUTURE_MS,
+  } = await import("./sport_football_markets.js");
+  const cropped = cropSportMatchListWindow(list, FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS);
   try {
     const { ingestAndMergeSportLists } = await import("./sport_merge.js");
-    const { sanitizeFootballMatchList } = await import("./sport_football_markets.js");
-    const merged = await ingestAndMergeSportLists("football", list);
-    return sanitizeFootballMatchList(merged?.length ? merged : list);
+    const merged = await ingestAndMergeSportLists("football", cropped);
+    return sanitizeFootballMatchList(merged?.length ? merged : cropped);
   }
   catch (err) {
     console.warn("[GetFootballMatchs] sport merge fallback to concat", err?.message || err);
-    try {
-      const { sanitizeFootballMatchList } = await import("./sport_football_markets.js");
-      return sanitizeFootballMatchList(list);
-    }
-    catch {
-      return list;
-    }
+    return sanitizeFootballMatchList(cropped);
   }
 }
 

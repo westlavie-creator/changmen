@@ -20,16 +20,20 @@ import {
 import {
   FOOTBALL_FALLBACK_GAMES,
   FOOTBALL_LEAGUE_CODES,
+  FOOTBALL_LIST_FUTURE_MS,
+  FOOTBALL_LIST_PAST_MS,
   MARKET_MONEYLINE,
   MARKET_SPREADS,
   MARKET_TOTALS,
   UNKNOWN_FOOTBALL_GAME,
   baseFootballEventTitle,
+  cropSportMatchListWindow,
   displayBetName,
   encodeSportBetId,
   isFootballSiblingEventTitle,
   parseLineFromTitle,
   resolveFootballLeagueFromText,
+  sportStartInWindow,
   stripFootballHandicapSuffix,
 } from "./sport_football_markets.js";
 
@@ -392,9 +396,8 @@ function startTimeMsOf(category) {
   return Date.now();
 }
 
-function startTimeAllowed(startMs) {
-  const now = Date.now();
-  return startMs >= now - PAST_MS && startMs <= now + FUTURE_MS;
+function startTimeAllowed(startMs, pastMs = PAST_MS, futureMs = FUTURE_MS) {
+  return sportStartInWindow(startMs, pastMs, futureMs);
 }
 
 function yesOutcome(market) {
@@ -717,6 +720,8 @@ function categoryToClientMatchDto(category, buyPrices, gameCode, idBase) {
  * @property {string} cacheKey
  * @property {number} idBase
  * @property {string} [logTag]
+ * @property {number} [pastMs]
+ * @property {number} [futureMs]
  */
 
 /**
@@ -732,15 +737,20 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
   const idBase = Number(options.idBase)
     || (gameCode === "mlb" ? 910_000_000 : gameCode === "tennis" ? 930_000_000 : 810_000_000);
   const logTag = String(options.logTag || `sportPf:${cacheKey}`);
+  const pastMs = Number(options.pastMs);
+  const futureMs = Number(options.futureMs);
+  const winPast = Number.isFinite(pastMs) && pastMs > 0 ? pastMs : PAST_MS;
+  const winFuture = Number.isFinite(futureMs) && futureMs > 0 ? futureMs : FUTURE_MS;
+  const crop = (rows) => cropSportMatchListWindow(rows, winPast, winFuture);
 
   const mem = _caches.get(cacheKey);
   if (mem && Date.now() - mem.at < CACHE_TTL_MS)
-    return mem.rows;
+    return crop(mem.rows);
 
   const diskFresh = readFreshSportListCache(cacheKey);
   if (diskFresh) {
     _caches.set(cacheKey, { at: diskFresh.at, rows: diskFresh.rows });
-    return diskFresh.rows;
+    return crop(diskFresh.rows);
   }
 
   try {
@@ -751,7 +761,7 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
     const moneylineCats = rawCategories.filter((category) => {
       if (!isPredictSportMoneylineCategory(category, gameCode))
         return false;
-      return startTimeAllowed(startTimeMsOf(category));
+      return startTimeAllowed(startTimeMsOf(category), winPast, winFuture);
     });
     const propsCats = gameCode === "soccer"
       ? rawCategories.filter((category) => {
@@ -761,7 +771,7 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
           return false;
         if (!isFootballSiblingEventTitle(String(category.title ?? "")))
           return false;
-        return startTimeAllowed(startTimeMsOf(category));
+        return startTimeAllowed(startTimeMsOf(category), winPast, winFuture);
       })
       : [];
 
@@ -824,22 +834,23 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
       appendPredictFootballPropsBets(dto, propsCat);
     }
 
+    const cropped = crop(rows);
     const at = Date.now();
-    _caches.set(cacheKey, { at, rows });
+    _caches.set(cacheKey, { at, rows: cropped });
     try {
-      writeSportListCache(cacheKey, rows, at);
+      writeSportListCache(cacheKey, cropped, at);
     }
     catch (err) {
       console.warn(`[${logTag}] disk write skipped`, err?.message || err);
     }
-    return rows;
+    return cropped;
   }
   catch (err) {
     const diskAny = readSportListCache(cacheKey);
     if (diskAny?.rows?.length) {
       console.warn(`[${logTag}] predict.fun failed, serving stale disk cache`, err?.message || err);
       _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
-      return diskAny.rows;
+      return crop(diskAny.rows);
     }
     throw err;
   }
@@ -997,6 +1008,8 @@ export async function fetchPredictFunFootballAsClientMatchDtos() {
     cacheKey: "soccer_pf",
     idBase: 810_000_000,
     logTag: "footballPredictFun",
+    pastMs: FOOTBALL_LIST_PAST_MS,
+    futureMs: FOOTBALL_LIST_FUTURE_MS,
   });
 }
 

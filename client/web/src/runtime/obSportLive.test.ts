@@ -27,6 +27,13 @@ describe("obSportLive", () => {
     expect(obSportPeriodLabel("7")).toBe("下半场");
   });
 
+  it("does not treat C105 quotes as match-live (odds stay in sportOddsStore)", () => {
+    expect(parseObSportMatchLive({
+      cmd: "C105",
+      cd: { mid: "m1", hls: [{ ol: [{ oid: "1", ov: 190000 }] }] },
+    })).toBeNull();
+  });
+
   it("treats football C302 as kickoff", () => {
     expect(parseObSportMatchLive({
       cmd: "C302",

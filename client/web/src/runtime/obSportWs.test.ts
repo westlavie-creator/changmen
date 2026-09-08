@@ -3,6 +3,7 @@ import {
   buildObSportC8Subscribe,
   isObSportC8Mid,
   looksLikeMqttUrl,
+  obSportRawLooksLikeClock,
   parseObSportPushOdds,
   resolveObSportWsUrl,
 } from "@/runtime/obSportWs";
@@ -30,6 +31,15 @@ describe("obSportWs", () => {
     expect(looksLikeMqttUrl("wss://mqtt.example:8084/mqtt")).toBe(true);
     expect(looksLikeMqttUrl("wss://push.example/ws")).toBe(false);
     expect(looksLikeMqttUrl("wss://api.example/yewuws2/push?requestId=x")).toBe(false);
+  });
+
+  it("skips odds walk on C102 clock pushes", () => {
+    expect(parseObSportPushOdds({
+      cmd: "C102",
+      cd: { mid: "m1", mmp: "6", mst: 2781, oid: "noise", ov2: "0.90" },
+    })).toEqual([]);
+    expect(obSportRawLooksLikeClock(JSON.stringify({ cmd: "C102", cd: { mid: "m1" } }))).toBe(true);
+    expect(obSportRawLooksLikeClock(JSON.stringify({ cmd: "C105", cd: {} }))).toBe(false);
   });
 
   it("parses hk ov2 push into decimal odds", () => {

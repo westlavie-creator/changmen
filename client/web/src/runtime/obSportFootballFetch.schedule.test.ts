@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildObFootballListDto, collectObFootballSchedule } from "@/runtime/obSportFootballFetch";
+import {
+  buildObFootballListDto,
+  collectObFootballSchedule,
+  isObElectronicFootball,
+} from "@/runtime/obSportFootballFetch";
 
 describe("collectObFootballSchedule", () => {
   it("reads tournaments when PB unwraps to a top-level array", () => {
@@ -47,6 +51,84 @@ describe("collectObFootballSchedule", () => {
     });
     expect(rows.map(r => r.mid)).toEqual(["5652292"]);
     expect(rows[0]).toMatchObject({ home: "阿森纳", away: "切尔西", tnjc: "英超" });
+  });
+
+  it("keeps match-shaped rows with team names when odds are missing", () => {
+    const rows = collectObFootballSchedule({
+      data: [{
+        csid: "1",
+        mid: "5652401",
+        tid: "99001",
+        tn: "白俄罗斯地区西部联赛",
+        tnjc: "白俄西区",
+        mhn: "猛龙足球俱乐部",
+        man: "斯巴达",
+        mgt: 1_800_000_000_000,
+      }],
+    }, true);
+    expect(rows).toEqual([expect.objectContaining({
+      mid: "5652401",
+      home: "猛龙足球俱乐部",
+      away: "斯巴达",
+      tn: "白俄罗斯地区西部联赛",
+      isLive: true,
+    })]);
+  });
+
+  it("reads nested mhl match lists", () => {
+    const rows = collectObFootballSchedule({
+      data: [{
+        csid: "1",
+        tid: "99001",
+        tn: "白俄罗斯地区西部联赛",
+        mids: "5652401",
+        mhl: [{
+          mid: "5652401",
+          mhn: "猛龙足球俱乐部",
+          man: "斯巴达",
+          mgt: 1,
+        }],
+      }],
+    });
+    expect(rows).toEqual([expect.objectContaining({
+      mid: "5652401",
+      home: "猛龙足球俱乐部",
+      away: "斯巴达",
+    })]);
+  });
+
+  it("drops VS-/EAFC electronic tournaments and me=1 matches", () => {
+    const rows = collectObFootballSchedule({
+      data: [
+        {
+          csid: "1",
+          tid: "90001",
+          tn: "VS- 世界杯2026 小组赛 A组 PANDA独家EAFC25",
+          tnjc: "VS- 世界杯2026",
+          mids: "5652301",
+        },
+        {
+          csid: "1",
+          tid: "180",
+          tn: "英格兰超级联赛",
+          tnjc: "英超",
+          mids: "5652292,5652399",
+          mls: [
+            { mid: "5652292", mhn: "阿森纳", man: "切尔西", mgt: 1 },
+            { mid: "5652399", me: 1, mhn: "门兴", man: "莱比锡", mgt: 2 },
+          ],
+        },
+      ],
+    });
+    expect(rows.map(r => r.mid)).toEqual(["5652292"]);
+  });
+});
+
+describe("isObElectronicFootball", () => {
+  it("reads me/tme flags and ignores mfo period", () => {
+    expect(isObElectronicFootball({ me: 1, tn: "英超" })).toBe(true);
+    expect(isObElectronicFootball({ tme: "1" })).toBe(true);
+    expect(isObElectronicFootball({ mfo: 1, tnjc: "英超" })).toBe(false);
   });
 });
 
@@ -106,5 +188,25 @@ describe("buildObFootballListDto", () => {
       }],
     });
     expect(dto?.Bets?.map(b => b.MarketCode)).toEqual(["spreads"]);
+  });
+
+  it("drops odds rows marked electronic", () => {
+    expect(buildObFootballListDto(meta, { me: 1, mhn: "门兴", man: "莱比锡" })).toBeNull();
+  });
+
+  it("keeps a locked live match when HTTP odds are missing", () => {
+    const dto = buildObFootballListDto({
+      mid: "5652401",
+      tid: "99001",
+      tn: "白俄罗斯地区西部联赛",
+      tnjc: "白俄西区",
+      startTime: 1_800_000_000_000,
+      home: "猛龙足球俱乐部",
+      away: "斯巴达",
+      isLive: true,
+    });
+    expect(dto?.Title).toBe("猛龙足球俱乐部 vs 斯巴达");
+    expect(dto?.Game).toBe("白俄西区");
+    expect(dto?.Bets).toEqual([]);
   });
 });

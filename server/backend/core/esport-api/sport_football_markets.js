@@ -8,6 +8,23 @@
 
 export const UNKNOWN_FOOTBALL_GAME = "unknown_fb";
 
+/** 与足球页 OB 窗口一致：未来 2h 未开赛 + 开赛后 4h 滚球。棒球/网球列表勿复用。 */
+export const FOOTBALL_LIST_FUTURE_MS = 2 * 3600 * 1000;
+export const FOOTBALL_LIST_PAST_MS = 4 * 3600 * 1000;
+
+export function sportStartInWindow(startTime, pastMs, futureMs, now = Date.now()) {
+  const t = Number(startTime) || 0;
+  if (!(t > 0))
+    return true;
+  return t >= now - pastMs && t <= now + futureMs;
+}
+
+export function cropSportMatchListWindow(list, pastMs, futureMs, now = Date.now()) {
+  return (Array.isArray(list) ? list : []).filter(m => (
+    sportStartInWindow(m?.StartTime, pastMs, futureMs, now)
+  ));
+}
+
 export const FOOTBALL_LEAGUE_CODES = [
   "epl",
   "lal",

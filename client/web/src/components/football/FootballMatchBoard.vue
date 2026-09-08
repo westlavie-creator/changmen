@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import FootballMarketBook from "@/components/football/FootballMarketBook.vue";
+import FootballLazyBook from "@/components/football/FootballLazyBook.vue";
 import FootballMatchCard from "@/components/football/FootballMatchCard.vue";
 import { footballLeagueKey, groupFootballMatchesByLeague } from "@/runtime/footballLeague";
 import { sportMatchStableKey } from "@/runtime/sportListPatch";
@@ -14,14 +14,12 @@ import {
 } from "@/runtime/sportLiveOdds";
 import { onNestedVerticalWheel } from "@/runtime/footballBoardScroll";
 import { useFootballStore } from "@/stores/footballStore";
-import { useSportOddsStore } from "@/stores/sportOddsStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const football = useFootballStore();
 const { matchs, loading, refreshing, error } = storeToRefs(football);
-const { tick: oddsDisplayTick } = storeToRefs(useSportOddsStore());
 const obLive = useObSportLiveStore();
 const { listRev } = storeToRefs(obLive);
 
@@ -81,7 +79,7 @@ watch(displayedMatchs, () => {
 
 onMounted(() => {
   football.startPolling();
-  liveSession = startSportLiveOddsSession(() => displayedMatchs.value);
+  liveSession = startSportLiveOddsSession(() => displayedMatchs.value, { patchMatchFallback: false });
   nowTimer = setInterval(() => { nowTick.value = Date.now(); }, 15_000);
 });
 
@@ -101,16 +99,12 @@ onUnmounted(() => {
   }
 });
 
-watch(matchs, () => {
-  liveSession?.sync();
-});
-
 watch(listRev, () => {
   void football.fetchMatchs();
 });
 
 watch(
-  () => displayedMatchs.value.map(m => m.id).join(","),
+  () => displayedMatchs.value.map(m => String(m.providers?.OB || m.id)).join(","),
   () => {
     liveSession?.sync();
   },
@@ -130,7 +124,7 @@ watch(
         {{ matchCountLabel }}
       </span>
       <span class="sport-toolbar__meta">
-        预测市场 · OB 2小时/滚球
+        2小时/滚球
       </span>
       <el-button link type="primary" :loading="loading || refreshing" @click="football.fetchMatchs(true)">
         刷新
@@ -164,16 +158,14 @@ watch(
       </button>
     </div>
     <div v-if="visibleMatchs.length" ref="matchsEl" class="matchs">
-      <FootballMatchCard
+      <div
         v-for="m in visibleMatchs"
         :key="sportMatchStableKey(m)"
-        :match="m"
+        class="match football-match"
       >
-        <FootballMarketBook
-          :match="m"
-          :odds-display-tick="oddsDisplayTick"
-        />
-      </FootballMatchCard>
+        <FootballMatchCard :match="m" />
+        <FootballLazyBook :match="m" />
+      </div>
     </div>
     <div v-else-if="!loading && !error" class="match-empty">
       {{ searchQuery.trim() ? "没有匹配的比赛" : "暂无足球比赛" }}
@@ -188,6 +180,9 @@ watch(
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+.football-match {
+  min-width: 0;
 }
 .football-board-list .match-search-row {
   flex: 0 0 auto;

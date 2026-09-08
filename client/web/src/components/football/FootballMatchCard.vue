@@ -6,59 +6,61 @@ import {
   formatObSportElapsed,
   formatObSportScore,
   obSportPeriodLabel,
-  obSportMatchInPlay,
+  obSportShowLiveBadge,
 } from "@/runtime/obSportLive";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
-import { computed, onMounted, onUnmounted, ref } from "vue";
-import { storeToRefs } from "pinia";
+import { computed, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
   match: ViewMatch;
 }>();
 
 const obLive = useObSportLiveStore();
-const { tick: liveTick } = storeToRefs(obLive);
-const nowMs = ref(Date.now());
+const clockLabel = ref("");
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const leagueTag = computed(() => footballLeagueTag(props.match.game));
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
-const live = computed(() => {
-  void liveTick.value;
-  return obMid.value ? obLive.get(obMid.value) : undefined;
-});
+/** 只订本场 byMid，禁止 void 全局 liveTick（否则任意场进球会重绘所有标题）。 */
+const live = computed(() => obMid.value ? obLive.get(obMid.value) : undefined);
 const scoreLabel = computed(() => formatObSportScore(live.value));
 const periodLabel = computed(() => obSportPeriodLabel(live.value?.mmp || ""));
-const clockLabel = computed(() => {
-  void nowMs.value;
-  return formatObSportElapsed(live.value, nowMs.value);
-});
-const showLive = computed(() => Boolean(scoreLabel.value || (live.value && obSportMatchInPlay(live.value))));
+const showLive = computed(() => Boolean(scoreLabel.value || obSportShowLiveBadge(live.value)));
 
-onMounted(() => {
-  clockTimer = setInterval(() => { nowMs.value = Date.now(); }, 1_000);
-});
-onUnmounted(() => {
-  if (clockTimer)
+function stopClock() {
+  if (clockTimer) {
     clearInterval(clockTimer);
-});
+    clockTimer = null;
+  }
+}
+
+function tickClock() {
+  clockLabel.value = formatObSportElapsed(obLive.get(obMid.value), Date.now());
+}
+
+watch(showLive, (on) => {
+  stopClock();
+  if (!on) {
+    clockLabel.value = "";
+    return;
+  }
+  tickClock();
+  clockTimer = setInterval(tickClock, 1_000);
+}, { immediate: true });
+
+onUnmounted(stopClock);
 </script>
 
 <template>
-  <div class="match football-match">
-    <div class="match-title football-match__title">
-      <label v-if="leagueTag" class="game-tag">[{{ leagueTag }}]</label>
-      <label class="football-match__name">{{ match.title }}</label>
-      <span v-if="showLive" class="football-match__live">
-        <span v-if="periodLabel" class="football-match__period">{{ periodLabel }}</span>
-        <span v-if="clockLabel" class="football-match__clock">{{ clockLabel }}</span>
-        <span v-if="scoreLabel" class="football-match__score">{{ scoreLabel }}</span>
-      </span>
-      <label v-else class="startTime">{{ formatDate(match.startAt) }}</label>
-    </div>
-    <div class="football-match__book">
-      <slot />
-    </div>
+  <div class="match-title football-match__title">
+    <label v-if="leagueTag" class="game-tag">[{{ leagueTag }}]</label>
+    <label class="football-match__name">{{ match.title }}</label>
+    <span v-if="showLive" class="football-match__live">
+      <span v-if="periodLabel" class="football-match__period">{{ periodLabel }}</span>
+      <span v-if="clockLabel" class="football-match__clock">{{ clockLabel }}</span>
+      <span v-if="scoreLabel" class="football-match__score">{{ scoreLabel }}</span>
+    </span>
+    <label v-else class="startTime">{{ formatDate(match.startAt) }}</label>
   </div>
 </template>
 
@@ -93,9 +95,5 @@ onUnmounted(() => {
   font-size: 15px;
   font-weight: 700;
   color: #fff;
-}
-.football-match__book {
-  width: 100%;
-  min-width: 0;
 }
 </style>

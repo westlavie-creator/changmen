@@ -13,15 +13,13 @@ import {
   peekFootballObMarkets,
   type FootballObMarketRow,
 } from "@/runtime/footballObMarkets";
-import { viewBetsToMarketRows, mergeFootballBookRows, applyObLiveOdds } from "@/runtime/footballMarketRows";
-import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { viewBetsToMarketRows, mergeFootballBookRows } from "@/runtime/footballMarketRows";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
 const props = defineProps<{
   match: ViewMatch;
-  oddsDisplayTick?: number;
 }>();
 
 const loading = ref(false);
@@ -29,38 +27,16 @@ const error = ref("");
 const obRows = ref<FootballObMarketRow[]>([]);
 let fetchGen = 0;
 
-const sportOdds = useSportOddsStore();
 const obLive = useObSportLiveStore();
-const { tick: sportTick } = storeToRefs(sportOdds);
-const { tick: liveTick, playRevByMid } = storeToRefs(obLive);
+const { playRevByMid } = storeToRefs(obLive);
 
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
 const teams = computed(() => splitFootballTeams(String(props.match.title || "")));
 
-const listRows = computed(() => {
-  void props.oddsDisplayTick;
-  void sportTick.value;
-  void liveTick.value;
-  return viewBetsToMarketRows(props.match, {
-    get: (p, id) => sportOdds.get(p, id),
-    has: (p, id) => sportOdds.has(p, id),
-    getLine: oid => obLive.getLine(oid),
-  });
-});
+/** HTTP 结构稳定；实时价由 FootballOddsCell 按 oid 读 sportOddsStore，不订全局 tick。 */
+const listRows = computed(() => viewBetsToMarketRows(props.match));
 
-const liveObRows = computed(() => {
-  void sportTick.value;
-  void liveTick.value;
-  return applyObLiveOdds(obRows.value, {
-    get: (p, id) => sportOdds.get(p, id),
-    has: (p, id) => sportOdds.has(p, id),
-    getLine: oid => obLive.getLine(oid),
-  });
-});
-
-const allRows = computed(() => {
-  return mergeFootballBookRows(listRows.value, liveObRows.value);
-});
+const allRows = computed(() => mergeFootballBookRows(listRows.value, obRows.value));
 
 const columns = computed((): FootballBookColumn[] => groupFootballColumns(allRows.value));
 
@@ -98,7 +74,11 @@ async function fetchAllMarkets(force = false) {
 }
 
 onMounted(() => {
-  void fetchAllMarkets();
+  const kick = () => { void fetchAllMarkets(); };
+  if (listRows.value.length && typeof requestIdleCallback === "function")
+    requestIdleCallback(kick, { timeout: 2500 });
+  else
+    kick();
 });
 
 watch(obMid, (mid) => {

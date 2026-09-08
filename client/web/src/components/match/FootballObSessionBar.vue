@@ -46,7 +46,7 @@ async function refresh() {
   const info = publicLocalSportObSession();
   configured.value = Boolean(info.configured);
   if (info.configured) {
-    const gw = info.gateway ? "有网关" : "无网关（粘贴未带 api.*，扩展无法代发）";
+    const gw = info.gateway ? "有网关" : "无网关（粘贴未带 api.*）";
     const push = resolveObSportWsUrl(info) ? "有推送地址" : "无推送地址";
     summary.value = `${info.tokenMasked || "token"} · ${gw} · ${push} · ${wsLabel(wsStatus.value)}`;
   }
@@ -82,7 +82,7 @@ async function save() {
       ElMessage.success("体育 OB 会话已保存，正在连接推送");
     }
     else {
-      ElMessage.warning("token 已保存，但没有网关：扩展无法代发 HTTP。请从含 api 网关的插件数据再贴一次。");
+      ElMessage.warning("token 已保存，但没有网关，无法拉赛程。请从含 api 网关的数据再贴一次。");
     }
     notifySportObSessionUpdated();
     await refresh();
@@ -158,7 +158,7 @@ onUnmounted(() => {
       type="textarea"
       :autosize="{ minRows: props.layout === 'panel' ? 4 : 2, maxRows: 8 }"
       size="small"
-      placeholder="粘贴插件「数据」JSON / base64 / 进馆 URL（kind=sport）。本机保存，经扩展代发"
+      placeholder="粘贴插件「数据」JSON / base64 / 进馆 URL（kind=sport）。本机保存，页面直连"
     />
     <div class="ob-sport-session__actions">
       <el-button size="small" type="primary" :loading="saving" :disabled="fetchingTrial" @click="save">

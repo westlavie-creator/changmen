@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import FootballLineLabel from "@/components/football/FootballLineLabel.vue";
+import FootballOddsCell from "@/components/football/FootballOddsCell.vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import {
-  formatFootballLine,
   type FootballBookSection,
 } from "@/runtime/footballMarketLayout";
 import {
@@ -22,6 +23,18 @@ function venues(row: FootballObMarketRow): FootballVenueOdds[] {
   return footballRowVenues(row);
 }
 
+function rowOddIds(row: FootballObMarketRow): string[] {
+  const ids: string[] = [];
+  for (const v of footballRowVenues(row)) {
+    for (const s of v.Selections || []) {
+      const id = String(s.OddID || "").trim();
+      if (id)
+        ids.push(id);
+    }
+  }
+  return ids;
+}
+
 function selAt(list: FootballSelection[] | undefined, side: string): FootballSelection | undefined {
   const rows = list || [];
   const want = side.toLowerCase();
@@ -36,42 +49,6 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
     under: /小|under/i,
   };
   return rows.find(s => alias[want]?.test(String(s.Name || "")));
-}
-
-function selOdds(list: FootballSelection[] | undefined, side: string) {
-  return Number(selAt(list, side)?.Odds) || 0;
-}
-
-function selSrc(list: FootballSelection[] | undefined, side: string) {
-  return selAt(list, side)?.Source === "M" ? "M" : "H";
-}
-
-function srcOf(sel: FootballSelection | undefined) {
-  return sel?.Source === "M" ? "M" : "H";
-}
-
-function fmtOdds(n: number) {
-  if (!(n > 0))
-    return "-";
-  return String(n);
-}
-
-function locked(n: number) {
-  return !(n > 0);
-}
-
-function mlHomeLine(row: FootballObMarketRow) {
-  const n = Number(row.Line);
-  if (!Number.isFinite(n) || n === 0)
-    return "";
-  return ` ${formatFootballLine(n)}`;
-}
-
-function mlAwayLine(row: FootballObMarketRow) {
-  const n = Number(row.Line);
-  if (!Number.isFinite(n) || n === 0)
-    return "";
-  return ` ${formatFootballLine(-n)}`;
 }
 </script>
 
@@ -88,9 +65,9 @@ function mlAwayLine(row: FootballObMarketRow) {
       >
         <div class="fb-sec__cols fb-sec__cols--ml">
           <span />
-          <span>{{ home }}{{ mlHomeLine(row) }}</span>
+          <span>{{ home }}<FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="ml-home" /></span>
           <span>和</span>
-          <span>{{ away }}{{ mlAwayLine(row) }}</span>
+          <span>{{ away }}<FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="ml-away" /></span>
         </div>
         <div
           v-for="v in venues(row)"
@@ -104,15 +81,21 @@ function mlAwayLine(row: FootballObMarketRow) {
             :title="v.venue"
           />
           <span v-else class="fb-sec__icon" />
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'home')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'home')) }}<span class="odds-src" :class="selSrc(v.Selections, 'home') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'home') }}</span></span>
-          </div>
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'draw')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'draw')) }}<span class="odds-src" :class="selSrc(v.Selections, 'draw') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'draw') }}</span></span>
-          </div>
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'away')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'away')) }}<span class="odds-src" :class="selSrc(v.Selections, 'away') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'away') }}</span></span>
-          </div>
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'home')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
+          />
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'draw')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'draw')?.Odds) || 0"
+          />
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'away')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
+          />
         </div>
       </div>
     </div>
@@ -123,7 +106,7 @@ function mlAwayLine(row: FootballObMarketRow) {
         class="fb-sec__block"
       >
         <div class="fb-sec__cols fb-sec__cols--ou">
-          <span class="fb-sec__line">{{ row.Line ?? "" }}</span>
+          <span class="fb-sec__line"><FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="raw" /></span>
           <span>大</span>
           <span>小</span>
         </div>
@@ -139,12 +122,16 @@ function mlAwayLine(row: FootballObMarketRow) {
             :title="v.venue"
           />
           <span v-else class="fb-sec__icon" />
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'over')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'over')) }}<span class="odds-src" :class="selSrc(v.Selections, 'over') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'over') }}</span></span>
-          </div>
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'under')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'under')) }}<span class="odds-src" :class="selSrc(v.Selections, 'under') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'under') }}</span></span>
-          </div>
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'over')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'over')?.Odds) || 0"
+          />
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'under')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'under')?.Odds) || 0"
+          />
         </div>
       </div>
     </div>
@@ -156,8 +143,8 @@ function mlAwayLine(row: FootballObMarketRow) {
       >
         <div class="fb-sec__cols fb-sec__cols--ah">
           <span />
-          <span>{{ home }} {{ formatFootballLine(row.Line) }}</span>
-          <span>{{ away }} {{ formatFootballLine(row.Line != null ? -Number(row.Line) : null) }}</span>
+          <span>{{ home }} <FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="signed" /></span>
+          <span>{{ away }} <FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="signed-neg" /></span>
         </div>
         <div
           v-for="v in venues(row)"
@@ -171,12 +158,16 @@ function mlAwayLine(row: FootballObMarketRow) {
             :title="v.venue"
           />
           <span v-else class="fb-sec__icon" />
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'home')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'home')) }}<span class="odds-src" :class="selSrc(v.Selections, 'home') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'home') }}</span></span>
-          </div>
-          <div class="fb-sec__cell" :class="{ lock: locked(selOdds(v.Selections, 'away')) }">
-            <span class="fb-sec__odd">{{ fmtOdds(selOdds(v.Selections, 'away')) }}<span class="odds-src" :class="selSrc(v.Selections, 'away') === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ selSrc(v.Selections, 'away') }}</span></span>
-          </div>
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'home')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
+          />
+          <FootballOddsCell
+            :venue="v.venue"
+            :odd-id="selAt(v.Selections, 'away')?.OddID"
+            :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
+          />
         </div>
       </div>
     </div>
@@ -198,15 +189,15 @@ function mlAwayLine(row: FootballObMarketRow) {
             :title="v.venue"
           />
           <div class="fb-sec__grid-block">
-            <div
+            <FootballOddsCell
               v-for="(sel, j) in v.Selections || []"
               :key="j"
-              class="fb-sec__cell fb-sec__cell--sm"
-              :class="{ lock: locked(Number(sel.Odds) || 0) }"
-            >
-              <span class="fb-sec__lab">{{ sel.Name || sel.Side }}</span>
-              <span class="fb-sec__odd">{{ fmtOdds(Number(sel.Odds) || 0) }}<span class="odds-src" :class="srcOf(sel) === 'M' ? 'odds-src--m' : 'odds-src--h'">{{ srcOf(sel) }}</span></span>
-            </div>
+              compact
+              :venue="v.venue"
+              :odd-id="sel.OddID"
+              :fallback="Number(sel.Odds) || 0"
+              :label="sel.Name || sel.Side"
+            />
           </div>
         </div>
       </div>
@@ -282,51 +273,5 @@ function mlAwayLine(row: FootballObMarketRow) {
   gap: 6px;
   flex: 1;
   min-width: 0;
-}
-.fb-sec__cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 28px;
-  min-width: 0;
-  padding: 4px 6px;
-  border-radius: 6px;
-  background: hsla(210, 40%, 50%, 0.16);
-  border: 1px solid hsla(210, 40%, 70%, 0.18);
-}
-.fb-sec__cell--sm {
-  flex-direction: column;
-  justify-content: center;
-  min-height: 42px;
-}
-.fb-sec__lab {
-  font-size: 11px;
-  color: hsla(0, 0%, 100%, 0.62);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fb-sec__odd {
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-}
-.odds-src {
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-  vertical-align: super;
-  margin-left: 2px;
-}
-.odds-src--m {
-  color: #86efac;
-}
-.odds-src--h {
-  color: #94a3b8;
-}
-.fb-sec__cell.lock {
-  opacity: 0.45;
 }
 </style>

@@ -1,5 +1,8 @@
 import type { PlatformId } from "@/types/esport";
 import { defineStore } from "pinia";
+import { createRafTicker } from "@/runtime/rafTick";
+
+const scheduleTick = createRafTicker();
 
 /**
  * [changmen 扩展] 体育板实时赔率缓存。
@@ -14,24 +17,33 @@ export const useSportOddsStore = defineStore("sportOdds", {
   }),
   actions: {
     save(platform: PlatformId | string, subscribeId: string, decimalOdds: number) {
+      this.saveMany(platform, [{ id: subscribeId, odds: decimalOdds }]);
+    },
+    saveMany(platform: PlatformId | string, rows: Array<{ id: string; odds: number }>) {
       const p = String(platform);
-      const id = String(subscribeId || "").trim();
-      if (!p || !id)
-        return;
-      if (!Number.isFinite(decimalOdds) || decimalOdds < 0)
+      if (!p || !rows.length)
         return;
       if (!this.byVenue[p])
         this.byVenue[p] = {};
-      if (this.byVenue[p][id] === decimalOdds)
-        return;
-      this.byVenue[p][id] = decimalOdds;
-      this.tick += 1;
+      const bag = this.byVenue[p];
+      let changed = false;
+      for (const row of rows) {
+        const id = String(row.id || "").trim();
+        if (!id || !Number.isFinite(row.odds) || row.odds < 0)
+          continue;
+        if (bag[id] === row.odds)
+          continue;
+        bag[id] = row.odds;
+        changed = true;
+      }
+      if (changed)
+        scheduleTick(() => { this.tick += 1; });
     },
     has(platform: PlatformId | string, subscribeId: string): boolean {
       const row = this.byVenue[String(platform)];
       if (!row)
         return false;
-      return Object.prototype.hasOwnProperty.call(row, String(subscribeId));
+      return row[String(subscribeId)] !== undefined;
     },
     get(platform: PlatformId | string, subscribeId: string): number {
       const row = this.byVenue[String(platform)];
@@ -41,7 +53,7 @@ export const useSportOddsStore = defineStore("sportOdds", {
     },
     clear() {
       this.byVenue = {};
-      this.tick += 1;
+      scheduleTick(() => { this.tick += 1; });
     },
   },
 });

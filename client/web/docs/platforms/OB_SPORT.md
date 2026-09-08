@@ -78,14 +78,15 @@ WS  wss://{api origin}/yewuws2/push?requestId={token}
 
 请求头要点：`requestId=token`、`lang=zh`、`request-code={"panda-bss-source":"2"}`、`checkId=pc-…`。
 
-**[changmen 实现]** 用户 Chrome 扩展代发（`obSportFootballFetch.ts`），不经 VPS、不写电竞 `client_matches`。足球 store 默认 **30s** 再拉快照。
+**[changmen 实现]** 足球页 Axios 直连 `yewu11`（`obSportFootballFetch.ts`，与电竞 OB `directGet` 同路），不经 Chrome 扩展、不经 VPS、不写电竞 `client_matches`。2026-09-08 预检：`Access-Control-Allow-Origin: *`，允许头含 `requestId` / `lang` / `checkId` / `request-code`。足球 store 默认 **30s** 再拉快照。
 
-场次集合对齐试玩同一套菜单（滚球 `30002` + 今日 `3020101`，`csid=1`）。相对试玩只故意裁两处：
+场次集合对齐试玩同一套菜单（滚球 `30002` + 今日 `3020101`，`csid=1`）。相对试玩只故意裁三处：
 
 | 保留的差异 | 说明 |
 |------------|------|
 | 时间窗口 | 未开赛未来 **2h** + 开赛后 **4h** 滚球（今日菜单场次太多） |
 | 盘口显示 | 列表/详情只画 **让球/大小**（试玩还有独赢、波胆、角球等） |
+| 电子赛事 | 试玩足球菜单里仍是 `csid=1`，但 `me`/`tme`/`mvs=1` 或联赛名 `VS-` / `EAFC` / `PANDA独家` 的场不进足球页 |
 
 其余对齐试玩：队名 `mhn`/`man`、联赛 `tnjc`/`tn`；缺 HTTP 底价或缺让球/大小仍出牌（空盘）；赛程袋 19 位 id 不当事（与 C8 短 `mid` 一致）。
 
@@ -118,7 +119,7 @@ C8 发送节流（不是赔率周期）：
 
 **[changmen 实现]** `obSportWs.ts`：同样推送 URL、C0 15s、C8 列表订 `1,2,4,17,18,19`，并带官网 worker 同款 `marketLevel` 字段。拒绝 MQTT URL。只订 4–12 位数字 `mid`（赛程袋里的 19 位 id 订了不出 C105）。
 
-WS **由足球页直连** `wss://{gateway}/yewuws2/push?requestId={token}`。2026-09-08 对照实验：同一 token、同一 C8，Origin 分别为官网 / localhost / `chrome-extension://` 都能收到 C105；源站不按 Origin 卡盘口。HTTP 仍走扩展代发。
+HTTP 与 WS **都由足球页直连**。2026-09-08 对照：同一 token、同一 C8，Origin 分别为官网 / localhost / `chrome-extension://` 都能收到 C105；`yewu11` OPTIONS 亦 `Access-Control-Allow-Origin: *`。源站不按 Origin 卡盘口，也不需要扩展代发。
 
 此前误以为 localhost Origin 会被拒，曾用扩展 offscreen / 隐式试玩弹窗转发；那条路已停。
 
@@ -222,9 +223,9 @@ C115：`eventTime` 比服务器时间早超过 **20s** 则丢。
 ## 7. changmen 足球页对照
 
 ```text
-tryPlay 或扩展粘贴
+tryPlay 或粘贴会话
   → 本机 sport session
-HTTP 扩展代发 → footballStore 列表（结构 + 底价）
+HTTP 页面直连 yewu11 → footballStore 列表（结构 + 底价）
 WS C8(mids) → C105 → sportOddsStore（禁止 fo）
          → C102/C103 → obSportLiveStore（比分时钟）
          → C303 → 重拉该场详情盘口
@@ -269,7 +270,7 @@ UI：HTTP 底 + store 覆盖；30s 快照后再用 store 盖回
 
 ```text
 VPS  Client_GetFootballMatchs   →  PM∥PF 已合场 DTO（sport_merge）
-本机  fetchObFootballAsClientMatchDtos →  OB DTO（扩展代发）
+本机  fetchObFootballAsClientMatchDtos →  OB DTO（页面直连 yewu11）
 浏览器 mergeFootballClientLists  →  overlay；合不上并列
 不写 RDS / client_matches / sport_merge / 电竞 matcher
 ```

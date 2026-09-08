@@ -1,8 +1,8 @@
 /**
- * 用户本机经 Chrome 扩展拉九游/OB 足球 HTTP。不经 VPS，不写电竞 client_matches。
+ * 用户本机直连熊猫体育 HTTP（与电竞 OB `directGet` 同路）。不经扩展、不经 VPS，不写电竞 client_matches。
  */
 import type { ClientMatchDto } from "@/types/esport";
-import { a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import { a8Axios, responseBodyText } from "@changmen/client-core/shared/a8Axios";
 import { decodeObSportPbPayload } from "@/runtime/obSportCodec";
 import { resolveObFootballGame } from "@/runtime/footballLeague";
 import {
@@ -15,12 +15,12 @@ import {
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
 import {
+  FOOTBALL_LIVE_LOOKBACK_MS,
   matchInUpcomingWindow,
 } from "@/runtime/sportBoardFilter";
 import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 
-const PLUGIN_REQUIRED = "足球 OB 需要「じらいや」扩展代发（同一 Chrome 不必打开九游）";
 const CACHE_TTL_MS = 120_000;
 const ODDS_BATCH = 12;
 const BATCH_GAP_MS = 400;
@@ -91,14 +91,6 @@ function buildHeaders(session: SportObSessionLocal): Record<string, string> {
   const token = String(session.token || "");
   const cuid = sportCuid(session);
   const ts = Date.now();
-  const referer = String(session.referer || "").trim() || "https://user-pc-new.example.com/";
-  let origin = "";
-  try {
-    origin = new URL(referer).origin;
-  }
-  catch {
-    origin = "";
-  }
   return {
     "Content-Type": "application/json",
     Accept: "application/json, text/plain, */*",
@@ -106,32 +98,39 @@ function buildHeaders(session: SportObSessionLocal): Record<string, string> {
     requestId: token,
     checkId: `pc-${uuidNoDash()}-${cuid}-${ts}`,
     "request-code": "{\"panda-bss-source\":\"2\"}",
-    Referer: referer,
-    ...(origin ? { Origin: origin } : {}),
   };
-}
-
-function unwrapPluginBody(raw: unknown): unknown {
-  if (raw == null)
-    throw new Error("扩展无响应");
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw);
-    }
-    catch {
-      throw new Error("OB sport HTTP non-json");
-    }
-  }
-  const row = raw as Record<string, unknown>;
-  if (row.isAxiosError || row.name === "AxiosError" || row.code === "ERR_NETWORK")
-    throw new Error(String(row.message || "OB HTTP failed"));
-  if ("data" in row && ("status" in row || "headers" in row || "config" in row))
-    return row.data;
-  return raw;
 }
 
 function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function asObjectList(value: unknown): Record<string, unknown>[] {
+  const rows = Array.isArray(value) ? value : [];
+  return rows.filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object" && !Array.isArray(row)));
+}
+
+/** 赛程可能是联赛袋（mids）也可能是比赛行（mhn/man）。`ms` 在比赛行上是状态数字。 */
+function nestedMatchRows(t: Record<string, unknown>): Record<string, unknown>[] {
+  const out = [
+    ...asObjectList(t.mls),
+    ...asObjectList(t.matches),
+    ...asObjectList(t.matchList),
+    ...asObjectList(t.mhl),
+    ...asObjectList(t.ml),
+    ...asObjectList(t.mbm),
+    ...asObjectList(t.mbms),
+  ];
+  if (Array.isArray(t.ms))
+    out.push(...asObjectList(t.ms));
+  return out;
+}
+
+function teamNames(row: Record<string, unknown>): { home: string; away: string } {
+  return {
+    home: String(row.mhn ?? row.home ?? row.homeName ?? "").trim(),
+    away: String(row.man ?? row.away ?? row.awayName ?? "").trim(),
+  };
 }
 
 /** livedata 可能是数组，也可能是 tid→联赛 的对象。 */
@@ -176,17 +175,19 @@ async function assertEnvelope(envelope: unknown, apiPath: string): Promise<unkno
 }
 
 async function postPb(session: SportObSessionLocal, apiPath: string, body: Record<string, unknown>) {
-  if (!hasA8PluginRuntime())
-    throw new Error(PLUGIN_REQUIRED);
   const origin = gatewayOrigin(session);
   if (!origin)
     throw new Error("sport OB session missing gateway");
   const url = `${origin}${apiPath}${apiPath.includes("?") ? "&" : "?"}t=${Date.now()}`;
-  const raw = await a8PluginPost(url, body ?? {}, {
+  const res = await a8Axios.post(url, body ?? {}, {
     headers: buildHeaders(session),
     timeout: 30_000,
   });
-  return assertEnvelope(unwrapPluginBody(raw), apiPath);
+  if (res.status >= 400) {
+    const text = responseBodyText(res.data);
+    throw new Error(text.slice(0, 160) || `HTTP ${res.status}`);
+  }
+  return assertEnvelope(res.data, apiPath);
 }
 
 export type ScheduleMeta = {
@@ -199,6 +200,40 @@ export type ScheduleMeta = {
   away?: string;
   isLive?: boolean;
 };
+
+function obFlagOne(row: Record<string, unknown> | null | undefined, key: string): boolean {
+  const v = row?.[key];
+  if (v === true)
+    return true;
+  const n = Number(v);
+  return Number.isFinite(n) && n === 1;
+}
+
+/** 联赛文案：试玩「电子赛事」角标对应 VS- / EAFC / PANDA独家。不碰队名里的 vs。 */
+function obLeagueLooksElectronic(...parts: unknown[]): boolean {
+  const text = parts.map(p => String(p || "").trim()).filter(Boolean).join(" ");
+  if (!text)
+    return false;
+  if (/(?:^|[\s])VS\s*[-－]/.test(text))
+    return true;
+  return /EAFC|电子赛事|电子足球|电竞足球|PANDA独家/i.test(text);
+}
+
+/**
+ * 试玩足球菜单里的 EAFC / 电子赛事，不进 changmen 足球页。
+ * `me`/`tme`/`mvs`=1 是场次/联赛类型位；没有位时用联赛名兜底。不要用 `mfo`（那是赛程阶段）。
+ */
+export function isObElectronicFootball(
+  tour?: Record<string, unknown> | null,
+  match?: Record<string, unknown> | null,
+): boolean {
+  const rows = [tour, match].filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"));
+  for (const row of rows) {
+    if (obFlagOne(row, "me") || obFlagOne(row, "tme") || obFlagOne(row, "mvs"))
+      return true;
+  }
+  return rows.some(row => obLeagueLooksElectronic(row.tnjc, row.tn, row.nameText, row.shortName, row.n));
+}
 
 export function collectObFootballSchedule(decoded: unknown, forceLive = false): ScheduleMeta[] {
   return collectFootballMatches(decoded, forceLive);
@@ -220,7 +255,16 @@ function collectFootballMatches(decoded: unknown, forceLive = false): ScheduleMe
       byMid.set(row.mid, row);
       return;
     }
-    byMid.set(row.mid, { ...prev, ...row, isLive: Boolean(prev.isLive || row.isLive) });
+    byMid.set(row.mid, {
+      ...prev,
+      ...row,
+      home: row.home || prev.home,
+      away: row.away || prev.away,
+      tn: row.tn || prev.tn,
+      tnjc: row.tnjc || prev.tnjc,
+      startTime: row.startTime || prev.startTime,
+      isLive: Boolean(prev.isLive || row.isLive),
+    });
   };
   for (const bag of bags) {
     for (const tour of bag.rows) {
@@ -238,31 +282,49 @@ function collectFootballMatches(decoded: unknown, forceLive = false): ScheduleMe
         : String(midsRaw || "").split(",").map(s => s.trim()).filter(Boolean);
       if (csid && csid !== CSID_FOOTBALL)
         continue;
-      for (const mid of midList) {
-        if (!isObSportC8Mid(mid))
-          continue;
-        put({ mid, tid, tn, tnjc, startTime: Number(mgt) || 0, isLive: bag.live });
-      }
-      const nested = asArray(t.mls || t.matches || t.ms);
-      for (const m of nested) {
-        if (!m || typeof m !== "object")
-          continue;
-        const row = m as Record<string, unknown>;
+      if (isObElectronicFootball(t))
+        continue;
+      const skipMids = new Set<string>();
+      const nested = nestedMatchRows(t);
+      for (const row of nested) {
         const mid = String(row.mid ?? row.id ?? "");
         if (!isObSportC8Mid(mid))
           continue;
         const mCsid = String(row.csid ?? csid);
         if (mCsid && mCsid !== CSID_FOOTBALL)
           continue;
+        if (isObElectronicFootball(t, row)) {
+          skipMids.add(mid);
+          continue;
+        }
+        const names = teamNames(row);
         put({
           mid,
           tid: String(row.tid ?? tid),
           tn: String(row.tn ?? tn),
           tnjc: String(row.tnjc ?? tnjc),
           startTime: Number(row.mgt ?? row.mgtStr ?? row.startTime ?? mgt) || 0,
-          home: String(row.mhn ?? row.home ?? ""),
-          away: String(row.man ?? row.away ?? ""),
+          home: names.home,
+          away: names.away,
           isLive: bag.live,
+        });
+      }
+      const selfMid = String(t.mid ?? "");
+      const selfNames = teamNames(t);
+      const midsCsv = String(t.mids || "");
+      for (const mid of midList) {
+        if (!isObSportC8Mid(mid) || skipMids.has(mid))
+          continue;
+        const named = Boolean(selfNames.home && selfNames.away
+          && (mid === selfMid || (!midsCsv.includes(",") && midList.length === 1)));
+        put({
+          mid,
+          tid,
+          tn,
+          tnjc,
+          startTime: Number(mgt) || 0,
+          isLive: bag.live,
+          ...(named ? selfNames : {}),
         });
       }
     }
@@ -288,15 +350,34 @@ function isRateLimited(err: unknown) {
   return /0401038|人数过多|too many/i.test(err instanceof Error ? err.message : String(err));
 }
 
+function ingestOddsRow(row: unknown, byMid: Map<string, Record<string, unknown>>) {
+  if (!row || typeof row !== "object" || Array.isArray(row))
+    return;
+  const rec = row as Record<string, unknown>;
+  const names = teamNames(rec);
+  const mid = String(rec.mid ?? (names.home && names.away ? rec.id : "") ?? "");
+  if (!mid || !isObSportC8Mid(mid))
+    return;
+  const prev = byMid.get(mid);
+  byMid.set(mid, prev ? { ...prev, ...rec } : rec);
+}
+
 function ingestOddsRows(decoded: unknown, byMid: Map<string, Record<string, unknown>>) {
   const root = unwrapData(decoded);
   const rows = asArray(root.data).length ? asArray(root.data) : asArray(root);
   for (const row of rows) {
-    if (!row || typeof row !== "object")
-      continue;
-    const mid = String((row as { mid?: unknown; id?: unknown }).mid ?? (row as { id?: unknown }).id ?? "");
-    if (mid)
-      byMid.set(mid, row as Record<string, unknown>);
+    ingestOddsRow(row, byMid);
+    if (row && typeof row === "object" && !Array.isArray(row))
+      for (const nested of nestedMatchRows(row as Record<string, unknown>))
+        ingestOddsRow(nested, byMid);
+  }
+  for (const bag of [root.livedata, root.nolivedata, root.list]) {
+    for (const tour of bagRows(bag)) {
+      ingestOddsRow(tour, byMid);
+      if (tour && typeof tour === "object" && !Array.isArray(tour))
+        for (const nested of nestedMatchRows(tour as Record<string, unknown>))
+          ingestOddsRow(nested, byMid);
+    }
   }
 }
 
@@ -386,8 +467,21 @@ function obListGame(tid: string, tn: string, tnjc: string): string {
   return official || resolveObFootballGame(tid, tn, tnjc);
 }
 
+/** 滚球菜单场次必须留在板上；联赛袋 mgt 经常不是本场开赛时间。 */
+function clampLiveStart(startTime: number, isLive: boolean | undefined, now = Date.now()): number {
+  if (!isLive)
+    return startTime;
+  if (!(startTime > 0))
+    return now;
+  if (startTime < now - FOOTBALL_LIVE_LOOKBACK_MS)
+    return now - 60_000;
+  return startTime;
+}
+
 function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | undefined): ClientMatchDto | null {
   const row = oddsRow && typeof oddsRow === "object" ? oddsRow : {};
+  if (isObElectronicFootball({ tn: meta.tn, tnjc: meta.tnjc }, row))
+    return null;
   const mid = String(meta.mid);
   const matchId = stableObMatchId(mid);
   let home = String(row.mhn || meta.home || "").trim();
@@ -402,7 +496,10 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | 
   const tn = String(row.tn || meta.tn || "");
   const tnjc = String(row.tnjc || meta.tnjc || "");
   const game = obListGame(tid, tn, tnjc);
-  const startTime = startTimeMs(row.mgt || row.mgtStr || meta.startTime);
+  const startTime = clampLiveStart(
+    startTimeMs(row.mgt || row.mgtStr || meta.startTime),
+    meta.isLive,
+  );
   const playData = playsFromObMatchRow(row);
   const listBets = listBetsFromObPlayData(playData);
   const bets: NonNullable<ClientMatchDto["Bets"]> = [];
@@ -529,7 +626,16 @@ function mergeSchedule(parts: ScheduleMeta[][]): ScheduleMeta[] {
         byMid.set(row.mid, row);
         continue;
       }
-      byMid.set(row.mid, { ...prev, ...row, isLive: Boolean(prev.isLive || row.isLive) });
+      byMid.set(row.mid, {
+        ...prev,
+        ...row,
+        home: row.home || prev.home,
+        away: row.away || prev.away,
+        tn: row.tn || prev.tn,
+        tnjc: row.tnjc || prev.tnjc,
+        startTime: row.startTime || prev.startTime,
+        isLive: Boolean(prev.isLive || row.isLive),
+      });
     }
   }
   return [...byMid.values()];
@@ -540,9 +646,7 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   if (!session?.token)
     return [];
   if (!gatewayOrigin(session))
-    throw new Error("体育 OB 无网关：粘贴里需要 api 网关，否则扩展无法代发");
-  if (!hasA8PluginRuntime())
-    throw new Error(PLUGIN_REQUIRED);
+    throw new Error("体育 OB 无网关：粘贴里需要 api 网关");
   const [today, inplay] = await Promise.all([
     fetchSchedule(session, EUID_FOOTBALL, false),
     fetchSchedule(session, EUID_FOOTBALL_LIVE, true).catch(() => [] as ScheduleMeta[]),
@@ -608,8 +712,6 @@ export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMa
   const session = readLocalSportObSession();
   if (!session?.token || !gatewayOrigin(session))
     return [];
-  if (!hasA8PluginRuntime())
-    throw new Error(PLUGIN_REQUIRED);
   const id = String(mid || "").trim();
   if (!id)
     return [];

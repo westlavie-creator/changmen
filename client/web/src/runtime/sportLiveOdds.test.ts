@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   pickSportSubscribeIds,
+  SPORT_OB_MID_CAP,
   SPORT_SUBSCRIBE_HARD_CAP,
 } from "@/runtime/sportLiveOdds";
 import { ViewBet, ViewBetItem, ViewMatch } from "@/models/match";
@@ -138,5 +139,19 @@ describe("pickSportSubscribeIds", () => {
     const pick = pickSportSubscribeIds([m], 100, now);
     expect(pick.obOids.sort()).toEqual(["oid-away", "oid-from-http"]);
     expect(pick.obMids).toEqual(["5650335"]);
+  });
+
+  test("caps OB C8 mids so subscribe dump cannot freeze the page", () => {
+    const now = 1_700_000_000_000;
+    const matches = Array.from({ length: 40 }, (_, i) =>
+      makeMatch({
+        id: i,
+        startAt: now + i * 1000,
+        obMid: String(5650000 + i),
+        obHome: `oid-${i}`,
+      }),
+    );
+    const pick = pickSportSubscribeIds(matches, 100, now, SPORT_OB_MID_CAP);
+    expect(pick.obMids).toHaveLength(SPORT_OB_MID_CAP);
   });
 });

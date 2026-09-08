@@ -4,7 +4,10 @@
 import assert from "node:assert/strict";
 import {
   FOOTBALL_LEAGUE_CODES,
+  FOOTBALL_LIST_FUTURE_MS,
+  FOOTBALL_LIST_PAST_MS,
   baseFootballEventTitle,
+  cropSportMatchListWindow,
   displayBetName,
   encodeSportBetId,
   isFootballOutcomeLabelName,
@@ -147,5 +150,16 @@ assert.equal(
   sanitizeFootballMatchList([{ Title: "重庆铜梁龙 vs 上海申花", Bets: [] }]).length,
   1,
 );
+
+{
+  const now = 1_800_000_000_000;
+  const cropped = cropSportMatchListWindow([
+    { Title: "soon", StartTime: now + 1 * 3600_000 },
+    { Title: "later", StartTime: now + 10 * 3600_000 },
+    { Title: "live", StartTime: now - 3 * 3600_000 },
+    { Title: "old", StartTime: now - 5 * 3600_000 },
+  ], FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS, now);
+  assert.deepEqual(cropped.map(m => m.Title), ["soon", "live"]);
+}
 
 console.log("sport_football_markets.smoke: ok");

@@ -22,17 +22,19 @@ async function decompressBytes(bytes: Uint8Array, format: CompressionFormat): Pr
 }
 
 async function inflateBytes(bytes: Uint8Array): Promise<string> {
+  const gzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+  const zlib = bytes.length > 1 && bytes[0] === 0x78;
   const attempts: Array<() => Promise<string>> = [];
-  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b)
+  if (gzip)
     attempts.push(() => decompressBytes(bytes, "gzip"));
-  attempts.push(
-    () => decompressBytes(bytes, "deflate"),
-    () => decompressBytes(bytes, "deflate-raw"),
-  );
-  if (bytes.length > 6 && bytes[0] === 0x78)
-    attempts.push(() => decompressBytes(bytes.subarray(2, bytes.length - 4), "deflate-raw"));
-  if (!(bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b))
-    attempts.push(() => decompressBytes(bytes, "gzip"));
+  else if (zlib)
+    attempts.push(() => decompressBytes(bytes, "deflate"));
+  else {
+    attempts.push(
+      () => decompressBytes(bytes, "deflate-raw"),
+      () => decompressBytes(bytes, "deflate"),
+    );
+  }
   let last: unknown;
   for (const run of attempts) {
     try {

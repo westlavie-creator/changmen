@@ -113,7 +113,9 @@ export function parseObSportMatchLive(msg: unknown): ObSportLivePatch | null {
       return null;
     return { mid, ms: 1, refreshList: true };
   }
-  if (cmd === "C105" || cmd === "C101") {
+  if (cmd === "C105")
+    return null;
+  if (cmd === "C101") {
     const patch: ObSportLivePatch = { mid };
     if (body.ms != null && body.ms !== "")
       patch.ms = Number(body.ms) || 0;
@@ -152,6 +154,19 @@ export function obSportMatchInPlay(live: ObSportLiveMatch | null | undefined): b
   if (["90", "100", "999"].includes(mmp))
     return false;
   return ms === 1 || live.home != null || live.elapsedSec > 0 || Boolean(mmp);
+}
+
+/** 标题滚球徽章：不读 elapsedSec，避免 C102 时钟包每秒十几次重绘标题。 */
+export function obSportShowLiveBadge(live: ObSportLiveMatch | null | undefined): boolean {
+  if (!live)
+    return false;
+  const ms = Number(live.ms);
+  if (ms === 110 || ms === 0)
+    return false;
+  const mmp = String(live.mmp || "");
+  if (["90", "100", "999"].includes(mmp))
+    return false;
+  return ms === 1 || live.home != null || Boolean(mmp);
 }
 
 export function formatObSportElapsed(live: ObSportLiveMatch | null | undefined, now = Date.now()): string {

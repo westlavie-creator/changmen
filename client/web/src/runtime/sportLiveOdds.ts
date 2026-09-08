@@ -14,6 +14,7 @@ import {
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
+import { createRafTicker } from "@/runtime/rafTick";
 import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { startObSportWs, isObSportC8Mid, type ObSportSessionLite } from "@/runtime/obSportWs";
 import { SPORT_OB_SESSION_UPDATED } from "@/runtime/sportObSessionEvents";
@@ -23,6 +24,8 @@ const SPORT_LIVE_PAST_MS = 6 * 3600 * 1000;
 const SPORT_LIVE_FUTURE_MS = 2 * 3600 * 1000;
 /** 体育侧硬顶；与电竞 token 合并订，控制 WS 帧量 */
 export const SPORT_SUBSCRIBE_HARD_CAP = 100;
+/** C8 订太多 mid 会在连上后倾泻 C105，整页卡死几秒。只订最近若干场。 */
+export const SPORT_OB_MID_CAP = 16;
 
 const PM = "Polymarket";
 const PF = "PredictFun";
@@ -55,6 +58,7 @@ export function pickSportSubscribeIds(
   matches: ViewMatch[],
   cap = SPORT_SUBSCRIBE_HARD_CAP,
   now = Date.now(),
+  midCap = SPORT_OB_MID_CAP,
 ): SportSubscribePick {
   const scored = matches
     .map(m => ({ m, start: Number(m.startAt) || 0 }))
@@ -79,7 +83,7 @@ export function pickSportSubscribeIds(
 
   for (const { m } of scored) {
     const obMid = String(m.providers?.OB ?? "").trim();
-    if (obMid && isObSportC8Mid(obMid))
+    if (obMid && isObSportC8Mid(obMid) && obMids.size < midCap)
       obMids.add(obMid);
     if (used >= cap)
       continue;
@@ -159,23 +163,55 @@ export type SportLiveOddsSession = {
  * 棒/足 Tab 挂载时启动：登记 hub 订阅、写 sportOddsStore、刷 fallback。
  * 禁止写 fo / saveVenueOdds。
  */
-export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportLiveOddsSession {
+export type SportLiveOddsSessionOptions = {
+  /**
+   * 棒球板 BetRow 靠改 ViewMatch.fallback + oddsDisplayTick。
+   * 足球格子读 sportOddsStore，禁止把推送写回比赛对象（会整场重建盘口树）。
+   */
+  patchMatchFallback?: boolean;
+};
+
+export function startSportLiveOddsSession(
+  getMatches: () => ViewMatch[],
+  options: SportLiveOddsSessionOptions = {},
+): SportLiveOddsSession {
+  const patchMatchFallback = options.patchMatchFallback !== false;
   const sportOdds = useSportOddsStore();
   const obLive = useObSportLiveStore();
   let stopped = false;
   let obSession: ObSportSessionLite | null = null;
   const playAt = new Map<string, number>();
+  const pendingOdds = new Map<string, number>();
+  const pendingLines = new Map<string, number>();
+  const flushPendingQuotes = createRafTicker();
+  let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
   const obWs = startObSportWs(
     () => obSession,
     {
-      onQuote(oid, decimalOdds, extra) {
-        if (stopped)
+      onQuotes(rows) {
+        if (stopped || !rows.length)
           return;
-        sportOdds.save(OB, oid, decimalOdds);
-        if (extra?.line != null)
-          obLive.saveLine(oid, extra.line);
-        applyQuoteToMatches(getMatches(), OB, oid, decimalOdds);
+        for (const q of rows) {
+          pendingOdds.set(q.oid, q.odds);
+          if (q.line != null)
+            pendingLines.set(q.oid, q.line);
+        }
+        flushPendingQuotes(() => {
+          if (stopped) {
+            pendingOdds.clear();
+            pendingLines.clear();
+            return;
+          }
+          if (pendingOdds.size) {
+            sportOdds.saveMany(OB, [...pendingOdds.entries()].map(([id, odds]) => ({ id, odds })));
+            pendingOdds.clear();
+          }
+          if (pendingLines.size) {
+            obLive.saveLines([...pendingLines.entries()].map(([oid, line]) => ({ oid, line })));
+            pendingLines.clear();
+          }
+        });
       },
       onLive(patch) {
         if (stopped)
@@ -214,7 +250,7 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
   // 先连体育 hub，避免无 token 时 PM-S 一直灰；有列表后再 set asset
   ensurePolymarketSportMarketConnection();
 
-  const sync = (force = false) => {
+  const applySubscribe = (force = false) => {
     if (stopped)
       return;
     const pick = pickSportSubscribeIds(getMatches());
@@ -225,7 +261,10 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
         obWs.sync(pick.obOids, pick.obMids);
     });
 
-    // 列表重刷后用缓存价回写 fallback，避免 30s 快照盖掉实时价
+    if (!patchMatchFallback)
+      return;
+
+    // 列表重刷后用缓存价回写 fallback，避免 30s 快照盖掉实时价（棒球 BetRow）
     const matches = getMatches();
     for (const m of matches) {
       for (const bet of m.bets) {
@@ -253,6 +292,26 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     }
   };
 
+  const requestSync = (force = false) => {
+    if (stopped)
+      return;
+    if (force) {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+      }
+      applySubscribe(true);
+      return;
+    }
+    if (syncTimer)
+      return;
+    syncTimer = setTimeout(() => {
+      syncTimer = null;
+      if (!stopped)
+        applySubscribe(false);
+    }, 250);
+  };
+
   const unPm = onPolymarketSportQuote((q) => {
     if (stopped)
       return;
@@ -260,7 +319,8 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     if (!(odds > 0))
       return;
     sportOdds.save(PM, q.assetId, odds);
-    applyQuoteToMatches(getMatches(), PM, q.assetId, odds);
+    if (patchMatchFallback)
+      applyQuoteToMatches(getMatches(), PM, q.assetId, odds);
   });
 
   const unPf = onPredictFunSportQuote((q) => {
@@ -270,37 +330,44 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     if (!(odds > 0))
       return;
     sportOdds.save(PF, q.marketId, odds);
-    applyQuoteToMatches(getMatches(), PF, q.marketId, odds);
+    if (patchMatchFallback)
+      applyQuoteToMatches(getMatches(), PF, q.marketId, odds);
   });
 
   // collector (re)bind：立刻 force sync，修好 clear*Hub 后价僵
   const unPmBound = onPolymarketSportHubBound(() => {
     if (!stopped)
-      sync(true);
+      requestSync(true);
   });
   const unPfBound = onPredictFunSportHubBound(() => {
     if (!stopped)
-      sync(true);
+      requestSync(true);
   });
 
   const onSportObSession = () => {
     if (!stopped)
       void loadObSession().then(() => {
         if (!stopped)
-          sync(true);
+          requestSync(true);
       });
   };
   if (typeof window !== "undefined")
     window.addEventListener(SPORT_OB_SESSION_UPDATED, onSportObSession);
 
-  sync();
+  applySubscribe();
 
   return {
-    sync,
+    sync: requestSync,
     stop: () => {
       if (stopped)
         return;
       stopped = true;
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+        syncTimer = null;
+      }
+      pendingOdds.clear();
+      pendingLines.clear();
       unPm();
       unPf();
       unPmBound();

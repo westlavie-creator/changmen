@@ -9,6 +9,8 @@ import {
 } from "./sport_gamma_fetch.js";
 import {
   FOOTBALL_LEAGUE_CODES,
+  FOOTBALL_LIST_FUTURE_MS,
+  FOOTBALL_LIST_PAST_MS,
   FOOTBALL_PM_SPORT_ALIASES,
   UNKNOWN_FOOTBALL_GAME,
   footballPmSportFetchKeys,
@@ -52,6 +54,8 @@ const FOOTBALL_OPTS = {
   idBase: 800_000_000,
   cacheKey: "soccer",
   logTag: "footballGamma",
+  pastMs: FOOTBALL_LIST_PAST_MS,
+  futureMs: FOOTBALL_LIST_FUTURE_MS,
 };
 
 /** @returns {Promise<object[]>} ClientMatchDto[] */

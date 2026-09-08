@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ViewBet, ViewMatch } from "@/models/match";
-import { footballMarketTitle, mergeFootballBookRows, viewBetsToMarketRows, applyObLiveOdds } from "@/runtime/footballMarketRows";
+import { footballMarketTitle, mergeFootballBookRows, viewBetsToMarketRows, applyObLiveOdds, resolveFootballCellOdds, resolveFootballCellLine } from "@/runtime/footballMarketRows";
 import type { ClientMatchDto } from "@/types/esport";
 
 function dto(): ClientMatchDto {
@@ -323,5 +323,17 @@ describe("viewBetsToMarketRows", () => {
     const ah = mixed.find(r => r.MarketCode === "spreads")?.Venues?.[0]?.Selections;
     expect(ah?.find(s => s.Side === "home")?.Source).toBe("M");
     expect(ah?.find(s => s.Side === "away")?.Source).toBe("H");
+  });
+
+  it("resolveFootballCellOdds matches BetRow getOdds fallback semantics", () => {
+    const live = {
+      get: (_p: string, id: string) => id === "oid-h" ? 0 : 1.91,
+      has: (_p: string, id: string) => id === "oid-h" || id === "oid-a",
+    };
+    expect(resolveFootballCellOdds("OB", "oid-h", 1.9, live)).toEqual({ odds: 0, source: "M" });
+    expect(resolveFootballCellOdds("OB", "oid-a", 1.95, live)).toEqual({ odds: 1.91, source: "M" });
+    expect(resolveFootballCellOdds("OB", "oid-x", 2.05, live)).toEqual({ odds: 2.05, source: "H" });
+    expect(resolveFootballCellLine(["oid-h", "oid-a"], -0.5, id => id === "oid-h" ? -0.75 : null)).toBe(-0.75);
+    expect(resolveFootballCellLine(["oid-x"], -0.5, () => null)).toBe(-0.5);
   });
 });

@@ -167,14 +167,43 @@ function quoteCount(selections: FootballSelection[] | undefined) {
   return (selections || []).filter(s => Number(s.Odds) > 0).length;
 }
 
+/**
+ * 电竞 BetRow.getOdds(oddId, fallback) 的体育侧等价：有缓存用 live（含锁盘 0），否则 HTTP。
+ * 只给足球格子用，不读 fo。
+ */
+export function resolveFootballCellOdds(
+  venue: string,
+  oddId: string,
+  fallback: number,
+  live?: SportLiveOddsReader,
+): { odds: number; source: FootballSelection["Source"] } {
+  const p = String(venue || "OB").trim() || "OB";
+  const id = String(oddId || "").trim();
+  const fb = Number(fallback) || 0;
+  if (!id || !live || !liveKnown(live, p, id))
+    return { odds: fb, source: "H" };
+  return { odds: live.get(p, id) || 0, source: "M" };
+}
+
+export function resolveFootballCellLine(
+  oddIds: string[],
+  fallback: number | null | undefined,
+  getLine?: (oid: string) => number | null,
+): number | null {
+  if (getLine) {
+    for (const raw of oddIds || []) {
+      const n = getLine(String(raw || "").trim());
+      if (n != null && Number.isFinite(n))
+        return n;
+    }
+  }
+  const fb = Number(fallback);
+  return Number.isFinite(fb) ? fb : null;
+}
+
 function overlayLiveSelection(sel: FootballSelection, live?: SportLiveOddsReader): FootballSelection {
-  const oid = String(sel.OddID || "").trim();
-  if (!oid || !live)
-    return { ...sel, Source: sel.Source === "M" ? "M" : "H" };
-  const q = live.get("OB", oid);
-  if (!liveKnown(live, "OB", oid))
-    return { ...sel, Source: sel.Source === "M" ? "M" : "H" };
-  return { ...sel, Odds: q, Source: "M" };
+  const resolved = resolveFootballCellOdds("OB", String(sel.OddID || ""), Number(sel.Odds) || 0, live);
+  return { ...sel, Odds: resolved.odds, Source: resolved.source };
 }
 
 function overlayLiveLine(row: FootballObMarketRow, live?: SportLiveOddsReader): FootballObMarketRow {

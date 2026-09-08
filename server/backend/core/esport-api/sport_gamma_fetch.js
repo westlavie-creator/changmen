@@ -14,11 +14,13 @@ import {
   MARKET_SPREADS,
   MARKET_TOTALS,
   baseFootballEventTitle,
+  cropSportMatchListWindow,
   displayBetName,
   encodeSportBetId,
   isFootballSiblingEventTitle,
   parseMarketLine,
   sportHourBucket,
+  sportStartInWindow,
 } from "./sport_football_markets.js";
 
 const GAMMA_BASE = process.env.POLYMARKET_GAMMA_BASE || "https://gamma-api.polymarket.com";
@@ -44,6 +46,8 @@ const _caches = new Map();
  * @property {string[]} [leagueGameCodes] 若设，用 event.sport.sport 等覆盖 Game（棒球 mlb|kbo|npb；足球 epl|…）
  * @property {Record<string, string>} [leagueAliases] 可选；馆侧 sport → changmen code（足球专用，棒球勿传）
  * @property {boolean} [lineMarkets] 若 true，挂接 spreads/totals（足球 More Markets）
+ * @property {number} [pastMs] 开赛后保留窗，默认 24h（足球传 4h）
+ * @property {number} [futureMs] 未开赛保留窗，默认 7 天（足球传 2h）
  */
 
 function parseJsonArray(value) {
@@ -231,6 +235,15 @@ function resolveEventGameCode(raw, fallbackGame, leagueGameCodes, leagueAliases)
   return fallbackGame;
 }
 
+function resolveListWindow(options) {
+  const pastMs = Number(options?.pastMs);
+  const futureMs = Number(options?.futureMs);
+  return {
+    pastMs: Number.isFinite(pastMs) && pastMs > 0 ? pastMs : PAST_MS,
+    futureMs: Number.isFinite(futureMs) && futureMs > 0 ? futureMs : FUTURE_MS,
+  };
+}
+
 /**
  * @param {SportGammaOptions} options
  * @returns {Promise<object[]>} ClientMatchDto[]
@@ -252,19 +265,21 @@ export async function fetchSportAsClientMatchDtos(options) {
     ? options.leagueAliases
     : undefined;
   const lineMarkets = Boolean(options.lineMarkets);
+  const { pastMs, futureMs } = resolveListWindow(options);
+  const crop = (rows) => cropSportMatchListWindow(rows, pastMs, futureMs);
 
   const mem = _caches.get(cacheKey);
   if (mem && Date.now() - mem.at < CACHE_TTL_MS)
-    return mem.rows;
+    return crop(mem.rows);
 
   const diskFresh = readFreshSportListCache(cacheKey);
   if (diskFresh) {
     _caches.set(cacheKey, { at: diskFresh.at, rows: diskFresh.rows });
-    return diskFresh.rows;
+    return crop(diskFresh.rows);
   }
 
   try {
-    const rows = await fetchSportRowsFromGamma({
+    const rows = crop(await fetchSportRowsFromGamma({
       sportKeys,
       gameCode,
       defaultSeriesIds,
@@ -273,7 +288,9 @@ export async function fetchSportAsClientMatchDtos(options) {
       leagueGameCodes,
       leagueAliases,
       lineMarkets,
-    });
+      pastMs,
+      futureMs,
+    }));
     const at = Date.now();
     _caches.set(cacheKey, { at, rows });
     try {
@@ -289,17 +306,17 @@ export async function fetchSportAsClientMatchDtos(options) {
     if (diskAny?.rows?.length) {
       console.warn(`[${logTag}] gamma failed, serving stale disk cache`, err?.message || err);
       _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
-      return diskAny.rows;
+      return crop(diskAny.rows);
     }
     throw err;
   }
 }
 
 /**
- * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean }} opts
+ * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets } = opts;
+  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs } = opts;
 
   const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag);
   if (!seriesIds.length) {
@@ -319,8 +336,8 @@ async function fetchSportRowsFromGamma(opts) {
       limit: String(KEYSET_PAGE_LIMIT),
       order: "startTime",
       ascending: "true",
-      start_time_min: new Date(now - PAST_MS).toISOString(),
-      start_time_max: new Date(now + FUTURE_MS).toISOString(),
+      start_time_min: new Date(now - pastMs).toISOString(),
+      start_time_max: new Date(now + futureMs).toISOString(),
     });
     for (const id of seriesIds)
       params.append("series_id", id);
@@ -369,11 +386,15 @@ async function fetchSportRowsFromGamma(opts) {
       if (!typed.length)
         continue;
 
+      const startTimeMs = startTimeMsOf(raw);
+      if (!sportStartInWindow(startTimeMs, pastMs, futureMs, now))
+        continue;
+
       collected.push({
         id: String(raw.id ?? raw.slug ?? title),
         title,
         base: baseFootballEventTitle(title),
-        startTimeMs: startTimeMsOf(raw),
+        startTimeMs,
         game: resolveEventGameCode(raw, gameCode, leagueGameCodes, leagueAliases),
         markets: typed,
         sibling,

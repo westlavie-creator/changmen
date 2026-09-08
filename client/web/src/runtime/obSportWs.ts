@@ -1,10 +1,11 @@
 /**
  * OB 体育推送（足球 Tab 专用）。
- * HTTP 仍由 Chrome 扩展代发；WS 由足球页直连 yewuws2（源站不按 Origin 卡 C105）。
+ * HTTP / WS 均由足球页直连（yewu11 + yewuws2）。源站不按 Origin 卡 C105。
  * 禁止复用电竞 MQTT 与电竞 OB 通道。
  */
 import { reportVenueWsStatus, type VenueWsStatus } from "@changmen/venue-adapter/shared";
 import { unzipObSportPushCd } from "@/runtime/obSportCodec";
+import { yieldToPaint } from "@/runtime/rafTick";
 import { olOdds, parseObHandicapLine } from "@/runtime/obSportOdds";
 import {
   parseObSportHandicapPlay,
@@ -25,11 +26,25 @@ export type ObSportSessionLite = {
   referer?: string;
 };
 
-export type ObSportWsHandle = {
-  /** oids：本地过滤；mids：官方 C8 订阅（试玩页实测） */
-  sync: (oids: string[], mids?: string[]) => void;
-  stop: () => void;
-};
+export function obSportRawLooksLikeClock(raw: unknown): boolean {
+  if (typeof raw !== "string")
+    return false;
+  const m = raw.match(/"cmd"\s*:\s*"([^"]+)"/i);
+  const cmd = String(m?.[1] || "").toUpperCase();
+  return cmd === "C0" || cmd === "C00" || cmd === "C102";
+}
+
+function trimObSportBacklog(queue: unknown[]) {
+  if (queue.length < 24)
+    return;
+  let w = 0;
+  for (const item of queue) {
+    if (obSportRawLooksLikeClock(item))
+      continue;
+    queue[w++] = item;
+  }
+  queue.length = w;
+}
 
 /** 试玩列表 C8：全场/半场 独赢+让球+大小。足球页只展示让球/大小，多订的 hpid 不画。 */
 export const OB_SPORT_C8_FOOTBALL_HPID = "1,2,4,17,18,19";
@@ -196,11 +211,18 @@ export function unwrapObSportPush(msg: unknown): unknown {
   return cur;
 }
 
+/** C102/心跳等不含盘口，禁止整棵树扫 oid（滚球约 10 次/秒）。 */
+const SKIP_ODDS_WALK = new Set([
+  "C0", "C00", "C8", "C101", "C102", "C103", "C109", "C302", "C303",
+]);
+
 /** 源站推送里抽出 oid + 欧赔（港水 ov2 / 欧赔 ov×1e5）。C105 hls/hls2 / 散字段都能走。 */
 export function parseObSportPushOdds(msg: unknown): ObSportPushQuote[] {
   const root = asRecord(unwrapObSportPush(msg));
   const cd = asRecord(root?.cd);
   const cmd = String(root?.cmd || root?.CMD || "").toUpperCase();
+  if (SKIP_ODDS_WALK.has(cmd))
+    return [];
   if (root && (cmd === "C105" || cd?.hls || cd?.hls2)) {
     if (cd) {
       const fromHl = quotesFromC105(cd);
@@ -231,9 +253,15 @@ export function parseObSportPushOdds(msg: unknown): ObSportPushQuote[] {
 }
 
 export type ObSportWsHandlers = {
-  onQuote: (oid: string, decimalOdds: number, extra?: { line?: number | null; mid?: string }) => void;
+  onQuotes: (rows: ObSportPushQuote[]) => void;
   onLive?: (patch: ObSportLivePatch) => void;
   onHandicapPlay?: (row: ObSportHandicapPlay) => void;
+};
+
+export type ObSportWsHandle = {
+  /** oids：本地过滤；mids：官方 C8 订阅（试玩页实测） */
+  sync: (oids: string[], mids?: string[]) => void;
+  stop: () => void;
 };
 
 function decodePayload(raw: unknown): unknown {
@@ -289,10 +317,14 @@ export function startObSportWs(
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let activeUrl = "";
   let activeToken = "";
+  const incoming: unknown[] = [];
+  let pumping = false;
 
   const emitQuotes = (parsed: unknown) => {
-    for (const q of parseObSportPushOdds(parsed))
-      handlers.onQuote(q.oid, q.odds, { line: q.line, mid: q.mid });
+    const quotes = parseObSportPushOdds(parsed);
+    if (!quotes.length)
+      return;
+    handlers.onQuotes(quotes);
   };
 
   const ingest = async (parsed: unknown) => {
@@ -377,6 +409,30 @@ export function startObSportWs(
     }, HEARTBEAT_MS);
   };
 
+  const pumpIncoming = async () => {
+    if (pumping)
+      return;
+    pumping = true;
+    try {
+      while (incoming.length && !stopped) {
+        trimObSportBacklog(incoming);
+        const raw = incoming.shift();
+        if (raw == null)
+          continue;
+        const parsed = await decodeIncoming(raw);
+        if (parsed)
+          await ingest(parsed);
+        if (incoming.length)
+          await yieldToPaint();
+      }
+    }
+    finally {
+      pumping = false;
+      if (incoming.length && !stopped)
+        void pumpIncoming();
+    }
+  };
+
   const onTransportOpen = (token: string) => {
     if (stopped)
       return;
@@ -388,15 +444,15 @@ export function startObSportWs(
   const onTransportMessage = (raw: unknown) => {
     if (stopped)
       return;
-    void decodeIncoming(raw).then((parsed) => {
-      if (parsed)
-        void ingest(parsed);
-    });
+    incoming.push(raw);
+    trimObSportBacklog(incoming);
+    void pumpIncoming();
   };
 
   const disconnect = () => {
     clearReconnect();
     stopHeartbeat();
+    incoming.length = 0;
     lastC8Key = "";
     if (activeToken && canSend())
       sendJson({ cmd: "C00", requestId: activeToken });
