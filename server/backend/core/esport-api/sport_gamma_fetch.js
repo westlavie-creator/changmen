@@ -47,7 +47,7 @@ const _caches = new Map();
  * @property {Record<string, string>} [leagueAliases] 可选；馆侧 sport → changmen code（足球专用，棒球勿传）
  * @property {boolean} [lineMarkets] 若 true，挂接 spreads/totals（足球 More Markets）
  * @property {number} [pastMs] 开赛后保留窗，默认 24h（足球传 4h）
- * @property {number} [futureMs] 未开赛保留窗，默认 7 天（足球传 2h）
+ * @property {number} [futureMs] 未开赛保留窗，默认 7 天（足球传 6h）
  */
 
 function parseJsonArray(value) {

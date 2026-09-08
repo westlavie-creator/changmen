@@ -52,7 +52,7 @@ const FOOTBALL_OPTS = {
   lineMarkets: true,
   defaultSeriesIds: FOOTBALL_DEFAULT_SERIES,
   idBase: 800_000_000,
-  cacheKey: "soccer",
+  cacheKey: "soccer6",
   logTag: "footballGamma",
   pastMs: FOOTBALL_LIST_PAST_MS,
   futureMs: FOOTBALL_LIST_FUTURE_MS,
@@ -64,5 +64,6 @@ export async function fetchFootballAsClientMatchDtos() {
 }
 
 export function clearFootballMatchCache() {
+  clearSportGammaCache("soccer6");
   clearSportGammaCache("soccer");
 }

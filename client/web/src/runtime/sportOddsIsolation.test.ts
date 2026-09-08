@@ -207,8 +207,10 @@ describe("sport / esport UI isolation", () => {
     expect(cell).not.toMatch(/useOddsStore/);
     expect(cell).not.toMatch(/from\s+["']@\/stores\/oddsStore["']/);
     expect(cell).not.toMatch(/quoteTick|foRevision/);
-    expect(layout).toMatch(/让球/);
-    expect(layout).toMatch(/大小/);
+    expect(layout).toMatch(/全场让球/);
+    expect(layout).toMatch(/全场大小/);
+    expect(layout).toMatch(/半场让球/);
+    expect(layout).toMatch(/半场大小/);
     expect(layout).toMatch(/FOOTBALL_BOOK_COLUMNS/);
   });
 

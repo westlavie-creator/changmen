@@ -221,7 +221,8 @@ function obLeagueLooksElectronic(...parts: unknown[]): boolean {
 
 /**
  * 试玩足球菜单里的 EAFC / 电子赛事，不进 changmen 足球页。
- * `me`/`tme`/`mvs`=1 是场次/联赛类型位；没有位时用联赛名兜底。不要用 `mfo`（那是赛程阶段）。
+ * `me`/`tme`=1 是电子类型位；没有位时用联赛名兜底。
+ * 不要用 `mvs`（滚球场次常表示有视频，不是电子赛），也不要用 `mfo`（赛程阶段）。
  */
 export function isObElectronicFootball(
   tour?: Record<string, unknown> | null,
@@ -229,7 +230,7 @@ export function isObElectronicFootball(
 ): boolean {
   const rows = [tour, match].filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"));
   for (const row of rows) {
-    if (obFlagOne(row, "me") || obFlagOne(row, "tme") || obFlagOne(row, "mvs"))
+    if (obFlagOne(row, "me") || obFlagOne(row, "tme"))
       return true;
   }
   return rows.some(row => obLeagueLooksElectronic(row.tnjc, row.tn, row.nameText, row.shortName, row.n));
@@ -467,11 +468,11 @@ function obListGame(tid: string, tn: string, tnjc: string): string {
   return official || resolveObFootballGame(tid, tn, tnjc);
 }
 
-/** 滚球菜单场次必须留在板上；联赛袋 mgt 经常不是本场开赛时间。 */
+/** 滚球菜单场次必须留在板上；联赛袋 mgt 经常不是本场开赛时间（0、过旧、或指向今晚下一场）。 */
 function clampLiveStart(startTime: number, isLive: boolean | undefined, now = Date.now()): number {
   if (!isLive)
     return startTime;
-  if (!(startTime > 0))
+  if (!(startTime > 0) || startTime > now)
     return now;
   if (startTime < now - FOOTBALL_LIVE_LOOKBACK_MS)
     return now - 60_000;
@@ -649,7 +650,11 @@ async function doFetch(): Promise<ClientMatchDto[]> {
     throw new Error("体育 OB 无网关：粘贴里需要 api 网关");
   const [today, inplay] = await Promise.all([
     fetchSchedule(session, EUID_FOOTBALL, false),
-    fetchSchedule(session, EUID_FOOTBALL_LIVE, true).catch(() => [] as ScheduleMeta[]),
+    fetchSchedule(session, EUID_FOOTBALL_LIVE, true).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[football] OB live schedule skipped", msg);
+      return [] as ScheduleMeta[];
+    }),
   ]);
   const schedule = mergeSchedule([today, inplay]);
   if (!schedule.length)
@@ -665,7 +670,15 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   });
   const oddsMap = await fetchOddsByMids(session, windowed.map(m => m.mid).filter(Boolean));
   const missingLive = windowed
-    .filter(m => m.isLive && m.mid && !oddsMap.has(m.mid))
+    .filter((m) => {
+      if (!m.isLive || !m.mid)
+        return false;
+      const row = oddsMap.get(m.mid);
+      if (!row)
+        return true;
+      const names = teamNames(row);
+      return !(names.home && names.away) && !(m.home && m.away);
+    })
     .map(m => m.mid);
   if (missingLive.length) {
     const extra = await fetchOddsByMids(session, missingLive, EUID_FOOTBALL_LIVE);

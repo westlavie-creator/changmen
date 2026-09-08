@@ -142,30 +142,18 @@ watch(
 .fb-book__cols {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 8px;
   overflow: visible;
   padding-bottom: 4px;
 }
 .fb-book__col {
-  flex: 0 0 260px;
-  min-width: 240px;
+  flex: 1 1 0;
+  min-width: 0;
   background: hsla(0, 0%, 100%, 0.04);
   border-radius: 8px;
   overflow: hidden;
-}
-.fb-book__col--ml {
-  flex-basis: 280px;
-}
-.fb-book__col--ah,
-.fb-book__col--ou {
-  flex-basis: 320px;
-}
-.fb-book__col--cs,
-.fb-book__col--goals,
-.fb-book__col--other {
-  flex-basis: 280px;
 }
 .fb-book__col-head {
   padding: 8px 10px;

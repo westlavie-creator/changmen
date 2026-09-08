@@ -155,11 +155,13 @@ assert.equal(
   const now = 1_800_000_000_000;
   const cropped = cropSportMatchListWindow([
     { Title: "soon", StartTime: now + 1 * 3600_000 },
+    { Title: "inWindow", StartTime: now + 5 * 3600_000 },
     { Title: "later", StartTime: now + 10 * 3600_000 },
+    { Title: "tooFar", StartTime: now + 13 * 3600_000 },
     { Title: "live", StartTime: now - 3 * 3600_000 },
     { Title: "old", StartTime: now - 5 * 3600_000 },
   ], FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS, now);
-  assert.deepEqual(cropped.map(m => m.Title), ["soon", "live"]);
+  assert.deepEqual(cropped.map(m => m.Title), ["soon", "inWindow", "live"]);
 }
 
 console.log("sport_football_markets.smoke: ok");

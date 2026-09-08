@@ -1005,7 +1005,7 @@ export async function fetchPredictFunMlbAsClientMatchDtos() {
 export async function fetchPredictFunFootballAsClientMatchDtos() {
   return fetchPredictFunSportAsClientMatchDtos({
     gameCode: "soccer",
-    cacheKey: "soccer_pf",
+    cacheKey: "soccer_pf6",
     idBase: 810_000_000,
     logTag: "footballPredictFun",
     pastMs: FOOTBALL_LIST_PAST_MS,

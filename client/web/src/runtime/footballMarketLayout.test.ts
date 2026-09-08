@@ -31,8 +31,10 @@ describe("footballMarketLayout", () => {
 
   it("exposes left-to-right category columns", () => {
     expect(FOOTBALL_BOOK_COLUMNS.map(t => t.label)).toEqual([
-      "让球",
-      "大小",
+      "全场让球",
+      "全场大小",
+      "半场让球",
+      "半场大小",
     ]);
   });
 
@@ -108,7 +110,7 @@ describe("footballMarketLayout", () => {
     expect(groupFootballBook(rows, "all")).toHaveLength(1);
   });
 
-  it("lays out only 让球 / 大小, dropping 独赢 and 波胆", () => {
+  it("lays out 全场/半场 让球/大小 as four columns", () => {
     const rows = [
       row({
         Name: "全场独赢",
@@ -132,6 +134,17 @@ describe("footballMarketLayout", () => {
           { Name: "小", Side: "under", Odds: 1.95 },
         ],
       }),
+      row({ Name: "半场让球", MarketCode: "ht_spreads", Line: -0.25, hpid: "19" }),
+      row({
+        Name: "半场大小",
+        MarketCode: "ht_totals",
+        Line: 1.5,
+        hpid: "18",
+        Selections: [
+          { Name: "大", Side: "over", Odds: 1.9 },
+          { Name: "小", Side: "under", Odds: 1.9 },
+        ],
+      }),
       row({
         Name: "全场反波胆",
         MarketCode: "ob:7",
@@ -142,7 +155,28 @@ describe("footballMarketLayout", () => {
         ],
       }),
     ];
-    expect(groupFootballColumns(rows).map(c => c.label)).toEqual(["让球", "大小"]);
+    const cols = groupFootballColumns(rows);
+    expect(cols.map(c => c.label)).toEqual(["全场让球", "全场大小", "半场让球", "半场大小"]);
+    expect(cols.map(c => c.sections[0]?.title)).toEqual(["全场让球", "全场大小", "半场让球", "半场大小"]);
+    expect(cols.find(c => c.id === "ah")?.sections[0]?.rows).toHaveLength(1);
+    expect(cols.find(c => c.id === "ht_ah")?.sections[0]?.rows[0]?.hpid).toBe("19");
+  });
+
+  it("keeps four columns when 半场 is empty", () => {
+    const cols = groupFootballColumns([
+      row({ Name: "全场让球", MarketCode: "spreads", Line: -0.5, hpid: "4" }),
+    ]);
+    expect(cols.map(c => c.id)).toEqual(["ah", "ou", "ht_ah", "ht_ou"]);
+    expect(cols.find(c => c.id === "ht_ah")?.sections).toEqual([]);
+    expect(cols.find(c => c.id === "ou")?.sections).toEqual([]);
+  });
+
+  it("puts hpid 19 in 半场让球 even if the name has no 半场", () => {
+    const cols = groupFootballColumns([
+      row({ Name: "让球", MarketCode: "spreads", Line: -0.25, hpid: "19" }),
+    ]);
+    expect(cols.find(c => c.id === "ht_ah")?.sections[0]?.rows[0]?.hpid).toBe("19");
+    expect(cols.find(c => c.id === "ah")?.sections).toEqual([]);
   });
 
   it("does not show 独赢 rows in the book", () => {

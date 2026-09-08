@@ -3,12 +3,14 @@ import { footballRowHasQuotes, footballRowVenues, type FootballObMarketRow } fro
 import { OB_HPID_MARKET } from "@/runtime/obSportOdds";
 
 export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
-export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht" | "goals" | "cs" | "corners" | "other";
+export type FootballBookColumnId = "ah" | "ou" | "ht_ah" | "ht_ou" | "ml" | "ht" | "goals" | "cs" | "corners" | "other";
 
-/** 列表从左到右：只展示让球 / 大小 */
+/** 列表从左到右，对齐试玩：全场让球 / 全场大小 / 半场让球 / 半场大小 */
 export const FOOTBALL_BOOK_COLUMNS: { id: FootballBookColumnId; label: string }[] = [
-  { id: "ah", label: "让球" },
-  { id: "ou", label: "大小" },
+  { id: "ah", label: "全场让球" },
+  { id: "ou", label: "全场大小" },
+  { id: "ht_ah", label: "半场让球" },
+  { id: "ht_ou", label: "半场大小" },
 ];
 
 export type FootballBookKind = "ml" | "ah" | "ou" | "grid";
@@ -72,6 +74,12 @@ export function footballRowKind(row: FootballObMarketRow): FootballBookKind {
 }
 
 function isHalf(row: FootballObMarketRow): boolean {
+  const hpid = String(row.hpid || "");
+  const spec = hpid ? OB_HPID_MARKET[hpid] : undefined;
+  if (spec?.period === "ht")
+    return true;
+  if (spec?.period === "ft")
+    return false;
   const code = String(row.MarketCode || "").toLowerCase();
   const name = String(row.Name || "");
   const period = String(row.Period || "").toLowerCase();
@@ -160,9 +168,13 @@ function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean 
   if (col === "ml")
     return !half && kind === "ml" && rowHas1x2(row);
   if (col === "ah")
-    return !corners && kind === "ah";
+    return !half && !corners && kind === "ah";
   if (col === "ou")
-    return !corners && kind === "ou";
+    return !half && !corners && kind === "ou";
+  if (col === "ht_ah")
+    return half && !corners && kind === "ah";
+  if (col === "ht_ou")
+    return half && !corners && kind === "ou";
   return !half && !cs && !corners && !goals && kind === "grid";
 }
 
@@ -232,13 +244,14 @@ export function groupFootballBook(
   return collectSections(rows, r => inTab(r, tab), tab === "hot");
 }
 
-/** 从左到右的分类列，空列不返回。 */
+/** 从左到右四列；有任意让球/大小时四列都出（空列只留表头，对齐试玩）。 */
 export function groupFootballColumns(rows: FootballObMarketRow[]): FootballBookColumn[] {
-  return FOOTBALL_BOOK_COLUMNS
-    .map(col => ({
-      id: col.id,
-      label: col.label,
-      sections: collectSections(rows, r => inColumn(r, col.id)),
-    }))
-    .filter(col => col.sections.length > 0);
+  const cols = FOOTBALL_BOOK_COLUMNS.map(col => ({
+    id: col.id,
+    label: col.label,
+    sections: collectSections(rows, r => inColumn(r, col.id)),
+  }));
+  if (!cols.some(col => col.sections.length))
+    return [];
+  return cols;
 }

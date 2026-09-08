@@ -39,13 +39,12 @@ describe("sportBoardFilter", () => {
     expect(def.map(m => m.id)).toEqual([3]);
   });
 
-  it("crops Polymarket / PredictFun to the same 2h/4h window", () => {
+  it("does not crop Polymarket / PredictFun to the OB 2h window", () => {
     const pmLater = match(5, "Cagliari vs Lecce", now + 10 * 3600_000, "sea", { Polymarket: "pm1" });
     const pfLater = match(6, "Al Khaleej vs Al Riyadh", now + 6 * 3600_000, "spl", { PredictFun: "pf1" });
     const obLater = match(7, "OB later vs Team", now + 10 * 3600_000, "epl", { OB: "mid-1" });
-    const pmSoon = match(8, "Arsenal vs Chelsea", now + 1 * 3600_000, "epl", { Polymarket: "pm2" });
-    const def = filterSportBoardMatches([pmLater, pfLater, obLater, pmSoon], { horizonMs: FOOTBALL_UPCOMING_MS, now });
-    expect(def.map(m => m.id)).toEqual([8]);
+    const def = filterSportBoardMatches([pmLater, pfLater, obLater], { horizonMs: FOOTBALL_UPCOMING_MS, now });
+    expect(def.map(m => m.id).sort((a, b) => a - b)).toEqual([5, 6]);
   });
 
   it("defaults to upcoming window; search bypasses the window", () => {

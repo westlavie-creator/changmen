@@ -7,6 +7,7 @@ export const FOOTBALL_UPCOMING_MS = 2 * 3600 * 1000;
 export const FOOTBALL_LIVE_LOOKBACK_MS = 4 * 3600 * 1000;
 
 const OUTCOME_LABEL_RE = /^(大|小|大球|小球|over|under|o\/u)$/i;
+const OB_PROVIDER_RE = /^OB/i;
 
 /** 合场把大小球选项当成队名时的脏标题 */
 export function isFootballJunkMatchTitle(title: string): boolean {
@@ -28,6 +29,14 @@ export function matchInUpcomingWindow(
   if (!(t > 0))
     return false;
   return t >= now - lookbackMs && t <= now + horizonMs;
+}
+
+/** 仅纯 OB 场次走 2h/滚球窗口。PM/PF 用服务端 4h+6h，板上不再二次裁。 */
+export function matchUsesObUpcomingWindow(match: ViewMatch): boolean {
+  const keys = Object.keys(match.providers || {}).map(k => String(k).trim()).filter(Boolean);
+  if (!keys.length)
+    return true;
+  return keys.every(k => OB_PROVIDER_RE.test(k));
 }
 
 export function matchMatchesSearch(match: ViewMatch, query: string): boolean {
@@ -62,7 +71,7 @@ export function sortSportBoardMatchesByStartTime(matches: ViewMatch[]): ViewMatc
 }
 
 /**
- * 默认：未来 2 小时未开赛 + 开赛后 4 小时内（滚球）。OB / PM / PF 同一窗口。
+ * 默认：纯 OB 未来 2 小时未开赛 + 开赛后 4 小时内（滚球）；带 PM/PF 的场不二次裁。
  * 有搜索词时不裁窗口。结果按开赛时间排序。
  */
 export function filterSportBoardMatches(
@@ -86,6 +95,7 @@ export function filterSportBoardMatches(
   const now = opts.now ?? Date.now();
   const lookback = opts.lookbackMs ?? FOOTBALL_LIVE_LOOKBACK_MS;
   return sortSportBoardMatchesByStartTime(searched.filter(m => (
-    matchInUpcomingWindow(m.startAt, now, horizon, lookback)
+    !matchUsesObUpcomingWindow(m)
+    || matchInUpcomingWindow(m.startAt, now, horizon, lookback)
   )));
 }

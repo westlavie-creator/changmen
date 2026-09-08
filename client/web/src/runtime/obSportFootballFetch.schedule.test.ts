@@ -125,10 +125,30 @@ describe("collectObFootballSchedule", () => {
 });
 
 describe("isObElectronicFootball", () => {
-  it("reads me/tme flags and ignores mfo period", () => {
+  it("reads me/tme flags and ignores mfo period and live-video mvs", () => {
     expect(isObElectronicFootball({ me: 1, tn: "英超" })).toBe(true);
     expect(isObElectronicFootball({ tme: "1" })).toBe(true);
     expect(isObElectronicFootball({ mfo: 1, tnjc: "英超" })).toBe(false);
+    expect(isObElectronicFootball({ mvs: 1, tnjc: "英超" })).toBe(false);
+  });
+
+  it("keeps in-play matches that only have the video flag mvs=1", () => {
+    const rows = collectObFootballSchedule({
+      livedata: [{
+        csid: "1",
+        tid: "180",
+        tn: "英格兰超级联赛",
+        tnjc: "英超",
+        mids: "5652292",
+        mls: [{ mid: "5652292", mhn: "阿森纳", man: "切尔西", mvs: 1, mgt: 1 }],
+      }],
+    });
+    expect(rows).toEqual([expect.objectContaining({
+      mid: "5652292",
+      home: "阿森纳",
+      away: "切尔西",
+      isLive: true,
+    })]);
   });
 });
 
@@ -208,5 +228,22 @@ describe("buildObFootballListDto", () => {
     expect(dto?.Title).toBe("猛龙足球俱乐部 vs 斯巴达");
     expect(dto?.Game).toBe("白俄西区");
     expect(dto?.Bets).toEqual([]);
+  });
+
+  it("clamps a live bag mgt in the future so the board 2h window keeps 滚球", () => {
+    const now = Date.now();
+    const dto = buildObFootballListDto({
+      mid: "5652401",
+      tid: "180",
+      tn: "英格兰超级联赛",
+      tnjc: "英超",
+      startTime: now + 10 * 3600_000,
+      home: "阿森纳",
+      away: "切尔西",
+      isLive: true,
+    });
+    const t = Number(dto?.StartTime);
+    expect(t).toBeGreaterThan(now - 5_000);
+    expect(t).toBeLessThanOrEqual(now + 5_000);
   });
 });

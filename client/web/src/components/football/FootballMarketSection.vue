@@ -243,6 +243,12 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
 .fb-sec__venue--ou {
   grid-template-columns: 22px 1fr 1fr;
 }
+.fb-sec__cols span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .fb-sec__cols span:first-child {
   text-align: left;
 }

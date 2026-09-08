@@ -8,8 +8,8 @@
 
 export const UNKNOWN_FOOTBALL_GAME = "unknown_fb";
 
-/** 与足球页 OB 窗口一致：未来 2h 未开赛 + 开赛后 4h 滚球。棒球/网球列表勿复用。 */
-export const FOOTBALL_LIST_FUTURE_MS = 2 * 3600 * 1000;
+/** 足球 PM/PF 列表：开赛后 4h 滚球（对齐 OB）+ 未来 6h。勿套 OB 未开赛 2h，晚间开赛会被裁光。 */
+export const FOOTBALL_LIST_FUTURE_MS = 6 * 3600 * 1000;
 export const FOOTBALL_LIST_PAST_MS = 4 * 3600 * 1000;
 
 export function sportStartInWindow(startTime, pastMs, futureMs, now = Date.now()) {

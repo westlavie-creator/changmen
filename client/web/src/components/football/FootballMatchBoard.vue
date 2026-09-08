@@ -124,7 +124,7 @@ watch(
         {{ matchCountLabel }}
       </span>
       <span class="sport-toolbar__meta">
-        2小时/滚球
+        预测市场 6小时 · OB 2小时/滚球
       </span>
       <el-button link type="primary" :loading="loading || refreshing" @click="football.fetchMatchs(true)">
         刷新
