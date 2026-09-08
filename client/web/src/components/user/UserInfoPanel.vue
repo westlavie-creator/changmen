@@ -16,11 +16,13 @@ const props = withDefaults(
     /** 管理端用户详情：只读嵌入，不改动当前登录会话 */
     embedded?: boolean;
     embeddedUserName?: string;
+    /** 体育工作区足球页：齿轮旁的足球专用设置 */
+    showFootballSettings?: boolean;
   }>(),
-  { embedded: false },
+  { embedded: false, showFootballSettings: false },
 );
 
-const emit = defineEmits<{ logout: []; viewOrders: [] }>();
+const emit = defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
 
 const router = useRouter();
 const user = useUserStore();
@@ -107,6 +109,15 @@ const shownUserName = computed(() =>
             title="管理系统"
             aria-label="管理系统"
             @click="router.push({ name: 'admin' })"
+          />
+          <el-button
+            v-if="showFootballSettings && !embedded"
+            size="small"
+            class="am-icon-futbol-o"
+            type="success"
+            title="足球设置"
+            aria-label="足球设置"
+            @click="emit('openFootballSettings')"
           />
           <el-button
             size="small"

@@ -22,6 +22,7 @@ import {
 } from "./sport_football_markets.js";
 import {
   OB_FOOTBALL_ID_BASE,
+  OB_HPID_MARKET,
   decodeObSportPbPayload,
   extractObPlaySelections,
   listBetsFromObPlayData,
@@ -391,14 +392,13 @@ async function fetchOddsByHpid(session, mid, hpid) {
   return matchRowFromDecoded(decoded) || decoded;
 }
 
-function isFootballListMarket(code) {
+function isFootballListMarket(code, hpid) {
+  const spec = OB_HPID_MARKET[String(hpid || "")];
+  if (spec)
+    return spec.marketCode === MARKET_SPREADS || spec.marketCode === MARKET_TOTALS;
   const c = String(code || "");
-  if (c.startsWith("ob:"))
-    return true;
-  return c === MARKET_MONEYLINE
-    || c === MARKET_SPREADS
+  return c === MARKET_SPREADS
     || c === MARKET_TOTALS
-    || c === `ht_${MARKET_MONEYLINE}`
     || c === `ht_${MARKET_SPREADS}`
     || c === `ht_${MARKET_TOTALS}`;
 }
@@ -432,7 +432,7 @@ function buildDto(meta, oddsRow) {
   const seen = new Set();
   for (const b of listBets) {
     const marketCode = dtoMarketCode(b.marketCode);
-    if (!isFootballListMarket(marketCode))
+    if (!isFootballListMarket(marketCode, b.hpid))
       continue;
     const lineKey = b.line == null ? "" : String(b.line);
     const uniq = `${marketCode}|${lineKey}`;

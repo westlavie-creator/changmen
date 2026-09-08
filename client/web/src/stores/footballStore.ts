@@ -1,6 +1,7 @@
 import { getFootballMatchs } from "@/api/esport";
 import { mergeFootballClientLists } from "@/runtime/footballClientList";
 import { fetchObFootballAsClientMatchDtos } from "@/runtime/obSportFootballFetch";
+import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { createSportListStore } from "@/stores/createSportListStore";
 
 async function fetchFootballCombined(userName: string) {
@@ -10,7 +11,10 @@ async function fetchFootballCombined(userName: string) {
     ob = await fetchObFootballAsClientMatchDtos();
   }
   catch (err) {
-    console.warn("[football] OB client fetch skipped", err instanceof Error ? err.message : err);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[football] OB client fetch skipped", msg);
+    if (readLocalSportObSession()?.token)
+      throw err;
   }
   return mergeFootballClientLists(pmPf, ob);
 }

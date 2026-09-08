@@ -18,7 +18,7 @@ export const useSportOddsStore = defineStore("sportOdds", {
       const id = String(subscribeId || "").trim();
       if (!p || !id)
         return;
-      if (!Number.isFinite(decimalOdds) || decimalOdds <= 0)
+      if (!Number.isFinite(decimalOdds) || decimalOdds < 0)
         return;
       if (!this.byVenue[p])
         this.byVenue[p] = {};
@@ -26,6 +26,12 @@ export const useSportOddsStore = defineStore("sportOdds", {
         return;
       this.byVenue[p][id] = decimalOdds;
       this.tick += 1;
+    },
+    has(platform: PlatformId | string, subscribeId: string): boolean {
+      const row = this.byVenue[String(platform)];
+      if (!row)
+        return false;
+      return Object.prototype.hasOwnProperty.call(row, String(subscribeId));
     },
     get(platform: PlatformId | string, subscribeId: string): number {
       const row = this.byVenue[String(platform)];

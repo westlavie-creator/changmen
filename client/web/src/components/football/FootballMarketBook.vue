@@ -7,13 +7,15 @@ import {
   type FootballBookColumn,
 } from "@/runtime/footballMarketLayout";
 import {
+  invalidateFootballObMarkets,
   isFootballObMarketsComplete,
   loadFootballObMarkets,
   peekFootballObMarkets,
   type FootballObMarketRow,
 } from "@/runtime/footballObMarkets";
-import { viewBetsToMarketRows, mergeFootballBookRows } from "@/runtime/footballMarketRows";
+import { viewBetsToMarketRows, mergeFootballBookRows, applyObLiveOdds } from "@/runtime/footballMarketRows";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
@@ -28,7 +30,9 @@ const obRows = ref<FootballObMarketRow[]>([]);
 let fetchGen = 0;
 
 const sportOdds = useSportOddsStore();
+const obLive = useObSportLiveStore();
 const { tick: sportTick } = storeToRefs(sportOdds);
+const { tick: liveTick, playRevByMid } = storeToRefs(obLive);
 
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
 const teams = computed(() => splitFootballTeams(String(props.match.title || "")));
@@ -36,29 +40,48 @@ const teams = computed(() => splitFootballTeams(String(props.match.title || ""))
 const listRows = computed(() => {
   void props.oddsDisplayTick;
   void sportTick.value;
-  return viewBetsToMarketRows(props.match, sportOdds);
+  void liveTick.value;
+  return viewBetsToMarketRows(props.match, {
+    get: (p, id) => sportOdds.get(p, id),
+    has: (p, id) => sportOdds.has(p, id),
+    getLine: oid => obLive.getLine(oid),
+  });
+});
+
+const liveObRows = computed(() => {
+  void sportTick.value;
+  void liveTick.value;
+  return applyObLiveOdds(obRows.value, {
+    get: (p, id) => sportOdds.get(p, id),
+    has: (p, id) => sportOdds.has(p, id),
+    getLine: oid => obLive.getLine(oid),
+  });
 });
 
 const allRows = computed(() => {
-  return mergeFootballBookRows(listRows.value, obRows.value);
+  return mergeFootballBookRows(listRows.value, liveObRows.value);
 });
 
 const columns = computed((): FootballBookColumn[] => groupFootballColumns(allRows.value));
 
-async function fetchAllMarkets() {
+async function fetchAllMarkets(force = false) {
   const mid = obMid.value;
   if (!mid)
     return;
   const gen = ++fetchGen;
+  if (force)
+    invalidateFootballObMarkets(mid);
   const cached = peekFootballObMarkets(mid);
-  if (cached?.length)
+  if (cached)
     obRows.value = cached;
-  if (cached && isFootballObMarketsComplete(cached))
+  const hasRows = (cached?.length || 0) > 0 || obRows.value.length > 0 || listRows.value.length > 0;
+  if (!force && cached && isFootballObMarketsComplete(cached))
     return;
-  loading.value = true;
+  if (!hasRows)
+    loading.value = true;
   error.value = "";
   try {
-    const rows = await loadFootballObMarkets(mid);
+    const rows = await loadFootballObMarkets(mid, force);
     if (gen !== fetchGen)
       return;
     obRows.value = rows;
@@ -83,6 +106,14 @@ watch(obMid, (mid) => {
   error.value = "";
   void fetchAllMarkets();
 });
+
+watch(
+  () => playRevByMid.value[obMid.value] || 0,
+  (rev, prev) => {
+    if (rev && rev !== prev)
+      void fetchAllMarkets(true);
+  },
+);
 </script>
 
 <template>
@@ -110,7 +141,7 @@ watch(obMid, (mid) => {
         />
       </section>
     </div>
-    <div v-if="loading" class="fb-book__hint">
+    <div v-if="loading && !columns.length" class="fb-book__hint">
       加载盘口…
     </div>
     <div v-else-if="error" class="fb-book__hint err">
@@ -131,10 +162,10 @@ watch(obMid, (mid) => {
 .fb-book__cols {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 8px;
-  overflow-x: auto;
+  overflow: visible;
   padding-bottom: 4px;
 }
 .fb-book__col {

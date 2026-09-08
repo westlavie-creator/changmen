@@ -7,11 +7,12 @@ withDefaults(
     embedded?: boolean;
     embeddedUserId?: string;
     embeddedUserName?: string;
+    showFootballSettings?: boolean;
   }>(),
-  { embedded: false },
+  { embedded: false, showFootballSettings: false },
 );
 
-defineEmits<{ logout: []; viewOrders: [] }>();
+defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
 </script>
 
 <template>
@@ -19,8 +20,10 @@ defineEmits<{ logout: []; viewOrders: [] }>();
     <UserInfoPanel
       :embedded="embedded"
       :embedded-user-name="embeddedUserName"
+      :show-football-settings="showFootballSettings"
       @logout="$emit('logout')"
       @view-orders="$emit('viewOrders')"
+      @open-football-settings="$emit('openFootballSettings')"
     />
     <OrderView :embedded="embedded" :embedded-user-id="embeddedUserId" />
   </div>

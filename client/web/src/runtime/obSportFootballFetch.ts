@@ -2,16 +2,22 @@
  * 用户本机经 Chrome 扩展拉九游/OB 足球 HTTP。不经 VPS，不写电竞 client_matches。
  */
 import type { ClientMatchDto } from "@/types/esport";
-import { a8PluginGet, a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import { a8PluginPost, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { decodeObSportPbPayload } from "@/runtime/obSportCodec";
+import { resolveObFootballGame } from "@/runtime/footballLeague";
 import {
   dedupeObPlaySelectionRows,
   extractObPlaySelections,
+  isObAhOuMarket,
   listBetsFromObPlayData,
+  OB_AHOU_HPIDS,
   OB_FOOTBALL_ID_BASE,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
-import { resolveObFootballGame } from "@/runtime/footballLeague";
+import {
+  matchInUpcomingWindow,
+} from "@/runtime/sportBoardFilter";
+import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 
 const PLUGIN_REQUIRED = "足球 OB 需要「じらいや」扩展代发（同一 Chrome 不必打开九游）";
@@ -21,12 +27,13 @@ const BATCH_GAP_MS = 400;
 const RATE_LIMIT_SLEEP_MS = 2_000;
 const MAX_RATE_LIMIT_HITS = 5;
 const CSID_FOOTBALL = "1";
+/** 今日/早盘足球（试玩菜单 1012 → p=3020101） */
 const EUID_FOOTBALL = "3020101";
+/** 滚球足球（试玩菜单 1011 → p=30002） */
+const EUID_FOOTBALL_LIVE = "30002";
 const SCHEDULE_PATH = "/yewu11/v2/w/structureTournamentMatchesPB";
 const LIST_ODDS_PATH = "/yewu11/v1/w/structureMatchBaseInfoByMidsPB";
 const DETAIL_ODDS_PATH = "/yewu11/v1/w/getMatchBaseInfoByOddsPB";
-const CATEGORY_PATH = "/yewu11/v1/w/category/getCategoryList";
-const PLAY_ODDS_PATH = "/yewu11/v1/w/getOddsFromPlayPB";
 
 type ClientMarketRow = {
   hpid?: string;
@@ -65,7 +72,11 @@ function sportCuid(session: SportObSessionLocal) {
 }
 
 function gatewayOrigin(session: SportObSessionLocal): string {
-  const g = String(session.gateway || "").trim().replace(/\/$/, "");
+  const raw = session.gateway as unknown;
+  const g = (Array.isArray(raw)
+    ? String(raw.find(item => String(item || "").trim()) || "")
+    : String(raw || "")
+  ).trim().replace(/\/$/, "");
   if (!g)
     return "";
   try {
@@ -123,7 +134,26 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+/** livedata 可能是数组，也可能是 tid→联赛 的对象。 */
+function bagRows(value: unknown): unknown[] {
+  if (Array.isArray(value))
+    return value;
+  if (value && typeof value === "object") {
+    const vals = Object.values(value as Record<string, unknown>);
+    if (vals.some(v => v && typeof v === "object" && (
+      "mids" in (v as object)
+      || "mid" in (v as object)
+      || "tid" in (v as object)
+      || "csid" in (v as object)
+    )))
+      return vals;
+  }
+  return [];
+}
+
 function unwrapData(decoded: unknown): Record<string, unknown> {
+  if (Array.isArray(decoded))
+    return decoded as unknown as Record<string, unknown>;
   if (!decoded || typeof decoded !== "object")
     return {};
   const row = decoded as Record<string, unknown>;
@@ -159,33 +189,7 @@ async function postPb(session: SportObSessionLocal, apiPath: string, body: Recor
   return assertEnvelope(unwrapPluginBody(raw), apiPath);
 }
 
-async function getJson(session: SportObSessionLocal, apiPath: string) {
-  if (!hasA8PluginRuntime())
-    throw new Error(PLUGIN_REQUIRED);
-  const origin = gatewayOrigin(session);
-  if (!origin)
-    throw new Error("sport OB session missing gateway");
-  const url = `${origin}${apiPath}${apiPath.includes("?") ? "&" : "?"}t=${Date.now()}`;
-  const raw = await a8PluginGet(url, {
-    headers: buildHeaders(session),
-    timeout: 30_000,
-  });
-  const envelope = unwrapPluginBody(raw);
-  const row = envelope && typeof envelope === "object" ? envelope as Record<string, unknown> : {};
-  const code = row.code;
-  if (code != null && String(code) !== "0" && String(code) !== "0000000") {
-    const msg = String(row.msg || row.message || code);
-    throw new Error(`OB sport ${apiPath} code=${code} ${msg}`);
-  }
-  if (Array.isArray(row.data))
-    return row.data;
-  const decoded = await decodeObSportPbPayload(envelope);
-  if (decoded == null)
-    throw new Error(`OB sport ${apiPath} decode failed`);
-  return decoded;
-}
-
-type ScheduleMeta = {
+export type ScheduleMeta = {
   mid: string;
   tid: string;
   tn: string;
@@ -193,57 +197,74 @@ type ScheduleMeta = {
   startTime: number;
   home?: string;
   away?: string;
+  isLive?: boolean;
 };
 
-function collectFootballMatches(decoded: unknown): ScheduleMeta[] {
+export function collectObFootballSchedule(decoded: unknown, forceLive = false): ScheduleMeta[] {
+  return collectFootballMatches(decoded, forceLive);
+}
+
+function collectFootballMatches(decoded: unknown, forceLive = false): ScheduleMeta[] {
   const root = unwrapData(decoded);
-  const bags = [
-    ...asArray(root.livedata),
-    ...asArray(root.nolivedata),
-    ...asArray(root.data),
-    ...asArray(root.list),
-    ...asArray(root),
+  const bags: Array<{ rows: unknown[]; live: boolean }> = [
+    { rows: bagRows(root.livedata), live: true },
+    { rows: bagRows(root.nolivedata), live: false },
+    { rows: bagRows(root.data), live: forceLive },
+    { rows: bagRows(root.list), live: forceLive },
+    { rows: asArray(root), live: forceLive },
   ];
   const byMid = new Map<string, ScheduleMeta>();
-  for (const tour of bags) {
-    if (!tour || typeof tour !== "object")
-      continue;
-    const t = tour as Record<string, unknown>;
-    const csid = String(t.csid ?? t.sportId ?? t.sid ?? "");
-    const midsRaw = t.mids ?? t.mid;
-    const tid = String(t.tid ?? t.tournamentId ?? t.id ?? "");
-    const tn = String(t.tn ?? t.nameText ?? t.n ?? "");
-    const tnjc = String(t.tnjc ?? t.shortName ?? "");
-    const mgt = t.mgt ?? t.startTime ?? t.mgtStr;
-    const midList = Array.isArray(midsRaw)
-      ? midsRaw.map(String)
-      : String(midsRaw || "").split(",").map(s => s.trim()).filter(Boolean);
-    if (csid && csid !== CSID_FOOTBALL)
-      continue;
-    for (const mid of midList) {
-      if (!byMid.has(mid))
-        byMid.set(mid, { mid, tid, tn, tnjc, startTime: Number(mgt) || 0 });
+  const put = (row: ScheduleMeta) => {
+    const prev = byMid.get(row.mid);
+    if (!prev) {
+      byMid.set(row.mid, row);
+      return;
     }
-    const nested = asArray(t.mls || t.matches || t.ms);
-    for (const m of nested) {
-      if (!m || typeof m !== "object")
+    byMid.set(row.mid, { ...prev, ...row, isLive: Boolean(prev.isLive || row.isLive) });
+  };
+  for (const bag of bags) {
+    for (const tour of bag.rows) {
+      if (!tour || typeof tour !== "object")
         continue;
-      const row = m as Record<string, unknown>;
-      const mid = String(row.mid ?? row.id ?? "");
-      if (!mid)
+      const t = tour as Record<string, unknown>;
+      const csid = String(t.csid ?? t.sportId ?? t.sid ?? "");
+      const midsRaw = t.mids ?? t.mid;
+      const tid = String(t.tid ?? t.tournamentId ?? t.id ?? "");
+      const tn = String(t.tn ?? t.nameText ?? t.n ?? "");
+      const tnjc = String(t.tnjc ?? t.shortName ?? "");
+      const mgt = t.mgt ?? t.startTime ?? t.mgtStr;
+      const midList = Array.isArray(midsRaw)
+        ? midsRaw.map(String)
+        : String(midsRaw || "").split(",").map(s => s.trim()).filter(Boolean);
+      if (csid && csid !== CSID_FOOTBALL)
         continue;
-      const mCsid = String(row.csid ?? csid);
-      if (mCsid && mCsid !== CSID_FOOTBALL)
-        continue;
-      byMid.set(mid, {
-        mid,
-        tid: String(row.tid ?? tid),
-        tn: String(row.tn ?? tn),
-        tnjc: String(row.tnjc ?? tnjc),
-        startTime: Number(row.mgt ?? row.mgtStr ?? row.startTime ?? mgt) || 0,
-        home: String(row.mhn ?? row.home ?? ""),
-        away: String(row.man ?? row.away ?? ""),
-      });
+      for (const mid of midList) {
+        if (!isObSportC8Mid(mid))
+          continue;
+        put({ mid, tid, tn, tnjc, startTime: Number(mgt) || 0, isLive: bag.live });
+      }
+      const nested = asArray(t.mls || t.matches || t.ms);
+      for (const m of nested) {
+        if (!m || typeof m !== "object")
+          continue;
+        const row = m as Record<string, unknown>;
+        const mid = String(row.mid ?? row.id ?? "");
+        if (!isObSportC8Mid(mid))
+          continue;
+        const mCsid = String(row.csid ?? csid);
+        if (mCsid && mCsid !== CSID_FOOTBALL)
+          continue;
+        put({
+          mid,
+          tid: String(row.tid ?? tid),
+          tn: String(row.tn ?? tn),
+          tnjc: String(row.tnjc ?? tnjc),
+          startTime: Number(row.mgt ?? row.mgtStr ?? row.startTime ?? mgt) || 0,
+          home: String(row.mhn ?? row.home ?? ""),
+          away: String(row.man ?? row.away ?? ""),
+          isLive: bag.live,
+        });
+      }
     }
   }
   return [...byMid.values()];
@@ -279,7 +300,11 @@ function ingestOddsRows(decoded: unknown, byMid: Map<string, Record<string, unkn
   }
 }
 
-async function fetchOddsByMids(session: SportObSessionLocal, mids: string[]) {
+async function fetchOddsByMids(
+  session: SportObSessionLocal,
+  mids: string[],
+  euid = EUID_FOOTBALL,
+) {
   const byMid = new Map<string, Record<string, unknown>>();
   const queue = chunk(mids, ODDS_BATCH);
   let rateHits = 0;
@@ -289,7 +314,7 @@ async function fetchOddsByMids(session: SportObSessionLocal, mids: string[]) {
     try {
       const decoded = await postPb(session, LIST_ODDS_PATH, {
         cuid: sportCuid(session),
-        euid: EUID_FOOTBALL,
+        euid,
         mids: part.join(","),
       });
       ingestOddsRows(decoded, byMid);
@@ -352,42 +377,40 @@ function displayBetName(marketCode: string, line: number | null | undefined) {
   return ht ? "半场胜负" : "全场胜负";
 }
 
-function resolveLeague(tid: string, tn: string, tnjc = ""): string {
-  return resolveObFootballGame(tid, tn, tnjc);
+function isFootballListMarket(code: string, hpid?: string) {
+  return isObAhOuMarket(hpid, code);
 }
 
-function isFootballListMarket(code: string) {
-  const c = String(code || "");
-  if (c.startsWith("ob:"))
-    return true;
-  return c === "moneyline" || c === "spreads" || c === "totals"
-    || c === "ht_moneyline" || c === "ht_spreads" || c === "ht_totals";
+function obListGame(tid: string, tn: string, tnjc: string): string {
+  const official = String(tnjc || tn || "").trim();
+  return official || resolveObFootballGame(tid, tn, tnjc);
 }
 
-function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown>): ClientMatchDto | null {
+function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | undefined): ClientMatchDto | null {
+  const row = oddsRow && typeof oddsRow === "object" ? oddsRow : {};
   const mid = String(meta.mid);
   const matchId = stableObMatchId(mid);
-  let home = String(oddsRow.mhn || meta.home || "").trim();
-  let away = String(oddsRow.man || meta.away || "").trim();
+  let home = String(row.mhn || meta.home || "").trim();
+  let away = String(row.man || meta.away || "").trim();
   if (isOutcomeLabel(home) || isOutcomeLabel(away)) {
     home = String(meta.home || "").trim();
     away = String(meta.away || "").trim();
   }
   if (!home || !away || isOutcomeLabel(home) || isOutcomeLabel(away))
     return null;
-  const tid = String(oddsRow.tid || meta.tid || "");
-  const tn = String(oddsRow.tn || meta.tn || "");
-  const tnjc = String(oddsRow.tnjc || meta.tnjc || "");
-  const game = resolveLeague(tid, tn, tnjc);
-  const startTime = startTimeMs(oddsRow.mgt || oddsRow.mgtStr || meta.startTime);
-  const playData = playsFromObMatchRow(oddsRow);
+  const tid = String(row.tid || meta.tid || "");
+  const tn = String(row.tn || meta.tn || "");
+  const tnjc = String(row.tnjc || meta.tnjc || "");
+  const game = obListGame(tid, tn, tnjc);
+  const startTime = startTimeMs(row.mgt || row.mgtStr || meta.startTime);
+  const playData = playsFromObMatchRow(row);
   const listBets = listBetsFromObPlayData(playData);
   const bets: NonNullable<ClientMatchDto["Bets"]> = [];
   let seq = 0;
   const seen = new Set<string>();
   for (const b of listBets) {
     const marketCode = String(b.marketCode || "moneyline");
-    if (!isFootballListMarket(marketCode))
+    if (!isFootballListMarket(marketCode, b.hpid))
       continue;
     const uniq = `${marketCode}|${b.line == null ? "" : String(b.line)}`;
     if (seen.has(uniq))
@@ -427,8 +450,6 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown>): ClientM
       Sources: { OB: src as unknown as ClientMatchDto["Bets"][number]["Sources"][string] },
     } as ClientMatchDto["Bets"][number]);
   }
-  if (!bets.length)
-    return null;
   return {
     ID: matchId,
     Title: `${home} vs ${away}`,
@@ -438,6 +459,14 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown>): ClientM
     Matchs: { OB: mid },
     Bets: bets,
   } as ClientMatchDto;
+}
+
+/** 列表 DTO：有队名就出牌，缺让球/大小时 Bets 为空。 */
+export function buildObFootballListDto(
+  meta: ScheduleMeta,
+  oddsRow?: Record<string, unknown> | null,
+): ClientMatchDto | null {
+  return buildDto(meta, oddsRow);
 }
 
 function mergeMarketRows(lists: ClientMarketRow[][]): ClientMarketRow[] {
@@ -459,7 +488,7 @@ function marketsFromRow(_mid: string, row: Record<string, unknown> | null): Clie
     return [];
   const extracted = dedupeObPlaySelectionRows(
     playsFromObMatchRow(row).flatMap(p => extractObPlaySelections(p)),
-  ).filter(r => r.selections.length);
+  ).filter(r => r.selections.length && isObAhOuMarket(r.hpid, r.marketCode));
   return mergeMarketRows([
     extracted.map(r => ({
       hpid: r.hpid,
@@ -477,19 +506,33 @@ function marketsFromRow(_mid: string, row: Record<string, unknown> | null): Clie
   ]);
 }
 
-async function fetchSchedule(session: SportObSessionLocal): Promise<ScheduleMeta[]> {
+async function fetchSchedule(session: SportObSessionLocal, euid: string, liveMenu = false): Promise<ScheduleMeta[]> {
   const decoded = await postPb(session, SCHEDULE_PATH, {
     cuid: sportCuid(session),
     sort: 1,
     tid: "",
     apiType: 1,
     orpt: 0,
-    euid: EUID_FOOTBALL,
+    euid,
   });
-  const rows = collectFootballMatches(decoded);
-  if (!rows.length)
-    throw new Error("OB sport schedule empty");
-  return rows;
+  return collectFootballMatches(decoded, liveMenu).map(row => (
+    liveMenu ? { ...row, isLive: true } : row
+  ));
+}
+
+function mergeSchedule(parts: ScheduleMeta[][]): ScheduleMeta[] {
+  const byMid = new Map<string, ScheduleMeta>();
+  for (const rows of parts) {
+    for (const row of rows) {
+      const prev = byMid.get(row.mid);
+      if (!prev) {
+        byMid.set(row.mid, row);
+        continue;
+      }
+      byMid.set(row.mid, { ...prev, ...row, isLive: Boolean(prev.isLive || row.isLive) });
+    }
+  }
+  return [...byMid.values()];
 }
 
 async function doFetch(): Promise<ClientMatchDto[]> {
@@ -500,15 +543,37 @@ async function doFetch(): Promise<ClientMatchDto[]> {
     throw new Error("体育 OB 无网关：粘贴里需要 api 网关，否则扩展无法代发");
   if (!hasA8PluginRuntime())
     throw new Error(PLUGIN_REQUIRED);
-  const schedule = await fetchSchedule(session);
-  const oddsMap = await fetchOddsByMids(session, schedule.map(m => m.mid).filter(Boolean));
+  const [today, inplay] = await Promise.all([
+    fetchSchedule(session, EUID_FOOTBALL, false),
+    fetchSchedule(session, EUID_FOOTBALL_LIVE, true).catch(() => [] as ScheduleMeta[]),
+  ]);
+  const schedule = mergeSchedule([today, inplay]);
+  if (!schedule.length)
+    throw new Error("OB sport schedule empty");
+  const now = Date.now();
+  const windowed = schedule.filter((m) => {
+    if (m.isLive)
+      return true;
+    const t = startTimeMs(m.startTime);
+    if (!(t > 0))
+      return true;
+    return matchInUpcomingWindow(t, now);
+  });
+  const oddsMap = await fetchOddsByMids(session, windowed.map(m => m.mid).filter(Boolean));
+  const missingLive = windowed
+    .filter(m => m.isLive && m.mid && !oddsMap.has(m.mid))
+    .map(m => m.mid);
+  if (missingLive.length) {
+    const extra = await fetchOddsByMids(session, missingLive, EUID_FOOTBALL_LIVE);
+    for (const [mid, row] of extra)
+      oddsMap.set(mid, row);
+  }
   const dtos: ClientMatchDto[] = [];
-  for (const meta of schedule) {
-    const odds = oddsMap.get(meta.mid);
-    if (!odds)
+  for (const meta of windowed) {
+    const dto = buildDto(meta, oddsMap.get(meta.mid));
+    if (!dto)
       continue;
-    const dto = buildDto(meta, odds);
-    if (dto)
+    if (meta.isLive || matchInUpcomingWindow(Number(dto.StartTime) || 0, now))
       dtos.push(dto);
   }
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
@@ -569,26 +634,9 @@ export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMa
     rows = mergeMarketRows([rows, marketsFromRow(id, map.get(id) || null)]);
   }
   catch { /* list fallback optional */ }
-  const RICH = 12;
-  let playIds: string[] = [];
-  try {
-    const decoded = await getJson(
-      session,
-      `${CATEGORY_PATH}?sportId=${CSID_FOOTBALL}&mid=${encodeURIComponent(id)}`,
-    );
-    const cats = Array.isArray(decoded) ? decoded : asArray((decoded as { data?: unknown })?.data);
-    const all = (cats as Record<string, unknown>[]).find(c => /所有/.test(String(c?.marketName || c?.name || "")))
-      || (cats as Record<string, unknown>[])[0];
-    playIds = asArray(all?.plays).map(x => String(x)).filter(Boolean);
-  }
-  catch { /* ignore */ }
-  playIds = [
-    ...playIds,
-    ...asArray(detailRow?.hpsPns).map(p => String((p as { hpid?: unknown; pid?: unknown })?.hpid ?? (p as { pid?: unknown })?.pid ?? "")).filter(Boolean),
-  ].filter((p, i, arr) => p && arr.indexOf(p) === i);
   const have = new Set(rows.map(r => String(r.hpid || "")));
-  const missing = playIds.filter(p => !have.has(p));
-  if (missing.length && rows.length < RICH) {
+  const missing = OB_AHOU_HPIDS.filter(p => !have.has(p));
+  if (missing.length) {
     try {
       const extra = matchRowFromDecoded(await postPb(session, DETAIL_ODDS_PATH, {
         cuid: sportCuid(session),
@@ -603,37 +651,6 @@ export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMa
       rows = mergeMarketRows([rows, marketsFromRow(id, extra)]);
     }
     catch { /* ignore */ }
-  }
-  const still = playIds.filter(p => !new Set(rows.map(r => String(r.hpid || ""))).has(p)).slice(0, 24);
-  if (still.length && rows.length < RICH) {
-    try {
-      const extra = marketsFromRow(id, matchRowFromDecoded(await postPb(session, PLAY_ODDS_PATH, {
-        cuid: sportCuid(session),
-        euid: EUID_FOOTBALL,
-        mid: id,
-        hpid: still[0],
-        csid: CSID_FOOTBALL,
-      })));
-      if (extra.length)
-        rows = mergeMarketRows([rows, extra]);
-      for (const hpid of still.slice(1)) {
-        try {
-          rows = mergeMarketRows([rows, marketsFromRow(id, matchRowFromDecoded(await postPb(session, PLAY_ODDS_PATH, {
-            cuid: sportCuid(session),
-            euid: EUID_FOOTBALL,
-            mid: id,
-            hpid,
-            csid: CSID_FOOTBALL,
-          })))]);
-        }
-        catch (err) {
-          if (isRateLimited(err))
-            break;
-        }
-        await sleep(80);
-      }
-    }
-    catch { /* canary failed */ }
   }
   return rows;
 }

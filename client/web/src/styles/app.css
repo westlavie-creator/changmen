@@ -184,7 +184,8 @@
 
 .home-main .football-board .match-search-row,
 .home-main .football-board .match-search,
-.home-main .football-board .sport-toolbar__error {
+.home-main .football-board .sport-toolbar__error,
+.home-main .football-board .football-league-tabs {
   flex: 0 0 auto;
 }
 

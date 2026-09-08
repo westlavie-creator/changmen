@@ -20,7 +20,7 @@
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Monorepo 结构、`client/*` / `server/*` / `packages/*`、数据流、**本地开发端口** |
 | [MATCH_IDENTITY_MODEL.md](./MATCH_IDENTITY_MODEL.md) | **赛事/队伍身份模型与不变量**：合场、人工关联、队伍解析三者的共同契约 |
-| [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md) | **多运动维护态**：棒/足 Tab + PM∥PF + N3 moneyline 合并；不开 N4；电竞主线见 `client/web/docs/A8_NEXT_STEPS.md` |
+| [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md) | **多运动维护态**：棒/足 Tab + PM∥PF + N3 moneyline 合并；不开 N4；电竞主线见 `client/web/docs/A8_NEXT_STEPS.md`；熊猫体育试玩协议见 [OB_SPORT.md](../client/web/docs/platforms/OB_SPORT.md) |
 | [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md) | monorepo 目录 / `lines/` manifest / 脚本落点（服从 ARB_MULTI_SPORT） |
 | [CATALOG.md](./CATALOG.md) | `sport` / `game` / `market` catalog 字段与扩展规则（**配置单一入口**） |
 | [../server/README.md](../server/README.md) | **服务端包索引**、进程图、常用命令 |

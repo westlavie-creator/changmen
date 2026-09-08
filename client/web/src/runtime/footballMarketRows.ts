@@ -7,6 +7,8 @@ import type {
 
 export type SportLiveOddsReader = {
   get: (platform: string, subscribeId: string) => number;
+  has?: (platform: string, subscribeId: string) => boolean;
+  getLine?: (oid: string) => number | null;
 };
 
 const VENUE_ORDER = ["Polymarket", "PredictFun", "OB"];
@@ -16,20 +18,64 @@ function venueRank(venue: string) {
   return i < 0 ? 99 : i;
 }
 
+function subscribeId(
+  item: ViewBet["items"][0],
+  side: "home" | "away" | "draw",
+): string {
+  if (side === "home")
+    return String(item.homeSubscribeId || item.homeId || "").trim();
+  if (side === "away")
+    return String(item.awaySubscribeId || item.awayId || "").trim();
+  return String(item.drawSubscribeId || "").trim();
+}
+
+function liveKnown(live: SportLiveOddsReader | undefined, platform: string, id: string): boolean {
+  if (!live || !id)
+    return false;
+  if (live.has)
+    return live.has(platform, id);
+  return (live.get(platform, id) || 0) > 0;
+}
+
 function itemOdds(
   item: ViewBet["items"][0],
   side: "home" | "away" | "draw",
   live?: SportLiveOddsReader,
 ): number {
+  const sub = subscribeId(item, side);
+  const fromLive = live?.get(item.type, sub) || 0;
+  if (liveKnown(live, item.type, sub))
+    return fromLive;
   if (side === "draw")
     return Number(item.fallbackDrawOdds) || 0;
-  const sub = side === "home"
-    ? (item.homeSubscribeId || item.homeId)
-    : (item.awaySubscribeId || item.awayId);
-  const fromLive = live?.get(item.type, sub) || 0;
-  if (fromLive > 0)
-    return fromLive;
   return side === "home" ? Number(item.fallbackHomeOdds) || 0 : Number(item.fallbackAwayOdds) || 0;
+}
+
+function itemSource(
+  item: ViewBet["items"][0],
+  side: "home" | "away" | "draw",
+  live?: SportLiveOddsReader,
+): FootballSelection["Source"] {
+  return liveKnown(live, item.type, subscribeId(item, side)) ? "M" : "H";
+}
+
+function selectionFromItem(
+  name: string,
+  side: "home" | "away" | "draw" | "over" | "under",
+  oddsSide: "home" | "away" | "draw",
+  item: ViewBet["items"][0],
+  live?: SportLiveOddsReader,
+): FootballSelection {
+  const oid = subscribeId(item, oddsSide);
+  const row: FootballSelection = {
+    Name: name,
+    Side: side,
+    Odds: itemOdds(item, oddsSide, live),
+    Source: itemSource(item, oddsSide, live),
+  };
+  if (oid)
+    row.OddID = oid;
+  return row;
 }
 
 function isMoneyline(code: string) {
@@ -85,20 +131,20 @@ function selectionsFromItem(
   const isTotals = isTotalsCode(code) || /大小/.test(name);
   if (isTotals) {
     return [
-      { Name: "大", Side: "over", Odds: itemOdds(item, "home", live) },
-      { Name: "小", Side: "under", Odds: itemOdds(item, "away", live) },
+      selectionFromItem("大", "over", "home", item, live),
+      selectionFromItem("小", "under", "away", item, live),
     ];
   }
   if (isMoneyline(code)) {
     return [
-      { Name: "主胜", Side: "home", Odds: itemOdds(item, "home", live) },
-      { Name: "平", Side: "draw", Odds: itemOdds(item, "draw", live) },
-      { Name: "客胜", Side: "away", Odds: itemOdds(item, "away", live) },
+      selectionFromItem("主胜", "home", "home", item, live),
+      selectionFromItem("平", "draw", "draw", item, live),
+      selectionFromItem("客胜", "away", "away", item, live),
     ];
   }
   return [
-    { Name: "主", Side: "home", Odds: itemOdds(item, "home", live) },
-    { Name: "客", Side: "away", Odds: itemOdds(item, "away", live) },
+    selectionFromItem("主", "home", "home", item, live),
+    selectionFromItem("客", "away", "away", item, live),
   ];
 }
 
@@ -119,6 +165,51 @@ function listMarketKey(code: string, line: number | null | undefined) {
 
 function quoteCount(selections: FootballSelection[] | undefined) {
   return (selections || []).filter(s => Number(s.Odds) > 0).length;
+}
+
+function overlayLiveSelection(sel: FootballSelection, live?: SportLiveOddsReader): FootballSelection {
+  const oid = String(sel.OddID || "").trim();
+  if (!oid || !live)
+    return { ...sel, Source: sel.Source === "M" ? "M" : "H" };
+  const q = live.get("OB", oid);
+  if (!liveKnown(live, "OB", oid))
+    return { ...sel, Source: sel.Source === "M" ? "M" : "H" };
+  return { ...sel, Odds: q, Source: "M" };
+}
+
+function overlayLiveLine(row: FootballObMarketRow, live?: SportLiveOddsReader): FootballObMarketRow {
+  if (!live?.getLine)
+    return row;
+  for (const sel of row.Selections || []) {
+    const line = live.getLine(String(sel.OddID || ""));
+    if (line != null && line !== row.Line)
+      return { ...row, Line: line };
+  }
+  for (const v of row.Venues || []) {
+    for (const sel of v.Selections || []) {
+      const line = live.getLine(String(sel.OddID || ""));
+      if (line != null && line !== row.Line)
+        return { ...row, Line: line };
+    }
+  }
+  return row;
+}
+
+/** 详情/列表 OB 行按 OddID 叠 sportOddsStore，不改电竞 fo */
+export function applyObLiveOdds(
+  rows: FootballObMarketRow[],
+  live?: SportLiveOddsReader,
+): FootballObMarketRow[] {
+  if (!live)
+    return rows;
+  return (rows || []).map((row) => overlayLiveLine({
+    ...row,
+    Selections: (row.Selections || []).map(s => overlayLiveSelection(s, live)),
+    Venues: (row.Venues || []).map(v => ({
+      venue: v.venue,
+      Selections: (v.Selections || []).map(s => overlayLiveSelection(s, live)),
+    })),
+  }, live));
 }
 
 function bookRowKey(row: FootballObMarketRow): string {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildObSportC8Subscribe,
+  isObSportC8Mid,
   looksLikeMqttUrl,
   parseObSportPushOdds,
   resolveObSportWsUrl,
@@ -36,5 +38,91 @@ describe("obSportWs", () => {
       ov2: "0.90",
     });
     expect(rows).toEqual([{ oid: "abc", odds: 1.9 }]);
+  });
+
+  it("builds C8 subscribe from mids like official PC list", () => {
+    const payload = buildObSportC8Subscribe(["5650335", "5661096", "2097200625505820674"]);
+    expect(payload.cmd).toBe("C8");
+    expect(payload.cufm).toBe("L");
+    expect(payload.marketLevel).toBe("0");
+    expect(payload.list).toEqual([
+      { mid: "5650335", hpid: "1,2,4,17,18,19", level: 13 },
+      { mid: "5661096", hpid: "1,2,4,17,18,19", level: 13 },
+    ]);
+    expect(isObSportC8Mid("5652292")).toBe(true);
+    expect(isObSportC8Mid("2097200625505820674")).toBe(false);
+  });
+
+  it("unwraps worker data/payload envelopes before C105", () => {
+    const rows = parseObSportPushOdds({
+      data: {
+        payload: {
+          cmd: "C105",
+          cd: {
+            hls: [{ ol: [{ oid: "h1", ov2: "0.90", os: 1 }] }],
+          },
+        },
+      },
+    });
+    expect(rows).toEqual([{ oid: "h1", odds: 1.9 }]);
+  });
+
+  it("parses C105 ol outcomes including locked os=2", () => {
+    const rows = parseObSportPushOdds({
+      cmd: "C105",
+      cd: {
+        hls: [
+          {
+            hpid: "4",
+            hs: 0,
+            ol: [
+              { oid: "h1", ov2: "0.92", os: 1 },
+              { oid: "a1", ov2: "-0.95", os: 2 },
+            ],
+          },
+        ],
+      },
+    });
+    const byOid = Object.fromEntries(rows.map(r => [r.oid, r.odds]));
+    expect(byOid.h1).toBe(1.92);
+    expect(byOid.a1).toBe(0);
+  });
+
+  it("parses C105 ov milli-odds and hv line", () => {
+    const rows = parseObSportPushOdds({
+      cmd: "C105",
+      cd: {
+        mid: "m1",
+        hls2: {
+          4: [{
+            hpid: "4",
+            hs: 0,
+            hv: "-0.5",
+            ol: [
+              { oid: "h1", ov: "203000", ov2: "-0.95", os: 1, ot: "1" },
+              { oid: "a1", ov: "179000", ov2: "0.81", os: 1, ot: "2" },
+            ],
+          }],
+        },
+      },
+    });
+    expect(rows).toEqual([
+      { oid: "h1", odds: 2.053, line: -0.5, mid: "m1" },
+      { oid: "a1", odds: 1.81, line: -0.5, mid: "m1" },
+    ]);
+  });
+
+  it("locks whole C105 line when hs=2", () => {
+    const rows = parseObSportPushOdds({
+      cmd: "C105",
+      cd: {
+        hls: [{
+          hs: 2,
+          hv: "1.5",
+          ol: [{ oid: "x", ov2: "0.90", os: 1 }],
+        }],
+      },
+    });
+    expect(rows).toEqual([{ oid: "x", odds: 0, line: 1.5 }]);
   });
 });

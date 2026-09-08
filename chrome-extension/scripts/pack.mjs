@@ -27,6 +27,10 @@ const RUNTIME_FILES = [
   "pb-ws-hook.js",
   "pb-ws-content.js",
   "dex-intercept.js",
+  "ob-sport-ws-hook.js",
+  "ob-sport-ws-page.js",
+  "ob-sport-ws-offscreen.html",
+  "ob-sport-ws-offscreen.js",
   "version.json",
   "extension-id.json",
 ];

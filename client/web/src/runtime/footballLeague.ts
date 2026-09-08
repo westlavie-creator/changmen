@@ -42,20 +42,37 @@ function rawGame(game: string | undefined): string {
   return String(game || "").trim();
 }
 
-/** 分组键：英超 / epl 合成同一联赛，对不上 catalog 的用原文。 */
+function codeFromLeagueText(text: string): string {
+  const blob = String(text || "").trim();
+  if (!blob)
+    return "";
+  const lower = blob.toLowerCase();
+  for (const [re, code] of LEAGUE_TEXT) {
+    if (re.test(blob) || re.test(lower))
+      return code;
+  }
+  return "";
+}
+
+/** 分组键：英超 / epl / 试玩全称合成同一联赛，对不上 catalog 的用原文。 */
 export function footballLeagueKey(game: string | undefined): string {
   const raw = rawGame(game);
   if (!raw || raw === UNMAPPED)
     return UNMAPPED;
-  return resolveGameCode(raw) || raw;
+  return resolveGameCode(raw) || codeFromLeagueText(raw) || raw;
 }
 
-/** 卡片/分组标题：catalog 中文名；未映射用场馆原文，不把 unknown_fb 画成空标签。 */
+/** 卡片/分组标题：catalog 码显示中文名；试玩 tn/tnjc 原文保留。 */
 export function footballLeagueLabel(game: string | undefined): string {
-  const key = footballLeagueKey(game);
+  const raw = rawGame(game);
+  if (!raw || raw === UNMAPPED)
+    return UNMAPPED_LABEL;
+  const key = footballLeagueKey(raw);
   if (key === UNMAPPED)
     return UNMAPPED_LABEL;
-  return getGameDisplayName(key) || key;
+  if (raw === key)
+    return getGameDisplayName(key) || raw;
+  return raw;
 }
 
 export function footballLeagueTag(game: string | undefined): string {
@@ -81,13 +98,9 @@ export function resolveObFootballGame(tid: string, tn: string, tnjc = ""): strin
     if (code)
       return code;
   }
-  const blob = `${tnjc} ${tn}`.trim().toLowerCase();
-  if (blob) {
-    for (const [re, code] of LEAGUE_TEXT) {
-      if (re.test(blob))
-        return code;
-    }
-  }
+  const fromText = codeFromLeagueText(`${tnjc} ${tn}`);
+  if (fromText)
+    return fromText;
   return String(tnjc || "").trim() || String(tn || "").trim() || UNMAPPED;
 }
 
@@ -124,6 +137,15 @@ export function groupFootballMatchesByLeague(matches: ViewMatch[]): FootballLeag
       order.push(key);
     }
     g.matches.push(m);
+  }
+  for (const g of map.values()) {
+    g.matches.sort((a, b) => {
+      const ta = Number(a.startAt) || 0;
+      const tb = Number(b.startAt) || 0;
+      if (ta !== tb)
+        return ta - tb;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
   }
   return order
     .map(k => map.get(k)!)

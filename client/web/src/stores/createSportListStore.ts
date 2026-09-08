@@ -2,6 +2,7 @@ import type { ClientMatchDto } from "@/types/esport";
 import type { ViewMatch } from "@/models/match";
 import { defineStore } from "pinia";
 import { toViewMatches } from "@/models/match";
+import { patchSportViewMatches } from "@/runtime/sportListPatch";
 import { useUserStore } from "@/stores/userStore";
 
 export type SportListFetch = (userName: string) => Promise<ClientMatchDto[]>;
@@ -66,32 +67,42 @@ export function createSportListStore(options: SportListStoreOptions) {
     state: () => ({
       matchs: [] as ViewMatch[],
       loading: false,
+      refreshing: false,
       error: null as string | null,
       lastFetchAt: 0,
       _timer: null as ReturnType<typeof setInterval> | null,
+      _fetching: false,
     }),
     actions: {
       async fetchMatchs(force = false) {
         const now = Date.now();
-        if (!force && this.loading)
+        if (this._fetching)
           return;
         if (!force && this.lastFetchAt && now - this.lastFetchAt < minFetchGapMs)
           return;
         const user = useUserStore();
         if (!user.isLoggedIn || !user.userName)
           return;
-        this.loading = true;
+        const empty = this.matchs.length === 0;
+        this._fetching = true;
+        if (empty)
+          this.loading = true;
+        else if (force)
+          this.refreshing = true;
         this.error = null;
         try {
           const list = await options.fetchList(user.userName);
-          this.matchs = applySportListSourceOdds(toViewMatches(list), list);
+          const next = applySportListSourceOdds(toViewMatches(list), list);
+          this.matchs = patchSportViewMatches(this.matchs, next);
           this.lastFetchAt = Date.now();
         }
         catch (err) {
           this.error = err instanceof Error ? err.message : String(err);
         }
         finally {
+          this._fetching = false;
           this.loading = false;
+          this.refreshing = false;
         }
       },
       startPolling() {

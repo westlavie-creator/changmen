@@ -5,16 +5,10 @@ import { OB_HPID_MARKET } from "@/runtime/obSportOdds";
 export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
 export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht" | "goals" | "cs" | "corners" | "other";
 
-/** 列表从左到右的分类列，全部同时展开 */
+/** 列表从左到右：只展示让球 / 大小 */
 export const FOOTBALL_BOOK_COLUMNS: { id: FootballBookColumnId; label: string }[] = [
-  { id: "ml", label: "独赢" },
   { id: "ah", label: "让球" },
   { id: "ou", label: "大小" },
-  { id: "ht", label: "半场" },
-  { id: "goals", label: "进球" },
-  { id: "cs", label: "波胆" },
-  { id: "corners", label: "角球" },
-  { id: "other", label: "其他" },
 ];
 
 export type FootballBookKind = "ml" | "ah" | "ou" | "grid";
@@ -166,9 +160,9 @@ function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean 
   if (col === "ml")
     return !half && kind === "ml" && rowHas1x2(row);
   if (col === "ah")
-    return !half && !corners && kind === "ah";
+    return !corners && kind === "ah";
   if (col === "ou")
-    return !half && !corners && kind === "ou";
+    return !corners && kind === "ou";
   return !half && !cs && !corners && !goals && kind === "grid";
 }
 

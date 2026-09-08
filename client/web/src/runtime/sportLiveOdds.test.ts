@@ -12,10 +12,13 @@ function makeMatch(opts: {
   pmAway?: string;
   pfHomeM?: string;
   pfAwayM?: string;
+  obMid?: string;
+  obHome?: string;
 }): ViewMatch {
   const m = Object.create(ViewMatch.prototype) as ViewMatch;
   m.id = opts.id;
   m.startAt = opts.startAt;
+  m.providers = opts.obMid ? { OB: opts.obMid } : {};
   m.bets = [];
   const bet = Object.create(ViewBet.prototype) as ViewBet;
   bet.items = [];
@@ -37,12 +40,19 @@ function makeMatch(opts: {
     item.awaySubscribeId = opts.pfAwayM || opts.pfHomeM;
     bet.items.push(item);
   }
+  if (opts.obHome) {
+    const item = Object.create(ViewBetItem.prototype) as ViewBetItem;
+    item.type = "OB";
+    item.homeSubscribeId = opts.obHome;
+    item.awaySubscribeId = `${opts.obHome}-a`;
+    bet.items.push(item);
+  }
   m.bets.push(bet);
   return m;
 }
 
 describe("pickSportSubscribeIds", () => {
-  test("filters outside past6h/future1h window", () => {
+  test("filters outside past6h/future2h window", () => {
     const now = 1_700_000_000_000;
     const ok = makeMatch({ id: 1, startAt: now + 30 * 60_000, pmHome: "t1", pmAway: "t2" });
     const old = makeMatch({
@@ -51,7 +61,13 @@ describe("pickSportSubscribeIds", () => {
       pmHome: "old1",
       pmAway: "old2",
     });
-    const pick = pickSportSubscribeIds([ok, old], 100, now);
+    const later = makeMatch({
+      id: 3,
+      startAt: now + 3 * 3600_000,
+      pmHome: "later1",
+      pmAway: "later2",
+    });
+    const pick = pickSportSubscribeIds([ok, old, later], 100, now);
     expect(pick.polymarketAssetIds.sort()).toEqual(["t1", "t2"]);
   });
 
@@ -82,5 +98,45 @@ describe("pickSportSubscribeIds", () => {
     });
     const pick = pickSportSubscribeIds([m], 100, now);
     expect(pick.predictFunMarketIds).toEqual([]);
+  });
+
+  test("collects OB mids for C8 subscribe", () => {
+    const now = 1_700_000_000_000;
+    const m = makeMatch({
+      id: 1,
+      startAt: now,
+      obMid: "5650335",
+      obHome: "oid-h",
+    });
+    const pick = pickSportSubscribeIds([m], 100, now);
+    expect(pick.obMids).toEqual(["5650335"]);
+    expect(pick.obOids.sort()).toEqual(["oid-h", "oid-h-a"]);
+  });
+
+  test("drops 19-digit OB bag ids from C8 mids", () => {
+    const now = 1_700_000_000_000;
+    const m = makeMatch({
+      id: 1,
+      startAt: now,
+      obMid: "2097200625505820674",
+      obHome: "oid-h",
+    });
+    const pick = pickSportSubscribeIds([m], 100, now);
+    expect(pick.obMids).toEqual([]);
+  });
+
+  test("OB list oids fall back to homeId when subscribeId is empty", () => {
+    const now = 1_700_000_000_000;
+    const m = makeMatch({ id: 1, startAt: now, obMid: "5650335" });
+    const item = Object.create(ViewBetItem.prototype) as ViewBetItem;
+    item.type = "OB";
+    item.homeId = "oid-from-http";
+    item.awayId = "oid-away";
+    item.homeSubscribeId = "";
+    item.awaySubscribeId = "";
+    m.bets[0].items.push(item);
+    const pick = pickSportSubscribeIds([m], 100, now);
+    expect(pick.obOids.sort()).toEqual(["oid-away", "oid-from-http"]);
+    expect(pick.obMids).toEqual(["5650335"]);
   });
 });

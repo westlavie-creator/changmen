@@ -2316,10 +2316,10 @@
       },
       env
     );
-    const { fetch: envFetch, Request, Response } = env;
+    const { fetch: envFetch, Request, Response: Response2 } = env;
     const isFetchSupported = envFetch ? isFunction2(envFetch) : typeof fetch === "function";
     const isRequestSupported = isFunction2(Request);
-    const isResponseSupported = isFunction2(Response);
+    const isResponseSupported = isFunction2(Response2);
     if (!isFetchSupported) {
       return false;
     }
@@ -2341,7 +2341,7 @@
       }
       return duplexAccessed && !hasContentType;
     });
-    const supportsResponseStream = isResponseSupported && isReadableStreamSupported && test(() => utils_default.isReadableStream(new Response("").body));
+    const supportsResponseStream = isResponseSupported && isReadableStreamSupported && test(() => utils_default.isReadableStream(new Response2("").body));
     const resolvers = {
       stream: supportsResponseStream && ((res) => res.body)
     };
@@ -2552,7 +2552,7 @@
             }
             onProgress && onProgress(loadedBytes);
           };
-          response = new Response(
+          response = new Response2(
             trackStream(response.body, DEFAULT_CHUNK_SIZE, onChunkProgress, () => {
               flush && flush();
               unsubscribe && unsubscribe();
@@ -2626,8 +2626,8 @@
   var seedCache = /* @__PURE__ */ new Map();
   var getFetch = (config) => {
     let env = config && config.env || {};
-    const { fetch: fetch2, Request, Response } = env;
-    const seeds = [Request, Response, fetch2];
+    const { fetch: fetch2, Request, Response: Response2 } = env;
+    const seeds = [Request, Response2, fetch2];
     let len = seeds.length, i = len, seed, target, map = seedCache;
     while (i--) {
       seed = seeds[i];
@@ -3282,6 +3282,512 @@
     });
   }
 
+  // src/background/ob-sport-ws.js
+  var OB_SPORT_WS_PORT = "ob-sport-ws";
+  var DEFAULT_SHELL = "https://user-pc-new.dbgaming.com";
+  var OWNED_WAIT_MS = 12e3;
+  function keepPushCmd(cmd) {
+    const c = String(cmd || "").toUpperCase();
+    if (!c)
+      return true;
+    return /^(C105|C102|C103|C101|C109|C302|C303)$/.test(c);
+  }
+  function bytesFromBase64(data) {
+    const compact = String(data || "").replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    const padded = compact + "=".repeat((4 - compact.length % 4) % 4);
+    const bin = atob(padded);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++)
+      out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  async function decompressBytes(bytes, format) {
+    const copy = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(copy).set(bytes);
+    const ds = new DecompressionStream(format);
+    const stream = new Blob([copy]).stream().pipeThrough(ds);
+    const buf = await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(buf);
+  }
+  async function inflateBytes(bytes) {
+    const attempts = [];
+    if (bytes.length >= 2 && bytes[0] === 31 && bytes[1] === 139)
+      attempts.push(() => decompressBytes(bytes, "gzip"));
+    attempts.push(
+      () => decompressBytes(bytes, "deflate"),
+      () => decompressBytes(bytes, "deflate-raw")
+    );
+    if (bytes.length > 6 && bytes[0] === 120)
+      attempts.push(() => decompressBytes(bytes.subarray(2, bytes.length - 4), "deflate-raw"));
+    let last;
+    for (const run of attempts) {
+      try {
+        return await run();
+      } catch (err) {
+        last = err;
+      }
+    }
+    throw last instanceof Error ? last : new Error("inflate failed");
+  }
+  function parseInflatedText(text) {
+    const raw = String(text || "").trim();
+    if (!raw)
+      return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+    }
+    try {
+      return JSON.parse(decodeURIComponent(raw));
+    } catch {
+      return null;
+    }
+  }
+  async function unzipCd(cd) {
+    if (cd == null || typeof cd === "object")
+      return cd;
+    if (typeof cd !== "string" || !cd.trim())
+      return cd;
+    try {
+      return JSON.parse(cd);
+    } catch {
+    }
+    let bytes;
+    try {
+      bytes = bytesFromBase64(cd);
+    } catch {
+      return cd;
+    }
+    if (!bytes.length)
+      return cd;
+    try {
+      const parsed = parseInflatedText(await inflateBytes(bytes));
+      if (parsed != null)
+        return parsed;
+    } catch {
+    }
+    return cd;
+  }
+  async function enrichPush(raw) {
+    if (raw == null)
+      return raw;
+    let parsed = raw;
+    if (typeof raw === "string") {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return raw;
+      }
+    }
+    if (Array.isArray(parsed)) {
+      const out = [];
+      for (const item of parsed)
+        out.push(await enrichPush(item));
+      return out;
+    }
+    if (!parsed || typeof parsed !== "object")
+      return parsed;
+    const cmd = String(parsed.cmd || parsed.CMD || parsed.data?.cmd || "").toUpperCase();
+    if (cmd && !keepPushCmd(cmd))
+      return null;
+    if (typeof parsed.cd === "string") {
+      const unzipped = await unzipCd(parsed.cd);
+      if (unzipped && typeof unzipped === "object")
+        parsed.cd = unzipped;
+    }
+    return parsed;
+  }
+  var ports = /* @__PURE__ */ new Set();
+  var swSocket = null;
+  var tabId = null;
+  var ownedTabId = null;
+  var ownedWindowId = null;
+  var helperPort = null;
+  var helperWaiters = [];
+  var tapMode = false;
+  var heardOpen = false;
+  var activeToken = "";
+  var OB_SPORT_WS_HELPER_PORT = "ob-sport-ws-helper";
+  function broadcast(msg) {
+    for (const port of ports) {
+      try {
+        port.postMessage(msg);
+      } catch {
+      }
+    }
+  }
+  async function broadcastPush(raw) {
+    const enriched = await enrichPush(raw);
+    if (enriched == null)
+      return;
+    broadcast({ type: "message", data: enriched });
+  }
+  function hostOf(href) {
+    try {
+      return new URL(href).host;
+    } catch {
+      return "";
+    }
+  }
+  function isRealSportSpa(href) {
+    try {
+      const u = new URL(href);
+      if (/cm_ob_sport_ws/i.test(`${u.pathname}${u.search}`))
+        return false;
+      const host = u.hostname.toLowerCase();
+      if (!/(^|\.)dbgaming\.com$/i.test(host))
+        return false;
+      return /user-pc-new/i.test(host) || /[?&]token=|[?&]gr=/i.test(u.search);
+    } catch {
+      return false;
+    }
+  }
+  async function findSportSpaTab(referer) {
+    const wantRef = hostOf(referer || "").toLowerCase();
+    let tabs = [];
+    try {
+      tabs = await chrome.tabs.query({});
+    } catch {
+      return null;
+    }
+    let best = null;
+    let bestScore = 0;
+    for (const tab of tabs) {
+      if (!isRealSportSpa(tab.url || ""))
+        continue;
+      if (tab.id === ownedTabId)
+        continue;
+      const host = hostOf(tab.url || "").toLowerCase();
+      let score = 1;
+      if (wantRef && host === wantRef)
+        score = 2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = tab;
+      }
+    }
+    return best;
+  }
+  function markOpen() {
+    heardOpen = true;
+  }
+  function closeSwSocket() {
+    if (!swSocket)
+      return;
+    try {
+      swSocket.close();
+    } catch {
+    }
+    swSocket = null;
+  }
+  function stopTabSocket() {
+    if (tabId == null)
+      return;
+    try {
+      chrome.tabs.sendMessage(tabId, { type: "obSportWsControl", cmd: "close" });
+    } catch {
+    }
+    tabId = null;
+  }
+  function resolveHelperWaiters(port) {
+    const pending = helperWaiters;
+    helperWaiters = [];
+    for (const fn of pending)
+      fn(port);
+  }
+  function attachHelperPort(port) {
+    helperPort = port;
+    resolveHelperWaiters(port);
+    port.onDisconnect.addListener(() => {
+      if (helperPort === port)
+        helperPort = null;
+    });
+  }
+  function waitHelperPort(ms) {
+    if (helperPort)
+      return Promise.resolve(helperPort);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        helperWaiters = helperWaiters.filter((fn) => fn !== onReady);
+        resolve(null);
+      }, ms);
+      const onReady = (port) => {
+        clearTimeout(timer);
+        resolve(port);
+      };
+      helperWaiters.push(onReady);
+    });
+  }
+  async function closeOffscreen() {
+    if (!chrome.offscreen?.closeDocument)
+      return;
+    try {
+      await chrome.offscreen.closeDocument();
+    } catch {
+    }
+  }
+  async function closeOwnedHelperWindow() {
+    const winId = ownedWindowId;
+    const keepTab = ownedTabId;
+    ownedWindowId = null;
+    ownedTabId = null;
+    if (winId != null) {
+      try {
+        await chrome.windows.remove(winId);
+        return;
+      } catch {
+      }
+    }
+    if (keepTab != null) {
+      try {
+        await chrome.tabs.remove(keepTab);
+      } catch {
+      }
+    }
+  }
+  async function closeStrayHelperTabs() {
+    let tabs = [];
+    try {
+      tabs = await chrome.tabs.query({});
+    } catch {
+      return;
+    }
+    for (const tab of tabs) {
+      if (tab.id == null || tab.id === ownedTabId)
+        continue;
+      if (/cm_ob_sport_ws/i.test(tab.url || "")) {
+        try {
+          await chrome.tabs.remove(tab.id);
+        } catch {
+        }
+      }
+    }
+  }
+  async function stopHelper() {
+    try {
+      helperPort?.postMessage({ cmd: "close" });
+      helperPort?.disconnect();
+    } catch {
+    }
+    helperPort = null;
+    resolveHelperWaiters(null);
+    await closeOffscreen();
+    await closeOwnedHelperWindow();
+  }
+  function shellOrigin(referer) {
+    try {
+      const u = new URL(String(referer || "").trim() || DEFAULT_SHELL);
+      if ((u.protocol === "http:" || u.protocol === "https:") && /(^|\.)dbgaming\.com$/i.test(u.hostname))
+        return u.origin;
+    } catch {
+    }
+    return DEFAULT_SHELL;
+  }
+  function helperPageUrl(referer, token) {
+    const u = new URL(`${shellOrigin(referer)}/`);
+    u.searchParams.set("cm_ob_sport_ws", "1");
+    const tok = String(token || "").trim();
+    if (tok) {
+      u.searchParams.set("token", tok);
+      u.searchParams.set("gr", "common");
+    }
+    return u.toString();
+  }
+  async function tabAlive(id) {
+    if (id == null)
+      return false;
+    try {
+      const tab = await chrome.tabs.get(id);
+      return tab?.id != null;
+    } catch {
+      return false;
+    }
+  }
+  async function openOnHelperTab(tab, wsUrl) {
+    tabId = tab.id;
+    ownedTabId = tab.id;
+    if (tab.windowId != null)
+      ownedWindowId = tab.windowId;
+    if (helperPort) {
+      try {
+        helperPort.postMessage({ cmd: "open", url: wsUrl, token: activeToken });
+        return true;
+      } catch {
+        helperPort = null;
+      }
+    }
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: "obSportWsControl", cmd: "open", url: wsUrl, token: activeToken });
+      return true;
+    } catch {
+    }
+    const port = await waitHelperPort(OWNED_WAIT_MS);
+    if (!port)
+      return false;
+    try {
+      port.postMessage({ cmd: "open", url: wsUrl, token: activeToken });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async function hideHelperWindow(id) {
+    if (id == null)
+      return;
+    try {
+      await chrome.windows.update(id, { state: "minimized", focused: false });
+    } catch {
+    }
+  }
+  async function startOwnedHelperWindow(wsUrl, referer) {
+    tapMode = false;
+    closeSwSocket();
+    await closeOffscreen();
+    if (ownedTabId != null && await tabAlive(ownedTabId)) {
+      try {
+        const tab2 = await chrome.tabs.get(ownedTabId);
+        if (tab2 && await openOnHelperTab(tab2, wsUrl))
+          return true;
+      } catch {
+      }
+      ownedTabId = null;
+      ownedWindowId = null;
+    }
+    await closeStrayHelperTabs();
+    let created;
+    try {
+      created = await chrome.windows.create({
+        url: helperPageUrl(referer, activeToken),
+        type: "popup",
+        focused: false,
+        width: 320,
+        height: 180
+      });
+    } catch (err) {
+      broadcast({ type: "error", message: err instanceof Error ? err.message : String(err) });
+      return false;
+    }
+    const tab = created?.tabs?.[0];
+    if (tab?.id == null) {
+      broadcast({ type: "error", message: "ob-sport helper window missing tab" });
+      return false;
+    }
+    ownedWindowId = created.id ?? null;
+    ownedTabId = tab.id;
+    tabId = tab.id;
+    void hideHelperWindow(ownedWindowId);
+    return await openOnHelperTab(tab, wsUrl);
+  }
+  async function connect(url, referer) {
+    heardOpen = false;
+    tapMode = false;
+    stopTabSocket();
+    closeSwSocket();
+    const spa = await findSportSpaTab(referer);
+    if (spa?.id != null) {
+      tabId = spa.id;
+      try {
+        const tapped = await chrome.tabs.sendMessage(spa.id, { type: "obSportWsControl", cmd: "tap" });
+        if (tapped?.hookLive) {
+          tapMode = true;
+          markOpen();
+          return;
+        }
+      } catch {
+      }
+      tabId = null;
+    }
+    const ok = await startOwnedHelperWindow(url, referer);
+    if (!ok)
+      broadcast({ type: "error", message: "ob-sport helper origin window failed" });
+  }
+  function sendPayload(payload) {
+    if (tapMode)
+      return;
+    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
+    if (helperPort) {
+      try {
+        helperPort.postMessage({ cmd: "send", payload: text });
+      } catch {
+      }
+      return;
+    }
+    if (tabId != null) {
+      chrome.tabs.sendMessage(tabId, { type: "obSportWsControl", cmd: "send", payload: text });
+      return;
+    }
+  }
+  function disconnectSocket() {
+    activeToken = "";
+    tapMode = false;
+    heardOpen = false;
+    stopTabSocket();
+    closeSwSocket();
+    void stopHelper();
+  }
+  function attachObSportWsPort(port) {
+    ports.add(port);
+    port.onMessage.addListener((msg) => {
+      if (!msg || typeof msg !== "object")
+        return;
+      const cmd = String(msg.cmd || "");
+      if (cmd === "open") {
+        const url = String(msg.url || "").trim();
+        activeToken = String(msg.token || "").trim();
+        if (!url)
+          return;
+        void connect(url, String(msg.referer || ""));
+        return;
+      }
+      if (cmd === "send") {
+        sendPayload(msg.payload);
+        return;
+      }
+      if (cmd === "close")
+        disconnectSocket();
+    });
+    port.onDisconnect.addListener(() => {
+      ports.delete(port);
+      if (!ports.size)
+        disconnectSocket();
+    });
+  }
+  function installObSportWsBackground() {
+    chrome.runtime.onConnect.addListener((port) => {
+      if (port?.name === OB_SPORT_WS_HELPER_PORT)
+        attachHelperPort(port);
+    });
+    chrome.tabs.onRemoved.addListener((id) => {
+      if (id !== ownedTabId && id !== tabId)
+        return;
+      if (id === ownedTabId) {
+        ownedTabId = null;
+        ownedWindowId = null;
+      }
+      if (id === tabId)
+        tabId = null;
+      if (tapMode || !ports.size)
+        return;
+      broadcast({ type: "close", code: 1006, reason: "helper tab closed" });
+    });
+  }
+  function handleObSportWsEvent(message) {
+    if (!message || message.type !== "obSportWsEvent")
+      return false;
+    const kind = String(message.kind || "");
+    if (kind === "open" || kind === "tap") {
+      markOpen();
+      tapMode = kind === "tap";
+      broadcast({ type: "open" });
+    } else if (kind === "message")
+      void broadcastPush(message.data);
+    else if (kind === "error")
+      broadcast({ type: "error", message: String(message.message || "ob-sport ws error") });
+    else if (kind === "close")
+      broadcast({ type: "close", code: message.code, reason: message.reason });
+    return true;
+  }
+
   // src/background/index.js
   var MANIFEST = chrome.runtime.getManifest();
   var PB_WS_STATUS_KEY = "pbWsObserve";
@@ -3373,9 +3879,9 @@
     }
     await storageSet(patch);
   }
-  function forwardToTab(message, tabId) {
+  function forwardToTab(message, tabId2) {
     return new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tabId, message, (response) => {
+      chrome.tabs.sendMessage(tabId2, message, (response) => {
         const err = chrome.runtime.lastError;
         if (err) {
           reject(new Error(err.message || "\u6807\u7B7E\u9875\u901A\u4FE1\u5931\u8D25"));
@@ -3396,10 +3902,10 @@
       case "POST":
       case "DELETE":
       case "": {
-        const tabId = message.options?.tabId;
-        if (tabId) {
+        const tabId2 = message.options?.tabId;
+        if (tabId2) {
           try {
-            const response = await forwardToTab(message, tabId);
+            const response = await forwardToTab(message, tabId2);
             reply({ type, uuid, response });
           } catch (err) {
             reply({ type, uuid, response: err });
@@ -3446,11 +3952,11 @@
         return;
       }
       case "setTab": {
-        const tabId = sender?.tab?.id;
+        const tabId2 = sender?.tab?.id;
         const payload = message.data;
-        if (tabId && payload?.key) {
-          const response = { ...payload, value: tabId, tabId };
-          await storageSet({ [payload.key]: tabId });
+        if (tabId2 && payload?.key) {
+          const response = { ...payload, value: tabId2, tabId: tabId2 };
+          await storageSet({ [payload.key]: tabId2 });
           reply({ type, uuid, response });
           return;
         }
@@ -3467,9 +3973,9 @@
         const observe = bag?.[PB_WS_STATUS_KEY] || null;
         const board = bag?.[PB_WS_BOARD_KEY];
         let latestOdds = Array.isArray(board?.cards) ? board.cards : Array.isArray(observe?.latestOdds) ? observe.latestOdds : [];
-        const tabId = Number(bag?.PB);
+        const tabId2 = Number(bag?.PB);
         const tabIds = /* @__PURE__ */ new Set();
-        if (Number.isFinite(tabId) && tabId > 0) tabIds.add(tabId);
+        if (Number.isFinite(tabId2) && tabId2 > 0) tabIds.add(tabId2);
         try {
           const tabs = await chrome.tabs.query({
             url: ["*://*.part888.com/*", "*://*.ps3838.com/*"]
@@ -3523,12 +4029,21 @@
         reply({ type, uuid, response: null });
     }
   }
+  chrome.runtime.onConnectExternal.addListener((port) => {
+    if (port?.name === OB_SPORT_WS_PORT)
+      attachObSportWsPort(port);
+  });
+  installObSportWsBackground();
   chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
     if (!message || typeof message !== "object") return false;
     handleExternalMessage(message, sendResponse, sender);
     return true;
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (handleObSportWsEvent(message)) {
+      sendResponse({ ok: true });
+      return true;
+    }
     if (message?.type === "pbWsObserveFrame") {
       void appendPbWsFrame(message.frame).then(() => sendResponse({ ok: true }));
       return true;
@@ -3542,18 +4057,18 @@
       return true;
     }
     if (message?.type !== "setTab") return false;
-    const tabId = sender.tab?.id;
+    const tabId2 = sender.tab?.id;
     const key = message.data?.key;
-    if (!tabId || !key) {
+    if (!tabId2 || !key) {
       sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
       return true;
     }
-    storageSet({ [key]: tabId }).then(() => {
+    storageSet({ [key]: tabId2 }).then(() => {
       sendResponse({
         success: true,
         type: message.type,
         uuid: message.uuid,
-        response: { ...message.data, key, tabId, value: tabId }
+        response: { ...message.data, key, tabId: tabId2, value: tabId2 }
       });
     });
     return true;

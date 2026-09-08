@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeObPlaySelectionRows,
   extractObPlaySelections,
+  isObAhOuMarket,
   parseObHandicapLine,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
@@ -106,5 +107,16 @@ describe("dedupeObPlaySelectionRows", () => {
       playsFromObMatchRow({ hpsData: [{ hps: [play], hpsAdd: [add] }] }).flatMap(extractObPlaySelections),
     );
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("isObAhOuMarket", () => {
+  it("keeps handicap/totals hpids and drops moneyline", () => {
+    expect(isObAhOuMarket("4", "spreads")).toBe(true);
+    expect(isObAhOuMarket("2", "totals")).toBe(true);
+    expect(isObAhOuMarket("19")).toBe(true);
+    expect(isObAhOuMarket("1", "moneyline")).toBe(false);
+    expect(isObAhOuMarket("", "ht_spreads")).toBe(true);
+    expect(isObAhOuMarket("7", "ob:7")).toBe(false);
   });
 });

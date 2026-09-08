@@ -82,6 +82,7 @@ declare module 'vue' {
     FootballMatchBoard: typeof import('./src/components/football/FootballMatchBoard.vue')['default']
     FootballMatchCard: typeof import('./src/components/football/FootballMatchCard.vue')['default']
     FootballObSessionBar: typeof import('./src/components/match/FootballObSessionBar.vue')['default']
+    FootballSettingsDialog: typeof import('./src/components/football/FootballSettingsDialog.vue')['default']
     GalaxySpinner: typeof import('./src/components/layout/GalaxySpinner.vue')['default']
     LimitDiagDialog: typeof import('./src/components/match/LimitDiagDialog.vue')['default']
     LoginPanel: typeof import('./src/components/auth/LoginPanel.vue')['default']

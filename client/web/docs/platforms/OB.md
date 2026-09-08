@@ -1,5 +1,8 @@
 # OB 采集
 
+> **电竞 OB**（本文）：MQTT + `game/index`，写入 `fo`。  
+> **体育 OB / 熊猫试玩**（足球页）：JSON `yewuws2`，见 **[OB_SPORT.md](./OB_SPORT.md)**。两套凭证与通道禁止混用。
+>
 > **A8 对照**（Token / 采集 / 下注）：见 [A8_COMPARE_OB_RAY.md](./A8_COMPARE_OB_RAY.md#ob-平台)。  
 > **复刻计划**（A8 前端基线）：见 [../../docs/A8_OB_REPLICATE_PLAN.md](../../docs/A8_OB_REPLICATE_PLAN.md)。
 

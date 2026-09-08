@@ -1,9 +1,16 @@
 /**
  * OB 体育推送（足球 Tab 专用）。
- * 显式 wss 优先；否则用 HTTP 网关推导 /yewuws2/push（九游/OB 体育 PC 同规则）。
+ * HTTP 仍由 Chrome 扩展代发；WS 由足球页直连 yewuws2（源站不按 Origin 卡 C105）。
  * 禁止复用电竞 MQTT 与电竞 OB 通道。
  */
 import { reportVenueWsStatus, type VenueWsStatus } from "@changmen/venue-adapter/shared";
+import { unzipObSportPushCd } from "@/runtime/obSportCodec";
+import { olOdds, parseObHandicapLine } from "@/runtime/obSportOdds";
+import {
+  parseObSportHandicapPlay,
+  parseObSportMatchLive,
+  type ObSportLivePatch,
+} from "@/runtime/obSportLive";
 
 export const OB_SPORT_WS_ID = "ob-sport";
 /** 九游/OB 体育 PC worker：API_PREFIX_WBSOCKET + /push */
@@ -15,26 +22,47 @@ export type ObSportSessionLite = {
   gateway?: string;
   wsUrl?: string;
   sessionId?: string;
+  referer?: string;
 };
 
 export type ObSportWsHandle = {
-  sync: (oids: string[]) => void;
+  /** oids：本地过滤；mids：官方 C8 订阅（试玩页实测） */
+  sync: (oids: string[], mids?: string[]) => void;
   stop: () => void;
 };
+
+/** 试玩列表 C8：全场/半场 独赢+让球+大小。足球页只展示让球/大小，多订的 hpid 不画。 */
+export const OB_SPORT_C8_FOOTBALL_HPID = "1,2,4,17,18,19";
+
+/**
+ * 官网 C8 mid 是短数字（滚球实测 5652292）。
+ * 赛程袋里 19 位 id 订进去不出 C105。
+ */
+export function isObSportC8Mid(mid: string): boolean {
+  return /^\d{4,12}$/.test(String(mid || "").trim());
+}
+
+export function buildObSportC8Subscribe(mids: string[], hpids = OB_SPORT_C8_FOOTBALL_HPID): Record<string, unknown> {
+  const list = [...new Set(mids.map(m => String(m || "").trim()).filter(isObSportC8Mid))].map(mid => ({
+    mid,
+    hpid: hpids,
+    level: 13,
+  }));
+  return {
+    cmd: "C8",
+    cufm: list.length === 1 ? "LM" : "L",
+    list,
+    marketLevel: "0",
+    esMarketLevel: 0,
+    earlyMarketLevel: "",
+    rollingMarketLevel: "",
+  };
+}
 
 const RECONNECT_MS = 5_000;
 
 function setStatus(status: VenueWsStatus) {
   reportVenueWsStatus(OB_SPORT_WS_ID, status);
-}
-
-function hkToDecimal(hk: number): number {
-  const n = Number(hk);
-  if (!Number.isFinite(n) || n === 0)
-    return 0;
-  if (n > 0)
-    return Math.round((1 + n) * 1000) / 1000;
-  return Math.round((1 + 1 / Math.abs(n)) * 1000) / 1000;
 }
 
 export function looksLikeMqttUrl(url: string): boolean {
@@ -85,24 +113,109 @@ export function resolveObSportWsUrl(session: ObSportSessionLite | null | undefin
   return deriveObSportPushUrl(String(session?.gateway || ""), token);
 }
 
-/** 源站推送里抽出 oid + 欧赔（港水 ov2 / 欧赔 ov） */
-export function parseObSportPushOdds(msg: unknown): Array<{ oid: string; odds: number }> {
-  const out: Array<{ oid: string; odds: number }> = [];
+export type ObSportPushQuote = {
+  oid: string;
+  odds: number;
+  line?: number | null;
+  mid?: string;
+};
+
+export type ObSportHandicapPlay = { mid: string; hpid: string };
+
+function olStatusLocked(ol: Record<string, unknown>): boolean {
+  const os = Number(ol.os);
+  const hs = Number(ol.hs);
+  return os === 2 || os === 3 || hs === 2;
+}
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null;
+}
+
+function quotesFromHl(hl: Record<string, unknown>, mid: string): ObSportPushQuote[] {
+  const out: ObSportPushQuote[] = [];
+  const lineLocked = Number(hl.hs) === 2;
+  const line = parseObHandicapLine(hl.hv);
+  const hidMid = String(hl.mid || mid || "").trim();
+  const ol = Array.isArray(hl.ol) ? hl.ol : [];
+  for (const item of ol) {
+    const row = asRecord(item);
+    if (!row)
+      continue;
+    const oid = String(row.oid ?? row.oddId ?? "").trim();
+    if (!oid)
+      continue;
+    const odds = lineLocked || olStatusLocked(row) ? 0 : olOdds(row);
+    const q: ObSportPushQuote = { oid, odds };
+    if (line != null)
+      q.line = line;
+    if (hidMid)
+      q.mid = hidMid;
+    out.push(q);
+  }
+  return out;
+}
+
+function quotesFromC105(cd: Record<string, unknown>): ObSportPushQuote[] {
+  const mid = String(cd.mid || "").trim();
+  const out: ObSportPushQuote[] = [];
+  const hls = Array.isArray(cd.hls) ? cd.hls : [];
+  for (const item of hls) {
+    const hl = asRecord(item);
+    if (hl)
+      out.push(...quotesFromHl(hl, mid));
+  }
+  const hls2 = asRecord(cd.hls2);
+  if (hls2) {
+    for (const group of Object.values(hls2)) {
+      const list = Array.isArray(group) ? group : [group];
+      for (const item of list) {
+        const hl = asRecord(item);
+        if (hl)
+          out.push(...quotesFromHl(hl, mid));
+      }
+    }
+  }
+  return out;
+}
+
+/** 官网 Worker 有时包一层 data/payload，再才是 cmd+cd。 */
+export function unwrapObSportPush(msg: unknown): unknown {
+  let cur = msg;
+  for (let i = 0; i < 4; i++) {
+    const row = asRecord(cur);
+    if (!row)
+      return cur;
+    if (row.cmd || row.CMD)
+      return row;
+    const inner = row.data ?? row.payload ?? row.msg ?? row.body;
+    if (inner == null || inner === cur)
+      return cur;
+    cur = inner;
+  }
+  return cur;
+}
+
+/** 源站推送里抽出 oid + 欧赔（港水 ov2 / 欧赔 ov×1e5）。C105 hls/hls2 / 散字段都能走。 */
+export function parseObSportPushOdds(msg: unknown): ObSportPushQuote[] {
+  const root = asRecord(unwrapObSportPush(msg));
+  const cd = asRecord(root?.cd);
+  const cmd = String(root?.cmd || root?.CMD || "").toUpperCase();
+  if (root && (cmd === "C105" || cd?.hls || cd?.hls2)) {
+    if (cd) {
+      const fromHl = quotesFromC105(cd);
+      if (fromHl.length)
+        return fromHl;
+    }
+  }
+  const out: ObSportPushQuote[] = [];
   const walk = (node: unknown) => {
     if (!node || typeof node !== "object")
       return;
     const row = node as Record<string, unknown>;
-    const oid = String(row.oid ?? row.oddId ?? "");
-    const ov2 = row.ov2 ?? row.hk;
-    const ov = row.ov ?? row.odds;
-    if (oid) {
-      let decimal = 0;
-      if (ov2 != null && ov2 !== "")
-        decimal = hkToDecimal(Number(ov2));
-      else if (ov != null)
-        decimal = Number(ov) > 1 ? Number(ov) : hkToDecimal(Number(ov));
-      if (decimal > 0)
-        out.push({ oid, odds: decimal });
+    const oid = String(row.oid ?? row.oddId ?? "").trim();
+    if (oid && (row.ov2 != null || row.ov != null || row.hk != null || row.odds != null || row.os != null)) {
+      out.push({ oid, odds: olStatusLocked(row) ? 0 : olOdds(row) });
     }
     for (const v of Object.values(row)) {
       if (Array.isArray(v)) {
@@ -113,9 +226,15 @@ export function parseObSportPushOdds(msg: unknown): Array<{ oid: string; odds: n
         walk(v);
     }
   };
-  walk(msg);
+  walk(root || msg);
   return out;
 }
+
+export type ObSportWsHandlers = {
+  onQuote: (oid: string, decimalOdds: number, extra?: { line?: number | null; mid?: string }) => void;
+  onLive?: (patch: ObSportLivePatch) => void;
+  onHandicapPlay?: (row: ObSportHandicapPlay) => void;
+};
 
 function decodePayload(raw: unknown): unknown {
   if (raw == null)
@@ -128,6 +247,8 @@ function decodePayload(raw: unknown): unknown {
       return null;
     }
   }
+  if (typeof Blob !== "undefined" && raw instanceof Blob)
+    return null;
   if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView(raw)) {
     try {
       return JSON.parse(new TextDecoder().decode(raw as Uint8Array));
@@ -141,15 +262,28 @@ function decodePayload(raw: unknown): unknown {
   return null;
 }
 
+async function decodeIncoming(raw: unknown): Promise<unknown> {
+  if (typeof Blob !== "undefined" && raw instanceof Blob) {
+    try {
+      return decodePayload(await raw.text());
+    }
+    catch {
+      return null;
+    }
+  }
+  return decodePayload(raw);
+}
+
 /**
- * @param onQuote oid → 欧赔；只应写入 sportOddsStore
+ * @param handlers 只应写入 sportOddsStore / obSportLiveStore，禁止写电竞 fo
  */
 export function startObSportWs(
   getSession: () => ObSportSessionLite | null | undefined,
-  onQuote: (oid: string, decimalOdds: number) => void,
+  handlers: ObSportWsHandlers,
 ): ObSportWsHandle {
   let ws: WebSocket | null = null;
-  let wanted = new Set<string>();
+  let wantedMids: string[] = [];
+  let lastC8Key = "";
   let stopped = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -157,11 +291,38 @@ export function startObSportWs(
   let activeToken = "";
 
   const emitQuotes = (parsed: unknown) => {
-    for (const q of parseObSportPushOdds(parsed)) {
-      if (wanted.size && !wanted.has(q.oid))
-        continue;
-      onQuote(q.oid, q.odds);
+    for (const q of parseObSportPushOdds(parsed))
+      handlers.onQuote(q.oid, q.odds, { line: q.line, mid: q.mid });
+  };
+
+  const ingest = async (parsed: unknown) => {
+    if (stopped)
+      return;
+    if (Array.isArray(parsed)) {
+      for (const item of parsed)
+        await ingest(item);
+      return;
     }
+    const peeled = unwrapObSportPush(parsed);
+    if (peeled !== parsed) {
+      await ingest(peeled);
+      return;
+    }
+    const root = parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+    if (root && typeof root.cd === "string") {
+      const unzipped = await unzipObSportPushCd(root.cd);
+      if (stopped)
+        return;
+      if (unzipped && typeof unzipped === "object")
+        root.cd = unzipped;
+    }
+    emitQuotes(parsed);
+    const live = parseObSportMatchLive(parsed);
+    if (live)
+      handlers.onLive?.(live);
+    const play = parseObSportHandicapPlay(parsed);
+    if (play)
+      handlers.onHandicapPlay?.(play);
   };
 
   const clearReconnect = () => {
@@ -178,21 +339,67 @@ export function startObSportWs(
     heartbeatTimer = null;
   };
 
-  const sendJson = (socket: WebSocket, payload: Record<string, unknown>) => {
-    if (socket.readyState !== 1)
+  const canSend = () => ws?.readyState === 1;
+
+  const sendJson = (payload: Record<string, unknown>) => {
+    if (!ws || ws.readyState !== 1)
       return;
     try {
-      socket.send(JSON.stringify(payload));
+      ws.send(JSON.stringify(payload));
     }
     catch { /* ignore */ }
+  };
+
+  const sendC8 = (token: string) => {
+    if (!canSend())
+      return;
+    const payload = buildObSportC8Subscribe(wantedMids);
+    const list = Array.isArray(payload.list) ? payload.list : [];
+    if (!list.length)
+      return;
+    const key = JSON.stringify(list);
+    if (key === lastC8Key)
+      return;
+    lastC8Key = key;
+    sendJson({ ...payload, requestId: token });
+  };
+
+  const startHeartbeat = (token: string) => {
+    stopHeartbeat();
+    if (!token)
+      return;
+    sendJson({ cmd: "C0", requestId: token });
+    sendC8(token);
+    heartbeatTimer = setInterval(() => {
+      if (!canSend())
+        return;
+      sendJson({ cmd: "C0", requestId: token });
+    }, HEARTBEAT_MS);
+  };
+
+  const onTransportOpen = (token: string) => {
+    if (stopped)
+      return;
+    setStatus("connected");
+    lastC8Key = "";
+    startHeartbeat(token);
+  };
+
+  const onTransportMessage = (raw: unknown) => {
+    if (stopped)
+      return;
+    void decodeIncoming(raw).then((parsed) => {
+      if (parsed)
+        void ingest(parsed);
+    });
   };
 
   const disconnect = () => {
     clearReconnect();
     stopHeartbeat();
-    if (ws && ws.readyState === 1 && activeToken) {
-      sendJson(ws, { cmd: "C00", requestId: activeToken });
-    }
+    lastC8Key = "";
+    if (activeToken && canSend())
+      sendJson({ cmd: "C00", requestId: activeToken });
     try {
       ws?.close();
     }
@@ -228,23 +435,12 @@ export function startObSportWs(
     socket.addEventListener("open", () => {
       if (stopped || ws !== socket)
         return;
-      setStatus("connected");
-      stopHeartbeat();
-      if (token) {
-        sendJson(socket, { cmd: "C0", requestId: token });
-        heartbeatTimer = setInterval(() => {
-          if (ws !== socket)
-            return;
-          sendJson(socket, { cmd: "C0", requestId: token });
-        }, HEARTBEAT_MS);
-      }
+      onTransportOpen(token);
     });
     socket.addEventListener("message", (ev) => {
       if (stopped || ws !== socket)
         return;
-      const parsed = decodePayload(ev.data);
-      if (parsed)
-        emitQuotes(parsed);
+      onTransportMessage(ev.data);
     });
     socket.addEventListener("error", () => {
       if (ws !== socket)
@@ -282,22 +478,28 @@ export function startObSportWs(
       setStatus("error");
       return;
     }
+    const token = String(session?.token || "").trim();
     if (activeUrl === url && (ws?.readyState === 0 || ws?.readyState === 1))
       return;
     disconnect();
-    connectJsonWs(url, String(session?.token || "").trim());
+    activeUrl = url;
+    activeToken = token;
+    setStatus("connecting");
+    connectJsonWs(url, token);
   };
 
   return {
-    sync(oids: string[]) {
+    sync(oids: string[], mids: string[] = []) {
       if (stopped)
         return;
-      wanted = new Set(oids.filter(Boolean));
+      void oids;
+      wantedMids = [...new Set(mids.map(m => String(m || "").trim()).filter(isObSportC8Mid))];
       connect();
+      if (activeToken && canSend())
+        sendC8(activeToken);
     },
     stop() {
       stopped = true;
-      wanted = new Set();
       disconnect();
       setStatus("disconnected");
     },

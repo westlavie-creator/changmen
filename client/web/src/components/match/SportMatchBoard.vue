@@ -18,6 +18,7 @@ export type SportListStore = Store<
   {
     matchs: ViewMatch[];
     loading: boolean;
+    refreshing: boolean;
     error: string | null;
   },
   object,
@@ -38,7 +39,7 @@ const props = withDefaults(defineProps<{
   upcomingHours: 0,
 });
 
-const { matchs, loading, error } = storeToRefs(props.store);
+const { matchs, loading, refreshing, error } = storeToRefs(props.store);
 /** 体育实时盘显示时钟；只由本板注入 MatchCard，电竞 BetRow 不依赖 sportOddsStore */
 const { tick: oddsDisplayTick } = storeToRefs(useSportOddsStore());
 
@@ -113,7 +114,7 @@ watch(
         {{ metaLabel }}
       </span>
       <MakeupCalcBar />
-      <el-button link type="primary" :loading="loading" @click="store.fetchMatchs(true)">
+      <el-button link type="primary" :loading="loading || refreshing" @click="store.fetchMatchs(true)">
         刷新
       </el-button>
     </div>

@@ -1,10 +1,14 @@
 import { fetchObFootballMatchMarkets } from "@/runtime/obSportFootballFetch";
 
+/** M = WS/推送覆盖；H = HTTP 快照。与电竞盘口角标同义。 */
+export type FootballOddsSource = "M" | "H";
+
 export type FootballSelection = {
   Name?: string;
   Odds?: number;
   Side?: string;
   OddID?: string;
+  Source?: FootballOddsSource;
 };
 
 export type FootballVenueOdds = {
@@ -45,10 +49,8 @@ const cache = new Map<string, { at: number; rows: FootballObMarketRow[] }>();
 const inflight = new Map<string, Promise<FootballObMarketRow[]>>();
 let active = 0;
 const waiters: Array<() => void> = [];
-const CONCURRENCY = 8;
+const CONCURRENCY = 4;
 const CACHE_TTL_MS = 45_000;
-/** 详情已够丰富时不再重打；薄缓存只用于先上屏 */
-const COMPLETE_N = 8;
 
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   while (active >= CONCURRENCY)
@@ -75,25 +77,33 @@ export function peekFootballObMarkets(mid: string): FootballObMarketRow[] | unde
   return hit.rows;
 }
 
-export function isFootballObMarketsComplete(rows: FootballObMarketRow[] | undefined): boolean {
-  return (rows?.length || 0) >= COMPLETE_N;
+export function invalidateFootballObMarkets(mid: string) {
+  const id = String(mid || "").trim();
+  if (id)
+    cache.delete(id);
 }
 
-export function loadFootballObMarkets(mid: string): Promise<FootballObMarketRow[]> {
+/** 本 TTL 内打过详情（含空结果）就不再自动重打。 */
+export function isFootballObMarketsComplete(rows: FootballObMarketRow[] | undefined): boolean {
+  return Array.isArray(rows);
+}
+
+export function loadFootballObMarkets(mid: string, force = false): Promise<FootballObMarketRow[]> {
   const id = String(mid || "").trim();
   if (!id)
     return Promise.resolve([]);
+  if (force)
+    cache.delete(id);
   const cached = peekFootballObMarkets(id);
-  if (cached && isFootballObMarketsComplete(cached))
+  if (cached && !force)
     return Promise.resolve(cached);
   const pending = inflight.get(id);
-  if (pending)
+  if (pending && !force)
     return pending;
   const job = withSlot(async () => {
     const list = await fetchObFootballMatchMarkets(id);
     const rows = Array.isArray(list) ? list as FootballObMarketRow[] : [];
-    if (rows.length)
-      cache.set(id, { at: Date.now(), rows });
+    cache.set(id, { at: Date.now(), rows });
     return rows;
   }).finally(() => {
     inflight.delete(id);

@@ -11,6 +11,7 @@ import {
 } from "./modify-header.js";
 import { axiosRequest } from "./http.js";
 import { storageGet, storageSet } from "./storage.js";
+import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
 
 const MANIFEST = chrome.runtime.getManifest();
 
@@ -301,6 +302,13 @@ async function handleExternalMessage(message, reply, sender) {
   }
 }
 
+chrome.runtime.onConnectExternal.addListener((port) => {
+  if (port?.name === OB_SPORT_WS_PORT)
+    attachObSportWsPort(port);
+});
+
+installObSportWsBackground();
+
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object") return false;
   handleExternalMessage(message, sendResponse, sender);
@@ -309,6 +317,10 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 
 /** content script 内 setTab / PB WS 观测帧 */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (handleObSportWsEvent(message)) {
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message?.type === "pbWsObserveFrame") {
     void appendPbWsFrame(message.frame).then(() => sendResponse({ ok: true }));
     return true;

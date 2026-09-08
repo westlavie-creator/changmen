@@ -106,4 +106,33 @@ describe("mergeFootballClientLists", () => {
     const ob = dto({ Game: "epl" });
     expect(mergeFootballClientLists([pm], [ob])[0].Game).toBe("epl");
   });
+
+  it("prefers OB trial title, league, and kickoff when overlaying PM", () => {
+    const pm = dto({
+      Title: "Arsenal vs Chelsea",
+      Game: "epl",
+      StartTime: 1_700_000_000_000,
+      Matchs: { Polymarket: "pm1" },
+    });
+    const ob = dto({
+      ID: 820000001,
+      Title: "Arsenal vs Chelsea",
+      Game: "英超",
+      StartTime: 1_700_000_100_000,
+      Matchs: { OB: "5652292" },
+    });
+    const merged = mergeFootballClientLists([pm], [ob]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].Title).toBe("Arsenal vs Chelsea");
+    expect(merged[0].Game).toBe("英超");
+    expect(merged[0].StartTime).toBe(1_700_000_100_000);
+    expect(merged[0].Matchs).toMatchObject({ Polymarket: "pm1", OB: "5652292" });
+  });
+
+
+  it("orders merged matches by StartTime", () => {
+    const later = dto({ ID: 1, Title: "Later vs Team", StartTime: 200 });
+    const sooner = dto({ ID: 2, Title: "Soon vs Team", StartTime: 100 });
+    expect(mergeFootballClientLists([later], [sooner]).map(m => m.ID)).toEqual([2, 1]);
+  });
 });

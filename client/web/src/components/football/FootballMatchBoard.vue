@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import FootballMarketBook from "@/components/football/FootballMarketBook.vue";
 import FootballMatchCard from "@/components/football/FootballMatchCard.vue";
-import { groupFootballMatchesByLeague } from "@/runtime/footballLeague";
+import { footballLeagueKey, groupFootballMatchesByLeague } from "@/runtime/footballLeague";
+import { sportMatchStableKey } from "@/runtime/sportListPatch";
 import {
   FOOTBALL_LIVE_LOOKBACK_MS,
   FOOTBALL_UPCOMING_MS,
@@ -11,20 +12,32 @@ import {
   startSportLiveOddsSession,
   type SportLiveOddsSession,
 } from "@/runtime/sportLiveOdds";
+import { onNestedVerticalWheel } from "@/runtime/footballBoardScroll";
 import { useFootballStore } from "@/stores/footballStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const football = useFootballStore();
-const { matchs, loading, error } = storeToRefs(football);
+const { matchs, loading, refreshing, error } = storeToRefs(football);
 const { tick: oddsDisplayTick } = storeToRefs(useSportOddsStore());
+const obLive = useObSportLiveStore();
+const { listRev } = storeToRefs(obLive);
 
 const searchQuery = ref("");
 const leagueFilter = ref("");
 const nowTick = ref(Date.now());
+const matchsEl = ref<HTMLElement | null>(null);
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 let liveSession: SportLiveOddsSession | null = null;
+
+function onMatchsWheel(e: WheelEvent) {
+  const el = matchsEl.value;
+  if (!el)
+    return;
+  onNestedVerticalWheel(el, e);
+}
 
 const displayedMatchs = computed(() => {
   void nowTick.value;
@@ -44,17 +57,16 @@ const leagueTabs = computed(() => {
   }));
 });
 
-const leagueGroups = computed(() => {
-  const groups = groupFootballMatchesByLeague(displayedMatchs.value);
+const visibleMatchs = computed(() => {
   const want = leagueFilter.value;
   if (!want)
-    return groups;
-  return groups.filter(g => g.key === want);
+    return displayedMatchs.value;
+  return displayedMatchs.value.filter(m => footballLeagueKey(m.game) === want);
 });
 
 const matchCountLabel = computed(() => {
   const total = matchs.value.length;
-  const shown = leagueGroups.value.reduce((n, g) => n + g.matches.length, 0);
+  const shown = visibleMatchs.value.length;
   if (shown !== total)
     return `${shown} / ${total} 场`;
   return `${shown} 场`;
@@ -73,7 +85,13 @@ onMounted(() => {
   nowTimer = setInterval(() => { nowTick.value = Date.now(); }, 15_000);
 });
 
+watch(matchsEl, (el, prev) => {
+  prev?.removeEventListener("wheel", onMatchsWheel);
+  el?.addEventListener("wheel", onMatchsWheel, { passive: false });
+}, { immediate: true });
+
 onUnmounted(() => {
+  matchsEl.value?.removeEventListener("wheel", onMatchsWheel);
   football.stopPolling();
   liveSession?.stop();
   liveSession = null;
@@ -81,6 +99,14 @@ onUnmounted(() => {
     clearInterval(nowTimer);
     nowTimer = null;
   }
+});
+
+watch(matchs, () => {
+  liveSession?.sync();
+});
+
+watch(listRev, () => {
+  void football.fetchMatchs();
 });
 
 watch(
@@ -104,9 +130,9 @@ watch(
         {{ matchCountLabel }}
       </span>
       <span class="sport-toolbar__meta">
-        未来6小时 · 全部盘口
+        预测市场 · OB 2小时/滚球
       </span>
-      <el-button link type="primary" :loading="loading" @click="football.fetchMatchs(true)">
+      <el-button link type="primary" :loading="loading || refreshing" @click="football.fetchMatchs(true)">
         刷新
       </el-button>
     </div>
@@ -137,29 +163,20 @@ watch(
         {{ tab.label }} {{ tab.n }}
       </button>
     </div>
-    <div v-if="displayedMatchs.length" class="matchs">
-      <section
-        v-for="group in leagueGroups"
-        :key="group.key"
-        class="football-league"
+    <div v-if="visibleMatchs.length" ref="matchsEl" class="matchs">
+      <FootballMatchCard
+        v-for="m in visibleMatchs"
+        :key="sportMatchStableKey(m)"
+        :match="m"
       >
-        <div class="football-league__head">
-          {{ group.league }} · {{ group.matches.length }}
-        </div>
-        <FootballMatchCard
-          v-for="m in group.matches"
-          :key="m.id"
+        <FootballMarketBook
           :match="m"
-        >
-          <FootballMarketBook
-            :match="m"
-            :odds-display-tick="oddsDisplayTick"
-          />
-        </FootballMatchCard>
-      </section>
+          :odds-display-tick="oddsDisplayTick"
+        />
+      </FootballMatchCard>
     </div>
     <div v-else-if="!loading && !error" class="match-empty">
-      {{ searchQuery.trim() ? "没有匹配的比赛" : "未来6小时暂无足球比赛" }}
+      {{ searchQuery.trim() ? "没有匹配的比赛" : "暂无足球比赛" }}
     </div>
   </div>
 </template>
@@ -226,24 +243,5 @@ watch(
   border-color: #3b82f6;
   background: #1e3a5f;
   color: #fff;
-}
-.football-league {
-  margin: 0 10px 12px;
-}
-.football-league__head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: hsla(0, 0%, 100%, 0.82);
-  background: #1a2332;
-  border-left: 3px solid #3b82f6;
-  border-radius: 4px 4px 0 0;
-}
-.football-league :deep(.football-match) {
-  margin-left: 0;
-  margin-right: 0;
 }
 </style>

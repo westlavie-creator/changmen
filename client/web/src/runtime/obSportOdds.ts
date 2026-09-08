@@ -21,6 +21,20 @@ export const OB_HPID_MARKET: Record<string, { marketCode: string; period: string
   26: { marketCode: "totals", period: "q" },
 };
 
+/** 足球页只展示让球 / 大小（含半场），不含独赢、波胆等。 */
+export function isObAhOuMarket(hpid?: string, marketCode?: string): boolean {
+  const spec = OB_HPID_MARKET[String(hpid || "")];
+  if (spec)
+    return spec.marketCode === "spreads" || spec.marketCode === "totals";
+  const c = String(marketCode || "").toLowerCase();
+  return c === "spreads" || c === "totals" || c.endsWith("_spreads") || c.endsWith("_totals");
+}
+
+export const OB_AHOU_HPIDS = Object.keys(OB_HPID_MARKET).filter((id) => {
+  const spec = OB_HPID_MARKET[id];
+  return spec?.marketCode === "spreads" || spec?.marketCode === "totals";
+});
+
 export function round3(n: number): number {
   const v = Number(n);
   if (!Number.isFinite(v))
@@ -56,7 +70,7 @@ export function parseObHandicapLine(hv: unknown): number | null {
   return null;
 }
 
-function olOdds(ol: Record<string, unknown> | null | undefined): number {
+export function olOdds(ol: Record<string, unknown> | null | undefined): number {
   if (!ol)
     return 0;
   if (ol.ov2 != null && ol.ov2 !== "")

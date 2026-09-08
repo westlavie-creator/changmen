@@ -32,6 +32,9 @@
 .am-icon-gear:before {
   content: "\f013";
 }
+.am-icon-futbol-o:before {
+  content: "\f1e3";
+}
 .am-icon-shield:before {
   content: "\f132";
 }

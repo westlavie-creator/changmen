@@ -8,14 +8,14 @@ import {
   matchInUpcomingWindow,
 } from "@/runtime/sportBoardFilter";
 
-function match(id: number, title: string, startAt: number, game = "epl"): ViewMatch {
+function match(id: number, title: string, startAt: number, game = "epl", providers: Record<string, string> = {}): ViewMatch {
   const dto = {
     ID: id,
     Title: title,
     Game: game,
     GameID: 0,
     StartTime: startAt,
-    Matchs: {},
+    Matchs: providers,
     Bets: [],
   } as unknown as ClientMatchDto;
   return new ViewMatch(dto);
@@ -24,11 +24,27 @@ function match(id: number, title: string, startAt: number, game = "epl"): ViewMa
 describe("sportBoardFilter", () => {
   const now = 1_800_000_000_000;
 
-  it("keeps matches in next 6h and recent in-play", () => {
-    expect(matchInUpcomingWindow(now + 3 * 3600_000, now)).toBe(true);
-    expect(matchInUpcomingWindow(now + 7 * 3600_000, now)).toBe(false);
+  it("keeps matches in next 2h and recent in-play", () => {
+    expect(matchInUpcomingWindow(now + 1 * 3600_000, now)).toBe(true);
+    expect(matchInUpcomingWindow(now + 3 * 3600_000, now)).toBe(false);
     expect(matchInUpcomingWindow(now - 30 * 60_000, now)).toBe(true);
-    expect(matchInUpcomingWindow(now - 3 * 3600_000, now)).toBe(false);
+    expect(matchInUpcomingWindow(now - 3 * 3600_000, now)).toBe(true);
+    expect(matchInUpcomingWindow(now - 5 * 3600_000, now)).toBe(false);
+  });
+
+  it("keeps in-play kickoff within 4h lookback on the board", () => {
+    const live = match(3, "Live vs Team", now - 3 * 3600_000);
+    const old = match(4, "Old vs Team", now - 5 * 3600_000);
+    const def = filterSportBoardMatches([live, old], { horizonMs: FOOTBALL_UPCOMING_MS, now });
+    expect(def.map(m => m.id)).toEqual([3]);
+  });
+
+  it("does not crop Polymarket / PredictFun to the OB 2h window", () => {
+    const pmLater = match(5, "Cagliari vs Lecce", now + 10 * 3600_000, "sea", { Polymarket: "pm1" });
+    const pfLater = match(6, "Al Khaleej vs Al Riyadh", now + 6 * 3600_000, "spl", { PredictFun: "pf1" });
+    const obLater = match(7, "OB later vs Team", now + 10 * 3600_000, "epl", { OB: "mid-1" });
+    const def = filterSportBoardMatches([pmLater, pfLater, obLater], { horizonMs: FOOTBALL_UPCOMING_MS, now });
+    expect(def.map(m => m.id).sort((a, b) => a - b)).toEqual([5, 6]);
   });
 
   it("defaults to upcoming window; search bypasses the window", () => {
@@ -64,5 +80,35 @@ describe("sportBoardFilter", () => {
       now,
     });
     expect(searched.map(m => m.id)).toEqual([1]);
+  });
+
+  it("search 英超 also hits trial full names", () => {
+    const row = match(1, "阿森纳 vs 切尔西", now + 3600_000, "英格兰超级联赛");
+    const searched = filterSportBoardMatches([row], {
+      query: "英超",
+      horizonMs: FOOTBALL_UPCOMING_MS,
+      now,
+    });
+    expect(searched.map(m => m.id)).toEqual([1]);
+  });
+
+
+  it("sorts remaining matches by kickoff time", () => {
+    const later = match(2, "Later vs Team", now + 90 * 60_000);
+    const sooner = match(1, "Soon vs Team", now + 20 * 60_000);
+    const live = match(3, "Live vs Team", now - 10 * 60_000);
+    const def = filterSportBoardMatches([later, sooner, live], { horizonMs: FOOTBALL_UPCOMING_MS, now });
+    expect(def.map(m => m.id)).toEqual([3, 1, 2]);
+  });
+
+  it("search also returns matches in kickoff order", () => {
+    const later = match(2, "Arsenal vs Chelsea", now + 90 * 60_000);
+    const sooner = match(1, "Arsenal vs Everton", now + 20 * 60_000);
+    const searched = filterSportBoardMatches([later, sooner], {
+      query: "arsenal",
+      horizonMs: FOOTBALL_UPCOMING_MS,
+      now,
+    });
+    expect(searched.map(m => m.id)).toEqual([1, 2]);
   });
 });

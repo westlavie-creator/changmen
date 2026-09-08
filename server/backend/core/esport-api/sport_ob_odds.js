@@ -12,7 +12,7 @@ import {
 export const OB_FOOTBALL_ID_BASE = 820_000_000;
 
 /** 列表主盘：全场/上半场 独赢、让球、大小 */
-export const OB_FOOTBALL_LIST_HPIDS = new Set(["1", "4", "2", "17", "19", "18"]);
+export const OB_FOOTBALL_LIST_HPIDS = new Set(["4", "2", "19", "18"]);
 
 export const OB_HPID_MARKET = {
   1: { marketCode: MARKET_MONEYLINE, period: "ft" },

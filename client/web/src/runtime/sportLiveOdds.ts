@@ -13,13 +13,14 @@ import {
 } from "@changmen/venue-adapter/predictfun";
 import { truncateOddsTo3 } from "@changmen/shared/odds_format";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
+import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
-import { startObSportWs, type ObSportSessionLite } from "@/runtime/obSportWs";
+import { startObSportWs, isObSportC8Mid, type ObSportSessionLite } from "@/runtime/obSportWs";
 import { SPORT_OB_SESSION_UPDATED } from "@/runtime/sportObSessionEvents";
 
-/** 与电竞 Polymarket 采集窗一致：过去 6h + 未来 1h */
+/** 与足球列表窗对齐：过去 6h + 未来 2h */
 const SPORT_LIVE_PAST_MS = 6 * 3600 * 1000;
-const SPORT_LIVE_FUTURE_MS = 3600 * 1000;
+const SPORT_LIVE_FUTURE_MS = 2 * 3600 * 1000;
 /** 体育侧硬顶；与电竞 token 合并订，控制 WS 帧量 */
 export const SPORT_SUBSCRIBE_HARD_CAP = 100;
 
@@ -43,6 +44,7 @@ export interface SportSubscribePick {
   polymarketAssetIds: string[];
   predictFunMarketIds: string[];
   obOids: string[];
+  obMids: string[];
 }
 
 /**
@@ -62,6 +64,7 @@ export function pickSportSubscribeIds(
   const pm = new Set<string>();
   const pf = new Set<string>();
   const ob = new Set<string>();
+  const obMids = new Set<string>();
   let used = 0;
 
   const tryAdd = (set: Set<string>, id: string) => {
@@ -75,8 +78,11 @@ export function pickSportSubscribeIds(
   };
 
   for (const { m } of scored) {
+    const obMid = String(m.providers?.OB ?? "").trim();
+    if (obMid && isObSportC8Mid(obMid))
+      obMids.add(obMid);
     if (used >= cap)
-      break;
+      continue;
     for (const bet of m.bets) {
       for (const item of bet.items) {
         // 只用显式 subscribe 键；PF 缺 HomeMarketID 时为空，勿回退到 onChain HomeID
@@ -94,8 +100,8 @@ export function pickSportSubscribeIds(
           tryAdd(pf, away);
         }
         else if (item.type === OB) {
-          tryAdd(ob, home);
-          tryAdd(ob, away);
+          tryAdd(ob, home || String(item.homeId || "").trim());
+          tryAdd(ob, away || String(item.awayId || "").trim());
           tryAdd(ob, String(item.drawSubscribeId || "").trim());
         }
       }
@@ -106,6 +112,7 @@ export function pickSportSubscribeIds(
     polymarketAssetIds: [...pm],
     predictFunMarketIds: [...pf],
     obOids: [...ob],
+    obMids: [...obMids],
   };
 }
 
@@ -154,16 +161,44 @@ export type SportLiveOddsSession = {
  */
 export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportLiveOddsSession {
   const sportOdds = useSportOddsStore();
+  const obLive = useObSportLiveStore();
   let stopped = false;
   let obSession: ObSportSessionLite | null = null;
+  const playAt = new Map<string, number>();
 
   const obWs = startObSportWs(
     () => obSession,
-    (oid, decimalOdds) => {
-      if (stopped)
-        return;
-      sportOdds.save(OB, oid, decimalOdds);
-      applyQuoteToMatches(getMatches(), OB, oid, decimalOdds);
+    {
+      onQuote(oid, decimalOdds, extra) {
+        if (stopped)
+          return;
+        sportOdds.save(OB, oid, decimalOdds);
+        if (extra?.line != null)
+          obLive.saveLine(oid, extra.line);
+        applyQuoteToMatches(getMatches(), OB, oid, decimalOdds);
+      },
+      onLive(patch) {
+        if (stopped)
+          return;
+        obLive.applyLive(patch);
+        if (!patch.refreshList)
+          return;
+        const known = getMatches().some(m => String(m.providers?.OB || "") === patch.mid);
+        if (!known)
+          obLive.noteListChange();
+      },
+      onHandicapPlay(row) {
+        if (stopped)
+          return;
+        const mid = String(row.mid || "").trim();
+        if (!mid)
+          return;
+        const prev = playAt.get(mid) || 0;
+        if (Date.now() - prev < 8_000)
+          return;
+        playAt.set(mid, Date.now());
+        obLive.noteHandicapPlay(mid);
+      },
     },
   );
 
@@ -187,7 +222,7 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
     setPredictFunSportMarketIds(pick.predictFunMarketIds, force);
     void loadObSession().then(() => {
       if (!stopped)
-        obWs.sync(pick.obOids);
+        obWs.sync(pick.obOids, pick.obMids);
     });
 
     // 列表重刷后用缓存价回写 fallback，避免 30s 快照盖掉实时价
@@ -207,11 +242,11 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
           const h = homeKey ? sportOdds.get(item.type, homeKey) : 0;
           const a = awayKey ? sportOdds.get(item.type, awayKey) : 0;
           const d = drawKey ? sportOdds.get(item.type, drawKey) : 0;
-          if (h > 0)
+          if (homeKey && sportOdds.has(item.type, homeKey))
             item.fallbackHomeOdds = h;
-          if (a > 0)
+          if (awayKey && sportOdds.has(item.type, awayKey))
             item.fallbackAwayOdds = a;
-          if (d > 0)
+          if (drawKey && sportOdds.has(item.type, drawKey))
             item.fallbackDrawOdds = d;
         }
       }
@@ -274,6 +309,7 @@ export function startSportLiveOddsSession(getMatches: () => ViewMatch[]): SportL
         window.removeEventListener(SPORT_OB_SESSION_UPDATED, onSportObSession);
       obWs.stop();
       sportOdds.clear();
+      obLive.clear();
       clearPolymarketSportHub();
       setPredictFunSportMarketIds([]);
     },

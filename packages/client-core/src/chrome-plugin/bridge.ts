@@ -6,6 +6,18 @@ interface ChromeRuntime {
     options: Record<string, never>,
     callback: (response?: A8PluginEnvelope) => void,
   ) => void;
+  connect?: (
+    extensionId: string,
+    connectInfo?: { name?: string },
+  ) => A8PluginPort | undefined;
+}
+
+export interface A8PluginPort {
+  name: string;
+  postMessage: (message: unknown) => void;
+  disconnect: () => void;
+  onMessage: { addListener: (fn: (message: unknown) => void) => void };
+  onDisconnect: { addListener: (fn: () => void) => void };
 }
 
 interface A8PluginMessage {
@@ -86,6 +98,20 @@ export async function a8PluginSend(message: Omit<A8PluginMessage, "uuid">): Prom
       resolve(envelope.response);
     });
   });
+}
+
+/** 长连接（足球 OB yewuws2）：页面不能直连源站 WS。 */
+export function a8PluginConnect(name: string): A8PluginPort | null {
+  const runtime = getRuntime();
+  if (!runtime?.connect)
+    return null;
+  try {
+    const port = runtime.connect(resolveGamebetExtensionId(), { name });
+    return port || null;
+  }
+  catch {
+    return null;
+  }
 }
 
 export async function a8PluginGetStore(key: string): Promise<unknown> {

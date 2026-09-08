@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
+import FootballSettingsDialog from "@/components/football/FootballSettingsDialog.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import BaseballBoard from "@/components/match/BaseballBoard.vue";
@@ -11,6 +12,7 @@ import BasketballBoard from "@/components/match/BasketballBoard.vue";
 import FootballBoard from "@/components/match/FootballBoard.vue";
 import TennisBoard from "@/components/match/TennisBoard.vue";
 import { useExtensionGate } from "@/composables/useExtensionGate";
+import { closeFootballSettings, openFootballSettings } from "@/runtime/footballSettingsUi";
 import { mountSportsSession, stopSportsSession } from "@/runtime/sportsSession";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
@@ -41,6 +43,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopSportsSession();
+  closeFootballSettings();
+});
+
+watch(sport, (code) => {
+  if (code !== "football")
+    closeFootballSettings();
 });
 
 async function logout() {
@@ -68,9 +76,14 @@ function onSportTab(v: string | number | boolean | undefined) {
     :account="editDialogAccount"
     @close="accountStore.closeAccountDialog()"
   />
+  <FootballSettingsDialog />
   <el-container class="common-layout home-view sports-workspace">
     <el-aside width="300px">
-      <AppSidebar @logout="logout" />
+      <AppSidebar
+        :show-football-settings="sport === 'football'"
+        @logout="logout"
+        @open-football-settings="openFootballSettings"
+      />
     </el-aside>
     <el-container>
       <el-header>

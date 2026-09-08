@@ -25,8 +25,24 @@ function cloneMatch(m: ClientMatchDto): ClientMatchDto {
   };
 }
 
+function hasObSource(m: ClientMatchDto): boolean {
+  return Boolean(String((m.Matchs as Record<string, unknown> | undefined)?.OB || "").trim());
+}
+
 function overlayMatch(hit: ClientMatchDto, row: ClientMatchDto) {
+  const fromOb = hasObSource(row);
   hit.Matchs = { ...(hit.Matchs || {}), ...(row.Matchs || {}) };
+  if (fromOb) {
+    const title = String(row.Title || "").trim();
+    if (title)
+      hit.Title = title;
+    const kickoff = Number(row.StartTime) || 0;
+    if (kickoff > 0)
+      hit.StartTime = kickoff;
+    const game = String(row.Game || "").trim();
+    if (game)
+      hit.Game = game;
+  }
   const byBet = new Map(
     (hit.Bets || []).map(b => [`${b.MarketCode}|${b.Line ?? ""}`, b]),
   );
@@ -43,9 +59,9 @@ function overlayMatch(hit: ClientMatchDto, row: ClientMatchDto) {
 }
 
 /**
- * VPS 的 PM/PF 列表 + 本机 OB 列表。
- * 标题+小时相同则并成一场（含 PM 让球/大小拆成两条的情况），把 OB 源挂上。
- * 不写 RDS / client_matches。
+ * VPS 的 PM/PF 列表 + 本机 OB 列表（浏览器 overlay）。
+ * 定案：ARB_MULTI_SPORT §3c — 不写 RDS / client_matches / sport_merge / 电竞 matcher。
+ * 过渡键：标题+小时（猜测合场，只读）。目标键：联赛码 + 队名归一 + 时间窗 + 朝向；合不上并列。
  */
 export function mergeFootballClientLists(
   pmPf: ClientMatchDto[],
@@ -67,7 +83,16 @@ export function mergeFootballClientLists(
       continue;
     }
     overlayMatch(hit, row);
-    hit.Game = pickBetterFootballGame(hit.Game, row.Game);
+    if (!hasObSource(hit))
+      hit.Game = pickBetterFootballGame(hit.Game, row.Game);
+
   }
+  out.sort((a, b) => {
+    const ta = Number(a.StartTime) || 0;
+    const tb = Number(b.StartTime) || 0;
+    if (ta !== tb)
+      return ta - tb;
+    return (Number(a.ID) || 0) - (Number(b.ID) || 0);
+  });
   return out;
 }

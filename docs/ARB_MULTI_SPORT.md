@@ -72,6 +72,7 @@
 足球胜负盘可继续 **只读展示**，但 **不算** N4 套利标的。仍禁止现在开 N4 / 改 `mainBetLoop` / 写 fo。  
 **当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)；**足球/棒球/网球 = 维护态**（隔离回归与文档勘误可做，新功能默认不开）。  
 **例外（N3.5）**：体育板赔率实时显示（collector hub → `sportOddsStore`），仍 **禁止** N4 / fo 交叉。  
+**例外（N3.6 · 2026-09-08 冻结）**：足球本机 OB 由**浏览器 overlay** 到 PM∥PF 合场结果。见 [§3c](#3c-足球-ob-本机合场冻结)。  
 分层隔离定案：数据/循环必须隔离；壳 UI + 场馆 WS（hub）可共用；`BetRow` **不** import `sportOddsStore`（由 `SportMatchBoard` 注入 `oddsDisplayTick`）。
 
 手工验收清单：
@@ -192,9 +193,11 @@ POST /esport/Client_GetFootballMatchs
 |------|------|
 | API | `getFootballMatchs()` → `api/match.ts`（PM ∥ PF 经 `sport_merge`） |
 | Store | `stores/footballStore.ts`（`createSportListStore`） |
-| UI | `FootballBoard.vue` → `SportMatchBoard` + `MatchCard` |
+| UI | `FootballBoard.vue` → `FootballMatchBoard`（OB 试玩实时：比分/盘口） |
 | Manifest | `lines/football/` |
 | 联赛名 | `packages/shared/catalog/game_catalog.json`（`sport: football`） |
+| **OB 体育试玩机制** | [client/web/docs/platforms/OB_SPORT.md](../client/web/docs/platforms/OB_SPORT.md) |
+| **OB 本机合场** | [§3c](#3c-足球-ob-本机合场冻结) · `footballClientList.ts` |
 
 ## 3b. 网球 MVP（只读，同模式）
 
@@ -217,6 +220,25 @@ POST /esport/Client_GetTennisMatchs
 | Manifest | `lines/tennis/` |
 | Gamma | `tennis_gamma_fetch.js`（`atp`/`wta`，series `10365`/`10366`，idBase PM `920_000_000` / PF `930_000_000`） |
 
+## 3c. 足球 OB 本机合场（冻结 · 2026-09-08）
+
+OB 试玩 token / 盘口 / `yewuws2` 不出本机，服务端看不到这场馆。因此 **OB ↔ PM∥PF 的「同一场」判定在浏览器执行**，不进电竞 `matchMerge` / `client_matches`，也不把 OB 行喂给 `sport_merge`。
+
+| 定案 | 说明 |
+|------|------|
+| **谁跑** | 浏览器 `mergeFootballClientLists`（及后续同目录替换实现） |
+| **输入** | 服务端已合过的 PM∥PF 列表 + 本机 OB 列表 |
+| **合不上** | **并列**，禁止硬并 |
+| **键（目标）** | 联赛码 + 队名归一（共享别名/catalog）+ 开赛时间窗 + 主客朝向。**禁止**把原文标题相等当成身份 |
+| **模糊性** | 只允许存在于「队名 → 归一键 / 建议映射」；赛事聚类只做相等比较 |
+| **打标** | 合上的必须区分确定 / 猜测；猜测场 **不得** 进未来 N4 自动下单 |
+| **映射沉淀** | 确认过的别名进共享表（catalog / sport team maps），禁止每个浏览器各猜各的 |
+| **电竞** | `GetMatchs` / matcher / `fo` / `mainBetLoop` **零改动** |
+
+现状（过渡）：`mergeFootballClientLists` 仍用 `标题|小时`，属于猜测合场，只读展示可用；替换目标算法前不得当身份用。
+
+协议细节：[OB_SPORT.md §9](../client/web/docs/platforms/OB_SPORT.md#9-本机合场)。电竞身份不变量仍以 [MATCH_IDENTITY_MODEL.md](./MATCH_IDENTITY_MODEL.md) 为准；本例外不放松电竞 I1–I5。
+
 ## 4. 验收
 
 1. `Client_GetMatchs` 与改前一致。  
@@ -233,6 +255,7 @@ POST /esport/Client_GetTennisMatchs
 |------|------|----------|
 | **N3 moneyline 合并** | **已做**（请求路径 + `sport_*`；非独立 PM2 matcher） | 禁写电竞 `client_matches`；禁 import 电竞 `team_db`；仅双场馆对替换 API |
 | **N3 足球让球/大小** | **已做**（只读；PF 供给以中超为主） | 不改 `GetMatchs` / fo / `mainBetLoop` |
+| **N3.6 足球 OB 本机 overlay** | **已冻结**（浏览器合场；目标算法未替换） | 不写 `client_matches` / `sport_merge`；猜测不得进 N4 |
 | **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop`；棒球主盘 moneyline，足球主盘 **让球+大小球**（胜负不作套利主盘） |
 | **Sport Team UI / PF 下注** | **未开** | — |
 

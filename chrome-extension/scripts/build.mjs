@@ -80,8 +80,21 @@ async function bundleBackground() {
   console.log("bundled background.js");
 }
 
+async function bundleObSportWsPage() {
+  await esbuild.build({
+    entryPoints: [path.join(root, "src/content/ob-sport-ws-page.js")],
+    outfile: path.join(root, "ob-sport-ws-page.js"),
+    bundle: true,
+    format: "iife",
+    platform: "browser",
+    target: ["chrome109"],
+  });
+  console.log("bundled ob-sport-ws-page.js");
+}
+
 await bundleBackground();
 await bundleSocketIo();
 await bundleContent();
 await bundlePbWsContent();
+await bundleObSportWsPage();
 syncVersionJson();

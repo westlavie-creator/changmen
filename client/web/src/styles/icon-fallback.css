@@ -3,7 +3,7 @@
  */
 .el-button[class*="am-icon-"]:not([class*="am-icon-plus"]):not([class*="am-icon-calculator"]):not(
     [class*="am-icon-gear"]
-  ):not([class*="am-icon-shield"]):not([class*="am-icon-dashboard"]):not(
+  ):not([class*="am-icon-futbol-o"]):not([class*="am-icon-shield"]):not([class*="am-icon-dashboard"]):not(
     [class*="am-icon-users"]
   ):not([class*="am-icon-list"]):not([class*="am-icon-th"]):not([class*="am-icon-arrow-left"]):not(
     [class*="am-icon-arrow-right"]

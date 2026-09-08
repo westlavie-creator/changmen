@@ -10,13 +10,13 @@ import {
   resolveObFootballGame,
 } from "@/runtime/footballLeague";
 
-function match(id: number, title: string, game: string): ViewMatch {
+function match(id: number, title: string, game: string, startAt = 1): ViewMatch {
   return new ViewMatch({
     ID: id,
     Title: title,
     Game: game,
     GameID: 0,
-    StartTime: 1,
+    StartTime: startAt,
     Matchs: {},
     Bets: [],
   } as unknown as ClientMatchDto);
@@ -26,9 +26,12 @@ describe("footballLeague", () => {
   it("treats epl and 英超 as the same league", () => {
     expect(footballLeagueKey("epl")).toBe("epl");
     expect(footballLeagueKey("英超")).toBe("epl");
+    expect(footballLeagueKey("英格兰超级联赛")).toBe("epl");
     expect(footballLeagueLabel("epl")).toBe("英超");
+    expect(footballLeagueLabel("英格兰超级联赛")).toBe("英格兰超级联赛");
     expect(footballLeagueTag("epl")).toBe("英超");
   });
+
 
   it("keeps unmapped OB tournament names instead of dumping into 未分类", () => {
     expect(footballLeagueKey("希腊U19联赛")).toBe("希腊U19联赛");
@@ -52,6 +55,21 @@ describe("footballLeague", () => {
     ]);
     expect(groups.map(g => g.league)).toEqual(["西甲", "英超", "未分类"]);
     expect(groups.find(g => g.key === "epl")?.matches).toHaveLength(2);
+    const trial = groupFootballMatchesByLeague([
+      match(1, "A vs B", "epl"),
+      match(5, "I vs J", "英格兰超级联赛"),
+    ]);
+    expect(trial).toHaveLength(1);
+    expect(trial[0]?.key).toBe("epl");
+
+  });
+
+  it("sorts matches inside a league by kickoff time", () => {
+    const groups = groupFootballMatchesByLeague([
+      match(2, "Later vs Team", "epl", 200),
+      match(1, "Soon vs Team", "epl", 100),
+    ]);
+    expect(groups[0]?.matches.map(m => m.id)).toEqual([1, 2]);
   });
 
   it("maps OB tournament names instead of dumping into unknown_fb", () => {

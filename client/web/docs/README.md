@@ -66,7 +66,8 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 |------|------|
 | [platforms/A8.md](./platforms/A8.md) | A8 Socket 聚合（IM/XBet/Stake 实时） |
 | [platforms/A8_COMPARE_ALL_PLATFORMS.md](./platforms/A8_COMPARE_ALL_PLATFORMS.md) | 全平台 A8 vs changmen |
-| `platforms/OB.md` / `RAY.md` / … | 各平台运维 |
+| `platforms/OB.md` / `RAY.md` / … | 各平台运维（**电竞 OB**） |
+| **[platforms/OB_SPORT.md](./platforms/OB_SPORT.md)** | **熊猫体育试玩**：HTTP PB + `yewuws2` 命令/频率；足球页对齐 |
 
 ---
 
