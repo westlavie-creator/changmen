@@ -21,7 +21,7 @@ describe("shouldApplyPolymarketWsQuote", () => {
     expect(shouldApplyPolymarketWsQuote("tok", 2001)).toBe(true);
   });
 
-  test("after live /book, drops timestamp-less WS for 2s", () => {
+  test("after fo correction, drops timestamp-less WS for 2s", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_700_000_000_000);
     notePolymarketLiveBookQuote("tok");

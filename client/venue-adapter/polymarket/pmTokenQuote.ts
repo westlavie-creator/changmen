@@ -86,14 +86,14 @@ export function syncPolymarketFoOnPriceAboveDetection(
 }
 
 const lastLiveQuoteTs = new Map<string, number>();
-/** /book 纠偏后保护窗：无 timestamp 的迟到 WS 不得在此期间把 fo 打回去 */
+/** 纠偏 fo 后保护窗：无 timestamp 的迟到 WS 不得在此期间把 fo 打回去 */
 const LIVE_BOOK_WS_GUARD_MS = 2_000;
 
 export function resetPolymarketLiveQuoteTsForTests(): void {
   lastLiveQuoteTs.clear();
 }
 
-/** REST /book 刚写过 fo：后续更旧的 WS 帧丢掉 */
+/** 「盘口价高于检测价」刚写过 fo：后续更旧的 WS 帧丢掉 */
 export function notePolymarketLiveBookQuote(assetId: string, atMs = Date.now()): void {
   const id = String(assetId || "").trim();
   if (!id)
@@ -105,8 +105,8 @@ export function notePolymarketLiveBookQuote(assetId: string, atMs = Date.now()):
 
 /**
  * 是否采用本条 WS 卖一。
- * - 有交易所 timestamp：严格新于上次（含 /book 钉住的墙钟）
- * - 无 timestamp：/book 后 2s 内拒绝，避免 hub 迟到帧回绕
+ * - 有交易所 timestamp：严格新于上次（纠偏 fo 时会钉墙钟）
+ * - 无 timestamp：纠偏 fo 后 2s 内拒绝，避免 hub 迟到帧回绕
  */
 export function shouldApplyPolymarketWsQuote(assetId: string, exchangeTs?: number): boolean {
   const id = String(assetId || "").trim();

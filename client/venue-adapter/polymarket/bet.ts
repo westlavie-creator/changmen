@@ -32,13 +32,11 @@ import {
 import { resolvePolymarketProviderLegOutcome } from "./legOutcome";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
-  isValidClobPrice,
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
 import {
   isPolymarketPriceAboveDetectionError,
-  notePolymarketLiveBookQuote,
   PolymarketPriceAboveDetectionError,
   syncPolymarketFoOnPriceAboveDetection,
 } from "./pmTokenQuote";
@@ -571,9 +569,6 @@ export const polymarketProvider: PlatformProvider = {
         orderOptions,
         depthMultiplier: pmFokDepthReuseMultiplier(),
       } satisfies PolymarketBuyCheckData;
-      const bestAsk = orderOptions.asks[0]?.price;
-      if (isValidClobPrice(Number(bestAsk)))
-        notePolymarketLiveBookQuote(tokenId);
     }
     catch (err) {
       if (isPolymarketPriceAboveDetectionError(err)) {
