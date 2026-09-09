@@ -338,6 +338,9 @@ if command -v pm2 >/dev/null 2>&1; then
   log "stop paused SXBet processes if present (${PM2_SXBET}, ${PM2_SXBET_MARKET_HUB})"
   pm2 delete "$PM2_SXBET" >/dev/null 2>&1 || pm2 stop "$PM2_SXBET" >/dev/null 2>&1 || true
   pm2 delete "$PM2_SXBET_MARKET_HUB" >/dev/null 2>&1 || pm2 stop "$PM2_SXBET_MARKET_HUB" >/dev/null 2>&1 || true
+  # PredictFun 电竞 HTTP collector 已暂停（Market hub / 下注 / 体育 REST 仍跑）
+  log "stop paused PredictFun esports collector if present (${PM2_PREDICTFUN})"
+  pm2 delete "$PM2_PREDICTFUN" >/dev/null 2>&1 || pm2 stop "$PM2_PREDICTFUN" >/dev/null 2>&1 || true
   PM2_TARGETS=()
   if [ "$DO_PM2_WEB" = "1" ]; then
     PM2_TARGETS+=("$PM2_WEB")
@@ -345,10 +348,9 @@ if command -v pm2 >/dev/null 2>&1; then
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
-  # 电竞 PM / PF discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*；SXBet 已暂停）
+  # 电竞 PM discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*；SXBet / PF collector 已暂停）
   if [ "$DO_PM2_WEB" = "1" ] || [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_POLYMARKET")
-    PM2_TARGETS+=("$PM2_PREDICTFUN")
   fi
   # PM-MARKET / PM-SPORT-MARKET / PREDICTFUN-MARKET hub 独立进程：与 esport 同启（勿挂回 esport）
   if [ "$DO_PM2_WEB" = "1" ]; then
@@ -366,7 +368,7 @@ if command -v pm2 >/dev/null 2>&1; then
       log "WARN: WS_FORWARD_PLATFORMS still contains PREDICTFUN-MARKET — remove it so changmen-predictfun-market-hub stays isolated"
     fi
     if [ -f "$ENV_FILE" ] && ! grep -E '^[[:space:]]*PREDICT_FUN_API_KEY=.+' "$ENV_FILE" >/dev/null 2>&1; then
-      log "WARN: PREDICT_FUN_API_KEY missing in server/backend/.env — changmen-predictfun-collector / market-hub 可能无法连官方"
+      log "WARN: PREDICT_FUN_API_KEY missing in server/backend/.env — changmen-predictfun-market-hub / 体育 PF REST 可能无法连官方"
     fi
   fi
   if [ "${#PM2_TARGETS[@]}" -gt 0 ]; then
@@ -430,7 +432,7 @@ if command -v pm2 >/dev/null 2>&1; then
   else
     log "skip pm2 restart"
   fi
-  # changmen-polymarket-collector / changmen-predictfun-collector 已随 esport/pm-sports 一并启动。
+  # changmen-polymarket-collector 已随 esport/pm-sports 一并启动。changmen-predictfun-collector 已暂停。
 else
   echo "WARN: pm2 not found, skip restart"
 fi

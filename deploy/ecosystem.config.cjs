@@ -1,9 +1,9 @@
 /**
  * PM2 生产进程清单（扁平 VPS 布局：DEPLOY_REPO = 应用根，无外层 Git 仓库）。
- *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub
+ *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub
  * 整仓 git pull 已废弃；上海/香港均为 tarball 扁平部署。
  *
- * changmen-predictfun-collector：PF REST 采集；默认随 deploy 与 PM collector 同启。
+ * changmen-predictfun-collector：PF 电竞 REST 采集；已暂停，不随 deploy 启动（条目保留供手动恢复）。
  * changmen-polymarket-collector：电竞 PM Gamma discovery；默认随 deploy 启动。
  * changmen-pm-market-hub：PM-MARKET WS hub（电竞独立进程，避免扇出拖死 esport）。
  * changmen-pm-sport-market-hub：PM-SPORT-MARKET WS hub（体育独立进程/上游，与电竞隔离）。

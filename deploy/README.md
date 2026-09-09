@@ -7,7 +7,7 @@
 | 路径 | 说明 |
 |------|------|
 | [`Caddyfile`](Caddyfile) | Caddy :80 反代 + 静态 dist |
-| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2 默认：`changmen-esport`、`changmen-pm-market-hub`、`changmen-pm-sport-market-hub`、`changmen-predictfun-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`、`changmen-predictfun-collector`（`changmen-sxbet-*` 已暂停，条目保留） |
+| [`ecosystem.config.cjs`](ecosystem.config.cjs) | PM2 默认：`changmen-esport`、`changmen-pm-market-hub`、`changmen-pm-sport-market-hub`、`changmen-predictfun-market-hub`、`changmen-pm-sports`、`changmen-polymarket-collector`（`changmen-predictfun-collector` / `changmen-sxbet-*` 已暂停，条目保留） |
 | [`env/`](env/) | 后端 `.env` 模板（运行时：`server/backend/.env`） |
 | [`scripts/apply-repo-archive.sh`](scripts/apply-repo-archive.sh) | tarball 解压 + 扁平化 + 部署 |
 | [`scripts/sync-git-to-flat-app.sh`](scripts/sync-git-to-flat-app.sh) | 香港：git 子目录 → 扁平 `DEPLOY_REPO` 再 deploy |
@@ -37,11 +37,11 @@ VPS 运行目录：`/root/changmen`（扁平，无 git）。
 
 ```bash
 cd /root/changmen
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector
 pm2 save
 ```
 
-`deploy/scripts/deploy-server-remote.sh` 重启 `changmen-esport` 时会一并启动 Market hub、以及 PM/PF HTTP collector；并 **delete** 已暂停的 `changmen-sxbet-collector` / `changmen-sxbet-market-hub`。`.env` 须配置 `PREDICT_FUN_API_KEY`（collector + market-hub 上游握手）。
+`deploy/scripts/deploy-server-remote.sh` 重启 `changmen-esport` 时会一并启动 Market hub、以及 PM HTTP collector；并 **delete** 已暂停的 `changmen-predictfun-collector` / `changmen-sxbet-collector` / `changmen-sxbet-market-hub`。`.env` 须配置 `PREDICT_FUN_API_KEY`（market-hub 上游握手、体育 PF REST）。
 
 **Market WS hubs**：
 - `changmen-pm-market-hub`（`:3457`）→ `/esport/ws-forward/PM-MARKET*`
@@ -59,7 +59,7 @@ bash deploy/scripts/install-pm-market-hub-watchdog-remote.sh   # :3457/health �
 bash deploy/scripts/install-predictfun-market-hub-watchdog-remote.sh  # :3458/health → restart changmen-predictfun-market-hub
 ```
 
-启用 Predict.fun HTTP 采集守护进程时（已默认随主栈启动；手动补启）：
+启用 Predict.fun HTTP 电竞采集守护进程时（**当前已暂停**；手动恢复）：
 
 ```bash
 pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env

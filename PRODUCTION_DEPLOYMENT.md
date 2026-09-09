@@ -24,7 +24,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 │  server/match/matcher    — 内嵌 30s 循环，经 composer 写 client_matches │
 │  polymarket-esports — Gamma+/prices → platform_* + index   │
 │  polymarket-sports — Sports WS → client_matches.pm_sport   │
-│  predictfun-collector — Predict.fun REST → platform_*      │
+│  predictfun-collector — 电竞 REST 采集已暂停（不随默认主栈启动） │
 │  （SXBet collector / market-hub 已暂停，不随默认主栈启动）   │
 │  RDS (PostgreSQL)  — platform_* / client_matches / orders / users  │
 └─────────────────────────────────────────────────────────┘
@@ -32,7 +32,7 @@ changmen 是 **客户端 + 服务端** 系统。`localhost` 与 `.bat` 仅用于
 
 **已删除、不再部署**：Node FeedHub、`ESPORT_BRIDGE`、本机 WS 网关（OB MQTT / RAY SC / TF / IA relay）。各平台 WebSocket 由**浏览器直连**源站、A8 聚合机或 changmen `ws_forward` hub。
 
-**电竞列表基线**：多数场馆仍为浏览器 `saveMatch` / `saveBet`；**Polymarket**、**PredictFun** 为 VPS collector 直写 `platform_*` + matcher → `Client_GetMatchs`。实时赔率仍靠浏览器 Market WS → `fo`。**SXBet** 场馆已暂停（manifest `implementation: paused`）。
+**电竞列表基线**：多数场馆仍为浏览器 `saveMatch` / `saveBet`；**Polymarket** 为 VPS collector 直写 `platform_*` + matcher → `Client_GetMatchs`。**PredictFun** 电竞 HTTP collector 已暂停（实时赔率仍靠浏览器 Market WS → `fo`；下注与体育 REST 不受影响）。**SXBet** 场馆已暂停（manifest `implementation: paused`）。
 
 ---
 
@@ -68,7 +68,7 @@ Nginx / Caddy 反代示例要点：
 | Predict.fun Market WS hub | PM2：`changmen-predictfun-market-hub`（`:3458`） | `pm2 restart changmen-predictfun-market-hub --update-env` |
 | Polymarket 电竞 HTTP 采集 | PM2：`changmen-polymarket-collector`（Gamma+/prices → `platform_*` + index） | `pm2 restart changmen-polymarket-collector --update-env` |
 | Polymarket 赛程状态 | PM2：`changmen-pm-sports`（Sports WS，写 `pm_sport`） | `pm2 restart changmen-pm-sports --update-env` |
-| Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（REST → `platform_*`） | `pm2 restart changmen-predictfun-collector --update-env` |
+| Predict.fun HTTP 采集 | PM2：`changmen-predictfun-collector`（REST → `platform_*`）；**已暂停**，deploy 会 `pm2 delete` | 恢复：`pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env` |
 | SX.bet（已暂停） | ecosystem 仍有 `changmen-sxbet-collector` / `changmen-sxbet-market-hub`；**不**随 deploy 启动 | 恢复时再 `pm2 start … --only …` |
 
 **冻结：`changmen-esport` 不可水平扩（多实例）**。账号/profile/`client_matches` 与采集热路径为进程内 memory-first；`platforms.json` 为本机文件（见 [docs/DATA_STORAGE.md](./docs/DATA_STORAGE.md)）。双开会分裂内存状态与凭证，导致列表/账号不一致。扩容前须先外置共享状态（或拆出无状态面）；当前拓扑保持 **一台 VPS 上该进程实例数 = 1**（`ecosystem.config.cjs` 勿设 `instances > 1` / cluster）。Collector / Market hub 可按机器资源另开，与 esport 单实例约束无关。
@@ -161,12 +161,12 @@ npm run app:build
 
 ### 3.4 进程
 
-**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-market-hub` + `changmen-pm-sport-market-hub` + `changmen-predictfun-market-hub` + `changmen-pm-sports` + `changmen-polymarket-collector` + `changmen-predictfun-collector`。（`changmen-sxbet-*` 已暂停，不进默认 `--only`。）
+**生产默认（电竞主栈）**：`changmen-esport`（内嵌 matcher）+ `changmen-pm-market-hub` + `changmen-pm-sport-market-hub` + `changmen-predictfun-market-hub` + `changmen-pm-sports` + `changmen-polymarket-collector`。（`changmen-predictfun-collector` / `changmen-sxbet-*` 已暂停，不进默认 `--only`。）
 
 ```bash
 cd changmen
-# 推荐主栈（含 PM 电竞/体育 + PF Market WS hub + PM/PF 电竞 discovery）
-pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector
+# 推荐主栈（含 PM 电竞/体育 + PF Market WS hub + PM 电竞 discovery）
+pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub,changmen-pm-sports,changmen-polymarket-collector
 ```
 
 `ecosystem.config.cjs` 注册上述进程；matchMerge 随 `changmen-esport` 内嵌启动（`MATCHER_INTERVAL_MS`，默认 30s）。唯一合场写路径：`matchMergeOnce` → `@changmen/matcher`。**勿**另起独立 match-composer WRITE 进程（防双写 `client_matches`）；回滚走 git revert / 版本回退。
@@ -175,7 +175,7 @@ pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-market-
 
 `changmen-pm-sports` 连 `wss://sports-api.polymarket.com/ws`，按 `platform_matches` 已有 Polymarket 行关联 `client_matches`，写入 `pm_sport`。**不替代**浏览器 CLOB WS 赔率采集。
 
-`changmen-predictfun-collector` 直连 `api.predict.fun`（`PREDICT_FUN_API_KEY`），写 `platform_matches` / `platform_bets` 与 `predictfun_market_index.json`。浏览器 Predict.fun 采集器**仅**经 `ws-forward` hub 订阅 orderbook → `fo`，不经 http-relay 打 discovery。
+`changmen-predictfun-collector` 直连 `api.predict.fun`（`PREDICT_FUN_API_KEY`），写 `platform_matches` / `platform_bets` 与 `predictfun_market_index.json`。**当前已暂停**：deploy 会 `pm2 delete`，不随默认主栈启动。浏览器 Predict.fun 采集器**仅**经 `ws-forward` hub 订阅 orderbook → `fo`（hub 仍跑）。恢复采集：`pm2 start deploy/ecosystem.config.cjs --only changmen-predictfun-collector --update-env`。
 
 **SXBet 已暂停**：`changmen-sxbet-collector` / `changmen-sxbet-market-hub` 仍在 ecosystem 中，但 deploy 会 `pm2 delete`，默认不启动。恢复时改回 manifest `collect: true` 并手动 `pm2 start … --only changmen-sxbet-collector,changmen-sxbet-market-hub`。
 
