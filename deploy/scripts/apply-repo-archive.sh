@@ -84,14 +84,16 @@ restore_backend_secrets() {
   elif [ -f "$PERSIST_SECRETS/backend.env" ]; then
     cp -a "$PERSIST_SECRETS/backend.env" "$ROOT/server/backend/.env"
   fi
-  if [ -n "$backup" ] && [ -d "$backup/storage" ]; then
-    rm -rf "$ROOT/server/backend/storage"
-    cp -a "$backup/storage" "$ROOT/server/backend/storage"
-    rm -rf "$PERSIST_SECRETS/storage"
-    cp -a "$backup/storage" "$PERSIST_SECRETS/storage"
-  elif [ -d "$PERSIST_SECRETS/storage" ]; then
-    rm -rf "$ROOT/server/backend/storage"
-    cp -a "$PERSIST_SECRETS/storage" "$ROOT/server/backend/storage"
+  # 现网 storage 是采集/合场热数据：禁止 rm -rf。collector 同时写入时
+  # `rm: Directory not empty` 会让整次 GHA 部署失败（4fb22007 即此）。
+  # 只在 flatten 把 server/ 整棵删掉之后才从备份补回。
+  local live="$ROOT/server/backend/storage"
+  if [ ! -d "$live" ]; then
+    if [ -n "$backup" ] && [ -d "$backup/storage" ]; then
+      cp -a "$backup/storage" "$live"
+    elif [ -d "$PERSIST_SECRETS/storage" ]; then
+      cp -a "$PERSIST_SECRETS/storage" "$live"
+    fi
   fi
   if [ -n "$backup" ]; then
     rm -rf "$backup"
@@ -174,8 +176,11 @@ if [ -d "$ROOT/.git" ]; then
   OLD_HEAD="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 fi
 
+# git archive 成员无前导 ./ ；两种写法都排除，避免误解压覆盖热目录
 tar --warning=no-unknown-keyword -xzf "$ARCHIVE" -C "$ROOT" \
+  --exclude='server/backend/.env' \
   --exclude='./server/backend/.env' \
+  --exclude='server/backend/storage' \
   --exclude='./server/backend/storage'
 
 restore_backend_secrets
