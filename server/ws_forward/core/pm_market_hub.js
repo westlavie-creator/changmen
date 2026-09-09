@@ -12,7 +12,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { PM_MARKET_WS_URL } from "../platforms/pm.js";
 import { recordConnect, recordDisconnect, recordError } from "./forward_stats.js";
 import { attachHubUpstreamBackpressure, createWsRelayGuard } from "./ws_backpressure.js";
-import { isPmHubThinFramesEnabled, thinPmMarketFrames } from "./pm_hub_thin_frame.js";
+import { isPmHubThinFramesEnabled, pmHubQuoteTimestampMs, thinPmMarketFrames } from "./pm_hub_thin_frame.js";
 
 /** @typedef {(token: string) => Promise<{ userId?: string, userName?: string } | null | undefined>} PmMarketIdentityResolver */
 
@@ -194,12 +194,19 @@ export function mergeHubAssetIds(clientMap) {
  */
 export function enqueueLatestByAsset(pendingByAsset, assetIds, raw) {
   let coalesced = 0;
+  const incomingTs = pmHubQuoteTimestampMs(raw);
   for (const id of assetIds) {
     const key = String(id || "").trim();
     if (!key)
       continue;
-    if (pendingByAsset.has(key))
+    const prev = pendingByAsset.get(key);
+    if (prev != null) {
+      const prevTs = pmHubQuoteTimestampMs(prev);
+      // 有交易所时间戳时，丢掉更旧的帧，避免晚到的便宜卖一盖住新价
+      if (incomingTs > 0 && prevTs > incomingTs)
+        continue;
       coalesced += 1;
+    }
     pendingByAsset.set(key, raw);
   }
   return coalesced;

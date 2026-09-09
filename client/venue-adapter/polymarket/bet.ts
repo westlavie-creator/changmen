@@ -32,11 +32,13 @@ import {
 import { resolvePolymarketProviderLegOutcome } from "./legOutcome";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
+  isValidClobPrice,
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
 import {
   isPolymarketPriceAboveDetectionError,
+  notePolymarketLiveBookQuote,
   PolymarketPriceAboveDetectionError,
   syncPolymarketFoOnPriceAboveDetection,
 } from "./pmTokenQuote";
@@ -146,7 +148,8 @@ interface PolymarketOrderOptions {
 }
 
 /** 预检 /book 结果在下单前复用的最长时间（与其它场馆「预检写好 payload」对齐） */
-export const PRECHECK_BOOK_REUSE_MS = 800;
+/** 预检 /book 不得复用于 FOK 提交：对馆预检 + 并行下单期间簿会变 */
+export const PRECHECK_BOOK_REUSE_MS = 0;
 
 /** checkBet 写入、betting 可复用的 PM 买单预检缓存 */
 export interface PolymarketBuyCheckData {
@@ -446,45 +449,6 @@ function resolvePolymarketDetectionOdds(option: BetOption): number {
   return option.odds;
 }
 
-function isPolymarketBuyCheckData(data: unknown): data is PolymarketBuyCheckData {
-  if (!data || typeof data !== "object")
-    return false;
-  const row = data as PolymarketBuyCheckData;
-  const opts = row.orderOptions;
-  return Boolean(
-    row.side === "BUY"
-    && row.tokenId
-    && Number.isFinite(row.bookPrice) && row.bookPrice > 0
-    && Number.isFinite(row.bookFetchedAt) && row.bookFetchedAt > 0
-    && opts
-    && Array.isArray(opts.asks)
-    && opts.asks.length > 0
-    && (opts.tickSize === "0.1"
-      || opts.tickSize === "0.01"
-      || opts.tickSize === "0.001"
-      || opts.tickSize === "0.0001"
-      || opts.tickSize === "0.0025"),
-  );
-}
-
-function canReusePrecheckBook(
-  data: PolymarketBuyCheckData,
-  tokenId: string,
-  detectionOdds: number,
-  detectionMaxPriceCap: number,
-  apiBetMoney: number,
-  now: number,
-): boolean {
-  return (
-    data.tokenId === tokenId
-    && data.detectionOdds === detectionOdds
-    && data.detectionMaxPrice === detectionMaxPriceCap
-    && data.apiBetMoney === apiBetMoney
-    && (data.depthMultiplier ?? 1) === pmFokDepthReuseMultiplier()
-    && now - data.bookFetchedAt <= PRECHECK_BOOK_REUSE_MS
-  );
-}
-
 async function resolvePolymarketExecutableBuyForBet(
   gateway: string,
   tokenId: string,
@@ -492,16 +456,7 @@ async function resolvePolymarketExecutableBuyForBet(
   apiBetMoney: number,
   option: BetOption,
 ): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
-  const prior = option.data;
-  const now = Date.now();
   const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
-  if (isPolymarketBuyCheckData(prior) && canReusePrecheckBook(prior, tokenId, detectionOdds, maxPrice, apiBetMoney, now)) {
-    return {
-      price: prior.bookPrice,
-      bookOdds: prior.odds,
-      orderOptions: prior.orderOptions,
-    };
-  }
   const resolved = await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney, maxPrice);
   return {
     price: resolved.price,
@@ -616,6 +571,9 @@ export const polymarketProvider: PlatformProvider = {
         orderOptions,
         depthMultiplier: pmFokDepthReuseMultiplier(),
       } satisfies PolymarketBuyCheckData;
+      const bestAsk = orderOptions.asks[0]?.price;
+      if (isValidClobPrice(Number(bestAsk)))
+        notePolymarketLiveBookQuote(tokenId);
     }
     catch (err) {
       if (isPolymarketPriceAboveDetectionError(err)) {

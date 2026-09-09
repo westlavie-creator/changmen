@@ -7,6 +7,7 @@
 import { polymarketMarketSubscribeMessage } from "./api";
 import { startPolymarketSportMarketWs, type PolymarketSportMarketWsHandle } from "./sportMarketWs";
 import { extractPolymarketWsBestAsks } from "./wsQuotes";
+import { shouldApplyPolymarketWsQuote } from "./pmTokenQuote";
 
 export interface PolymarketSportQuote {
   assetId: string;
@@ -91,8 +92,11 @@ function ensureSportMarketQuoteHub(): void {
     onMessage: (raw) => {
       for (const update of extractPolymarketWsBestAsks(raw)) {
         const price = Number(update.bestAsk);
-        if (Number.isFinite(price))
-          emitQuote(update.assetId, price);
+        if (!Number.isFinite(price))
+          continue;
+        if (!shouldApplyPolymarketWsQuote(update.assetId, update.timestamp))
+          continue;
+        emitQuote(update.assetId, price);
       }
     },
   });

@@ -9,6 +9,7 @@
 import { polymarketMarketSubscribeMessage } from "./api";
 import { startPolymarketMarketWs, type PolymarketMarketWsHandle } from "./ws";
 import { extractPolymarketWsBestAsks } from "./wsQuotes";
+import { shouldApplyPolymarketWsQuote } from "./pmTokenQuote";
 
 export interface PolymarketMarketQuote {
   assetId: string;
@@ -102,8 +103,11 @@ export function ensurePolymarketMarketQuoteHub(): void {
     onMessage: (raw) => {
       for (const update of extractPolymarketWsBestAsks(raw)) {
         const price = Number(update.bestAsk);
-        if (Number.isFinite(price))
-          emitQuote(update.assetId, price);
+        if (!Number.isFinite(price))
+          continue;
+        if (!shouldApplyPolymarketWsQuote(update.assetId, update.timestamp))
+          continue;
+        emitQuote(update.assetId, price);
       }
     },
   });

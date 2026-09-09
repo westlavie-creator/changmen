@@ -81,6 +81,25 @@ describe("pm_market_hub", () => {
     expect(pending.get("a2")).toBe("raw-new");
   });
 
+  test("enqueueLatestByAsset drops older exchange timestamp", () => {
+    const pending = new Map();
+    const newer = JSON.stringify({
+      event_type: "best_bid_ask",
+      asset_id: "a1",
+      best_ask: "0.48",
+      timestamp: "2000",
+    });
+    const older = JSON.stringify({
+      event_type: "best_bid_ask",
+      asset_id: "a1",
+      best_ask: "0.40",
+      timestamp: "1000",
+    });
+    expect(enqueueLatestByAsset(pending, ["a1"], newer)).toBe(0);
+    expect(enqueueLatestByAsset(pending, ["a1"], older)).toBe(0);
+    expect(JSON.parse(pending.get("a1")).best_ask).toBe("0.48");
+  });
+
   test("takePendingRawsDeduped prefers best_bid_ask and dedupes shared raw", () => {
     const pending = new Map();
     const price = JSON.stringify({ event_type: "price_change", price_changes: [{ asset_id: "a1" }] });

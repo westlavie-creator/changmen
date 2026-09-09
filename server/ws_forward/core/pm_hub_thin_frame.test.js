@@ -101,6 +101,21 @@ describe("pm_hub_thin_frame", () => {
     });
   });
 
+  test("thin frames keep official timestamp", () => {
+    const frames = thinPmMarketFrames(JSON.stringify({
+      event_type: "best_bid_ask",
+      asset_id: "a1",
+      best_ask: "0.41",
+      timestamp: "1782753357257",
+    }));
+    expect(JSON.parse(frames[0].raw)).toEqual({
+      event_type: "best_bid_ask",
+      asset_id: "a1",
+      best_ask: "0.41",
+      timestamp: "1782753357257",
+    });
+  });
+
   test("buildThinBestBidAskFrame shape", () => {
     expect(JSON.parse(buildThinBestBidAskFrame("x", "0.3"))).toEqual({
       event_type: "best_bid_ask",

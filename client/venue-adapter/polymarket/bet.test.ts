@@ -1452,7 +1452,7 @@ describe("PM precheck /book reuse", () => {
     vi.mocked(pmSubmitOrder).mockReset();
   });
 
-  test("betting reuses checkBet /book within TTL", async () => {
+  test("betting refetches /book even immediately after checkBet", async () => {
     const now = 1_700_000_000_000;
     vi.spyOn(Date, "now").mockReturnValue(now);
     mockPluginGetWithBook({
@@ -1484,7 +1484,7 @@ describe("PM precheck /book reuse", () => {
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);
-    expect(bookGetCalls()).toHaveLength(0);
+    expect(bookGetCalls().length).toBeGreaterThan(0);
   });
 
   test("betting refetches /book when precheck cache expired", async () => {
