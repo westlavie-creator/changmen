@@ -19,6 +19,7 @@ import {
   matchInUpcomingWindow,
 } from "@/runtime/sportBoardFilter";
 import { isObSportC8Mid } from "@/runtime/obSportWs";
+import { livePatchFromObMatchRow, type ObSportLivePatch } from "@/runtime/obSportLive";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 
 const CACHE_TTL_MS = 120_000;
@@ -46,6 +47,11 @@ type ClientMarketRow = {
 
 let memCache: { at: number; rows: ClientMatchDto[] } | null = null;
 let inflight: Promise<ClientMatchDto[]> | null = null;
+let lastLiveByMid = new Map<string, ObSportLivePatch>();
+
+export function listObFootballLivePatches(): ObSportLivePatch[] {
+  return [...lastLiveByMid.values()];
+}
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -686,13 +692,19 @@ async function doFetch(): Promise<ClientMatchDto[]> {
       oddsMap.set(mid, row);
   }
   const dtos: ClientMatchDto[] = [];
+  const nextLive = new Map<string, ObSportLivePatch>();
   for (const meta of windowed) {
-    const dto = buildDto(meta, oddsMap.get(meta.mid));
+    const oddsRow = oddsMap.get(meta.mid);
+    const dto = buildDto(meta, oddsRow);
     if (!dto)
       continue;
     if (meta.isLive || matchInUpcomingWindow(Number(dto.StartTime) || 0, now))
       dtos.push(dto);
+    const live = livePatchFromObMatchRow(meta.mid, oddsRow || null);
+    if (live)
+      nextLive.set(meta.mid, live);
   }
+  lastLiveByMid = nextLive;
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
   return dtos;
 }
@@ -719,6 +731,7 @@ export async function fetchObFootballAsClientMatchDtos(): Promise<ClientMatchDto
 export function clearObFootballClientCache() {
   memCache = null;
   inflight = null;
+  lastLiveByMid = new Map();
 }
 
 export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMarketRow[]> {

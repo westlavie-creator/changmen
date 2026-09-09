@@ -34,15 +34,28 @@ export function obSportRawLooksLikeClock(raw: unknown): boolean {
   return cmd === "C0" || cmd === "C00" || cmd === "C102";
 }
 
-function trimObSportBacklog(queue: unknown[]) {
+function rawPushMid(raw: unknown): string {
+  if (typeof raw !== "string")
+    return "";
+  return raw.match(/"mid"\s*:\s*"?(\d{4,12})"?/i)?.[1] || "";
+}
+
+/** 积压时丢掉过期心跳/时钟，但每场保留最新一条 C102，否则标题永远没有进行时间。 */
+export function trimObSportPushBacklog(queue: unknown[]) {
   if (queue.length < 24)
     return;
+  const lastClockByMid = new Map<string, unknown>();
   let w = 0;
   for (const item of queue) {
-    if (obSportRawLooksLikeClock(item))
+    if (obSportRawLooksLikeClock(item)) {
+      if (String(item).includes('"cmd"') && /"cmd"\s*:\s*"C102"/i.test(String(item)))
+        lastClockByMid.set(rawPushMid(item) || "_", item);
       continue;
+    }
     queue[w++] = item;
   }
+  for (const item of lastClockByMid.values())
+    queue[w++] = item;
   queue.length = w;
 }
 
@@ -415,7 +428,7 @@ export function startObSportWs(
     pumping = true;
     try {
       while (incoming.length && !stopped) {
-        trimObSportBacklog(incoming);
+        trimObSportPushBacklog(incoming);
         const raw = incoming.shift();
         if (raw == null)
           continue;
@@ -445,7 +458,7 @@ export function startObSportWs(
     if (stopped)
       return;
     incoming.push(raw);
-    trimObSportBacklog(incoming);
+    trimObSportPushBacklog(incoming);
     void pumpIncoming();
   };
 

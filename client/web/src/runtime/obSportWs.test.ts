@@ -6,6 +6,7 @@ import {
   obSportRawLooksLikeClock,
   parseObSportPushOdds,
   resolveObSportWsUrl,
+  trimObSportPushBacklog,
 } from "@/runtime/obSportWs";
 
 describe("obSportWs", () => {
@@ -40,6 +41,23 @@ describe("obSportWs", () => {
     })).toEqual([]);
     expect(obSportRawLooksLikeClock(JSON.stringify({ cmd: "C102", cd: { mid: "m1" } }))).toBe(true);
     expect(obSportRawLooksLikeClock(JSON.stringify({ cmd: "C105", cd: {} }))).toBe(false);
+  });
+
+  it("keeps the latest C102 per mid when the push queue backs up", () => {
+    const q = [
+      JSON.stringify({ cmd: "C102", cd: { mid: "5652292", mst: 10 } }),
+      JSON.stringify({ cmd: "C105", cd: { mid: "5652292" } }),
+      JSON.stringify({ cmd: "C102", cd: { mid: "5652292", mst: 40 } }),
+      JSON.stringify({ cmd: "C103", cd: { mid: "5652292", msc: ["S0|1:0"] } }),
+    ];
+    while (q.length < 24)
+      q.unshift(JSON.stringify({ cmd: "C0" }));
+    trimObSportPushBacklog(q);
+    const cmds = q.map(x => JSON.parse(String(x)).cmd);
+    expect(cmds).toContain("C105");
+    expect(cmds).toContain("C103");
+    expect(cmds.filter(c => c === "C102")).toEqual(["C102"]);
+    expect(q.some(x => String(x).includes('"mst":40'))).toBe(true);
   });
 
   it("parses hk ov2 push into decimal odds", () => {

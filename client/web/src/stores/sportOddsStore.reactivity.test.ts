@@ -1,4 +1,5 @@
 import { createPinia, setActivePinia } from "pinia";
+import { storeToRefs } from "pinia";
 import { beforeEach, describe, expect, it } from "vitest";
 import { computed, nextTick } from "vue";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
@@ -70,5 +71,23 @@ describe("obSportLive nested tracking", () => {
     await nextTick();
     expect(score.value).toBe("2:0");
     expect(other.value).toBeNull();
+  });
+
+  it("storeToRefs byMid tracks first insert and later score without liveTick", async () => {
+    const live = useObSportLiveStore();
+    const { byMid } = storeToRefs(live);
+    const score = computed(() => {
+      const row = byMid.value.m1;
+      void row?.home;
+      void row?.away;
+      return row ? `${row.home}:${row.away}` : "";
+    });
+    expect(score.value).toBe("");
+    live.applyLive({ mid: "m1", home: 1, away: 0, mmp: "6", ms: 1 });
+    await nextTick();
+    expect(score.value).toBe("1:0");
+    live.applyLive({ mid: "m1", home: 2, away: 0 });
+    await nextTick();
+    expect(score.value).toBe("2:0");
   });
 });

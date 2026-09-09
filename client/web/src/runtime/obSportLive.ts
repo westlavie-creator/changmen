@@ -42,14 +42,59 @@ const MMP_LABEL: Record<string, string> = {
   "999": "完场",
 };
 
+const LIVE_MMP = new Set([
+  "1", "2", "6", "7", "13", "14", "15", "16",
+  "31", "32", "40", "41", "42", "50", "80", "110",
+]);
+
+function mscParts(msc: unknown): string[] {
+  if (Array.isArray(msc))
+    return msc.map(x => String(x || "").trim()).filter(Boolean);
+  return String(msc ?? "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+}
+
 export function parseMscScore(msc: unknown): { home: number; away: number } | null {
-  const list = Array.isArray(msc) ? msc : [];
-  const s0 = list.map(x => String(x || "")).find(s => /^S0\|/i.test(s));
-  const raw = s0 ? s0.slice(s0.indexOf("|") + 1) : "";
-  const m = raw.match(/^(-?\d+)\s*:\s*(-?\d+)/);
+  const list = mscParts(msc);
+  const s0 = list.find(s => /^S0\|/i.test(s));
+  const raw = s0
+    ? s0.slice(s0.indexOf("|") + 1)
+    : (list.length === 1 && !/^S\d+\|/i.test(list[0]) ? list[0] : "");
+  const m = raw.match(/^(-?\d+)\s*[:\-]\s*(-?\d+)/);
   if (!m)
     return null;
   return { home: Number(m[1]), away: Number(m[2]) };
+}
+
+/** HTTP 列表行（msc/mst/mmp/ms）→ 滚球态。未开赛 0-0 不进 store。 */
+export function livePatchFromObMatchRow(
+  mid: string,
+  row: Record<string, unknown> | null | undefined,
+): ObSportLivePatch | null {
+  const id = String(mid || "").trim();
+  if (!id || !row)
+    return null;
+  const patch: ObSportLivePatch = { mid: id };
+  const score = parseMscScore(row.msc);
+  if (score) {
+    patch.home = score.home;
+    patch.away = score.away;
+  }
+  const mmp = row.mmp ?? row.mpid;
+  if (mmp != null && String(mmp).trim())
+    patch.mmp = String(mmp).trim();
+  const sec = Number(row.mst ?? row.msts);
+  if (Number.isFinite(sec) && sec >= 0)
+    patch.elapsedSec = Math.floor(sec);
+  if (row.ms != null && row.ms !== "")
+    patch.ms = Number(row.ms) || 0;
+  const inPlay = patch.ms === 1
+    || (patch.elapsedSec ?? 0) > 0
+    || LIVE_MMP.has(patch.mmp || "");
+  if (!inPlay)
+    return null;
+  if (patch.ms == null)
+    patch.ms = 1;
+  return patch;
 }
 
 export function mergeObSportLivePatch(
@@ -94,8 +139,11 @@ export function parseObSportMatchLive(msg: unknown): ObSportLivePatch | null {
       patch.home = score.home;
       patch.away = score.away;
     }
-    if (body.mpid != null && String(body.mpid).trim())
-      patch.mmp = String(body.mpid);
+    const mmp = body.mpid ?? body.mmp;
+    if (mmp != null && String(mmp).trim())
+      patch.mmp = String(mmp).trim();
+    if (score || LIVE_MMP.has(patch.mmp || ""))
+      patch.ms = 1;
     return patch;
   }
   if (cmd === "C102") {
@@ -164,7 +212,7 @@ export function obSportShowLiveBadge(live: ObSportLiveMatch | null | undefined):
   if (ms === 110 || ms === 0)
     return false;
   const mmp = String(live.mmp || "");
-  if (["90", "100", "999"].includes(mmp))
+  if (["0", "90", "100", "999"].includes(mmp))
     return false;
   return ms === 1 || live.home != null || Boolean(mmp);
 }

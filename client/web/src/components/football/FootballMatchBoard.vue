@@ -13,6 +13,7 @@ import {
   type SportLiveOddsSession,
 } from "@/runtime/sportLiveOdds";
 import { onNestedVerticalWheel } from "@/runtime/footballBoardScroll";
+import { listObFootballLivePatches } from "@/runtime/obSportFootballFetch";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
@@ -98,6 +99,17 @@ onUnmounted(() => {
     nowTimer = null;
   }
 });
+
+function seedLiveFromHttp() {
+  for (const patch of listObFootballLivePatches()) {
+    const cur = obLive.get(patch.mid);
+    if (cur && (cur.home != null || cur.elapsedSec > 0 || Number(cur.ms) === 1))
+      continue;
+    obLive.applyLive(patch);
+  }
+}
+
+watch(matchs, seedLiveFromHttp, { immediate: true });
 
 watch(listRev, () => {
   void football.fetchMatchs();

@@ -149,6 +149,8 @@ describe("sport / esport UI isolation", () => {
     expect(book).not.toMatch(/void liveTick/);
     expect(book).not.toMatch(/oddsDisplayTick/);
     expect(card).not.toMatch(/void liveTick/);
+    expect(card).toMatch(/storeToRefs/);
+    expect(list).toMatch(/listObFootballLivePatches/);
     expect(list).toMatch(/filterSportBoardMatches/);
     expect(list).toMatch(/搜索队名 \/ 联赛/);
     expect(list).not.toMatch(/@\/components\/match\/MatchCard/);

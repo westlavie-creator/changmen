@@ -9,6 +9,7 @@ import {
   obSportShowLiveBadge,
 } from "@/runtime/obSportLive";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
+import { storeToRefs } from "pinia";
 import { computed, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
@@ -16,13 +17,24 @@ const props = defineProps<{
 }>();
 
 const obLive = useObSportLiveStore();
+const { byMid } = storeToRefs(obLive);
 const clockLabel = ref("");
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const leagueTag = computed(() => footballLeagueTag(props.match.game));
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
-/** 只订本场 byMid，禁止 void 全局 liveTick（否则任意场进球会重绘所有标题）。 */
-const live = computed(() => obMid.value ? obLive.get(obMid.value) : undefined);
+/** 只订本场 byMid 的比分/节次，不订全局 liveTick，也不读 elapsedSec。 */
+const live = computed(() => {
+  const mid = obMid.value;
+  if (!mid)
+    return undefined;
+  const row = byMid.value[mid];
+  void row?.home;
+  void row?.away;
+  void row?.mmp;
+  void row?.ms;
+  return row;
+});
 const scoreLabel = computed(() => formatObSportScore(live.value));
 const periodLabel = computed(() => obSportPeriodLabel(live.value?.mmp || ""));
 const showLive = computed(() => Boolean(scoreLabel.value || obSportShowLiveBadge(live.value)));

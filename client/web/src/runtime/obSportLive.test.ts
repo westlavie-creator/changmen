@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatObSportElapsed,
   formatObSportScore,
+  livePatchFromObMatchRow,
   mergeObSportLivePatch,
   obSportPeriodLabel,
   parseMscScore,
@@ -15,7 +16,28 @@ describe("obSportLive", () => {
     expect(parseObSportMatchLive({
       cmd: "C103",
       cd: { mid: "m1", mpid: "7", msc: ["S0|2:0"] },
-    })).toEqual({ mid: "m1", home: 2, away: 0, mmp: "7" });
+    })).toEqual({ mid: "m1", home: 2, away: 0, mmp: "7", ms: 1 });
+    expect(parseMscScore("S0|1:0")).toEqual({ home: 1, away: 0 });
+    expect(parseMscScore("2-1")).toEqual({ home: 2, away: 1 });
+    expect(parseObSportMatchLive({
+      cmd: "C103",
+      cd: { mid: "m2", mmp: "6", msc: "S0|0:1" },
+    })).toEqual({ mid: "m2", home: 0, away: 1, mmp: "6", ms: 1 });
+  });
+
+  it("reads in-play score/clock from HTTP list rows and skips not-started 0-0", () => {
+    expect(livePatchFromObMatchRow("5652292", {
+      msc: ["S0|1:0"],
+      mmp: "6",
+      mst: 2781,
+      ms: 1,
+    })).toEqual({ mid: "5652292", home: 1, away: 0, mmp: "6", elapsedSec: 2781, ms: 1 });
+    expect(livePatchFromObMatchRow("5652293", {
+      msc: "S0|0:0",
+      mmp: "0",
+      mst: 0,
+      ms: 0,
+    })).toBeNull();
   });
 
   it("reads C102 clock and period", () => {
