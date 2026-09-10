@@ -7,6 +7,7 @@ import {
 import { collectPlatformEntries } from "../compose/normalize/platform_entry.js";
 import {
   collapsePbEntriesByRotNum,
+  isPbLiveLike,
   isPbRotGroupCollision,
   listPbRotNumSiblings,
   pickPrimaryPbEntry,
@@ -33,6 +34,17 @@ function pbBets() {
     [`PB:${PRE_ID}`]: [
       { Map: 2, SourceBetID: "p2", SourceHomeID: "h", SourceAwayID: "a" },
       { Map: 3, SourceBetID: "p3", SourceHomeID: "h", SourceAwayID: "a" },
+    ],
+  };
+}
+
+/** 真实 euro/odds：live + prematch 都有全场 Match Winner（Map0）；PRE id 往往更小 */
+function pbBetsBothMap0() {
+  return {
+    [`PB:${LIVE_ID}`]: [{ Map: 0, SourceBetID: "l0", SourceHomeID: "lh", SourceAwayID: "la" }],
+    [`PB:${PRE_ID}`]: [
+      { Map: 0, SourceBetID: "p0", SourceHomeID: "ph", SourceAwayID: "pa" },
+      { Map: 2, SourceBetID: "p2", SourceHomeID: "ph", SourceAwayID: "pa" },
     ],
   };
 }
@@ -80,6 +92,43 @@ describe("PB rotNum collapse (Phase A)", () => {
     assert.deepEqual(list[0]._pbSiblingSourceMatchIds, [PRE_ID]);
   });
 
+  it("both events have Map0 + IsLive flags → Matchs.PB is live (not lex-min PRE)", () => {
+    installPlugin();
+    const list = clusterByGbThenName(
+      dualMatches({ live: { IsLive: 1 }, pre: { IsLive: 0 } }),
+      [],
+      { pbRotnumCollapse: true, bets: pbBetsBothMap0() },
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+    assert.deepEqual(list[0]._pbSiblingSourceMatchIds, [PRE_ID]);
+  });
+
+  it("sticky PRE with Map0 promotes when sibling IsLive=1", () => {
+    installPlugin();
+    const list = clusterByGbThenName(
+      dualMatches({ live: { IsLive: 1 }, pre: { IsLive: 0 } }),
+      [{
+        id: 1730,
+        merge_key: "manual:seed",
+        matchs: { OB: "ob1", PB: PRE_ID },
+      }],
+      { pbRotnumCollapse: true, bets: pbBetsBothMap0() },
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].ID, 1730);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+  });
+
+  it("isPbLiveLike: explicit IsLive=0 is not live-like even with Map0", () => {
+    const entry = {
+      platform: "PB",
+      sourceMatchId: PRE_ID,
+      nativeRow: { ...pmPb, SourceMatchID: PRE_ID, IsLive: 0 },
+    };
+    assert.equal(isPbLiveLike(entry, pbBetsBothMap0()), false);
+  });
+
   it("no rotNum does not collapse two unstarted books", () => {
     installPlugin();
     const entries = collectPlatformEntries({
@@ -104,6 +153,36 @@ describe("PB rotNum collapse (Phase A)", () => {
     assert.equal(list[0].Matchs.PB, LIVE_ID);
     assert.equal(list[0]._pbSiblingSourceMatchIds, undefined);
     assert.deepEqual(collectPeriods(list[0], pbBets(), 0, matches), [0]);
+  });
+
+  it("A8 no rotNum: dual Map0 live+prematch still elects live (not isUnstartedMapsOnly)", () => {
+    installPlugin();
+    // 78bb7161 回归：门控若用 isUnstartedMapsOnly，赛前 Map0 会使 unkeyed collapse 永不触发
+    const matches = dualMatchesA8();
+    const list = clusterByGbThenName(matches, [], {
+      pbRotnumCollapse: true,
+      bets: pbBetsBothMap0(),
+    });
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+    assert.equal(list[0]._pbSiblingSourceMatchIds, undefined);
+    assert.equal(list[0].Matchs.OB, "ob1");
+  });
+
+  it("A8 no rotNum: sticky PRE + dual Map0 promotes to live", () => {
+    installPlugin();
+    const list = clusterByGbThenName(
+      dualMatchesA8(),
+      [{
+        id: 1730,
+        merge_key: "manual:seed",
+        matchs: { OB: "ob1", PB: PRE_ID },
+      }],
+      { pbRotnumCollapse: true, bets: pbBetsBothMap0() },
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].ID, 1730);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
   });
 
   it("A8 no rotNum: IsLive alone (no bets) still prefers live", () => {
@@ -153,7 +232,7 @@ describe("PB rotNum collapse (Phase A)", () => {
         pre: { StartTime: t0 },
       }),
       [],
-      collapseOpts,
+      { pbRotnumCollapse: true, bets: pbBetsBothMap0() },
     );
     assert.equal(list.length, 1);
     assert.equal(list[0].Matchs.PB, LIVE_ID);

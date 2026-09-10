@@ -42,6 +42,10 @@ export function mapsFromBets(bets, platform, sourceMatchId) {
   return maps;
 }
 
+function entryPm(entry) {
+  return entry?.nativeRow && typeof entry.nativeRow === "object" ? entry.nativeRow : entry;
+}
+
 function liveFlag(pm) {
   const raw = pm?.IsLive ?? pm?.isLive ?? pm?.live ?? pm?.is_live;
   if (raw === true || raw === 1 || raw === "1")
@@ -51,10 +55,26 @@ function liveFlag(pm) {
   return false;
 }
 
+/** SaveMatch 已显式标 IsLive=0/false 的 prematch，不得靠 Map0 冒充 live。 */
+function explicitNotLive(pm) {
+  const raw = pm?.IsLive ?? pm?.isLive ?? pm?.live ?? pm?.is_live;
+  if (raw === false || raw === 0 || raw === "0")
+    return true;
+  if (typeof raw === "string" && raw.trim().toLowerCase() === "false")
+    return true;
+  return false;
+}
+
+/**
+ * live 优先；缺 IsLive 时 Map0 仍作弱信号（旧行）。
+ * 显式 IsLive=0 的 prematch 全场盘绝不能 live-like，否则双 Map0 会按 id 字典序锁死 PRE。
+ */
 export function isPbLiveLike(entry, bets = {}) {
-  const pm = entry?.nativeRow && typeof entry.nativeRow === "object" ? entry.nativeRow : entry;
+  const pm = entryPm(entry);
   if (liveFlag(pm))
     return true;
+  if (explicitNotLive(pm))
+    return false;
   return mapsFromBets(bets, entry.platform || "PB", entry.sourceMatchId).has(0);
 }
 
@@ -118,8 +138,23 @@ function stickySetFromClientRows(existingClientRows) {
   return ids;
 }
 
+function sortBySourceMatchId(list) {
+  return [...list].sort((a, b) =>
+    String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)));
+}
+
+/** 多名 liveLike 时优先显式 IsLive=1，避免双 Map0 字典序锁 PRE。 */
+function pickPreferredLiveLike(liveLike) {
+  if (!liveLike?.length)
+    return null;
+  if (liveLike.length === 1)
+    return liveLike[0];
+  const flagged = liveLike.filter(e => liveFlag(entryPm(e)));
+  return sortBySourceMatchId(flagged.length ? flagged : liveLike)[0];
+}
+
 /**
- * 主 event：粘性 → 升主盘（未开图 sticky + 同组 live）→ live/map0 → 稳定 id。
+ * 主 event：粘性 → 升主盘（prematch/未开图 sticky + 同组 live）→ live/map0 → 稳定 id。
  */
 export function pickPrimaryPbEntry(entries, {
   bets = {},
@@ -135,8 +170,16 @@ export function pickPrimaryPbEntry(entries, {
 
   if (sticky.length === 1) {
     const s = sticky[0];
+    const sPm = entryPm(s);
+    // sticky 仍是 prematch（或未标 live），同组已有显式 live → 升主盘
+    const liveFlagged = entries.find(e =>
+      e.sourceMatchId !== s.sourceMatchId && liveFlag(entryPm(e)));
+    if (liveFlagged && !liveFlag(sPm))
+      return liveFlagged;
     if (isUnstartedMapsOnly(s, bets)) {
-      const live = liveLike.find(e => e.sourceMatchId !== s.sourceMatchId);
+      const live = pickPreferredLiveLike(
+        liveLike.filter(e => e.sourceMatchId !== s.sourceMatchId),
+      );
       if (live)
         return live;
     }
@@ -144,23 +187,16 @@ export function pickPrimaryPbEntry(entries, {
   }
   if (sticky.length > 1) {
     const stickyLive = sticky.filter(e => isPbLiveLike(e, bets));
-    if (stickyLive.length) {
-      return [...stickyLive].sort((a, b) =>
-        String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
-    }
-    return [...sticky].sort((a, b) =>
-      String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
+    if (stickyLive.length)
+      return pickPreferredLiveLike(stickyLive);
+    return sortBySourceMatchId(sticky)[0];
   }
 
-  if (liveLike.length === 1)
-    return liveLike[0];
-  if (liveLike.length > 1) {
-    return [...liveLike].sort((a, b) =>
-      String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
-  }
+  const preferred = pickPreferredLiveLike(liveLike);
+  if (preferred)
+    return preferred;
 
-  return [...entries].sort((a, b) =>
-    String(a.sourceMatchId).localeCompare(String(b.sourceMatchId)))[0];
+  return sortBySourceMatchId(entries)[0];
 }
 
 export function pickPrimaryPbSourceId(sourceIds, matches, opts = {}) {
@@ -286,7 +322,8 @@ function mergePbGroup(group, { bets, stickySourceMatchIds }) {
 /**
  * A8 不上报 RotNum。开赛后 live event 新插入、赛前 event 仍留在库里，
  * 合场每馆只有一个 PB 槽：必须把滚球账本接到这场上，否则 UI 用赛前 HomeID 对 fo 全是锁盘。
- * 指纹：同一 game+队对，恰好一场 live-like + 其余未开图（无 map0）。
+ * 指纹：同一 game+队对，恰好一场显式 IsLive=1 + 其余显式非 live（含双 Map0 赛前全场盘）。
+ * 不可用 isUnstartedMapsOnly：赛前 Match Winner 几乎总有 Map0，会把残留误判成「不可并」。
  * 只改 Matchs.PB 主盘选举；不把 sibling 交给投影层（那是 RotNum 拼未开图，属 changmen 扩展）。
  */
 function collapsePbUnkeyedLivePrematch(entries, { bets, stickySourceMatchIds }) {
@@ -332,9 +369,10 @@ function collapsePbUnkeyedLivePrematch(entries, { bets, stickySourceMatchIds }) 
       collapsed.push(...group);
       continue;
     }
-    const liveLike = group.filter(e => isPbLiveLike(e, bets));
-    const unstarted = group.filter(e => isUnstartedMapsOnly(e, bets));
-    if (liveLike.length !== 1 || unstarted.length < 1) {
+    // 只信 SaveMatch 盖的 IsLive：双 Map0 时 isPbLiveLike/isUnstartedMapsOnly 都会把赛前算进 live。
+    const liveFlagged = group.filter(e => liveFlag(entryPm(e)));
+    const leftovers = group.filter(e => !liveFlag(entryPm(e)));
+    if (liveFlagged.length !== 1 || leftovers.length < 1) {
       collapsed.push(...group);
       continue;
     }
