@@ -1,5 +1,7 @@
 /**
- * [changmen 扩展] PB 采集模式：默认 A8（`mHe` 仅 live）；开 changmen 扩展才双循环 + 赛前写 fo。
+ * [changmen 扩展] PB 采集模式。
+ * 默认关 = A8 `YY`/`mHe`（仅 live 写 fo，不上报 RotNum，不启 WS 观测）。
+ * 开 = 双循环 + 赛前写 fo + SaveMatch.RotNum + WS 影子。
  */
 let changmenExtensions = false;
 

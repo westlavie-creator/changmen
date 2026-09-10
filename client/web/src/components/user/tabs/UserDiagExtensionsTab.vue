@@ -4,6 +4,7 @@ import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
+import PmPfBufferSettings from "@/components/user/PmPfBufferSettings.vue";
 import {
   VALUE_BET_SOFT_CANDIDATES,
   normalizeValueBetSoftPlatforms,
@@ -35,20 +36,6 @@ else
   extensionPrefs.value.arbAllowedPlatforms = normalizeArbAllowedPlatforms(
     extensionPrefs.value.arbAllowedPlatforms,
   );
-
-const pbWsShadowUi = computed({
-  get: () => user.pbWsShadowUi === true,
-  set: (on: boolean) => {
-    void user.setPbWsShadowUi(on);
-  },
-});
-
-const pbChangmenExtensions = computed({
-  get: () => user.pbChangmenExtensions === true,
-  set: (on: boolean) => {
-    void user.setPbChangmenExtensions(on);
-  },
-});
 
 /** all = 不限制；list = 仅勾选馆 */
 const arbMode = computed({
@@ -226,56 +213,13 @@ async function save() {
       </div>
     </section>
 
+    <PmPfBufferSettings />
+
     <div class="extensions-tab__cols">
       <el-form label-position="left" label-width="158px" class="extensions-tab__panel">
         <h3 class="extensions-tab__heading">
-          PB / 9999
+          9999
         </h3>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="默认关 = 对齐 A8（仅滚球 euro/odds 写主价 fo，不采赛前）。开 = changmen 扩展（live+prematch 双循环、赛前也写 fo）。仅本机 localStorage。"
-            >
-              <span class="extensions-tab__tip-label">PB changmen 扩展</span>
-            </el-tooltip>
-          </template>
-          <el-switch
-            v-model="pbChangmenExtensions"
-            inline-prompt
-            active-text="开"
-            inactive-text="关"
-          />
-        </el-form-item>
-
-        <el-form-item v-if="pbChangmenExtensions">
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="开总开关后默认开。主价不变。影子=官网 WS + SPA euro/odds。可单独关掉。需扩展 1.3.31+ 并重载 part888。"
-            >
-              <span class="extensions-tab__tip-label">PB WS 影子价</span>
-            </el-tooltip>
-          </template>
-          <el-switch
-            v-model="pbWsShadowUi"
-            inline-prompt
-            active-text="开"
-            inactive-text="关"
-          />
-        </el-form-item>
-
-        <el-form-item v-else>
-          <template #label>
-            <span class="extensions-tab__tip-label extensions-tab__tip-label--muted">PB WS 影子价</span>
-          </template>
-          <span class="extensions-tab__hint-inline">需先开 PB changmen 扩展</span>
-        </el-form-item>
 
         <el-form-item>
           <template #label>
@@ -312,140 +256,6 @@ async function save() {
             inline-prompt
             active-text="开"
             inactive-text="关"
-          />
-        </el-form-item>
-
-        <h3 class="extensions-tab__heading extensions-tab__heading--next">
-          Polymarket
-        </h3>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="开：有 fo 的 PM 展示/扫描/FOK = 卖一 × 倍数（如 0.886×1.01）。无 fo 不打折。结算仍用成交价。关 = 现网。"
-            >
-              <span class="extensions-tab__tip-label">套利卖一缓冲</span>
-            </el-tooltip>
-          </template>
-          <el-switch
-            v-model="extensionPrefs.pmArbPriceBuffer.enabled"
-            inline-prompt
-            active-text="开"
-            inactive-text="关"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
-            >
-              <span class="extensions-tab__tip-label">卖一倍数</span>
-            </el-tooltip>
-          </template>
-          <el-input-number
-            v-model="extensionPrefs.pmArbPriceBuffer.multiplier"
-            class="extensions-tab__num"
-            :min="1.01"
-            :max="1.1"
-            :step="0.01"
-            :precision="2"
-            :disabled="!extensionPrefs.pmArbPriceBuffer.enabled"
-            controls-position="right"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="开：成交价及更优档可立即成交额须 ≥ 下单金额 × 倍数，否则预检失败。关 = 现网 1×。更深更差档不算垫。"
-            >
-              <span class="extensions-tab__tip-label">FOK 深度倍数</span>
-            </el-tooltip>
-          </template>
-          <el-switch
-            v-model="extensionPrefs.pmFokDepthBuffer.enabled"
-            inline-prompt
-            active-text="开"
-            inactive-text="关"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="成交价及更优档深度须达到下单金额的该倍数。默认 1.5；保存后写入 Extensions。"
-            >
-              <span class="extensions-tab__tip-label">深度倍数</span>
-            </el-tooltip>
-          </template>
-          <el-input-number
-            v-model="extensionPrefs.pmFokDepthBuffer.multiplier"
-            class="extensions-tab__num"
-            :min="1.1"
-            :max="10"
-            :step="0.1"
-            :precision="1"
-            :disabled="!extensionPrefs.pmFokDepthBuffer.enabled"
-            controls-position="right"
-          />
-        </el-form-item>
-
-        <h3 class="extensions-tab__heading extensions-tab__heading--next">
-          PredictFun
-        </h3>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="开：有 fo 的 PF 展示/扫描/限价 = 卖一 × 倍数。无 fo 不打折。已删除硬编码 30bps；关 = 裸限价。结算仍用成交价。"
-            >
-              <span class="extensions-tab__tip-label">套利卖一缓冲</span>
-            </el-tooltip>
-          </template>
-          <el-switch
-            v-model="extensionPrefs.pfArbPriceBuffer.enabled"
-            inline-prompt
-            active-text="开"
-            inactive-text="关"
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <template #label>
-            <el-tooltip
-              placement="top"
-              :show-after="200"
-              popper-class="extensions-tab-tip"
-              content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
-            >
-              <span class="extensions-tab__tip-label">卖一倍数</span>
-            </el-tooltip>
-          </template>
-          <el-input-number
-            v-model="extensionPrefs.pfArbPriceBuffer.multiplier"
-            class="extensions-tab__num"
-            :min="1.01"
-            :max="1.1"
-            :step="0.01"
-            :precision="2"
-            :disabled="!extensionPrefs.pfArbPriceBuffer.enabled"
-            controls-position="right"
           />
         </el-form-item>
       </el-form>

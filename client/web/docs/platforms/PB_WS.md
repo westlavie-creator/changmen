@@ -167,9 +167,9 @@ SPA **体育 ↔ 电子竞技** 切换会再发 `SUBSCRIBE|ODDS`（同 WS 不断
 
 **结论：** WS = 增量；HTTP 全量仍必要。旁路不得停轮询。
 
-**[changmen 扩展] 采集调度：** 默认 **A8**（`mHe`：仅 live 写 `fo`，不采 prematch）。用户中心「PB changmen 扩展」开：live / prematch 双 5s、两侧写 `fo`。影子旁显 `pbWsShadowUi` 仅扩展模式下可用。
+**[changmen 扩展] 采集调度：** 默认 **A8**（`mHe`：仅 live 写 `fo`，不采 prematch）。用户中心「赛事采集」→「PB changmen 扩展」开：live / prematch 双 5s、两侧写 `fo`。影子旁显 `pbWsShadowUi` 仅扩展模式下可用。
 
-**[changmen 扩展] 影子旁显：** 用户中心「扩展」`pbWsShadowUi`。**目标：主价/fo 不动；影子必须等于官网同一格。**
+**[changmen 扩展] 影子旁显：** 用户中心「赛事采集」`pbWsShadowUi`（需先开「PB changmen 扩展」）。**目标：主价/fo 不动；影子必须等于官网同一格。**
 
 官网源（**禁止 hook 另拉 euro**，**不做 DOM 读格**）：
 

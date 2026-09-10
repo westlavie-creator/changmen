@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { parseEuroOddsPayload } from "./parse";
 import { buildPbCollectMatchDto } from "./markets";
+import { setPbChangmenExtensions } from "./extensionsMode";
 
 describe("PB rotNum SaveMatch step1", () => {
   test("parseEuroOddsPayload keeps event.rotNum", () => {
@@ -34,7 +35,8 @@ describe("PB rotNum SaveMatch step1", () => {
     expect(matches[0]!.rotNum).toBe("53830");
   });
 
-  test("buildPbCollectMatchDto uploads RotNum without changing SourceMatchID", () => {
+  test("A8 default: SaveMatch keeps SourceMatchID and omits RotNum", () => {
+    setPbChangmenExtensions(false);
     const dto = buildPbCollectMatchDto({
       matchId: "1633896380",
       gameId: "valorant",
@@ -50,8 +52,34 @@ describe("PB rotNum SaveMatch step1", () => {
       stages: [],
     });
     expect(dto.SourceMatchID).toBe("1633896380");
-    expect(dto.RotNum).toBe("53830");
+    expect(dto.RotNum).toBeUndefined();
     expect(dto.IsLive).toBe(1);
+  });
+
+  test("changmen extensions: SaveMatch includes RotNum without changing SourceMatchID", () => {
+    setPbChangmenExtensions(true);
+    try {
+      const dto = buildPbCollectMatchDto({
+        matchId: "1633896380",
+        gameId: "valorant",
+        gameCode: "valorant",
+        gameName: "Valorant",
+        leagueName: "VCT",
+        bo: 3,
+        startTime: 1_700_000_000_000,
+        isLive: true,
+        rotNum: "53830",
+        home: { id: "kru", name: "KRU", englishName: "KRU" },
+        away: { id: "bestia", name: "BESTIA", englishName: "BESTIA" },
+        stages: [],
+      });
+      expect(dto.SourceMatchID).toBe("1633896380");
+      expect(dto.RotNum).toBe("53830");
+      expect(dto.IsLive).toBe(1);
+    }
+    finally {
+      setPbChangmenExtensions(false);
+    }
   });
 
   test("buildPbCollectMatchDto sets IsLive=0 for prematch", () => {

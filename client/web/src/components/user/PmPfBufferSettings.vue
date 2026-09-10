@@ -1,0 +1,226 @@
+<script setup lang="ts">
+/**
+ * [changmen 扩展] PM / PF 卖一缓冲 + PM FOK 深度。
+ * 只改排版对照，绑定与校验与原「扩展」表单项相同；保存仍走父级 Extensions。
+ */
+import { storeToRefs } from "pinia";
+import PlatformIcon from "@/components/platform/PlatformIcon.vue";
+import { useUserStore } from "@/stores/userStore";
+
+const { extensionPrefs } = storeToRefs(useUserStore());
+</script>
+
+<template>
+  <section class="pm-pf-buffer" aria-label="PM / PF 深度和价格缓冲">
+    <h3 class="pm-pf-buffer__heading">
+      PM / PF 深度和价格缓冲
+    </h3>
+    <p class="pm-pf-buffer__note">
+      对照查看；保存后写入 Extensions。PredictFun 无 FOK 深度项。
+    </p>
+
+    <div class="pm-pf-buffer__grid" role="group">
+      <div class="pm-pf-buffer__corner" aria-hidden="true" />
+      <div class="pm-pf-buffer__col-head">
+        <PlatformIcon platform="Polymarket" />
+        <span>Polymarket</span>
+      </div>
+      <div class="pm-pf-buffer__col-head">
+        <PlatformIcon platform="PredictFun" />
+        <span>PredictFun</span>
+      </div>
+
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="有 fo 时展示/下单价 = 卖一 × 倍数。无 fo 不打折。结算仍用成交价。"
+      >
+        <span class="pm-pf-buffer__label">套利卖一缓冲</span>
+      </el-tooltip>
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="开：有 fo 的 PM 展示/扫描/FOK = 卖一 × 倍数（如 0.886×1.01）。无 fo 不打折。结算仍用成交价。关 = 现网。"
+      >
+        <span class="pm-pf-buffer__ctrl">
+          <el-switch
+            v-model="extensionPrefs.pmArbPriceBuffer.enabled"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+          />
+        </span>
+      </el-tooltip>
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="开：有 fo 的 PF 展示/扫描/限价 = 卖一 × 倍数。无 fo 不打折。已删除硬编码 30bps；关 = 裸限价。结算仍用成交价。"
+      >
+        <span class="pm-pf-buffer__ctrl">
+          <el-switch
+            v-model="extensionPrefs.pfArbPriceBuffer.enabled"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+          />
+        </span>
+      </el-tooltip>
+
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="卖一 CLOB 价乘以该倍数。默认 1.01（1%）；保存后写入 Extensions。"
+      >
+        <span class="pm-pf-buffer__label">卖一倍数</span>
+      </el-tooltip>
+      <el-input-number
+        v-model="extensionPrefs.pmArbPriceBuffer.multiplier"
+        class="pm-pf-buffer__num"
+        :min="1.01"
+        :max="1.1"
+        :step="0.01"
+        :precision="2"
+        :disabled="!extensionPrefs.pmArbPriceBuffer.enabled"
+        controls-position="right"
+      />
+      <el-input-number
+        v-model="extensionPrefs.pfArbPriceBuffer.multiplier"
+        class="pm-pf-buffer__num"
+        :min="1.01"
+        :max="1.1"
+        :step="0.01"
+        :precision="2"
+        :disabled="!extensionPrefs.pfArbPriceBuffer.enabled"
+        controls-position="right"
+      />
+
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="开：成交价及更优档可立即成交额须 ≥ 下单金额 × 倍数，否则预检失败。关 = 现网 1×。更深更差档不算垫。"
+      >
+        <span class="pm-pf-buffer__label">FOK 深度倍数</span>
+      </el-tooltip>
+      <el-switch
+        v-model="extensionPrefs.pmFokDepthBuffer.enabled"
+        inline-prompt
+        active-text="开"
+        inactive-text="关"
+      />
+      <span class="pm-pf-buffer__na">—</span>
+
+      <el-tooltip
+        placement="top"
+        :show-after="200"
+        popper-class="pm-pf-buffer-tip"
+        content="成交价及更优档深度须达到下单金额的该倍数。默认 1.5；保存后写入 Extensions。"
+      >
+        <span class="pm-pf-buffer__label">深度倍数</span>
+      </el-tooltip>
+      <el-input-number
+        v-model="extensionPrefs.pmFokDepthBuffer.multiplier"
+        class="pm-pf-buffer__num"
+        :min="1.1"
+        :max="10"
+        :step="0.1"
+        :precision="1"
+        :disabled="!extensionPrefs.pmFokDepthBuffer.enabled"
+        controls-position="right"
+      />
+      <span class="pm-pf-buffer__na">—</span>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.pm-pf-buffer {
+  margin: 0 0 16px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  box-sizing: border-box;
+}
+
+.pm-pf-buffer__heading {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--el-text-color-primary);
+}
+
+.pm-pf-buffer__note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.pm-pf-buffer__grid {
+  display: grid;
+  grid-template-columns: minmax(118px, 1.05fr) minmax(148px, 1fr) minmax(148px, 1fr);
+  column-gap: 12px;
+  row-gap: 10px;
+  align-items: center;
+}
+
+.pm-pf-buffer__col-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.pm-pf-buffer__col-head :deep(.provider-icon) {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.pm-pf-buffer__label {
+  display: inline-block;
+  cursor: help;
+  border-bottom: 1px dashed var(--el-border-color);
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--el-text-color-regular);
+}
+
+.pm-pf-buffer__ctrl {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}
+
+.pm-pf-buffer__num {
+  width: 120px;
+}
+
+.pm-pf-buffer__na {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+  line-height: 32px;
+}
+
+@media (max-width: 900px) {
+  .pm-pf-buffer__grid {
+    grid-template-columns: minmax(110px, 1fr) minmax(128px, 1fr) minmax(128px, 1fr);
+  }
+}
+</style>
+
+<style>
+.pm-pf-buffer-tip {
+  max-width: 360px;
+  line-height: 1.5;
+  white-space: normal;
+}
+</style>

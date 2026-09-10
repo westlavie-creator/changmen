@@ -215,7 +215,7 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
       const cards = dbg.cardCount != null ? Number(dbg.cardCount) : 0;
       lines.push(`灌入：${reason || "—"} · 板=${Number.isFinite(cards) ? cards : 0} · M=${bySource.M}`);
       if (reason === "prefs_shadow_off")
-        lines.push("用户中心 → 先开「PB changmen 扩展」再开「PB WS 影子价」；然后硬刷新本页");
+        lines.push("用户中心 → 赛事采集 → 先开「PB changmen 扩展」再开「PB WS 影子价」；然后硬刷新本页");
     }
   }
   if (entry.id === "pm-market") {

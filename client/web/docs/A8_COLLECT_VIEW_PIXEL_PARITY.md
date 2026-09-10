@@ -26,7 +26,8 @@
   - 信用盘行 `div.credit.flex.flex-wrap` + `div.credit-game`（PB/TF/IM/OB/SABA，与 bundle 一致）
   - 图标/名称间距由 `a8.css`（22px / 6px）
 - `src/components/user/tabs/UserDiagCollectTab.vue`
-  - 仅挂载 `CollectConfigPanel`，无额外包裹
+  - 上方挂载 `CollectConfigPanel`（A8 回传开关）
+  - 下方挂载 `PbCollectModeSettings`（[changmen 扩展] PB 采集模式，不受「盘」锁定）
 - `src/components/user/UserDiagDialog.vue`
   - `el-dialog` width=880、`show-close=false`、`border-card` tabs
   - 各 Tab 使用 Element Plus + bundle 语义 class

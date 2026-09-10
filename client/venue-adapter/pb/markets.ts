@@ -2,6 +2,7 @@ import { saveVenueOdds } from "@changmen/client-core/bridge/oddsAccess";
 import type { CollectBetDto, CollectMatchDto } from "@changmen/client-core/types/collect";
 import { PLATFORMS } from "../shared/platforms";
 
+import { isPbChangmenExtensions } from "./extensionsMode";
 import { setPbLineId } from "./lineCache";
 import { pbTeamLogo, type PbParsedMatch } from "./parse";
 import {
@@ -57,7 +58,8 @@ export function buildPbCollectMatchDto(row: PbParsedMatch): CollectMatchDto {
         Logo: pbTeamLogo(row.gameId, row.away.englishName),
       },
     ],
-    ...(row.rotNum ? { RotNum: row.rotNum } : {}),
+    // [changmen 扩展] A8 `mHe` 不上报 RotNum；仅扩展开时写入，供 matcher 同 rot 归组
+    ...(isPbChangmenExtensions() && row.rotNum ? { RotNum: row.rotNum } : {}),
     IsLive: row.isLive ? 1 : 0,
   };
 }
@@ -75,7 +77,7 @@ export function ingestAndReportPbParsedMatch(
   now = Date.now(),
   opts?: { writeFo?: boolean },
 ): { match: CollectMatchDto; bets: CollectBetDto[] } {
-  if (row.rotNum)
+  if (isPbChangmenExtensions() && row.rotNum)
     rememberPbRotEvent(row.matchId, row.rotNum);
   if (isPbWsShadowUiAllowed())
     upsertPbWsShadowFromParsedMatch(row);

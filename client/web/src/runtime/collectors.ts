@@ -35,6 +35,16 @@ export function syncCollectorsFromConfig() {
   }
 }
 
+/** 已启动的采集器按当前门控重拉。未 startCollectors 时 noop（避免登录前误启）。 */
+export function restartCollector(platform: PlatformId) {
+  if (!runners.has(platform))
+    return;
+  const factory = COLLECTOR_FACTORIES[platform];
+  if (!factory)
+    return;
+  syncCollector(platform, true, factory);
+}
+
 /** 用户中心「赛事采集」开关仅控制 collectStore.saveMatch/saveBets，不用于启停采集器。 */
 
 function syncCollector(platform: PlatformId, enabled: boolean, factory: CollectorFactory) {

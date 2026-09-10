@@ -294,9 +294,10 @@ export const useUserStore = defineStore("user", {
       setPbWsShadowUiAllowed(this.pbChangmenExtensions === true && next);
     },
 
-    /** 本机立即生效：关=A8；开=changmen 扩展（双循环、赛前写 fo） */
+    /** 本机立即生效：关=A8；开=changmen 扩展（双循环、赛前写 fo、RotNum、WS 影子） */
     async setPbChangmenExtensions(on: boolean) {
       const next = on === true;
+      const prev = this.pbChangmenExtensions === true;
       this.pbChangmenExtensions = next;
       writePbChangmenExtensionsLocal(next);
       // 子开关未显式写过时跟总开关：开扩展即开影子
@@ -304,6 +305,10 @@ export const useUserStore = defineStore("user", {
       const { setPbChangmenExtensions, setPbWsShadowUiAllowed } = await import("@changmen/venue-adapter/pb");
       setPbChangmenExtensions(next);
       setPbWsShadowUiAllowed(next && this.pbWsShadowUi === true);
+      if (prev !== next) {
+        const { restartCollector } = await import("@/runtime/collectors");
+        restartCollector("PB");
+      }
     },
 
     async saveExtensionPrefs() {

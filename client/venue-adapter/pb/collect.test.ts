@@ -10,6 +10,7 @@ const ingestAndReportPbParsedMatch = vi.hoisted(() => vi.fn());
 const refreshOddsOnBets = vi.hoisted(() => vi.fn());
 const saveMatch = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 const saveBets = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const startPbWsStatusPoll = vi.hoisted(() => vi.fn(() => () => {}));
 
 vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   hasA8PluginRuntime,
@@ -39,7 +40,7 @@ vi.mock("./markets", () => ({
 }));
 
 vi.mock("./wsStatusPoll", () => ({
-  startPbWsStatusPoll: () => () => {},
+  startPbWsStatusPoll,
 }));
 
 vi.mock("@changmen/client-core/shared/wait", () => ({
@@ -96,6 +97,7 @@ describe("PB collect platform parity", () => {
     saveMatch.mockClear();
     saveBets.mockClear();
     saveMatch.mockResolvedValue(true);
+    startPbWsStatusPoll.mockClear();
     const { setPbChangmenExtensions } = await import("./extensionsMode");
     setPbChangmenExtensions(true);
   });
@@ -251,6 +253,7 @@ describe("PB collect platform parity", () => {
       expect(pbCollectEuroOdds).toHaveBeenCalledWith(expect.anything(), true);
       expect(pbCollectEuroOdds).not.toHaveBeenCalledWith(expect.anything(), false);
       expect(ingestAndReportPbParsedMatch.mock.calls.every((c) => c[2]?.writeFo === true)).toBe(true);
+      expect(startPbWsStatusPoll).not.toHaveBeenCalled();
     }
     finally {
       setPbChangmenExtensions(true);
@@ -407,6 +410,7 @@ describe("PB collect platform parity", () => {
       );
       expect(byId["999001"]).toEqual({ writeFo: true });
       expect(byId["999002"]).toEqual({ writeFo: true });
+      expect(startPbWsStatusPoll).toHaveBeenCalled();
     }
     finally {
       setPbChangmenExtensions(true);

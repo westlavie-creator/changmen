@@ -14,17 +14,19 @@ import { notifyCollectError } from "../shared/collectNotify";
 import { useCollectStore } from "../shared/webBridge";
 import { useMatchStore } from "../shared/webBridge";
 import { startPbWsStatusPoll } from "./wsStatusPoll";
-import { isPbLiveFoOnly, isPbPrematchCollectEnabled } from "./extensionsMode";
+import {
+  isPbChangmenExtensions,
+  isPbLiveFoOnly,
+  isPbPrematchCollectEnabled,
+} from "./extensionsMode";
 const PLATFORM = PLATFORMS.PB;
 const POLL_MS = 5_000;
 const SAVE_MS = 60_000;
 
 /**
- * [changmen 扩展] A8 `mHe` 只拉 isLive=true。
- * changmen 扩展开：另采 prematch；live / prematch 各一条 5s 循环。
- * SaveMatch 仍为平台全量快照：两侧缓存合并后再上报（同 matchId 时 live 覆盖）。
- *
- * 本机总开关 `pbChangmenExtensions`（默认关 = A8）：关则仅 live 写 fo；开则两侧都写 fo + 采 prematch。
+ * 默认对齐 A8 `YY` / `mHe`：只拉 isLive=true、每 5s 写 fo、60s SaveMatch/SaveBet。
+ * [changmen 扩展] `pbChangmenExtensions` 开：另采 prematch、两侧写 fo、RotNum、WS 影子观测。
+ * 切换开关须重启本 collector（userStore.setPbChangmenExtensions → restartCollector("PB")）。
  */
 
 type SnapshotEntry = { match: CollectMatchDto; bets: CollectBetDto[] };
@@ -229,7 +231,8 @@ export function startPbCollector(): () => void {
   if (isPbPrematchCollectEnabled()) {
     void pollPrematch();
   }
-  const stopWsStatusPoll = startPbWsStatusPoll();
+  // A8 无 sports-websocket 观测；仅扩展模式启停
+  const stopWsStatusPoll = isPbChangmenExtensions() ? startPbWsStatusPoll() : () => {};
 
   return () => {
     stopped = true;
