@@ -72,9 +72,11 @@ function toClusterRow(entries, mergeKey, basis) {
     _clusterBasis: basis,
     _entryCount: entries.length,
   };
-  if (pb?._pbSiblingSourceMatchIds?.length) {
+  // 对外投影：仅 RotNum 归组才把 sibling 拼进 Sources（changmen 扩展）。
+  // 无 RotNum 时只选举 live 进 Matchs.PB，不把赛前残留图拼进盘面（A8 复刻）。
+  if (pb?._pbSiblingSourceMatchIds?.length && pb._pbRotNum) {
     row._pbSiblingSourceMatchIds = [...pb._pbSiblingSourceMatchIds];
-    row._pbRotNum = pb._pbRotNum || "";
+    row._pbRotNum = pb._pbRotNum;
   }
   return row;
 }

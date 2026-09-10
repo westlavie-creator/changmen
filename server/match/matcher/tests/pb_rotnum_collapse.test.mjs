@@ -11,6 +11,7 @@ import {
   listPbRotNumSiblings,
   pickPrimaryPbEntry,
 } from "../compose/normalize/pb_rotnum_collapse.js";
+import { collectPeriods } from "../compose/structure/resolve_structure.js";
 import { sourceIdsToBackfill } from "../ops/backfill_platform_match_ids.js";
 import { installPlugin, pmOb, pmPb } from "./fixtures.mjs";
 
@@ -46,6 +47,27 @@ function dualMatches(extraPb = {}) {
   };
 }
 
+/** A8 `mHe`：不上报 RotNum，只标 IsLive */
+function dualMatchesA8(extraPb = {}) {
+  return {
+    OB: { ob1: pmOb },
+    PB: {
+      [LIVE_ID]: {
+        ...pmPb,
+        SourceMatchID: LIVE_ID,
+        IsLive: 1,
+        ...(extraPb.live || {}),
+      },
+      [PRE_ID]: {
+        ...pmPb,
+        SourceMatchID: PRE_ID,
+        IsLive: 0,
+        ...(extraPb.pre || {}),
+      },
+    },
+  };
+}
+
 const collapseOpts = { pbRotnumCollapse: true, bets: pbBets() };
 
 describe("PB rotNum collapse (Phase A)", () => {
@@ -58,7 +80,7 @@ describe("PB rotNum collapse (Phase A)", () => {
     assert.deepEqual(list[0]._pbSiblingSourceMatchIds, [PRE_ID]);
   });
 
-  it("no rotNum does not collapse", () => {
+  it("no rotNum does not collapse two unstarted books", () => {
     installPlugin();
     const entries = collectPlatformEntries({
       PB: {
@@ -71,6 +93,71 @@ describe("PB rotNum collapse (Phase A)", () => {
     });
     assert.equal(collapsedGroups, 0);
     assert.equal(out.length, 2);
+  });
+
+  it("A8 no rotNum: live + leftover prematch → Matchs.PB is live event", () => {
+    installPlugin();
+    const matches = dualMatchesA8();
+    const list = clusterByGbThenName(matches, [], collapseOpts);
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.OB, "ob1");
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+    assert.equal(list[0]._pbSiblingSourceMatchIds, undefined);
+    assert.deepEqual(collectPeriods(list[0], pbBets(), 0, matches), [0]);
+  });
+
+  it("A8 no rotNum: IsLive alone (no bets) still prefers live", () => {
+    installPlugin();
+    const list = clusterByGbThenName(dualMatchesA8(), [], { pbRotnumCollapse: true, bets: {} });
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+  });
+
+  it("A8 no rotNum: two live-like books do not collapse", () => {
+    installPlugin();
+    const entries = collectPlatformEntries({
+      PB: {
+        a: { ...pmPb, SourceMatchID: "a", IsLive: 1 },
+        b: { ...pmPb, SourceMatchID: "b", IsLive: 1 },
+      },
+    });
+    const { entries: out, collapsedGroups } = collapsePbEntriesByRotNum(entries, {
+      enabled: true,
+    });
+    assert.equal(collapsedGroups, 0);
+    assert.equal(out.length, 2);
+  });
+
+  it("A8 no rotNum: sticky prematch promotes to live", () => {
+    installPlugin();
+    const list = clusterByGbThenName(
+      dualMatchesA8(),
+      [{
+        id: 1730,
+        merge_key: "manual:seed",
+        matchs: { OB: "ob1", PB: PRE_ID },
+      }],
+      collapseOpts,
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].ID, 1730);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+  });
+
+  it("A8 no rotNum: live startMs drift still clusters with OB", () => {
+    installPlugin();
+    const t0 = pmOb.StartTime;
+    const list = clusterByGbThenName(
+      dualMatchesA8({
+        live: { StartTime: t0 + 90 * 60 * 1000 },
+        pre: { StartTime: t0 },
+      }),
+      [],
+      collapseOpts,
+    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0].Matchs.PB, LIVE_ID);
+    assert.equal(list[0].Matchs.OB, "ob1");
   });
 
   it("sticky existing matchs.PB keeps live when already bound", () => {

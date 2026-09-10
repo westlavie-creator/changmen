@@ -58,7 +58,7 @@ export function buildPbCollectMatchDto(row: PbParsedMatch): CollectMatchDto {
         Logo: pbTeamLogo(row.gameId, row.away.englishName),
       },
     ],
-    // [changmen 扩展] A8 `mHe` 不上报 RotNum；仅扩展开时写入，供 matcher 同 rot 归组
+    // A8 `mHe` 不上报 RotNum。仅 changmen 扩开展开时写入，供同 rot 拼未开图。
     ...(isPbChangmenExtensions() && row.rotNum ? { RotNum: row.rotNum } : {}),
     IsLive: row.isLive ? 1 : 0,
   };

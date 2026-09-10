@@ -1,6 +1,7 @@
 /**
- * PB 同 rotNum 多 event → 合场只占一个 Matchs.PB 槽。
- * [changmen 扩展] 交易主键仍是 event.id；本模块只 collapse 聚类条目。
+ * PB 同系列多 event → 合场只占一个 Matchs.PB 槽（交易主键仍是 event.id）。
+ * 有 RotNum：同 rot 归组（changmen 扩展上报）。
+ * 无 RotNum（A8）：live 图 + 未开图残留仍并成一场，主盘选滚球账本。
  */
 import { normalizeTeam } from "@changmen/match-identity/teams/team_key.js";
 import { collectPlatformEntries } from "./platform_entry.js";
@@ -263,6 +264,91 @@ function groupKey(entry) {
   return `${entry.GameID || entry.gameCode || ""}:${readRotNum(entry)}`;
 }
 
+function mergePbGroup(group, { bets, stickySourceMatchIds }) {
+  const primary = pickPrimaryPbEntry(group, { bets, stickySourceMatchIds });
+  const siblings = group
+    .filter(e => e.sourceMatchId !== primary.sourceMatchId)
+    .map(e => String(e.sourceMatchId));
+  primary._pbSiblingSourceMatchIds = siblings;
+  primary._pbRotNum = readRotNum(primary);
+  // 用组内最早开赛时间聚类，避免 live event.time 偏离系列赛开打时间导致拆场
+  const times = group.map(e => Number(e.startMs) || 0).filter(n => n > 0);
+  if (times.length)
+    primary.startMs = Math.min(...times);
+  if (primary.clientMatchId == null) {
+    const linked = group.find(e => e.clientMatchId != null && Number.isFinite(Number(e.clientMatchId)));
+    if (linked)
+      primary.clientMatchId = linked.clientMatchId;
+  }
+  return primary;
+}
+
+/**
+ * A8 不上报 RotNum。开赛后 live event 新插入、赛前 event 仍留在库里，
+ * 合场每馆只有一个 PB 槽：必须把滚球账本接到这场上，否则 UI 用赛前 HomeID 对 fo 全是锁盘。
+ * 指纹：同一 game+队对，恰好一场 live-like + 其余未开图（无 map0）。
+ * 只改 Matchs.PB 主盘选举；不把 sibling 交给投影层（那是 RotNum 拼未开图，属 changmen 扩展）。
+ */
+function collapsePbUnkeyedLivePrematch(entries, { bets, stickySourceMatchIds }) {
+  const rest = [];
+  const pb = [];
+  for (const e of entries || []) {
+    if (
+      e.platform === "PB"
+      && !readRotNum(e)
+      && !isPbKillsName(e.homeName, e.awayName)
+    ) {
+      pb.push(e);
+    }
+    else {
+      rest.push(e);
+    }
+  }
+
+  const groups = new Map();
+  for (const e of pb) {
+    const pair = teamPairKey(e);
+    if (!pair) {
+      rest.push(e);
+      continue;
+    }
+    const key = `${e.GameID || e.gameCode || ""}:${pair}`;
+    if (!groups.has(key))
+      groups.set(key, []);
+    groups.get(key).push(e);
+  }
+
+  let skippedCollisions = 0;
+  let collapsedGroups = 0;
+  const collapsed = [];
+
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      collapsed.push(group[0]);
+      continue;
+    }
+    if (isPbRotGroupCollision(group)) {
+      skippedCollisions += 1;
+      collapsed.push(...group);
+      continue;
+    }
+    const liveLike = group.filter(e => isPbLiveLike(e, bets));
+    const unstarted = group.filter(e => isUnstartedMapsOnly(e, bets));
+    if (liveLike.length !== 1 || unstarted.length < 1) {
+      collapsed.push(...group);
+      continue;
+    }
+    collapsed.push(mergePbGroup(group, { bets, stickySourceMatchIds }));
+    collapsedGroups += 1;
+  }
+
+  return {
+    entries: [...rest, ...collapsed],
+    skippedCollisions,
+    collapsedGroups,
+  };
+}
+
 /**
  * @returns {{ entries: object[], skippedCollisions: number, collapsedGroups: number }}
  */
@@ -317,24 +403,16 @@ export function collapsePbEntriesByRotNum(entries, {
       continue;
     }
 
-    const primary = pickPrimaryPbEntry(group, { bets, stickySourceMatchIds });
-    const siblings = group
-      .filter(e => e.sourceMatchId !== primary.sourceMatchId)
-      .map(e => String(e.sourceMatchId));
-    primary._pbSiblingSourceMatchIds = siblings;
-    primary._pbRotNum = readRotNum(primary);
-    // 用组内最早开赛时间聚类，避免 live event.time 偏离系列赛开打时间导致拆场
-    const times = group.map(e => Number(e.startMs) || 0).filter(n => n > 0);
-    if (times.length)
-      primary.startMs = Math.min(...times);
-    if (primary.clientMatchId == null) {
-      const linked = group.find(e => e.clientMatchId != null && Number.isFinite(Number(e.clientMatchId)));
-      if (linked)
-        primary.clientMatchId = linked.clientMatchId;
-    }
-    collapsed.push(primary);
+    collapsed.push(mergePbGroup(group, { bets, stickySourceMatchIds }));
     collapsedGroups += 1;
   }
+
+  const unkeyed = collapsePbUnkeyedLivePrematch([...rest, ...collapsed], {
+    bets,
+    stickySourceMatchIds,
+  });
+  skippedCollisions += unkeyed.skippedCollisions;
+  collapsedGroups += unkeyed.collapsedGroups;
 
   if (collapsedGroups || skippedCollisions) {
     console.log(
@@ -343,7 +421,7 @@ export function collapsePbEntriesByRotNum(entries, {
   }
 
   return {
-    entries: [...rest, ...collapsed],
+    entries: unkeyed.entries,
     skippedCollisions,
     collapsedGroups,
   };
