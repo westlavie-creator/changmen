@@ -48,7 +48,7 @@ resolvePbCollectAccount()  // bv：PB + balance!==undefined，不用 platforms.j
 | 标签 | 含义 |
 |------|------|
 | [A8 可证实] | 前端 `xh`/`k0` **只写死 515**；插件 GetConfig 整包 dump `localStorage`，**不解析**会话类型 |
-| [changmen 扩展] | `detectPbSessionMode`：515 / 任意数字后缀 / plain；`mergeInnerTokenHeaders` 合并内层 `x-*`；扩展复制前校验内层 `X-U`（`pb-credential.js`） |
+| [changmen 扩展] | `detectPbSessionMode`：plain / 非 515 后缀才改头名并 `mergeInnerTokenHeaders`；515（及认不出）走 A8 `k0` 五字段、**不**合并 `X-U`。复制前仅非 515 校验内层 `X-U`（`pb-credential.js`）。part888/ps3838 有标签页时 `tabId` 代发，现读官网 localStorage + Cookie |
 
 **与预检的关系（plain 常见）**：`part888` / `ps3838` 一类多为 plain。`account-balance` 有时仍可通过；缺内层 `X-U` 时 `all-odds-selections` 常 HTTP 200 + `{"error":403}`。经典 515 往往不依赖 `X-U`。TOKEN ERROR UI 在 A8 侧等价于 `balance === undefined`（余额刷新失败），不是 PB 专用「token error」码解析。
 

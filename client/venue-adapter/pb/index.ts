@@ -6,6 +6,7 @@ export { pbProvider, startPbCollector };
 export * from "./auth";
 export * from "./bet";
 export * from "./collect";
+export * from "./tabId";
 export {
   countPbWsShadowBySource,
   getPbWsShadow,

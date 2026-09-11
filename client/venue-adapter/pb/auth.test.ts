@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { buildPbAuthHeaders, parsePbVenueIdentity } from "./auth";
+import { buildPbAuthHeaders, parsePbVenueIdentity, pbAccountUsesLiveTab } from "./auth";
 
 function makeAccount(token: string): PlatformAccount {
   return { provider: "PB", gateway: "https://pb.example", token } as PlatformAccount;
@@ -24,6 +24,33 @@ describe("buildPbAuthHeaders (A8 k0)", () => {
     });
   });
 
+  it("515 即使 dump 含内层 X-U 也不合并（对齐 A8 k0）", () => {
+    const appData = { BrowserSessionId_515: "sess-1" };
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify(appData),
+      custid_515: "id%3Dabc",
+      "v-hucode": "hu",
+      token: JSON.stringify({
+        "X-U": "stale-u",
+        "X-U-515": "stale-u-515",
+        "X-SLID": "-1",
+        "X-Lcu": "lcu",
+      }),
+    });
+    const headers = buildPbAuthHeaders(makeAccount(token));
+    expect(Object.keys(headers!)).toEqual([
+      "x-app-data",
+      "x-browser-session-id-515",
+      "x-custid-515",
+      "v-hucode",
+      "x-requested-with",
+    ]);
+    expect(headers?.["x-u"]).toBeUndefined();
+    expect(headers?.["x-u-515"]).toBeUndefined();
+    expect(headers?.["x-slid"]).toBeUndefined();
+    expect(headers?.["x-lcu"]).toBeUndefined();
+  });
+
   it("1228 后缀从 x-app-data 检测", () => {
     const appData = {
       BrowserSessionId_1228: "sess-1228",
@@ -42,6 +69,14 @@ describe("buildPbAuthHeaders (A8 k0)", () => {
     expect(headers?.["x-custid-1228"]).toBe("id=abc");
     expect(headers?.["x-u-1228"]).toBe("u-token");
     expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
+  });
+
+  it("515 不走标签页活头", () => {
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify({ BrowserSessionId_515: "s" }),
+      custid_515: "u",
+    });
+    expect(pbAccountUsesLiveTab(makeAccount(token))).toBe(false);
   });
 
   it("合并 extra 头（对齐 k0 第二参）", () => {
@@ -192,5 +227,13 @@ describe("buildPbAuthHeaders ps3838 plain keys", () => {
       expect(headers?.["x-browser-session-id-515"]).toBeUndefined();
       expect(headers?.token).toBeUndefined();
     }
+  });
+
+  it("plain 走标签页活头", () => {
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify({ BrowserSessionId: "sess-plain", custid: "id%3Dabc" }),
+      token: JSON.stringify({ "X-U": "u" }),
+    });
+    expect(pbAccountUsesLiveTab(makeAccount(token))).toBe(true);
   });
 });

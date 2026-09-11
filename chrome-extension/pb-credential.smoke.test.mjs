@@ -65,4 +65,12 @@ const s1228NoXu = {
 };
 assert.match(validatePbLocalStorageSnapshot(s1228NoXu) || "", /X-U/);
 
+const s515NoXu = {
+  "x-app-data": JSON.stringify({
+    BrowserSessionId_515: "sess",
+    custid_515: "id%3Dabc",
+  }),
+};
+assert.equal(validatePbLocalStorageSnapshot(s515NoXu), null);
+
 console.log("pb-credential.smoke.test.mjs: ok");

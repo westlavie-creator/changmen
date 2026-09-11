@@ -199,6 +199,7 @@ export function parsePbVenueIdentity(
 /**
  * 合并 localStorage.token 内层鉴权头（part888/ps3838 的 X-U / X-SLID / X-Lcu 等）。
  * 只收 x-*，避免误把 Odds:Selections 等业务键写成非法 HTTP 头。
+ * 仅路径 B（plain / 非 515 后缀）调用；515 走 A8 k0，禁止合并。
  */
 function mergeInnerTokenHeaders(
   headers: Record<string, string>,
@@ -219,10 +220,37 @@ function mergeInnerTokenHeaders(
   }
 }
 
+/** [A8 可证实] 认不出或经典 515 → k0，不带内层 X-U */
+function isA8K0Session(mode: PbSessionMode): boolean {
+  return mode.kind === "suffixed" && mode.suffix === "515";
+}
+
+function readSessionModeFromToken(token: string): PbSessionMode | undefined {
+  const outer = normalizePbTokenCookie(token);
+  if (!outer) return undefined;
+  const appData = (tryParseJsonObject(outer["x-app-data"] || "{}") || {}) as Record<string, string>;
+  return detectPbSessionMode(appData, outer);
+}
+
 /**
- * [A8 可证实] bundle `k0(t,e)` 固定 515；
- * [changmen 扩展] 515/1228/plain + 与 parsePbVenueIdentity 相同的粘贴规范化
- * （base64 / 剪贴板外层 {provider,token}），否则 part888 会丢 X-U → betslip `{"error":403}`。
+ * [changmen 扩展] part888 / 非 515：有官网标签时走活头代发。
+ * 515 必须 false，避免把 A8 k0 打进官网页。
+ */
+export function pbAccountUsesLiveTab(account: Pick<PlatformAccount, "token">): boolean {
+  if (account.token == null || !String(account.token).trim())
+    return false;
+  try {
+    const mode = readSessionModeFromToken(String(account.token));
+    return Boolean(mode && !isA8K0Session(mode));
+  }
+  catch {
+    return false;
+  }
+}
+
+/**
+ * [A8 可证实] bundle `k0(t,e)` 固定 515 五字段，不合并内层 x-*。
+ * [changmen 扩展] 仅 plain / 非 515 后缀改头名并合并 X-U（否则 part888 预检 403）。
  */
 export function buildPbAuthHeaders(
   account: PlatformAccount,
@@ -252,7 +280,8 @@ export function buildPbAuthHeaders(
     }
     headers["v-hucode"] = outer["v-hucode"] || "";
     headers["x-requested-with"] = "XMLHttpRequest";
-    mergeInnerTokenHeaders(headers, outer);
+    if (!isA8K0Session(mode))
+      mergeInnerTokenHeaders(headers, outer);
     for (const key of Object.keys(extra)) {
       headers[key] = extra[key]!;
     }

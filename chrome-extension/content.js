@@ -3953,6 +3953,9 @@
     } else {
       return "\u672A\u8BC6\u522B\u5230\u767B\u5F55\u4F1A\u8BDD\uFF08BrowserSessionId / custid\uFF09\uFF1A\u8BF7\u91CD\u65B0\u767B\u5F55\u540E\u518D\u590D\u5236";
     }
+    const needsInnerXu = suffix != null ? suffix !== "515" : plain;
+    if (!needsInnerXu)
+      return null;
     let inner;
     try {
       inner = JSON.parse(store.token || "");
@@ -4819,6 +4822,191 @@
     gql.onerror = (err) => console.error("[Stake] graphql ws error", err);
   }
 
+  // src/content/pb/hosts.js
+  var PB_HOST_RE = /(^|\.)(part888|ps3838)\.com$/i;
+  function isPbSportsHost(hostname = location.hostname) {
+    if (PB_HOST_RE.test(String(hostname || ""))) return true;
+    try {
+      if (window !== window.top && PB_HOST_RE.test(String(window.top.location.hostname || "")))
+        return true;
+    } catch {
+    }
+    return false;
+  }
+
+  // src/content/pb/page-auth.js
+  function detectPbPageSessionMode(store) {
+    const bag = store && typeof store === "object" ? store : {};
+    let app = {};
+    try {
+      app = JSON.parse(bag["x-app-data"] || "{}") || {};
+    } catch {
+      app = {};
+    }
+    for (const key of Object.keys(app)) {
+      const m = key.match(/^BrowserSessionId_(\d+)$/);
+      if (m) return { kind: "suffixed", suffix: m[1] };
+    }
+    for (const key of Object.keys(app)) {
+      const m = key.match(/^custid_(\d+)$/);
+      if (m) return { kind: "suffixed", suffix: m[1] };
+    }
+    if (app.BrowserSessionId || app.custid || bag.custid)
+      return { kind: "plain" };
+    try {
+      const inner = JSON.parse(bag.token || "");
+      if (inner && (inner["X-Browser-Session-Id"] || inner["X-Custid"]))
+        return { kind: "plain" };
+    } catch {
+    }
+    return { kind: "suffixed", suffix: "515" };
+  }
+  function isPbA8K0PageSession(mode) {
+    return mode.kind === "suffixed" && mode.suffix === "515";
+  }
+  function buildLivePbAuthHeaders(store, extra = {}) {
+    const bag = store && typeof store === "object" ? store : {};
+    let app = {};
+    try {
+      app = JSON.parse(bag["x-app-data"] || "{}") || {};
+    } catch {
+      app = {};
+    }
+    const mode = detectPbPageSessionMode(bag);
+    const headers = {
+      Accept: "application/json, text/plain, */*",
+      "x-requested-with": "XMLHttpRequest"
+    };
+    const appKeys = Object.keys(app);
+    if (appKeys.length)
+      headers["x-app-data"] = `${appKeys.map((k) => `${k}=${app[k]}`).join(";")};`;
+    if (mode.kind === "plain") {
+      if (app.BrowserSessionId) headers["x-browser-session-id"] = String(app.BrowserSessionId);
+      if (app.custid) headers["x-custid"] = decodeURIComponent(String(app.custid).replace(/\+/g, "%20"));
+    } else {
+      const suffix = mode.suffix;
+      const sess = app[`BrowserSessionId_${suffix}`];
+      const cust = app[`custid_${suffix}`] || bag[`custid_${suffix}`];
+      if (sess) headers[`x-browser-session-id-${suffix}`] = String(sess);
+      if (cust) headers[`x-custid-${suffix}`] = decodeURIComponent(String(cust).replace(/\+/g, "%20"));
+    }
+    if (bag["v-hucode"]) headers["v-hucode"] = String(bag["v-hucode"]);
+    if (!isPbA8K0PageSession(mode)) {
+      try {
+        const inner = JSON.parse(bag.token || "");
+        if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+          for (const [key, value] of Object.entries(inner)) {
+            if (value == null || value === "") continue;
+            const lower = String(key).toLowerCase();
+            if (!lower.startsWith("x-")) continue;
+            headers[lower] = String(value);
+          }
+        }
+      } catch {
+      }
+    }
+    for (const [key, value] of Object.entries(extra || {})) {
+      if (value == null || value === "") continue;
+      const lower = String(key).toLowerCase();
+      if (/^(x-u|x-browser-session-id|x-custid|x-app-data|x-slid|x-lcu|v-hucode)/.test(lower))
+        continue;
+      headers[key] = String(value);
+    }
+    return headers;
+  }
+  function readLocalStorageSnapshot() {
+    const snapshot = {};
+    if (typeof localStorage === "undefined") return snapshot;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) snapshot[key] = localStorage.getItem(key) ?? "";
+    }
+    return snapshot;
+  }
+
+  // src/content/pb/live-http.js
+  function isSportsAppPath(pathname = location.pathname) {
+    return /\/esports-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(String(pathname || ""));
+  }
+  function isTopFrame() {
+    try {
+      return window === window.top;
+    } catch {
+      return true;
+    }
+  }
+  function shouldRegisterPbLiveHttp(store = readLocalStorageSnapshot()) {
+    if (!isTopFrame()) return false;
+    if (!isPbSportsHost()) return false;
+    if (!isSportsAppPath()) return false;
+    if (!store["x-app-data"]) return false;
+    return !isPbA8K0PageSession(detectPbPageSessionMode(store));
+  }
+  function requestHostMatchesPage(url) {
+    try {
+      const host = new URL(url, location.href).hostname;
+      const here = location.hostname;
+      return host === here || host.endsWith(`.${here}`) || here.endsWith(`.${host}`);
+    } catch {
+      return false;
+    }
+  }
+  function liveHeaders(extra = {}) {
+    return buildLivePbAuthHeaders(readLocalStorageSnapshot(), extra);
+  }
+  async function handlePbLiveTabMessage(message) {
+    const method = String(message?.type || "GET").toUpperCase();
+    if (method !== "GET" && method !== "POST" && method !== "DELETE")
+      return void 0;
+    const url = message.url;
+    if (!url) return void 0;
+    if (!shouldRegisterPbLiveHttp())
+      throw new Error("PB \u6807\u7B7E\u9875\u4E0D\u662F part888/ps3838 \u6D3B\u4F1A\u8BDD");
+    if (!requestHostMatchesPage(url))
+      throw new Error("PB live tab host mismatch");
+    const extra = message.options?.headers || {};
+    const headers = liveHeaders(extra);
+    return axios_default.request({
+      method,
+      url,
+      headers,
+      timeout: message.options?.timeout,
+      withCredentials: message.options?.withCredentials !== false,
+      data: message.data
+    });
+  }
+  function initPbLiveHttp(registerHandler) {
+    let registered = false;
+    const tryReg = () => {
+      if (registered || !shouldRegisterPbLiveHttp()) return registered;
+      registerHandler(handlePbLiveTabMessage);
+      registered = true;
+      try {
+        chrome.runtime.sendMessage(
+          { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.PB } },
+          () => {
+            void chrome.runtime.lastError;
+          }
+        );
+      } catch {
+      }
+      return true;
+    };
+    if (tryReg()) return;
+    let n = 0;
+    const timer = setInterval(() => {
+      if (tryReg() || ++n >= 40)
+        clearInterval(timer);
+    }, 3e3);
+    const retry = () => {
+      if (tryReg())
+        clearInterval(timer);
+    };
+    window.addEventListener("focus", retry);
+    document.addEventListener("visibilitychange", retry);
+    window.addEventListener("popstate", retry);
+  }
+
   // src/content/tab-proxy.js
   var tabHandlers = {};
   function registerTabHandler(platformId, handler) {
@@ -4829,7 +5017,7 @@
       const tabId = message?.options?.tabId;
       if (!tabId) return false;
       const platform = message?.options?.platform || message?.options?.provider || message?.platform;
-      const handler = platform && tabHandlers[platform] || tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
+      const handler = platform ? tabHandlers[platform] : tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex];
       if (!handler) return false;
       void (async () => {
         try {
@@ -4897,6 +5085,9 @@
     });
     initDexPage((handler) => {
       registerTabHandler(PLATFORMS.Dex, handler);
+    });
+    initPbLiveHttp((handler) => {
+      registerTabHandler(PLATFORMS.PB, handler);
     });
     const startDetect = () => void detectAndMountCollectUi();
     if (document.body) {

@@ -22,6 +22,7 @@ describe("A8 bet parity lock", () => {
       "x-app-data": JSON.stringify({ BrowserSessionId_515: "s" }),
       custid_515: "u",
       "v-hucode": "h",
+      token: JSON.stringify({ "X-U": "must-not-leak", "X-SLID": "-1" }),
     });
     const h = buildPbAuthHeaders({ token } as never);
     expect(Object.keys(h!)).toEqual([

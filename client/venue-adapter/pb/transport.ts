@@ -1,7 +1,8 @@
 /** [A8 可证实] bundle `Zn.get/post` + `Ly` + `k0`；`unwrap` 等价 PZe 的 `r.data` */
 
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
-import { buildPbAuthHeaders } from "./auth";
+import { buildPbAuthHeaders, pbAccountUsesLiveTab } from "./auth";
+import { isPbLiveTabDead, isPbTabMiss, pbLiveTabHardError, readPbTabIdFromPlugin, setPbTabIdCached } from "./tabId";
 import { pbOddsUrl } from "./parse";
 import { useAccountStore } from "../shared/webBridge";
 import { PLATFORMS } from "../shared/platforms";
@@ -23,6 +24,76 @@ function unwrap<T>(response: unknown): T {
   return response as T;
 }
 
+function frozenOpts(account: PlatformAccount, extraHeaders: Record<string, string> = {}) {
+  const headers = buildPbAuthHeaders(account, extraHeaders);
+  return headers ? { headers } : undefined;
+}
+
+async function pbPluginOpts(
+  account: PlatformAccount,
+  extraHeaders: Record<string, string> = {},
+): Promise<{ headers?: Record<string, string>; tabId?: number; platform?: string; provider?: string }> {
+  const fallback = frozenOpts(account, extraHeaders);
+  if (!pbAccountUsesLiveTab(account))
+    return fallback ?? {};
+  const tabId = await readPbTabIdFromPlugin();
+  if (!tabId)
+    return fallback ?? {};
+  // 活头由标签页现读；这里只传 content-type 等业务头，避免冻结核 X-U 盖掉官网
+  return {
+    ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
+    tabId,
+    platform: PLATFORMS.PB,
+    provider: PLATFORMS.PB,
+  };
+}
+
+async function withLiveTabFallback<T>(
+  tabId: number | undefined,
+  live: () => Promise<T | undefined>,
+  frozen: () => Promise<T | undefined>,
+): Promise<T | undefined> {
+  if (!tabId)
+    return live();
+  try {
+    const raw = await live();
+    if (!isPbLiveTabDead(raw)) {
+      const hard = pbLiveTabHardError(raw);
+      if (hard) throw hard;
+      return raw;
+    }
+  }
+  catch (err) {
+    if (!isPbTabMiss(err))
+      throw err;
+  }
+  setPbTabIdCached(undefined);
+  return frozen();
+}
+
+async function pbPluginGet(url: string, account: PlatformAccount, extraHeaders: Record<string, string> = {}) {
+  const opts = await pbPluginOpts(account, extraHeaders);
+  return withLiveTabFallback(
+    opts.tabId,
+    () => a8PluginGet(url, opts),
+    () => a8PluginGet(url, frozenOpts(account, extraHeaders)),
+  );
+}
+
+async function pbPluginPost(
+  url: string,
+  account: PlatformAccount,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+) {
+  const opts = await pbPluginOpts(account, extraHeaders);
+  return withLiveTabFallback(
+    opts.tabId,
+    () => a8PluginPost(url, body, opts),
+    () => a8PluginPost(url, body, frozenOpts(account, extraHeaders)),
+  );
+}
+
 /**
  * [A8 可证实] `gHe`：inline `${ny.gateway}/sports-service/sv/euro/odds?...` + `$n.get(e,{headers:Ah})`。
  * 不经 `Am`/`Ly`；与下注 `PZe` 的 `Am(account, path)` 路径分离。
@@ -32,8 +103,7 @@ export async function pbCollectEuroOdds(
   isLive = true,
 ): Promise<Record<string, unknown> | undefined> {
   const url = pbOddsUrl(account.gateway!, isLive);
-  const headers = buildPbAuthHeaders(account);
-  const raw = await a8PluginGet(url, headers ? { headers } : undefined);
+  const raw = await pbPluginGet(url, account);
   if (raw == null) return undefined;
   return unwrap<Record<string, unknown>>(raw);
 }
@@ -45,8 +115,7 @@ export async function pbGet<T>(
   extraHeaders: Record<string, string> = {},
 ): Promise<T | undefined> {
   const url = pbGatewayUrl(account, path);
-  const headers = buildPbAuthHeaders(account, extraHeaders);
-  const raw = await a8PluginGet(url, headers ? { headers } : undefined);
+  const raw = await pbPluginGet(url, account, extraHeaders);
   if (raw == null) return undefined;
   return unwrap<T>(raw);
 }
@@ -59,8 +128,7 @@ export async function pbPost<T>(
   extraHeaders: Record<string, string> = {},
 ): Promise<T | undefined> {
   const url = pbGatewayUrl(account, path);
-  const headers = buildPbAuthHeaders(account, extraHeaders);
-  const raw = await a8PluginPost(url, body, headers ? { headers } : undefined);
+  const raw = await pbPluginPost(url, account, body, extraHeaders);
   if (raw == null) return undefined;
   return unwrap<T>(raw);
 }

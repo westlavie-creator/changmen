@@ -10,6 +10,15 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
 
 vi.mock("./auth", () => ({
   buildPbAuthHeaders: () => ({ "x-custid-515": "1" }),
+  pbAccountUsesLiveTab: () => false,
+}));
+
+vi.mock("./tabId", () => ({
+  readPbTabIdFromPlugin: async () => undefined,
+  setPbTabIdCached: () => {},
+  isPbTabMiss: () => false,
+  isPbLiveTabDead: () => false,
+  pbLiveTabHardError: () => undefined,
 }));
 
 const account: PlatformAccount = {

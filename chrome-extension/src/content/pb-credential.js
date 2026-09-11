@@ -1,6 +1,7 @@
 /**
- * PB 插件复制前校验：localStorage 快照是否具备下注/预检所需会话头。
- * part888/ps3838（plain）缺内层 X-U 时场馆 all-odds-selections 回 {"error":403}。
+ * PB 插件复制前校验：localStorage 快照是否具备会话头。
+ * [A8 可证实] 515 不要求内层 X-U。
+ * [changmen 扩展] part888/ps3838（plain / 非 515）缺 X-U 时预检回 {"error":403}。
  */
 
 /**
@@ -63,6 +64,12 @@ export function validatePbLocalStorageSnapshot(snapshot) {
   else {
     return "未识别到登录会话（BrowserSessionId / custid）：请重新登录后再复制";
   }
+
+  // [A8 可证实] 515 不校验内层 X-U（k0 不发这组头）
+  // [changmen 扩展] 仅 plain / 非 515 后缀要求 X-U，否则预检 403
+  const needsInnerXu = suffix != null ? suffix !== "515" : plain;
+  if (!needsInnerXu)
+    return null;
 
   let inner;
   try {

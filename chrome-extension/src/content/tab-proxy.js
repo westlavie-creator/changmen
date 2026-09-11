@@ -19,9 +19,9 @@ export function installTabProxyListener() {
     if (!tabId) return false;
 
     const platform = message?.options?.platform || message?.options?.provider || message?.platform;
-    const handler = (platform && tabHandlers[platform])
-      || tabHandlers[PLATFORMS.Stake]
-      || tabHandlers[PLATFORMS.Dex];
+    const handler = platform
+      ? tabHandlers[platform]
+      : (tabHandlers[PLATFORMS.Stake] || tabHandlers[PLATFORMS.Dex]);
     if (!handler) return false;
 
     void (async () => {

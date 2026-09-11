@@ -110,7 +110,9 @@ export function buildAuthHeaders(session, extra = {}) {
       session.userAgent ||
       process.env.PB_USER_AGENT ||
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-    mergeInnerTokenHeaders(headers, outer);
+    // 515 / 认不出：对齐 A8 k0，不合并内层 X-U；plain / 非 515 才合并
+    if (!(mode.kind === "suffixed" && mode.suffix === "515"))
+      mergeInnerTokenHeaders(headers, outer);
     if (session.cookie || process.env.PB_COOKIE) {
       headers.Cookie = session.cookie || process.env.PB_COOKIE;
     }

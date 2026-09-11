@@ -30,6 +30,8 @@ interface A8PluginMessage {
     headers?: Record<string, string>;
     timeout?: number;
     withCredentials?: boolean;
+    platform?: string;
+    provider?: string;
   };
 }
 
