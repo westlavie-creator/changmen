@@ -546,8 +546,21 @@ export async function buildMatchList() {
  * @param {string} logTag
  * @returns {Promise<object[]>}
  */
-async function concatSportReadOnlyLists(fetches, logTag) {
-  const settled = await Promise.allSettled(fetches);
+async function concatSportReadOnlyLists(fetches, logTag, budgetMs = 10_000) {
+  const budget = Number(budgetMs);
+  const raced = Number.isFinite(budget) && budget > 0
+    ? fetches.map((p, i) => {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${logTag} source ${i} timeout ${budget}ms`)),
+          budget,
+        );
+      });
+      return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+    })
+    : fetches;
+  const settled = await Promise.allSettled(raced);
   const rows = [];
   const errors = [];
   for (const item of settled) {

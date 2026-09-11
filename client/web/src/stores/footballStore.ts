@@ -1,22 +1,27 @@
 import { getFootballMatchs } from "@/api/esport";
-import { mergeFootballClientLists } from "@/runtime/footballClientList";
+import { combineFootballListSources } from "@/runtime/footballClientList";
 import { fetchObFootballAsClientMatchDtos } from "@/runtime/obSportFootballFetch";
 import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { createSportListStore } from "@/stores/createSportListStore";
 
-async function fetchFootballCombined(userName: string) {
-  const pmPf = await getFootballMatchs(userName);
-  let ob: Awaited<ReturnType<typeof fetchObFootballAsClientMatchDtos>> = [];
+async function fetchObRows() {
   try {
-    ob = await fetchObFootballAsClientMatchDtos();
+    return await fetchObFootballAsClientMatchDtos();
   }
   catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn("[football] OB client fetch skipped", msg);
     if (readLocalSportObSession()?.token)
       throw err;
+    return [];
   }
-  return mergeFootballClientLists(pmPf, ob);
+}
+
+async function fetchFootballCombined(userName: string) {
+  return combineFootballListSources(
+    getFootballMatchs(userName),
+    fetchObRows(),
+  );
 }
 
 /** 足球列表：独立于 matchStore；不参与电竞套利主循环 */

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import AccountBar from "@/components/account/AccountBar.vue";
 import AccountEditDialog from "@/components/account/AccountEditDialog.vue";
 import FootballSettingsDialog from "@/components/football/FootballSettingsDialog.vue";
+import PodAlertPanel from "@/components/football/PodAlertPanel.vue";
 import AppSidebar from "@/components/layout/AppSidebar.vue";
 import DirectRealtimeBadge from "@/components/layout/DirectRealtimeBadge.vue";
 import BaseballBoard from "@/components/match/BaseballBoard.vue";
@@ -77,6 +78,7 @@ function onSportTab(v: string | number | boolean | undefined) {
     @close="accountStore.closeAccountDialog()"
   />
   <FootballSettingsDialog />
+  <PodAlertPanel />
   <el-container class="common-layout home-view sports-workspace">
     <el-aside width="300px">
       <AppSidebar

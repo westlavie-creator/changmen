@@ -29,6 +29,8 @@ const RUNTIME_FILES = [
   "dex-intercept.js",
   "ob-sport-ws-hook.js",
   "ob-sport-ws-page.js",
+  "pod-alerts-hook.js",
+  "pod-alerts-page.js",
   "ob-sport-ws-offscreen.html",
   "ob-sport-ws-offscreen.js",
   "version.json",

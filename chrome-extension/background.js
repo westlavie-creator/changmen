@@ -3131,8 +3131,8 @@
   }
 
   // ../node_modules/axios/lib/helpers/isAxiosError.js
-  function isAxiosError(payload) {
-    return utils_default.isObject(payload) && payload.isAxiosError === true;
+  function isAxiosError(payload2) {
+    return utils_default.isObject(payload2) && payload2.isAxiosError === true;
   }
 
   // ../node_modules/axios/lib/helpers/HttpStatusCode.js
@@ -3701,10 +3701,10 @@
     if (!ok)
       broadcast({ type: "error", message: "ob-sport helper origin window failed" });
   }
-  function sendPayload(payload) {
+  function sendPayload(payload2) {
     if (tapMode)
       return;
-    const text = typeof payload === "string" ? payload : JSON.stringify(payload);
+    const text = typeof payload2 === "string" ? payload2 : JSON.stringify(payload2);
     if (helperPort) {
       try {
         helperPort.postMessage({ cmd: "send", payload: text });
@@ -3785,6 +3785,87 @@
       broadcast({ type: "error", message: String(message.message || "ob-sport ws error") });
     else if (kind === "close")
       broadcast({ type: "close", code: message.code, reason: message.reason });
+    return true;
+  }
+
+  // src/background/pod-alerts.js
+  var POD_ALERTS_PORT = "pod-alerts";
+  var SOURCE_STALE_MS = 8e3;
+  var snapshot = {
+    alerts: [],
+    capturedAt: 0,
+    href: "",
+    gridFound: false,
+    sourceConnected: false
+  };
+  var listeners = /* @__PURE__ */ new Set();
+  var lastSeen = 0;
+  var watchdog = 0;
+  function payload() {
+    const sourceConnected = snapshot.sourceConnected && lastSeen > 0 && Date.now() - lastSeen < SOURCE_STALE_MS;
+    return {
+      type: "podAlertsSnapshot",
+      alerts: snapshot.alerts,
+      capturedAt: snapshot.capturedAt,
+      href: snapshot.href,
+      gridFound: snapshot.gridFound,
+      sourceConnected
+    };
+  }
+  function broadcast2() {
+    const msg = payload();
+    for (const port of listeners) {
+      try {
+        port.postMessage(msg);
+      } catch {
+        listeners.delete(port);
+      }
+    }
+  }
+  function ensureWatchdog() {
+    if (watchdog)
+      return;
+    watchdog = setInterval(() => {
+      const connected = lastSeen > 0 && Date.now() - lastSeen < SOURCE_STALE_MS;
+      if (snapshot.sourceConnected !== connected) {
+        snapshot.sourceConnected = connected;
+        broadcast2();
+      }
+    }, 2e3);
+  }
+  function attachPodAlertsPort(port) {
+    listeners.add(port);
+    try {
+      port.postMessage(payload());
+    } catch {
+    }
+    port.onDisconnect.addListener(() => {
+      listeners.delete(port);
+    });
+  }
+  function ingestPodAlertsMessage(message) {
+    if (!message || typeof message !== "object")
+      return false;
+    const row = (
+      /** @type {{ type?: string }} */
+      message
+    );
+    if (row.type !== "podAlertsSnapshot")
+      return false;
+    const body = (
+      /** @type {{ alerts?: unknown; capturedAt?: unknown; href?: unknown; gridFound?: unknown }} */
+      message
+    );
+    snapshot = {
+      alerts: Array.isArray(body.alerts) ? body.alerts : [],
+      capturedAt: Number(body.capturedAt) || Date.now(),
+      href: typeof body.href === "string" ? body.href : "",
+      gridFound: body.gridFound === true,
+      sourceConnected: true
+    };
+    lastSeen = Date.now();
+    ensureWatchdog();
+    broadcast2();
     return true;
   }
 
@@ -4269,11 +4350,11 @@
         return;
       }
       case "setStore": {
-        const payload = message.data;
-        if (payload?.key != null) {
-          await storageSet({ [payload.key]: payload.data });
-          if (payload.key === MODIFY_HEADER_KEY) {
-            await applyModifyHeaderRules(payload.data ?? []);
+        const payload2 = message.data;
+        if (payload2?.key != null) {
+          await storageSet({ [payload2.key]: payload2.data });
+          if (payload2.key === MODIFY_HEADER_KEY) {
+            await applyModifyHeaderRules(payload2.data ?? []);
           }
         }
         reply({ type, uuid, response: {} });
@@ -4281,10 +4362,10 @@
       }
       case "setTab": {
         const tabId2 = sender?.tab?.id;
-        const payload = message.data;
-        if (tabId2 && payload?.key) {
-          const response = { ...payload, value: tabId2, tabId: tabId2 };
-          await storageSet({ [payload.key]: tabId2 });
+        const payload2 = message.data;
+        if (tabId2 && payload2?.key) {
+          const response = { ...payload2, value: tabId2, tabId: tabId2 };
+          await storageSet({ [payload2.key]: tabId2 });
           reply({ type, uuid, response });
           return;
         }
@@ -4369,6 +4450,8 @@
   chrome.runtime.onConnectExternal.addListener((port) => {
     if (port?.name === OB_SPORT_WS_PORT)
       attachObSportWsPort(port);
+    if (port?.name === POD_ALERTS_PORT)
+      attachPodAlertsPort(port);
   });
   installObSportWsBackground();
   chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
@@ -4378,6 +4461,10 @@
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (handleObSportWsEvent(message)) {
+      sendResponse({ ok: true });
+      return true;
+    }
+    if (ingestPodAlertsMessage(message)) {
       sendResponse({ ok: true });
       return true;
     }
@@ -4394,12 +4481,12 @@
       return true;
     }
     if (message?.type === "pbLiveCredential") {
-      const payload = message.data;
-      if (!payload || typeof payload !== "object" || typeof payload.token !== "string") {
+      const payload2 = message.data;
+      if (!payload2 || typeof payload2 !== "object" || typeof payload2.token !== "string") {
         sendResponse({ ok: false });
         return true;
       }
-      void storageSet({ PB_LIVE_CREDENTIAL: payload }).then(() => sendResponse({ ok: true }));
+      void storageSet({ PB_LIVE_CREDENTIAL: payload2 }).then(() => sendResponse({ ok: true }));
       return true;
     }
     if (message?.type !== "setTab") return false;

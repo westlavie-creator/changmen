@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeFootballClientLists } from "@/runtime/footballClientList";
+import { combineFootballListSources, mergeFootballClientLists } from "@/runtime/footballClientList";
 import type { ClientMatchDto } from "@/types/esport";
 
 function dto(partial: Partial<ClientMatchDto>): ClientMatchDto {
@@ -134,5 +134,22 @@ describe("mergeFootballClientLists", () => {
     const later = dto({ ID: 1, Title: "Later vs Team", StartTime: 200 });
     const sooner = dto({ ID: 2, Title: "Soon vs Team", StartTime: 100 });
     expect(mergeFootballClientLists([later], [sooner]).map(m => m.ID)).toEqual([2, 1]);
+  });
+
+  it("keeps OB matches when PM/PF times out", async () => {
+    const ob = dto({ ID: 820000001, Title: "Live vs Team", Matchs: { OB: "mid-1" } });
+    const list = await combineFootballListSources(
+      Promise.reject(new Error("timeout of 15000ms exceeded")),
+      Promise.resolve([ob]),
+    );
+    expect(list).toHaveLength(1);
+    expect(list[0].Matchs?.OB).toBe("mid-1");
+  });
+
+  it("rethrows timeout when both sources fail", async () => {
+    await expect(combineFootballListSources(
+      Promise.reject(new Error("timeout of 15000ms exceeded")),
+      Promise.reject(new Error("ob down")),
+    )).rejects.toThrow("timeout of 15000ms exceeded");
   });
 });

@@ -107,6 +107,7 @@ declare module 'vue' {
     PluginIntroShell: typeof import('./src/components/layout/PluginIntroShell.vue')['default']
     PmPfBufferSettings: typeof import('./src/components/user/PmPfBufferSettings.vue')['default']
     PmVaultDialogs: typeof import('./src/components/account/PmVaultDialogs.vue')['default']
+    PodAlertPanel: typeof import('./src/components/football/PodAlertPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SessionRestoreLoader: typeof import('./src/components/layout/SessionRestoreLoader.vue')['default']

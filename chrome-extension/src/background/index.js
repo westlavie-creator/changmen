@@ -12,6 +12,7 @@ import {
 import { axiosRequest } from "./http.js";
 import { storageGet, storageSet } from "./storage.js";
 import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
+import { attachPodAlertsPort, ingestPodAlertsMessage, POD_ALERTS_PORT } from "./pod-alerts.js";
 import { isPbWsObserveLive, isPbWsSocketOpen, mergePbWsBoards } from "../pb-ws-observe.js";
 import {
   hostnameMatchesPbAccountHosts,
@@ -535,6 +536,8 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.runtime.onConnectExternal.addListener((port) => {
   if (port?.name === OB_SPORT_WS_PORT)
     attachObSportWsPort(port);
+  if (port?.name === POD_ALERTS_PORT)
+    attachPodAlertsPort(port);
 });
 
 installObSportWsBackground();
@@ -548,6 +551,10 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 /** content script 内 setTab / PB WS 观测帧 */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (handleObSportWsEvent(message)) {
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (ingestPodAlertsMessage(message)) {
     sendResponse({ ok: true });
     return true;
   }

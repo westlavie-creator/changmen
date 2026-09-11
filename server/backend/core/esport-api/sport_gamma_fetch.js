@@ -31,9 +31,31 @@ const MAX_KEYSET_PAGES = 8;
 const PAST_MS = 24 * 3600 * 1000;
 const FUTURE_MS = 7 * 24 * 3600 * 1000;
 const CACHE_TTL_MS = 30_000;
+/** 冷拉取总预算：裸 fetch 在本机可达 20s+ 才失败，会撑爆前端 15s */
+const LIVE_BUDGET_MS = Number(process.env.SPORT_GAMMA_LIVE_BUDGET_MS) || 5_000;
 
 /** @type {Map<string, { at: number, rows: object[] }>} */
 const _caches = new Map();
+/** @type {Map<string, Promise<object[]>>} */
+const _inflight = new Map();
+
+function abortAfter(ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  timer.unref?.();
+  return controller.signal;
+}
+
+function persistSportRows(cacheKey, rows, logTag) {
+  const at = Date.now();
+  _caches.set(cacheKey, { at, rows });
+  try {
+    writeSportListCache(cacheKey, rows, at);
+  }
+  catch (err) {
+    console.warn(`[${logTag}] disk write skipped`, err?.message || err);
+  }
+}
 
 /**
  * @typedef {object} SportGammaOptions
@@ -116,8 +138,8 @@ function nextCursor(data) {
   return String(data.next_cursor ?? data.nextCursor ?? "");
 }
 
-async function gammaGet(path) {
-  const response = await fetch(`${GAMMA_BASE}${path}`);
+async function gammaGet(path, signal) {
+  const response = await fetch(`${GAMMA_BASE}${path}`, signal ? { signal } : {});
   if (!response.ok)
     throw new Error(`Gamma ${response.status}: ${path}`);
   return response.json();
@@ -127,13 +149,14 @@ async function gammaGet(path) {
  * @param {string[]} sportKeys
  * @param {string[]} defaultSeriesIds
  * @param {string} logTag
+ * @param {AbortSignal} [signal]
  */
-async function fetchSeriesIds(sportKeys, defaultSeriesIds, logTag) {
+async function fetchSeriesIds(sportKeys, defaultSeriesIds, logTag, signal) {
   const want = new Set(sportKeys.map(k => k.toLowerCase()).filter(Boolean));
   if (!want.size)
     return defaultSeriesIds.length ? defaultSeriesIds : [];
   try {
-    const sports = await gammaGet("/sports");
+    const sports = await gammaGet("/sports", signal);
     const ids = (Array.isArray(sports) ? sports : [])
       .filter(row => want.has(String(row.sport ?? "").toLowerCase()))
       .map(row => String(row.series ?? "").trim())
@@ -142,12 +165,14 @@ async function fetchSeriesIds(sportKeys, defaultSeriesIds, logTag) {
       return [...new Set(ids)];
   }
   catch (err) {
+    if (signal?.aborted)
+      throw err;
     console.warn(`[${logTag}] /sports fallback`, err?.message || err);
   }
   return defaultSeriesIds.length ? defaultSeriesIds : [];
 }
 
-async function fetchBatchBuyPrices(assetIds) {
+async function fetchBatchBuyPrices(assetIds, signal) {
   if (!assetIds.length)
     return {};
   const body = assetIds.map(token_id => ({ token_id, side: "SELL" }));
@@ -155,6 +180,7 @@ async function fetchBatchBuyPrices(assetIds) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok)
     return {};
@@ -278,8 +304,10 @@ export async function fetchSportAsClientMatchDtos(options) {
     return crop(diskFresh.rows);
   }
 
-  try {
-    const rows = crop(await fetchSportRowsFromGamma({
+  let live = _inflight.get(cacheKey);
+  if (!live) {
+    const signal = abortAfter(LIVE_BUDGET_MS);
+    const args = {
       sportKeys,
       gameCode,
       defaultSeriesIds,
@@ -290,35 +318,47 @@ export async function fetchSportAsClientMatchDtos(options) {
       lineMarkets,
       pastMs,
       futureMs,
-    }));
-    const at = Date.now();
-    _caches.set(cacheKey, { at, rows });
-    try {
-      writeSportListCache(cacheKey, rows, at);
-    }
-    catch (err) {
-      console.warn(`[${logTag}] disk write skipped`, err?.message || err);
-    }
-    return rows;
+      signal,
+    };
+    live = (async () => {
+      const rows = crop(await fetchSportRowsFromGamma(args));
+      persistSportRows(cacheKey, rows, logTag);
+      return rows;
+    })()
+      .catch((err) => {
+        const diskAny = readSportListCache(cacheKey);
+        if (diskAny?.rows?.length) {
+          console.warn(`[${logTag}] gamma failed, serving stale disk cache`, err?.message || err);
+          _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
+          return crop(diskAny.rows);
+        }
+        throw err;
+      })
+      .finally(() => {
+        if (_inflight.get(cacheKey) === live)
+          _inflight.delete(cacheKey);
+      });
+    _inflight.set(cacheKey, live);
   }
-  catch (err) {
-    const diskAny = readSportListCache(cacheKey);
-    if (diskAny?.rows?.length) {
-      console.warn(`[${logTag}] gamma failed, serving stale disk cache`, err?.message || err);
-      _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
-      return crop(diskAny.rows);
-    }
-    throw err;
+
+  const stale = readSportListCache(cacheKey);
+  const staleRows = stale?.rows?.length ? crop(stale.rows) : [];
+  if (staleRows.length) {
+    live.catch((err) => {
+      console.warn(`[${logTag}] background refresh failed`, err?.message || err);
+    });
+    return staleRows;
   }
+  return live;
 }
 
 /**
  * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs } = opts;
+  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs, signal } = opts;
 
-  const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag);
+  const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag, signal);
   if (!seriesIds.length) {
     throw new Error(
       `[${logTag}] 无可用 Gamma series（sportKey=${sportKeys.join(",") || "?"}；请检查 /sports 或 defaultSeriesIds）`,
@@ -344,7 +384,7 @@ async function fetchSportRowsFromGamma(opts) {
     if (cursor)
       params.set("after_cursor", cursor);
 
-    const data = await gammaGet(`/events/keyset?${params.toString()}`);
+    const data = await gammaGet(`/events/keyset?${params.toString()}`, signal);
     for (const raw of unwrapEvents(data)) {
       const title = String(raw.title ?? "").trim();
       if (!title)
@@ -458,7 +498,7 @@ async function fetchSportRowsFromGamma(opts) {
     }
   }
   const livePrices = tokenIds.length
-    ? await fetchBatchBuyPrices([...new Set(tokenIds)].slice(0, 400))
+    ? await fetchBatchBuyPrices([...new Set(tokenIds)].slice(0, 400), signal)
     : {};
 
   return events.map((ev) => {
@@ -668,8 +708,11 @@ function buildSportBetRow(p) {
 
 /** @param {string} [cacheKey] */
 export function clearSportGammaCache(cacheKey) {
-  if (cacheKey)
+  if (cacheKey) {
     _caches.delete(cacheKey);
-  else
-    _caches.clear();
+    _inflight.delete(cacheKey);
+    return;
+  }
+  _caches.clear();
+  _inflight.clear();
 }

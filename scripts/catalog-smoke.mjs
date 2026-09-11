@@ -33,6 +33,7 @@ const STEPS = [
   ts("shared/time: match_time", "packages/shared/time/match_time_smoke.test.ts"),
   mjs("storage: paths", "server/storage/paths_smoke.test.mjs"),
   mjs("esport-api: sport_list_cache", "server/backend/core/esport-api/sport_list_cache.smoke.test.mjs"),
+  mjs("esport-api: sport_gamma_fetch", "server/backend/core/esport-api/sport_gamma_fetch.smoke.test.mjs"),
   mjs("esport-api: sport_predictfun_fetch", "server/backend/core/esport-api/sport_predictfun_fetch.smoke.test.mjs"),
   mjs("esport-api: sport_football_markets", "server/backend/core/esport-api/sport_football_markets.smoke.test.mjs"),
   mjs("esport-api: sport_ob_odds", "server/backend/core/esport-api/sport_ob_odds.smoke.test.mjs"),

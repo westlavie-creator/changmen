@@ -6,6 +6,27 @@ import {
 } from "@/runtime/obSportFootballFetch";
 
 describe("collectObFootballSchedule", () => {
+  it("reads mids-only live bags without team names", () => {
+    const rows = collectObFootballSchedule({
+      livedata: [{
+        csid: "1",
+        tid: "99001",
+        tn: "泰国超级联赛",
+        tnjc: "泰超",
+        mids: "5555289",
+        mgt: "1789124400000",
+      }],
+    });
+    expect(rows).toEqual([expect.objectContaining({
+      mid: "5555289",
+      tn: "泰国超级联赛",
+      tnjc: "泰超",
+      isLive: true,
+    })]);
+    expect(rows[0]?.home).toBeFalsy();
+    expect(rows[0]?.away).toBeFalsy();
+  });
+
   it("reads tournaments when PB unwraps to a top-level array", () => {
     const rows = collectObFootballSchedule({
       data: [
@@ -169,6 +190,33 @@ describe("buildObFootballListDto", () => {
     expect(dto?.Game).toBe("英超");
     expect(dto?.Matchs).toEqual({ OB: "5652292" });
     expect(dto?.Bets).toEqual([]);
+  });
+
+  it("keeps a mids-only schedule bag when odds HTTP has no team names", () => {
+    const dto = buildObFootballListDto({
+      mid: "5555289",
+      tid: "99001",
+      tn: "泰国超级联赛",
+      tnjc: "泰超",
+      startTime: 1_800_000_000_000,
+      isLive: true,
+    });
+    expect(dto?.Title).toBe("泰超 5555289");
+    expect(dto?.Game).toBe("泰超");
+    expect(dto?.Matchs).toEqual({ OB: "5555289" });
+    expect(dto?.Bets).toEqual([]);
+  });
+
+  it("still drops 大 vs 小 junk titles", () => {
+    expect(buildObFootballListDto({
+      mid: "5555289",
+      tid: "180",
+      tn: "英超",
+      tnjc: "英超",
+      startTime: 1,
+      home: "大",
+      away: "小",
+    })).toBeNull();
   });
 
   it("keeps the match when only moneyline is present", () => {

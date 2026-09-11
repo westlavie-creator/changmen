@@ -392,11 +392,11 @@ async function fetchOddsByMids(
   session: SportObSessionLocal,
   mids: string[],
   euid = EUID_FOOTBALL,
-) {
+): Promise<{ byMid: Map<string, Record<string, unknown>>; rateLimited: boolean }> {
   const byMid = new Map<string, Record<string, unknown>>();
   const queue = chunk(mids, ODDS_BATCH);
   let rateHits = 0;
-  let failN = 0;
+  let retriedPart = false;
   while (queue.length) {
     const part = queue.shift()!;
     try {
@@ -406,29 +406,26 @@ async function fetchOddsByMids(
         mids: part.join(","),
       });
       ingestOddsRows(decoded, byMid);
+      retriedPart = false;
     }
     catch (err) {
-      failN += 1;
       if (isRateLimited(err)) {
         rateHits += 1;
-        if (rateHits >= MAX_RATE_LIMIT_HITS)
-          break;
-        await sleep(RATE_LIMIT_SLEEP_MS);
-        if (part.length > 4) {
-          const mid = Math.ceil(part.length / 2);
-          queue.unshift(part.slice(mid), part.slice(0, mid));
-        }
-        else {
+        if (!retriedPart && rateHits < MAX_RATE_LIMIT_HITS) {
+          retriedPart = true;
+          await sleep(RATE_LIMIT_SLEEP_MS);
           queue.unshift(part);
+          continue;
         }
-        continue;
+        console.warn("[football] OB odds rate-limited, keep schedule cards", euid, part.length);
+        break;
       }
+      retriedPart = false;
     }
     if (queue.length)
       await sleep(BATCH_GAP_MS);
   }
-  void failN;
-  return byMid;
+  return { byMid, rateLimited: rateHits > 0 };
 }
 
 function matchRowFromDecoded(decoded: unknown): Record<string, unknown> | null {
@@ -491,18 +488,23 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | 
     return null;
   const mid = String(meta.mid);
   const matchId = stableObMatchId(mid);
+  const tid = String(row.tid || meta.tid || "");
+  const tn = String(row.tn || meta.tn || "");
+  const tnjc = String(row.tnjc || meta.tnjc || "");
+  const game = obListGame(tid, tn, tnjc);
   let home = String(row.mhn || meta.home || "").trim();
   let away = String(row.man || meta.away || "").trim();
   if (isOutcomeLabel(home) || isOutcomeLabel(away)) {
     home = String(meta.home || "").trim();
     away = String(meta.away || "").trim();
   }
-  if (!home || !away || isOutcomeLabel(home) || isOutcomeLabel(away))
-    return null;
-  const tid = String(row.tid || meta.tid || "");
-  const tn = String(row.tn || meta.tn || "");
-  const tnjc = String(row.tnjc || meta.tnjc || "");
-  const game = obListGame(tid, tn, tnjc);
+  const named = Boolean(home && away && !isOutcomeLabel(home) && !isOutcomeLabel(away));
+  if (!named) {
+    if (isOutcomeLabel(home) && isOutcomeLabel(away))
+      return null;
+    home = home || "主队";
+    away = away || "客队";
+  }
   const startTime = clampLiveStart(
     startTimeMs(row.mgt || row.mgtStr || meta.startTime),
     meta.isLive,
@@ -556,7 +558,7 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | 
   }
   return {
     ID: matchId,
-    Title: `${home} vs ${away}`,
+    Title: named ? `${home} vs ${away}` : `${game || "足球"} ${mid}`,
     Game: game,
     GameID: 0,
     StartTime: startTime || Date.now(),
@@ -565,7 +567,7 @@ function buildDto(meta: ScheduleMeta, oddsRow: Record<string, unknown> | null | 
   } as ClientMatchDto;
 }
 
-/** 列表 DTO：有队名就出牌，缺让球/大小时 Bets 为空。 */
+/** 列表 DTO：赛程袋常无队名，缺名时用联赛+mid 出牌；缺让球/大小时 Bets 为空。 */
 export function buildObFootballListDto(
   meta: ScheduleMeta,
   oddsRow?: Record<string, unknown> | null,
@@ -673,8 +675,9 @@ async function doFetch(): Promise<ClientMatchDto[]> {
     if (!(t > 0))
       return true;
     return matchInUpcomingWindow(t, now);
-  });
-  const oddsMap = await fetchOddsByMids(session, windowed.map(m => m.mid).filter(Boolean));
+  }).sort((a, b) => Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)));
+  const oddsFirst = await fetchOddsByMids(session, windowed.map(m => m.mid).filter(Boolean));
+  const oddsMap = oddsFirst.byMid;
   const missingLive = windowed
     .filter((m) => {
       if (!m.isLive || !m.mid)
@@ -686,9 +689,9 @@ async function doFetch(): Promise<ClientMatchDto[]> {
       return !(names.home && names.away) && !(m.home && m.away);
     })
     .map(m => m.mid);
-  if (missingLive.length) {
+  if (missingLive.length && !oddsFirst.rateLimited) {
     const extra = await fetchOddsByMids(session, missingLive, EUID_FOOTBALL_LIVE);
-    for (const [mid, row] of extra)
+    for (const [mid, row] of extra.byMid)
       oddsMap.set(mid, row);
   }
   const dtos: ClientMatchDto[] = [];
@@ -759,7 +762,7 @@ export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMa
   let rows = marketsFromRow(id, detailRow);
   try {
     const map = await fetchOddsByMids(session, [id]);
-    rows = mergeMarketRows([rows, marketsFromRow(id, map.get(id) || null)]);
+    rows = mergeMarketRows([rows, marketsFromRow(id, map.byMid.get(id) || null)]);
   }
   catch { /* list fallback optional */ }
   const have = new Set(rows.map(r => String(r.hpid || "")));

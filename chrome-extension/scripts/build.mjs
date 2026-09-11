@@ -92,9 +92,23 @@ async function bundleObSportWsPage() {
   console.log("bundled ob-sport-ws-page.js");
 }
 
+async function bundlePodAlerts() {
+  copy("src/content/pod-alerts-hook.js", "pod-alerts-hook.js");
+  await esbuild.build({
+    entryPoints: [path.join(root, "src/content/pod-alerts-page.js")],
+    outfile: path.join(root, "pod-alerts-page.js"),
+    bundle: true,
+    format: "iife",
+    platform: "browser",
+    target: ["chrome109"],
+  });
+  console.log("bundled pod-alerts-page.js");
+}
+
 await bundleBackground();
 await bundleSocketIo();
 await bundleContent();
 await bundlePbWsContent();
 await bundleObSportWsPage();
+await bundlePodAlerts();
 syncVersionJson();

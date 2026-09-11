@@ -96,3 +96,30 @@ export function mergeFootballClientLists(
   });
   return out;
 }
+
+function settledRows(result: PromiseSettledResult<ClientMatchDto[]>): ClientMatchDto[] {
+  if (result.status !== "fulfilled" || !Array.isArray(result.value))
+    return [];
+  return result.value;
+}
+
+/**
+ * PM/PF（VPS）与本机 OB 并行。一侧失败仍展示另一侧，避免 15s 超时把已连接的 OB 盘也清空。
+ */
+export async function combineFootballListSources(
+  pmPfPromise: Promise<ClientMatchDto[]>,
+  obPromise: Promise<ClientMatchDto[]>,
+): Promise<ClientMatchDto[]> {
+  const [pmPf, ob] = await Promise.allSettled([pmPfPromise, obPromise]);
+  const list = mergeFootballClientLists(settledRows(pmPf), settledRows(ob));
+  if (list.length)
+    return list;
+  const reason = pmPf.status === "rejected"
+    ? pmPf.reason
+    : ob.status === "rejected"
+      ? ob.reason
+      : null;
+  if (reason)
+    throw reason instanceof Error ? reason : new Error(String(reason));
+  return [];
+}

@@ -48,6 +48,10 @@ const FUTURE_MS = 7 * 24 * 3600 * 1000;
 const CACHE_TTL_MS = 30_000;
 const MAX_TRACKED = 200;
 const ORDERBOOK_CONCURRENCY = 8;
+/** 直连 predict.fun 单次上限；超时再走 HK relay，避免裸 fetch 挂死 */
+const DIRECT_TIMEOUT_MS = Number(process.env.SPORT_PF_DIRECT_TIMEOUT_MS) || 4_000;
+/** 冷拉取总预算（无过期磁盘时才等待） */
+const LIVE_BUDGET_MS = Number(process.env.SPORT_PF_LIVE_BUDGET_MS) || 8_000;
 
 /** 官方 /v1/tags（联调快照）；失败时仍靠 name 过滤 */
 const TAG_MLB = "142";
@@ -57,12 +61,41 @@ const TAG_TENNIS = "85";
 
 /** @type {Map<string, { at: number, rows: object[] }>} */
 const _caches = new Map();
+/** @type {Map<string, Promise<object[]>>} */
+const _inflight = new Map();
 
 /** @type {{ token: string, expMs: number } | null} */
 let _relayTokenCache = null;
 
 const ESPORT_RE = /\b(cs2|counter[- ]?strike|lol|league[- ]?of[- ]?legends|dota-?2|valorant|esport|esports|lck|lpl|lec|lcs|vct|blast|iem|esl)\b/i;
 const NFL_RE = /\b(nfl|american football|ncaa football|cfb|ncaaf)\b/i;
+
+function abortAfter(ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  timer.unref?.();
+  return controller.signal;
+}
+
+function mergeAbort(signal, timeoutMs) {
+  const local = abortAfter(timeoutMs);
+  if (!signal)
+    return local;
+  if (typeof AbortSignal.any === "function")
+    return AbortSignal.any([signal, local]);
+  return local;
+}
+
+function persistPredictRows(cacheKey, rows, logTag) {
+  const at = Date.now();
+  _caches.set(cacheKey, { at, rows });
+  try {
+    writeSportListCache(cacheKey, rows, at);
+  }
+  catch (err) {
+    console.warn(`[${logTag}] disk write skipped`, err?.message || err);
+  }
+}
 
 /**
  * @param {string|undefined} name
@@ -193,12 +226,12 @@ async function resolveRelayAuthToken() {
   }
 }
 
-async function predictHttpGetDirect(url) {
+async function predictHttpGetDirect(url, signal) {
   const headers = { Accept: "application/json" };
   const apiKey = resolvePredictFunApiKey();
   if (apiKey)
     headers["x-api-key"] = apiKey;
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: mergeAbort(signal, DIRECT_TIMEOUT_MS) });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text.trim() || `HTTP ${res.status}`);
@@ -206,7 +239,7 @@ async function predictHttpGetDirect(url) {
   return res.json();
 }
 
-async function predictHttpGetViaRelay(url) {
+async function predictHttpGetViaRelay(url, signal) {
   const origin = resolveHttpRelayOrigin();
   if (!origin)
     throw new Error("PREDICT_FUN_HTTP_RELAY_ORIGIN / HK_RELAY_ORIGIN 未配置");
@@ -225,7 +258,11 @@ async function predictHttpGetViaRelay(url) {
   if (apiKey)
     headers["x-api-key"] = apiKey;
 
-  const res = await fetch(`${origin}/esport/http-relay`, { method: "GET", headers });
+  const res = await fetch(`${origin}/esport/http-relay`, {
+    method: "GET",
+    headers,
+    ...(signal ? { signal } : {}),
+  });
   const text = await res.text();
   if (!res.ok)
     throw new Error(text.trim() || `relay HTTP ${res.status}`);
@@ -238,33 +275,38 @@ let _directOk = null;
 /**
  * 直连优先；TLS/网络失败则走 HK http-relay（会话内记住，避免每个 orderbook 都先撞墙）。
  * @param {string} url
+ * @param {AbortSignal} [signal]
  */
-async function predictHttpGet(url) {
+async function predictHttpGet(url, signal) {
   if (_directOk === false)
-    return predictHttpGetViaRelay(url);
+    return predictHttpGetViaRelay(url, signal);
 
   if (_directOk === true) {
     try {
-      return await predictHttpGetDirect(url);
+      return await predictHttpGetDirect(url, signal);
     }
     catch (err) {
+      if (signal?.aborted)
+        throw err;
       _directOk = false;
       console.warn("[sportPf] predict.fun direct broke, switch to http-relay", err?.message || err);
-      return predictHttpGetViaRelay(url);
+      return predictHttpGetViaRelay(url, signal);
     }
   }
 
   try {
-    const data = await predictHttpGetDirect(url);
+    const data = await predictHttpGetDirect(url, signal);
     _directOk = true;
     return data;
   }
   catch (err) {
+    if (signal?.aborted)
+      throw err;
     if (!resolveHttpRelayOrigin())
       throw err;
     _directOk = false;
     console.warn("[sportPf] direct predict.fun failed, using http-relay", err?.message || err);
-    return predictHttpGetViaRelay(url);
+    return predictHttpGetViaRelay(url, signal);
   }
 }
 
@@ -293,9 +335,11 @@ function tagIdsForGame(gameCode) {
   return "";
 }
 
-async function fetchPredictCategoriesForGame(gameCode) {
+async function fetchPredictCategoriesForGame(gameCode, signal) {
   const byId = new Map();
   for (const marketVariant of variantsForGame(gameCode)) {
+    if (signal?.aborted)
+      throw signal.reason || new Error("predict.fun category fetch aborted");
     let after;
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const qs = new URLSearchParams({
@@ -308,7 +352,7 @@ async function fetchPredictCategoriesForGame(gameCode) {
         qs.set("tagIds", tagIds);
       if (after)
         qs.set("after", after);
-      const res = await predictHttpGet(`${PREDICT_FUN_API}/v1/categories?${qs.toString()}`);
+      const res = await predictHttpGet(`${PREDICT_FUN_API}/v1/categories?${qs.toString()}`, signal);
       const batch = Array.isArray(res?.data) ? res.data : [];
       for (const row of batch) {
         const id = String(row?.id ?? row?.slug ?? "");
@@ -344,15 +388,18 @@ function bestAskFromPredictBook(book) {
   return Number.isFinite(best) && best < 1 ? best : 0;
 }
 
-async function fetchPredictOrderbooks(marketIds) {
+async function fetchPredictOrderbooks(marketIds, signal) {
   const unique = [...new Set(marketIds.map(id => String(id)).filter(Boolean))];
   const out = {};
   for (let i = 0; i < unique.length; i += ORDERBOOK_CONCURRENCY) {
+    if (signal?.aborted)
+      break;
     const chunk = unique.slice(i, i + ORDERBOOK_CONCURRENCY);
     const rows = await Promise.all(chunk.map(async (id) => {
       try {
         const res = await predictHttpGet(
           `${PREDICT_FUN_API}/v1/markets/${encodeURIComponent(id)}/orderbook`,
+          signal,
         );
         return { id, book: res?.data ?? null };
       }
@@ -753,107 +800,119 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
     return crop(diskFresh.rows);
   }
 
-  try {
-    if (!resolvePredictFunApiKey())
-      throw new Error("PREDICT_FUN_API_KEY 未配置");
+  let live = _inflight.get(cacheKey);
+  if (!live) {
+    const signal = abortAfter(LIVE_BUDGET_MS);
+    live = (async () => {
+      if (!resolvePredictFunApiKey())
+        throw new Error("PREDICT_FUN_API_KEY 未配置");
 
-    const rawCategories = await fetchPredictCategoriesForGame(gameCode);
-    const moneylineCats = rawCategories.filter((category) => {
-      if (!isPredictSportMoneylineCategory(category, gameCode))
-        return false;
-      return startTimeAllowed(startTimeMsOf(category), winPast, winFuture);
-    });
-    const propsCats = gameCode === "soccer"
-      ? rawCategories.filter((category) => {
-        if (String(category.marketVariant ?? "") !== "SPORTS_PROPS")
-          return false;
-        if (String(category.status ?? "").toUpperCase() !== "OPEN")
-          return false;
-        if (!isFootballSiblingEventTitle(String(category.title ?? "")))
+      const rawCategories = await fetchPredictCategoriesForGame(gameCode, signal);
+      const moneylineCats = rawCategories.filter((category) => {
+        if (!isPredictSportMoneylineCategory(category, gameCode))
           return false;
         return startTimeAllowed(startTimeMsOf(category), winPast, winFuture);
+      });
+      const propsCats = gameCode === "soccer"
+        ? rawCategories.filter((category) => {
+          if (String(category.marketVariant ?? "") !== "SPORTS_PROPS")
+            return false;
+          if (String(category.status ?? "").toUpperCase() !== "OPEN")
+            return false;
+          if (!isFootballSiblingEventTitle(String(category.title ?? "")))
+            return false;
+          return startTimeAllowed(startTimeMsOf(category), winPast, winFuture);
+        })
+        : [];
+
+      const marketIds = [];
+      for (const category of moneylineCats) {
+        const dual = pickDualTeamMarkets(category);
+        if (dual) {
+          const homeYes = yesOutcome(dual.home);
+          const awayYes = yesOutcome(dual.away);
+          if (!outcomeHasUsablePrice(homeYes) && dual.home.id != null)
+            marketIds.push(String(dual.home.id));
+          if (!outcomeHasUsablePrice(awayYes) && dual.away.id != null)
+            marketIds.push(String(dual.away.id));
+        }
+      }
+
+      const books = marketIds.length
+        ? await fetchPredictOrderbooks(marketIds.slice(0, MAX_TRACKED * 2), signal)
+        : {};
+      const buyPrices = {};
+      for (const [id, book] of Object.entries(books)) {
+        const ask = bestAskFromPredictBook(book);
+        if (ask > 0 && ask < 1)
+          buyPrices[id] = ask;
+      }
+
+      /** @type {Map<string, object>} */
+      const byBase = new Map();
+      const rows = [];
+      for (const category of moneylineCats) {
+        const dto = categoryToClientMatchDto(category, buyPrices, gameCode, idBase);
+        if (!dto)
+          continue;
+        rows.push(dto);
+        const base = baseFootballEventTitle(String(dto.Title || "")).toLowerCase();
+        if (base)
+          byBase.set(`${dto.Game}|${base}`, dto);
+        if (rows.length >= MAX_TRACKED)
+          break;
+      }
+
+      for (const propsCat of propsCats) {
+        const base = baseFootballEventTitle(String(propsCat.title ?? "")).toLowerCase();
+        if (!base)
+          continue;
+        const league = resolveFootballLeagueGame(propsCat);
+        let dto = byBase.get(`${league}|${base}`);
+        if (!dto) {
+          const candidates = [...byBase.values()].filter(d =>
+            baseFootballEventTitle(String(d.Title || "")).toLowerCase() === base);
+          const lg = String(league || "").toLowerCase();
+          dto = candidates.find(d => String(d.Game || "").toLowerCase() === lg)
+            || (FOOTBALL_FALLBACK_GAMES.has(lg)
+              ? candidates[0]
+              : candidates.find(d => FOOTBALL_FALLBACK_GAMES.has(String(d.Game || "").toLowerCase())))
+            || null;
+        }
+        if (!dto)
+          continue;
+        appendPredictFootballPropsBets(dto, propsCat);
+      }
+
+      const cropped = crop(rows);
+      persistPredictRows(cacheKey, cropped, logTag);
+      return cropped;
+    })()
+      .catch((err) => {
+        const diskAny = readSportListCache(cacheKey);
+        if (diskAny?.rows?.length) {
+          console.warn(`[${logTag}] predict.fun failed, serving stale disk cache`, err?.message || err);
+          _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
+          return crop(diskAny.rows);
+        }
+        throw err;
       })
-      : [];
-
-    const marketIds = [];
-    for (const category of moneylineCats) {
-      const dual = pickDualTeamMarkets(category);
-      if (dual) {
-        const homeYes = yesOutcome(dual.home);
-        const awayYes = yesOutcome(dual.away);
-        if (!outcomeHasUsablePrice(homeYes) && dual.home.id != null)
-          marketIds.push(String(dual.home.id));
-        if (!outcomeHasUsablePrice(awayYes) && dual.away.id != null)
-          marketIds.push(String(dual.away.id));
-      }
-    }
-
-    const books = marketIds.length
-      ? await fetchPredictOrderbooks(marketIds.slice(0, MAX_TRACKED * 2))
-      : {};
-    const buyPrices = {};
-    for (const [id, book] of Object.entries(books)) {
-      const ask = bestAskFromPredictBook(book);
-      if (ask > 0 && ask < 1)
-        buyPrices[id] = ask;
-    }
-
-    /** @type {Map<string, object>} */
-    const byBase = new Map();
-    const rows = [];
-    for (const category of moneylineCats) {
-      const dto = categoryToClientMatchDto(category, buyPrices, gameCode, idBase);
-      if (!dto)
-        continue;
-      rows.push(dto);
-      const base = baseFootballEventTitle(String(dto.Title || "")).toLowerCase();
-      if (base)
-        byBase.set(`${dto.Game}|${base}`, dto);
-      if (rows.length >= MAX_TRACKED)
-        break;
-    }
-
-    for (const propsCat of propsCats) {
-      const base = baseFootballEventTitle(String(propsCat.title ?? "")).toLowerCase();
-      if (!base)
-        continue;
-      const league = resolveFootballLeagueGame(propsCat);
-      let dto = byBase.get(`${league}|${base}`);
-      if (!dto) {
-        const candidates = [...byBase.values()].filter(d =>
-          baseFootballEventTitle(String(d.Title || "")).toLowerCase() === base);
-        const lg = String(league || "").toLowerCase();
-        dto = candidates.find(d => String(d.Game || "").toLowerCase() === lg)
-          || (FOOTBALL_FALLBACK_GAMES.has(lg)
-            ? candidates[0]
-            : candidates.find(d => FOOTBALL_FALLBACK_GAMES.has(String(d.Game || "").toLowerCase())))
-          || null;
-      }
-      if (!dto)
-        continue;
-      appendPredictFootballPropsBets(dto, propsCat);
-    }
-
-    const cropped = crop(rows);
-    const at = Date.now();
-    _caches.set(cacheKey, { at, rows: cropped });
-    try {
-      writeSportListCache(cacheKey, cropped, at);
-    }
-    catch (err) {
-      console.warn(`[${logTag}] disk write skipped`, err?.message || err);
-    }
-    return cropped;
+      .finally(() => {
+        if (_inflight.get(cacheKey) === live)
+          _inflight.delete(cacheKey);
+      });
+    _inflight.set(cacheKey, live);
   }
-  catch (err) {
-    const diskAny = readSportListCache(cacheKey);
-    if (diskAny?.rows?.length) {
-      console.warn(`[${logTag}] predict.fun failed, serving stale disk cache`, err?.message || err);
-      _caches.set(cacheKey, { at: diskAny.at, rows: diskAny.rows });
-      return crop(diskAny.rows);
-    }
-    throw err;
+
+  const stale = readSportListCache(cacheKey);
+  const staleRows = stale?.rows?.length ? crop(stale.rows) : [];
+  if (staleRows.length) {
+    live.catch((err) => {
+      console.warn(`[${logTag}] background refresh failed`, err?.message || err);
+    });
+    return staleRows;
   }
+  return live;
 }
 
 /**
@@ -1034,7 +1093,9 @@ export async function fetchPredictFunNbaAsClientMatchDtos() {
 export function clearSportPredictFunCache(cacheKey) {
   if (cacheKey) {
     _caches.delete(cacheKey);
+    _inflight.delete(cacheKey);
     return;
   }
   _caches.clear();
+  _inflight.clear();
 }

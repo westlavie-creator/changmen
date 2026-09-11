@@ -167,6 +167,7 @@ describe("sport / esport UI isolation", () => {
     expect(panel).toMatch(/足球设置/);
     expect(panel).not.toMatch(/obSportFootballFetch|FootballObSessionBar/);
     expect(workspace).toMatch(/FootballSettingsDialog/);
+    expect(workspace).toMatch(/PodAlertPanel/);
     expect(workspace).toMatch(/show-football-settings/);
     const settings = readFileSync(join(root, "components/football/FootballSettingsDialog.vue"), "utf8");
     expect(settings).toMatch(/el-tabs/);
@@ -261,7 +262,7 @@ describe("sport / esport UI isolation", () => {
     expect(dialog).not.toMatch(/updateSportObSession/);
     expect(footballStore).toMatch(/fetchObFootballAsClientMatchDtos/);
     expect(footballStore).toMatch(/getFootballMatchs/);
-    expect(footballStore).toMatch(/mergeFootballClientLists/);
+    expect(footballStore).toMatch(/combineFootballListSources/);
     expect(footballStore).not.toMatch(/updateSportObSession/);
     expect(footballStore).not.toMatch(/getSportObSession/);
   });
