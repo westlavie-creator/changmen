@@ -60,3 +60,12 @@ export function pbLiveTabHardError(raw: unknown): Error | undefined {
     return new Error(raw);
   return undefined;
 }
+
+/**
+ * F5 空窗重试间隔（首次立即，再跟这些 delay）。
+ * 测试可改成 `[0]` 以免真睡。
+ */
+export const pbLiveTabRetryDelaysMs: number[] = [250, 600, 1200, 2000];
+
+/** 活标签暂时不可用：余额层当瞬时失败，不要 TOKEN ERROR，也不要用过期冻结核 */
+export const PB_LIVE_TAB_UNAVAILABLE = "PB 官网标签页暂时不可用";

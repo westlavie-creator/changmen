@@ -2,7 +2,16 @@
 
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 import { buildPbAuthHeaders, pbAccountUsesLiveTab } from "./auth";
-import { isPbLiveTabDead, isPbTabMiss, pbLiveTabHardError, readPbTabIdFromPlugin, setPbTabIdCached } from "./tabId";
+import {
+  isPbLiveTabDead,
+  isPbTabMiss,
+  PB_LIVE_TAB_UNAVAILABLE,
+  pbLiveTabHardError,
+  pbLiveTabRetryDelaysMs,
+  readPbTabIdFromPlugin,
+  setPbTabIdCached,
+} from "./tabId";
+import { applyPbLiveCredentialFromPlugin } from "./liveCredential";
 import { pbOddsUrl } from "./parse";
 import { useAccountStore } from "../shared/webBridge";
 import { PLATFORMS } from "../shared/platforms";
@@ -29,17 +38,9 @@ function frozenOpts(account: PlatformAccount, extraHeaders: Record<string, strin
   return headers ? { headers } : undefined;
 }
 
-async function pbPluginOpts(
-  account: PlatformAccount,
-  extraHeaders: Record<string, string> = {},
-): Promise<{ headers?: Record<string, string>; tabId?: number; platform?: string; provider?: string }> {
-  const fallback = frozenOpts(account, extraHeaders);
-  if (!pbAccountUsesLiveTab(account))
-    return fallback ?? {};
-  const tabId = await readPbTabIdFromPlugin();
-  if (!tabId)
-    return fallback ?? {};
-  // 活头由标签页现读；这里只传 content-type 等业务头，避免冻结核 X-U 盖掉官网
+type PluginOpts = { headers?: Record<string, string>; tabId?: number; platform?: string; provider?: string };
+
+function liveTabOpts(tabId: number, extraHeaders: Record<string, string> = {}): PluginOpts {
   return {
     ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
     tabId,
@@ -48,36 +49,52 @@ async function pbPluginOpts(
   };
 }
 
-async function withLiveTabFallback<T>(
-  tabId: number | undefined,
-  live: () => Promise<T | undefined>,
-  frozen: () => Promise<T | undefined>,
+function sleep(ms: number) {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * part888：只走官网标签，F5 空窗短重试。
+ * 不要回退冻结核——过期 X-U 才是 TOKEN ERROR 来源。
+ */
+async function sendViaLiveTab<T>(
+  account: PlatformAccount,
+  extraHeaders: Record<string, string>,
+  send: (opts: PluginOpts) => Promise<T | undefined>,
 ): Promise<T | undefined> {
-  if (!tabId)
-    return live();
-  try {
-    const raw = await live();
-    if (!isPbLiveTabDead(raw)) {
-      const hard = pbLiveTabHardError(raw);
-      if (hard) throw hard;
-      return raw;
+  if (!pbAccountUsesLiveTab(account))
+    return send(frozenOpts(account, extraHeaders) ?? {});
+
+  const attempts = 1 + pbLiveTabRetryDelaysMs.length;
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0)
+      await sleep(pbLiveTabRetryDelaysMs[i - 1] ?? 0);
+    const tabId = await readPbTabIdFromPlugin();
+    if (!tabId)
+      continue;
+    try {
+      const raw = await send(liveTabOpts(tabId, extraHeaders));
+      if (!isPbLiveTabDead(raw)) {
+        const hard = pbLiveTabHardError(raw);
+        if (hard) throw hard;
+        void applyPbLiveCredentialFromPlugin(account);
+        return raw;
+      }
+    }
+    catch (err) {
+      if (!isPbTabMiss(err))
+        throw err;
     }
   }
-  catch (err) {
-    if (!isPbTabMiss(err))
-      throw err;
-  }
   setPbTabIdCached(undefined);
-  return frozen();
+  throw new Error(PB_LIVE_TAB_UNAVAILABLE);
 }
 
 async function pbPluginGet(url: string, account: PlatformAccount, extraHeaders: Record<string, string> = {}) {
-  const opts = await pbPluginOpts(account, extraHeaders);
-  return withLiveTabFallback(
-    opts.tabId,
-    () => a8PluginGet(url, opts),
-    () => a8PluginGet(url, frozenOpts(account, extraHeaders)),
-  );
+  return sendViaLiveTab(account, extraHeaders, (opts) => a8PluginGet(url, opts));
 }
 
 async function pbPluginPost(
@@ -86,12 +103,7 @@ async function pbPluginPost(
   body: unknown,
   extraHeaders: Record<string, string> = {},
 ) {
-  const opts = await pbPluginOpts(account, extraHeaders);
-  return withLiveTabFallback(
-    opts.tabId,
-    () => a8PluginPost(url, body, opts),
-    () => a8PluginPost(url, body, frozenOpts(account, extraHeaders)),
-  );
+  return sendViaLiveTab(account, extraHeaders, (opts) => a8PluginPost(url, body, opts));
 }
 
 /**

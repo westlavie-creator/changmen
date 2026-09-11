@@ -48,6 +48,31 @@ function liveHeaders(extra = {}) {
   return buildLivePbAuthHeaders(readLocalStorageSnapshot(), extra);
 }
 
+/** 与 GetConfig 同形：整包 localStorage JSON，供 changmen 回写 account.token */
+function publishLiveCredential() {
+  if (!shouldRegisterPbLiveHttp()) return;
+  const snapshot = readLocalStorageSnapshot();
+  const mode = detectPbPageSessionMode(snapshot);
+  if (isPbA8K0PageSession(mode)) return;
+  try {
+    chrome.runtime.sendMessage(
+      {
+        type: "pbLiveCredential",
+        data: {
+          token: JSON.stringify(snapshot),
+          gateway: `https://${location.host}`,
+          referer: location.href,
+          capturedAt: Date.now(),
+        },
+      },
+      () => { void chrome.runtime.lastError; },
+    );
+  }
+  catch {
+    /* ignore */
+  }
+}
+
 /**
  * @param {{ type?: string; url?: string; data?: unknown; options?: { headers?: Record<string, string>; timeout?: number; withCredentials?: boolean } }} message
  */
@@ -64,7 +89,7 @@ export async function handlePbLiveTabMessage(message) {
 
   const extra = message.options?.headers || {};
   const headers = liveHeaders(extra);
-  return axios.request({
+  const result = await axios.request({
     method,
     url,
     headers,
@@ -72,6 +97,8 @@ export async function handlePbLiveTabMessage(message) {
     withCredentials: message.options?.withCredentials !== false,
     data: message.data,
   });
+  publishLiveCredential();
+  return result;
 }
 
 /**
@@ -92,6 +119,8 @@ export function initPbLiveHttp(registerHandler) {
     catch {
       /* ignore */
     }
+    publishLiveCredential();
+    setInterval(publishLiveCredential, 10_000);
     return true;
   };
   if (tryReg()) return;

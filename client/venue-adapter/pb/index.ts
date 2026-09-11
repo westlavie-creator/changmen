@@ -7,6 +7,7 @@ export * from "./auth";
 export * from "./bet";
 export * from "./collect";
 export * from "./tabId";
+export * from "./liveCredential";
 export {
   countPbWsShadowBySource,
   getPbWsShadow,

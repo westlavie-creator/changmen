@@ -21,6 +21,10 @@ vi.mock("./tabId", () => ({
   pbLiveTabHardError: () => undefined,
 }));
 
+vi.mock("./liveCredential", () => ({
+  applyPbLiveCredentialFromPlugin: async () => false,
+}));
+
 const account: PlatformAccount = {
   provider: "PB",
   gateway: "https://pb.example",

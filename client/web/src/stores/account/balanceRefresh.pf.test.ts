@@ -174,5 +174,6 @@ describe("isVenueAuthFailureMessage", () => {
     expect(isVenueAuthFailureMessage("network reset")).toBe(false);
     // 勿把 HTTP 正文里的 Forbidden 误判成鉴权失效
     expect(isVenueAuthFailureMessage("Request failed with status code 403 Forbidden")).toBe(false);
+    expect(isVenueAuthFailureMessage("PB 官网标签页暂时不可用")).toBe(false);
   });
 });

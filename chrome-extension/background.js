@@ -4163,6 +4163,15 @@
       void handleExternalMessage(message, sendResponse, sender);
       return true;
     }
+    if (message?.type === "pbLiveCredential") {
+      const payload = message.data;
+      if (!payload || typeof payload !== "object" || typeof payload.token !== "string") {
+        sendResponse({ ok: false });
+        return true;
+      }
+      void storageSet({ PB_LIVE_CREDENTIAL: payload }).then(() => sendResponse({ ok: true }));
+      return true;
+    }
     if (message?.type !== "setTab") return false;
     const tabId2 = sender.tab?.id;
     const key = message.data?.key;
