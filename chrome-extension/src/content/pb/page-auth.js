@@ -117,3 +117,23 @@ export function readLocalStorageSnapshot() {
   }
   return snapshot;
 }
+
+/** 有 x-app-data 或内层会话头即可代发（不限 /sports 路径） */
+export function hasPbPageSession(store = readLocalStorageSnapshot()) {
+  const bag = store && typeof store === "object" ? store : {};
+  if (bag["x-app-data"]) return true;
+  try {
+    const token = JSON.parse(bag.token || "");
+    if (
+      token
+      && typeof token === "object"
+      && (token["X-Browser-Session-Id"] || token["X-Custid"])
+    ) {
+      return true;
+    }
+  }
+  catch {
+    /* ignore */
+  }
+  return false;
+}

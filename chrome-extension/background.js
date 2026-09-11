@@ -3895,26 +3895,37 @@
     }
     return out;
   }
-  function pbApexHost(host) {
-    const h = String(host || "").toLowerCase().replace(/\.$/, "");
-    return h.startsWith("www.") ? h.slice(4) : h;
-  }
-  function tabUrlPatternsForPbHosts(hosts) {
-    const patterns = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (pattern) => {
-      if (!pattern || seen.has(pattern)) return;
-      seen.add(pattern);
-      patterns.push(pattern);
-    };
-    for (const host of normalizePbAccountHosts(hosts)) {
-      const apex = pbApexHost(host);
-      add(`*://${host}/*`);
-      add(`*://${apex}/*`);
-      if (apex.includes("."))
-        add(`*://*.${apex}/*`);
+  function hostnameMatchesPbAccountHosts(hostname, hosts) {
+    const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+    if (!h || !Array.isArray(hosts) || !hosts.length) return false;
+    for (const host of hosts) {
+      if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
+        return true;
     }
-    return patterns;
+    return false;
+  }
+  function tabUrlMatchesPbAccountHosts(tabUrl, hosts) {
+    return hostnameMatchesPbAccountHosts(pbHostFromUrl(tabUrl), hosts);
+  }
+  function pickPbLiveTabIds(tabs, hosts, pingHosts = {}) {
+    const list = normalizePbAccountHosts(hosts);
+    if (!list.length) return [];
+    const pingOk = [];
+    const urlOnly = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const t of Array.isArray(tabs) ? tabs : []) {
+      const id = Number(t?.id);
+      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      const pingHost = pingHosts[id] || pingHosts[String(id)] || "";
+      if (hostnameMatchesPbAccountHosts(pingHost, list)) {
+        pingOk.push(id);
+        continue;
+      }
+      if (tabUrlMatchesPbAccountHosts(t.url, list))
+        urlOnly.push(id);
+    }
+    return pingOk.length ? pingOk : urlOnly;
   }
 
   // src/background/index.js
@@ -3923,19 +3934,155 @@
   var PB_WS_ENABLED_KEY = "pbWsObserveEnabled";
   var PB_WS_BOARD_KEY = "pbWsLatestOdds";
   var PB_WS_MAX_RECENT = 40;
-  async function queryTabsForPbAccountHosts(hosts) {
-    const tabIds = /* @__PURE__ */ new Set();
-    const patterns = tabUrlPatternsForPbHosts(hosts);
-    for (const url of patterns) {
-      try {
-        const tabs = await chrome.tabs.query({ url: [url] });
-        for (const t of tabs) {
-          if (t.id) tabIds.add(t.id);
-        }
-      } catch {
+  var PB_LIVE_HTTP_PORT = "pb-live-http";
+  var pbLivePorts = /* @__PURE__ */ new Map();
+  function rememberPbLivePort(port) {
+    const tabId2 = port.sender?.tab?.id;
+    if (!tabId2) return;
+    const entry = {
+      port,
+      host: "",
+      href: "",
+      frameId: port.sender?.frameId
+    };
+    const list = (pbLivePorts.get(tabId2) || []).filter((e) => e.port !== port);
+    list.push(entry);
+    pbLivePorts.set(tabId2, list);
+    port.onMessage.addListener((msg) => {
+      if (msg?.kind === "hello") {
+        entry.host = typeof msg.host === "string" ? msg.host : "";
+        entry.href = typeof msg.href === "string" ? msg.href : "";
+      }
+    });
+    port.onDisconnect.addListener(() => {
+      const next = (pbLivePorts.get(tabId2) || []).filter((e) => e.port !== port);
+      if (next.length)
+        pbLivePorts.set(tabId2, next);
+      else
+        pbLivePorts.delete(tabId2);
+    });
+  }
+  function pickPbLivePort(tabId2, requestUrl = "") {
+    const entries = pbLivePorts.get(tabId2) || [];
+    if (!entries.length) return void 0;
+    let reqHost = "";
+    try {
+      if (requestUrl)
+        reqHost = new URL(requestUrl).hostname;
+    } catch {
+    }
+    if (reqHost) {
+      const hit = entries.find((e) => hostnameMatchesPbAccountHosts(e.host, [reqHost]));
+      if (hit)
+        return hit.port;
+    }
+    return entries[0]?.port;
+  }
+  function tabIdFromPbLivePorts(hosts) {
+    const list = normalizePbAccountHosts(hosts);
+    for (const [tabId2, entries] of pbLivePorts) {
+      for (const e of entries) {
+        if (!list.length || hostnameMatchesPbAccountHosts(e.host, list) || tabUrlMatchesPbAccountHosts(e.href, list))
+          return tabId2;
       }
     }
-    return tabIds;
+    return void 0;
+  }
+  function pbLivePortDebug(hosts) {
+    const list = normalizePbAccountHosts(hosts);
+    const ports2 = [];
+    for (const [tabId2, entries] of pbLivePorts) {
+      for (const e of entries) {
+        ports2.push({ tabId: tabId2, host: e.host, href: e.href || "" });
+      }
+    }
+    return { hosts: list, ports: ports2 };
+  }
+  function pingPbLiveTab(tabId2) {
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tabId2, { type: "pbLiveTabPing" }, (response) => {
+        void chrome.runtime.lastError;
+        const host = response && typeof response.host === "string" ? response.host : "";
+        resolve(host);
+      });
+    });
+  }
+  function isHttpTabUrl(url) {
+    return !url || /^https?:/i.test(url);
+  }
+  async function queryTabsForPbAccountHosts(hosts) {
+    const list = normalizePbAccountHosts(hosts);
+    if (!list.length) return /* @__PURE__ */ new Set();
+    let tabs = [];
+    try {
+      tabs = await chrome.tabs.query({});
+    } catch {
+      return /* @__PURE__ */ new Set();
+    }
+    const urlMatched = [];
+    const pingCandidates = [];
+    for (const t of tabs) {
+      if (!t.id) continue;
+      const url = t.url || t.pendingUrl || "";
+      if (!isHttpTabUrl(url)) continue;
+      pingCandidates.push(t);
+      if (tabUrlMatchesPbAccountHosts(url, list))
+        urlMatched.push(t);
+    }
+    const pingHosts = {};
+    const toPing = urlMatched.length ? urlMatched : pingCandidates;
+    await Promise.all(toPing.map(async (t) => {
+      const host = await pingPbLiveTab(t.id);
+      if (host)
+        pingHosts[t.id] = host;
+    }));
+    return new Set(pickPbLiveTabIds(tabs, list, pingHosts));
+  }
+  async function resolvePbLiveTabId(hosts) {
+    const list = normalizePbAccountHosts(hosts);
+    const fromPort = tabIdFromPbLivePorts(list);
+    if (fromPort)
+      return fromPort;
+    const storedPb = Number((await storageGet("PB"))?.PB);
+    if (Number.isFinite(storedPb) && storedPb > 0) {
+      const host = await pingPbLiveTab(storedPb);
+      if (host && (!list.length || hostnameMatchesPbAccountHosts(host, list)))
+        return storedPb;
+    }
+    if (!list.length)
+      return Number.isFinite(storedPb) && storedPb > 0 ? storedPb : null;
+    const tabIds = await queryTabsForPbAccountHosts(list);
+    if (Number.isFinite(storedPb) && storedPb > 0 && tabIds.has(storedPb))
+      return storedPb;
+    const first = [...tabIds][0];
+    return typeof first === "number" ? first : null;
+  }
+  function forwardViaPbLivePort(port, message) {
+    const uuid = message.uuid || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        port.onMessage.removeListener(onMsg);
+        reject(new Error("\u6807\u7B7E\u9875\u901A\u4FE1\u5931\u8D25"));
+      }, 3e4);
+      function onMsg(msg) {
+        if (!msg || msg.kind !== "httpResult" || msg.uuid !== uuid)
+          return;
+        clearTimeout(timer);
+        port.onMessage.removeListener(onMsg);
+        if (msg.error)
+          reject(new Error(String(msg.error)));
+        else
+          resolve(msg.response);
+      }
+      port.onMessage.addListener(onMsg);
+      try {
+        port.postMessage({ ...message, kind: "http", uuid });
+      } catch (err) {
+        clearTimeout(timer);
+        port.onMessage.removeListener(onMsg);
+        reject(err instanceof Error ? err : new Error("\u6807\u7B7E\u9875\u901A\u4FE1\u5931\u8D25"));
+      }
+    });
   }
   async function appendPbWsFrame(frame) {
     const bag = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]);
@@ -4041,6 +4188,9 @@
     await storageSet(patch);
   }
   function forwardToTab(message, tabId2) {
+    const viaPort = pickPbLivePort(tabId2, message.url);
+    if (viaPort)
+      return forwardViaPbLivePort(viaPort, message);
     return new Promise((resolve, reject) => {
       chrome.tabs.sendMessage(tabId2, message, (response) => {
         const err = chrome.runtime.lastError;
@@ -4069,7 +4219,11 @@
             const response = await forwardToTab(message, tabId2);
             reply({ type, uuid, response });
           } catch (err) {
-            reply({ type, uuid, response: err });
+            reply({
+              type,
+              uuid,
+              response: err instanceof Error ? err.message || "\u6807\u7B7E\u9875\u901A\u4FE1\u5931\u8D25" : String(err)
+            });
           }
           return;
         }
@@ -4099,6 +4253,19 @@
         }
         const data = await storageGet(key);
         reply({ type, uuid, response: { data } });
+        return;
+      }
+      case "getPbLiveTab": {
+        const hosts = normalizePbAccountHosts(message.data?.hosts);
+        const tabId2 = await resolvePbLiveTabId(hosts);
+        reply({
+          type,
+          uuid,
+          response: {
+            tabId: typeof tabId2 === "number" ? tabId2 : null,
+            debug: pbLivePortDebug(hosts)
+          }
+        });
         return;
       }
       case "setStore": {
@@ -4195,6 +4362,10 @@
         reply({ type, uuid, response: null });
     }
   }
+  chrome.runtime.onConnect.addListener((port) => {
+    if (port?.name === PB_LIVE_HTTP_PORT)
+      rememberPbLivePort(port);
+  });
   chrome.runtime.onConnectExternal.addListener((port) => {
     if (port?.name === OB_SPORT_WS_PORT)
       attachObSportWsPort(port);
@@ -4238,7 +4409,12 @@
       sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
       return true;
     }
-    storageSet({ [key]: tabId2 }).then(() => {
+    const patch = { [key]: tabId2 };
+    const host = typeof message.data?.host === "string" ? message.data.host : "";
+    if (key === "PB" && host) {
+      patch.pbLiveTabMeta = { tabId: tabId2, host, href: message.data?.href || "", ts: Date.now() };
+    }
+    storageSet(patch).then(() => {
       sendResponse({
         success: true,
         type: message.type,

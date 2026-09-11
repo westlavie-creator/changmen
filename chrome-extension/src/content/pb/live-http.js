@@ -1,42 +1,23 @@
 /**
  * [changmen 扩展] 平博标签页代发：现读 localStorage + Cookie。
  * 515 页不注册，避免破坏 A8 k0。
- * 主机必须命中投注账号 referer/gateway。
+ * 每个已登录 frame 用长连接向 background 报 host，避免只打到顶层壳页。
  */
 import { PLATFORMS } from "../platforms.js";
 import {
-  normalizePbAccountHosts,
-  pageMatchesPbAccountHosts,
-  PB_ACCOUNT_HOSTS_KEY,
-} from "./hosts.js";
-import {
   buildLivePbAuthHeaders,
   detectPbPageSessionMode,
+  hasPbPageSession,
   isPbA8K0PageSession,
   readLocalStorageSnapshot,
 } from "./page-auth.js";
 import axios from "axios";
 
-function isSportsAppPath(pathname = location.pathname) {
-  return /\/esports-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(String(pathname || ""));
-}
-
-function isTopFrame() {
-  try {
-    return window === window.top;
-  }
-  catch {
-    return true;
-  }
-}
-
-let accountHosts = [];
+export const PB_LIVE_HTTP_PORT = "pb-live-http";
 
 export function shouldRegisterPbLiveHttp(store = readLocalStorageSnapshot()) {
-  if (!isTopFrame()) return false;
-  if (!pageMatchesPbAccountHosts(accountHosts)) return false;
-  if (!isSportsAppPath()) return false;
-  if (!store["x-app-data"]) return false;
+  if (!location.hostname) return false;
+  if (!hasPbPageSession(store)) return false;
   return !isPbA8K0PageSession(detectPbPageSessionMode(store));
 }
 
@@ -108,6 +89,55 @@ export async function handlePbLiveTabMessage(message) {
   return result;
 }
 
+function connectLivePort() {
+  let port;
+  try {
+    port = chrome.runtime.connect({ name: PB_LIVE_HTTP_PORT });
+  }
+  catch {
+    return;
+  }
+  const hello = () => {
+    try {
+      port.postMessage({ kind: "hello", host: location.hostname, href: location.href });
+    }
+    catch {
+      /* disconnected */
+    }
+  };
+  hello();
+  setTimeout(hello, 50);
+  setTimeout(hello, 250);
+  port.onMessage.addListener((msg) => {
+    if (!msg || msg.kind !== "http") return;
+    void handlePbLiveTabMessage(msg).then(
+      (response) => {
+        try {
+          port.postMessage({ kind: "httpResult", uuid: msg.uuid, response });
+        }
+        catch {
+          /* ignore */
+        }
+      },
+      (err) => {
+        try {
+          port.postMessage({
+            kind: "httpResult",
+            uuid: msg.uuid,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+        catch {
+          /* ignore */
+        }
+      },
+    );
+  });
+  port.onDisconnect.addListener(() => {
+    setTimeout(connectLivePort, 400);
+  });
+}
+
 /**
  * @param {(handler: typeof handlePbLiveTabMessage) => void} registerHandler
  */
@@ -119,27 +149,29 @@ export function initPbLiveHttp(registerHandler) {
     registered = true;
     try {
       chrome.runtime.sendMessage(
-        { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.PB } },
+        {
+          type: "setTab",
+          uuid: Date.now().toString(),
+          data: { key: PLATFORMS.PB, host: location.hostname, href: location.href },
+        },
         () => { void chrome.runtime.lastError; },
       );
     }
     catch {
       /* ignore */
     }
+    connectLivePort();
     publishLiveCredential();
     setInterval(publishLiveCredential, 10_000);
     return true;
   };
-  const applyHosts = (raw) => {
-    accountHosts = normalizePbAccountHosts(raw);
+  tryReg();
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== "pbLiveTabPing") return false;
     tryReg();
-  };
-  chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
-    applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
-  });
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
-    applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
+    if (!registered) return false;
+    sendResponse({ host: location.hostname, href: location.href });
+    return true;
   });
   window.addEventListener("focus", tryReg);
   document.addEventListener("visibilitychange", tryReg);

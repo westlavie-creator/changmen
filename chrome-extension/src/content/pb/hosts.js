@@ -60,9 +60,55 @@ export function pageMatchesPbAccountHosts(
   return false;
 }
 
+/**
+ * 活标签注册：名单未同步时先按会话挂上；有粘贴主机后必须命中 referer/gateway。
+ */
+export function pbLiveHttpHostAllowed(
+  hosts,
+  win = typeof window !== "undefined" ? window : undefined,
+) {
+  const list = Array.isArray(hosts) ? hosts : [];
+  if (!list.length) return true;
+  return pageMatchesPbAccountHosts(list, win);
+}
+
 export function pbApexHost(host) {
   const h = String(host || "").toLowerCase().replace(/\.$/, "");
   return h.startsWith("www.") ? h.slice(4) : h;
+}
+
+export function tabUrlMatchesPbAccountHosts(tabUrl, hosts) {
+  return hostnameMatchesPbAccountHosts(pbHostFromUrl(tabUrl), hosts);
+}
+
+/**
+ * 选活标签：优先 content script ping 到的粘贴主机，其次 tab.url。
+ * 不要用 chrome.tabs.query({ url })——无 tabs 权限时会空结果。
+ *
+ * @param {{ id?: number, url?: string }[]} tabs
+ * @param {unknown} hosts
+ * @param {Record<string | number, string>} pingHosts
+ * @returns {number[]}
+ */
+export function pickPbLiveTabIds(tabs, hosts, pingHosts = {}) {
+  const list = normalizePbAccountHosts(hosts);
+  if (!list.length) return [];
+  const pingOk = [];
+  const urlOnly = [];
+  const seen = new Set();
+  for (const t of Array.isArray(tabs) ? tabs : []) {
+    const id = Number(t?.id);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+    seen.add(id);
+    const pingHost = pingHosts[id] || pingHosts[String(id)] || "";
+    if (hostnameMatchesPbAccountHosts(pingHost, list)) {
+      pingOk.push(id);
+      continue;
+    }
+    if (tabUrlMatchesPbAccountHosts(t.url, list))
+      urlOnly.push(id);
+  }
+  return pingOk.length ? pingOk : urlOnly;
 }
 
 export function tabUrlPatternsForPbHosts(hosts) {

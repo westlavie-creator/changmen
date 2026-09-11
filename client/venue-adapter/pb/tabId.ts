@@ -1,7 +1,9 @@
-import { a8PluginGetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import { a8PluginGetStore, a8PluginSend, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { PLATFORMS } from "../shared/platforms";
+import { pbHostsFromAccounts } from "./accountHosts";
 
-/** [changmen 扩展] part888/ps3838 页 setTab(PB) 写入的 tabId */
+/** [changmen 扩展] 官网活标签 tabId；优先按账号快速填充 referer/gateway 查页 */
 let cachedTabId: number | undefined;
 
 export function getPbTabIdCached(): number | undefined {
@@ -13,18 +15,51 @@ export function setPbTabIdCached(tabId: number | undefined) {
 }
 
 export function parsePbTabIdFromStore(response: unknown): number | undefined {
-  if (typeof response === "number") return response;
+  if (typeof response === "number") return parsePbLiveTabId(response);
   const root = response as { data?: Record<string, unknown>; response?: { data?: Record<string, unknown> } };
   const direct = root?.data?.[PLATFORMS.PB];
-  if (typeof direct === "number") return direct;
+  if (typeof direct === "number") return parsePbLiveTabId(direct);
   const nested = root?.response?.data?.[PLATFORMS.PB];
-  if (typeof nested === "number") return nested;
+  if (typeof nested === "number") return parsePbLiveTabId(nested);
   return undefined;
 }
 
-export async function readPbTabIdFromPlugin(): Promise<number | undefined> {
+/** getPbLiveTab 只认正整数 tabId，避免误用上次 setTab(PB) 的别的皮肤 */
+let lastPbLiveTabDebug: unknown;
+
+export function takePbLiveTabDebug(): unknown {
+  const debug = lastPbLiveTabDebug;
+  lastPbLiveTabDebug = undefined;
+  return debug;
+}
+
+export function parsePbLiveTabId(response: unknown): number | undefined {
+  if (typeof response === "number") {
+    if (!Number.isFinite(response) || response <= 0)
+      return undefined;
+    return response;
+  }
+  if (response && typeof response === "object") {
+    const bag = response as { tabId?: unknown; debug?: unknown };
+    if (bag.debug !== undefined)
+      lastPbLiveTabDebug = bag.debug;
+    return parsePbLiveTabId(bag.tabId);
+  }
+  return undefined;
+}
+
+export async function readPbTabIdFromPlugin(
+  account?: Pick<PlatformAccount, "referer" | "gateway" | "provider">,
+): Promise<number | undefined> {
   if (!hasA8PluginRuntime()) return undefined;
   try {
+    const hosts = account ? pbHostsFromAccounts([account]) : [];
+    if (hosts.length) {
+      const live = await a8PluginSend({ type: "getPbLiveTab", data: { hosts } });
+      const fromQuery = parsePbLiveTabId(live);
+      cachedTabId = fromQuery;
+      return fromQuery;
+    }
     const response = await a8PluginGetStore(PLATFORMS.PB);
     const tabId = parsePbTabIdFromStore(response);
     cachedTabId = tabId;

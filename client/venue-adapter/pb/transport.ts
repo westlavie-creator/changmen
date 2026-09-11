@@ -10,6 +10,7 @@ import {
   pbLiveTabRetryDelaysMs,
   readPbTabIdFromPlugin,
   setPbTabIdCached,
+  takePbLiveTabDebug,
 } from "./tabId";
 import { applyPbLiveCredentialFromPlugin } from "./liveCredential";
 import { pbOddsUrl } from "./parse";
@@ -69,10 +70,11 @@ async function sendViaLiveTab<T>(
     return send(frozenOpts(account, extraHeaders) ?? {});
 
   const attempts = 1 + pbLiveTabRetryDelaysMs.length;
+  const hosts = account.referer || account.gateway || "";
   for (let i = 0; i < attempts; i++) {
     if (i > 0)
       await sleep(pbLiveTabRetryDelaysMs[i - 1] ?? 0);
-    const tabId = await readPbTabIdFromPlugin();
+    const tabId = await readPbTabIdFromPlugin(account);
     if (!tabId)
       continue;
     try {
@@ -90,7 +92,15 @@ async function sendViaLiveTab<T>(
     }
   }
   setPbTabIdCached(undefined);
-  throw new Error(PB_LIVE_TAB_UNAVAILABLE);
+  const debug = takePbLiveTabDebug();
+  const seen = debug && typeof debug === "object" && "ports" in debug
+    ? (debug as { ports?: Array<{ host?: string }> }).ports?.map(p => p.host).filter(Boolean).join(", ")
+    : "";
+  throw new Error(
+    hosts
+      ? `PB 官网标签页暂时不可用（未找到 ${hosts} 的登录页${seen ? `；扩展连着：${seen}` : "；扩展未连上该站，请刷新平博页"}，请打开并刷新该站后重试）`
+      : PB_LIVE_TAB_UNAVAILABLE,
+  );
 }
 
 async function pbPluginGet(url: string, account: PlatformAccount, extraHeaders: Record<string, string> = {}) {

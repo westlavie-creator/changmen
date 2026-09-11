@@ -175,5 +175,6 @@ describe("isVenueAuthFailureMessage", () => {
     // 勿把 HTTP 正文里的 Forbidden 误判成鉴权失效
     expect(isVenueAuthFailureMessage("Request failed with status code 403 Forbidden")).toBe(false);
     expect(isVenueAuthFailureMessage("PB 官网标签页暂时不可用")).toBe(false);
+    expect(isVenueAuthFailureMessage("PB 官网标签页暂时不可用（未找到 https://skin.example/ 的登录页，请打开并刷新该站后重试）")).toBe(false);
   });
 });

@@ -14,9 +14,11 @@ import { storageGet, storageSet } from "./storage.js";
 import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
 import { isPbWsObserveLive, isPbWsSocketOpen, mergePbWsBoards } from "../pb-ws-observe.js";
 import {
+  hostnameMatchesPbAccountHosts,
   normalizePbAccountHosts,
   PB_ACCOUNT_HOSTS_KEY,
-  tabUrlPatternsForPbHosts,
+  pickPbLiveTabIds,
+  tabUrlMatchesPbAccountHosts,
 } from "../content/pb/hosts.js";
 
 const MANIFEST = chrome.runtime.getManifest();
@@ -25,21 +27,180 @@ const PB_WS_STATUS_KEY = "pbWsObserve";
 const PB_WS_ENABLED_KEY = "pbWsObserveEnabled";
 const PB_WS_BOARD_KEY = "pbWsLatestOdds";
 const PB_WS_MAX_RECENT = 40;
+const PB_LIVE_HTTP_PORT = "pb-live-http";
 
-async function queryTabsForPbAccountHosts(hosts) {
-  const tabIds = new Set();
-  const patterns = tabUrlPatternsForPbHosts(hosts);
-  for (const url of patterns) {
-    try {
-      const tabs = await chrome.tabs.query({ url: [url] });
-      for (const t of tabs) {
-        if (t.id) tabIds.add(t.id);
-      }
-    } catch {
-      /* 非法 match pattern / 无权限 */
+/** @typedef {{ port: chrome.runtime.Port; host: string; href: string; frameId?: number }} PbLivePortEntry */
+/** @type {Map<number, PbLivePortEntry[]>} */
+const pbLivePorts = new Map();
+
+function rememberPbLivePort(port) {
+  const tabId = port.sender?.tab?.id;
+  if (!tabId) return;
+  /** @type {PbLivePortEntry} */
+  const entry = {
+    port,
+    host: "",
+    href: "",
+    frameId: port.sender?.frameId,
+  };
+  const list = (pbLivePorts.get(tabId) || []).filter((e) => e.port !== port);
+  list.push(entry);
+  pbLivePorts.set(tabId, list);
+  port.onMessage.addListener((msg) => {
+    if (msg?.kind === "hello") {
+      entry.host = typeof msg.host === "string" ? msg.host : "";
+      entry.href = typeof msg.href === "string" ? msg.href : "";
+    }
+  });
+  port.onDisconnect.addListener(() => {
+    const next = (pbLivePorts.get(tabId) || []).filter((e) => e.port !== port);
+    if (next.length)
+      pbLivePorts.set(tabId, next);
+    else
+      pbLivePorts.delete(tabId);
+  });
+}
+
+function pickPbLivePort(tabId, requestUrl = "") {
+  const entries = pbLivePorts.get(tabId) || [];
+  if (!entries.length) return undefined;
+  let reqHost = "";
+  try {
+    if (requestUrl)
+      reqHost = new URL(requestUrl).hostname;
+  }
+  catch {
+    /* ignore */
+  }
+  if (reqHost) {
+    const hit = entries.find((e) => hostnameMatchesPbAccountHosts(e.host, [reqHost]));
+    if (hit)
+      return hit.port;
+  }
+  return entries[0]?.port;
+}
+
+function tabIdFromPbLivePorts(hosts) {
+  const list = normalizePbAccountHosts(hosts);
+  for (const [tabId, entries] of pbLivePorts) {
+    for (const e of entries) {
+      if (!list.length || hostnameMatchesPbAccountHosts(e.host, list) || tabUrlMatchesPbAccountHosts(e.href, list))
+        return tabId;
     }
   }
-  return tabIds;
+  return undefined;
+}
+
+function pbLivePortDebug(hosts) {
+  const list = normalizePbAccountHosts(hosts);
+  const ports = [];
+  for (const [tabId, entries] of pbLivePorts) {
+    for (const e of entries) {
+      ports.push({ tabId, host: e.host, href: e.href || "" });
+    }
+  }
+  return { hosts: list, ports };
+}
+
+function pingPbLiveTab(tabId) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: "pbLiveTabPing" }, (response) => {
+      void chrome.runtime.lastError;
+      const host = response && typeof response.host === "string" ? response.host : "";
+      resolve(host);
+    });
+  });
+}
+
+function isHttpTabUrl(url) {
+  return !url || /^https?:/i.test(url);
+}
+
+/** 按粘贴 referer/gateway 主机找官网页。勿用 query({ url })（缺 tabs 权限会空集）。 */
+async function queryTabsForPbAccountHosts(hosts) {
+  const list = normalizePbAccountHosts(hosts);
+  if (!list.length) return new Set();
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({});
+  }
+  catch {
+    return new Set();
+  }
+
+  const urlMatched = [];
+  const pingCandidates = [];
+  for (const t of tabs) {
+    if (!t.id) continue;
+    const url = t.url || t.pendingUrl || "";
+    if (!isHttpTabUrl(url)) continue;
+    pingCandidates.push(t);
+    if (tabUrlMatchesPbAccountHosts(url, list))
+      urlMatched.push(t);
+  }
+
+  const pingHosts = {};
+  const toPing = urlMatched.length ? urlMatched : pingCandidates;
+  await Promise.all(toPing.map(async (t) => {
+    const host = await pingPbLiveTab(t.id);
+    if (host)
+      pingHosts[t.id] = host;
+  }));
+  return new Set(pickPbLiveTabIds(tabs, list, pingHosts));
+}
+
+/**
+ * 先 ping 官网自己登记的 PB tab（不依赖 tabs.query 权限），再按粘贴主机扫页。
+ * @param {string[]} hosts
+ * @returns {Promise<number | null>}
+ */
+async function resolvePbLiveTabId(hosts) {
+  const list = normalizePbAccountHosts(hosts);
+  const fromPort = tabIdFromPbLivePorts(list);
+  if (fromPort)
+    return fromPort;
+  const storedPb = Number((await storageGet("PB"))?.PB);
+  if (Number.isFinite(storedPb) && storedPb > 0) {
+    const host = await pingPbLiveTab(storedPb);
+    if (host && (!list.length || hostnameMatchesPbAccountHosts(host, list)))
+      return storedPb;
+  }
+  if (!list.length)
+    return Number.isFinite(storedPb) && storedPb > 0 ? storedPb : null;
+  const tabIds = await queryTabsForPbAccountHosts(list);
+  if (Number.isFinite(storedPb) && storedPb > 0 && tabIds.has(storedPb))
+    return storedPb;
+  const first = [...tabIds][0];
+  return typeof first === "number" ? first : null;
+}
+
+function forwardViaPbLivePort(port, message) {
+  const uuid = message.uuid || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      port.onMessage.removeListener(onMsg);
+      reject(new Error("标签页通信失败"));
+    }, 30_000);
+    function onMsg(msg) {
+      if (!msg || msg.kind !== "httpResult" || msg.uuid !== uuid)
+        return;
+      clearTimeout(timer);
+      port.onMessage.removeListener(onMsg);
+      if (msg.error)
+        reject(new Error(String(msg.error)));
+      else
+        resolve(msg.response);
+    }
+    port.onMessage.addListener(onMsg);
+    try {
+      port.postMessage({ ...message, kind: "http", uuid });
+    }
+    catch (err) {
+      clearTimeout(timer);
+      port.onMessage.removeListener(onMsg);
+      reject(err instanceof Error ? err : new Error("标签页通信失败"));
+    }
+  });
 }
 
 /**
@@ -175,6 +336,9 @@ async function mergePbWsStatus(status) {
  * @returns {Promise<unknown>}
  */
 function forwardToTab(message, tabId) {
+  const viaPort = pickPbLivePort(tabId, message.url);
+  if (viaPort)
+    return forwardViaPbLivePort(viaPort, message);
   return new Promise((resolve, reject) => {
     chrome.tabs.sendMessage(tabId, message, (response) => {
       const err = chrome.runtime.lastError;
@@ -210,7 +374,11 @@ async function handleExternalMessage(message, reply, sender) {
           const response = await forwardToTab(message, tabId);
           reply({ type, uuid, response });
         } catch (err) {
-          reply({ type, uuid, response: err });
+          reply({
+            type,
+            uuid,
+            response: err instanceof Error ? (err.message || "标签页通信失败") : String(err),
+          });
         }
         return;
       }
@@ -241,6 +409,19 @@ async function handleExternalMessage(message, reply, sender) {
       }
       const data = await storageGet(key);
       reply({ type, uuid, response: { data } });
+      return;
+    }
+    case "getPbLiveTab": {
+      const hosts = normalizePbAccountHosts(message.data?.hosts);
+      const tabId = await resolvePbLiveTabId(hosts);
+      reply({
+        type,
+        uuid,
+        response: {
+          tabId: typeof tabId === "number" ? tabId : null,
+          debug: pbLivePortDebug(hosts),
+        },
+      });
       return;
     }
     case "setStore": {
@@ -346,6 +527,11 @@ async function handleExternalMessage(message, reply, sender) {
   }
 }
 
+chrome.runtime.onConnect.addListener((port) => {
+  if (port?.name === PB_LIVE_HTTP_PORT)
+    rememberPbLivePort(port);
+});
+
 chrome.runtime.onConnectExternal.addListener((port) => {
   if (port?.name === OB_SPORT_WS_PORT)
     attachObSportWsPort(port);
@@ -393,7 +579,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: false, type: message.type, uuid: message.uuid, response: "No tabId or key" });
     return true;
   }
-  storageSet({ [key]: tabId }).then(() => {
+  const patch = { [key]: tabId };
+  const host = typeof message.data?.host === "string" ? message.data.host : "";
+  if (key === "PB" && host) {
+    patch.pbLiveTabMeta = { tabId, host, href: message.data?.href || "", ts: Date.now() };
+  }
+  storageSet(patch).then(() => {
     sendResponse({
       success: true,
       type: message.type,

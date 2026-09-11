@@ -3,7 +3,10 @@ import {
   hostnameMatchesPbAccountHosts,
   normalizePbAccountHosts,
   pageMatchesPbAccountHosts,
+  pbLiveHttpHostAllowed,
+  pickPbLiveTabIds,
   pbHostFromUrl,
+  tabUrlMatchesPbAccountHosts,
   tabUrlPatternsForPbHosts,
 } from "./hosts.js";
 
@@ -28,5 +31,26 @@ assert.equal(pageMatchesPbAccountHosts(["skin.example"], win), true);
 
 const iframe = { location: { hostname: "" }, top: win };
 assert.equal(pageMatchesPbAccountHosts(["skin.example"], iframe), true);
+assert.equal(pbLiveHttpHostAllowed([], win), true);
+assert.equal(pbLiveHttpHostAllowed(["skin.example"], win), true);
+assert.equal(pbLiveHttpHostAllowed(["other.example"], win), false);
+assert.equal(tabUrlMatchesPbAccountHosts("https://skin.example/zh-cn/compact/sports", ["skin.example"]), true);
+assert.equal(tabUrlMatchesPbAccountHosts("https://other.example/", ["skin.example"]), false);
+assert.deepEqual(
+  pickPbLiveTabIds(
+    [{ id: 1, url: "https://old.example/" }, { id: 2, url: "https://portal.example/" }],
+    ["skin.example"],
+    { 2: "skin.example" },
+  ),
+  [2],
+);
+assert.deepEqual(
+  pickPbLiveTabIds(
+    [{ id: 1, url: "https://lobby.example/" }, { id: 8, url: "https://lobby.example/" }],
+    ["skin.example"],
+    { 8: "skin.example" },
+  ),
+  [8],
+);
 
 console.log("pb account hosts: ok");

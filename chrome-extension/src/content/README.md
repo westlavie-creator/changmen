@@ -12,7 +12,7 @@
 | `collect-ui.js` | 浮动图标 + 凭证复制面板 |
 | `providers.js` | 各馆 Check/GetConfig；A8 11 馆对齐 + OB 体育/Dex/Polymarket 扩展；PB 复制前校验内层 X-U |
 | `pb-credential.js` | PB localStorage 快照完整性（会话类型 + 内层 X-U），供 GetConfig 拦截残缺复制；判定说明见 `client/web/docs/platforms/PB.md` |
-| `pb/page-auth.js` / `pb/live-http.js` | part888 标签页现读会话头并代发 HTTP；515 不注册；`document_start` 挂上；每 10s 把活 localStorage 快照交给 background（`PB_LIVE_CREDENTIAL`） |
+| `pb/page-auth.js` / `pb/live-http.js` | 平博登录源（含 iframe/大厅）现读会话头并代发 HTTP；515 不注册；主站按快速填充 referer/gateway 选页；每 10s 把活 localStorage 快照交给 background |
 | `ob-entry.js` | OB 电竞 `token+addr` / 体育 `token+api+sessionId`（官网试玩仅 token，hash 后读 sessionStorage）；电竞 referer 对齐 A8 `https://host/`。体育协议见 [OB_SPORT.md](../../../client/web/docs/platforms/OB_SPORT.md) |
 | `ob-sport-ws.js` | 遗留：官网试玩 Tab 旁路 Worker。足球页已直连 yewuws2，不再经扩展建连 |
 | `ob-sport-ws-page.js` | dbgaming 文档开始注入，只挂 WS 旁路/隐式页建连 |

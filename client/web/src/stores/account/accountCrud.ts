@@ -111,7 +111,7 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
       /* adapter 未就绪 */
     }
     void warmPolymarketUserWsFromAccounts(store.accounts);
-    void syncPbAccountHosts(store.accounts);
+    await syncPbAccountHosts(store.accounts);
     if (userId) {
       try {
         await refreshPmVaultAccountUi(store.accounts, userId);
@@ -145,7 +145,7 @@ export async function persistAccounts(store: AccountStoreContext) {
   // 方案 C：私钥只在本机仓；写回 RDS 前剥离
   stripPrivateKeysForPersist(payload);
   const ok = await saveAccounts(payload);
-  void syncPbAccountHosts(store.accounts);
+  await syncPbAccountHosts(store.accounts);
   return ok;
 }
 

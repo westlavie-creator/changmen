@@ -25,53 +25,6 @@
   });
   var PLATFORM_LIST = Object.values(PLATFORMS);
 
-  // src/content/pb/hosts.js
-  var PB_ACCOUNT_HOSTS_KEY = "pbAccountHosts";
-  function pbHostFromUrl(raw = "") {
-    const text = String(raw || "").trim();
-    if (!text) return "";
-    try {
-      const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
-      return url.hostname.toLowerCase().replace(/\.$/, "");
-    } catch {
-      return "";
-    }
-  }
-  function normalizePbAccountHosts(raw) {
-    const list = Array.isArray(raw) ? raw : [];
-    const out = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const item of list) {
-      const host = pbHostFromUrl(typeof item === "string" ? item : String(item || ""));
-      if (!host || seen.has(host)) continue;
-      seen.add(host);
-      out.push(host);
-    }
-    return out;
-  }
-  function hostnameMatchesPbAccountHosts(hostname, hosts) {
-    const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
-    if (!h || !Array.isArray(hosts) || !hosts.length) return false;
-    for (const host of hosts) {
-      if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
-        return true;
-    }
-    return false;
-  }
-  function pageMatchesPbAccountHosts(hosts, win = typeof window !== "undefined" ? window : void 0) {
-    if (!win) return false;
-    try {
-      if (hostnameMatchesPbAccountHosts(win.location.hostname, hosts)) return true;
-    } catch {
-    }
-    try {
-      if (win !== win.top && win.top && hostnameMatchesPbAccountHosts(win.top.location.hostname, hosts))
-        return true;
-    } catch {
-    }
-    return false;
-  }
-
   // src/content/pb/page-auth.js
   function detectPbPageSessionMode(store) {
     const bag = store && typeof store === "object" ? store : {};
@@ -160,6 +113,18 @@
       if (key) snapshot[key] = localStorage.getItem(key) ?? "";
     }
     return snapshot;
+  }
+  function hasPbPageSession(store = readLocalStorageSnapshot()) {
+    const bag = store && typeof store === "object" ? store : {};
+    if (bag["x-app-data"]) return true;
+    try {
+      const token = JSON.parse(bag.token || "");
+      if (token && typeof token === "object" && (token["X-Browser-Session-Id"] || token["X-Custid"])) {
+        return true;
+      }
+    } catch {
+    }
+    return false;
   }
 
   // ../node_modules/axios/lib/helpers/bind.js
@@ -3321,22 +3286,10 @@
   } = axios_default;
 
   // src/content/pb/live-http.js
-  function isSportsAppPath(pathname = location.pathname) {
-    return /\/esports-hub\/|\/compact\/sports\/|\/sports(\/|$)/.test(String(pathname || ""));
-  }
-  function isTopFrame() {
-    try {
-      return window === window.top;
-    } catch {
-      return true;
-    }
-  }
-  var accountHosts = [];
+  var PB_LIVE_HTTP_PORT = "pb-live-http";
   function shouldRegisterPbLiveHttp(store = readLocalStorageSnapshot()) {
-    if (!isTopFrame()) return false;
-    if (!pageMatchesPbAccountHosts(accountHosts)) return false;
-    if (!isSportsAppPath()) return false;
-    if (!store["x-app-data"]) return false;
+    if (!location.hostname) return false;
+    if (!hasPbPageSession(store)) return false;
     return !isPbA8K0PageSession(detectPbPageSessionMode(store));
   }
   function requestHostMatchesPage(url) {
@@ -3397,6 +3350,47 @@
     publishLiveCredential();
     return result;
   }
+  function connectLivePort() {
+    let port;
+    try {
+      port = chrome.runtime.connect({ name: PB_LIVE_HTTP_PORT });
+    } catch {
+      return;
+    }
+    const hello = () => {
+      try {
+        port.postMessage({ kind: "hello", host: location.hostname, href: location.href });
+      } catch {
+      }
+    };
+    hello();
+    setTimeout(hello, 50);
+    setTimeout(hello, 250);
+    port.onMessage.addListener((msg) => {
+      if (!msg || msg.kind !== "http") return;
+      void handlePbLiveTabMessage(msg).then(
+        (response) => {
+          try {
+            port.postMessage({ kind: "httpResult", uuid: msg.uuid, response });
+          } catch {
+          }
+        },
+        (err) => {
+          try {
+            port.postMessage({
+              kind: "httpResult",
+              uuid: msg.uuid,
+              error: err instanceof Error ? err.message : String(err)
+            });
+          } catch {
+          }
+        }
+      );
+    });
+    port.onDisconnect.addListener(() => {
+      setTimeout(connectLivePort, 400);
+    });
+  }
   function initPbLiveHttp(registerHandler) {
     let registered = false;
     const tryReg = () => {
@@ -3405,31 +3399,80 @@
       registered = true;
       try {
         chrome.runtime.sendMessage(
-          { type: "setTab", uuid: Date.now().toString(), data: { key: PLATFORMS.PB } },
+          {
+            type: "setTab",
+            uuid: Date.now().toString(),
+            data: { key: PLATFORMS.PB, host: location.hostname, href: location.href }
+          },
           () => {
             void chrome.runtime.lastError;
           }
         );
       } catch {
       }
+      connectLivePort();
       publishLiveCredential();
       setInterval(publishLiveCredential, 1e4);
       return true;
     };
-    const applyHosts = (raw) => {
-      accountHosts = normalizePbAccountHosts(raw);
+    tryReg();
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type !== "pbLiveTabPing") return false;
       tryReg();
-    };
-    chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
-      applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
-    });
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
-      applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
+      if (!registered) return false;
+      sendResponse({ host: location.hostname, href: location.href });
+      return true;
     });
     window.addEventListener("focus", tryReg);
     document.addEventListener("visibilitychange", tryReg);
     window.addEventListener("popstate", tryReg);
+  }
+
+  // src/content/pb/hosts.js
+  var PB_ACCOUNT_HOSTS_KEY = "pbAccountHosts";
+  function pbHostFromUrl(raw = "") {
+    const text = String(raw || "").trim();
+    if (!text) return "";
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
+      return url.hostname.toLowerCase().replace(/\.$/, "");
+    } catch {
+      return "";
+    }
+  }
+  function normalizePbAccountHosts(raw) {
+    const list = Array.isArray(raw) ? raw : [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const item of list) {
+      const host = pbHostFromUrl(typeof item === "string" ? item : String(item || ""));
+      if (!host || seen.has(host)) continue;
+      seen.add(host);
+      out.push(host);
+    }
+    return out;
+  }
+  function hostnameMatchesPbAccountHosts(hostname, hosts) {
+    const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+    if (!h || !Array.isArray(hosts) || !hosts.length) return false;
+    for (const host of hosts) {
+      if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
+        return true;
+    }
+    return false;
+  }
+  function pageMatchesPbAccountHosts(hosts, win = typeof window !== "undefined" ? window : void 0) {
+    if (!win) return false;
+    try {
+      if (hostnameMatchesPbAccountHosts(win.location.hostname, hosts)) return true;
+    } catch {
+    }
+    try {
+      if (win !== win.top && win.top && hostnameMatchesPbAccountHosts(win.top.location.hostname, hosts))
+        return true;
+    } catch {
+    }
+    return false;
   }
 
   // src/pb-ws-observe.js
@@ -3462,9 +3505,9 @@
   var lastPhase = "off";
   var lastStatus = {};
   var ownWs = false;
-  var accountHosts2 = [];
+  var accountHosts = [];
   function postCmd(cmd, extra = {}) {
-    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, hosts: accountHosts2, ...extra }, "*");
+    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, hosts: accountHosts, ...extra }, "*");
   }
   function publishStatus(status) {
     try {
@@ -3626,13 +3669,13 @@
     let started = false;
     const boot = () => {
       if (started) return true;
-      if (!pageMatchesPbAccountHosts(accountHosts2)) return false;
+      if (!pageMatchesPbAccountHosts(accountHosts)) return false;
       started = true;
       startObserveFromStorage();
       return true;
     };
     const applyHosts = (raw) => {
-      accountHosts2 = normalizePbAccountHosts(raw);
+      accountHosts = normalizePbAccountHosts(raw);
       boot();
     };
     chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
