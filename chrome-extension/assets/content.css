@@ -3,15 +3,15 @@
 @keyframes gamebet-float-pulse {
   0% {
     transform: scale(1);
-    box-shadow: 0 4px 16px rgba(27, 154, 247, 0.45);
+    box-shadow: 0 4px 16px rgba(126, 144, 166, 0.40);
   }
   50% {
     transform: scale(1.08);
-    box-shadow: 0 6px 22px rgba(27, 154, 247, 0.65);
+    box-shadow: 0 6px 22px rgba(126, 144, 166, 0.64);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 4px 16px rgba(27, 154, 247, 0.45);
+    box-shadow: 0 4px 16px rgba(126, 144, 166, 0.40);
   }
 }
 
@@ -23,9 +23,9 @@
   user-select: none;
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 50%;
-  background-color: rgba(26, 45, 74, 0.92);
+  background-color: #0c0e24;
   background-repeat: no-repeat;
-  background-size: 78% 78%;
+  background-size: 100% 100%;
   background-position: center;
   background-image: url(chrome-extension://__MSG_@@extension_id__/assets/icon128.png);
   animation: gamebet-float-pulse 2.4s infinite ease-in-out;

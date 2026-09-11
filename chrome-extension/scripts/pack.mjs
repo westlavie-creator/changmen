@@ -36,7 +36,7 @@ const RUNTIME_FILES = [
 ];
 const RUNTIME_DIRS = ["assets", "vendor"];
 /** 源图，不进发行包 */
-const ASSET_SKIP = new Set(["jiraiya-icon-source.png"]);
+const ASSET_SKIP = new Set(["jiraiya-icon-source.png", "konoha-public.svg"]);
 
 const EXTENSION_ID = "mogfpjihgoghabicofkbcmcidlcoofee";
 
