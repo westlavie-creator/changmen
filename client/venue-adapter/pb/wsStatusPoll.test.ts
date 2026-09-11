@@ -78,9 +78,28 @@ describe("mapObserveToStatus", () => {
     ).toBe("error");
   });
 
-  test("disconnected when empty", () => {
-    expect(mapObserveToStatus(null)).toBe("disconnected");
-    expect(mapObserveToStatus({ enabled: false, observe: {} })).toBe("disconnected");
+  test("WS-tagged board without handshake stays connecting", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        observe: {
+          phase: "hooked",
+          latestOdds: [{ eventId: 1, period: 0, via: "ws", home: "1.5" }],
+        },
+      }),
+    ).toBe("connecting");
+  });
+
+  test("HTTP-only board stays connecting", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        observe: {
+          phase: "hooked",
+          latestOdds: [{ eventId: 1, period: 0, via: "http", home: "1.5" }],
+        },
+      }),
+    ).toBe("connecting");
   });
 });
 

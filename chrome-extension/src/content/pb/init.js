@@ -4,6 +4,7 @@
  */
 import { PLATFORMS } from "../platforms.js";
 import { isPbSportsHost } from "./hosts.js";
+import { isPbWsObserveLive } from "../../pb-ws-observe.js";
 
 const ENABLED_KEY = "pbWsObserveEnabled";
 const SOURCE = "cm-pb-ws";
@@ -20,6 +21,8 @@ let lastBoard = [];
 let lastPhase = "off";
 /** 本 frame 最近一次 status（侧栏 / pbWsObserveGet 走内存，不信被其它 frame 写脏的 storage） */
 let lastStatus = {};
+/** 仅本 frame 的 hook 报过 sports-websocket 才答 BoardGet，避免顶栏用 sessionStorage 冒充 */
+let ownWs = false;
 
 function postCmd(cmd, extra = {}) {
   window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, ...extra }, "*");
@@ -46,7 +49,7 @@ function publishStatus(status) {
 
 function statusLooksLive(s) {
   if (!s || typeof s !== "object") return false;
-  if (s.connected === true || Number(s.readyState) === 1) return true;
+  if (isPbWsObserveLive(s)) return true;
   if (s.socketSeen === true) return true;
   if (Number(s.frameCount) > 0) return true;
   if (s.lastType) return true;
@@ -54,7 +57,7 @@ function statusLooksLive(s) {
   return false;
 }
 
-function ingestHookStatus(data) {
+function ingestHookStatus(data, fromSession) {
   if (!data || data.source !== SOURCE) return;
   if (data.kind && data.kind !== "status") return;
   const clearClose = data.phase === "hooked" || data.phase === "connected" || data.phase === "hook_start";
@@ -79,14 +82,40 @@ function ingestHookStatus(data) {
     inboundTypeCount: data.inboundTypeCount,
     checklist: data.checklist,
     filterMatchMapMl: data.filterMatchMapMl,
+    via: data.via,
   };
   if (data.connected === true) status.connected = true;
   else if (data.connected === false && data.socketSeen === true) status.connected = false;
-  if (Array.isArray(data.latestOdds)) {
+  const incomingWs = isPbWsObserveLive({ ...status, lastType: data.lastType, frameCount: data.frameCount });
+  if (!fromSession) {
+    if (incomingWs || data.connected === true) ownWs = true;
+    else if (
+      data.connected === false
+      || data.phase === "ws_closed"
+      || data.phase === "hook_stop"
+      || data.phase === "off"
+      || data.via === "closed"
+    ) {
+      ownWs = false;
+    }
+  }
+  const keepWsBoard = ownWs && !incomingWs && Array.isArray(lastBoard) && lastBoard.length;
+  if (Array.isArray(data.latestOdds) && !keepWsBoard) {
     status.latestOdds = data.latestOdds;
     lastBoard = data.latestOdds;
+  } else {
+    status.latestOdds = lastBoard;
   }
-  if (typeof data.phase === "string" && data.phase) lastPhase = data.phase;
+  if (keepWsBoard) {
+    if (lastStatus.lastType) status.lastType = lastStatus.lastType;
+    if (lastStatus.connected === true) status.connected = true;
+    if (lastStatus.readyState != null) status.readyState = lastStatus.readyState;
+    if (lastStatus.phase === "connected") status.phase = "connected";
+    if (lastStatus.frameCount != null) status.frameCount = lastStatus.frameCount;
+    if (lastStatus.phase === "connected") lastPhase = "connected";
+  } else if (typeof data.phase === "string" && data.phase) {
+    lastPhase = data.phase;
+  }
   lastStatus = { ...status, latestOdds: lastBoard, phase: lastPhase };
   if (statusLooksLive(lastStatus) || data.connected === true) {
     publishStatus(status);
@@ -95,16 +124,17 @@ function ingestHookStatus(data) {
 
 function onPageMessage(ev) {
   if (ev.source !== window) return;
-  ingestHookStatus(ev.data);
+  ingestHookStatus(ev.data, false);
 }
 
 function pollSessionStatus() {
   try {
+    if (ownWs || isPbWsObserveLive(lastStatus)) return;
     const raw = sessionStorage.getItem(SS_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
     if (!data || typeof data !== "object") return;
-    ingestHookStatus({ source: SOURCE, kind: "status", ...data });
+    ingestHookStatus({ source: SOURCE, kind: "status", ...data }, true);
   } catch {
     /* ignore */
   }
@@ -123,6 +153,7 @@ async function ensureObserve(on) {
     lastBoard = [];
     lastPhase = "off";
     lastStatus = { running: false, connected: false, phase: "off", latestOdds: [] };
+    ownWs = false;
     postCmd("stop");
     publishStatus({ running: false, connected: false, phase: "off", latestOdds: [] });
     console.info("[PB WS] observe stopped (hook)");
@@ -146,8 +177,8 @@ export function initPbWsObserve() {
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type !== "pbWsObserveBoardGet") return false;
-    // 空 frame 不抢答，否则 tabs.sendMessage 先收到 hook_start，侧栏一直「连接中」
-    if (!statusLooksLive(lastStatus) && !(Array.isArray(lastBoard) && lastBoard.length)) {
+    // 只有本 frame 自己的 sports-websocket 活着才答。带 euro 板的顶栏抢答会盖掉 UPDATE_ODDS。
+    if (!ownWs || !isPbWsObserveLive(lastStatus)) {
       return false;
     }
     sendResponse({

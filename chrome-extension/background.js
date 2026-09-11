@@ -3788,6 +3788,89 @@
     return true;
   }
 
+  // src/pb-ws-observe.js
+  function isPbWsSocketOpen(s) {
+    if (!s || typeof s !== "object") return false;
+    if (s.phase === "ws_closed" || s.phase === "off" || s.phase === "hook_stop") return false;
+    if (s.via === "closed") return false;
+    if (Number(s.readyState) === 3) return false;
+    return s.connected === true || Number(s.readyState) === 1 || s.phase === "connected";
+  }
+  function isPbWsObserveLive(s) {
+    if (!s || typeof s !== "object") return false;
+    if (s.phase === "ws_closed" || s.phase === "off" || s.phase === "hook_stop") return false;
+    if (s.via === "closed") return false;
+    if (Number(s.readyState) === 3) return false;
+    if (isPbWsSocketOpen(s)) return true;
+    const t = String(s.lastType || "");
+    return Number(s.frameCount) > 0 && /^(CONNECTED|PING|PONG|UPDATE_|FULL_)/.test(t);
+  }
+  function pbWsBoardCardKey(card) {
+    return `${card?.eventId}|${card?.period}|${card?.betType ?? 1}`;
+  }
+  function cardVia(card) {
+    return card?.via === "ws" ? "ws" : "http";
+  }
+  function cardStamp(card) {
+    return Math.max(
+      Number(card?.homePriceAt) || 0,
+      Number(card?.awayPriceAt) || 0,
+      Number(card?.updatedAt) || 0
+    );
+  }
+  function hasPrice(value) {
+    return value != null && String(value).trim() !== "";
+  }
+  function mergeCardSides(prev, incoming, via) {
+    const next = { ...prev, ...incoming, via };
+    if (!hasPrice(incoming.home) && hasPrice(prev.home)) {
+      next.home = prev.home;
+      if (prev.homePriceAt != null) next.homePriceAt = prev.homePriceAt;
+      if (prev.homeAlt != null) next.homeAlt = prev.homeAlt;
+      if (prev.homeLocked != null) next.homeLocked = prev.homeLocked;
+    }
+    if (!hasPrice(incoming.away) && hasPrice(prev.away)) {
+      next.away = prev.away;
+      if (prev.awayPriceAt != null) next.awayPriceAt = prev.awayPriceAt;
+      if (prev.awayAlt != null) next.awayAlt = prev.awayAlt;
+      if (prev.awayLocked != null) next.awayLocked = prev.awayLocked;
+    }
+    return next;
+  }
+  var BOARD_MAX = 400;
+  function trimMergedBoard(cards) {
+    if (cards.length <= BOARD_MAX) return cards;
+    const ws = cards.filter((c) => cardVia(c) === "ws").sort((a, b) => cardStamp(b) - cardStamp(a));
+    const http = cards.filter((c) => cardVia(c) !== "ws").sort((a, b) => cardStamp(b) - cardStamp(a));
+    if (ws.length >= BOARD_MAX) return ws.slice(0, BOARD_MAX);
+    return [...ws, ...http.slice(0, BOARD_MAX - ws.length)];
+  }
+  function mergePbWsBoards(curCards, incomingCards, incomingLive, httpMayReplaceWs) {
+    const map = /* @__PURE__ */ new Map();
+    for (const card of Array.isArray(curCards) ? curCards : []) {
+      if (!card || card.eventId == null) continue;
+      map.set(pbWsBoardCardKey(card), card);
+    }
+    for (const card of Array.isArray(incomingCards) ? incomingCards : []) {
+      if (!card || card.eventId == null) continue;
+      const key = pbWsBoardCardKey(card);
+      const prev = map.get(key);
+      const incWs = incomingLive === true || cardVia(card) === "ws";
+      if (!prev) {
+        map.set(key, incWs ? { ...card, via: "ws" } : card);
+        continue;
+      }
+      if (incWs) {
+        if (cardVia(prev) !== "ws" || cardStamp(card) >= cardStamp(prev))
+          map.set(key, mergeCardSides(prev, card, "ws"));
+        continue;
+      }
+      if (cardVia(prev) === "ws" && httpMayReplaceWs !== true) continue;
+      map.set(key, mergeCardSides(prev, card, "http"));
+    }
+    return trimMergedBoard([...map.values()]);
+  }
+
   // src/background/index.js
   var MANIFEST = chrome.runtime.getManifest();
   var PB_WS_STATUS_KEY = "pbWsObserve";
@@ -3815,27 +3898,40 @@
     const cur = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]) || {};
     const curStatus = cur?.[PB_WS_STATUS_KEY] || {};
     const curBoard = cur?.[PB_WS_BOARD_KEY];
-    const incomingClosed = status?.phase === "off" || status?.phase === "hook_stop" || status?.phase === "ws_closed";
+    const incomingClosed = status?.phase === "off" || status?.phase === "hook_stop" || status?.phase === "ws_closed" || status?.via === "closed";
     const incomingOpen = status?.connected === true || Number(status?.readyState) === 1;
+    const incomingLive = isPbWsObserveLive(status);
+    const curOpen = isPbWsSocketOpen(curStatus);
     const next = {
       ...curStatus,
       ...status,
       recent: curStatus.recent || [],
       updatedAt: Date.now()
     };
-    if (!incomingClosed && status?.socketSeen !== true && !incomingOpen) {
-      if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+    if (!incomingClosed && !incomingLive) {
+      if (curOpen) {
         next.connected = true;
-        if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
-      } else if (!("connected" in (status || {}))) {
-        next.connected = curStatus.connected;
-        if (next.readyState == null) next.readyState = curStatus.readyState;
+        if (curStatus.readyState != null) next.readyState = curStatus.readyState;
+        if (curStatus.phase === "connected") next.phase = "connected";
+        if (curStatus.lastType) {
+          next.lastType = curStatus.lastType;
+          next.lastDestination = curStatus.lastDestination;
+        }
+        next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
+      } else if (status?.socketSeen !== true && !incomingOpen) {
+        if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+          next.connected = true;
+          if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
+        } else if (!("connected" in (status || {}))) {
+          next.connected = curStatus.connected;
+          if (next.readyState == null) next.readyState = curStatus.readyState;
+        }
+        if (!status?.lastType && curStatus.lastType) {
+          next.lastType = curStatus.lastType;
+          next.lastDestination = curStatus.lastDestination;
+        }
+        next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
       }
-      if (!status?.lastType && curStatus.lastType) {
-        next.lastType = curStatus.lastType;
-        next.lastDestination = curStatus.lastDestination;
-      }
-      next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
       const curOut = Array.isArray(curStatus.subscribedOut) ? curStatus.subscribedOut : [];
       const inOut = Array.isArray(status?.subscribedOut) ? status.subscribedOut : [];
       if (curOut.length && inOut.length === 0) {
@@ -3851,30 +3947,35 @@
     } else if (incomingOpen) {
       next.connected = true;
     }
-    if (!Array.isArray(status?.latestOdds)) {
-      if (Array.isArray(curStatus.latestOdds)) next.latestOdds = curStatus.latestOdds;
-      else delete next.latestOdds;
-    } else {
-      const incomingSeq = Number(status.boardSeq) || 0;
-      const curSeq = Number(curStatus.boardSeq) || Number(curBoard?.boardSeq) || 0;
-      if (incomingSeq && curSeq && incomingSeq < curSeq) {
-        next.latestOdds = Array.isArray(curBoard?.cards) ? curBoard.cards : curStatus.latestOdds;
-        next.boardSeq = curSeq;
-      }
+    const curCards = Array.isArray(curBoard?.cards) ? curBoard.cards : Array.isArray(curStatus.latestOdds) ? curStatus.latestOdds : [];
+    const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
+    if (wipeBoard) {
+      next.latestOdds = Array.isArray(status?.latestOdds) ? status.latestOdds : [];
+    } else if (Array.isArray(status?.latestOdds) && status.latestOdds.length) {
+      next.latestOdds = mergePbWsBoards(
+        curCards,
+        status.latestOdds,
+        incomingLive,
+        !incomingLive && !curOpen && !incomingClosed
+      );
+      next.boardSeq = Math.max(
+        Number(status.boardSeq) || 0,
+        Number(curStatus.boardSeq) || 0,
+        Number(curBoard?.boardSeq) || 0
+      );
+    } else if (curCards.length) {
+      next.latestOdds = curCards;
     }
     if (status?.lastClose == null && (status?.phase === "hooked" || status?.phase === "connected" || status?.connected === true)) {
       next.lastClose = null;
       if (!status.lastError) next.lastError = "";
     }
     const patch = { [PB_WS_STATUS_KEY]: next };
-    const seqStale = Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq);
-    const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
-    const keepIncomingBoard = Array.isArray(status?.latestOdds) && (wipeBoard || status.latestOdds.length > 0) && !seqStale;
-    if (keepIncomingBoard) {
+    if (wipeBoard || Array.isArray(next.latestOdds) && next.latestOdds.length) {
       patch[PB_WS_BOARD_KEY] = {
-        cards: status.latestOdds,
+        cards: next.latestOdds || [],
         updatedAt: Date.now(),
-        boardSeq: Number(status.boardSeq) || 0
+        boardSeq: Number(next.boardSeq) || 0
       };
     }
     await storageSet(patch);
@@ -3990,11 +4091,17 @@
           try {
             const live = await chrome.tabs.sendMessage(id, { type: "pbWsObserveBoardGet" });
             if (!live || typeof live !== "object") continue;
-            if (Array.isArray(live.latestOdds) && live.latestOdds.length)
-              latestOdds = live.latestOdds;
+            const liveWs = isPbWsObserveLive(live);
+            if (Array.isArray(live.latestOdds) && live.latestOdds.length) {
+              latestOdds = mergePbWsBoards(
+                latestOdds,
+                live.latestOdds,
+                liveWs,
+                !liveWs && !isPbWsSocketOpen(observeOut)
+              );
+            }
             observeOut = { ...observeOut, latestOdds };
-            const liveOpen = live.connected === true || Number(live.readyState) === 1;
-            if (liveOpen) {
+            if (liveWs) {
               observeOut.connected = true;
               if (live.readyState != null) observeOut.readyState = live.readyState;
               if (live.phase) observeOut.phase = live.phase;

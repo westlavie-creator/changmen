@@ -375,6 +375,8 @@ export type PbWsBoardCard = {
   /** 该侧价格上次因板写入变化的时间；缺省则本轮 now */
   homePriceAt?: number;
   awayPriceAt?: number;
+  /** ws=sports-websocket 增量；http=拦截的 euro/odds */
+  via?: "ws" | "http";
 };
 
 /**

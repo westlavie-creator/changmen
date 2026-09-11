@@ -131,6 +131,7 @@
       awayPriceAt: card.awayPriceAt,
       homeLocked: card.homeLocked,
       awayLocked: card.awayLocked,
+      via: card.via === "ws" ? "ws" : "http",
     };
   }
 
@@ -258,7 +259,13 @@
     boardFlushTimer = setTimeout(() => {
       boardFlushTimer = null;
       if (!enabled) return;
-      postStatusThrottled({ phase: "hooked", boardFlush: true }, true);
+      const live = liveSports();
+      const open = live != null && Number(live.readyState) === 1;
+      postStatusThrottled({
+        phase: open ? "connected" : "hooked",
+        boardFlush: true,
+        boardVia: open ? "ws" : "http",
+      }, true);
     }, 0);
   }
 
@@ -585,7 +592,7 @@
    * 写板一侧。无 8s/来源优先窗：后到的官网写（WS 或 euro）覆盖先到的。
    * 空价不擦（[A8/官网可证实] updateOdds / shouldRenderOdds）。
    */
-  function writeBoardSide(card, side, rawPrice, lineId, now) {
+  function writeBoardSide(card, side, rawPrice, lineId, now, via) {
     const price = officialDisplayPrice(rawPrice);
     if (price == null) return false;
     if (side === "home") {
@@ -602,6 +609,8 @@
       card.awayAlt = 0;
     }
     card.updatedAt = now;
+    if (via === "ws") card.via = "ws";
+    else if (card.via !== "ws") card.via = "http";
     return true;
   }
 
@@ -650,8 +659,8 @@
         applyEventMeta(card, metaFor(eid));
         if (live) card.live = true;
         const lineId = ml[3];
-        if (writeBoardSide(card, "home", ml[1], lineId, now)) n += 1;
-        if (writeBoardSide(card, "away", ml[0], lineId, now)) n += 1;
+        if (writeBoardSide(card, "home", ml[1], lineId, now, "ws")) n += 1;
+        if (writeBoardSide(card, "away", ml[0], lineId, now, "ws")) n += 1;
       }
     }
 
@@ -706,8 +715,8 @@
           if (rot != null && String(rot).trim()) card.rotNum = String(rot).trim();
           if (event.live === true || event.isLive === true) card.live = true;
           const lineId = ml.lineId;
-          if (writeBoardSide(card, "home", ml.homePrice, lineId, now)) n += 1;
-          if (writeBoardSide(card, "away", ml.awayPrice, lineId, now)) n += 1;
+          if (writeBoardSide(card, "home", ml.homePrice, lineId, now, "http")) n += 1;
+          if (writeBoardSide(card, "away", ml.awayPrice, lineId, now, "http")) n += 1;
         }
       }
     }
@@ -805,12 +814,12 @@
           card.status = status || card.status;
           if (selectionType === 0) {
             card.homeStatus = status;
-            if (writeBoardSide(card, "home", price, row[6], now)) {
+            if (writeBoardSide(card, "home", price, row[6], now, "ws")) {
               /* ok */
             }
           } else if (selectionType === 1) {
             card.awayStatus = status;
-            if (writeBoardSide(card, "away", price, row[6], now)) {
+            if (writeBoardSide(card, "away", price, row[6], now, "ws")) {
               /* ok */
             }
           }

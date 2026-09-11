@@ -12,6 +12,7 @@ import {
 import { axiosRequest } from "./http.js";
 import { storageGet, storageSet } from "./storage.js";
 import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
+import { isPbWsObserveLive, isPbWsSocketOpen, mergePbWsBoards } from "../pb-ws-observe.js";
 
 const MANIFEST = chrome.runtime.getManifest();
 
@@ -53,9 +54,12 @@ async function mergePbWsStatus(status) {
   const incomingClosed =
     status?.phase === "off"
     || status?.phase === "hook_stop"
-    || status?.phase === "ws_closed";
+    || status?.phase === "ws_closed"
+    || status?.via === "closed";
   const incomingOpen =
     status?.connected === true || Number(status?.readyState) === 1;
+  const incomingLive = isPbWsObserveLive(status);
+  const curOpen = isPbWsSocketOpen(curStatus);
   const next = {
     ...curStatus,
     ...status,
@@ -63,19 +67,30 @@ async function mergePbWsStatus(status) {
     updatedAt: Date.now(),
   };
   // 多 frame：顶栏 euro/odds flush 没有 sports WS，不得把 iframe 的已连接打成断开
-  if (!incomingClosed && status?.socketSeen !== true && !incomingOpen) {
-    if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+  if (!incomingClosed && !incomingLive) {
+    if (curOpen) {
       next.connected = true;
-      if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
-    } else if (!("connected" in (status || {}))) {
-      next.connected = curStatus.connected;
-      if (next.readyState == null) next.readyState = curStatus.readyState;
+      if (curStatus.readyState != null) next.readyState = curStatus.readyState;
+      if (curStatus.phase === "connected") next.phase = "connected";
+      if (curStatus.lastType) {
+        next.lastType = curStatus.lastType;
+        next.lastDestination = curStatus.lastDestination;
+      }
+      next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
+    } else if (status?.socketSeen !== true && !incomingOpen) {
+      if (curStatus.connected === true || Number(curStatus.readyState) === 1) {
+        next.connected = true;
+        if (Number(curStatus.readyState) === 1) next.readyState = curStatus.readyState;
+      } else if (!("connected" in (status || {}))) {
+        next.connected = curStatus.connected;
+        if (next.readyState == null) next.readyState = curStatus.readyState;
+      }
+      if (!status?.lastType && curStatus.lastType) {
+        next.lastType = curStatus.lastType;
+        next.lastDestination = curStatus.lastDestination;
+      }
+      next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
     }
-    if (!status?.lastType && curStatus.lastType) {
-      next.lastType = curStatus.lastType;
-      next.lastDestination = curStatus.lastDestination;
-    }
-    next.frameCount = Math.max(Number(curStatus.frameCount) || 0, Number(status?.frameCount) || 0);
     const curOut = Array.isArray(curStatus.subscribedOut) ? curStatus.subscribedOut : [];
     const inOut = Array.isArray(status?.subscribedOut) ? status.subscribedOut : [];
     if (curOut.length && inOut.length === 0) {
@@ -91,19 +106,28 @@ async function mergePbWsStatus(status) {
   } else if (incomingOpen) {
     next.connected = true;
   }
-  // 勿用 undefined 冲掉已有 latestOdds（部分 status 帧不带盘口板）
-  if (!Array.isArray(status?.latestOdds)) {
-    if (Array.isArray(curStatus.latestOdds)) next.latestOdds = curStatus.latestOdds;
-    else delete next.latestOdds;
-  } else {
-    const incomingSeq = Number(status.boardSeq) || 0;
-    const curSeq = Number(curStatus.boardSeq) || Number(curBoard?.boardSeq) || 0;
-    if (incomingSeq && curSeq && incomingSeq < curSeq) {
-      next.latestOdds = Array.isArray(curBoard?.cards)
-        ? curBoard.cards
-        : curStatus.latestOdds;
-      next.boardSeq = curSeq;
-    }
+  const curCards = Array.isArray(curBoard?.cards)
+    ? curBoard.cards
+    : Array.isArray(curStatus.latestOdds)
+      ? curStatus.latestOdds
+      : [];
+  const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
+  if (wipeBoard) {
+    next.latestOdds = Array.isArray(status?.latestOdds) ? status.latestOdds : [];
+  } else if (Array.isArray(status?.latestOdds) && status.latestOdds.length) {
+    next.latestOdds = mergePbWsBoards(
+      curCards,
+      status.latestOdds,
+      incomingLive,
+      !incomingLive && !curOpen && !incomingClosed,
+    );
+    next.boardSeq = Math.max(
+      Number(status.boardSeq) || 0,
+      Number(curStatus.boardSeq) || 0,
+      Number(curBoard?.boardSeq) || 0,
+    );
+  } else if (curCards.length) {
+    next.latestOdds = curCards;
   }
   // 成功挂接后清掉历史 close，避免弹窗一直显示 close=1006
   if (status?.lastClose == null && (status?.phase === "hooked" || status?.phase === "connected" || status?.connected === true)) {
@@ -111,18 +135,11 @@ async function mergePbWsStatus(status) {
     if (!status.lastError) next.lastError = "";
   }
   const patch = { [PB_WS_STATUS_KEY]: next };
-  // 盘口板单独存一份，避免被其它 status 字段合并弄丢
-  const seqStale = Number(status.boardSeq) && Number(curStatus.boardSeq) && Number(status.boardSeq) < Number(curStatus.boardSeq);
-  const wipeBoard = status?.phase === "off" || status?.phase === "hook_stop";
-  const keepIncomingBoard =
-    Array.isArray(status?.latestOdds)
-    && (wipeBoard || status.latestOdds.length > 0)
-    && !seqStale;
-  if (keepIncomingBoard) {
+  if (wipeBoard || (Array.isArray(next.latestOdds) && next.latestOdds.length)) {
     patch[PB_WS_BOARD_KEY] = {
-      cards: status.latestOdds,
+      cards: next.latestOdds || [],
       updatedAt: Date.now(),
-      boardSeq: Number(status.boardSeq) || 0,
+      boardSeq: Number(next.boardSeq) || 0,
     };
   }
   await storageSet(patch);
@@ -261,11 +278,17 @@ async function handleExternalMessage(message, reply, sender) {
         try {
           const live = await chrome.tabs.sendMessage(id, { type: "pbWsObserveBoardGet" });
           if (!live || typeof live !== "object") continue;
-          if (Array.isArray(live.latestOdds) && live.latestOdds.length)
-            latestOdds = live.latestOdds;
+          const liveWs = isPbWsObserveLive(live);
+          if (Array.isArray(live.latestOdds) && live.latestOdds.length) {
+            latestOdds = mergePbWsBoards(
+              latestOdds,
+              live.latestOdds,
+              liveWs,
+              !liveWs && !isPbWsSocketOpen(observeOut),
+            );
+          }
           observeOut = { ...observeOut, latestOdds };
-          const liveOpen = live.connected === true || Number(live.readyState) === 1;
-          if (liveOpen) {
+          if (liveWs) {
             observeOut.connected = true;
             if (live.readyState != null) observeOut.readyState = live.readyState;
             if (live.phase) observeOut.phase = live.phase;
