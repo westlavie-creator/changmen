@@ -13,6 +13,11 @@ import { axiosRequest } from "./http.js";
 import { storageGet, storageSet } from "./storage.js";
 import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
 import { isPbWsObserveLive, isPbWsSocketOpen, mergePbWsBoards } from "../pb-ws-observe.js";
+import {
+  normalizePbAccountHosts,
+  PB_ACCOUNT_HOSTS_KEY,
+  tabUrlPatternsForPbHosts,
+} from "../content/pb/hosts.js";
 
 const MANIFEST = chrome.runtime.getManifest();
 
@@ -20,6 +25,22 @@ const PB_WS_STATUS_KEY = "pbWsObserve";
 const PB_WS_ENABLED_KEY = "pbWsObserveEnabled";
 const PB_WS_BOARD_KEY = "pbWsLatestOdds";
 const PB_WS_MAX_RECENT = 40;
+
+async function queryTabsForPbAccountHosts(hosts) {
+  const tabIds = new Set();
+  const patterns = tabUrlPatternsForPbHosts(hosts);
+  for (const url of patterns) {
+    try {
+      const tabs = await chrome.tabs.query({ url: [url] });
+      for (const t of tabs) {
+        if (t.id) tabIds.add(t.id);
+      }
+    } catch {
+      /* 非法 match pattern / 无权限 */
+    }
+  }
+  return tabIds;
+}
 
 /**
  * @param {object} frame
@@ -247,10 +268,16 @@ async function handleExternalMessage(message, reply, sender) {
       return;
     }
     case "pbWsObserveGet": {
+      const incomingHosts = Array.isArray(message.data?.hosts)
+        ? normalizePbAccountHosts(message.data.hosts)
+        : null;
+      if (incomingHosts)
+        await storageSet({ [PB_ACCOUNT_HOSTS_KEY]: incomingHosts });
       const bag = await storageGet([
         PB_WS_STATUS_KEY,
         PB_WS_ENABLED_KEY,
         PB_WS_BOARD_KEY,
+        PB_ACCOUNT_HOSTS_KEY,
         "PB",
       ]);
       const observe = bag?.[PB_WS_STATUS_KEY] || null;
@@ -260,23 +287,11 @@ async function handleExternalMessage(message, reply, sender) {
         : Array.isArray(observe?.latestOdds)
           ? observe.latestOdds
           : [];
-      const tabId = Number(bag?.PB);
-      const tabIds = new Set();
-      if (Number.isFinite(tabId) && tabId > 0) tabIds.add(tabId);
-      let pageCount = 0;
-      try {
-        const tabs = await chrome.tabs.query({
-          url: ["*://*.part888.com/*", "*://*.ps3838.com/*"],
-        });
-        for (const t of tabs) {
-          if (t.id) {
-            tabIds.add(t.id);
-            pageCount += 1;
-          }
-        }
-      } catch {
-        /* host / tabs 权限不足则只用 storage 里的 PB */
-      }
+      const hosts = incomingHosts || normalizePbAccountHosts(bag?.[PB_ACCOUNT_HOSTS_KEY]);
+      const tabIds = await queryTabsForPbAccountHosts(hosts);
+      const pageCount = tabIds.size;
+      const storedPb = Number(bag?.PB);
+      if (Number.isFinite(storedPb) && storedPb > 0) tabIds.add(storedPb);
       let observeOut = observe ? { ...observe, latestOdds } : { latestOdds };
       for (const id of tabIds) {
         try {

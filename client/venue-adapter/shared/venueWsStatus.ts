@@ -15,7 +15,7 @@ const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
   { id: "predictfun-market", label: "PF" },
   { id: "dex", label: "DEX" },
   { id: "cm-hub", label: "HUB" },
-  /** [changmen 扩展] part888 sports-websocket 观测（扩展旁路，非 HTTP 主路径） */
+  /** [changmen 扩展] 平博 sports-websocket 观测（扩展旁路，非 HTTP 主路径） */
   { id: "pb", label: "PB" },
   /** 足球 OB 体育推送（独立于电竞 MQTT / /esport/ws-forward/OB） */
   { id: "ob-sport", label: "OB-S" },

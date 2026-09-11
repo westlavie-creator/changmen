@@ -22,6 +22,12 @@ export {
   subscribePbWsShadow,
 } from "./wsShadowOdds";
 export {
+  getPbAccountPageHosts,
+  pbHostsFromAccounts,
+  pbHostFromUrl,
+  setPbAccountPageHosts,
+} from "./accountHosts";
+export {
   getPbWsPageDetect,
   isPbWsShadowUiAllowed,
   setPbWsShadowUiAllowed,

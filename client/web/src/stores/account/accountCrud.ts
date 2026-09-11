@@ -13,6 +13,7 @@ import {
 import { resolveAccountCurrency } from "@changmen/shared/currency";
 import { PlatformAccount } from "@/models/platformAccount";
 import { refreshAllFromVenues, startBalanceRefreshLoop } from "@/stores/account/balanceRefresh";
+import { syncPbAccountHosts } from "@/stores/account/pbAccountHostsSync";
 import {
   mergeVaultKeysIntoAccounts,
   migrateTokenPrivateKeysToVault,
@@ -110,6 +111,7 @@ export async function loadAccounts(store: AccountStoreContext, refreshBalances =
       /* adapter 未就绪 */
     }
     void warmPolymarketUserWsFromAccounts(store.accounts);
+    void syncPbAccountHosts(store.accounts);
     if (userId) {
       try {
         await refreshPmVaultAccountUi(store.accounts, userId);
@@ -142,7 +144,9 @@ export async function persistAccounts(store: AccountStoreContext) {
     .map(a => normalizeAccountMultiplyField(a.toJSON()));
   // 方案 C：私钥只在本机仓；写回 RDS 前剥离
   stripPrivateKeysForPersist(payload);
-  return saveAccounts(payload);
+  const ok = await saveAccounts(payload);
+  void syncPbAccountHosts(store.accounts);
+  return ok;
 }
 
 function readVenueMemberId(row: { venueMemberId?: string; venueId?: string } | null | undefined): string {

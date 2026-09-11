@@ -5,6 +5,59 @@
  */
 (function pbWsHookMain() {
   if (window.__CM_PB_WS_HOOK__) return;
+
+  /** 与 content 下发的投注账号 referer/gateway 主机对齐；未匹配不改页面原型。 */
+  function normalizeHosts(raw) {
+    const list = Array.isArray(raw) ? raw : [];
+    const out = [];
+    const seen = new Set();
+    for (const item of list) {
+      const host = String(item || "").toLowerCase().replace(/\.$/, "").trim();
+      if (!host || seen.has(host)) continue;
+      seen.add(host);
+      out.push(host);
+    }
+    return out;
+  }
+  function hostnameMatches(hostname, hosts) {
+    const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+    if (!h || !hosts.length) return false;
+    for (const host of hosts) {
+      if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
+        return true;
+    }
+    return false;
+  }
+  function pageMatches(rawHosts) {
+    const hosts = normalizeHosts(rawHosts);
+    try {
+      if (hostnameMatches(location.hostname, hosts)) return true;
+    } catch { /* ignore */ }
+    try {
+      if (window !== window.top && window.top
+          && hostnameMatches(window.top.location.hostname, hosts))
+        return true;
+    } catch { /* cross-origin */ }
+    return false;
+  }
+
+  if (!window.__CM_PB_WS_HOOK_READY__) {
+    if (!window.__CM_PB_WS_HOOK_WAIT__) {
+      window.__CM_PB_WS_HOOK_WAIT__ = true;
+      window.addEventListener("message", function cmPbWsHookWaitInstall(ev) {
+        if (ev.source !== window) return;
+        const data = ev.data;
+        if (!data || data.source !== "cm-pb-ws" || data.kind !== "cmd") return;
+        if (data.cmd !== "start" && data.cmd !== "install") return;
+        if (!pageMatches(data.hosts)) return;
+        window.__CM_PB_WS_HOOK_READY__ = true;
+        window.removeEventListener("message", cmPbWsHookWaitInstall);
+        pbWsHookMain();
+      });
+    }
+    return;
+  }
+
   window.__CM_PB_WS_HOOK__ = true;
 
   const SOURCE = "cm-pb-ws";

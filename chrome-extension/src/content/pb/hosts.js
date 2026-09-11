@@ -1,12 +1,58 @@
-/** PB 官网域名（sports-websocket 同源建连） */
+/**
+ * [changmen 扩展] PB 投注账号 referer/gateway 主机。
+ * A8 Check/GetConfig 不走这里。
+ */
 
-const PB_HOST_RE = /(^|\.)(part888|ps3838)\.com$/i;
+export const PB_ACCOUNT_HOSTS_KEY = "pbAccountHosts";
 
-export function isPbSportsHost(hostname = location.hostname) {
-  if (PB_HOST_RE.test(String(hostname || ""))) return true;
-  // about:blank / srcdoc：hostname 为空，但父页仍是 part888
+export function pbHostFromUrl(raw = "") {
+  const text = String(raw || "").trim();
+  if (!text) return "";
   try {
-    if (window !== window.top && PB_HOST_RE.test(String(window.top.location.hostname || "")))
+    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
+    return url.hostname.toLowerCase().replace(/\.$/, "");
+  } catch {
+    return "";
+  }
+}
+
+export function normalizePbAccountHosts(raw) {
+  const list = Array.isArray(raw) ? raw : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of list) {
+    const host = pbHostFromUrl(typeof item === "string" ? item : String(item || ""));
+    if (!host || seen.has(host)) continue;
+    seen.add(host);
+    out.push(host);
+  }
+  return out;
+}
+
+export function hostnameMatchesPbAccountHosts(hostname, hosts) {
+  const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+  if (!h || !Array.isArray(hosts) || !hosts.length) return false;
+  for (const host of hosts) {
+    if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
+      return true;
+  }
+  return false;
+}
+
+/** 本 frame 或同域父页主机命中账号 referer/gateway */
+export function pageMatchesPbAccountHosts(
+  hosts,
+  win = typeof window !== "undefined" ? window : undefined,
+) {
+  if (!win) return false;
+  try {
+    if (hostnameMatchesPbAccountHosts(win.location.hostname, hosts)) return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (win !== win.top && win.top
+        && hostnameMatchesPbAccountHosts(win.top.location.hostname, hosts))
       return true;
   } catch {
     /* cross-origin */
@@ -14,11 +60,25 @@ export function isPbSportsHost(hostname = location.hostname) {
   return false;
 }
 
-/** 仅 top frame 建连，避免 iframe 多开 WS */
-export function isPbWsTopFrame() {
-  try {
-    return window === window.top;
-  } catch {
-    return true;
+export function pbApexHost(host) {
+  const h = String(host || "").toLowerCase().replace(/\.$/, "");
+  return h.startsWith("www.") ? h.slice(4) : h;
+}
+
+export function tabUrlPatternsForPbHosts(hosts) {
+  const patterns = [];
+  const seen = new Set();
+  const add = (pattern) => {
+    if (!pattern || seen.has(pattern)) return;
+    seen.add(pattern);
+    patterns.push(pattern);
+  };
+  for (const host of normalizePbAccountHosts(hosts)) {
+    const apex = pbApexHost(host);
+    add(`*://${host}/*`);
+    add(`*://${apex}/*`);
+    if (apex.includes("."))
+      add(`*://*.${apex}/*`);
   }
+  return patterns;
 }

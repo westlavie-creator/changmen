@@ -14,15 +14,8 @@ const MAX_RAW_CHARS = 6000;
  * @returns {string[]}
  */
 function swstokenPathCandidates() {
-  // content script 读不到页面 window.env；part888/ps3838 线上走 member-auth
-  if (/part888|ps3838/i.test(location.hostname)) {
-    return ["/member-auth/v2/swstoken", "/member-service/v2/swstoken"];
-  }
-  const env = (typeof window !== "undefined" && window.env) || {};
-  const authFirst = Boolean(env.enableUseMemberAuthEndpoints);
-  const auth = "/member-auth/v2/swstoken";
-  const member = "/member-service/v2/swstoken";
-  return authFirst ? [auth, member] : [member, auth];
+  // content script 读不到 MAIN world window.env；白标多数走 member-auth，失败再试 member-service
+  return ["/member-auth/v2/swstoken", "/member-service/v2/swstoken"];
 }
 
 /**

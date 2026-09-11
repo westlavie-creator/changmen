@@ -1,9 +1,13 @@
 /**
- * part888 页：挂接官网 sports-websocket 观测
- * 只收 status 摘要（含 latestOdds），灌主站影子价；扩展侧栏不再画赔率板。
+ * 平博页：挂接官网 sports-websocket 观测。
+ * 仅当本页主机命中投注账号 referer/gateway 时启动（不改 A8 Check）。
  */
 import { PLATFORMS } from "../platforms.js";
-import { isPbSportsHost } from "./hosts.js";
+import {
+  normalizePbAccountHosts,
+  pageMatchesPbAccountHosts,
+  PB_ACCOUNT_HOSTS_KEY,
+} from "./hosts.js";
 import { isPbWsObserveLive } from "../../pb-ws-observe.js";
 
 const ENABLED_KEY = "pbWsObserveEnabled";
@@ -23,9 +27,11 @@ let lastPhase = "off";
 let lastStatus = {};
 /** 仅本 frame 的 hook 报过 sports-websocket 才答 BoardGet，避免顶栏用 sessionStorage 冒充 */
 let ownWs = false;
+/** 投注账号 referer/gateway 主机 */
+let accountHosts = [];
 
 function postCmd(cmd, extra = {}) {
-  window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, ...extra }, "*");
+  window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, hosts: accountHosts, ...extra }, "*");
 }
 
 function publishStatus(status) {
@@ -169,12 +175,7 @@ async function ensureObserve(on) {
   console.info("[PB WS] observe start (hook page WS, light)");
 }
 
-/**
- * @returns {void}
- */
-export function initPbWsObserve() {
-  if (!isPbSportsHost()) return;
-
+function listenObserveMessages() {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type !== "pbWsObserveBoardGet") return false;
     // 只有本 frame 自己的 sports-websocket 活着才答。带 euro 板的顶栏抢答会盖掉 UPDATE_ODDS。
@@ -188,7 +189,9 @@ export function initPbWsObserve() {
     });
     return true;
   });
+}
 
+function startObserveFromStorage() {
   chrome.storage.local.get([ENABLED_KEY, FILTER_KEY], (items) => {
     if (typeof items?.[FILTER_KEY] === "boolean") {
       filterMatchMapMl = items[FILTER_KEY];
@@ -196,7 +199,6 @@ export function initPbWsObserve() {
     void ensureObserve(items?.[ENABLED_KEY] !== false);
     setInterval(pollSessionStatus, 400);
   });
-
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes[FILTER_KEY]) {
@@ -204,8 +206,36 @@ export function initPbWsObserve() {
       if (enabled) postCmd("setFilter", { filterMatchMapMl });
     }
     if (changes[ENABLED_KEY]) {
-      // 缺省 / 非 false → 开（默认开观测）
       void ensureObserve(changes[ENABLED_KEY].newValue !== false);
     }
+  });
+}
+
+/**
+ * @returns {void}
+ */
+export function initPbWsObserve() {
+  listenObserveMessages();
+
+  let started = false;
+  const boot = () => {
+    if (started) return true;
+    if (!pageMatchesPbAccountHosts(accountHosts)) return false;
+    started = true;
+    startObserveFromStorage();
+    return true;
+  };
+
+  const applyHosts = (raw) => {
+    accountHosts = normalizePbAccountHosts(raw);
+    boot();
+  };
+
+  chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
+    applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
+    applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
   });
 }

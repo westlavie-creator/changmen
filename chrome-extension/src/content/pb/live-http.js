@@ -1,9 +1,14 @@
 /**
- * [changmen 扩展] part888/ps3838 标签页代发：现读 localStorage + Cookie。
+ * [changmen 扩展] 平博标签页代发：现读 localStorage + Cookie。
  * 515 页不注册，避免破坏 A8 k0。
+ * 主机必须命中投注账号 referer/gateway。
  */
 import { PLATFORMS } from "../platforms.js";
-import { isPbSportsHost } from "./hosts.js";
+import {
+  normalizePbAccountHosts,
+  pageMatchesPbAccountHosts,
+  PB_ACCOUNT_HOSTS_KEY,
+} from "./hosts.js";
 import {
   buildLivePbAuthHeaders,
   detectPbPageSessionMode,
@@ -25,9 +30,11 @@ function isTopFrame() {
   }
 }
 
+let accountHosts = [];
+
 export function shouldRegisterPbLiveHttp(store = readLocalStorageSnapshot()) {
   if (!isTopFrame()) return false;
-  if (!isPbSportsHost()) return false;
+  if (!pageMatchesPbAccountHosts(accountHosts)) return false;
   if (!isSportsAppPath()) return false;
   if (!store["x-app-data"]) return false;
   return !isPbA8K0PageSession(detectPbPageSessionMode(store));
@@ -83,7 +90,7 @@ export async function handlePbLiveTabMessage(message) {
   const url = message.url;
   if (!url) return undefined;
   if (!shouldRegisterPbLiveHttp())
-    throw new Error("PB 标签页不是 part888/ps3838 活会话");
+    throw new Error("PB 标签页不是平博活会话");
   if (!requestHostMatchesPage(url))
     throw new Error("PB live tab host mismatch");
 
@@ -123,17 +130,18 @@ export function initPbLiveHttp(registerHandler) {
     setInterval(publishLiveCredential, 10_000);
     return true;
   };
-  if (tryReg()) return;
-  let n = 0;
-  const timer = setInterval(() => {
-    if (tryReg() || ++n >= 40)
-      clearInterval(timer);
-  }, 3000);
-  const retry = () => {
-    if (tryReg())
-      clearInterval(timer);
+  const applyHosts = (raw) => {
+    accountHosts = normalizePbAccountHosts(raw);
+    tryReg();
   };
-  window.addEventListener("focus", retry);
-  document.addEventListener("visibilitychange", retry);
-  window.addEventListener("popstate", retry);
+  chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
+    applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
+    applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
+  });
+  window.addEventListener("focus", tryReg);
+  document.addEventListener("visibilitychange", tryReg);
+  window.addEventListener("popstate", tryReg);
 }

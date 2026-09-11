@@ -43,7 +43,7 @@ function renderStatus(bag) {
       ? "WS 已断开"
       : pageDetected
         ? "网页在 · WS 连接中"
-        : "等待 part888 页";
+        : "等待平博页";
   const parts = [
     page,
     head,

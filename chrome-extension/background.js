@@ -3871,12 +3871,72 @@
     return trimMergedBoard([...map.values()]);
   }
 
+  // src/content/pb/hosts.js
+  var PB_ACCOUNT_HOSTS_KEY = "pbAccountHosts";
+  function pbHostFromUrl(raw = "") {
+    const text = String(raw || "").trim();
+    if (!text) return "";
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
+      return url.hostname.toLowerCase().replace(/\.$/, "");
+    } catch {
+      return "";
+    }
+  }
+  function normalizePbAccountHosts(raw) {
+    const list = Array.isArray(raw) ? raw : [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const item of list) {
+      const host = pbHostFromUrl(typeof item === "string" ? item : String(item || ""));
+      if (!host || seen.has(host)) continue;
+      seen.add(host);
+      out.push(host);
+    }
+    return out;
+  }
+  function pbApexHost(host) {
+    const h = String(host || "").toLowerCase().replace(/\.$/, "");
+    return h.startsWith("www.") ? h.slice(4) : h;
+  }
+  function tabUrlPatternsForPbHosts(hosts) {
+    const patterns = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (pattern) => {
+      if (!pattern || seen.has(pattern)) return;
+      seen.add(pattern);
+      patterns.push(pattern);
+    };
+    for (const host of normalizePbAccountHosts(hosts)) {
+      const apex = pbApexHost(host);
+      add(`*://${host}/*`);
+      add(`*://${apex}/*`);
+      if (apex.includes("."))
+        add(`*://*.${apex}/*`);
+    }
+    return patterns;
+  }
+
   // src/background/index.js
   var MANIFEST = chrome.runtime.getManifest();
   var PB_WS_STATUS_KEY = "pbWsObserve";
   var PB_WS_ENABLED_KEY = "pbWsObserveEnabled";
   var PB_WS_BOARD_KEY = "pbWsLatestOdds";
   var PB_WS_MAX_RECENT = 40;
+  async function queryTabsForPbAccountHosts(hosts) {
+    const tabIds = /* @__PURE__ */ new Set();
+    const patterns = tabUrlPatternsForPbHosts(hosts);
+    for (const url of patterns) {
+      try {
+        const tabs = await chrome.tabs.query({ url: [url] });
+        for (const t of tabs) {
+          if (t.id) tabIds.add(t.id);
+        }
+      } catch {
+      }
+    }
+    return tabIds;
+  }
   async function appendPbWsFrame(frame) {
     const bag = await storageGet([PB_WS_STATUS_KEY, PB_WS_BOARD_KEY]);
     const cur = bag?.[PB_WS_STATUS_KEY] || {};
@@ -4065,31 +4125,24 @@
         return;
       }
       case "pbWsObserveGet": {
+        const incomingHosts = Array.isArray(message.data?.hosts) ? normalizePbAccountHosts(message.data.hosts) : null;
+        if (incomingHosts)
+          await storageSet({ [PB_ACCOUNT_HOSTS_KEY]: incomingHosts });
         const bag = await storageGet([
           PB_WS_STATUS_KEY,
           PB_WS_ENABLED_KEY,
           PB_WS_BOARD_KEY,
+          PB_ACCOUNT_HOSTS_KEY,
           "PB"
         ]);
         const observe = bag?.[PB_WS_STATUS_KEY] || null;
         const board = bag?.[PB_WS_BOARD_KEY];
         let latestOdds = Array.isArray(board?.cards) ? board.cards : Array.isArray(observe?.latestOdds) ? observe.latestOdds : [];
-        const tabId2 = Number(bag?.PB);
-        const tabIds = /* @__PURE__ */ new Set();
-        if (Number.isFinite(tabId2) && tabId2 > 0) tabIds.add(tabId2);
-        let pageCount = 0;
-        try {
-          const tabs = await chrome.tabs.query({
-            url: ["*://*.part888.com/*", "*://*.ps3838.com/*"]
-          });
-          for (const t of tabs) {
-            if (t.id) {
-              tabIds.add(t.id);
-              pageCount += 1;
-            }
-          }
-        } catch {
-        }
+        const hosts = incomingHosts || normalizePbAccountHosts(bag?.[PB_ACCOUNT_HOSTS_KEY]);
+        const tabIds = await queryTabsForPbAccountHosts(hosts);
+        const pageCount = tabIds.size;
+        const storedPb = Number(bag?.PB);
+        if (Number.isFinite(storedPb) && storedPb > 0) tabIds.add(storedPb);
         let observeOut = observe ? { ...observe, latestOdds } : { latestOdds };
         for (const id of tabIds) {
           try {

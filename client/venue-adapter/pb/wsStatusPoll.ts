@@ -6,6 +6,7 @@
  */
 import { a8PluginSend, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import { reportVenueWsStatus, type VenueWsStatus } from "../shared/venueWsStatus";
+import { getPbAccountPageHosts, hasPbAccountPageHostsBeenSet } from "./accountHosts";
 import {
   clearPbWsShadow,
   countPbWsShadowBySource,
@@ -84,7 +85,7 @@ export function resetPbWsShadowUiAllowedForTests(): void {
 
 type PbWsObserveBag = {
   enabled?: boolean;
-  /** 扩展 tabs.query 到 part888 / ps3838 */
+  /** 扩展按投注账号 referer/gateway 主机 tabs.query */
   pageDetected?: boolean;
   pageCount?: number;
   observe?: {
@@ -434,7 +435,12 @@ async function pollOnce(): Promise<void> {
     return;
   }
   try {
-    const bag = (await a8PluginSend({ type: "pbWsObserveGet" })) as PbWsObserveBag;
+    const bag = (await a8PluginSend({
+      type: "pbWsObserveGet",
+      data: hasPbAccountPageHostsBeenSet()
+        ? { hosts: getPbAccountPageHosts() }
+        : {},
+    })) as PbWsObserveBag;
     const pageCount = Number(bag?.pageCount);
     setPbWsPageDetect(bag?.pageDetected === true, Number.isFinite(pageCount) ? pageCount : 0);
     reportVenueWsStatus(PB_WS_ID, mapObserveToStatus(bag));

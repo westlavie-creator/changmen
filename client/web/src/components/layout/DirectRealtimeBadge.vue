@@ -210,9 +210,9 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   if (entry.id === "pb") {
     const page = getPbWsPageDetect();
     if (page.detected)
-      lines.push(`已检测到 part888 / ps3838 网页 ×${page.count || 1}`);
+      lines.push(`已检测到平博网页 ×${page.count || 1}`);
     else
-      lines.push("未检测到 part888 / ps3838 网页");
+      lines.push("未检测到平博网页");
   }
   switch (entry.status) {
     case "connected":

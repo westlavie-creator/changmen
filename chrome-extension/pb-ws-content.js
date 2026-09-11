@@ -26,11 +26,46 @@
   var PLATFORM_LIST = Object.values(PLATFORMS);
 
   // src/content/pb/hosts.js
-  var PB_HOST_RE = /(^|\.)(part888|ps3838)\.com$/i;
-  function isPbSportsHost(hostname = location.hostname) {
-    if (PB_HOST_RE.test(String(hostname || ""))) return true;
+  var PB_ACCOUNT_HOSTS_KEY = "pbAccountHosts";
+  function pbHostFromUrl(raw = "") {
+    const text = String(raw || "").trim();
+    if (!text) return "";
     try {
-      if (window !== window.top && PB_HOST_RE.test(String(window.top.location.hostname || "")))
+      const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
+      return url.hostname.toLowerCase().replace(/\.$/, "");
+    } catch {
+      return "";
+    }
+  }
+  function normalizePbAccountHosts(raw) {
+    const list = Array.isArray(raw) ? raw : [];
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const item of list) {
+      const host = pbHostFromUrl(typeof item === "string" ? item : String(item || ""));
+      if (!host || seen.has(host)) continue;
+      seen.add(host);
+      out.push(host);
+    }
+    return out;
+  }
+  function hostnameMatchesPbAccountHosts(hostname, hosts) {
+    const h = String(hostname || "").toLowerCase().replace(/\.$/, "");
+    if (!h || !Array.isArray(hosts) || !hosts.length) return false;
+    for (const host of hosts) {
+      if (h === host || h.endsWith(`.${host}`) || host.endsWith(`.${h}`))
+        return true;
+    }
+    return false;
+  }
+  function pageMatchesPbAccountHosts(hosts, win = typeof window !== "undefined" ? window : void 0) {
+    if (!win) return false;
+    try {
+      if (hostnameMatchesPbAccountHosts(win.location.hostname, hosts)) return true;
+    } catch {
+    }
+    try {
+      if (win !== win.top && win.top && hostnameMatchesPbAccountHosts(win.top.location.hostname, hosts))
         return true;
     } catch {
     }
@@ -3296,9 +3331,10 @@
       return true;
     }
   }
+  var accountHosts = [];
   function shouldRegisterPbLiveHttp(store = readLocalStorageSnapshot()) {
     if (!isTopFrame()) return false;
-    if (!isPbSportsHost()) return false;
+    if (!pageMatchesPbAccountHosts(accountHosts)) return false;
     if (!isSportsAppPath()) return false;
     if (!store["x-app-data"]) return false;
     return !isPbA8K0PageSession(detectPbPageSessionMode(store));
@@ -3345,7 +3381,7 @@
     const url = message.url;
     if (!url) return void 0;
     if (!shouldRegisterPbLiveHttp())
-      throw new Error("PB \u6807\u7B7E\u9875\u4E0D\u662F part888/ps3838 \u6D3B\u4F1A\u8BDD");
+      throw new Error("PB \u6807\u7B7E\u9875\u4E0D\u662F\u5E73\u535A\u6D3B\u4F1A\u8BDD");
     if (!requestHostMatchesPage(url))
       throw new Error("PB live tab host mismatch");
     const extra = message.options?.headers || {};
@@ -3380,19 +3416,20 @@
       setInterval(publishLiveCredential, 1e4);
       return true;
     };
-    if (tryReg()) return;
-    let n = 0;
-    const timer = setInterval(() => {
-      if (tryReg() || ++n >= 40)
-        clearInterval(timer);
-    }, 3e3);
-    const retry = () => {
-      if (tryReg())
-        clearInterval(timer);
+    const applyHosts = (raw) => {
+      accountHosts = normalizePbAccountHosts(raw);
+      tryReg();
     };
-    window.addEventListener("focus", retry);
-    document.addEventListener("visibilitychange", retry);
-    window.addEventListener("popstate", retry);
+    chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
+      applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
+      applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
+    });
+    window.addEventListener("focus", tryReg);
+    document.addEventListener("visibilitychange", tryReg);
+    window.addEventListener("popstate", tryReg);
   }
 
   // src/pb-ws-observe.js
@@ -3425,8 +3462,9 @@
   var lastPhase = "off";
   var lastStatus = {};
   var ownWs = false;
+  var accountHosts2 = [];
   function postCmd(cmd, extra = {}) {
-    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, ...extra }, "*");
+    window.postMessage({ source: SOURCE, kind: "cmd", cmd, filterMatchMapMl, hosts: accountHosts2, ...extra }, "*");
   }
   function publishStatus(status) {
     try {
@@ -3550,8 +3588,7 @@
     pollSessionStatus();
     console.info("[PB WS] observe start (hook page WS, light)");
   }
-  function initPbWsObserve() {
-    if (!isPbSportsHost()) return;
+  function listenObserveMessages() {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message?.type !== "pbWsObserveBoardGet") return false;
       if (!ownWs || !isPbWsObserveLive(lastStatus)) {
@@ -3564,6 +3601,8 @@
       });
       return true;
     });
+  }
+  function startObserveFromStorage() {
     chrome.storage.local.get([ENABLED_KEY, FILTER_KEY], (items) => {
       if (typeof items?.[FILTER_KEY] === "boolean") {
         filterMatchMapMl = items[FILTER_KEY];
@@ -3580,6 +3619,28 @@
       if (changes[ENABLED_KEY]) {
         void ensureObserve(changes[ENABLED_KEY].newValue !== false);
       }
+    });
+  }
+  function initPbWsObserve() {
+    listenObserveMessages();
+    let started = false;
+    const boot = () => {
+      if (started) return true;
+      if (!pageMatchesPbAccountHosts(accountHosts2)) return false;
+      started = true;
+      startObserveFromStorage();
+      return true;
+    };
+    const applyHosts = (raw) => {
+      accountHosts2 = normalizePbAccountHosts(raw);
+      boot();
+    };
+    chrome.storage.local.get([PB_ACCOUNT_HOSTS_KEY], (items) => {
+      applyHosts(items?.[PB_ACCOUNT_HOSTS_KEY]);
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local" || !changes[PB_ACCOUNT_HOSTS_KEY]) return;
+      applyHosts(changes[PB_ACCOUNT_HOSTS_KEY].newValue);
     });
   }
 

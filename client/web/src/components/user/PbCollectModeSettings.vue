@@ -53,7 +53,7 @@ const pbWsShadowUi = computed({
             placement="top"
             :show-after="200"
             popper-class="pb-collect-mode-tip"
-            content="开总开关后默认开。主价不变。影子=官网 WS + SPA euro/odds。可单独关掉。需扩展 1.3.31+ 并重载 part888。"
+            content="开总开关后默认开。主价不变。影子=官网 WS + SPA euro/odds。可单独关掉。需扩展 1.3.50+ 并重载平博页。"
           >
             <span class="pb-collect-mode__tip-label">PB WS 影子价</span>
           </el-tooltip>
