@@ -22,7 +22,11 @@ describe("mapObserveToStatus", () => {
 
   test("connecting while observe enabled but not yet connected", () => {
     expect(
-      mapObserveToStatus({ enabled: true, observe: { running: true, phase: "hook_start" } }),
+      mapObserveToStatus({
+        enabled: true,
+        pageDetected: true,
+        observe: { running: true, phase: "hook_start" },
+      }),
     ).toBe("connecting");
   });
 
@@ -78,28 +82,48 @@ describe("mapObserveToStatus", () => {
     ).toBe("error");
   });
 
-  test("WS-tagged board without handshake stays connecting", () => {
+  test("enabled without a PB page stays disconnected", () => {
+    expect(
+      mapObserveToStatus({ enabled: true, observe: { running: true, phase: "hook_start" } }),
+    ).toBe("disconnected");
     expect(
       mapObserveToStatus({
         enabled: true,
+        pageDetected: false,
+        observe: { phase: "hooked", latestOdds: [{ eventId: 1, via: "http" }] },
+      }),
+    ).toBe("disconnected");
+  });
+
+  test("WS-tagged board without handshake is page-detected, not pulsing", () => {
+    expect(
+      mapObserveToStatus({
+        enabled: true,
+        pageDetected: true,
         observe: {
           phase: "hooked",
           latestOdds: [{ eventId: 1, period: 0, via: "ws", home: "1.5" }],
         },
       }),
-    ).toBe("connecting");
+    ).toBe("detected");
   });
 
-  test("HTTP-only board stays connecting", () => {
+  test("HTTP-only board with page detected is solid detected", () => {
     expect(
       mapObserveToStatus({
         enabled: true,
+        pageDetected: true,
         observe: {
           phase: "hooked",
           latestOdds: [{ eventId: 1, period: 0, via: "http", home: "1.5" }],
         },
       }),
-    ).toBe("connecting");
+    ).toBe("detected");
+  });
+
+  test("disconnected when empty", () => {
+    expect(mapObserveToStatus(null)).toBe("disconnected");
+    expect(mapObserveToStatus({ enabled: false, observe: {} })).toBe("disconnected");
   });
 });
 

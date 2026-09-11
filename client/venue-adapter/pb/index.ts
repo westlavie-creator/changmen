@@ -22,6 +22,7 @@ export {
   subscribePbWsShadow,
 } from "./wsShadowOdds";
 export {
+  getPbWsPageDetect,
   isPbWsShadowUiAllowed,
   setPbWsShadowUiAllowed,
   startPbWsStatusPoll,

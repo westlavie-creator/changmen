@@ -263,12 +263,16 @@ async function handleExternalMessage(message, reply, sender) {
       const tabId = Number(bag?.PB);
       const tabIds = new Set();
       if (Number.isFinite(tabId) && tabId > 0) tabIds.add(tabId);
+      let pageCount = 0;
       try {
         const tabs = await chrome.tabs.query({
           url: ["*://*.part888.com/*", "*://*.ps3838.com/*"],
         });
         for (const t of tabs) {
-          if (t.id) tabIds.add(t.id);
+          if (t.id) {
+            tabIds.add(t.id);
+            pageCount += 1;
+          }
         }
       } catch {
         /* host / tabs 权限不足则只用 storage 里的 PB */
@@ -309,6 +313,8 @@ async function handleExternalMessage(message, reply, sender) {
         uuid,
         response: {
           enabled: bag?.[PB_WS_ENABLED_KEY] !== false,
+          pageDetected: pageCount > 0,
+          pageCount,
           observe: observeOut,
         },
       });

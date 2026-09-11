@@ -22,6 +22,8 @@ function isWsLive(s) {
 function renderStatus(bag) {
   const enabled = bag?.[ENABLED_KEY] !== false;
   const s = bag?.[STATUS_KEY] || {};
+  const pageDetected = bag?.pageDetected === true;
+  const pageCount = Number(bag?.pageCount) || 0;
   toggle.checked = enabled;
   if (!enabled) {
     statusEl.className = "status";
@@ -32,12 +34,18 @@ function renderStatus(bag) {
   const live = isWsLive(s);
   const boardN = Array.isArray(s.latestOdds) ? s.latestOdds.length : 0;
   const wsClosed = Number(s.readyState) === 3 || s.phase === "ws_closed";
+  const page = pageDetected
+    ? `网页×${pageCount || 1}`
+    : "未检测到网页";
   const head = live
     ? "已 CONNECTED"
     : wsClosed
       ? "WS 已断开"
-      : "连接中…";
+      : pageDetected
+        ? "网页在 · WS 连接中"
+        : "等待 part888 页";
   const parts = [
+    page,
     head,
     s.phase ? `phase=${s.phase}` : null,
     s.readyState != null ? `rs=${s.readyState}` : null,
@@ -47,7 +55,7 @@ function renderStatus(bag) {
     s.lastError ? `err=${s.lastError}` : null,
   ].filter(Boolean);
   statusEl.className = s.lastError || wsClosed ? "status err" : live ? "status ok" : "status";
-  statusEl.textContent = `状态：${parts.join(" · ") || "等待 part888 页…"}`;
+  statusEl.textContent = `状态：${parts.join(" · ")}`;
 
   const out = Array.isArray(s.subscribedOut) ? s.subscribedOut : [];
   const checklist = s.checklist || {};
@@ -68,6 +76,8 @@ function refresh() {
     renderStatus({
       [ENABLED_KEY]: payload?.enabled !== false,
       [STATUS_KEY]: payload?.observe || {},
+      pageDetected: payload?.pageDetected === true,
+      pageCount: payload?.pageCount,
     });
   });
 }

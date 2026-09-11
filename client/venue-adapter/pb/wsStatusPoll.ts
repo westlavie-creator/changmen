@@ -84,6 +84,9 @@ export function resetPbWsShadowUiAllowedForTests(): void {
 
 type PbWsObserveBag = {
   enabled?: boolean;
+  /** 扩展 tabs.query 到 part888 / ps3838 */
+  pageDetected?: boolean;
+  pageCount?: number;
   observe?: {
     connected?: boolean;
     running?: boolean;
@@ -96,7 +99,35 @@ type PbWsObserveBag = {
   } | null;
 };
 
-/** 导出供单测；角标四态 */
+export type PbWsPageDetect = {
+  detected: boolean;
+  count: number;
+};
+
+const PAGE_DETECT_KEY = "__CM_PB_WS_PAGE_DETECT__";
+
+type PageDetectHost = typeof globalThis & { [PAGE_DETECT_KEY]?: PbWsPageDetect };
+
+function pageDetectHost(): PageDetectHost {
+  return globalThis as PageDetectHost;
+}
+
+export function getPbWsPageDetect(): PbWsPageDetect {
+  return pageDetectHost()[PAGE_DETECT_KEY] ?? { detected: false, count: 0 };
+}
+
+export function setPbWsPageDetect(detected: boolean, count = 0): void {
+  pageDetectHost()[PAGE_DETECT_KEY] = {
+    detected: detected === true,
+    count: Number.isFinite(count) ? Math.max(0, Number(count)) : 0,
+  };
+}
+
+export function resetPbWsPageDetectForTests(): void {
+  delete pageDetectHost()[PAGE_DETECT_KEY];
+}
+
+/** 导出供单测。无网页灰；有网页实心黄；仅握手中才闪；WS 通绿。 */
 export function mapObserveToStatus(bag: PbWsObserveBag | null | undefined): VenueWsStatus {
   if (!bag) return "disconnected";
   const o = bag.observe || {};
@@ -115,17 +146,16 @@ export function mapObserveToStatus(bag: PbWsObserveBag | null | undefined): Venu
     return "connected";
   if (o.lastError)
     return "error";
+  if (bag.pageDetected !== true)
+    return "disconnected";
   if (
-    bag.enabled === true
-    || o.running === true
-    || o.phase === "hook_start"
-    || o.phase === "hooked"
+    o.phase === "hook_start"
     || o.phase === "wait_connected"
-    || o.phase === "connected"
+    || o.phase === "ws_connecting"
   ) {
     return "connecting";
   }
-  return "disconnected";
+  return "detected";
 }
 
 function periodsOf(ids: string[], eventId: string): number[] {
@@ -308,6 +338,8 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
       enabled: bag?.enabled === true,
       reason: "prefs_shadow_off",
       shadowIds: 0,
+      pageDetected: bag?.pageDetected === true,
+      pageCount: Number(bag?.pageCount) || 0,
     });
     return;
   }
@@ -395,21 +427,27 @@ export function ingestShadow(bag: PbWsObserveBag | null | undefined): void {
 
 async function pollOnce(): Promise<void> {
   if (!hasA8PluginRuntime()) {
+    setPbWsPageDetect(false, 0);
     reportVenueWsStatus(PB_WS_ID, "disconnected");
     clearPbWsShadow();
-    writeDebug({ reason: "no_plugin" });
+    writeDebug({ reason: "no_plugin", pageDetected: false, pageCount: 0 });
     return;
   }
   try {
     const bag = (await a8PluginSend({ type: "pbWsObserveGet" })) as PbWsObserveBag;
+    const pageCount = Number(bag?.pageCount);
+    setPbWsPageDetect(bag?.pageDetected === true, Number.isFinite(pageCount) ? pageCount : 0);
     reportVenueWsStatus(PB_WS_ID, mapObserveToStatus(bag));
     ingestShadow(bag);
   } catch (err) {
     reportVenueWsStatus(PB_WS_ID, "disconnected");
+    setPbWsPageDetect(false, 0);
     writeDebug({
       reason: "poll_error_keep",
       error: err instanceof Error ? err.message : String(err),
       shadowIds: listPbWsShadowIds().length,
+      pageDetected: false,
+      pageCount: 0,
     });
   }
 }
@@ -426,6 +464,7 @@ export function startPbWsStatusPoll(): () => void {
   void tick();
   return () => {
     stopped = true;
+    setPbWsPageDetect(false, 0);
     reportVenueWsStatus(PB_WS_ID, "disconnected");
     clearPbWsShadow();
   };

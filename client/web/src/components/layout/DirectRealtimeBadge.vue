@@ -42,6 +42,7 @@ import {
 } from "@changmen/venue-adapter/predictfun";
 import {
   countPbWsShadowBySource,
+  getPbWsPageDetect,
   isPbWsShadowUiAllowed,
 } from "@changmen/venue-adapter/pb";
 import { ElMessage } from "element-plus";
@@ -77,9 +78,18 @@ const VENUE_WS_SECOND_ROW_IDS = new Set([
   "ob-sport",
 ]);
 
-const venueWsPb = computed(() =>
-  venueWsStatuses.value.find(entry => entry.id === "pb") ?? null,
-);
+const venueWsPb = computed(() => {
+  const entry = venueWsStatuses.value.find(entry => entry.id === "pb") ?? null;
+  if (!entry)
+    return null;
+  const page = getPbWsPageDetect();
+  return {
+    ...entry,
+    label: page.detected ? "PB页" : "PB",
+    pageDetected: page.detected,
+    pageCount: page.count,
+  };
+});
 const venueWsFirstRow = computed(() =>
   venueWsStatuses.value.filter(
     entry => entry.id !== "pb" && !VENUE_WS_SECOND_ROW_IDS.has(entry.id),
@@ -136,6 +146,7 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
     // 体育固定走 CHANGMEN PM-SPORT-MARKET hub
     switch (entry.status) {
       case "connected": return "ok-changmen";
+      case "detected": return "page";
       case "connecting": return "connecting";
       case "error": return "err";
       default: return "idle";
@@ -146,6 +157,7 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
     switch (entry.status) {
       case "connected":
         return mode === "changmen" ? "ok-changmen" : "ok-official";
+      case "detected": return "page";
       case "connecting": return "connecting";
       case "error": return "err";
       default: return "idle";
@@ -156,6 +168,7 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
     switch (entry.status) {
       case "connected":
         return mode === "changmen" ? "ok-changmen" : "ok-official";
+      case "detected": return "page";
       case "connecting": return "connecting";
       case "error": return "err";
       default: return "idle";
@@ -163,6 +176,7 @@ function venueWsDotClass(entry: VenueWsStatusEntry): string {
   }
   switch (entry.status) {
     case "connected": return "ok-official";
+    case "detected": return "page";
     case "connecting": return "connecting";
     case "error": return "err";
     default: return "idle";
@@ -192,19 +206,29 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
     "ob-sport": "OB 体育推送（足球实时赔率 · 独立于电竞 MQTT）",
   };
   const label = names[entry.id] ?? entry.label;
-  const lines: string[] = [label];
+  const lines: string[] = [entry.id === "pb" ? "PB sports-websocket 观测" : label];
+  if (entry.id === "pb") {
+    const page = getPbWsPageDetect();
+    if (page.detected)
+      lines.push(`已检测到 part888 / ps3838 网页 ×${page.count || 1}`);
+    else
+      lines.push("未检测到 part888 / ps3838 网页");
+  }
   switch (entry.status) {
     case "connected":
-      lines.push("已连接 · 实时推送中");
+      lines.push(entry.id === "pb" ? "WS 已连接 · 实时推送中" : "已连接 · 实时推送中");
+      break;
+    case "detected":
+      lines.push(entry.id === "pb" ? "网页在 · 观测已挂上" : "已检测到");
       break;
     case "connecting":
-      lines.push("连接中...");
+      lines.push(entry.id === "pb" ? "网页在 · WS 握手中" : "连接中...");
       break;
     case "error":
       lines.push("断开 · 正在重连...");
       break;
     default:
-      lines.push("未连接");
+      lines.push(entry.id === "pb" ? "没有可观测的 PB 页" : "未连接");
   }
   if (entry.id === "pb") {
     const dbg = (globalThis as { __CM_PB_SHADOW_DEBUG__?: Record<string, unknown> }).__CM_PB_SHADOW_DEBUG__;
@@ -482,6 +506,11 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 
 .direct-realtime-dot.idle {
   background-color: #ffffff66;
+}
+
+.direct-realtime-dot.page {
+  background-color: #e6a23c;
+  box-shadow: 0 0 8px #e6a23ccc;
 }
 
 .direct-realtime-dot.connecting {

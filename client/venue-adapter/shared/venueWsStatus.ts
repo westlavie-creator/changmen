@@ -1,5 +1,5 @@
-/** 右上角角标：原生 WebSocket / 同类长连接的四态 */
-export type VenueWsStatus = "disconnected" | "connecting" | "connected" | "error";
+/** 右上角角标：原生 WebSocket / 同类长连接 */
+export type VenueWsStatus = "disconnected" | "detected" | "connecting" | "connected" | "error";
 
 export type VenueWsStatusEntry = {
   id: string;

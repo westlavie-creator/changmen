@@ -4077,12 +4077,16 @@
         const tabId2 = Number(bag?.PB);
         const tabIds = /* @__PURE__ */ new Set();
         if (Number.isFinite(tabId2) && tabId2 > 0) tabIds.add(tabId2);
+        let pageCount = 0;
         try {
           const tabs = await chrome.tabs.query({
             url: ["*://*.part888.com/*", "*://*.ps3838.com/*"]
           });
           for (const t of tabs) {
-            if (t.id) tabIds.add(t.id);
+            if (t.id) {
+              tabIds.add(t.id);
+              pageCount += 1;
+            }
           }
         } catch {
         }
@@ -4121,6 +4125,8 @@
           uuid,
           response: {
             enabled: bag?.[PB_WS_ENABLED_KEY] !== false,
+            pageDetected: pageCount > 0,
+            pageCount,
             observe: observeOut
           }
         });
