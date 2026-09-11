@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ElMessage } from "element-plus";
 import FootballObSessionBar from "@/components/match/FootballObSessionBar.vue";
-import { closeFootballSettings, footballSettingsOpen } from "@/runtime/footballSettingsUi";
+import PodBetSettingsTab from "@/components/football/PodBetSettingsTab.vue";
+import { closeFootballSettings, footballSettingsOpen, footballSettingsTab, type FootballSettingsTab } from "@/runtime/footballSettingsUi";
 import { fetchPandaSportTrialRow } from "@/runtime/obSportTrial";
 import { useFootballStore } from "@/stores/footballStore";
 import { computed, ref } from "vue";
 
 const football = useFootballStore();
-const settingsTab = ref("session");
 const openingTrial = ref(false);
 
 const visible = computed({
@@ -17,12 +17,19 @@ const visible = computed({
   },
 });
 
+const settingsTab = computed({
+  get: () => footballSettingsTab.value,
+  set: (v: string) => {
+    if (v === "session" || v === "pod" || v === "trial")
+      footballSettingsTab.value = v as FootballSettingsTab;
+  },
+});
+
 function onSaved() {
   void football.fetchMatchs(true);
 }
 
 function onClosed() {
-  settingsTab.value = "session";
   closeFootballSettings();
 }
 
@@ -47,7 +54,7 @@ async function openObSportTrial() {
   <el-dialog
     v-model="visible"
     title="足球设置"
-    width="560"
+    width="600"
     append-to-body
     destroy-on-close
     @closed="onClosed"
@@ -58,6 +65,9 @@ async function openObSportTrial() {
           熊猫体育采集只存在本机，和电竞「参数配置」不是同一套。
         </p>
         <FootballObSessionBar layout="panel" @saved="onSaved" />
+      </el-tab-pane>
+      <el-tab-pane label="POD跟单" name="pod">
+        <PodBetSettingsTab />
       </el-tab-pane>
       <el-tab-pane label="试玩" name="trial">
         <p class="fb-settings__hint">

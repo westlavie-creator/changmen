@@ -108,6 +108,8 @@ declare module 'vue' {
     PmPfBufferSettings: typeof import('./src/components/user/PmPfBufferSettings.vue')['default']
     PmVaultDialogs: typeof import('./src/components/account/PmVaultDialogs.vue')['default']
     PodAlertPanel: typeof import('./src/components/football/PodAlertPanel.vue')['default']
+    PodBetSettingsTab: typeof import('./src/components/football/PodBetSettingsTab.vue')['default']
+    PodFollowPanel: typeof import('./src/components/football/PodFollowPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SessionRestoreLoader: typeof import('./src/components/layout/SessionRestoreLoader.vue')['default']
