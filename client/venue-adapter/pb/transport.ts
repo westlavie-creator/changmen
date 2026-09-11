@@ -12,7 +12,13 @@ import {
   setPbTabIdCached,
   takePbLiveTabDebug,
 } from "./tabId";
-import { applyPbLiveCredentialFromPlugin } from "./liveCredential";
+import {
+  applyPbLiveCredentialToAccount,
+  gatePbLiveCredentialFromPlugin,
+  parsePbLiveCredential,
+  pbLiveMemberMatchesAccount,
+  type PbLiveCredential,
+} from "./liveCredential";
 import { pbOddsUrl } from "./parse";
 import { useAccountStore } from "../shared/webBridge";
 import { PLATFORMS } from "../shared/platforms";
@@ -21,6 +27,9 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 /** 采集层提示文案（A8 无等价常量；仅 collect 侧 UX） */
 export const PB_PLUGIN_REQUIRED_MSG =
   "平博 PB 需要 Gamebet 扩展（对齐 A8 Zn）：加载 changmen/chrome-extension，或使用 Electron 启动（内嵌扩展）";
+
+/** 活标签页登录会员 ≠ 投注账号：硬失败，勿当 tab miss 重试同一错误页 */
+export const PB_LIVE_TAB_MEMBER_MISMATCH = "PB live tab member mismatch";
 
 /** [A8 可证实] `Ly(t,e)=>`${t.gateway}${e}`` */
 export function pbGatewayUrl(account: Pick<PlatformAccount, "gateway">, path: string): string {
@@ -57,6 +66,33 @@ function sleep(ms: number) {
   });
 }
 
+function readEmbeddedLiveCredential(raw: unknown): PbLiveCredential | undefined {
+  if (!raw || typeof raw !== "object")
+    return undefined;
+  const bag = raw as { pbLiveCredential?: unknown };
+  if (bag.pbLiveCredential && typeof bag.pbLiveCredential === "object")
+    return parsePbLiveCredential(bag.pbLiveCredential)
+      ?? parsePbLiveCredential({ data: bag.pbLiveCredential });
+  return undefined;
+}
+
+/**
+ * 同帧快照优先；否则回落 storage。会员不一致 → mismatch。
+ */
+async function acceptPbLiveTabSession(
+  account: PlatformAccount,
+  raw: unknown,
+): Promise<"ok" | "mismatch" | "missing"> {
+  const embedded = readEmbeddedLiveCredential(raw);
+  if (embedded) {
+    if (!pbLiveMemberMatchesAccount(account, embedded))
+      return "mismatch";
+    applyPbLiveCredentialToAccount(account, embedded);
+    return "ok";
+  }
+  return gatePbLiveCredentialFromPlugin(account);
+}
+
 /**
  * part888：只走官网标签，F5 空窗短重试。
  * 不要回退冻结核——过期 X-U 才是 TOKEN ERROR 来源。
@@ -82,7 +118,10 @@ async function sendViaLiveTab<T>(
       if (!isPbLiveTabDead(raw)) {
         const hard = pbLiveTabHardError(raw);
         if (hard) throw hard;
-        void applyPbLiveCredentialFromPlugin(account);
+        // 页上会话必须是本账号会员，否则余额/下注会打到别人的登录态
+        const gate = await acceptPbLiveTabSession(account, raw);
+        if (gate === "mismatch")
+          throw new Error(PB_LIVE_TAB_MEMBER_MISMATCH);
         return raw;
       }
     }
