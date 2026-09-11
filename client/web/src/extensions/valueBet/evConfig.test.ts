@@ -81,12 +81,12 @@ describe("valueBetCalcOptsFromPrefs", () => {
     expect(opts.softPlatforms).toEqual(["OB", "IA"]);
   });
 
-  it("falls back when softPlatforms is only the sharp venue", () => {
+  it("uses no EV targets when softPlatforms is only the sharp venue", () => {
     const opts = valueBetCalcOptsFromPrefs({
       sharp: "PB",
       softPlatforms: ["PB"],
     });
-    expect(opts.softPlatforms).toEqual(resolveSoftPlatforms("PB"));
+    expect(opts.softPlatforms).toEqual([]);
   });
 });
 
@@ -95,8 +95,8 @@ describe("resolveSoftPlatformsFromAllowed", () => {
     expect(resolveSoftPlatformsFromAllowed("RAY", ["OB", "RAY", "IA"])).toEqual(["OB", "IA"]);
   });
 
-  it("falls back when allowed is only sharp", () => {
-    expect(resolveSoftPlatformsFromAllowed("OB", ["OB"])).toEqual(resolveSoftPlatforms("OB"));
+  it("returns empty when allowed is only sharp", () => {
+    expect(resolveSoftPlatformsFromAllowed("OB", ["OB"])).toEqual([]);
   });
 });
 

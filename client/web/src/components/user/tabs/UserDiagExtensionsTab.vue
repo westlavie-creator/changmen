@@ -12,7 +12,9 @@ import {
 import {
   ARB_FAIL_AUTO_SELL_AVAILABLE,
   createDefaultValueBetSoftPlatforms,
+  isArbAllowedPlatformOn,
   normalizeArbAllowedPlatforms,
+  toggleArbAllowedPlatform,
 } from "@/types/extensionPrefs";
 import { useUserStore } from "@/stores/userStore";
 import { betPlatformIds } from "@changmen/venue-adapter/registry";
@@ -24,37 +26,19 @@ const arbFailAutoSellAvailable = ARB_FAIL_AUTO_SELL_AVAILABLE;
 const evSoftPlatformOptions = VALUE_BET_SOFT_CANDIDATES;
 const arbPlatformOptions = betPlatformIds();
 
-/** 关掉「限制」前记住上次名单，再开时恢复 */
-const lastArbAllowed = ref<PlatformId[] | null>(null);
-
 // 与界面 Tab 同款：热更新 / 旧内存态缺字段时补齐
 if (!Array.isArray(extensionPrefs.value.valueBetSoftPlatforms))
   extensionPrefs.value.valueBetSoftPlatforms = createDefaultValueBetSoftPlatforms();
+else
+  extensionPrefs.value.valueBetSoftPlatforms = normalizeValueBetSoftPlatforms(
+    extensionPrefs.value.valueBetSoftPlatforms,
+  );
 if (extensionPrefs.value.arbAllowedPlatforms === undefined)
   extensionPrefs.value.arbAllowedPlatforms = null;
 else
   extensionPrefs.value.arbAllowedPlatforms = normalizeArbAllowedPlatforms(
     extensionPrefs.value.arbAllowedPlatforms,
   );
-
-/** all = 不限制；list = 仅勾选馆 */
-const arbMode = computed({
-  get: () => (extensionPrefs.value.arbAllowedPlatforms != null ? "list" : "all"),
-  set: (mode: "all" | "list") => {
-    if (mode === "all") {
-      const cur = extensionPrefs.value.arbAllowedPlatforms;
-      if (cur?.length)
-        lastArbAllowed.value = [...cur];
-      extensionPrefs.value.arbAllowedPlatforms = null;
-      return;
-    }
-    const restore = lastArbAllowed.value?.length
-      ? [...lastArbAllowed.value]
-      : [...arbPlatformOptions];
-    extensionPrefs.value.arbAllowedPlatforms = normalizeArbAllowedPlatforms(restore)
-      ?? [...arbPlatformOptions];
-  },
-});
 
 const arbFailAutoSellTip = computed(() =>
   arbFailAutoSellAvailable
@@ -68,50 +52,29 @@ function isEvSoftOn(platform: PlatformId): boolean {
 
 function toggleEvSoft(platform: PlatformId) {
   const cur = extensionPrefs.value.valueBetSoftPlatforms;
+  const sharp = extensionPrefs.value.valueBet?.sharp;
   if (cur.includes(platform)) {
-    if (cur.length <= 1)
+    const remaining = cur.filter(p => p !== platform);
+    if (remaining.length === 0)
       return;
-    extensionPrefs.value.valueBetSoftPlatforms = normalizeValueBetSoftPlatforms(
-      cur.filter(p => p !== platform),
-    );
+    if (sharp && remaining.every(p => p === sharp))
+      return;
+    extensionPrefs.value.valueBetSoftPlatforms = normalizeValueBetSoftPlatforms(remaining);
     return;
   }
   extensionPrefs.value.valueBetSoftPlatforms = normalizeValueBetSoftPlatforms([...cur, platform]);
 }
 
 function isArbAllowedOn(platform: PlatformId): boolean {
-  const list = extensionPrefs.value.arbAllowedPlatforms;
-  if (list == null)
-    return false;
-  return list.includes(platform);
+  return isArbAllowedPlatformOn(extensionPrefs.value.arbAllowedPlatforms, platform);
 }
 
 function toggleArbAllowed(platform: PlatformId) {
-  const cur = extensionPrefs.value.arbAllowedPlatforms;
-  if (cur == null)
-    return;
-  const next = cur.includes(platform)
-    ? cur.filter(p => p !== platform)
-    : [...cur, platform];
-  // 清空 → 视为不限制（与 normalize 一致）
-  const normalized = normalizeArbAllowedPlatforms(next);
-  extensionPrefs.value.arbAllowedPlatforms = normalized;
-  if (normalized == null)
-    lastArbAllowed.value = null;
-  else
-    lastArbAllowed.value = [...normalized];
-}
-
-function selectAllArb() {
-  extensionPrefs.value.arbAllowedPlatforms = [...arbPlatformOptions];
-  lastArbAllowed.value = [...arbPlatformOptions];
-}
-
-function clearArbToUnrestricted() {
-  lastArbAllowed.value = extensionPrefs.value.arbAllowedPlatforms
-    ? [...extensionPrefs.value.arbAllowedPlatforms]
-    : null;
-  extensionPrefs.value.arbAllowedPlatforms = null;
+  extensionPrefs.value.arbAllowedPlatforms = toggleArbAllowedPlatform(
+    extensionPrefs.value.arbAllowedPlatforms,
+    platform,
+    arbPlatformOptions,
+  );
 }
 
 async function save() {
@@ -142,13 +105,13 @@ async function save() {
             placement="top"
             :show-after="200"
             popper-class="extensions-tab-tip"
-            content="可出金色 EV 标记 / 确认 / 自动单边的软盘。基准馆（界面 Tab）自身不标记。至少保留一个。"
+            content="哪些场馆参与 EV 下注。基准馆在界面 Tab，不会作为 EV 目标。至少保留一个。"
           >
             <span class="extensions-tab__tip-label">EV 软盘</span>
           </el-tooltip>
           <span class="venue-block__hint">点击切换</span>
         </div>
-        <div class="venue-chips" role="group" aria-label="EV 软盘场馆">
+        <div class="venue-chips" role="group" aria-label="EV 下注场馆">
           <button
             v-for="p in evSoftPlatformOptions"
             :key="`ev-${p}`"
@@ -170,46 +133,26 @@ async function save() {
             placement="top"
             :show-after="200"
             popper-class="extensions-tab-tip"
-            content="只影响自动套利选腿。连线展示与补单不受影响。"
+            content="哪些场馆参与自动套利。连线展示与补单不受影响。至少保留一个。"
           >
             <span class="extensions-tab__tip-label">自动套利</span>
           </el-tooltip>
-          <el-radio-group v-model="arbMode" size="small" class="venue-block__mode">
-            <el-radio-button value="all">
-              不限制
-            </el-radio-button>
-            <el-radio-button value="list">
-              仅下列场馆
-            </el-radio-button>
-          </el-radio-group>
+          <span class="venue-block__hint">点击切换</span>
         </div>
-        <template v-if="arbMode === 'list'">
-          <div class="venue-block__actions">
-            <button type="button" class="venue-link" @click="selectAllArb">
-              全选
-            </button>
-            <button type="button" class="venue-link" @click="clearArbToUnrestricted">
-              清空（改回不限制）
-            </button>
-          </div>
-          <div class="venue-chips" role="group" aria-label="套利参与场馆">
-            <button
-              v-for="p in arbPlatformOptions"
-              :key="`arb-${p}`"
-              type="button"
-              class="venue-chip"
-              :class="{ 'venue-chip--on': isArbAllowedOn(p) }"
-              :aria-pressed="isArbAllowedOn(p)"
-              @click="toggleArbAllowed(p)"
-            >
-              <PlatformIcon :platform="p" />
-              <span class="venue-chip__name">{{ p }}</span>
-            </button>
-          </div>
-        </template>
-        <p v-else class="venue-block__note">
-          有余额够本金的场馆都可进自动选腿（与现网一致）。
-        </p>
+        <div class="venue-chips" role="group" aria-label="自动套利场馆">
+          <button
+            v-for="p in arbPlatformOptions"
+            :key="`arb-${p}`"
+            type="button"
+            class="venue-chip"
+            :class="{ 'venue-chip--on': isArbAllowedOn(p) }"
+            :aria-pressed="isArbAllowedOn(p)"
+            @click="toggleArbAllowed(p)"
+          >
+            <PlatformIcon :platform="p" />
+            <span class="venue-chip__name">{{ p }}</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -512,36 +455,6 @@ async function save() {
   color: var(--el-text-color-secondary);
 }
 
-.venue-block__mode {
-  margin-left: auto;
-}
-
-.venue-block__actions {
-  display: flex;
-  gap: 12px;
-  margin: 0 0 8px;
-}
-
-.venue-block__note {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--el-text-color-secondary);
-}
-
-.venue-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--el-color-primary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.venue-link:hover {
-  text-decoration: underline;
-}
-
 .venue-chips {
   display: flex;
   flex-wrap: wrap;
@@ -616,10 +529,6 @@ async function save() {
 
   .extensions-tab__cols {
     grid-template-columns: 1fr;
-  }
-
-  .venue-block__mode {
-    margin-left: 0;
   }
 }
 </style>

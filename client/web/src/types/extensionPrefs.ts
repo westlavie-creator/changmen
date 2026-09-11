@@ -303,6 +303,43 @@ export function filterArbProviderKeys(
   return funded.filter(p => set.has(p));
 }
 
+/** Chip：null/空 = 全部参与（全亮），与 filterArbProviderKeys 一致。 */
+export function isArbAllowedPlatformOn(
+  current: PlatformId[] | null | undefined,
+  platform: PlatformId,
+): boolean {
+  if (current == null || current.length === 0)
+    return true;
+  return current.includes(platform);
+}
+
+/**
+ * Chip 切换：亮=参与。null/全开 = 全部参与；可见馆至少留一个。
+ * 关掉一张后不会升成 null（避免空名单被当成全部参与）。
+ */
+export function toggleArbAllowedPlatform(
+  current: PlatformId[] | null | undefined,
+  platform: PlatformId,
+  allBet: readonly PlatformId[],
+): PlatformId[] | null {
+  const selected = new Set<PlatformId>(current == null || current.length === 0 ? allBet : current);
+  if (selected.has(platform)) {
+    const remainingBet = allBet.filter(p => p !== platform && selected.has(p));
+    if (remainingBet.length === 0)
+      return current == null || current.length === 0 ? null : current;
+    selected.delete(platform);
+    const next = normalizeArbAllowedPlatforms([...selected]);
+    if (next == null)
+      return current == null || current.length === 0 ? null : current;
+    return next;
+  }
+  selected.add(platform);
+  const normalized = normalizeArbAllowedPlatforms([...selected]);
+  if (normalized && allBet.length > 0 && allBet.every(p => normalized.includes(p)))
+    return null;
+  return normalized;
+}
+
 export function createDefaultExtensionPrefs(): ExtensionPrefs {
   return {
     betRowUi: false,

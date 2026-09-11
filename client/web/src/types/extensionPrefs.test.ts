@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDefaultExtensionPrefs, normalizeExtensionPrefs } from "@/types/extensionPrefs";
+import {
+  createDefaultExtensionPrefs,
+  isArbAllowedPlatformOn,
+  normalizeExtensionPrefs,
+  toggleArbAllowedPlatform,
+} from "@/types/extensionPrefs";
 
 const defaultStakeScale = {
   enabled: false,
@@ -361,5 +366,21 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({
       arbAllowedPlatforms: ["PB", "Nope", "RAY", "PB"],
     }).arbAllowedPlatforms).toEqual(["PB", "RAY"]);
+  });
+
+  it("treats null/empty arb allowlist as all chips on", () => {
+    expect(isArbAllowedPlatformOn(null, "PB")).toBe(true);
+    expect(isArbAllowedPlatformOn([], "PB")).toBe(true);
+    expect(isArbAllowedPlatformOn(["PB"], "PB")).toBe(true);
+    expect(isArbAllowedPlatformOn(["PB"], "RAY")).toBe(false);
+  });
+
+  it("toggles arb chips: all-on is null; keeps at least one visible venue", () => {
+    const all = ["OB", "RAY", "PB"] as const;
+    expect(toggleArbAllowedPlatform(null, "OB", all)).toEqual(["RAY", "PB"]);
+    expect(toggleArbAllowedPlatform(["OB", "RAY", "PB"], "OB", all)).toEqual(["RAY", "PB"]);
+    expect(toggleArbAllowedPlatform(["RAY", "PB"], "OB", all)).toBeNull();
+    expect(toggleArbAllowedPlatform(["PB"], "PB", all)).toEqual(["PB"]);
+    expect(toggleArbAllowedPlatform(["PB", "IM"], "PB", all)).toEqual(["PB", "IM"]);
   });
 });

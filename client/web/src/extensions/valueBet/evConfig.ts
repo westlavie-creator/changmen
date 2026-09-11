@@ -56,7 +56,8 @@ export function normalizeValueBetSoftPlatforms(raw: unknown): PlatformId[] {
 }
 
 /**
- * 从已 normalize 的软盘 prefs 剔 sharp；剔空则回退 resolveSoftPlatforms(sharp)。
+ * 从已 normalize 的软盘 prefs 剔 sharp。
+ * 剔空不回退成全员：只勾基准 = 没有 EV 目标。
  */
 export function resolveSoftPlatformsFromAllowed(
   sharp: PlatformId,
@@ -65,8 +66,7 @@ export function resolveSoftPlatformsFromAllowed(
   const base = allowed?.length
     ? VALUE_BET_SOFT_CANDIDATES.filter(p => allowed.includes(p))
     : [...VALUE_BET_SOFT_CANDIDATES];
-  const soft = base.filter(p => p !== sharp);
-  return soft.length > 0 ? soft : resolveSoftPlatforms(sharp);
+  return base.filter(p => p !== sharp);
 }
 
 /** sharp=PB 时的软盘名单（与改前白名单一致：不含 PB） */
