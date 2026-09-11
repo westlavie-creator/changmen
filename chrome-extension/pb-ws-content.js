@@ -3304,21 +3304,26 @@
   function liveHeaders(extra = {}) {
     return buildLivePbAuthHeaders(readLocalStorageSnapshot(), extra);
   }
-  function publishLiveCredential() {
-    if (!shouldRegisterPbLiveHttp()) return;
+  function snapshotLiveCredential() {
+    if (!shouldRegisterPbLiveHttp()) return void 0;
     const snapshot = readLocalStorageSnapshot();
     const mode = detectPbPageSessionMode(snapshot);
-    if (isPbA8K0PageSession(mode)) return;
+    if (isPbA8K0PageSession(mode)) return void 0;
+    return {
+      token: JSON.stringify(snapshot),
+      gateway: `https://${location.host}`,
+      referer: location.href,
+      capturedAt: Date.now()
+    };
+  }
+  function publishLiveCredential() {
+    const payload = snapshotLiveCredential();
+    if (!payload) return;
     try {
       chrome.runtime.sendMessage(
         {
           type: "pbLiveCredential",
-          data: {
-            token: JSON.stringify(snapshot),
-            gateway: `https://${location.host}`,
-            referer: location.href,
-            capturedAt: Date.now()
-          }
+          data: payload
         },
         () => {
           void chrome.runtime.lastError;
@@ -3347,7 +3352,10 @@
       withCredentials: message.options?.withCredentials !== false,
       data: message.data
     });
+    const pbLiveCredential = snapshotLiveCredential();
     publishLiveCredential();
+    if (pbLiveCredential && result && typeof result === "object")
+      return { ...result, pbLiveCredential };
     return result;
   }
   function connectLivePort() {

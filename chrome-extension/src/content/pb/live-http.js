@@ -37,21 +37,27 @@ function liveHeaders(extra = {}) {
 }
 
 /** 与 GetConfig 同形：整包 localStorage JSON，供 changmen 回写 account.token */
-function publishLiveCredential() {
-  if (!shouldRegisterPbLiveHttp()) return;
+function snapshotLiveCredential() {
+  if (!shouldRegisterPbLiveHttp()) return undefined;
   const snapshot = readLocalStorageSnapshot();
   const mode = detectPbPageSessionMode(snapshot);
-  if (isPbA8K0PageSession(mode)) return;
+  if (isPbA8K0PageSession(mode)) return undefined;
+  return {
+    token: JSON.stringify(snapshot),
+    gateway: `https://${location.host}`,
+    referer: location.href,
+    capturedAt: Date.now(),
+  };
+}
+
+function publishLiveCredential() {
+  const payload = snapshotLiveCredential();
+  if (!payload) return;
   try {
     chrome.runtime.sendMessage(
       {
         type: "pbLiveCredential",
-        data: {
-          token: JSON.stringify(snapshot),
-          gateway: `https://${location.host}`,
-          referer: location.href,
-          capturedAt: Date.now(),
-        },
+        data: payload,
       },
       () => { void chrome.runtime.lastError; },
     );
@@ -85,7 +91,11 @@ export async function handlePbLiveTabMessage(message) {
     withCredentials: message.options?.withCredentials !== false,
     data: message.data,
   });
+  const pbLiveCredential = snapshotLiveCredential();
   publishLiveCredential();
+  // 同帧快照挂在 axios 响应对上，避免 storage 竞态把别的登录态当成校验源
+  if (pbLiveCredential && result && typeof result === "object")
+    return { ...result, pbLiveCredential };
   return result;
 }
 

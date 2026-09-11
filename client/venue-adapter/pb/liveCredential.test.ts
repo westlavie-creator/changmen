@@ -3,6 +3,7 @@ import type { PlatformAccount } from "@changmen/client-core/models/platformAccou
 import {
   applyPbLiveCredentialToAccount,
   parsePbLiveCredential,
+  pbLiveMemberMatchesAccount,
   PB_LIVE_CREDENTIAL_STORE_KEY,
 } from "./liveCredential";
 
@@ -81,6 +82,34 @@ describe("applyPbLiveCredentialToAccount [changmen]", () => {
       token: plainToken("abc"),
       gateway: "https://www.part888.com",
     })).toBe(false);
+  });
+  it("空 live 会员 id 不写，避免冲掉账号 token", () => {
+    const account = {
+      provider: "PB",
+      gateway: "https://www.part888.com",
+      token: plainToken("aaa"),
+    } as PlatformAccount;
+    const before = account.token;
+    const emptyMember = JSON.stringify({
+      "x-app-data": JSON.stringify({ BrowserSessionId: "sess-live" }),
+      token: JSON.stringify({ "X-U": "fresh-u" }),
+    });
+    expect(applyPbLiveCredentialToAccount(account, {
+      token: emptyMember,
+      gateway: "https://www.part888.com",
+    })).toBe(false);
+    expect(account.token).toBe(before);
+  });
+
+  it("pbLiveMemberMatchesAccount：账号有 id 时要求官网同号", () => {
+    expect(pbLiveMemberMatchesAccount(
+      { token: plainToken("aaa") },
+      { token: plainToken("aaa") },
+    )).toBe(true);
+    expect(pbLiveMemberMatchesAccount(
+      { token: plainToken("aaa") },
+      { token: plainToken("bbb") },
+    )).toBe(false);
   });
 });
 

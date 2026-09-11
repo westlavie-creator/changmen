@@ -47,6 +47,21 @@ export function parsePbLiveCredential(response: unknown): PbLiveCredential | und
 }
 
 /**
+ * 账号已能解析会员 id 时，官网快照必须是同一会员。
+ * 空 liveId / 异号 → false（禁止把别的登录态当成本账号，也禁止空快照冲掉 token）。
+ */
+export function pbLiveMemberMatchesAccount(
+  account: Pick<PlatformAccount, "token">,
+  cred: Pick<PbLiveCredential, "token">,
+): boolean {
+  const accId = parsePbVenueIdentity(account.token)?.venueMemberId || "";
+  if (!accId)
+    return true;
+  const liveId = parsePbVenueIdentity(cred.token)?.venueMemberId || "";
+  return Boolean(liveId) && liveId === accId;
+}
+
+/**
  * [changmen 扩展] 把官网活快照写进账号 token。
  * 515 / 会员不一致 / 站点不一致：不写，避免破坏 A8 k0 或串号。
  */
@@ -58,10 +73,7 @@ export function applyPbLiveCredentialToAccount(
     return false;
   if (!pbAccountUsesLiveTab({ token: cred.token }))
     return false;
-
-  const liveId = parsePbVenueIdentity(cred.token)?.venueMemberId || "";
-  const accId = parsePbVenueIdentity(account.token)?.venueMemberId || "";
-  if (liveId && accId && liveId !== accId)
+  if (!pbLiveMemberMatchesAccount(account, cred))
     return false;
 
   const accHost = pbHost(account.gateway);
@@ -88,26 +100,37 @@ export function applyPbLiveCredentialToAccount(
 let lastApplyAt = 0;
 const APPLY_MIN_MS = 8_000;
 
-export async function applyPbLiveCredentialFromPlugin(
+/** 活标签代发后：校验页上会员；匹配才允许写回（写回仍节流）。 */
+export type PbLiveCredentialGate = "ok" | "mismatch" | "missing";
+
+export async function gatePbLiveCredentialFromPlugin(
   account: PlatformAccount,
-): Promise<boolean> {
+): Promise<PbLiveCredentialGate> {
   if (!pbAccountUsesLiveTab(account) || !hasA8PluginRuntime())
-    return false;
-  const now = Date.now();
-  if (now - lastApplyAt < APPLY_MIN_MS)
-    return false;
+    return "ok";
   try {
     const response = await a8PluginGetStore(PB_LIVE_CREDENTIAL_STORE_KEY);
     const cred = parsePbLiveCredential(response);
     if (!cred)
-      return false;
-    const changed = applyPbLiveCredentialToAccount(account, cred);
-    lastApplyAt = now;
-    return changed;
+      return "missing";
+    if (!pbLiveMemberMatchesAccount(account, cred))
+      return "mismatch";
+    const now = Date.now();
+    if (now - lastApplyAt >= APPLY_MIN_MS) {
+      applyPbLiveCredentialToAccount(account, cred);
+      lastApplyAt = now;
+    }
+    return "ok";
   }
   catch {
-    return false;
+    return "missing";
   }
+}
+
+export async function applyPbLiveCredentialFromPlugin(
+  account: PlatformAccount,
+): Promise<boolean> {
+  return (await gatePbLiveCredentialFromPlugin(account)) === "ok";
 }
 
 export function resetPbLiveCredentialApplyClockForTest() {

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { pbGet } from "./transport";
+import { pbGet, PB_LIVE_TAB_MEMBER_MISMATCH } from "./transport";
 import { PB_LIVE_TAB_UNAVAILABLE, pbLiveTabRetryDelaysMs } from "./tabId";
 
-const { a8PluginGet, setPbTabIdCached } = vi.hoisted(() => ({
+const { a8PluginGet, setPbTabIdCached, acceptGate } = vi.hoisted(() => ({
   a8PluginGet: vi.fn(),
   setPbTabIdCached: vi.fn(),
+  acceptGate: vi.fn(async (): Promise<"ok" | "mismatch" | "missing"> => "ok"),
 }));
 vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   a8PluginGet: (...args: unknown[]) => a8PluginGet(...args),
@@ -26,20 +27,36 @@ vi.mock("./tabId", async (importOriginal) => {
   };
 });
 
-vi.mock("./liveCredential", () => ({
-  applyPbLiveCredentialFromPlugin: async () => false,
-}));
+vi.mock("./liveCredential", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./liveCredential")>();
+  return {
+    ...actual,
+    gatePbLiveCredentialFromPlugin: (...args: unknown[]) => acceptGate(...args),
+    applyPbLiveCredentialToAccount: vi.fn(() => false),
+    pbLiveMemberMatchesAccount: (account: { token?: string }, cred: { token?: string }) => {
+      const acc = String(account?.token || "");
+      const live = String(cred?.token || "");
+      if (acc.includes("member-aaa") && live.includes("member-bbb"))
+        return false;
+      if (acc.includes("member-aaa") && live.includes("member-aaa"))
+        return true;
+      return actual.pbLiveMemberMatchesAccount(account as never, cred as never);
+    },
+  };
+});
 
 const account = {
   provider: "PB",
   gateway: "https://www.part888.com",
-  token: "plain",
+  token: "plain-member-aaa",
 } as PlatformAccount;
 
 describe("pbGet live tab [changmen]", () => {
   beforeEach(() => {
     a8PluginGet.mockReset();
     setPbTabIdCached.mockReset();
+    acceptGate.mockReset();
+    acceptGate.mockResolvedValue("ok");
     pbLiveTabRetryDelaysMs.splice(0, pbLiveTabRetryDelaysMs.length, 0);
   });
 
@@ -84,5 +101,25 @@ describe("pbGet live tab [changmen]", () => {
     await expect(pbGet(account, "/member-service/v2/account-balance"))
       .rejects.toThrow("Request failed with status code 403");
     expect(a8PluginGet).toHaveBeenCalledTimes(1);
+  });
+
+  test("同帧快照会员不一致则丢弃响应，不落地余额/下注", async () => {
+    a8PluginGet.mockResolvedValue({
+      data: { success: true, betCredit: 999 },
+      pbLiveCredential: {
+        token: "plain-member-bbb",
+        gateway: "https://www.part888.com",
+      },
+    });
+    await expect(pbGet(account, "/member-service/v2/account-balance"))
+      .rejects.toThrow(PB_LIVE_TAB_MEMBER_MISMATCH);
+    expect(acceptGate).not.toHaveBeenCalled();
+  });
+
+  test("storage 回落校验到异号会员同样拒绝", async () => {
+    a8PluginGet.mockResolvedValue({ data: { success: true, betCredit: 3 } });
+    acceptGate.mockResolvedValue("mismatch");
+    await expect(pbGet(account, "/member-service/v2/account-balance"))
+      .rejects.toThrow(PB_LIVE_TAB_MEMBER_MISMATCH);
   });
 });
