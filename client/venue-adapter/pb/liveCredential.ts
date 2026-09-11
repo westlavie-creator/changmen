@@ -28,11 +28,14 @@ export function parsePbLiveCredential(response: unknown): PbLiveCredential | und
     data?: Record<string, unknown>;
     response?: { data?: Record<string, unknown> };
   };
-  const bag = (root?.data?.[PB_LIVE_CREDENTIAL_STORE_KEY]
-    ?? root?.data
-    ?? root?.response?.data?.[PB_LIVE_CREDENTIAL_STORE_KEY]
-    ?? root) as Record<string, unknown> | undefined;
-  const token = typeof bag?.token === "string" ? bag.token : "";
+  const nested = root?.data?.[PB_LIVE_CREDENTIAL_STORE_KEY]
+    ?? root?.response?.data?.[PB_LIVE_CREDENTIAL_STORE_KEY];
+  const bag = (nested && typeof nested === "object"
+    ? nested
+    : (root?.data && typeof root.data.token === "string" ? root.data : root)) as Record<string, unknown> | undefined;
+  if (!bag || typeof bag !== "object")
+    return undefined;
+  const token = typeof bag.token === "string" ? bag.token : "";
   if (!token.trim())
     return undefined;
   return {
