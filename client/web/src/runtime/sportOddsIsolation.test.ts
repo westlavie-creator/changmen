@@ -171,10 +171,16 @@ describe("sport / esport UI isolation", () => {
     expect(workspace).toMatch(/PodFollowPanel/);
     expect(workspace).toMatch(/show-football-settings/);
     const dropPanel = readFileSync(join(root, "components/football/PodAlertPanel.vue"), "utf8");
-    expect(dropPanel).not.toMatch(/filterPodAlertsForBet|podBetSettings|PodFollowPanel/);
+    expect(dropPanel).not.toMatch(/filterPodAlertsForBet|podBetSettings|PodFollowPanel|podFixtureMatch|matchPodAlertToFixtures/);
     const followPanel = readFileSync(join(root, "components/football/PodFollowPanel.vue"), "utf8");
     expect(followPanel).toMatch(/下注金额/);
     expect(followPanel).toMatch(/writePodBetSettings/);
+    expect(followPanel).toMatch(/matchPodAlertToFixtures/);
+    expect(followPanel).toMatch(/formatPodFixtureMatch/);
+    expect(followPanel).not.toMatch(/footballMarketRows|FootballOddsCell|HomeOdds/);
+    const fixtureMatch = readFileSync(join(root, "runtime/podFixtureMatch.ts"), "utf8");
+    expect(fixtureMatch).toMatch(/basis: "guess"/);
+    expect(fixtureMatch).not.toMatch(/footballMarketRows|oddsStore|HomeOdds/);
     const settings = readFileSync(join(root, "components/football/FootballSettingsDialog.vue"), "utf8");
     expect(settings).toMatch(/el-tabs/);
     expect(settings).toMatch(/OB体育试玩/);

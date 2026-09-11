@@ -20,6 +20,12 @@ import {
   listPodFollowTickets,
 } from "@/runtime/podBetTicket";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
+import {
+  fixtureFromViewMatch,
+  formatPodFixtureMatch,
+  matchPodAlertToFixtures,
+} from "@/runtime/podFixtureMatch";
+import { useFootballStore } from "@/stores/footballStore";
 import { usePodAlertStore } from "@/stores/podAlertStore";
 
 const POS_KEY = "changmen:podFollowPanel";
@@ -31,12 +37,22 @@ const HEADER_H = 40;
 const MARGIN = 8;
 
 const store = usePodAlertStore();
+const football = useFootballStore();
 const { snapshot, portReady, alerts } = storeToRefs(store);
+const { matchs } = storeToRefs(football);
 const betSettings = ref<PodBetSettings>(readPodBetSettings());
 const nowTick = ref(Date.now());
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 
-const tickets = computed(() => listPodFollowTickets(alerts.value, betSettings.value, nowTick.value));
+const boardFixtures = computed(() => matchs.value.map(fixtureFromViewMatch));
+const tickets = computed(() => {
+  const fixtures = boardFixtures.value;
+  return listPodFollowTickets(alerts.value, betSettings.value, nowTick.value).map(ticket => ({
+    ...ticket,
+    fixtureMatch: matchPodAlertToFixtures(ticket.alert, fixtures),
+  }));
+});
+const matchedCount = computed(() => tickets.value.filter(t => t.fixtureMatch.status === "matched").length);
 const stakePresets = POD_FOLLOW_STAKE_PRESETS;
 
 const stakeModel = computed({
@@ -63,8 +79,13 @@ const statusText = computed(() => {
     return "筛选已关";
   if (!portReady.value)
     return "扩展未连通";
-  if (snapshot.value.sourceConnected && snapshot.value.gridFound)
-    return `${tickets.value.length} 条可跟`;
+  if (snapshot.value.sourceConnected && snapshot.value.gridFound) {
+    const n = tickets.value.length;
+    const m = matchedCount.value;
+    if (n && m)
+      return `${n} 条可跟 · ${m} 已对上`;
+    return `${n} 条可跟`;
+  }
   if (snapshot.value.sourceConnected)
     return "等 Dropping Odds";
   return "等待 POD 页";
@@ -305,6 +326,9 @@ onUnmounted(() => {
             <span class="pod-follow-row__drop">{{ formatPodDropPct(ticket.dropPct) }}</span>
           </div>
           <div class="pod-follow-row__match">{{ ticket.alert.home }} vs {{ ticket.alert.away }}</div>
+          <div class="pod-follow-row__fixture" :class="`is-${ticket.fixtureMatch.status}`">
+            {{ formatPodFixtureMatch(ticket.fixtureMatch) }}
+          </div>
           <div class="pod-follow-row__meta">
             {{ ticket.alert.league }} · {{ ticket.marketLabel }}
           </div>
@@ -524,12 +548,31 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.pod-follow-row__fixture,
 .pod-follow-row__meta,
 .pod-follow-row__bet,
 .pod-follow-row__plan {
   margin-top: 4px;
   font-size: 11px;
   color: #94a3b8;
+}
+
+.pod-follow-row__fixture {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pod-follow-row__fixture.is-matched {
+  color: #fde68a;
+}
+
+.pod-follow-row__fixture.is-pending {
+  color: #fb923c;
+}
+
+.pod-follow-row__fixture.is-none {
+  color: #64748b;
 }
 
 .pod-follow-row__bet,
