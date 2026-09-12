@@ -13,6 +13,33 @@ function requireBuilderSigner() {
   return new BuilderSigner(creds);
 }
 
+function causeText(err) {
+  const cause = err && typeof err === "object" ? err.cause : null;
+  if (!cause)
+    return "";
+  if (cause instanceof Error) {
+    const code = cause.code ? String(cause.code) : "";
+    if (code && cause.message)
+      return `${code}: ${cause.message}`;
+    return cause.message || code;
+  }
+  return String(cause);
+}
+
+/** Node undici 失败时常只有 "fetch failed"；把 cause 和本机出海提示拼上 */
+export function describeBuilderTradesFetchError(err, url = CLOB_HOST) {
+  const raw = err instanceof Error ? err.message : String(err ?? "unknown");
+  if (raw.startsWith("Polymarket builder/trades ") || raw.includes("未配置 POLY_BUILDER"))
+    return raw;
+  const cause = causeText(err);
+  const detail = cause && !raw.includes(cause) ? `${raw} (${cause})` : raw;
+  const unreachable = /fetch failed|Failed to fetch|Connect Timeout|ECONNRESET|ENOTFOUND|ECONNREFUSED|UND_ERR|ETIMEDOUT|cert|TLS|network/i.test(`${detail} ${cause}`);
+  const hint = unreachable
+    ? "本机 Node 直连 clob.polymarket.com 失败（国内常见）。归因成交须由能出海的机器去拉：改 UI 用 Vite remote（VITE_API_PROXY 指香港 VPS）；本机全栈请给 backend 配 HTTPS_PROXY。"
+    : "";
+  return `Polymarket builder/trades 请求失败（${url}）：${detail}${hint ? `。${hint}` : ""}`;
+}
+
 /**
  * CLOB `/builder/trades` 金额：线上返回人类可读小数（如 `"5.88"`）；
  * OpenAPI 示例仍是 6 位微单位整数（如 `"50000000"`）。两者都兼容。
@@ -126,21 +153,29 @@ export async function fetchBuilderTradesPage(opts = {}) {
   const reqPath = `/builder/trades?${params.toString()}`;
   const signer = requireBuilderSigner();
   const headers = signer.createBuilderHeaderPayload("GET", reqPath);
+  const url = `${CLOB_HOST}${reqPath}`;
 
-  const res = await fetch(`${CLOB_HOST}${reqPath}`, {
-    headers: { ...headers, Accept: "application/json" },
-    signal: AbortSignal.timeout(Number(process.env.POLY_BUILDER_TRADES_TIMEOUT_MS || 30000)),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    let detail = text.slice(0, 400);
-    try {
-      detail = JSON.parse(text)?.error || detail;
+  try {
+    const res = await fetch(url, {
+      headers: { ...headers, Accept: "application/json" },
+      signal: AbortSignal.timeout(Number(process.env.POLY_BUILDER_TRADES_TIMEOUT_MS || 30000)),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      let detail = text.slice(0, 400);
+      try {
+        detail = JSON.parse(text)?.error || detail;
+      }
+      catch { /* ignore */ }
+      throw new Error(`Polymarket builder/trades ${res.status}: ${detail}`);
     }
-    catch { /* ignore */ }
-    throw new Error(`Polymarket builder/trades ${res.status}: ${detail}`);
+    return JSON.parse(text);
   }
-  return JSON.parse(text);
+  catch (err) {
+    if (err instanceof Error && /^Polymarket builder\/trades \d/.test(err.message))
+      throw err;
+    throw new Error(describeBuilderTradesFetchError(err, url));
+  }
 }
 
 /**

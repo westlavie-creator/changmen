@@ -2,7 +2,7 @@ import * as sb from "@changmen/db";
 import { isAdminUser } from "../../auth/admin_auth.js";
 import { resolveVisibleUserIds } from "../../auth/role_filter.js";
 import { resolvePolymarketBuilderCode } from "./builder_code.js";
-import { fetchAllBuilderTrades } from "./builder_trades.js";
+import { describeBuilderTradesFetchError, fetchAllBuilderTrades, summarizeBuilderTrades } from "./builder_trades.js";
 import { collectPolymarketUserAddresses, parsePolymarketTokenConfig } from "./clob_l2.js";
 import { isPolymarketRelayerConfigured, getPolymarketRelayerAuthMode } from "./relayer_config.js";
 
@@ -372,11 +372,27 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
 
   let userIds;
   const builderCode = resolvePolymarketBuilderCode();
-  const [polyResult, allProfiles, pmPlayerRows] = await Promise.all([
-    fetchAllBuilderTrades({ afterSec, beforeSec, maxPages }),
+  const [polyWrap, allProfiles, pmPlayerRows] = await Promise.all([
+    fetchAllBuilderTrades({ afterSec, beforeSec, maxPages })
+      .then(result => ({ result, fetchError: "" }))
+      .catch((err) => {
+        const fetchError = describeBuilderTradesFetchError(err);
+        console.warn("[poly-builder]", fetchError);
+        return {
+          result: {
+            trades: [],
+            summary: summarizeBuilderTrades([]),
+            pagesFetched: 0,
+            nextCursor: null,
+            hasMore: false,
+          },
+          fetchError,
+        };
+      }),
     sb.fetchProfilesAdmin(),
     sb.fetchPolymarketPlayersForTradeLookup(),
   ]);
+  const polyResult = polyWrap.result;
 
   if (caller && !isAdminUser(caller)) {
     const visibleIds = resolveVisibleUserIds(caller, allProfiles);
@@ -420,6 +436,7 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
       ...polyResult,
       trades,
       summary: polyResult.summary,
+      fetchError: polyWrap.fetchError || "",
     },
     changmen: {
       orders: changmenOrders,

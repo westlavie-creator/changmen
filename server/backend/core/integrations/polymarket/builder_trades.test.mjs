@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { it } from "vitest";
 import {
   amountToNumber,
+  describeBuilderTradesFetchError,
   normalizeBuilderTrade,
   summarizeBuilderTrades,
 } from "./builder_trades.js";
@@ -59,6 +60,33 @@ it("normalizeBuilderTrade prefers builderFee when present", () => {
     builderFee: "0.05",
   });
   assert.equal(row.displayFeeUsdc, 0.05);
+});
+
+it("describeBuilderTradesFetchError unwraps Node fetch failed + cause", () => {
+  const err = new TypeError("fetch failed");
+  err.cause = Object.assign(new Error("Connect Timeout Error"), { code: "UND_ERR_CONNECT_TIMEOUT" });
+  const msg = describeBuilderTradesFetchError(err, "https://clob.polymarket.com/builder/trades");
+  assert.match(msg, /fetch failed/);
+  assert.match(msg, /UND_ERR_CONNECT_TIMEOUT/);
+  assert.match(msg, /VITE_API_PROXY/);
+  assert.match(msg, /clob\.polymarket\.com/);
+});
+
+it("describeBuilderTradesFetchError does not double-wrap", () => {
+  const once = describeBuilderTradesFetchError(new TypeError("fetch failed"));
+  const twice = describeBuilderTradesFetchError(new Error(once));
+  assert.equal(twice, once);
+});
+
+it("describeBuilderTradesFetchError keeps HTTP status and missing creds", () => {
+  assert.equal(
+    describeBuilderTradesFetchError(new Error("Polymarket builder/trades 401: unauthorized")),
+    "Polymarket builder/trades 401: unauthorized",
+  );
+  assert.match(
+    describeBuilderTradesFetchError(new Error("未配置 POLY_BUILDER_API_KEY/SECRET/PASSPHRASE，无法查询 Builder 成交")),
+    /^未配置 POLY_BUILDER/,
+  );
 });
 
 it("summarizeBuilderTrades aggregates volume and fees by side", () => {

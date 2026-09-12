@@ -20,6 +20,7 @@ declare module 'vue' {
     AdminOrderLogsDialog: typeof import('./src/components/admin/AdminOrderLogsDialog.vue')['default']
     AdminOrdersGroupedTable: typeof import('./src/components/admin/AdminOrdersGroupedTable.vue')['default']
     AdminPanel: typeof import('./src/components/admin/AdminPanel.vue')['default']
+    AdminPmBuilderFeeChart: typeof import('./src/components/admin/AdminPmBuilderFeeChart.vue')['default']
     AdminPmOrderAnalyticsSection: typeof import('./src/components/admin/AdminPmOrderAnalyticsSection.vue')['default']
     AdminUserAccountsColumn: typeof import('./src/components/admin/AdminUserAccountsColumn.vue')['default']
     AdminUserDetail: typeof import('./src/components/admin/AdminUserDetail.vue')['default']

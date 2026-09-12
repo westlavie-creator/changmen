@@ -9,12 +9,14 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getAdminPolymarketBuilder } from "@/api/admin";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminPmBuilderFeeChart from "@/components/admin/AdminPmBuilderFeeChart.vue";
 import AdminPmOrderAnalyticsSection from "@/components/admin/AdminPmOrderAnalyticsSection.vue";
 import {
   cmBuilderSideLabel,
   groupChangmenPmOrdersForDisplay,
   type CmBuilderDisplayEntry,
 } from "@/shared/adminPmBuilderOrders";
+import { currentMonthKey } from "@/shared/adminPmBuilderFeeChart";
 import { todayKey, todayUtcKey, utcWeekBounds } from "@/shared/dateKey";
 import {
   pmCnyToUsdc,
@@ -53,6 +55,25 @@ const utcWeekLabel = computed(() => {
   const { startKey, endKey } = utcWeekBounds(utcDateKey.value);
   return `${startKey} → ${endKey}（UTC 周日–周六）`;
 });
+
+/** 柱状图月份：本地月用 monthKey；日/周用当前选中日期所在月 */
+const feeChartMonthKey = computed(() => {
+  if (rangeMode.value === "month")
+    return monthKey.value;
+  if (rangeMode.value === "utcDay" || rangeMode.value === "utcWeek")
+    return String(utcDateKey.value || "").slice(0, 7) || currentMonthKey();
+  if (rangeMode.value === "day")
+    return String(dateKey.value || "").slice(0, 7) || currentMonthKey();
+  return currentMonthKey();
+});
+
+function onFeeChartMonth(key: string) {
+  if (!key)
+    return;
+  monthKey.value = key;
+  if (rangeMode.value !== "month")
+    rangeMode.value = "month";
+}
 
 const rangeWindowHint = computed(() => {
   const r = data.value?.range;
@@ -464,6 +485,13 @@ onMounted(async () => {
 
     <div v-loading="loading" class="poly-builder-page">
       <el-alert v-if="error" type="error" :title="error" show-icon :closable="false" />
+      <el-alert
+        v-else-if="data?.polymarket.fetchError"
+        type="warning"
+        :title="data.polymarket.fetchError"
+        show-icon
+        :closable="false"
+      />
 
       <section v-if="data" class="admin-card poly-builder-meta">
         <div class="meta-row">
@@ -537,6 +565,14 @@ onMounted(async () => {
           </el-table>
         </article>
       </section>
+
+      <AdminPmBuilderFeeChart
+        :trades="filteredPolyTrades"
+        :month-key="feeChartMonthKey"
+        :partial="rangeMode !== 'month' && rangeMode !== 'all'"
+        :has-more="!!data?.polymarket.hasMore"
+        @update:month-key="onFeeChartMonth"
+      />
 
       <section class="admin-card table-section">
         <div class="table-section-head">

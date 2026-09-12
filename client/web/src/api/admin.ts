@@ -677,6 +677,8 @@ export interface PolymarketBuilderDashboardPayload {
     pagesFetched: number;
     nextCursor: string | null;
     hasMore: boolean;
+    /** CLOB 直连失败时仍返回页面，归因成交为空 */
+    fetchError?: string;
   };
   changmen: {
     orders: PolymarketChangmenOrderRow[];
