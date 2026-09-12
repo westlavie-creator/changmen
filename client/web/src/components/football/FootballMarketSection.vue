@@ -11,6 +11,7 @@ import {
   type FootballSelection,
   type FootballVenueOdds,
 } from "@/runtime/footballObMarkets";
+import { podBoardLineAttr } from "@/runtime/podBoardFocus";
 
 defineProps<{
   section: FootballBookSection;
@@ -33,6 +34,10 @@ function rowOddIds(row: FootballObMarketRow): string[] {
     }
   }
   return ids;
+}
+
+function marketAttr(row: FootballObMarketRow): string {
+  return String(row.MarketCode || "").toLowerCase();
 }
 
 function selAt(list: FootballSelection[] | undefined, side: string): FootballSelection | undefined {
@@ -58,10 +63,12 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
       {{ section.title }}
     </div>
     <div v-if="section.kind === 'ml'" class="fb-sec__body">
-      <div
+        <div
         v-for="row in section.rows"
         :key="`${row.hpid}-${row.MarketCode}-${row.Line}`"
         class="fb-sec__block"
+        :data-pod-market="marketAttr(row)"
+        :data-pod-line="podBoardLineAttr(row.Line)"
       >
         <div class="fb-sec__cols fb-sec__cols--ml">
           <span />
@@ -82,16 +89,19 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           />
           <span v-else class="fb-sec__icon" />
           <FootballOddsCell
+            side="home"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'home')?.OddID"
             :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
           />
           <FootballOddsCell
+            side="draw"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'draw')?.OddID"
             :fallback="Number(selAt(v.Selections, 'draw')?.Odds) || 0"
           />
           <FootballOddsCell
+            side="away"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'away')?.OddID"
             :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
@@ -104,6 +114,8 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
         v-for="(row, i) in section.rows"
         :key="`${row.hpid}-${row.Line}-${i}`"
         class="fb-sec__block"
+        :data-pod-market="marketAttr(row)"
+        :data-pod-line="podBoardLineAttr(row.Line)"
       >
         <div class="fb-sec__cols fb-sec__cols--ou">
           <span class="fb-sec__line"><FootballLineLabel :odd-ids="rowOddIds(row)" :fallback="row.Line" format="raw" /></span>
@@ -123,11 +135,13 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           />
           <span v-else class="fb-sec__icon" />
           <FootballOddsCell
+            side="over"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'over')?.OddID"
             :fallback="Number(selAt(v.Selections, 'over')?.Odds) || 0"
           />
           <FootballOddsCell
+            side="under"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'under')?.OddID"
             :fallback="Number(selAt(v.Selections, 'under')?.Odds) || 0"
@@ -140,6 +154,8 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
         v-for="(row, i) in section.rows"
         :key="`${row.hpid}-${row.Line}-${i}`"
         class="fb-sec__block"
+        :data-pod-market="marketAttr(row)"
+        :data-pod-line="podBoardLineAttr(row.Line)"
       >
         <div class="fb-sec__cols fb-sec__cols--ah">
           <span />
@@ -159,11 +175,13 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           />
           <span v-else class="fb-sec__icon" />
           <FootballOddsCell
+            side="home"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'home')?.OddID"
             :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
           />
           <FootballOddsCell
+            side="away"
             :venue="v.venue"
             :odd-id="selAt(v.Selections, 'away')?.OddID"
             :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
@@ -197,6 +215,7 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
               :odd-id="sel.OddID"
               :fallback="Number(sel.Odds) || 0"
               :label="sel.Name || sel.Side"
+              :side="sel.Side"
             />
           </div>
         </div>

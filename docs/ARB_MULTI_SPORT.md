@@ -59,7 +59,8 @@
 **足球 N3（已做）**：胜负 + **让球/大小全量线**（`MarketCode`/`Line`）；`Game`=联赛码（`epl`/`chi`/…）；UI 经 `game_catalog` 显示中文名（如 `[中超]`）。  
 **PF 供给**：非胜负盘（`SPORTS_PROPS` / More Markets）目前几乎只有 **中超 CSL**（外加少量世界杯）；MLS 等常仅有胜负——属上游供给，非漏采。  
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗 / 联赛解析）小修。  
-**禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、sport 下注、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
+**禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
+**例外（POD 跟单 · 2026-09-12）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 + `processBetPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。这不是 N4 套利。  
 （电竞 house 已 `PredictFun.bet: true`；与 sport 下注无关。）  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
 **N4 套利盘口（产品硬规则 · 未实现）**：

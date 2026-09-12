@@ -59,7 +59,7 @@ export function trimObSportPushBacklog(queue: unknown[]) {
   queue.length = w;
 }
 
-/** 试玩列表 C8：全场/半场 独赢+让球+大小。足球页只展示让球/大小，多订的 hpid 不画。 */
+/** 足球列表 C8：全场/半场 独赢+让球+大小。 */
 export const OB_SPORT_C8_FOOTBALL_HPID = "1,2,4,17,18,19";
 
 /**

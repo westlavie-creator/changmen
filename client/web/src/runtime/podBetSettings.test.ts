@@ -39,6 +39,7 @@ describe("podBetSettings", () => {
     const row = parsePodBetSettings({ enabled: true, minDropPct: 999, stake: -1 });
     expect(row.minDropPct).toBe(80);
     expect(row.stake).toBe(0);
+    expect(row.autoPlace).toBe(false);
     expect(row.prematchOnly).toBe(true);
     expect(row.spreads).toBe(false);
     expect(POD_FOLLOW_STAKE_PRESETS).toEqual([50, 100, 200, 500]);
@@ -46,6 +47,7 @@ describe("podBetSettings", () => {
     expect(emptyMarkets.moneyline).toBe(true);
     expect(emptyMarkets.totals).toBe(true);
     expect(emptyMarkets.spreads).toBe(false);
+    expect(parsePodBetSettings({ autoPlace: true }).autoPlace).toBe(true);
   });
 
   it("classifies line kinds", () => {
@@ -53,6 +55,7 @@ describe("podBetSettings", () => {
     expect(podAlertLineKind(alert({ lineType: "spread", market: "Match", outcome: "away" }))).toBe("spreads");
     expect(podAlertLineKind(alert({ lineType: "moneyline", market: "ML", outcome: "home" }))).toBe("moneyline");
     expect(podAlertLineKind(alert({ lineType: "moneyline", market: "Tournament", outcome: "home" }))).toBe("moneyline");
+    expect(podAlertLineKind(alert({ market: "Team Total", lineType: "total", outcome: "over" }))).toBe("other");
   });
 
   it("keeps a conservative football totals drop and drops live/spread/stale", () => {

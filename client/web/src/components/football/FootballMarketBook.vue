@@ -155,6 +155,10 @@ watch(
   border-radius: 8px;
   overflow: visible;
 }
+.fb-book__col--ml,
+.fb-book__col--ht_ml {
+  flex: 1.2 1 0;
+}
 .fb-book__col-head {
   padding: 8px 10px;
   font-size: 13px;

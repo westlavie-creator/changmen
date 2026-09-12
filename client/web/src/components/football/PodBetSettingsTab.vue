@@ -54,11 +54,16 @@ onUnmounted(() => {
   <div class="pod-bet-settings">
     <p class="pod-bet-settings__hint">
       跟单门槛只存在本机，不写账号配置。过线的会出现在「POD 跟单」浮窗，降赔列表本身不筛。
-      <strong>不会自动下注</strong>。对 OB 时仍要同一场、同一条线，且 OB 报价至少达到「最低 OB」。
+      对 OB 时仍要同一场、同一条线，且 OB 报价至少达到「最低 OB」。
+      <strong>自动下注默认关</strong>，只在本页点「下单」或手动打开自动。
     </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
       <el-form-item label="启用筛选">
         <el-switch v-model="form.enabled" inline-prompt active-text="开" inactive-text="关" />
+      </el-form-item>
+      <el-form-item label="自动下注">
+        <el-switch v-model="form.autoPlace" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
+        <span class="pod-bet-settings__note">默认关；开了才自动下过线且对上 OB 的票</span>
       </el-form-item>
       <el-form-item label="下注金额">
         <el-input-number

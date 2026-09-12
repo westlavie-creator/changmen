@@ -78,6 +78,8 @@ WS  wss://{api origin}/yewuws2/push?requestId={token}
 
 请求头要点：`requestId=token`、`lang=zh`、`request-code={"panda-bss-source":"2"}`、`checkId=pc-…`。
 
+**[changmen 扩展]** POD 跟单对场另开 `tryPlay?lang=en`（英文 token + 头 `lang=en`）按板上 `mid` 拉同一场的英文 `mhn`/`man`，只进内存缓存。足球板标题仍用中文会话；不写 `changmen.sportOb.session`，不订 `yewuws2`。中文 token 配 `lang=en` 打赔率会 `0401038`。对上身后，跟单再对 **全场/半场 进球大小、均势独赢、让球**。让球：POD `points` 是被降一侧的盘，OB `Line` 是主队 `hv`，主客相反时翻号。欧洲让球 1X2、角球/罚牌不算。对上盘后用板上 oid 读 `sportOddsStore` / `obSportLiveStore`（与格子同源：有缓存用 live 含锁盘 0，否则 HTTP），再和票上最低 OB 比「够/不够/锁盘」。点跟单票会清筛选、强制挂懒加载盘口，滚到那场/那格并高亮；命中仍标猜测。下单走熊猫体育 `yewu13` 预检 + `processBetPB`，**自动默认关**。禁止写电竞 `fo`、禁止电竞 `/game/bet` / `placeValueBetOrder` / `mainBetLoop`。
+
 **[changmen 实现]** 足球页 Axios 直连 `yewu11`（`obSportFootballFetch.ts`，与电竞 OB `directGet` 同路），不经 Chrome 扩展、不经 VPS、不写电竞 `client_matches`。2026-09-08 预检：`Access-Control-Allow-Origin: *`，允许头含 `requestId` / `lang` / `checkId` / `request-code`。足球 store 默认 **30s** 再拉快照。
 
 场次集合对齐试玩同一套菜单（滚球 `30002` + 今日 `3020101`，`csid=1`）。相对试玩只故意裁三处：
@@ -85,7 +87,7 @@ WS  wss://{api origin}/yewuws2/push?requestId={token}
 | 保留的差异 | 说明 |
 |------------|------|
 | 时间窗口 | 未开赛未来 **2h** + 开赛后 **4h** 滚球（今日菜单场次太多） |
-| 盘口显示 | 四列 **全场让球 / 全场大小 / 半场让球 / 半场大小**（试玩还有独赢、波胆、角球等） |
+| 盘口显示 | 六列 **全场/半场 独赢 + 让球 + 大小**（试玩列表只画让球/大小；点进详情才有波胆、角球等） |
 | 电子赛事 | 试玩足球菜单里仍是 `csid=1`，但 `me`/`tme`=1 或联赛名 `VS-` / `EAFC` / `PANDA独家` 的场不进足球页（`mvs` 是视频位，不是电子赛） |
 
 其余对齐试玩：队名 `mhn`/`man`、联赛 `tnjc`/`tn`；缺 HTTP 底价或缺让球/大小仍出牌（空盘）；赛程袋 19 位 id 不当事（与 C8 短 `mid` 一致）。

@@ -12,6 +12,7 @@ const props = withDefaults(defineProps<{
   fallback?: number;
   compact?: boolean;
   label?: string;
+  side?: string;
 }>(), {
   fallback: 0,
   compact: false,
@@ -41,6 +42,9 @@ const locked = computed(() => !(display.value.odds > 0));
   <div
     class="fb-sec__cell"
     :class="{ lock: locked, 'fb-sec__cell--sm': compact }"
+    :data-odd-id="oddId || undefined"
+    :data-pod-side="side || undefined"
+    :data-pod-venue="venue || undefined"
   >
     <span v-if="label" class="fb-sec__lab">{{ label }}</span>
     <span class="fb-sec__odd">
@@ -101,5 +105,9 @@ const locked = computed(() => !(display.value.odds > 0));
 }
 .fb-sec__cell.lock {
   opacity: 0.45;
+}
+.fb-sec__cell.is-pod-flash {
+  outline: 2px solid #fde68a;
+  box-shadow: 0 0 0 3px #fde68a55;
 }
 </style>

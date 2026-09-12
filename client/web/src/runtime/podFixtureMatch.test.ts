@@ -18,6 +18,7 @@ function fixture(over: Partial<PodBoardFixture> = {}): PodBoardFixture {
     obMid: "5652292",
     homeName: "Arsenal",
     awayName: "Chelsea",
+    markets: [],
     ...over,
   };
 }
@@ -100,5 +101,74 @@ describe("podFixtureMatch", () => {
     expect(row.homeName).toBe("Neptunas Klaipeda");
     expect(row.awayName).toBe("Jonava");
     expect(row.obMid).toBe("mid-9");
+    expect(row.markets).toEqual([{
+      id: 0,
+      marketCode: "",
+      line: null,
+      name: "",
+      ob: false,
+      quoteHome: 0,
+      quoteAway: 0,
+      quoteDraw: 0,
+      oidHome: "",
+      oidAway: "",
+      oidDraw: "",
+    }]);
+  });
+
+  it("keeps totals lines from board bets for later market matching", () => {
+    const row = fixtureFromViewMatch({
+      id: 9,
+      title: "Arsenal vs Chelsea",
+      game: "英超",
+      startAt: kick,
+      providers: { OB: "5652292" },
+      bets: [{
+        id: 91,
+        homeName: "大",
+        awayName: "小",
+        name: "全场大小 2.5",
+        marketCode: "totals",
+        line: 2.5,
+        items: [{
+          type: "OB",
+          fallbackHomeOdds: 1.91,
+          fallbackAwayOdds: 1.88,
+          fallbackDrawOdds: 0,
+          homeSubscribeId: "oid-h",
+          awaySubscribeId: "oid-a",
+        }],
+      }],
+    });
+    expect(row.markets).toEqual([{
+      id: 91,
+      marketCode: "totals",
+      line: 2.5,
+      name: "全场大小 2.5",
+      ob: true,
+      quoteHome: 1.91,
+      quoteAway: 1.88,
+      quoteDraw: 0,
+      oidHome: "oid-h",
+      oidAway: "oid-a",
+      oidDraw: "",
+    }]);
+  });
+
+  it("matches English POD names via OB English sidecar, not the CJK title", () => {
+    const row = matchPodAlertToFixtures(alert(), [
+      fixture({
+        title: "阿森纳 vs 切尔西",
+        homeName: "阿森纳",
+        awayName: "切尔西",
+        homeEn: "Arsenal",
+        awayEn: "Chelsea",
+        gameEn: "England Premier League",
+      }),
+    ]);
+    expect(row.status).toBe("matched");
+    expect(row.basis).toBe("guess");
+    expect(row.hits[0]?.fixture.title).toBe("阿森纳 vs 切尔西");
+    expect(formatPodFixtureMatch(row)).toMatch(/已对上/);
   });
 });

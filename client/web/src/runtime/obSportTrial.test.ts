@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatPandaSportTrialPaste,
   PANDA_SPORT_TRIAL_GATEWAY,
+  pandaSportTryPlayUrl,
   parsePandaSportTryPlay,
 } from "@/runtime/obSportTrial";
 import { parseSportObSessionInput } from "@/runtime/obSportSessionLocal";
@@ -35,5 +36,11 @@ describe("obSportTrial", () => {
 
   it("rejects failed tryPlay codes", () => {
     expect(() => parsePandaSportTryPlay({ code: "0401013", msg: "人数过多", status: false })).toThrow(/人数过多/);
+  });
+
+  it("builds zh and en tryPlay URLs without mixing tokens", () => {
+    expect(pandaSportTryPlayUrl("zh")).toContain("lang=zh");
+    expect(pandaSportTryPlayUrl("en")).toContain("lang=en");
+    expect(pandaSportTryPlayUrl()).toContain("lang=zh");
   });
 });

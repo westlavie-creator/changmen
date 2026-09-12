@@ -3,6 +3,7 @@ import {
   dedupeObPlaySelectionRows,
   extractObPlaySelections,
   isObAhOuMarket,
+  isObBoardMarket,
   parseObHandicapLine,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
@@ -118,5 +119,16 @@ describe("isObAhOuMarket", () => {
     expect(isObAhOuMarket("1", "moneyline")).toBe(false);
     expect(isObAhOuMarket("", "ht_spreads")).toBe(true);
     expect(isObAhOuMarket("7", "ob:7")).toBe(false);
+  });
+});
+
+describe("isObBoardMarket", () => {
+  it("keeps ft/ht moneyline with handicap/totals and drops quarters or 波胆", () => {
+    expect(isObBoardMarket("1", "moneyline")).toBe(true);
+    expect(isObBoardMarket("17")).toBe(true);
+    expect(isObBoardMarket("4", "spreads")).toBe(true);
+    expect(isObBoardMarket("", "ht_moneyline")).toBe(true);
+    expect(isObBoardMarket("25")).toBe(false);
+    expect(isObBoardMarket("7", "ob:7")).toBe(false);
   });
 });

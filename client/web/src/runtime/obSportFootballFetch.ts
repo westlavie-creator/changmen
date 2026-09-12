@@ -8,9 +8,9 @@ import { resolveObFootballGame } from "@/runtime/footballLeague";
 import {
   dedupeObPlaySelectionRows,
   extractObPlaySelections,
-  isObAhOuMarket,
+  isObBoardMarket,
   listBetsFromObPlayData,
-  OB_AHOU_HPIDS,
+  OB_BOARD_HPIDS,
   OB_FOOTBALL_ID_BASE,
   playsFromObMatchRow,
 } from "@/runtime/obSportOdds";
@@ -20,6 +20,7 @@ import {
 } from "@/runtime/sportBoardFilter";
 import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { livePatchFromObMatchRow, type ObSportLivePatch } from "@/runtime/obSportLive";
+import { refreshObEnglishNamesForMids } from "@/runtime/obSportEnglishNames";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 
 const CACHE_TTL_MS = 120_000;
@@ -194,6 +195,14 @@ async function postPb(session: SportObSessionLocal, apiPath: string, body: Recor
     throw new Error(text.slice(0, 160) || `HTTP ${res.status}`);
   }
   return assertEnvelope(res.data, apiPath);
+}
+
+/** 体育试玩会话直连 yewu*。禁止电竞 OB `/game/bet`。 */
+export async function postObSportPb(apiPath: string, body: Record<string, unknown>) {
+  const session = readLocalSportObSession();
+  if (!session?.token)
+    throw new Error("未配置体育 OB 会话");
+  return postPb(session, apiPath, body);
 }
 
 export type ScheduleMeta = {
@@ -463,7 +472,7 @@ function displayBetName(marketCode: string, line: number | null | undefined) {
 }
 
 function isFootballListMarket(code: string, hpid?: string) {
-  return isObAhOuMarket(hpid, code);
+  return isObBoardMarket(hpid, code);
 }
 
 function obListGame(tid: string, tn: string, tnjc: string): string {
@@ -594,7 +603,7 @@ function marketsFromRow(_mid: string, row: Record<string, unknown> | null): Clie
     return [];
   const extracted = dedupeObPlaySelectionRows(
     playsFromObMatchRow(row).flatMap(p => extractObPlaySelections(p)),
-  ).filter(r => r.selections.length && isObAhOuMarket(r.hpid, r.marketCode));
+  ).filter(r => r.selections.length && isObBoardMarket(r.hpid, r.marketCode));
   return mergeMarketRows([
     extracted.map(r => ({
       hpid: r.hpid,
@@ -676,7 +685,12 @@ async function doFetch(): Promise<ClientMatchDto[]> {
       return true;
     return matchInUpcomingWindow(t, now);
   }).sort((a, b) => Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)));
-  const oddsFirst = await fetchOddsByMids(session, windowed.map(m => m.mid).filter(Boolean));
+  const mids = windowed.map(m => m.mid).filter(Boolean);
+  const englishWork = refreshObEnglishNamesForMids(mids).catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[football] OB English names skipped", msg);
+  });
+  const oddsFirst = await fetchOddsByMids(session, mids);
   const oddsMap = oddsFirst.byMid;
   const missingLive = windowed
     .filter((m) => {
@@ -709,6 +723,7 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   }
   lastLiveByMid = nextLive;
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
+  await Promise.race([englishWork, sleep(8_000)]);
   return dtos;
 }
 
@@ -766,7 +781,7 @@ export async function fetchObFootballMatchMarkets(mid: string): Promise<ClientMa
   }
   catch { /* list fallback optional */ }
   const have = new Set(rows.map(r => String(r.hpid || "")));
-  const missing = OB_AHOU_HPIDS.filter(p => !have.has(p));
+  const missing = OB_BOARD_HPIDS.filter(p => !have.has(p));
   if (missing.length) {
     try {
       const extra = matchRowFromDecoded(await postPb(session, DETAIL_ODDS_PATH, {

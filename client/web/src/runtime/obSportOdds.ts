@@ -21,7 +21,7 @@ export const OB_HPID_MARKET: Record<string, { marketCode: string; period: string
   26: { marketCode: "totals", period: "q" },
 };
 
-/** 足球页只展示让球 / 大小（含半场），不含独赢、波胆等。 */
+/** 足球页让球 / 大小（含半场、节次）。独赢、波胆等不算。 */
 export function isObAhOuMarket(hpid?: string, marketCode?: string): boolean {
   const spec = OB_HPID_MARKET[String(hpid || "")];
   if (spec)
@@ -30,10 +30,27 @@ export function isObAhOuMarket(hpid?: string, marketCode?: string): boolean {
   return c === "spreads" || c === "totals" || c.endsWith("_spreads") || c.endsWith("_totals");
 }
 
+function isFtHtBoardSpec(spec: { marketCode: string; period: string } | undefined): boolean {
+  return Boolean(spec && (spec.period === "ft" || spec.period === "ht")
+    && (spec.marketCode === "moneyline" || spec.marketCode === "spreads" || spec.marketCode === "totals"));
+}
+
+/** 列表/详情主盘：全场/半场 独赢+让球+大小。不含节次独赢、波胆、角球。 */
+export function isObBoardMarket(hpid?: string, marketCode?: string): boolean {
+  const spec = OB_HPID_MARKET[String(hpid || "")];
+  if (spec)
+    return isFtHtBoardSpec(spec);
+  const c = String(marketCode || "").toLowerCase();
+  return c === "moneyline" || c === "spreads" || c === "totals"
+    || c.endsWith("_moneyline") || c.endsWith("_spreads") || c.endsWith("_totals");
+}
+
 export const OB_AHOU_HPIDS = Object.keys(OB_HPID_MARKET).filter((id) => {
   const spec = OB_HPID_MARKET[id];
   return spec?.marketCode === "spreads" || spec?.marketCode === "totals";
 });
+
+export const OB_BOARD_HPIDS = Object.keys(OB_HPID_MARKET).filter((id) => isFtHtBoardSpec(OB_HPID_MARKET[id]));
 
 export function round3(n: number): number {
   const v = Number(n);

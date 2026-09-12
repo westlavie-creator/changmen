@@ -14,10 +14,16 @@ import {
 } from "@/runtime/sportLiveOdds";
 import { onNestedVerticalWheel } from "@/runtime/footballBoardScroll";
 import { listObFootballLivePatches } from "@/runtime/obSportFootballFetch";
+import {
+  podBoardFocus,
+  podBoardFocusMatchKey,
+  selectPodBoardCell,
+  selectPodBoardMatch,
+} from "@/runtime/podBoardFocus";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
 const football = useFootballStore();
 const { matchs, loading, refreshing, error } = storeToRefs(football);
@@ -58,9 +64,19 @@ const leagueTabs = computed(() => {
 
 const visibleMatchs = computed(() => {
   const want = leagueFilter.value;
-  if (!want)
-    return displayedMatchs.value;
-  return displayedMatchs.value.filter(m => footballLeagueKey(m.game) === want);
+  const rows = want
+    ? displayedMatchs.value.filter(m => footballLeagueKey(m.game) === want)
+    : displayedMatchs.value;
+  const t = podBoardFocus.value;
+  if (!t)
+    return rows;
+  const key = podBoardFocusMatchKey(t);
+  if (rows.some(m => sportMatchStableKey(m) === key))
+    return rows;
+  const pinned = matchs.value.find(m => sportMatchStableKey(m) === key);
+  if (!pinned)
+    return rows;
+  return [pinned, ...rows];
 });
 
 const matchCountLabel = computed(() => {
@@ -89,6 +105,19 @@ watch(matchsEl, (el, prev) => {
   el?.addEventListener("wheel", onMatchsWheel, { passive: false });
 }, { immediate: true });
 
+const FLASH_MS = 2400;
+let flashTimer: ReturnType<typeof setTimeout> | null = null;
+let flashCell: HTMLElement | null = null;
+
+function clearPodFlash() {
+  if (flashTimer) {
+    clearTimeout(flashTimer);
+    flashTimer = null;
+  }
+  flashCell?.classList.remove("is-pod-flash");
+  flashCell = null;
+}
+
 onUnmounted(() => {
   matchsEl.value?.removeEventListener("wheel", onMatchsWheel);
   football.stopPolling();
@@ -98,6 +127,7 @@ onUnmounted(() => {
     clearInterval(nowTimer);
     nowTimer = null;
   }
+  clearPodFlash();
 });
 
 function seedLiveFromHttp() {
@@ -121,6 +151,45 @@ watch(
     liveSession?.sync();
   },
 );
+
+function isFocusMatch(m: { id?: number; providers?: Record<string, string | number> }) {
+  const t = podBoardFocus.value;
+  if (!t)
+    return false;
+  return sportMatchStableKey(m) === podBoardFocusMatchKey(t);
+}
+
+async function waitEl(find: () => HTMLElement | null, ms = 4000): Promise<HTMLElement | null> {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) {
+    const el = find();
+    if (el)
+      return el;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  }
+  return find();
+}
+
+watch(() => podBoardFocus.value?.token, async (token) => {
+  const target = podBoardFocus.value;
+  if (!token || !target)
+    return;
+  searchQuery.value = "";
+  leagueFilter.value = "";
+  await nextTick();
+  const matchEl = await waitEl(() => selectPodBoardMatch(matchsEl.value, target));
+  if (!matchEl)
+    return;
+  matchEl.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  const cell = await waitEl(() => selectPodBoardCell(matchEl, target));
+  clearPodFlash();
+  if (!cell)
+    return;
+  flashCell = cell;
+  cell.classList.add("is-pod-flash");
+  cell.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+  flashTimer = setTimeout(clearPodFlash, FLASH_MS);
+}, { flush: "post" });
 </script>
 
 <template>
@@ -174,9 +243,11 @@ watch(
         v-for="m in visibleMatchs"
         :key="sportMatchStableKey(m)"
         class="match football-match"
+        :class="{ 'is-pod-focus': isFocusMatch(m) }"
+        :data-pod-match="sportMatchStableKey(m)"
       >
         <FootballMatchCard :match="m" />
-        <FootballLazyBook :match="m" />
+        <FootballLazyBook :match="m" :force-on="isFocusMatch(m)" />
       </div>
     </div>
     <div v-else-if="!loading && !error" class="match-empty">
@@ -195,6 +266,10 @@ watch(
 }
 .football-match {
   min-width: 0;
+}
+.football-match.is-pod-focus {
+  outline: 1px solid #f59e0b88;
+  border-radius: 10px;
 }
 .football-board-list .match-search-row {
   flex: 0 0 auto;

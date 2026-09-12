@@ -1,6 +1,6 @@
 /**
  * POD 跟单门槛。只存在本机 localStorage，不进 USERCONFIG / ACCOUNT。
- * 用于筛「可以拿去对 OB 的警报」，不自动下单。
+ * 用于筛「可以拿去对 OB 的警报」。自动下注默认关。
  */
 import type { PodDropAlert } from "@/runtime/podAlerts";
 
@@ -23,7 +23,7 @@ export type PodBetSettings = {
   spreads: boolean;
   /** 最小降幅 % */
   minDropPct: number;
-  /** 对 OB 时：报价须高于 NVP 的最小边 %（面板暂无 OB 价，只存门槛） */
+  /** 对 OB 时：实时/HTTP 报价须高于 NVP 的最小边 % */
   minObEdgePct: number;
   minOdds: number;
   maxOdds: number;
@@ -31,6 +31,8 @@ export type PodBetSettings = {
   maxAgeSec: number;
   /** 计划跟单下注金额（元）；0 = 未设 */
   stake: number;
+  /** 过线且对上 OB 后自动下单。默认关 */
+  autoPlace: boolean;
 };
 
 export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
@@ -47,6 +49,7 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   maxOdds: 3.2,
   maxAgeSec: 45,
   stake: 0,
+  autoPlace: false,
 };
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -89,6 +92,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     maxOdds: Math.max(lo, hi),
     maxAgeSec: Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 5, 600)),
     stake: clampNum(row.stake, d.stake, 0, 1_000_000),
+    autoPlace: bool(row.autoPlace, d.autoPlace),
   };
 }
 
@@ -97,6 +101,8 @@ export type PodLineKind = "moneyline" | "totals" | "spreads" | "other";
 export function podAlertLineKind(alert: Pick<PodDropAlert, "lineType" | "market" | "outcome">): PodLineKind {
   const text = `${alert.lineType} ${alert.market}`.toLowerCase();
   const outcome = String(alert.outcome || "").toLowerCase();
+  if (/team\s*total|player|球队大小|队进球/.test(text))
+    return "other";
   if (/total|totals|\bou\b|over\/under|大小/.test(text) || outcome === "over" || outcome === "under")
     return "totals";
   if (/spread|spreads|handicap|\bah\b|让/.test(text))

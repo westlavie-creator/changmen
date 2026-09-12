@@ -1,6 +1,6 @@
 /**
  * POD 警报 → 足球板赛事。只对场，不对盘、不算价。
- * 本阶段仅拉丁队名 + 开赛时间窗；中文别名以后再加。命中一律标猜测。
+ * 拉丁队名 + 开赛时间窗；OB 中文标题用英文旁路 homeEn/awayEn。命中一律标猜测。
  */
 import { footballLeagueKey } from "@/runtime/footballLeague";
 import type { PodDropAlert } from "@/runtime/podAlerts";
@@ -19,6 +19,21 @@ const WEAK = new Set([
 
 const JUNK_TEAM = /^(大|小|大球|小球|over|under|o\/u|主队|客队)$/i;
 
+export type PodBoardMarket = {
+  id: number;
+  marketCode: string;
+  line: number | null;
+  name: string;
+  ob: boolean;
+  quoteHome: number;
+  quoteAway: number;
+  quoteDraw: number;
+  /** ViewBetItem homeSubscribeId || homeId；无则空，跟单回落 HTTP 价 */
+  oidHome?: string;
+  oidAway?: string;
+  oidDraw?: string;
+};
+
 export type PodBoardFixture = {
   id: number;
   title: string;
@@ -27,6 +42,10 @@ export type PodBoardFixture = {
   obMid: string;
   homeName: string;
   awayName: string;
+  homeEn?: string;
+  awayEn?: string;
+  gameEn?: string;
+  markets: PodBoardMarket[];
 };
 
 export type PodFixtureHit = {
@@ -124,13 +143,110 @@ function pairScore(
   return { score: straight, swapped: false };
 }
 
+function bestPair(
+  alertHome: string,
+  alertAway: string,
+  fixture: PodBoardFixture,
+): { score: number; swapped: boolean } {
+  const titlePair = pairScore(alertHome, alertAway, fixture.homeName, fixture.awayName);
+  const enPair = pairScore(alertHome, alertAway, fixture.homeEn || "", fixture.awayEn || "");
+  if (enPair.score > titlePair.score)
+    return enPair;
+  if (titlePair.score > enPair.score)
+    return titlePair;
+  if (enPair.score > 0 && titlePair.swapped && !enPair.swapped)
+    return enPair;
+  return titlePair;
+}
+
+function fixtureLeagueKeys(fixture: PodBoardFixture): string[] {
+  const keys = [fixture.game, fixture.gameEn]
+    .map(game => footballLeagueKey(game))
+    .filter(key => key && key !== "unknown_fb");
+  return [...new Set(keys)];
+}
+
+function asLine(value: unknown): number | null {
+  if (value == null || value === "")
+    return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function itemOid(item: Record<string, unknown> | undefined, side: "home" | "away" | "draw"): string {
+  if (!item)
+    return "";
+  if (side === "home")
+    return String(item.homeSubscribeId || item.homeId || "").trim();
+  if (side === "away")
+    return String(item.awaySubscribeId || item.awayId || "").trim();
+  return String(item.drawSubscribeId || "").trim();
+}
+
+function marketsFromBets(bets: Array<{
+  id?: number;
+  name?: string;
+  marketCode?: string;
+  line?: number | null;
+  items?: Array<{
+    type?: string;
+    fallbackHomeOdds?: number;
+    fallbackAwayOdds?: number;
+    fallbackDrawOdds?: number;
+    homeId?: string;
+    awayId?: string;
+    homeSubscribeId?: string;
+    awaySubscribeId?: string;
+    drawSubscribeId?: string;
+  }>;
+}> | undefined): PodBoardMarket[] {
+  const out: PodBoardMarket[] = [];
+  for (const bet of bets || []) {
+    const items = bet.items || [];
+    const quote = items.find(item => String(item.type || "") === "OB") || items[0];
+    const rec = quote as Record<string, unknown> | undefined;
+    out.push({
+      id: Number(bet.id) || 0,
+      marketCode: String(bet.marketCode || "").toLowerCase(),
+      line: asLine(bet.line),
+      name: String(bet.name || "").trim(),
+      ob: items.some(item => String(item.type || "") === "OB"),
+      quoteHome: Number(quote?.fallbackHomeOdds) || 0,
+      quoteAway: Number(quote?.fallbackAwayOdds) || 0,
+      quoteDraw: Number(quote?.fallbackDrawOdds) || 0,
+      oidHome: itemOid(rec, "home"),
+      oidAway: itemOid(rec, "away"),
+      oidDraw: itemOid(rec, "draw"),
+    });
+  }
+  return out;
+}
+
 export function fixtureFromViewMatch(row: {
   id: number;
   title: string;
   game: string;
   startAt: number;
   providers?: Record<string, string | number>;
-  bets?: Array<{ homeName?: string; awayName?: string }>;
+  bets?: Array<{
+    id?: number;
+    homeName?: string;
+    awayName?: string;
+    name?: string;
+    marketCode?: string;
+    line?: number | null;
+    items?: Array<{
+      type?: string;
+      fallbackHomeOdds?: number;
+      fallbackAwayOdds?: number;
+      fallbackDrawOdds?: number;
+      homeId?: string;
+      awayId?: string;
+      homeSubscribeId?: string;
+      awaySubscribeId?: string;
+      drawSubscribeId?: string;
+    }>;
+  }>;
 }): PodBoardFixture {
   const fromTitle = splitTitle(row.title);
   let home = fromTitle?.home || "";
@@ -158,6 +274,7 @@ export function fixtureFromViewMatch(row: {
     obMid: String(row.providers?.OB || "").trim(),
     homeName: home,
     awayName: away,
+    markets: marketsFromBets(row.bets),
   };
 }
 
@@ -177,7 +294,7 @@ export function matchPodAlertToFixtures(
       continue;
     if (Math.abs(fixture.startAt - starts) > windowMs)
       continue;
-    const pair = pairScore(alert.home, alert.away, fixture.homeName, fixture.awayName);
+    const pair = bestPair(alert.home, alert.away, fixture);
     if (pair.score < TEAM_MIN)
       continue;
     ranked.push({ fixture, swapped: pair.swapped, score: pair.score });
@@ -187,7 +304,7 @@ export function matchPodAlertToFixtures(
   if (hits.length > 1) {
     const league = footballLeagueKey(alert.league);
     if (league && league !== "unknown_fb") {
-      const narrowed = hits.filter(h => footballLeagueKey(h.fixture.game) === league);
+      const narrowed = hits.filter(h => fixtureLeagueKeys(h.fixture).includes(league));
       if (narrowed.length)
         hits = narrowed;
     }

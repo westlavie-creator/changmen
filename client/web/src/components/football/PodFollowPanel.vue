@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { ElMessage } from "element-plus";
 import {
   formatPodDropPct,
   formatPodPrice,
@@ -25,8 +26,27 @@ import {
   formatPodFixtureMatch,
   matchPodAlertToFixtures,
 } from "@/runtime/podFixtureMatch";
+import {
+  comparePodObQuote,
+  formatPodMarketMatch,
+  formatPodObQuote,
+  matchPodAlertToMarket,
+} from "@/runtime/podMarketMatch";
+import {
+  buildPodBoardFocus,
+  requestPodBoardFocus,
+} from "@/runtime/podBoardFocus";
+import {
+  pickPodFollowAutoTicket,
+  placePodFollowBet,
+  podFollowPlaceBlock,
+  type PodFollowPlaceTicket,
+} from "@/runtime/podFollowPlace";
+import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import { useFootballStore } from "@/stores/footballStore";
+import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { usePodAlertStore } from "@/stores/podAlertStore";
+import { useSportOddsStore } from "@/stores/sportOddsStore";
 
 const POS_KEY = "changmen:podFollowPanel";
 const DEFAULT_W = 400;
@@ -38,26 +58,147 @@ const MARGIN = 8;
 
 const store = usePodAlertStore();
 const football = useFootballStore();
+const sportOdds = useSportOddsStore();
+const obLive = useObSportLiveStore();
 const { snapshot, portReady, alerts } = storeToRefs(store);
 const { matchs } = storeToRefs(football);
+const { tick: sportOddsTick } = storeToRefs(sportOdds);
+const { lineTick } = storeToRefs(obLive);
 const betSettings = ref<PodBetSettings>(readPodBetSettings());
 const nowTick = ref(Date.now());
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 
-const boardFixtures = computed(() => matchs.value.map(fixtureFromViewMatch));
 const tickets = computed(() => {
-  const fixtures = boardFixtures.value;
-  return listPodFollowTickets(alerts.value, betSettings.value, nowTick.value).map(ticket => ({
-    ...ticket,
-    fixtureMatch: matchPodAlertToFixtures(ticket.alert, fixtures),
-  }));
+  void sportOddsTick.value;
+  void lineTick.value;
+  const live = {
+    get: (platform: string, id: string) => sportOdds.get(platform, id),
+    has: (platform: string, id: string) => sportOdds.has(platform, id),
+    getLine: (oid: string) => obLive.getLine(oid),
+  };
+  const fixtures = matchs.value.map((row) => {
+    const fixture = fixtureFromViewMatch(row);
+    const en = peekObEnglishNames(fixture.obMid);
+    if (!en)
+      return fixture;
+    return { ...fixture, homeEn: en.home, awayEn: en.away, gameEn: en.league };
+  });
+  return listPodFollowTickets(alerts.value, betSettings.value, nowTick.value).map(ticket => {
+    const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
+    const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
+    const marketMatch = matchPodAlertToMarket(ticket.alert, hit?.fixture, hit?.swapped === true, live);
+    return {
+      ...ticket,
+      fixtureMatch,
+      marketMatch,
+      obQuote: comparePodObQuote(marketMatch, ticket.minObOdds),
+    };
+  });
 });
 const matchedCount = computed(() => tickets.value.filter(t => t.fixtureMatch.status === "matched").length);
+const marketMatchedCount = computed(() => tickets.value.filter(t => t.marketMatch.status === "matched").length);
 const stakePresets = POD_FOLLOW_STAKE_PRESETS;
+
+function jumpToTicket(ticket: (typeof tickets.value)[number]) {
+  if (ticket.fixtureMatch.status !== "matched")
+    return;
+  const hit = ticket.fixtureMatch.hits[0];
+  if (!hit)
+    return;
+  requestPodBoardFocus(buildPodBoardFocus(hit.fixture, ticket.marketMatch));
+}
+
+function ticketPlacePayload(ticket: (typeof tickets.value)[number]): PodFollowPlaceTicket {
+  const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
+  return {
+    id: ticket.id,
+    stake: ticket.stake,
+    fixtureStatus: ticket.fixtureMatch.status,
+    obMid: String(hit?.fixture.obMid || "").trim(),
+    market: ticket.marketMatch,
+    quote: ticket.obQuote,
+  };
+}
+
+const placingId = ref("");
+const placed = ref<Record<string, true>>({});
+const placeNote = ref<Record<string, string>>({});
+
+function placeBlock(ticket: (typeof tickets.value)[number]): string | null {
+  if (placed.value[ticket.id])
+    return "已下过";
+  return podFollowPlaceBlock(ticketPlacePayload(ticket));
+}
+
+function placeLabel(ticket: (typeof tickets.value)[number]): string {
+  if (placed.value[ticket.id])
+    return "已下";
+  if (placingId.value === ticket.id)
+    return "下单中";
+  return "下单";
+}
+
+async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean) {
+  if (placingId.value)
+    return;
+  const payload = ticketPlacePayload(ticket);
+  const block = podFollowPlaceBlock(payload);
+  if (block) {
+    if (!auto)
+      ElMessage.warning(block);
+    return;
+  }
+  if (placed.value[ticket.id]) {
+    if (!auto)
+      ElMessage.info("已下过");
+    return;
+  }
+  placingId.value = ticket.id;
+  try {
+    const result = await placePodFollowBet(payload);
+    placeNote.value = { ...placeNote.value, [ticket.id]: result.message };
+    if (result.ok) {
+      placed.value = { ...placed.value, [ticket.id]: true };
+      ElMessage.success(result.message);
+      return;
+    }
+    if (auto)
+      ElMessage.warning(result.message);
+    else
+      ElMessage.error(result.message);
+  }
+  finally {
+    placingId.value = "";
+  }
+}
+
+function onPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) {
+  ev.stopPropagation();
+  void placeTicket(ticket, false);
+}
+
+async function maybeAutoPlace() {
+  if (!betSettings.value.autoPlace || placingId.value)
+    return;
+  const next = pickPodFollowAutoTicket(
+    tickets.value.map(ticketPlacePayload),
+    Object.keys(placed.value),
+  );
+  if (!next)
+    return;
+  const ui = tickets.value.find(row => row.id === next.id);
+  if (ui)
+    await placeTicket(ui, true);
+}
 
 const stakeModel = computed({
   get: () => betSettings.value.stake,
   set: (v: number | undefined) => persistStake(v),
+});
+
+const autoModel = computed({
+  get: () => betSettings.value.autoPlace,
+  set: (v: boolean) => persistAuto(v),
 });
 
 const collapsed = ref(false);
@@ -82,6 +223,11 @@ const statusText = computed(() => {
   if (snapshot.value.sourceConnected && snapshot.value.gridFound) {
     const n = tickets.value.length;
     const m = matchedCount.value;
+    const k = marketMatchedCount.value;
+    if (n && m && k)
+      return betSettings.value.autoPlace
+        ? `${n} 条可跟 · ${m} 已对上 · ${k} 盘已对 · 自动开`
+        : `${n} 条可跟 · ${m} 已对上 · ${k} 盘已对`;
     if (n && m)
       return `${n} 条可跟 · ${m} 已对上`;
     return `${n} 条可跟`;
@@ -230,6 +376,13 @@ function persistStake(raw: number | null | undefined) {
   });
 }
 
+function persistAuto(raw: boolean) {
+  betSettings.value = writePodBetSettings({
+    ...betSettings.value,
+    autoPlace: raw === true,
+  });
+}
+
 function reloadBetSettings() {
   betSettings.value = readPodBetSettings();
 }
@@ -245,7 +398,10 @@ onMounted(() => {
   reloadBetSettings();
   window.addEventListener("resize", onWindowResize);
   window.addEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
-  nowTimer = setInterval(() => { nowTick.value = Date.now(); }, 1_000);
+  nowTimer = setInterval(() => {
+    nowTick.value = Date.now();
+    void maybeAutoPlace();
+  }, 1_000);
 });
 
 onUnmounted(() => {
@@ -303,13 +459,22 @@ onUnmounted(() => {
       >
         {{ n }}
       </button>
+      <span class="pod-follow-panel__stake-lab">自动下注</span>
+      <el-switch
+        v-model="autoModel"
+        size="small"
+        inline-prompt
+        active-text="开"
+        inactive-text="关"
+        :disabled="!betSettings.enabled"
+      />
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
         筛选已关。打开「足球设置 → POD跟单」后，过线的警报会出现在这里。降赔浮窗不受影响。
       </p>
       <p v-else-if="!snapshot.sourceConnected" class="pod-follow-panel__hint">
-        等 POD 降赔连通后，这里只列符合门槛的票：买哪边、最低 OB、计划注码。不自动下单。
+        等 POD 降赔连通后，这里只列符合门槛的票。点票跳到板上；点「下单」走熊猫体育。自动下注默认关。
       </p>
       <p v-else-if="!tickets.length" class="pod-follow-panel__hint">
         当前没有过线的票。门槛在「足球设置 → POD跟单」。
@@ -319,7 +484,12 @@ onUnmounted(() => {
           v-for="ticket in tickets"
           :key="ticket.id"
           class="pod-follow-row"
-          :class="{ 'is-fresh': isFreshPodAlert(ticket.alert.alertedAt, nowTick) }"
+          :class="{
+            'is-fresh': isFreshPodAlert(ticket.alert.alertedAt, nowTick),
+            'is-jumpable': ticket.fixtureMatch.status === 'matched',
+          }"
+          :title="ticket.fixtureMatch.status === 'matched' ? '点到板上这场' : undefined"
+          @click="jumpToTicket(ticket)"
         >
           <div class="pod-follow-row__top">
             <span class="pod-follow-row__side">买 {{ ticket.sideLabel }}</span>
@@ -328,6 +498,20 @@ onUnmounted(() => {
           <div class="pod-follow-row__match">{{ ticket.alert.home }} vs {{ ticket.alert.away }}</div>
           <div class="pod-follow-row__fixture" :class="`is-${ticket.fixtureMatch.status}`">
             {{ formatPodFixtureMatch(ticket.fixtureMatch) }}
+          </div>
+          <div
+            v-if="ticket.fixtureMatch.status === 'matched'"
+            class="pod-follow-row__market"
+            :class="`is-${ticket.marketMatch.status}`"
+          >
+            {{ formatPodMarketMatch(ticket.marketMatch) }}
+          </div>
+          <div
+            v-if="ticket.marketMatch.status === 'matched'"
+            class="pod-follow-row__quote"
+            :class="`is-${ticket.obQuote.status}`"
+          >
+            {{ formatPodObQuote(ticket.obQuote) }}
           </div>
           <div class="pod-follow-row__meta">
             {{ ticket.alert.league }} · {{ ticket.marketLabel }}
@@ -341,6 +525,18 @@ onUnmounted(() => {
             <span>{{ formatPodStake(ticket.stake) }}</span>
             <span>{{ formatPodKickoff(ticket.starts, nowTick) }}</span>
             <span>{{ formatPodRemain(ticket.remainSec) }}</span>
+            <button
+              type="button"
+              class="pod-follow-row__place"
+              :disabled="!!placeBlock(ticket) || placingId === ticket.id"
+              :title="placeBlock(ticket) || undefined"
+              @click="onPlaceClick($event, ticket)"
+            >
+              {{ placeLabel(ticket) }}
+            </button>
+          </div>
+          <div v-if="placeNote[ticket.id]" class="pod-follow-row__note">
+            {{ placeNote[ticket.id] }}
           </div>
         </article>
       </div>
@@ -514,6 +710,14 @@ onUnmounted(() => {
   background: #f59e0b14;
 }
 
+.pod-follow-row.is-jumpable {
+  cursor: pointer;
+}
+
+.pod-follow-row.is-jumpable:hover {
+  background: #f59e0b22;
+}
+
 .pod-follow-row__top {
   display: flex;
   align-items: baseline;
@@ -549,6 +753,8 @@ onUnmounted(() => {
 }
 
 .pod-follow-row__fixture,
+.pod-follow-row__market,
+.pod-follow-row__quote,
 .pod-follow-row__meta,
 .pod-follow-row__bet,
 .pod-follow-row__plan {
@@ -557,21 +763,30 @@ onUnmounted(() => {
   color: #94a3b8;
 }
 
-.pod-follow-row__fixture {
+.pod-follow-row__fixture,
+.pod-follow-row__market,
+.pod-follow-row__quote {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pod-follow-row__fixture.is-matched {
+.pod-follow-row__fixture.is-matched,
+.pod-follow-row__market.is-matched,
+.pod-follow-row__quote.is-ok {
   color: #fde68a;
 }
 
-.pod-follow-row__fixture.is-pending {
+.pod-follow-row__fixture.is-pending,
+.pod-follow-row__market.is-skipped,
+.pod-follow-row__quote.is-short {
   color: #fb923c;
 }
 
-.pod-follow-row__fixture.is-none {
+.pod-follow-row__fixture.is-none,
+.pod-follow-row__market.is-none,
+.pod-follow-row__quote.is-none,
+.pod-follow-row__quote.is-locked {
   color: #64748b;
 }
 
@@ -586,6 +801,32 @@ onUnmounted(() => {
 .pod-follow-row__ob {
   color: #fde68a;
   font-weight: 600;
+}
+
+.pod-follow-row__place {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid #f59e0b99;
+  border-radius: 999px;
+  background: #f59e0b22;
+  color: #fde68a;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pod-follow-row__place:hover:not(:disabled) {
+  background: #f59e0b44;
+}
+
+.pod-follow-row__place:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pod-follow-row__note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #fbbf24;
 }
 
 .pod-follow-panel__resize {

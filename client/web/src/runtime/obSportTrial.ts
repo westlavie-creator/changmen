@@ -3,8 +3,15 @@
  * 与九游商户壳无关；返回 token + 进馆 URL，网关即 tryPlay 所在 API 域。
  */
 
-export const PANDA_SPORT_TRYPLAY_URL
-  = "https://api.dbsporxxxw1box.com/yewu6/user/tryPlay?lang=zh&terminal=PC";
+export type PandaSportTrialLang = "zh" | "en";
+
+const TRYPLAY_ORIGIN = "https://api.dbsporxxxw1box.com/yewu6/user/tryPlay";
+
+export function pandaSportTryPlayUrl(lang: PandaSportTrialLang = "zh"): string {
+  return `${TRYPLAY_ORIGIN}?lang=${lang}&terminal=PC`;
+}
+
+export const PANDA_SPORT_TRYPLAY_URL = pandaSportTryPlayUrl("zh");
 export const PANDA_SPORT_TRIAL_GATEWAY = "https://api.dbsporxxxw1box.com";
 export const PANDA_SPORT_TRIAL_SHELL = "https://user-pc-new.dbgaming.com";
 
@@ -72,8 +79,10 @@ export function formatPandaSportTrialPaste(row: PandaSportTrialPaste): string {
   return JSON.stringify(row, null, 2);
 }
 
-export async function fetchPandaSportTrialRow(): Promise<PandaSportTrialPaste> {
-  const res = await fetch(PANDA_SPORT_TRYPLAY_URL, {
+export async function fetchPandaSportTrialRow(
+  lang: PandaSportTrialLang = "zh",
+): Promise<PandaSportTrialPaste> {
+  const res = await fetch(pandaSportTryPlayUrl(lang), {
     method: "GET",
     headers: { Accept: "application/json, text/plain, */*" },
   });

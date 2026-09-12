@@ -236,10 +236,10 @@ describe("buildObFootballListDto", () => {
       }],
     });
     expect(dto?.Title).toBe("阿森纳 vs 切尔西");
-    expect(dto?.Bets).toEqual([]);
+    expect(dto?.Bets?.map(b => b.MarketCode)).toEqual(["moneyline"]);
   });
 
-  it("still only lists 让球/大小 on the card", () => {
+  it("lists 独赢 with 让球/大小 on the card", () => {
     const dto = buildObFootballListDto(meta, {
       mhn: "阿森纳",
       man: "切尔西",

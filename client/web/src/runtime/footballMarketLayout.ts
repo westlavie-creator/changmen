@@ -3,12 +3,14 @@ import { footballRowHasQuotes, footballRowVenues, type FootballObMarketRow } fro
 import { OB_HPID_MARKET } from "@/runtime/obSportOdds";
 
 export type FootballBookTab = "all" | "hot" | "ahou" | "ht" | "goals" | "cs" | "corners" | "other";
-export type FootballBookColumnId = "ah" | "ou" | "ht_ah" | "ht_ou" | "ml" | "ht" | "goals" | "cs" | "corners" | "other";
+export type FootballBookColumnId = "ml" | "ah" | "ou" | "ht_ml" | "ht_ah" | "ht_ou" | "ht" | "goals" | "cs" | "corners" | "other";
 
-/** 列表从左到右，对齐试玩：全场让球 / 全场大小 / 半场让球 / 半场大小 */
+/** 列表从左到右：全场/半场 独赢+让球+大小 */
 export const FOOTBALL_BOOK_COLUMNS: { id: FootballBookColumnId; label: string }[] = [
+  { id: "ml", label: "全场独赢" },
   { id: "ah", label: "全场让球" },
   { id: "ou", label: "全场大小" },
+  { id: "ht_ml", label: "半场独赢" },
   { id: "ht_ah", label: "半场让球" },
   { id: "ht_ou", label: "半场大小" },
 ];
@@ -151,6 +153,11 @@ function rowHas1x2(row: FootballObMarketRow): boolean {
   });
 }
 
+function isEvenMoneyMl(row: FootballObMarketRow): boolean {
+  const n = Number(row.Line);
+  return !Number.isFinite(n) || n === 0;
+}
+
 function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean {
   const kind = footballRowKind(row);
   const half = isHalf(row);
@@ -166,7 +173,9 @@ function inColumn(row: FootballObMarketRow, col: FootballBookColumnId): boolean 
   if (col === "goals")
     return goals && !half;
   if (col === "ml")
-    return !half && kind === "ml" && rowHas1x2(row);
+    return !half && kind === "ml" && rowHas1x2(row) && isEvenMoneyMl(row);
+  if (col === "ht_ml")
+    return half && kind === "ml" && rowHas1x2(row) && isEvenMoneyMl(row);
   if (col === "ah")
     return !half && !corners && kind === "ah";
   if (col === "ou")
@@ -244,7 +253,7 @@ export function groupFootballBook(
   return collectSections(rows, r => inTab(r, tab), tab === "hot");
 }
 
-/** 从左到右四列；有任意让球/大小时四列都出（空列只留表头，对齐试玩）。 */
+/** 从左到右六列；有任意主盘时六列都出（空列只留表头）。 */
 export function groupFootballColumns(rows: FootballObMarketRow[]): FootballBookColumn[] {
   const cols = FOOTBALL_BOOK_COLUMNS.map(col => ({
     id: col.id,
