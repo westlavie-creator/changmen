@@ -115,6 +115,27 @@ export function appendPodSportOrder(row: PodSportOrder): PodSportOrder[] {
   return writeOrders([parsed, ...rows]);
 }
 
+/** 跟单票是否已有本机体育成单（清空跟单列表不得再下）。 */
+export function hasPodSportOrder(id: string): boolean {
+  const want = String(id || "").trim();
+  if (!want)
+    return false;
+  return readPodSportOrders().some(row => row.id === want);
+}
+
+export function listPodSportOrderedIds(): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of readPodSportOrders()) {
+    const id = String(row.id || "").trim();
+    if (!id || seen.has(id))
+      continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 function localDayStart(now: number): number {
   const d = new Date(now);
   d.setHours(0, 0, 0, 0);

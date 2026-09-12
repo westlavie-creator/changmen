@@ -3,7 +3,7 @@
  */
 import type { PodObQuoteCompare, PodMarketMatch } from "@/runtime/podMarketMatch";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
-import { appendPodSportOrder } from "@/runtime/podSportOrders";
+import { appendPodSportOrder, hasPodSportOrder } from "@/runtime/podSportOrders";
 
 export type PodFollowPlaceTicket = {
   id: string;
@@ -57,6 +57,8 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   const block = podFollowPlaceBlock(ticket);
   if (block)
     return { ok: false, message: block };
+  if (hasPodSportOrder(ticket.id))
+    return { ok: false, message: "已下过" };
   const placed = await placeObSportSingle({
     oid: String(ticket.market.oid || "").trim(),
     mid: String(ticket.obMid || "").trim(),

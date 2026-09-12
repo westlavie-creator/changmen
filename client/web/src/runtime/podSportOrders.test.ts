@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   appendPodSportOrder,
   formatPodSportOrderMeta,
+  hasPodSportOrder,
+  listPodSportOrderedIds,
   parsePodSportOrders,
   POD_SPORT_ORDERS_KEY,
   readPodSportOrders,
@@ -38,6 +40,9 @@ describe("podSportOrders", () => {
     };
     expect(appendPodSportOrder(row)).toHaveLength(1);
     expect(appendPodSportOrder(row)).toHaveLength(1);
+    expect(hasPodSportOrder("a1")).toBe(true);
+    expect(hasPodSportOrder("missing")).toBe(false);
+    expect(listPodSportOrderedIds()).toEqual(["a1"]);
     expect(readPodSportOrders()[0].orderId).toBe("8821");
     expect(formatPodSportOrderMeta(row, 1_970_000 + 5_000)).toMatch(/自动/);
     expect(parsePodSportOrders([{ id: "x" }, { id: "x", orderId: "1" }])).toHaveLength(1);

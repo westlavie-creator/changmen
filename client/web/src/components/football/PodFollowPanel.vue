@@ -53,6 +53,10 @@ import {
   upsertPodFollowEv,
   type PodFollowLogRow,
 } from "@/runtime/podFollowLog";
+import {
+  hasPodSportOrder,
+  listPodSportOrderedIds,
+} from "@/runtime/podSportOrders";
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
@@ -118,6 +122,21 @@ function refreshLog() {
   logRows.value = readPodFollowLog();
 }
 
+function syncPlacedFromSportOrders() {
+  const ordered = listPodSportOrderedIds();
+  if (!ordered.length)
+    return;
+  placed.value = {
+    ...placed.value,
+    ...Object.fromEntries(ordered.map(id => [id, true as const])),
+  };
+  for (const id of ordered) {
+    const row = logRows.value.find(item => item.id === id);
+    if (row && !row.placed)
+      logRows.value = markPodFollowLogPlaced(id, row.placeNote || "已下过");
+  }
+}
+
 function recordLiveTickets() {
   let wrote = false;
   for (const ticket of tickets.value) {
@@ -127,6 +146,7 @@ function recordLiveTickets() {
   }
   if (wrote)
     refreshLog();
+  syncPlacedFromSportOrders();
 }
 
 watch(tickets, recordLiveTickets, { immediate: true });
@@ -162,7 +182,9 @@ const placed = ref<Record<string, true>>({});
 const placeNote = ref<Record<string, string>>({});
 
 function isPlaced(id: string): boolean {
-  return !!placed.value[id] || logRows.value.some(row => row.id === id && row.placed);
+  return !!placed.value[id]
+    || logRows.value.some(row => row.id === id && row.placed)
+    || hasPodSportOrder(id);
 }
 
 function placeBlock(ticket: (typeof tickets.value)[number]): string | null {
@@ -242,6 +264,7 @@ async function maybeAutoPlace() {
   const skipped = [
     ...Object.keys(placed.value),
     ...logRows.value.filter(row => row.placed).map(row => row.id),
+    ...listPodSportOrderedIds(),
   ];
   const next = pickPodFollowAutoTicket(
     ready.map(row => ticketPlacePayload(row)),
@@ -466,8 +489,9 @@ function jumpToLog(row: PodFollowLogRow) {
 
 function onClearLog() {
   logRows.value = clearPodFollowLog();
-  placed.value = {};
   placeNote.value = {};
+  // 成单在 podSportOrders：清空列表不得抹掉已下记忆，否则自动跟单会再下一注
+  placed.value = Object.fromEntries(listPodSportOrderedIds().map(id => [id, true as const]));
 }
 
 onMounted(() => {
@@ -476,7 +500,11 @@ onMounted(() => {
   store.start();
   reloadBetSettings();
   refreshLog();
-  placed.value = Object.fromEntries(logRows.value.filter(row => row.placed).map(row => [row.id, true as const]));
+  placed.value = Object.fromEntries([
+    ...logRows.value.filter(row => row.placed).map(row => [row.id, true as const]),
+    ...listPodSportOrderedIds().map(id => [id, true as const]),
+  ]);
+  syncPlacedFromSportOrders();
   window.addEventListener("resize", onWindowResize);
   window.addEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
   nowTimer = setInterval(() => {
