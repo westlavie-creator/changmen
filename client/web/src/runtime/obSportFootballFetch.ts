@@ -197,9 +197,12 @@ async function postPb(session: SportObSessionLocal, apiPath: string, body: Recor
   return assertEnvelope(res.data, apiPath);
 }
 
-/** 体育试玩会话直连 yewu*。禁止电竞 OB `/game/bet`。 */
-export async function postObSportPb(apiPath: string, body: Record<string, unknown>) {
-  const session = readLocalSportObSession();
+/** 直连 yewu*。采集默认本机试玩会话；下单传入下注账号会话。禁止电竞 OB `/game/bet`。 */
+export async function postObSportPb(
+  apiPath: string,
+  body: Record<string, unknown>,
+  session = readLocalSportObSession(),
+) {
   if (!session?.token)
     throw new Error("未配置体育 OB 会话");
   return postPb(session, apiPath, body);

@@ -236,12 +236,17 @@ describe("sport / esport UI isolation", () => {
     const place = readFileSync(join(root, "runtime/obSportPlaceBet.ts"), "utf8");
     expect(place).toMatch(/yewu13\/v1\/betOrder\/queryLatestMarketInfoPB/);
     expect(place).toMatch(/yewu13\/v1\/betOrder\/processBetPB/);
+    expect(place).toMatch(/pickObSportBetAccount/);
+    expect(place).toMatch(/useAccountStore/);
     expect(place).not.toMatch(/\/game\/bet/);
     expect(place).not.toMatch(/placeValueBetOrder|useOddsStore|mainBetLoop/);
     const followPlace = readFileSync(join(root, "runtime/podFollowPlace.ts"), "utf8");
     expect(followPlace).toMatch(/placeObSportSingle/);
     expect(followPlace).toMatch(/appendPodSportOrder/);
     expect(followPlace).not.toMatch(/useOddsStore|placeValueBetOrder|venue-adapter\/ob|Client_SaveOrder|useOrderStore/);
+    const betAccount = readFileSync(join(root, "runtime/obSportBetAccount.ts"), "utf8");
+    expect(betAccount).toMatch(/isObSportBetToken/);
+    expect(betAccount).not.toMatch(/venue-adapter\/ob|\/game\/bet|useOddsStore/);
     const sportOrders = readFileSync(join(root, "runtime/podSportOrders.ts"), "utf8");
     expect(sportOrders).toMatch(/changmen:podSportOrders/);
     expect(sportOrders).toMatch(/localStorage/);
@@ -359,7 +364,9 @@ describe("sport / esport UI isolation", () => {
     expect(bar).not.toMatch(/getSportObSession/);
     expect(live).toMatch(/readLocalSportObSession/);
     expect(live).not.toMatch(/getSportObSession/);
-    expect(dialog).toMatch(/saveLocalSportObSessionFromPaste/);
+    expect(dialog).toMatch(/parseSportObSessionInput/);
+    expect(dialog).toMatch(/OB 下注账号/);
+    expect(dialog).not.toMatch(/saveLocalSportObSessionFromPaste/);
     expect(dialog).not.toMatch(/updateSportObSession/);
     expect(footballStore).toMatch(/fetchObFootballAsClientMatchDtos/);
     expect(footballStore).toMatch(/getFootballMatchs/);

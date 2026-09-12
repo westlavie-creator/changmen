@@ -3,6 +3,7 @@ import type { AccountStoreContext } from "@/stores/account/context";
 import type { AccountBalanceResult } from "@changmen/venue-adapter/contract";
 import { updateBalance } from "@/api/vt";
 import { getAdapter } from "@/runtime/venueAdapters";
+import { isObSportBetToken } from "@/runtime/obSportBetAccount";
 import { Currency } from "@/shared/currency";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 
@@ -109,6 +110,8 @@ export async function refreshAccountBalance(
   const hadBalance = account.balance !== undefined;
   try {
     const providerId = String(account.provider ?? "").toLowerCase();
+    if (providerId === "ob" && isObSportBetToken(String(account.token || "")))
+      return;
     if ((providerId === "polymarket" || providerId === "predictfun") && account.accountId) {
       const { normalizePmVaultUserId, pmAccountShowsUnlockPending } = await import("@/security/pmVault");
       const { useUserStore } = await import("@/stores/userStore");

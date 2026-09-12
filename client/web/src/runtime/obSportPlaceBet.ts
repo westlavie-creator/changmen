@@ -5,8 +5,11 @@
  * 路径对齐官网 PC `API_PREFIX_ORDER=yewu13`（与已证实的 `yewu11` JOB 同套前缀）。
  * 预检失败把官网文案抛出，不静默换电竞接口。
  */
+import { pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 import { postObSportPb } from "@/runtime/obSportFootballFetch";
 import { olOdds } from "@/runtime/obSportOdds";
+import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
+import { useAccountStore } from "@/stores/accountStore";
 
 export const OB_SPORT_QUERY_MARKET_PATH = "/yewu13/v1/betOrder/queryLatestMarketInfoPB";
 export const OB_SPORT_PROCESS_BET_PATH = "/yewu13/v1/betOrder/processBetPB";
@@ -149,6 +152,21 @@ function orderIdFrom(decoded: unknown): string {
   return String(first?.orderNo || first?.orderId || first?.id || "").trim();
 }
 
+function resolveObSportPlaceSession(): SportObSessionLocal | { error: string } {
+  const account = pickObSportBetAccount(useAccountStore().accounts);
+  const session = sportObSessionFromAccount(account);
+  if (!session?.token)
+    return { error: "请在 OB 下注账号里填入体育 token" };
+  const collect = readLocalSportObSession();
+  if (!session.gateway)
+    session.gateway = String(collect?.gateway || collect?.lastGateway || "").trim();
+  if (!session.gateway)
+    return { error: "下注账号缺少网关" };
+  if (!session.sessionId)
+    session.sessionId = String(collect?.sessionId || collect?.uid || "").trim();
+  return session;
+}
+
 export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSportPlaceResult> {
   const oid = String(req.oid || "").trim();
   const stake = Number(req.stake);
@@ -158,8 +176,11 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
     return { ok: false, message: "无 oid" };
   if (!(stake > 0))
     return { ok: false, message: "注码未设" };
+  const session = resolveObSportPlaceSession();
+  if ("error" in session)
+    return { ok: false, message: session.error };
   try {
-    const queried = await postObSportPb(OB_SPORT_QUERY_MARKET_PATH, { id: oid });
+    const queried = await postObSportPb(OB_SPORT_QUERY_MARKET_PATH, { id: oid }, session);
     const info = pickObSportMarketInfo(queried, oid);
     if (!info?.oid)
       return { ok: false, message: "预检未返回盘口" };
@@ -185,7 +206,7 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
     });
     if (!body || !(Number((body.seriesOrders as Array<{ orderDetailList: unknown[] }>)[0]?.orderDetailList?.length) > 0))
       return { ok: false, message: "下单包为空" };
-    const placed = await postObSportPb(OB_SPORT_PROCESS_BET_PATH, body);
+    const placed = await postObSportPb(OB_SPORT_PROCESS_BET_PATH, body, session);
     return { ok: true, orderId: orderIdFrom(placed) };
   }
   catch (err) {

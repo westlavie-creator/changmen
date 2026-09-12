@@ -28,8 +28,8 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import { getApiBase } from "@/config/apiBase";
 import { getToken } from "@/api/client";
-import { saveLocalSportObSessionFromPaste } from "@/runtime/obSportSessionLocal";
-import { clearObFootballClientCache } from "@/runtime/obSportFootballFetch";
+import { parseSportObSessionInput } from "@/runtime/obSportSessionLocal";
+import { isObSportBetToken } from "@/runtime/obSportBetAccount";
 import {
   createOrDerivePolymarketApiCreds,
   type PolymarketApiCreds,
@@ -636,17 +636,30 @@ async function applyPaste() {
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const raw = pasteRaw.value.trim();
-    const pastedObj = parsePastedObject(raw);
-    if (isSportObCollectCredential(pastedObj)) {
+    const sportSession = parseSportObSessionInput(raw);
+    if (sportSession.ok) {
       if (!onSportsWorkspace.value) {
-        ElMessage.error("这是体育采集会话，请到足球页用快速填充，不要写入电竞账号");
+        ElMessage.error("这是体育 OB token，请到足球页写入 OB 下注账号");
         return;
       }
-      saveLocalSportObSessionFromPaste(raw);
-      clearObFootballClientCache();
+      if (props.account?.accountId && props.account.provider !== "OB") {
+        ElMessage.error("这是体育 OB token，请添加到 OB 下注账号");
+        return;
+      }
+      form.provider = "OB";
+      form.token = sportSession.session.token || "";
+      form.gateway = String(sportSession.session.gateway || "").trim();
+      form.referer = String(sportSession.session.referer || "").trim();
+      form.venueMemberId = String(sportSession.session.sessionId || sportSession.session.uid || "").trim();
       pasteRaw.value = "";
-      ElMessage.success("已写入本机足球 OB 采集会话（未改账号、未上传服务器）");
-      emit("close");
+      ElMessage.success("已填入体育 OB token，保存后用于跟单下单");
+      return;
+    }
+    const pastedObj = parsePastedObject(raw);
+    if (isSportObCollectCredential(pastedObj)) {
+      ElMessage.error(onSportsWorkspace.value
+        ? "无法解析为下注账号，请检查体育 token"
+        : "这是体育 OB token，请到足球页写入 OB 下注账号");
       return;
     }
     const parsed = parsePastedAccountCredential(raw);
@@ -1109,9 +1122,15 @@ async function save() {
   try {
     const patch = await buildPatch();
     const bindVenueMember = requiresVenueMemberId(patch.provider);
+    const sportObBet = patch.provider === "OB" && isObSportBetToken(String(patch.token || ""));
 
     let venue: AccountBalanceResult | undefined;
-    if (bindVenueMember) {
+    if (bindVenueMember && sportObBet) {
+      if (!patch.venueMemberId)
+        patch.venueMemberId = form.venueMemberId
+          || `sport-${String(patch.token || "").slice(0, 12)}`;
+    }
+    else if (bindVenueMember) {
       loading = ElLoading.service({ fullscreen: true, text: "校验余额与场馆账号..." });
       venue = await probeVenueIdentityForSave(patch);
       patch.venueAccountName = venue.venueAccountName;
@@ -1568,7 +1587,7 @@ function unlockRate() {
           <el-input
             v-model="pasteRaw"
             :placeholder="onSportsWorkspace
-              ? '体育 OB「数据」写入足球采集；电竞账号凭证仍填账号'
+              ? '粘贴体育 OB token / 进馆数据到下注账号'
               : '通过插件获取到的数据快速填充进入'"
             @change="applyPaste"
           >
