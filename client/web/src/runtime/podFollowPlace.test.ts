@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildObSportProcessBetBody,
   pickObSportMarketInfo,
 } from "@/runtime/obSportPlaceBet";
-import { pickPodFollowAutoTicket, podFollowPlaceBlock } from "@/runtime/podFollowPlace";
+import { pickPodFollowAutoTicket, podFollowPlaceBlock, placePodFollowBet } from "@/runtime/podFollowPlace";
 import type { PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
+import { appendPodSportOrder } from "@/runtime/podSportOrders";
+
+const mem = new Map<string, string>();
+
+vi.mock("@/runtime/obSportPlaceBet", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/runtime/obSportPlaceBet")>();
+  return {
+    ...actual,
+    placeObSportSingle: vi.fn(),
+  };
+});
+
+import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
 
 function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket {
   return {
@@ -17,6 +30,16 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
     ...over,
   };
 }
+
+beforeEach(() => {
+  mem.clear();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => mem.get(key) ?? null,
+    setItem: (key: string, value: string) => { mem.set(key, String(value)); },
+    removeItem: (key: string) => { mem.delete(key); },
+  });
+  vi.mocked(placeObSportSingle).mockReset();
+});
 
 describe("podFollowPlace", () => {
   it("blocks guess tickets that are not OB-ready", () => {
@@ -35,6 +58,26 @@ describe("podFollowPlace", () => {
     expect(pickPodFollowAutoTicket([blocked, ready, later], [])?.id).toBe("a");
     expect(pickPodFollowAutoTicket([ready, later], ["a"])?.id).toBe("c");
     expect(pickPodFollowAutoTicket([ready], ["a"])).toBeNull();
+  });
+
+  it("refuses to place again when a local sport order already exists for the ticket", async () => {
+    appendPodSportOrder({
+      id: "1",
+      orderId: "old-1",
+      at: 1,
+      home: "A",
+      away: "B",
+      sideLabel: "大",
+      marketLabel: "大小",
+      odds: 1.95,
+      stake: 50,
+      oid: "oid-over",
+      obMid: "5652292",
+      auto: true,
+    });
+    const result = await placePodFollowBet(ticket());
+    expect(result).toEqual({ ok: false, message: "已下过" });
+    expect(placeObSportSingle).not.toHaveBeenCalled();
   });
 });
 
