@@ -17,6 +17,7 @@ import * as orderStore from "./order_store.js";
 import { assertPlayerOwnedByUser, assertPlayersOwnedByUser, isPredictFunPlayerRow } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
 import { enforcePolymarketPersistDto, stripPrivateKeysFromAccountList } from "./pm_token_strip.js";
+import { mergeSportObPatch, preserveSportObOnAccountSave } from "./ob_sport_account.js";
 
 async function handleCreateTagPlatform(body, userId) {
   const platformName = body.platform || body.platformName || "";
@@ -290,8 +291,9 @@ async function handleSaveAccounts(accounts, userId) {
       locked.provider = player.provider;
     else if (prev?.provider)
       locked.provider = prev.provider;
-    if (isPredictFunPlayerRow(player || prev || locked)) {
-      locked.provider = "PredictFun";
+    const withSport = preserveSportObOnAccountSave(locked, prev);
+    if (isPredictFunPlayerRow(player || prev || withSport)) {
+      withSport.provider = "PredictFun";
       // PF 余额真相在 players.total_balance（debit/credit/充值）；
       // 客户端 SaveData 常省略 balance（PlatformAccount 构造后为 undefined），
       // Number(undefined)||0 会把账本绝对 SET 成 0。
@@ -301,11 +303,11 @@ async function handleSaveAccounts(accounts, userId) {
       const keep = Number.isFinite(tb) && tb === 0 && Number.isFinite(cr) && cr > 0
         ? cr
         : tb;
-      locked.balance = Number.isFinite(keep) ? keep : 0;
-      locked.totalBalance = locked.balance;
-      locked.credit = 0;
+      withSport.balance = Number.isFinite(keep) ? keep : 0;
+      withSport.totalBalance = withSport.balance;
+      withSport.credit = 0;
     }
-    return locked;
+    return withSport;
   });
   const dto = enforcePolymarketPersistDto(normalized);
   if (!dto.ok)
@@ -321,6 +323,89 @@ async function handleSaveAccounts(accounts, userId) {
   const keepIds = normalized.map(r => Number(r?.accountId ?? r?.AccountId)).filter(Boolean);
   if (keepIds.length > 0) {
     await accountStore.prunePlayersNotInList(userId, keepIds);
+  }
+  return { ok: true, info: true };
+}
+
+function parseSaveSportAccountRows(body) {
+  const raw = body && typeof body === "object" ? body : {};
+  let list = raw.accounts;
+  if (typeof list === "string") {
+    try {
+      list = JSON.parse(list);
+    }
+    catch {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list))
+    list = [raw];
+  const rows = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object")
+      continue;
+    const accountId = Number(item.accountId ?? item.AccountId);
+    if (!accountId)
+      continue;
+    rows.push({
+      accountId,
+      clear: item.clear === true || item.token === "",
+      token: item.token,
+      gateway: item.gateway,
+      referer: item.referer,
+      venueMemberId: item.venueMemberId ?? item.uid ?? item.sessionId,
+    });
+  }
+  if (!rows.length)
+    return { ok: false, msg: "accountId 必填" };
+  return { ok: true, rows };
+}
+
+/** [changmen 扩展] 只写 OB 体育凭证；不改电竞 token / 不 prune */
+async function handleSaveSportAccount(body, userId) {
+  if (!userId)
+    return { ok: false, msg: "请先登录" };
+  const parsed = parseSaveSportAccountRows(body);
+  if (!parsed.ok)
+    return parsed;
+  try {
+    await dbStore.loadAccountsForUser(userId);
+  }
+  catch (err) {
+    console.error("[account] SaveSportAccount 读失败:", err?.message);
+    return { ok: false, msg: "账号读取失败，请稍后重试" };
+  }
+  const ids = parsed.rows.map(row => row.accountId);
+  const owned = await assertPlayersOwnedByUser(ids, userId);
+  if (!owned.ok)
+    return owned;
+  const list = (store.getAccountsForUser(userId) || []).map(row => (
+    row && typeof row === "object" ? { ...row } : row
+  ));
+  const byId = new Map(list.map(row => [Number(row?.accountId ?? row?.AccountId), row]));
+  for (const patch of parsed.rows) {
+    const current = byId.get(patch.accountId);
+    if (!current)
+      return { ok: false, msg: `账号 ${patch.accountId} 不存在` };
+    if (String(current.provider || "").trim().toUpperCase() !== "OB")
+      return { ok: false, msg: "仅 OB 账号可保存体育 token" };
+    if (patch.clear) {
+      delete current.sportOb;
+      continue;
+    }
+    const merged = mergeSportObPatch(current.sportOb, patch);
+    if (merged)
+      current.sportOb = merged;
+    else
+      delete current.sportOb;
+  }
+  try {
+    await store.setAccountsForUser(userId, list);
+  }
+  catch (err) {
+    if (err instanceof VenueAccountKeyConflictError || isVenueAccountKeyUniqueViolation(err))
+      return { ok: false, msg: err.message || "该场馆操盘账号已被其他用户使用" };
+    throw err;
   }
   return { ok: true, info: true };
 }
@@ -546,6 +631,7 @@ export {
   handleGetUsers,
   handleRefreshAccountBalance,
   handleSaveAccounts,
+  handleSaveSportAccount,
   handleSaveData,
   handleSaveMoneyLog,
   handleSaveOrder,

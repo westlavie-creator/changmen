@@ -76,6 +76,10 @@ export const useAccountStore = defineStore("account", {
       return accountCrud.persistAccounts(this);
     },
 
+    saveSportAccount(accountId: number, sportOb: AccountRecord["sportOb"] | undefined, clear = false) {
+      return accountCrud.persistSportAccount(this, accountId, sportOb, clear);
+    },
+
     createTagPlatform(platformName: string, identity: CreateTagPlatformIdentity) {
       return accountCrud.createTagPlatformForAccount(platformName, identity);
     },

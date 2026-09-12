@@ -37,6 +37,7 @@ type AccountActionResult = ApiEnvelope | unknown[] | Record<string, unknown>;
 
 const ACCOUNT_CLIENT_ACTIONS = new Set([
   "Client_SaveData",
+  "Client_SaveSportAccount",
   "Client_GetAccounts",
   "Client_SaveAccounts",
   "Client_GetData",
@@ -90,6 +91,10 @@ export async function handleAccountClientAction(
       if (!body.key)
         return fail("key required");
       const saved = await accountService.handleSaveData(body.key, body.content ?? "", ctx.user!.id);
+      return saved.ok ? ok(saved.info) : fail(saved.msg);
+    }
+    case "Client_SaveSportAccount": {
+      const saved = await accountService.handleSaveSportAccount(body, ctx.user!.id);
       return saved.ok ? ok(saved.info) : fail(saved.msg);
     }
     case "Client_GetAccounts":

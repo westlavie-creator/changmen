@@ -22,6 +22,26 @@ export async function saveAccounts(accounts: AccountRecord[]): Promise<boolean> 
   return true;
 }
 
+export type SportObAccountPatch = {
+  accountId: number;
+  token?: string;
+  gateway?: string;
+  referer?: string;
+  venueMemberId?: string;
+  clear?: boolean;
+};
+
+/** [changmen 扩展] 只写 OB 体育凭证，不走 ACCOUNT.token */
+export async function saveSportAccount(accounts: SportObAccountPatch[]): Promise<boolean> {
+  const res = await post<boolean>(
+    "Client_SaveSportAccount",
+    { accounts },
+    "",
+    { errorTip: false },
+  );
+  return res.success === 1;
+}
+
 /** [A8 可证实] Vt.updateBalance → Client_UpdateBalance */
 export async function updateBalance(
   playerId: number,

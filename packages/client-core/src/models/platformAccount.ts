@@ -80,6 +80,11 @@ export class PlatformAccount implements AccountRecord {
   venueMemberId?: string;
   /** [changmen 扩展] 场馆登录名（如 OB account） */
   venueAccountName?: string;
+  /**
+   * [changmen 扩展] 熊猫体育凭证，与电竞 token 分存。
+   * 不经 Client_SaveData(ACCOUNT)。
+   */
+  sportOb?: AccountRecord["sportOb"];
 
   constructor(raw: Partial<AccountRecord>) {
     this.accountId = Number(raw.accountId) || 0;

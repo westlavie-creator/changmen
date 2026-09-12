@@ -8,6 +8,7 @@ import {
   getAccounts,
   getTagPlatforms,
   saveAccounts,
+  saveSportAccount,
   saveMoneyLog,
 } from "@/api/esport";
 import { resolveAccountCurrency } from "@changmen/shared/currency";
@@ -144,8 +145,37 @@ export async function persistAccounts(store: AccountStoreContext) {
     .map(a => normalizeAccountMultiplyField(a.toJSON()));
   // 方案 C：私钥只在本机仓；写回 RDS 前剥离
   stripPrivateKeysForPersist(payload);
+  for (const row of payload)
+    delete row.sportOb;
   const ok = await saveAccounts(payload);
   await syncPbAccountHosts(store.accounts);
+  return ok;
+}
+
+export async function persistSportAccount(
+  store: AccountStoreContext,
+  accountId: number,
+  sportOb: AccountRecord["sportOb"] | undefined,
+  clear = false,
+): Promise<boolean> {
+  const acc = store.findAccount(accountId);
+  const empty = clear || !String(sportOb?.token || "").trim();
+  if (acc) {
+    if (empty)
+      delete acc.sportOb;
+    else
+      acc.sportOb = { ...sportOb, token: String(sportOb?.token || "").trim() };
+  }
+  const ok = await saveSportAccount([{
+    accountId,
+    clear: empty,
+    token: empty ? "" : String(sportOb?.token || "").trim(),
+    gateway: sportOb?.gateway,
+    referer: sportOb?.referer,
+    venueMemberId: sportOb?.venueMemberId,
+  }]);
+  if (!ok)
+    throw new Error("体育 token 保存失败");
   return ok;
 }
 
@@ -223,6 +253,8 @@ export async function createAccount(
           String(a.platformName || "").trim() === String(record.platformName || "").trim()
           && String(a.playerName || "").trim() === String(record.playerName || "").trim(),
       );
+  if (acc && record.sportOb?.token && String(record.provider || acc.provider) === "OB")
+    await persistSportAccount(store, acc.accountId, record.sportOb);
   if (acc) {
     await acc.updateBalance();
     await acc.updateOrders();

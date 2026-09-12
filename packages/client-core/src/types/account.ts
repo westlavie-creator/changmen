@@ -54,6 +54,16 @@ export interface AccountRecord {
   venueMemberId?: string;
   /** [changmen 扩展] 场馆登录名（如 OB balance.account） */
   venueAccountName?: string;
+  /**
+   * [changmen 扩展] 熊猫体育凭证。与电竞 `token` 独立。
+   * Client_SaveData(ACCOUNT) 不写此字段；走 Client_SaveSportAccount。
+   */
+  sportOb?: {
+    token: string;
+    gateway?: string;
+    referer?: string;
+    venueMemberId?: string;
+  };
 }
 
 export interface CreateTagPlatformResult {

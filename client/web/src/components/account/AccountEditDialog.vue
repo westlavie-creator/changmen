@@ -117,6 +117,12 @@ const visible = computed({
 });
 const pasteRaw = ref("");
 const gameShow = ref(false);
+const sportObForm = reactive({
+  token: "",
+  gateway: "",
+  referer: "",
+  venueMemberId: "",
+});
 /** A8：PB 默认锁定比例，legend「买」双击解锁 */
 const rateLocked = ref(false);
 /** Polymarket 专用：新账号按 wallet/funder/privateKey 派生 API 凭证 */
@@ -295,6 +301,41 @@ function resetForm(acc?: PlatformAccount) {
   syncPolymarketFieldsFromToken(form.token);
   if (form.provider === "PB" && !form.venueMemberId)
     applyPbIdentityFromToken(form.token);
+  resetSportObForm(acc);
+}
+
+function resetSportObForm(acc?: PlatformAccount) {
+  sportObForm.token = "";
+  sportObForm.gateway = "";
+  sportObForm.referer = "";
+  sportObForm.venueMemberId = "";
+  const nested = acc?.sportOb;
+  if (nested?.token) {
+    sportObForm.token = String(nested.token || "");
+    sportObForm.gateway = String(nested.gateway || "");
+    sportObForm.referer = String(nested.referer || "");
+    sportObForm.venueMemberId = String(nested.venueMemberId || "");
+  }
+  else if (acc && isObSportBetToken(String(acc.token || ""))) {
+    sportObForm.token = String(acc.token || "");
+    sportObForm.gateway = String(acc.gateway || "");
+    sportObForm.referer = String(acc.referer || "");
+    sportObForm.venueMemberId = String(acc.venueMemberId || "");
+  }
+  if (isObSportBetToken(form.token))
+    form.token = "";
+}
+
+function sportObFromForm(): AccountRecord["sportOb"] | undefined {
+  const token = sportObForm.token.trim();
+  if (!isObSportBetToken(token))
+    return undefined;
+  return {
+    token,
+    gateway: sportObForm.gateway.trim() || undefined,
+    referer: sportObForm.referer.trim() || undefined,
+    venueMemberId: sportObForm.venueMemberId.trim() || undefined,
+  };
 }
 
 function syncPolymarketFieldsFromToken(token: string) {
@@ -647,12 +688,14 @@ async function applyPaste() {
         return;
       }
       form.provider = "OB";
-      form.token = sportSession.session.token || "";
-      form.gateway = String(sportSession.session.gateway || "").trim();
-      form.referer = String(sportSession.session.referer || "").trim();
-      form.venueMemberId = String(sportSession.session.sessionId || sportSession.session.uid || "").trim();
+      sportObForm.token = sportSession.session.token || "";
+      sportObForm.gateway = String(sportSession.session.gateway || "").trim();
+      sportObForm.referer = String(sportSession.session.referer || "").trim();
+      sportObForm.venueMemberId = String(
+        sportSession.session.sessionId || sportSession.session.uid || "",
+      ).trim();
       pasteRaw.value = "";
-      ElMessage.success("已填入体育 OB token，保存后用于跟单下单");
+      ElMessage.success("已填入体育 token（不影响电竞 token），保存后用于跟单");
       return;
     }
     const pastedObj = parsePastedObject(raw);
@@ -1121,14 +1164,29 @@ async function save() {
   let loading: ReturnType<typeof ElLoading.service> | undefined;
   try {
     const patch = await buildPatch();
+    if (isObSportBetToken(String(patch.token || ""))) {
+      if (!sportObForm.token.trim()) {
+        sportObForm.token = String(patch.token || "");
+        if (!sportObForm.gateway.trim())
+          sportObForm.gateway = String(patch.gateway || "");
+        if (!sportObForm.referer.trim())
+          sportObForm.referer = String(patch.referer || "");
+        if (!sportObForm.venueMemberId.trim())
+          sportObForm.venueMemberId = String(form.venueMemberId || "").trim();
+      }
+      const kept = String(props.account?.token || "").trim();
+      patch.token = kept && !isObSportBetToken(kept) ? kept : undefined;
+    }
+    const sportOb = sportObFromForm();
     const bindVenueMember = requiresVenueMemberId(patch.provider);
-    const sportObBet = patch.provider === "OB" && isObSportBetToken(String(patch.token || ""));
+    const esportToken = String(patch.token || "").trim();
+    const sportOnlyOb = patch.provider === "OB" && Boolean(sportOb?.token) && !esportToken;
 
     let venue: AccountBalanceResult | undefined;
-    if (bindVenueMember && sportObBet) {
+    if (bindVenueMember && sportOnlyOb) {
       if (!patch.venueMemberId)
         patch.venueMemberId = form.venueMemberId
-          || `sport-${String(patch.token || "").slice(0, 12)}`;
+          || `sport-${String(sportOb?.token || "").slice(0, 12)}`;
     }
     else if (bindVenueMember) {
       loading = ElLoading.service({ fullscreen: true, text: "校验余额与场馆账号..." });
@@ -1181,6 +1239,8 @@ async function save() {
           : {}),
         updateTime: Date.now(),
       });
+      if (onSportsWorkspace.value && patch.provider === "OB")
+        acc.sportOb = sportOb;
       if (form.provider === "Polymarket") {
         const pk = await resolvePolymarketPrivateKeyForSave();
         await ensurePrivateKeyInVault(Number(acc.accountId), pk);
@@ -1199,6 +1259,8 @@ async function save() {
         refreshPfPrivyAddressDisplay();
       }
       await accountStore.saveAccounts();
+      if (onSportsWorkspace.value && patch.provider === "OB" && acc.accountId && sportOb)
+        await accountStore.saveSportAccount(acc.accountId, sportOb);
       ElMessage.success("账号设置已保存");
       emit("close");
       void (async () => {
@@ -1276,6 +1338,9 @@ async function save() {
             venueMemberId: patch.venueMemberId,
             venueAccountName: patch.venueAccountName,
           }
+        : {}),
+      ...(onSportsWorkspace.value && patch.provider === "OB" && sportOb
+        ? { sportOb }
         : {}),
       pause: patch.pause ?? false,
       balance: venue?.balance,
@@ -1583,6 +1648,12 @@ function unlockRate() {
       </template>
 
       <template v-else-if="!readonly" #footer>
+        <el-form-item v-if="onSportsWorkspace && form.provider === 'OB'" label="体育 token：">
+          <el-input
+            :model-value="sportObForm.token ? `${sportObForm.token.slice(0, 8)}…` : '未填'"
+            readonly
+          />
+        </el-form-item>
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"

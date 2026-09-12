@@ -23,6 +23,7 @@ export const ESPORT_ACTIONS = [
   "Client_GetTennisMatchs",
   "Client_GetBasketballMatchs",
   "Client_SaveData",
+  "Client_SaveSportAccount",
   "Client_GetAccounts",
   "Client_SaveAccounts",
   "Client_GetData",

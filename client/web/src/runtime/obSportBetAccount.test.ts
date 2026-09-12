@@ -12,10 +12,10 @@ describe("obSportBetAccount", () => {
     expect(isObSportBetToken("")).toBe(false);
   });
 
-  it("builds a sport session from an OB betting account", () => {
+  it("builds a sport session from sportOb without using the esport token", () => {
     expect(sportObSessionFromAccount({
       provider: "RAY",
-      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      sportOb: { token: "e9734a4d633b350be25b428556622ca2f161b633" },
     })).toBeNull();
     expect(sportObSessionFromAccount({
       provider: "OB",
@@ -23,30 +23,57 @@ describe("obSportBetAccount", () => {
     })).toBeNull();
     const session = sportObSessionFromAccount({
       provider: "OB",
-      token: "e9734a4d633b350be25b428556622ca2f161b633",
-      gateway: "https://api.jpbfa750.com/",
-      referer: "https://user-pc-new.dbgaming.com/",
-      venueMemberId: "53660752045779641317887613834871",
+      token: "1234567890123456789",
+      sportOb: {
+        token: "e9734a4d633b350be25b428556622ca2f161b633",
+        gateway: "https://api.jpbfa750.com/",
+        referer: "https://user-pc-new.dbgaming.com/",
+        venueMemberId: "53660752045779641317887613834871",
+      },
     });
     expect(session?.token).toBe("e9734a4d633b350be25b428556622ca2f161b633");
     expect(session?.gateway).toBe("https://api.jpbfa750.com");
     expect(session?.sessionId).toBe("53660752045779641317887613834871");
   });
 
+  it("still accepts legacy hex-in-token accounts", () => {
+    const session = sportObSessionFromAccount({
+      provider: "OB",
+      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      gateway: "https://api.jpbfa750.com/",
+      venueMemberId: "53660752045779641317887613834871",
+    });
+    expect(session?.token).toBe("e9734a4d633b350be25b428556622ca2f161b633");
+  });
+
+  it("does not reuse the esport gateway when sportOb has no gateway", () => {
+    const session = sportObSessionFromAccount({
+      provider: "OB",
+      token: "1234567890123456789",
+      gateway: "https://esport.example",
+      sportOb: { token: "e9734a4d633b350be25b428556622ca2f161b633" },
+    });
+    expect(session?.token).toBe("e9734a4d633b350be25b428556622ca2f161b633");
+    expect(session?.gateway).toBe("");
+  });
+
   it("picks the active unpaused OB sport account", () => {
     const esport = { provider: "OB", token: "1234567890123456789", active: true };
     const paused = {
       provider: "OB",
-      token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      token: "1234567890123456789",
+      sportOb: { token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
       pause: true,
     };
     const idle = {
       provider: "OB",
-      token: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      token: "1234567890123456789",
+      sportOb: { token: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
     };
     const active = {
       provider: "OB",
-      token: "cccccccccccccccccccccccccccccccccccccccc",
+      token: "1234567890123456789",
+      sportOb: { token: "cccccccccccccccccccccccccccccccccccccccc" },
       active: true,
     };
     expect(pickObSportBetAccount([esport, paused, idle, active])).toEqual(active);

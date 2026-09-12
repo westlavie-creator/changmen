@@ -279,7 +279,11 @@ describe("sport / esport UI isolation", () => {
     expect(outcomeGate).not.toMatch(/useOddsStore|placeValueBetOrder|fo\b/);
     const betAccount = readFileSync(join(root, "runtime/obSportBetAccount.ts"), "utf8");
     expect(betAccount).toMatch(/isObSportBetToken/);
+    expect(betAccount).toMatch(/sportOb/);
     expect(betAccount).not.toMatch(/venue-adapter\/ob|\/game\/bet|useOddsStore/);
+    const obBet = readFileSync(join(root, "../../venue-adapter/ob/bet.ts"), "utf8");
+    expect(obBet).toMatch(/\/game\/balance/);
+    expect(obBet).not.toMatch(/sportOb|SaveSportAccount/);
     const sportOrders = readFileSync(join(root, "runtime/podSportOrders.ts"), "utf8");
     expect(sportOrders).toMatch(/changmen:podSportOrders/);
     expect(sportOrders).toMatch(/localStorage/);
@@ -297,6 +301,13 @@ describe("sport / esport UI isolation", () => {
     expect(session).toMatch(/includeEsportOrderList:\s*false/);
     expect(session).toMatch(/loadAccounts\(false\)/);
     expect(session).not.toMatch(/useOrderStore|fetchOrders\(|applyPmAutoTransportOnLogin|applyPfAutoTransportOnLogin/);
+    const accountCrud = readFileSync(join(root, "stores/account/accountCrud.ts"), "utf8");
+    expect(accountCrud).toMatch(/delete row\.sportOb/);
+    expect(accountCrud).toMatch(/persistSportAccount/);
+    expect(accountCrud).not.toMatch(/placeValueBetOrder/);
+    const accountApi = readFileSync(join(root, "api/account.ts"), "utf8");
+    expect(accountApi).toMatch(/Client_SaveSportAccount/);
+    expect(accountApi).toMatch(/export async function saveAccounts/);
     const followLog = readFileSync(join(root, "runtime/podFollowLog.ts"), "utf8");
     expect(followLog).toMatch(/changmen:podFollowLog/);
     expect(followLog).toMatch(/localStorage/);
