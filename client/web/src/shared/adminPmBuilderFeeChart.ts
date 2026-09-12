@@ -25,7 +25,7 @@ function pad2(n: number): string {
 }
 
 export function currentMonthKey(d = new Date()): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
 }
 
 export function parseMonthKey(monthKey: string, fallback = new Date()): { y: number; m: number } {
@@ -34,7 +34,7 @@ export function parseMonthKey(monthKey: string, fallback = new Date()): { y: num
   const m = parts[1];
   if (Number.isFinite(y) && y >= 1970 && Number.isFinite(m) && m >= 1 && m <= 12)
     return { y, m };
-  return { y: fallback.getFullYear(), m: fallback.getMonth() + 1 };
+  return { y: fallback.getUTCFullYear(), m: fallback.getUTCMonth() + 1 };
 }
 
 export function formatMonthKey(y: number, m: number): string {
@@ -51,9 +51,9 @@ export function daysInMonth(y: number, m: number): number {
   return new Date(y, m, 0).getDate();
 }
 
-export function localDayKey(ms: number): string {
+export function utcDayKey(ms: number): string {
   const d = new Date(ms);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
 }
 
 function emptyBucket(day: number, key: string): DayFeeBucket {
@@ -69,7 +69,7 @@ function emptyBucket(day: number, key: string): DayFeeBucket {
   };
 }
 
-/** 按本地自然日把成交归入指定月份；缺日补 0，月外成交丢弃 */
+/** 按 UTC 自然日把成交归入指定月份；缺日补 0，月外成交丢弃 */
 export function aggregateBuilderFeesByDay(
   trades: BuilderFeeTradeLike[],
   monthKey: string,
@@ -88,7 +88,7 @@ export function aggregateBuilderFeesByDay(
     const ms = Number(t.matchTime) || 0;
     if (!ms)
       continue;
-    const bucket = byKey.get(localDayKey(ms));
+    const bucket = byKey.get(utcDayKey(ms));
     if (!bucket)
       continue;
     const size = Number(t.sizeUsdc) || 0;

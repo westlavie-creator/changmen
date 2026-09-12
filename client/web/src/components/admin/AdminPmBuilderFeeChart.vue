@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PolymarketBuilderTradeRow } from "@/api/admin";
 import { computed, ref } from "vue";
-import { todayKey } from "@/shared/dateKey";
+import { todayUtcKey } from "@/shared/dateKey";
 import {
   aggregateBuilderFeesByDay,
   currentMonthKey,
@@ -57,7 +57,7 @@ const SERIES: Record<MetricMode, SeriesDef[]> = {
 };
 
 const metricMode = ref<MetricMode>("fees");
-const today = todayKey();
+const today = todayUtcKey();
 
 const chartMonthKey = computed(() => props.monthKey || currentMonthKey());
 const canNextMonth = computed(() => chartMonthKey.value < currentMonthKey());
@@ -118,7 +118,7 @@ function nextMonth() {
 <template>
   <section class="admin-card fee-chart-card">
     <div class="fee-chart-head">
-      <h3>归因费用按日</h3>
+      <h3>归因费用按日（UTC）</h3>
       <div class="fee-chart-controls">
         <el-radio-group v-model="metricMode" size="small">
           <el-radio-button value="fees">
@@ -171,7 +171,7 @@ function nextMonth() {
     </div>
 
     <p v-if="partial" class="fee-chart-hint fee-chart-hint--info">
-      当前不是整月窗口，柱只统计本页已加载成交。切换月份会按该月重新拉取。
+      当前不是整月窗口，柱只统计本页已加载成交。切换月份会按 UTC 月重新拉取。
     </p>
     <p v-else-if="hasMore" class="fee-chart-hint">
       该月成交可能未拉全，柱状图按已返回数据汇总。

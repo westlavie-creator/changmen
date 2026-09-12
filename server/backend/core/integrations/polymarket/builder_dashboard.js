@@ -191,6 +191,29 @@ export function utcWeekRange(anchorDateKey) {
   };
 }
 
+/**
+ * UTC 自然月：[当月1日 00:00Z, 次月1日 00:00Z)
+ */
+export function utcMonthRange(monthKey) {
+  const parts = String(monthKey ?? "").split("-").map(Number);
+  const now = new Date();
+  const y = Number.isFinite(parts[0]) && parts[0] >= 1970 ? parts[0] : now.getUTCFullYear();
+  const m = Number.isFinite(parts[1]) && parts[1] >= 1 && parts[1] <= 12
+    ? parts[1]
+    : now.getUTCMonth() + 1;
+  const startMs = Date.UTC(y, m - 1, 1, 0, 0, 0, 0);
+  const endMs = Date.UTC(y, m, 1, 0, 0, 0, 0);
+  const key = `${y}-${String(m).padStart(2, "0")}`;
+  return {
+    startMs,
+    endMs,
+    kind: "utcMonth",
+    timezone: "utc",
+    monthKey: key,
+    label: `UTC月 ${key}（1日00:00Z–次月1日00:00Z）`,
+  };
+}
+
 function resolvePeriod(body = {}) {
   return String(body.period || body.range || "").trim().toLowerCase();
 }
@@ -216,40 +239,21 @@ function parseRange(body = {}) {
   }
 
   const period = resolvePeriod(body);
-  // 对齐 Polymarket 官网：UTC 日 / UTC 周（周日起点）
-  if (period === "utcday" || period === "utc_day" || period === "utc-day") {
+  // 对齐 Polymarket 官网：UTC 日 / UTC 周 / UTC 月
+  if (period === "utcday" || period === "utc_day" || period === "utc-day")
     return utcDayRange(body.date);
-  }
-  if (period === "utcweek" || period === "utc_week" || period === "utc-week") {
+  if (period === "utcweek" || period === "utc_week" || period === "utc-week")
     return utcWeekRange(body.date);
+  if (
+    period === "utcmonth"
+    || period === "utc_month"
+    || period === "utc-month"
+    || period === "month"
+    || body.month
+  ) {
+    return utcMonthRange(body.month);
   }
-
-  if (body.month) {
-    const parts = String(body.month).split("-").map(Number);
-    const y = parts[0] || new Date().getFullYear();
-    const m = parts[1] || new Date().getMonth() + 1;
-    const startMs = new Date(y, m - 1, 1, 0, 0, 0, 0).getTime();
-    const endMs = new Date(y, m, 1, 0, 0, 0, 0).getTime();
-    return {
-      startMs,
-      endMs,
-      kind: "localMonth",
-      timezone: "local",
-      monthKey: `${y}-${String(m).padStart(2, "0")}`,
-      label: `本地月 ${y}-${String(m).padStart(2, "0")}`,
-    };
-  }
-  const dk = body.date || new Date().toISOString().slice(0, 10);
-  const { y, m, d } = parseYmd(dk, false);
-  const startMs = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
-  return {
-    startMs,
-    endMs: startMs + DAY_MS,
-    kind: "localDay",
-    timezone: "local",
-    dateKey: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
-    label: `本地日 ${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
-  };
+  return utcDayRange(body.date);
 }
 
 /** orders.match / bet：PM 多为纯文本标题；其它场馆偶发 JSON `{Title}` */
