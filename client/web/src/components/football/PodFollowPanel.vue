@@ -20,6 +20,11 @@ import {
   formatPodStake,
   listPodFollowTickets,
 } from "@/runtime/podBetTicket";
+import {
+  formatPodEv,
+  pickPodYaboAutoTicket,
+  scorePodYaboFollow,
+} from "@/runtime/podYabo";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
 import {
   fixtureFromViewMatch,
@@ -27,17 +32,14 @@ import {
   matchPodAlertToFixtures,
 } from "@/runtime/podFixtureMatch";
 import {
-  comparePodObQuote,
   formatPodMarketMatch,
   formatPodObQuote,
-  matchPodAlertToMarket,
 } from "@/runtime/podMarketMatch";
 import {
   buildPodBoardFocus,
   requestPodBoardFocus,
 } from "@/runtime/podBoardFocus";
 import {
-  pickPodFollowAutoTicket,
   placePodFollowBet,
   podFollowPlaceBlock,
   type PodFollowPlaceTicket,
@@ -50,6 +52,7 @@ import {
   formatPodFollowLogWhen,
   markPodFollowLogPlaced,
   readPodFollowLog,
+  ticketHasPodFollowMatch,
   upsertPodFollowEv,
   type PodFollowLogRow,
 } from "@/runtime/podFollowLog";
@@ -97,22 +100,29 @@ const tickets = computed(() => {
   return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
     const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
     const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
-    const marketMatch = matchPodAlertToMarket(ticket.alert, hit?.fixture, hit?.swapped === true, live);
     return {
-      ...ticket,
+      ...scorePodYaboFollow(ticket, {
+        fixture: hit?.fixture,
+        swapped: hit?.swapped === true,
+        live,
+        books: snapshot.value.books,
+        settings: betSettings.value,
+      }),
       fixtureMatch,
-      marketMatch,
-      obQuote: comparePodObQuote(marketMatch, ticket.minObOdds),
     };
   });
 });
 const stakePresets = POD_FOLLOW_STAKE_PRESETS;
 const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
-const liveById = computed(() => new Map(tickets.value.map(ticket => [ticket.id, ticket])));
-const displayRows = computed(() => logRows.value.map(log => ({
-  log,
-  live: liveById.value.get(log.id),
-})));
+const liveById = computed(() => new Map(
+  tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
+));
+const displayRows = computed(() => logRows.value
+  .filter(log => log.obMid)
+  .map(log => ({
+    log,
+    live: liveById.value.get(log.id),
+  })));
 
 function refreshLog() {
   logRows.value = readPodFollowLog();
@@ -121,6 +131,8 @@ function refreshLog() {
 function recordLiveTickets() {
   let wrote = false;
   for (const ticket of tickets.value) {
+    if (!ticketHasPodFollowMatch(ticket))
+      continue;
     const next = upsertPodFollowEv(buildPodFollowLogRow(ticket, nowTick.value));
     if (next.added || next.wrote)
       wrote = true;
@@ -243,9 +255,17 @@ async function maybeAutoPlace() {
     ...Object.keys(placed.value),
     ...logRows.value.filter(row => row.placed).map(row => row.id),
   ];
-  const next = pickPodFollowAutoTicket(
+  const placedEntries = logRows.value
+    .filter(row => row.placed && row.obMid && row.boardSide)
+    .map(row => ({
+      obMid: row.obMid,
+      marketCode: row.marketCode,
+      boardSide: row.boardSide,
+    }));
+  const next = pickPodYaboAutoTicket(
     ready.map(row => ticketPlacePayload(row)),
     skipped,
+    placedEntries,
   );
   if (!next)
     return;
@@ -285,7 +305,7 @@ const statusText = computed(() => {
     return "扩展未连通";
   if (snapshot.value.sourceConnected && snapshot.value.gridFound) {
     const n = displayRows.value.length;
-    const live = tickets.value.length;
+    const live = tickets.value.filter(ticketHasPodFollowMatch).length;
     if (!n)
       return "等待机会";
     return betSettings.value.autoPlace
@@ -552,7 +572,7 @@ onUnmounted(() => {
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
-        筛选已关。打开「足球设置 → POD跟单」后，过线的会一直留在列表里，并标已下/未下。降赔浮窗不受影响。
+        筛选已关。打开「足球设置 → POD跟单」后，对上场和盘的会一直留在列表里，并标已下/未下。降赔浮窗不受影响。
       </p>
       <template v-else>
         <div v-if="logRows.length" class="pod-follow-panel__toolbar" @pointerdown.stop>
@@ -561,10 +581,10 @@ onUnmounted(() => {
           </button>
         </div>
         <p v-if="!snapshot.sourceConnected && !displayRows.length" class="pod-follow-panel__hint">
-          等 POD 连通后过筛选的会一直显示。时效只挡自动下注。
+          等 POD 连通后，对上场和盘的会进来并一直留下。时效只挡自动下注。
         </p>
         <p v-else-if="!displayRows.length" class="pod-follow-panel__hint">
-          还没有跟单机会。过筛选就会留下，并标有没有下单。
+          还没有跟单机会。对上足球板的场和盘才会进来，并标有没有下单。
         </p>
         <div v-else class="pod-follow-panel__list">
           <article
@@ -600,6 +620,9 @@ onUnmounted(() => {
                 :class="`is-${row.live.obQuote.status}`"
               >
                 {{ formatPodObQuote(row.live.obQuote) }}
+                <span v-if="row.live.obQuote.evPercent" class="pod-follow-row__ev">
+                  {{ formatPodEv(row.live.obQuote.evPercent) }}
+                </span>
               </div>
               <div class="pod-follow-row__meta">
                 {{ row.live.alert.league }} · {{ row.live.marketLabel }}
@@ -608,6 +631,7 @@ onUnmounted(() => {
                 <span>PIN {{ formatPodPrice(row.live.pinPrevious) }} → {{ formatPodPrice(row.live.pinCurrent) }}</span>
                 <span>NVP {{ formatPodPrice(row.live.nvp) }}</span>
                 <span class="pod-follow-row__ob">OB ≥ {{ formatPodPrice(row.live.minObOdds) }}</span>
+                <span v-if="row.live.maxObOdds">OB ≤ {{ formatPodPrice(row.live.maxObOdds) }}</span>
               </div>
               <div class="pod-follow-row__plan">
                 <span>{{ formatPodStake(row.live.stake) }}</span>
@@ -895,7 +919,8 @@ onUnmounted(() => {
 
 .pod-follow-row__fixture.is-pending,
 .pod-follow-row__market.is-skipped,
-.pod-follow-row__quote.is-short {
+.pod-follow-row__quote.is-short,
+.pod-follow-row__quote.is-spike {
   color: #fb923c;
 }
 
@@ -904,6 +929,10 @@ onUnmounted(() => {
 .pod-follow-row__quote.is-none,
 .pod-follow-row__quote.is-locked {
   color: #64748b;
+}
+
+.pod-follow-row__ev {
+  margin-left: 6px;
 }
 
 .pod-follow-row__bet,

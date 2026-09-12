@@ -3,8 +3,7 @@ import {
   buildObSportProcessBetBody,
   pickObSportMarketInfo,
 } from "@/runtime/obSportPlaceBet";
-import { pickPodFollowAutoTicket, podFollowPlaceBlock } from "@/runtime/podFollowPlace";
-import type { PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
+import { podFollowPlaceBlock, type PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
 
 function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket {
   return {
@@ -12,8 +11,8 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
     stake: 50,
     fixtureStatus: "matched",
     obMid: "5652292",
-    market: { status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95 },
-    quote: { status: "ok", quote: 1.95, minObOdds: 1.9 },
+    market: { status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95, marketCode: "totals", boardSide: "over", fromLive: true },
+    quote: { status: "ok", quote: 1.95, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 5.4 },
     ...over,
   };
 }
@@ -21,20 +20,16 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
 describe("podFollowPlace", () => {
   it("blocks guess tickets that are not OB-ready", () => {
     expect(podFollowPlaceBlock(ticket({ fixtureStatus: "none" }))).toBe("场未对上");
-    expect(podFollowPlaceBlock(ticket({ market: { status: "none", ob: true, locked: false, oid: "x", quote: 1.9 } }))).toBe("盘未对上");
-    expect(podFollowPlaceBlock(ticket({ market: { status: "matched", ob: false, locked: false, oid: "x", quote: 1.9 } }))).toBe("无 OB 盘");
-    expect(podFollowPlaceBlock(ticket({ quote: { status: "short", quote: 1.8, minObOdds: 1.9 } }))).toBe("OB 价不够");
+    expect(podFollowPlaceBlock(ticket({
+      market: { status: "none", ob: true, locked: false, oid: "x", quote: 1.9, marketCode: "totals", boardSide: "over", fromLive: true },
+    }))).toBe("盘未对上");
+    expect(podFollowPlaceBlock(ticket({
+      market: { status: "matched", ob: false, locked: false, oid: "x", quote: 1.9, marketCode: "totals", boardSide: "over", fromLive: true },
+    }))).toBe("无 OB 盘");
+    expect(podFollowPlaceBlock(ticket({ quote: { status: "short", quote: 1.8, minObOdds: 1.9, maxObOdds: 2.18, evPercent: -2 } }))).toBe("OB 价不够");
+    expect(podFollowPlaceBlock(ticket({ quote: { status: "spike", quote: 2.4, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 30 } }))).toBe("EV 异常");
     expect(podFollowPlaceBlock(ticket({ stake: 0 }))).toBe("注码未设");
     expect(podFollowPlaceBlock(ticket())).toBeNull();
-  });
-
-  it("auto-picks the first unplaced ready ticket", () => {
-    const ready = ticket({ id: "a" });
-    const blocked = ticket({ id: "b", stake: 0 });
-    const later = ticket({ id: "c" });
-    expect(pickPodFollowAutoTicket([blocked, ready, later], [])?.id).toBe("a");
-    expect(pickPodFollowAutoTicket([ready, later], ["a"])?.id).toBe("c");
-    expect(pickPodFollowAutoTicket([ready], ["a"])).toBeNull();
   });
 });
 

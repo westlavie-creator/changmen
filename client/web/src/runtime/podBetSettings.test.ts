@@ -42,12 +42,16 @@ describe("podBetSettings", () => {
     expect(row.autoPlace).toBe(false);
     expect(row.prematchOnly).toBe(true);
     expect(row.spreads).toBe(false);
+    expect(row.maxObEdgePct).toBe(18);
+    expect(row.spreadObEdgePct).toBe(8);
+    expect(row.lineMatch).toBe("strict");
     expect(POD_FOLLOW_STAKE_PRESETS).toEqual([50, 100, 200, 500]);
     const emptyMarkets = parsePodBetSettings({ moneyline: false, totals: false, spreads: false });
     expect(emptyMarkets.moneyline).toBe(true);
     expect(emptyMarkets.totals).toBe(true);
     expect(emptyMarkets.spreads).toBe(false);
     expect(parsePodBetSettings({ autoPlace: true }).autoPlace).toBe(true);
+    expect(parsePodBetSettings({ lineMatch: "loose" }).lineMatch).toBe("loose");
   });
 
   it("classifies line kinds", () => {

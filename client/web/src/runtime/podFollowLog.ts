@@ -1,5 +1,5 @@
 /**
- * POD 跟单机会列表。过筛选就落本机，一直显示；记下有没有下单。不进 USERCONFIG / fo。
+ * POD 跟单机会列表。对上场和盘才落本机，一直显示；记下有没有下单。不进 USERCONFIG / fo。
  */
 import { formatPodAgo, formatPodPrice } from "@/runtime/podAlerts";
 import type { PodBetTicket } from "@/runtime/podBetTicket";
@@ -13,7 +13,7 @@ export type PodFollowLiveTicket = PodBetTicket & {
   fixtureMatch: Pick<PodFixtureMatch, "status"> & {
     hits?: Array<{ fixture?: { obMid?: string } }>;
   };
-  marketMatch: Pick<PodMarketMatch, "status" | "oid" | "marketCode" | "boardLine" | "boardSide">;
+  marketMatch: Pick<PodMarketMatch, "status" | "oid" | "marketCode" | "boardLine" | "boardSide" | "nvp">;
   obQuote: PodObQuoteCompare;
 };
 
@@ -62,10 +62,13 @@ function optNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function ticketHasPodFollowEv(ticket: Pick<PodFollowLiveTicket, "fixtureMatch" | "marketMatch" | "obQuote">): boolean {
+export function ticketHasPodFollowMatch(ticket: Pick<PodFollowLiveTicket, "fixtureMatch" | "marketMatch">): boolean {
   return ticket.fixtureMatch.status === "matched"
-    && ticket.marketMatch.status === "matched"
-    && ticket.obQuote.status === "ok";
+    && ticket.marketMatch.status === "matched";
+}
+
+export function ticketHasPodFollowEv(ticket: Pick<PodFollowLiveTicket, "fixtureMatch" | "marketMatch" | "obQuote">): boolean {
+  return ticketHasPodFollowMatch(ticket) && ticket.obQuote.status === "ok";
 }
 
 export function parsePodFollowLogRow(raw: unknown): PodFollowLogRow | null {
@@ -130,8 +133,8 @@ export function buildPodFollowLogRow(ticket: PodFollowLiveTicket, now = Date.now
     league: ticket.alert.league,
     sideLabel: ticket.sideLabel,
     marketLabel: ticket.marketLabel,
-    nvp: ticket.nvp,
-    minObOdds: ticket.minObOdds,
+    nvp: ticket.marketMatch.nvp > 1 ? ticket.marketMatch.nvp : ticket.nvp,
+    minObOdds: Number(ticket.obQuote.minObOdds) || ticket.minObOdds,
     obQuote: Number(ticket.obQuote.quote) || 0,
     dropPct: ticket.dropPct,
     stake: ticket.stake,
@@ -173,8 +176,11 @@ export function upsertPodFollowEv(row: PodFollowLogRow): { rows: PodFollowLogRow
     return { rows: readPodFollowLog(), added: false, wrote: false };
   const rows = readPodFollowLog();
   const idx = rows.findIndex(item => item.id === parsed.id);
-  if (idx < 0)
+  if (idx < 0) {
+    if (!parsed.obMid || !parsed.oid)
+      return { rows, added: false, wrote: false };
     return { rows: writeLog([parsed, ...rows]), added: true, wrote: true };
+  }
   const cur = rows[idx];
   if (cur.placed)
     return { rows, added: false, wrote: false };

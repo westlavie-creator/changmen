@@ -5,6 +5,7 @@ import {
   buildPodBetTicket,
   formatPodKickoff,
   formatPodStake,
+  formatPodEv,
   listPodFollowTickets,
   minObOddsForAlert,
 } from "@/runtime/podBetTicket";
@@ -44,6 +45,8 @@ describe("podBetTicket", () => {
     expect(ticket!.marketLabel).toContain("大小");
     expect(ticket!.minObOdds).toBe(minObOddsForAlert(alert(), s));
     expect(ticket!.minObOdds).toBe(1.924);
+    expect(ticket!.maxObOdds).toBe(2.183);
+    expect(formatPodEv(5.4)).toBe("EV +5.4%");
     expect(formatPodStake(ticket!.stake)).toBe("¥80");
     expect(formatPodKickoff(ticket!.starts, now)).toBe("40秒后开");
     expect(formatPodKickoff(now + 30_000, now)).toBe("30秒后开");
@@ -58,5 +61,16 @@ describe("podBetTicket", () => {
     expect(listPodFollowTickets([alert()], off, now)).toHaveLength(0);
     const aged = alert({ alertedAt: now - 120_000 });
     expect(listPodFollowTickets([aged], { ...on, maxAgeSec: 45 }, now)).toHaveLength(0);
+    const spreadOn = { ...on, spreads: true };
+    const spread = buildPodBetTicket(alert({
+      id: "s",
+      lineType: "spread",
+      market: "AH",
+      outcome: "home",
+      points: -0.5,
+    }), spreadOn, now);
+    expect(spread).not.toBeNull();
+    expect(spread!.minObOdds).toBe(1.998);
+    expect(buildPodBetTicket(alert(), spreadOn, now)!.minObOdds).toBe(1.924);
   });
 });

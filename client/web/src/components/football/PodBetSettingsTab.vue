@@ -8,6 +8,7 @@ import {
   writePodBetSettings,
   type PodBetSettings,
 } from "@/runtime/podBetSettings";
+import PodYaboSettings from "@/components/football/PodYaboSettings.vue";
 
 const form = reactive<PodBetSettings>(parsePodBetSettings(null));
 let ready = false;
@@ -53,8 +54,8 @@ onUnmounted(() => {
 <template>
   <div class="pod-bet-settings">
     <p class="pod-bet-settings__hint">
-      跟单门槛只存在本机，不写账号配置。过线的会出现在「POD 跟单」浮窗并一直留下，降赔列表本身不筛。
-      对 OB 时仍要同一场、同一条线，且 OB 报价至少达到「最低 OB」。
+      跟单门槛只存在本机，不写账号配置。过线且对上足球板的场和盘，才会出现在「POD 跟单」浮窗并一直留下，降赔列表本身不筛。
+      对 OB 时仍要同一场、默认同档。EV / 副盘 / 同场闸门在下面「AutoYabo 决策」。
       每条会标<strong>已下 / 未下</strong>；下单用侧栏 OB 账号里的体育 token。<strong>自动下注默认关</strong>，开了才真下。「时效」只挡自动下单，不把票从列表拿掉。
     </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
@@ -131,7 +132,9 @@ onUnmounted(() => {
           controls-position="right"
         />
         <span class="pod-bet-settings__unit">% 高于 NVP</span>
+        <span class="pod-bet-settings__note">大小 / 独赢</span>
       </el-form-item>
+      <PodYaboSettings :form="form" />
       <el-form-item label="赔率带">
         <el-input-number
           v-model="form.minOdds"

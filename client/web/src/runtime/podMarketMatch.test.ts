@@ -156,6 +156,9 @@ describe("podMarketMatch", () => {
     const hit = matchPodAlertToFtTotals(alert(), fixture());
     expect(formatPodObQuote(comparePodObQuote(hit, 1.924))).toBe("OB 1.95 够");
     expect(formatPodObQuote(comparePodObQuote(hit, 1.96))).toBe("OB 1.95 不够");
+    expect(formatPodObQuote(comparePodObQuote(hit, 1.9, { nvp: 1.85, maxObOdds: 2.183 }))).toBe("OB 1.95 够");
+    expect(comparePodObQuote(hit, 1.9, { nvp: 1.85 }).evPercent).toBeCloseTo(5.41, 1);
+    expect(formatPodObQuote(comparePodObQuote(hit, 1.9, { nvp: 1.85, maxObOdds: 1.92 }))).toBe("OB 1.95 异常");
     expect(formatPodObQuote(comparePodObQuote(emptyNone(), 1.9))).toBe("OB价 —");
     const pmOnly = matchPodAlertToFtTotals(alert(), fixture({
       markets: [{
@@ -311,6 +314,7 @@ describe("podMarketMatch", () => {
     expect(hit.quote).toBe(1.88);
     expect(hit.oid).toBe("oid-over");
     expect(hit.locked).toBe(false);
+    expect(hit.fromLive).toBe(true);
     expect(formatPodObQuote(comparePodObQuote(hit, 1.85))).toBe("OB 1.88 够");
     odds.set("oid-over", 0);
     const locked = matchPodAlertToFtTotals(alert(), board, live);
@@ -385,6 +389,7 @@ describe("podMarketMatch", () => {
     }), board, false, live);
     expect(ml.status).toBe("matched");
     expect(ml.quote).toBe(2.1);
+    expect(ml.fromLive).toBe(false);
   });
 });
 

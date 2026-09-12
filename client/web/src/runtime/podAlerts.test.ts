@@ -66,6 +66,21 @@ describe("podAlerts", () => {
     });
     expect(snap.alerts).toHaveLength(1);
     expect(snap.sourceConnected).toBe(true);
+    expect(snap.books).toEqual([]);
+    const withBook = parsePodAlertsSnapshot({
+      alerts: [],
+      books: [{ eventId: "99", period: 0, market: "totals", line: 2.5, nvpOver: 1.9, nvpUnder: 1.95 }],
+    });
+    expect(withBook.books).toEqual([{
+      eventId: "99",
+      period: 0,
+      market: "totals",
+      line: 2.5,
+      nvpHome: 0,
+      nvpAway: 0,
+      nvpOver: 1.9,
+      nvpUnder: 1.95,
+    }]);
     expect(parsePodDropAlert({})).toBeNull();
   });
 

@@ -3793,6 +3793,7 @@
   var SOURCE_STALE_MS = 8e3;
   var snapshot = {
     alerts: [],
+    books: [],
     capturedAt: 0,
     href: "",
     gridFound: false,
@@ -3806,6 +3807,7 @@
     return {
       type: "podAlertsSnapshot",
       alerts: snapshot.alerts,
+      books: snapshot.books,
       capturedAt: snapshot.capturedAt,
       href: snapshot.href,
       gridFound: snapshot.gridFound,
@@ -3853,11 +3855,12 @@
     if (row.type !== "podAlertsSnapshot")
       return false;
     const body = (
-      /** @type {{ alerts?: unknown; capturedAt?: unknown; href?: unknown; gridFound?: unknown }} */
+      /** @type {{ alerts?: unknown; books?: unknown; capturedAt?: unknown; href?: unknown; gridFound?: unknown }} */
       message
     );
     snapshot = {
       alerts: Array.isArray(body.alerts) ? body.alerts : [],
+      books: Array.isArray(body.books) ? body.books : snapshot.books,
       capturedAt: Number(body.capturedAt) || Date.now(),
       href: typeof body.href === "string" ? body.href : "",
       gridFound: body.gridFound === true,

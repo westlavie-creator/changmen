@@ -15,6 +15,7 @@ let retryTimer = 0;
 function emptySnapshot(): PodAlertsSnapshot {
   return {
     alerts: [],
+    books: [],
     capturedAt: 0,
     href: "",
     gridFound: false,

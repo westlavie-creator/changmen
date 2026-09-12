@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mapPodAlert, mapPodAlertRows } from "./pod-alerts-map.js";
+import { calculateNoVig, mapPodBookEvents } from "./pod-alerts-book.js";
 
 assert.equal(mapPodAlert(null), null);
 assert.equal(mapPodAlert({}), null);
@@ -76,3 +77,20 @@ assert.equal(batch.alerts[1].id, "b");
 assert.ok(batch.fingerprint.includes("a:2:1.9:2"));
 
 console.log("pod-alerts-map ok");
+
+assert.equal(calculateNoVig(1.91, 1.91), 2);
+assert.equal(calculateNoVig(1, 2), 0);
+const book = mapPodBookEvents([{
+  eventId: "1635745121",
+  lines: [
+    { period: 0, market: "totals", line: 2.5, over: 1.91, under: 1.91 },
+    { period: 0, market: "spreads", line: -0.5, home: 1.91, away: 1.91 },
+  ],
+}]);
+assert.equal(book.length, 2);
+assert.equal(book[0].nvpOver, 2);
+assert.equal(book[0].nvpUnder, 2);
+assert.equal(book[1].nvpHome, 2);
+assert.equal(book[1].nvpAway, 2);
+console.log("pod-alerts-book ok");
+

@@ -20,8 +20,23 @@ export type PodDropAlert = {
   ways: number | null;
 };
 
+export type PodBookMarket = "spreads" | "totals" | "moneyline";
+
+/** POD /events/{id} 摊平后的一档，NVP 已按该档双边算好。 */
+export type PodBookLine = {
+  eventId: string;
+  period: number;
+  market: PodBookMarket;
+  line: number;
+  nvpHome: number;
+  nvpAway: number;
+  nvpOver: number;
+  nvpUnder: number;
+};
+
 export type PodAlertsSnapshot = {
   alerts: PodDropAlert[];
+  books: PodBookLine[];
   capturedAt: number;
   href: string;
   gridFound: boolean;
@@ -78,6 +93,29 @@ export function parsePodDropAlert(raw: unknown): PodDropAlert | null {
   };
 }
 
+export function parsePodBookLine(raw: unknown): PodBookLine | null {
+  const row = asRecord(raw);
+  if (!row)
+    return null;
+  const eventId = str(row.eventId);
+  const market = str(row.market).toLowerCase();
+  if (!eventId || (market !== "spreads" && market !== "totals" && market !== "moneyline"))
+    return null;
+  const line = Number(row.line);
+  if (!Number.isFinite(line))
+    return null;
+  return {
+    eventId,
+    period: num(row.period),
+    market,
+    line,
+    nvpHome: num(row.nvpHome),
+    nvpAway: num(row.nvpAway),
+    nvpOver: num(row.nvpOver),
+    nvpUnder: num(row.nvpUnder),
+  };
+}
+
 export function parsePodAlertsSnapshot(raw: unknown): PodAlertsSnapshot {
   const row = asRecord(raw);
   const alerts: PodDropAlert[] = [];
@@ -88,8 +126,17 @@ export function parsePodAlertsSnapshot(raw: unknown): PodAlertsSnapshot {
         alerts.push(alert);
     }
   }
+  const books: PodBookLine[] = [];
+  if (Array.isArray(row?.books)) {
+    for (const item of row.books) {
+      const line = parsePodBookLine(item);
+      if (line)
+        books.push(line);
+    }
+  }
   return {
     alerts,
+    books,
     capturedAt: num(row?.capturedAt),
     href: str(row?.href),
     gridFound: row?.gridFound === true,

@@ -3,6 +3,7 @@
  * 用于筛「可以拿去对 OB 的警报」。自动下注默认关。
  */
 import type { PodDropAlert } from "@/runtime/podAlerts";
+import { parsePodYaboSettings, POD_YABO_SETTINGS_DEFAULTS } from "@/runtime/podYabo/settings";
 
 export const POD_BET_SETTINGS_KEY = "changmen:podBetSettings";
 export const POD_BET_SETTINGS_UPDATED = "changmen:pod-bet-settings-updated";
@@ -23,8 +24,12 @@ export type PodBetSettings = {
   spreads: boolean;
   /** 最小降幅 % */
   minDropPct: number;
-  /** 对 OB 时：实时/HTTP 报价须高于 NVP 的最小边 % */
+  /** 对 OB 时：实时/HTTP 报价须高于 NVP 的最小边 %。即 EV 下限。大小/独赢用这个。 */
   minObEdgePct: number;
+  /** AutoYabo：让球 EV 下限、EV 上限、副盘。见 podYabo/settings。 */
+  spreadObEdgePct: number;
+  maxObEdgePct: number;
+  lineMatch: "strict" | "loose";
   minOdds: number;
   maxOdds: number;
   /** 警报过期秒数 */
@@ -45,6 +50,7 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   spreads: false,
   minDropPct: 8,
   minObEdgePct: 4,
+  ...POD_YABO_SETTINGS_DEFAULTS,
   minOdds: 1.45,
   maxOdds: 3.2,
   maxAgeSec: 45,
@@ -78,6 +84,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const totals = bool(row.totals, d.totals);
   const spreads = bool(row.spreads, d.spreads);
   const anyMarket = moneyline || totals || spreads;
+  const yabo = parsePodYaboSettings(row);
   return {
     enabled: bool(row.enabled, d.enabled),
     prematchOnly: bool(row.prematchOnly, d.prematchOnly),
@@ -88,6 +95,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     spreads: anyMarket ? spreads : d.spreads,
     minDropPct: clampNum(row.minDropPct, d.minDropPct, 0, 80),
     minObEdgePct: clampNum(row.minObEdgePct, d.minObEdgePct, 0, 40),
+    ...yabo,
     minOdds: Math.min(lo, hi),
     maxOdds: Math.max(lo, hi),
     maxAgeSec: Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 5, 600)),

@@ -1,4 +1,5 @@
 import { mapPodAlertRows } from "./pod-alerts-map.js";
+import { mapPodBookEvents } from "./pod-alerts-book.js";
 
 const SOURCE = "cm-pod-alerts";
 const MAX_ALERTS = 400;
@@ -25,5 +26,6 @@ window.addEventListener("message", (event) => {
     gridFound: data.gridFound === true,
     capturedAt: Number(data.capturedAt) || Date.now(),
     alerts: mapped.alerts.slice(0, MAX_ALERTS),
+    books: mapPodBookEvents(data.books),
   });
 });

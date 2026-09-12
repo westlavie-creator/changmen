@@ -1,5 +1,6 @@
 /**
  * POD 跟单下单门控。猜测身份；自动默认关。不进电竞 mainBetLoop。
+ * AutoYabo 自动挑选在 podYabo/auto。
  */
 import type { PodObQuoteCompare, PodMarketMatch } from "@/runtime/podMarketMatch";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
@@ -15,7 +16,7 @@ export type PodFollowPlaceTicket = {
   sideLabel?: string;
   marketLabel?: string;
   auto?: boolean;
-  market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote">;
+  market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote" | "marketCode" | "boardSide" | "fromLive">;
   quote: PodObQuoteCompare;
 };
 
@@ -30,26 +31,15 @@ export function podFollowPlaceBlock(ticket: PodFollowPlaceTicket): string | null
     return "无 oid";
   if (ticket.market.locked)
     return "锁盘";
-  if (ticket.quote.status !== "ok")
+  if (ticket.quote.status !== "ok") {
+    if (ticket.quote.status === "spike")
+      return "EV 异常";
     return "OB 价不够";
+  }
   if (!(Number(ticket.stake) > 0))
     return "注码未设";
   if (!String(ticket.obMid || "").trim())
     return "无 OB mid";
-  return null;
-}
-
-export function pickPodFollowAutoTicket(
-  tickets: PodFollowPlaceTicket[],
-  placedIds: Iterable<string>,
-): PodFollowPlaceTicket | null {
-  const done = new Set(placedIds);
-  for (const ticket of tickets) {
-    if (done.has(ticket.id))
-      continue;
-    if (podFollowPlaceBlock(ticket) == null)
-      return ticket;
-  }
   return null;
 }
 

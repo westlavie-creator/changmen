@@ -5,13 +5,14 @@
 import { formatPodPrice, type PodDropAlert } from "@/runtime/podAlerts";
 import { podAlertLineKind } from "@/runtime/podBetSettings";
 import type { PodBoardFixture, PodBoardMarket } from "@/runtime/podFixtureMatch";
+import { podEvPercent } from "@/runtime/podYabo/ev";
 
 const LINE_EPS = 1e-6;
 const NON_GOAL = /corner|corners|角球|booking|bookings|cards?|yellow|red card|罚牌|黄牌|红牌|team\s*total|player|球队大小|队进球/i;
 
 export type PodMarketSide = "over" | "under" | "home" | "away" | "draw";
 export type PodMarketMatchStatus = "matched" | "none" | "skipped";
-export type PodObQuoteStatus = "ok" | "short" | "none" | "locked";
+export type PodObQuoteStatus = "ok" | "short" | "none" | "locked" | "spike";
 
 export type PodMarketMatch = {
   status: PodMarketMatchStatus;
@@ -26,12 +27,19 @@ export type PodMarketMatch = {
   swapped: boolean;
   locked: boolean;
   oid: string;
+  /** sportOddsStore 已有这条 oid（含锁 0）。自动下单要等这个，避免用列表 HTTP 快照抬 EV。 */
+  fromLive: boolean;
+  /** 副盘该档自己的 NVP；0 = 仍用警报 NVP。由 podYabo 写入。 */
+  nvp: number;
+  loose: boolean;
 };
 
 export type PodObQuoteCompare = {
   status: PodObQuoteStatus;
   quote: number;
   minObOdds: number;
+  maxObOdds: number;
+  evPercent: number;
 };
 
 /** 与 FootballOddsCell 同源：体育实时价 + 滚球线。禁止电竞 fo。 */
@@ -55,6 +63,9 @@ function emptyMatch(status: PodMarketMatchStatus = "none"): PodMarketMatch {
     swapped: false,
     locked: false,
     oid: "",
+    fromLive: false,
+    nvp: 0,
+    loose: false,
   };
 }
 
@@ -139,13 +150,13 @@ function liveQuote(
   oid: string,
   fallback: number,
   live?: PodLiveOddsReader,
-): { quote: number; locked: boolean } {
+): { quote: number; locked: boolean; fromLive: boolean } {
   if (!oid || !live || !liveKnown(live, oid))
-    return { quote: fallback, locked: false };
+    return { quote: fallback, locked: false, fromLive: false };
   const n = Number(live.get("OB", oid)) || 0;
   if (!(n > 0))
-    return { quote: 0, locked: true };
-  return { quote: n, locked: false };
+    return { quote: 0, locked: true, fromLive: true };
+  return { quote: n, locked: false, fromLive: true };
 }
 
 function rowLine(row: PodBoardMarket, live?: PodLiveOddsReader): number | null {
@@ -175,6 +186,7 @@ function finish(
   swapped: boolean,
   live?: PodLiveOddsReader,
   boardLine: number | null = line,
+  extra: { nvp?: number; loose?: boolean } = {},
 ): PodMarketMatch {
   const oid = oidForSide(hit, side, swapped);
   const resolved = liveQuote(oid, fallbackQuote(hit, side, swapped), live);
@@ -191,6 +203,9 @@ function finish(
     swapped,
     locked: resolved.locked,
     oid,
+    fromLive: resolved.fromLive,
+    nvp: Number(extra.nvp) > 1 ? Number(extra.nvp) : 0,
+    loose: extra.loose === true,
   };
 }
 
@@ -204,6 +219,21 @@ function pickRows(
   ));
   rows.sort((a, b) => Number(b.ob) - Number(a.ob) || a.id - b.id);
   return rows;
+}
+
+function noneWith(
+  side: PodMarketSide,
+  line: number,
+  code: string,
+  swapped = false,
+): PodMarketMatch {
+  return {
+    ...emptyMatch("none"),
+    side,
+    line,
+    marketCode: code,
+    swapped,
+  };
 }
 
 function matchTotals(
@@ -224,15 +254,9 @@ function matchTotals(
   const rows = pickRows(fixture, code, row => (
     !looksNonGoal(alert, row.name) && sameLine(rowLine(row, live), points)
   ));
-  if (!rows.length) {
-    return {
-      ...emptyMatch("none"),
-      side,
-      line: points,
-      marketCode: code,
-    };
-  }
-  return finish(rows[0], side, points, false, live);
+  if (rows.length)
+    return finish(rows[0], side, points, false, live);
+  return noneWith(side, points, code);
 }
 
 function matchMoneyline(
@@ -249,15 +273,8 @@ function matchMoneyline(
   if (!isEvenLine(alert.points))
     return emptyMatch("none");
   const rows = pickRows(fixture, code, row => isEvenLine(row.line));
-  if (!rows.length) {
-    return {
-      ...emptyMatch("none"),
-      side,
-      line: 0,
-      marketCode: code,
-      swapped,
-    };
-  }
+  if (!rows.length)
+    return noneWith(side, 0, code, swapped);
   return finish(rows[0], side, rows[0].line, swapped, live);
 }
 
@@ -291,16 +308,9 @@ function matchSpreads(
   const rows = pickRows(fixture, code, row => (
     !looksNonGoal(alert, row.name) && sameLine(rowLine(row, live), want)
   ));
-  if (!rows.length) {
-    return {
-      ...emptyMatch("none"),
-      side,
-      line: points,
-      marketCode: code,
-      swapped,
-    };
-  }
-  return finish(rows[0], side, points, swapped, live, want);
+  if (rows.length)
+    return finish(rows[0], side, points, swapped, live, want);
+  return noneWith(side, points, code, swapped);
 }
 
 /** 全场进球大小。让球/独赢/半场返回 skipped。 */
@@ -337,18 +347,27 @@ export function matchPodAlertToMarket(
   return emptyMatch("skipped");
 }
 
-export function comparePodObQuote(match: PodMarketMatch, minObOdds: number): PodObQuoteCompare {
+export function comparePodObQuote(
+  match: PodMarketMatch,
+  minObOdds: number,
+  opts: { maxObOdds?: number; nvp?: number } = {},
+): PodObQuoteCompare {
   const min = Number(minObOdds);
+  const max = Number(opts.maxObOdds) || 0;
   const quote = Number(match.quote) || 0;
+  const evPercent = podEvPercent(quote, Number(opts.nvp) || 0);
+  const base = { quote, minObOdds: min, maxObOdds: max, evPercent };
   if (match.status !== "matched" || !match.ob)
-    return { status: "none", quote: match.ob ? quote : 0, minObOdds: min };
+    return { status: "none", ...base, quote: match.ob ? quote : 0 };
   if (match.locked)
-    return { status: "locked", quote: 0, minObOdds: min };
+    return { status: "locked", ...base, quote: 0, evPercent: 0 };
   if (!(quote > 1) || !(min > 1))
-    return { status: "none", quote, minObOdds: min };
+    return { status: "none", ...base };
+  if (max > 1 && quote > max + LINE_EPS)
+    return { status: "spike", ...base };
   if (quote + LINE_EPS >= min)
-    return { status: "ok", quote, minObOdds: min };
-  return { status: "short", quote, minObOdds: min };
+    return { status: "ok", ...base };
+  return { status: "short", ...base };
 }
 
 function formatSignedLine(line: number | null): string {
@@ -385,6 +404,8 @@ export function formatPodMarketMatch(row: PodMarketMatch): string {
   if (row.swapped && (row.side === "home" || row.side === "away"))
     label += " · 主客相反";
   const bits = ["盘已对上", label];
+  if (row.loose)
+    bits.push("副盘");
   if (row.ob)
     bits.push("OB");
   return bits.join(" · ");
@@ -396,5 +417,7 @@ export function formatPodObQuote(row: PodObQuoteCompare): string {
   if (row.status === "none")
     return "OB价 —";
   const price = formatPodPrice(row.quote);
+  if (row.status === "spike")
+    return `OB ${price} 异常`;
   return row.status === "ok" ? `OB ${price} 够` : `OB ${price} 不够`;
 }

@@ -12,6 +12,11 @@ import {
   type PodBetSettings,
   type PodLineKind,
 } from "@/runtime/podBetSettings";
+import {
+  maxObOddsForAlert,
+  minObOddsForAlert,
+  podAlertNvp,
+} from "@/runtime/podYabo/ev";
 
 export type PodBetTicket = {
   id: string;
@@ -23,26 +28,22 @@ export type PodBetTicket = {
   pinCurrent: number;
   pinPrevious: number;
   minObOdds: number;
+  maxObOdds: number;
   stake: number;
   dropPct: number;
   starts: number;
 };
 
-export function podAlertNvp(alert: Pick<PodDropAlert, "nvp" | "current">): number {
-  if (alert.nvp > 1)
-    return alert.nvp;
-  return alert.current;
-}
-
-export function minObOddsForAlert(
-  alert: Pick<PodDropAlert, "nvp" | "current">,
-  settings: Pick<PodBetSettings, "minObEdgePct">,
-): number {
-  const nvp = podAlertNvp(alert);
-  if (!(nvp > 1))
-    return 0;
-  return Math.round(nvp * (1 + settings.minObEdgePct / 100) * 1000) / 1000;
-}
+export {
+  formatPodEv,
+  maxObOddsForAlert,
+  maxObOddsFromNvp,
+  minObOddsForAlert,
+  minObOddsFromNvp,
+  podAlertNvp,
+  podEvPercent,
+  podYaboEdgePct as podAlertEdgePct,
+} from "@/runtime/podYabo/ev";
 
 export function podAlertMarketLabel(alert: PodDropAlert): string {
   const kind = podAlertLineKind(alert);
@@ -74,6 +75,7 @@ export function buildPodBetTicket(
     pinCurrent: alert.current,
     pinPrevious: alert.previous,
     minObOdds: minObOddsForAlert(alert, settings),
+    maxObOdds: maxObOddsForAlert(alert, settings),
     stake: settings.stake,
     dropPct: alert.dropPct,
     starts: alert.starts,

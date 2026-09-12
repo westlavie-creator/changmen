@@ -7,6 +7,7 @@ import {
   formatPodFollowLogPlace,
   parsePodFollowLog,
   ticketHasPodFollowEv,
+  ticketHasPodFollowMatch,
   upsertPodFollowEv,
   markPodFollowLogPlaced,
 } from "@/runtime/podFollowLog";
@@ -47,8 +48,9 @@ function liveTicket(over: Record<string, unknown> = {}) {
       marketCode: "totals",
       boardLine: 2.5,
       boardSide: "over" as const,
+      nvp: 0,
     },
-    obQuote: { status: "ok" as const, quote: 1.95, minObOdds: 1.924 },
+    obQuote: { status: "ok" as const, quote: 1.95, minObOdds: 1.924, maxObOdds: 2.183, evPercent: 5.4 },
     ...over,
   };
 }
@@ -65,12 +67,16 @@ beforeEach(() => {
 });
 
 describe("podFollowLog", () => {
-  it("only treats matched OB quotes above the floor as EV", () => {
+  it("only treats matched fixtures and markets as follow tickets", () => {
+    expect(ticketHasPodFollowMatch(liveTicket())).toBe(true);
     expect(ticketHasPodFollowEv(liveTicket())).toBe(true);
+    expect(ticketHasPodFollowMatch(liveTicket({
+      obQuote: { status: "short", quote: 1.8, minObOdds: 1.924, maxObOdds: 2.183, evPercent: -2.7 },
+    }))).toBe(true);
     expect(ticketHasPodFollowEv(liveTicket({
-      obQuote: { status: "short", quote: 1.8, minObOdds: 1.924 },
+      obQuote: { status: "short", quote: 1.8, minObOdds: 1.924, maxObOdds: 2.183, evPercent: -2.7 },
     }))).toBe(false);
-    expect(ticketHasPodFollowEv(liveTicket({
+    expect(ticketHasPodFollowMatch(liveTicket({
       fixtureMatch: { status: "none", hits: [] },
     }))).toBe(false);
   });
@@ -87,13 +93,13 @@ describe("podFollowLog", () => {
     expect(first.rows).toHaveLength(1);
     const unmatched = buildPodFollowLogRow(liveTicket({
       fixtureMatch: { status: "none", hits: [] },
-      marketMatch: { status: "none" as const, oid: "", marketCode: "", boardLine: null, boardSide: null },
-      obQuote: { status: "none" as const, quote: 0, minObOdds: 1.924 },
+      marketMatch: { status: "none" as const, oid: "", marketCode: "", boardLine: null, boardSide: null, nvp: 0 },
+      obQuote: { status: "none" as const, quote: 0, minObOdds: 1.924, maxObOdds: 2.183, evPercent: 0 },
     }), 1_971_000);
     unmatched.id = "2";
     const saved = upsertPodFollowEv(unmatched);
-    expect(saved.added).toBe(true);
-    expect(saved.rows).toHaveLength(2);
+    expect(saved.added).toBe(false);
+    expect(saved.rows).toHaveLength(1);
     const again = upsertPodFollowEv({ ...row, obQuote: 2.2, at: 1_980_000 });
     expect(again.added).toBe(false);
     expect(again.wrote).toBe(true);
