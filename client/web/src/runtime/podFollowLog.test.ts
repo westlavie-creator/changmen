@@ -75,23 +75,37 @@ describe("podFollowLog", () => {
     }))).toBe(false);
   });
 
-  it("records an EV hit once and keeps the first snapshot", () => {
+  it("records a follow ticket and updates the quote until placed", () => {
     const row = buildPodFollowLogRow(liveTicket(), 1_970_000);
     expect(row.home).toBe("Arsenal");
     expect(row.obMid).toBe("5652292");
     expect(row.obQuote).toBe(1.95);
     expect(row.placed).toBe(false);
-    expect(formatPodFollowLogPlace(row)).toBe("只记录");
+    expect(formatPodFollowLogPlace(row)).toBe("未下");
     const first = upsertPodFollowEv(row);
     expect(first.added).toBe(true);
     expect(first.rows).toHaveLength(1);
+    const unmatched = buildPodFollowLogRow(liveTicket({
+      fixtureMatch: { status: "none", hits: [] },
+      marketMatch: { status: "none" as const, oid: "", marketCode: "", boardLine: null, boardSide: null },
+      obQuote: { status: "none" as const, quote: 0, minObOdds: 1.924 },
+    }), 1_971_000);
+    unmatched.id = "2";
+    const saved = upsertPodFollowEv(unmatched);
+    expect(saved.added).toBe(true);
+    expect(saved.rows).toHaveLength(2);
     const again = upsertPodFollowEv({ ...row, obQuote: 2.2, at: 1_980_000 });
     expect(again.added).toBe(false);
-    expect(again.rows[0].obQuote).toBe(1.95);
-    expect(again.rows[0].at).toBe(1_970_000);
+    expect(again.wrote).toBe(true);
+    expect(again.rows.find(item => item.id === "1")?.obQuote).toBe(2.2);
+    expect(again.rows.find(item => item.id === "1")?.at).toBe(1_970_000);
     const placed = markPodFollowLogPlaced("1", "已下 88");
-    expect(placed[0].placed).toBe(true);
-    expect(formatPodFollowLogPlace(placed[0])).toBe("已下 88");
+    const hit = placed.find(item => item.id === "1")!;
+    expect(hit.placed).toBe(true);
+    expect(formatPodFollowLogPlace(hit)).toMatch(/^已下/);
+    const frozen = upsertPodFollowEv({ ...row, obQuote: 3, at: 1_990_000 });
+    expect(frozen.wrote).toBe(false);
+    expect(frozen.rows.find(item => item.id === "1")?.obQuote).toBe(2.2);
     expect(parsePodFollowLog([{ id: "1" }, { id: "1", home: "dup" }])).toHaveLength(1);
   });
 });

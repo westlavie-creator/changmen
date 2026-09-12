@@ -10,6 +10,7 @@ import {
 import {
   POD_BET_SETTINGS_UPDATED,
   POD_FOLLOW_STAKE_PRESETS,
+  podAlertWithinFollowAge,
   readPodBetSettings,
   writePodBetSettings,
   type PodBetSettings,
@@ -49,7 +50,6 @@ import {
   formatPodFollowLogWhen,
   markPodFollowLogPlaced,
   readPodFollowLog,
-  ticketHasPodFollowEv,
   upsertPodFollowEv,
   type PodFollowLogRow,
 } from "@/runtime/podFollowLog";
@@ -94,7 +94,7 @@ const tickets = computed(() => {
       return fixture;
     return { ...fixture, homeEn: en.home, awayEn: en.away, gameEn: en.league };
   });
-  return listPodFollowTickets(alerts.value, betSettings.value, nowTick.value).map(ticket => {
+  return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
     const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
     const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
     const marketMatch = matchPodAlertToMarket(ticket.alert, hit?.fixture, hit?.swapped === true, live);
@@ -106,29 +106,30 @@ const tickets = computed(() => {
     };
   });
 });
-const matchedCount = computed(() => tickets.value.filter(t => t.fixtureMatch.status === "matched").length);
-const marketMatchedCount = computed(() => tickets.value.filter(t => t.marketMatch.status === "matched").length);
 const stakePresets = POD_FOLLOW_STAKE_PRESETS;
-const panelTab = ref<"live" | "log">("live");
 const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
+const liveById = computed(() => new Map(tickets.value.map(ticket => [ticket.id, ticket])));
+const displayRows = computed(() => logRows.value.map(log => ({
+  log,
+  live: liveById.value.get(log.id),
+})));
 
 function refreshLog() {
   logRows.value = readPodFollowLog();
 }
 
-function recordLiveEv() {
-  let added = false;
+function recordLiveTickets() {
+  let wrote = false;
   for (const ticket of tickets.value) {
-    if (!ticketHasPodFollowEv(ticket))
-      continue;
-    if (upsertPodFollowEv(buildPodFollowLogRow(ticket, nowTick.value)).added)
-      added = true;
+    const next = upsertPodFollowEv(buildPodFollowLogRow(ticket, nowTick.value));
+    if (next.added || next.wrote)
+      wrote = true;
   }
-  if (added)
+  if (wrote)
     refreshLog();
 }
 
-watch(tickets, recordLiveEv, { immediate: true });
+watch(tickets, recordLiveTickets, { immediate: true });
 
 function jumpToTicket(ticket: (typeof tickets.value)[number]) {
   if (ticket.fixtureMatch.status !== "matched")
@@ -160,18 +161,36 @@ const placingId = ref("");
 const placed = ref<Record<string, true>>({});
 const placeNote = ref<Record<string, string>>({});
 
+function isPlaced(id: string): boolean {
+  return !!placed.value[id] || logRows.value.some(row => row.id === id && row.placed);
+}
+
 function placeBlock(ticket: (typeof tickets.value)[number]): string | null {
-  if (placed.value[ticket.id])
+  if (isPlaced(ticket.id))
     return "已下过";
   return podFollowPlaceBlock(ticketPlacePayload(ticket));
 }
 
 function placeLabel(ticket: (typeof tickets.value)[number]): string {
-  if (placed.value[ticket.id])
+  if (isPlaced(ticket.id))
     return "已下";
   if (placingId.value === ticket.id)
     return "下单中";
   return "下单";
+}
+
+function placeStatus(row: { log: PodFollowLogRow }): string {
+  return formatPodFollowLogPlace({
+    placed: isPlaced(row.log.id),
+    placeNote: placeNote.value[row.log.id] || row.log.placeNote,
+  });
+}
+
+function onDisplayClick(row: { live?: (typeof tickets.value)[number]; log: PodFollowLogRow }) {
+  if (row.live)
+    jumpToTicket(row.live);
+  else
+    jumpToLog(row.log);
 }
 
 async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean) {
@@ -184,7 +203,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
       ElMessage.warning(block);
     return;
   }
-  if (placed.value[ticket.id]) {
+  if (isPlaced(ticket.id)) {
     if (!auto)
       ElMessage.info("已下过");
     return;
@@ -217,9 +236,16 @@ function onPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) {
 async function maybeAutoPlace() {
   if (!betSettings.value.autoPlace || placingId.value)
     return;
+  const ready = tickets.value.filter(ticket =>
+    podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value),
+  );
+  const skipped = [
+    ...Object.keys(placed.value),
+    ...logRows.value.filter(row => row.placed).map(row => row.id),
+  ];
   const next = pickPodFollowAutoTicket(
-    tickets.value.map(row => ticketPlacePayload(row)),
-    Object.keys(placed.value),
+    ready.map(row => ticketPlacePayload(row)),
+    skipped,
   );
   if (!next)
     return;
@@ -258,19 +284,13 @@ const statusText = computed(() => {
   if (!portReady.value)
     return "扩展未连通";
   if (snapshot.value.sourceConnected && snapshot.value.gridFound) {
-    const n = tickets.value.length;
-    const m = matchedCount.value;
-    const k = marketMatchedCount.value;
-    const hist = logRows.value.length;
-    if (n && m && k)
-      return betSettings.value.autoPlace
-        ? `${n} 当前 · ${hist} 记录 · 自动开`
-        : `${n} 当前 · ${hist} 记录`;
-    if (hist)
-      return n ? `${n} 当前 · ${hist} 记录` : `${hist} 条EV记录`;
-    if (n && m)
-      return `${n} 条可跟 · ${m} 已对上`;
-    return `${n} 条可跟`;
+    const n = displayRows.value.length;
+    const live = tickets.value.length;
+    if (!n)
+      return "等待机会";
+    return betSettings.value.autoPlace
+      ? `${n} 条 · ${live} 在线 · 自动开`
+      : `${n} 条 · ${live} 在线`;
   }
   if (snapshot.value.sourceConnected)
     return "等 Dropping Odds";
@@ -446,6 +466,8 @@ function jumpToLog(row: PodFollowLogRow) {
 
 function onClearLog() {
   logRows.value = clearPodFollowLog();
+  placed.value = {};
+  placeNote.value = {};
 }
 
 onMounted(() => {
@@ -530,126 +552,100 @@ onUnmounted(() => {
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
-        筛选已关。打开「足球设置 → POD跟单」后，对上 OB 且价够的会出现在历史。降赔浮窗不受影响。
+        筛选已关。打开「足球设置 → POD跟单」后，过线的会一直留在列表里，并标已下/未下。降赔浮窗不受影响。
       </p>
       <template v-else>
-        <div class="pod-follow-panel__tabs" @pointerdown.stop>
-          <button
-            type="button"
-            class="pod-follow-panel__tab"
-            :class="{ 'is-on': panelTab === 'live' }"
-            @click="panelTab = 'live'"
-          >
-            当前 {{ tickets.length }}
-          </button>
-          <button
-            type="button"
-            class="pod-follow-panel__tab"
-            :class="{ 'is-on': panelTab === 'log' }"
-            @click="panelTab = 'log'"
-          >
-            历史 {{ logRows.length }}
-          </button>
-          <button
-            v-if="panelTab === 'log' && logRows.length"
-            type="button"
-            class="pod-follow-panel__btn"
-            @click="onClearLog"
-          >
+        <div v-if="logRows.length" class="pod-follow-panel__toolbar" @pointerdown.stop>
+          <button type="button" class="pod-follow-panel__btn" @click="onClearLog">
             清空
           </button>
         </div>
-        <p v-if="panelTab === 'live' && !snapshot.sourceConnected" class="pod-follow-panel__hint">
-          等 POD 连通后，时效内过筛选的在「当前」；当时对上且价够才写入「历史」。自动开才下单。
+        <p v-if="!snapshot.sourceConnected && !displayRows.length" class="pod-follow-panel__hint">
+          等 POD 连通后过筛选的会一直显示。时效只挡自动下注。
         </p>
-        <p v-else-if="panelTab === 'live' && !tickets.length" class="pod-follow-panel__hint">
-          当前没有还在时效内的票。价够的 EV 在「历史」。
-        </p>
-        <div v-else-if="panelTab === 'live'" class="pod-follow-panel__list">
-        <article
-          v-for="ticket in tickets"
-          :key="ticket.id"
-          class="pod-follow-row"
-          :class="{
-            'is-fresh': isFreshPodAlert(ticket.alert.alertedAt, nowTick),
-            'is-jumpable': ticket.fixtureMatch.status === 'matched',
-          }"
-          :title="ticket.fixtureMatch.status === 'matched' ? '点到板上这场' : undefined"
-          @click="jumpToTicket(ticket)"
-        >
-          <div class="pod-follow-row__top">
-            <span class="pod-follow-row__side">买 {{ ticket.sideLabel }}</span>
-            <span class="pod-follow-row__drop">{{ formatPodDropPct(ticket.dropPct) }}</span>
-          </div>
-          <div class="pod-follow-row__match">{{ ticket.alert.home }} vs {{ ticket.alert.away }}</div>
-          <div class="pod-follow-row__fixture" :class="`is-${ticket.fixtureMatch.status}`">
-            {{ formatPodFixtureMatch(ticket.fixtureMatch) }}
-          </div>
-          <div
-            v-if="ticket.fixtureMatch.status === 'matched'"
-            class="pod-follow-row__market"
-            :class="`is-${ticket.marketMatch.status}`"
-          >
-            {{ formatPodMarketMatch(ticket.marketMatch) }}
-          </div>
-          <div
-            v-if="ticket.marketMatch.status === 'matched'"
-            class="pod-follow-row__quote"
-            :class="`is-${ticket.obQuote.status}`"
-          >
-            {{ formatPodObQuote(ticket.obQuote) }}
-          </div>
-          <div class="pod-follow-row__meta">
-            {{ ticket.alert.league }} · {{ ticket.marketLabel }}
-          </div>
-          <div class="pod-follow-row__bet">
-            <span>PIN {{ formatPodPrice(ticket.pinPrevious) }} → {{ formatPodPrice(ticket.pinCurrent) }}</span>
-            <span>NVP {{ formatPodPrice(ticket.nvp) }}</span>
-            <span class="pod-follow-row__ob">OB ≥ {{ formatPodPrice(ticket.minObOdds) }}</span>
-          </div>
-          <div class="pod-follow-row__plan">
-            <span>{{ formatPodStake(ticket.stake) }}</span>
-            <span>{{ formatPodKickoff(ticket.starts, nowTick) }}</span>
-            <button
-              type="button"
-              class="pod-follow-row__place"
-              :disabled="!!placeBlock(ticket) || placingId === ticket.id"
-              :title="placeBlock(ticket) || undefined"
-              @click="onPlaceClick($event, ticket)"
-            >
-              {{ placeLabel(ticket) }}
-            </button>
-          </div>
-          <div v-if="placeNote[ticket.id]" class="pod-follow-row__note">
-            {{ placeNote[ticket.id] }}
-          </div>
-        </article>
-        </div>
-        <p v-else-if="panelTab === 'log' && !logRows.length" class="pod-follow-panel__hint">
-          还没有 EV 记录。时效内对上盘且 OB 价够才会写入。过后价够不算。
+        <p v-else-if="!displayRows.length" class="pod-follow-panel__hint">
+          还没有跟单机会。过筛选就会留下，并标有没有下单。
         </p>
         <div v-else class="pod-follow-panel__list">
           <article
-            v-for="row in logRows"
-            :key="row.id"
+            v-for="row in displayRows"
+            :key="row.log.id"
             class="pod-follow-row"
-            :class="{ 'is-jumpable': !!row.obMid }"
-            :title="row.obMid ? '点到板上这场' : undefined"
-            @click="jumpToLog(row)"
+            :class="{
+              'is-fresh': row.live && isFreshPodAlert(row.live.alert.alertedAt, nowTick),
+              'is-jumpable': row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid,
+            }"
+            :title="(row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid) ? '点到板上这场' : undefined"
+            @click="onDisplayClick(row)"
           >
-            <div class="pod-follow-row__top">
-              <span class="pod-follow-row__side">买 {{ row.sideLabel }}</span>
-              <span class="pod-follow-row__drop">{{ formatPodDropPct(row.dropPct) }}</span>
+            <template v-if="row.live">
+              <div class="pod-follow-row__top">
+                <span class="pod-follow-row__side">买 {{ row.live.sideLabel }}</span>
+                <span class="pod-follow-row__drop">{{ formatPodDropPct(row.live.dropPct) }}</span>
+              </div>
+              <div class="pod-follow-row__match">{{ row.live.alert.home }} vs {{ row.live.alert.away }}</div>
+              <div class="pod-follow-row__fixture" :class="`is-${row.live.fixtureMatch.status}`">
+                {{ formatPodFixtureMatch(row.live.fixtureMatch) }}
+              </div>
+              <div
+                v-if="row.live.fixtureMatch.status === 'matched'"
+                class="pod-follow-row__market"
+                :class="`is-${row.live.marketMatch.status}`"
+              >
+                {{ formatPodMarketMatch(row.live.marketMatch) }}
+              </div>
+              <div
+                v-if="row.live.marketMatch.status === 'matched'"
+                class="pod-follow-row__quote"
+                :class="`is-${row.live.obQuote.status}`"
+              >
+                {{ formatPodObQuote(row.live.obQuote) }}
+              </div>
+              <div class="pod-follow-row__meta">
+                {{ row.live.alert.league }} · {{ row.live.marketLabel }}
+              </div>
+              <div class="pod-follow-row__bet">
+                <span>PIN {{ formatPodPrice(row.live.pinPrevious) }} → {{ formatPodPrice(row.live.pinCurrent) }}</span>
+                <span>NVP {{ formatPodPrice(row.live.nvp) }}</span>
+                <span class="pod-follow-row__ob">OB ≥ {{ formatPodPrice(row.live.minObOdds) }}</span>
+              </div>
+              <div class="pod-follow-row__plan">
+                <span>{{ formatPodStake(row.live.stake) }}</span>
+                <span>{{ formatPodKickoff(row.live.starts, nowTick) }}</span>
+                <span class="pod-follow-row__placed" :class="isPlaced(row.log.id) ? 'is-yes' : 'is-no'">
+                  {{ placeStatus(row) }}
+                </span>
+                <button
+                  type="button"
+                  class="pod-follow-row__place"
+                  :disabled="!!placeBlock(row.live) || placingId === row.live.id"
+                  :title="placeBlock(row.live) || undefined"
+                  @click="onPlaceClick($event, row.live)"
+                >
+                  {{ placeLabel(row.live) }}
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="pod-follow-row__top">
+                <span class="pod-follow-row__side">买 {{ row.log.sideLabel }}</span>
+                <span class="pod-follow-row__drop">{{ formatPodDropPct(row.log.dropPct) }}</span>
+              </div>
+              <div class="pod-follow-row__match">{{ row.log.home }} vs {{ row.log.away }}</div>
+              <div class="pod-follow-row__quote">{{ formatPodFollowLogQuote(row.log) }}</div>
+              <div class="pod-follow-row__meta">{{ row.log.league }} · {{ row.log.marketLabel }}</div>
+              <div class="pod-follow-row__bet">
+                <span>NVP {{ formatPodPrice(row.log.nvp) }}</span>
+                <span>{{ formatPodStake(row.log.stake) }}</span>
+                <span>{{ formatPodFollowLogWhen(row.log.at, nowTick) }}</span>
+                <span class="pod-follow-row__placed" :class="isPlaced(row.log.id) ? 'is-yes' : 'is-no'">
+                  {{ placeStatus(row) }}
+                </span>
+              </div>
+            </template>
+            <div v-if="placeNote[row.log.id] && !isPlaced(row.log.id)" class="pod-follow-row__note">
+              {{ placeNote[row.log.id] }}
             </div>
-            <div class="pod-follow-row__match">{{ row.home }} vs {{ row.away }}</div>
-            <div class="pod-follow-row__quote is-ok">{{ formatPodFollowLogQuote(row) }}</div>
-            <div class="pod-follow-row__meta">{{ row.league }} · {{ row.marketLabel }}</div>
-            <div class="pod-follow-row__bet">
-              <span>NVP {{ formatPodPrice(row.nvp) }}</span>
-              <span>{{ formatPodStake(row.stake) }}</span>
-              <span>{{ formatPodFollowLogWhen(row.at, nowTick) }}</span>
-            </div>
-            <div class="pod-follow-row__note">{{ formatPodFollowLogPlace(row) }}</div>
           </article>
         </div>
       </template>
@@ -801,28 +797,11 @@ onUnmounted(() => {
   overflow: auto;
 }
 
-.pod-follow-panel__tabs {
+.pod-follow-panel__toolbar {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
   flex: 0 0 auto;
-  padding: 6px 10px 0;
-}
-
-.pod-follow-panel__tab {
-  padding: 2px 8px;
-  border: 1px solid #ffffff2e;
-  border-radius: 999px;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.pod-follow-panel__tab.is-on,
-.pod-follow-panel__tab:hover {
-  color: #fde68a;
-  border-color: #f59e0b99;
+  padding: 4px 6px 0;
 }
 
 .pod-follow-panel__hint {
@@ -938,6 +917,18 @@ onUnmounted(() => {
 .pod-follow-row__ob {
   color: #fde68a;
   font-weight: 600;
+}
+
+.pod-follow-row__placed {
+  font-weight: 600;
+}
+
+.pod-follow-row__placed.is-yes {
+  color: #4ade80;
+}
+
+.pod-follow-row__placed.is-no {
+  color: #fbbf24;
 }
 
 .pod-follow-row__place {

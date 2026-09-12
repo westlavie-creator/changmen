@@ -192,7 +192,12 @@ describe("sport / esport UI isolation", () => {
     expect(followPanel).toMatch(/placePodFollowBet/);
     expect(followPanel).toMatch(/autoPlace/);
     expect(followPanel).toMatch(/upsertPodFollowEv/);
-    expect(followPanel).toMatch(/历史/);
+    expect(followPanel).toMatch(/未下/);
+    expect(followPanel).toMatch(/已下/);
+    expect(followPanel).toMatch(/formatPodFollowLogPlace/);
+    expect(followPanel).not.toMatch(/历史/);
+    expect(followPanel).not.toMatch(/panelTab/);
+    expect(followPanel).toMatch(/maxAgeSec: 0/);
     expect(followPanel).toMatch(/listPodFollowTickets/);
     expect(followPanel).not.toMatch(/listPodFollowLogTickets/);
     expect(followPanel).not.toMatch(/formatPodRemain|remainSec/);

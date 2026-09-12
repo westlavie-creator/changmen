@@ -1,5 +1,5 @@
 /**
- * POD 跟单 EV 记录。对上 OB 且价够才落本机，过期不删。不进 USERCONFIG / fo。
+ * POD 跟单机会列表。过筛选就落本机，一直显示；记下有没有下单。不进 USERCONFIG / fo。
  */
 import { formatPodAgo, formatPodPrice } from "@/runtime/podAlerts";
 import type { PodBetTicket } from "@/runtime/podBetTicket";
@@ -167,14 +167,29 @@ export function readPodFollowLog(): PodFollowLogRow[] {
   }
 }
 
-export function upsertPodFollowEv(row: PodFollowLogRow): { rows: PodFollowLogRow[]; added: boolean } {
+export function upsertPodFollowEv(row: PodFollowLogRow): { rows: PodFollowLogRow[]; added: boolean; wrote: boolean } {
   const parsed = parsePodFollowLogRow(row);
   if (!parsed)
-    return { rows: readPodFollowLog(), added: false };
+    return { rows: readPodFollowLog(), added: false, wrote: false };
   const rows = readPodFollowLog();
-  if (rows.some(item => item.id === parsed.id))
-    return { rows, added: false };
-  return { rows: writeLog([parsed, ...rows]), added: true };
+  const idx = rows.findIndex(item => item.id === parsed.id);
+  if (idx < 0)
+    return { rows: writeLog([parsed, ...rows]), added: true, wrote: true };
+  const cur = rows[idx];
+  if (cur.placed)
+    return { rows, added: false, wrote: false };
+  const next: PodFollowLogRow = {
+    ...parsed,
+    at: cur.at || parsed.at,
+    placed: false,
+    placedAt: cur.placedAt,
+    placeNote: cur.placeNote,
+  };
+  if (JSON.stringify(next) === JSON.stringify(cur))
+    return { rows, added: false, wrote: false };
+  const copy = rows.slice();
+  copy[idx] = next;
+  return { rows: writeLog(copy), added: false, wrote: true };
 }
 
 export function markPodFollowLogPlaced(id: string, note: string, now = Date.now()): PodFollowLogRow[] {
@@ -211,6 +226,6 @@ export function formatPodFollowLogQuote(row: Pick<PodFollowLogRow, "obQuote" | "
 
 export function formatPodFollowLogPlace(row: Pick<PodFollowLogRow, "placed" | "placeNote">): string {
   if (row.placed)
-    return row.placeNote || "已下";
-  return "只记录";
+    return row.placeNote ? `已下 · ${row.placeNote}` : "已下";
+  return "未下";
 }

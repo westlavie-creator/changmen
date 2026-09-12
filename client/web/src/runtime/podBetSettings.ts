@@ -126,7 +126,7 @@ function alertOdds(alert: PodDropAlert): number {
   return alert.current;
 }
 
-/** 时效只挡「当前」和自动；0 = 不限。历史扫描应传 0。 */
+/** 时效只挡自动下单；0 = 不限。列表扫描应传 0。 */
 export function podAlertWithinFollowAge(
   alert: Pick<PodDropAlert, "alertedAt">,
   maxAgeSec: number,
