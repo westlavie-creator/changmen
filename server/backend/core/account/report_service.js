@@ -47,7 +47,7 @@ function finalizeRow(row) {
   return row;
 }
 
-/** 月报：orders + money_logs；userId 可选（管理后台按用户筛选） */
+/** 月报：orders + money_logs；userId 单用户；userIds 团队/可见集（[] = 无成员，非全站） */
 export async function getMonthReport(month, userId, userIds) {
   const { month: m, year, mon, days } = monthBounds(month);
   const uid = userId ? String(userId).trim() : "";
@@ -57,7 +57,11 @@ export async function getMonthReport(month, userId, userIds) {
     byDate.set(key, emptyReportRow(key));
   }
 
-  const monthOrders = await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
+  // userIds: [] = 所选范围无成员，不得当成全站
+  const emptyScope = !uid && Array.isArray(userIds) && userIds.length === 0;
+  const monthOrders = emptyScope
+    ? []
+    : await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
   const merged = await mergePredictionBuySellSiblings(monthOrders || []);
   forEachBookedProfitGroup(dedupeOrdersByUserOrderId(merged), (group, homeKey) => {
     const row = byDate.get(homeKey);
@@ -74,7 +78,9 @@ export async function getMonthReport(month, userId, userIds) {
     }
   });
 
-  const moneyLogs = await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined, userIds);
+  const moneyLogs = emptyScope
+    ? []
+    : await sb.fetchMoneyLogsForMonthAggregate(m, uid || undefined, userIds);
   for (const log of moneyLogs || []) {
     const key = toDateKey(log.create_at);
     const row = byDate.get(key);

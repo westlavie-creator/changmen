@@ -113,6 +113,27 @@ describe("getMonthReport", () => {
     expect(report.total.Deposit).toBe(0);
   });
 
+  it("treats empty userIds as no members, not site-wide", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchOrdersForMonthAggregate).mockClear();
+    vi.mocked(sb.fetchMoneyLogsForMonthAggregate).mockClear();
+    const report = await getMonthReport("2026-06", undefined, []);
+    expect(report.total.Profit).toBe(0);
+    expect(report.total.OrderCount).toBe(0);
+    expect(report.total.Deposit).toBe(0);
+    expect(sb.fetchOrdersForMonthAggregate).not.toHaveBeenCalled();
+    expect(sb.fetchMoneyLogsForMonthAggregate).not.toHaveBeenCalled();
+  });
+
+  it("passes userIds through when aggregating a team", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchOrdersForMonthAggregate).mockResolvedValueOnce([]);
+    vi.mocked(sb.fetchMoneyLogsForMonthAggregate).mockResolvedValueOnce([]);
+    await getMonthReport("2026-06", undefined, ["u1", "u2"]);
+    expect(sb.fetchOrdersForMonthAggregate).toHaveBeenCalledWith("2026-06", undefined, ["u1", "u2"]);
+    expect(sb.fetchMoneyLogsForMonthAggregate).toHaveBeenCalledWith("2026-06", undefined, ["u1", "u2"]);
+  });
+
   it("books cross-day arb on the Link bind day", async () => {
     const sb = await import("@changmen/db");
     const yday = Date.parse("2026-06-13T23:46:00");

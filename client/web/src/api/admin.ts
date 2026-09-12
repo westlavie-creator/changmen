@@ -346,12 +346,14 @@ export async function renameAdminUser(userId: string, userName: string) {
   );
 }
 
-export async function getAdminMonthReport(month?: string, userId?: string) {
+export async function getAdminMonthReport(month?: string, userId?: string, teamId?: string) {
   const body: Record<string, string> = {};
   if (month)
     body.month = month;
   if (userId)
     body.userId = userId;
+  if (teamId)
+    body.teamId = teamId;
   return unwrap(await post<MonthReportPayload>("Client_AdminMonthReport", body));
 }
 

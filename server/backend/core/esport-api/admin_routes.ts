@@ -4,7 +4,7 @@
  */
 import * as adminService from "../account/admin_service.js";
 import { getMonthReport } from "../account/report_service.js";
-import { getVisibleUserIds } from "../auth/role_filter.js";
+import { getAdminMonthReportScope } from "../auth/role_filter.js";
 
 interface ApiSuccess<T = unknown> {
   success: 1;
@@ -190,20 +190,17 @@ export async function handleAdminAction(
       }
     }
     case "Client_AdminMonthReport": {
-      const userId = body.userId ?? body.user_id;
-      const visibleIds = await getVisibleUserIds(ctx.user);
-      if (visibleIds) {
-        if (userId && !visibleIds.has(String(userId))) {
-          return fail("无权查看该用户的报表");
-        }
-      }
-      const uidStr = userId != null && String(userId).trim() ? String(userId) : undefined;
-      const teamUserIds = !uidStr && visibleIds ? [...visibleIds] : undefined;
+      const scoped = await getAdminMonthReportScope(ctx.user, {
+        userId: body.userId ?? body.user_id,
+        teamId: body.teamId ?? body.team_id,
+      }) as { error?: string; userId?: string; userIds?: string[] };
+      if (scoped.error)
+        return fail(scoped.error);
       return ok(
         await getMonthReport(
           body.month ? String(body.month) : undefined,
-          uidStr,
-          teamUserIds,
+          scoped.userId,
+          scoped.userIds,
         ),
       );
     }
