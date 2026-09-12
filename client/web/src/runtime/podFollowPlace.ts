@@ -3,12 +3,18 @@
  */
 import type { PodObQuoteCompare, PodMarketMatch } from "@/runtime/podMarketMatch";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
+import { appendPodSportOrder } from "@/runtime/podSportOrders";
 
 export type PodFollowPlaceTicket = {
   id: string;
   stake: number;
   fixtureStatus: string;
   obMid: string;
+  home?: string;
+  away?: string;
+  sideLabel?: string;
+  marketLabel?: string;
+  auto?: boolean;
   market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote">;
   quote: PodObQuoteCompare;
 };
@@ -60,5 +66,19 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   });
   if (!placed.ok)
     return { ok: false, message: placed.message };
+  appendPodSportOrder({
+    id: ticket.id,
+    orderId: placed.orderId,
+    at: Date.now(),
+    home: String(ticket.home || "").trim(),
+    away: String(ticket.away || "").trim(),
+    sideLabel: String(ticket.sideLabel || "").trim(),
+    marketLabel: String(ticket.marketLabel || "").trim(),
+    odds: Number(ticket.quote.quote) || Number(ticket.market.quote) || 0,
+    stake: Number(ticket.stake),
+    oid: String(ticket.market.oid || "").trim(),
+    obMid: String(ticket.obMid || "").trim(),
+    auto: ticket.auto === true,
+  });
   return { ok: true, message: placed.orderId ? `已下 ${placed.orderId}` : "已下单" };
 }

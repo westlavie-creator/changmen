@@ -84,6 +84,7 @@ function onSportTab(v: string | number | boolean | undefined) {
   <el-container class="common-layout home-view sports-workspace">
     <el-aside width="300px">
       <AppSidebar
+        workspace="sports"
         :show-football-settings="sport === 'football'"
         @logout="logout"
         @open-football-settings="openFootballSettings"

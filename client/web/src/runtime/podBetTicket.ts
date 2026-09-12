@@ -24,7 +24,6 @@ export type PodBetTicket = {
   pinPrevious: number;
   minObOdds: number;
   stake: number;
-  remainSec: number;
   dropPct: number;
   starts: number;
 };
@@ -65,9 +64,6 @@ export function buildPodBetTicket(
 ): PodBetTicket | null {
   if (podAlertBetFailReason(alert, settings, now) != null)
     return null;
-  const ageSec = Number.isFinite(alert.alertedAt)
-    ? Math.max(0, Math.floor((now - alert.alertedAt) / 1000))
-    : 0;
   return {
     id: alert.id,
     alert,
@@ -79,7 +75,6 @@ export function buildPodBetTicket(
     pinPrevious: alert.previous,
     minObOdds: minObOddsForAlert(alert, settings),
     stake: settings.stake,
-    remainSec: Math.max(0, settings.maxAgeSec - ageSec),
     dropPct: alert.dropPct,
     starts: alert.starts,
   };
@@ -99,12 +94,6 @@ export function listPodFollowTickets(
       out.push(ticket);
   }
   return out;
-}
-
-export function formatPodRemain(sec: number): string {
-  if (!(sec > 0))
-    return "已过期";
-  return `剩 ${sec}秒`;
 }
 
 export function formatPodStake(stake: number): string {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
 import {
@@ -16,7 +16,6 @@ import {
 } from "@/runtime/podBetSettings";
 import {
   formatPodKickoff,
-  formatPodRemain,
   formatPodStake,
   listPodFollowTickets,
 } from "@/runtime/podBetTicket";
@@ -42,6 +41,18 @@ import {
   podFollowPlaceBlock,
   type PodFollowPlaceTicket,
 } from "@/runtime/podFollowPlace";
+import {
+  buildPodFollowLogRow,
+  clearPodFollowLog,
+  formatPodFollowLogPlace,
+  formatPodFollowLogQuote,
+  formatPodFollowLogWhen,
+  markPodFollowLogPlaced,
+  readPodFollowLog,
+  ticketHasPodFollowEv,
+  upsertPodFollowEv,
+  type PodFollowLogRow,
+} from "@/runtime/podFollowLog";
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
@@ -98,6 +109,26 @@ const tickets = computed(() => {
 const matchedCount = computed(() => tickets.value.filter(t => t.fixtureMatch.status === "matched").length);
 const marketMatchedCount = computed(() => tickets.value.filter(t => t.marketMatch.status === "matched").length);
 const stakePresets = POD_FOLLOW_STAKE_PRESETS;
+const panelTab = ref<"live" | "log">("live");
+const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
+
+function refreshLog() {
+  logRows.value = readPodFollowLog();
+}
+
+function recordLiveEv() {
+  let added = false;
+  for (const ticket of tickets.value) {
+    if (!ticketHasPodFollowEv(ticket))
+      continue;
+    if (upsertPodFollowEv(buildPodFollowLogRow(ticket, nowTick.value)).added)
+      added = true;
+  }
+  if (added)
+    refreshLog();
+}
+
+watch(tickets, recordLiveEv, { immediate: true });
 
 function jumpToTicket(ticket: (typeof tickets.value)[number]) {
   if (ticket.fixtureMatch.status !== "matched")
@@ -108,13 +139,18 @@ function jumpToTicket(ticket: (typeof tickets.value)[number]) {
   requestPodBoardFocus(buildPodBoardFocus(hit.fixture, ticket.marketMatch));
 }
 
-function ticketPlacePayload(ticket: (typeof tickets.value)[number]): PodFollowPlaceTicket {
+function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false): PodFollowPlaceTicket {
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
     stake: ticket.stake,
     fixtureStatus: ticket.fixtureMatch.status,
     obMid: String(hit?.fixture.obMid || "").trim(),
+    home: ticket.alert.home,
+    away: ticket.alert.away,
+    sideLabel: ticket.sideLabel,
+    marketLabel: ticket.marketLabel,
+    auto,
     market: ticket.marketMatch,
     quote: ticket.obQuote,
   };
@@ -141,7 +177,7 @@ function placeLabel(ticket: (typeof tickets.value)[number]): string {
 async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean) {
   if (placingId.value)
     return;
-  const payload = ticketPlacePayload(ticket);
+  const payload = ticketPlacePayload(ticket, auto);
   const block = podFollowPlaceBlock(payload);
   if (block) {
     if (!auto)
@@ -159,6 +195,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
     placeNote.value = { ...placeNote.value, [ticket.id]: result.message };
     if (result.ok) {
       placed.value = { ...placed.value, [ticket.id]: true };
+      logRows.value = markPodFollowLogPlaced(ticket.id, result.message);
       ElMessage.success(result.message);
       return;
     }
@@ -181,7 +218,7 @@ async function maybeAutoPlace() {
   if (!betSettings.value.autoPlace || placingId.value)
     return;
   const next = pickPodFollowAutoTicket(
-    tickets.value.map(ticketPlacePayload),
+    tickets.value.map(row => ticketPlacePayload(row)),
     Object.keys(placed.value),
   );
   if (!next)
@@ -224,10 +261,13 @@ const statusText = computed(() => {
     const n = tickets.value.length;
     const m = matchedCount.value;
     const k = marketMatchedCount.value;
+    const hist = logRows.value.length;
     if (n && m && k)
       return betSettings.value.autoPlace
-        ? `${n} 条可跟 · ${m} 已对上 · ${k} 盘已对 · 自动开`
-        : `${n} 条可跟 · ${m} 已对上 · ${k} 盘已对`;
+        ? `${n} 当前 · ${hist} 记录 · 自动开`
+        : `${n} 当前 · ${hist} 记录`;
+    if (hist)
+      return n ? `${n} 当前 · ${hist} 记录` : `${hist} 条EV记录`;
     if (n && m)
       return `${n} 条可跟 · ${m} 已对上`;
     return `${n} 条可跟`;
@@ -240,8 +280,8 @@ const statusText = computed(() => {
 const statusKind = computed(() => {
   if (!betSettings.value.enabled)
     return "idle";
-  if (tickets.value.length)
-    return "ok";
+    if (tickets.value.length || logRows.value.length)
+      return "ok";
   if (portReady.value)
     return "wait";
   return "idle";
@@ -391,11 +431,30 @@ function openPodSettings() {
   openFootballSettings("pod");
 }
 
+function jumpToLog(row: PodFollowLogRow) {
+  if (!row.obMid)
+    return;
+  requestPodBoardFocus({
+    matchId: 0,
+    obMid: row.obMid,
+    marketCode: row.marketCode,
+    side: row.boardSide,
+    line: row.boardLine,
+    oid: row.oid,
+  });
+}
+
+function onClearLog() {
+  logRows.value = clearPodFollowLog();
+}
+
 onMounted(() => {
   left.value = Math.max(MARGIN, window.innerWidth - DEFAULT_W - 440);
   loadPos();
   store.start();
   reloadBetSettings();
+  refreshLog();
+  placed.value = Object.fromEntries(logRows.value.filter(row => row.placed).map(row => [row.id, true as const]));
   window.addEventListener("resize", onWindowResize);
   window.addEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
   nowTimer = setInterval(() => {
@@ -471,15 +530,42 @@ onUnmounted(() => {
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
-        筛选已关。打开「足球设置 → POD跟单」后，过线的警报会出现在这里。降赔浮窗不受影响。
+        筛选已关。打开「足球设置 → POD跟单」后，对上 OB 且价够的会出现在历史。降赔浮窗不受影响。
       </p>
-      <p v-else-if="!snapshot.sourceConnected" class="pod-follow-panel__hint">
-        等 POD 降赔连通后，这里只列符合门槛的票。点票跳到板上；点「下单」走熊猫体育。自动下注默认关。
-      </p>
-      <p v-else-if="!tickets.length" class="pod-follow-panel__hint">
-        当前没有过线的票。门槛在「足球设置 → POD跟单」。
-      </p>
-      <div v-else class="pod-follow-panel__list">
+      <template v-else>
+        <div class="pod-follow-panel__tabs" @pointerdown.stop>
+          <button
+            type="button"
+            class="pod-follow-panel__tab"
+            :class="{ 'is-on': panelTab === 'live' }"
+            @click="panelTab = 'live'"
+          >
+            当前 {{ tickets.length }}
+          </button>
+          <button
+            type="button"
+            class="pod-follow-panel__tab"
+            :class="{ 'is-on': panelTab === 'log' }"
+            @click="panelTab = 'log'"
+          >
+            历史 {{ logRows.length }}
+          </button>
+          <button
+            v-if="panelTab === 'log' && logRows.length"
+            type="button"
+            class="pod-follow-panel__btn"
+            @click="onClearLog"
+          >
+            清空
+          </button>
+        </div>
+        <p v-if="panelTab === 'live' && !snapshot.sourceConnected" class="pod-follow-panel__hint">
+          等 POD 连通后，时效内过筛选的在「当前」；当时对上且价够才写入「历史」。自动开才下单。
+        </p>
+        <p v-else-if="panelTab === 'live' && !tickets.length" class="pod-follow-panel__hint">
+          当前没有还在时效内的票。价够的 EV 在「历史」。
+        </p>
+        <div v-else-if="panelTab === 'live'" class="pod-follow-panel__list">
         <article
           v-for="ticket in tickets"
           :key="ticket.id"
@@ -524,7 +610,6 @@ onUnmounted(() => {
           <div class="pod-follow-row__plan">
             <span>{{ formatPodStake(ticket.stake) }}</span>
             <span>{{ formatPodKickoff(ticket.starts, nowTick) }}</span>
-            <span>{{ formatPodRemain(ticket.remainSec) }}</span>
             <button
               type="button"
               class="pod-follow-row__place"
@@ -539,7 +624,35 @@ onUnmounted(() => {
             {{ placeNote[ticket.id] }}
           </div>
         </article>
-      </div>
+        </div>
+        <p v-else-if="panelTab === 'log' && !logRows.length" class="pod-follow-panel__hint">
+          还没有 EV 记录。时效内对上盘且 OB 价够才会写入。过后价够不算。
+        </p>
+        <div v-else class="pod-follow-panel__list">
+          <article
+            v-for="row in logRows"
+            :key="row.id"
+            class="pod-follow-row"
+            :class="{ 'is-jumpable': !!row.obMid }"
+            :title="row.obMid ? '点到板上这场' : undefined"
+            @click="jumpToLog(row)"
+          >
+            <div class="pod-follow-row__top">
+              <span class="pod-follow-row__side">买 {{ row.sideLabel }}</span>
+              <span class="pod-follow-row__drop">{{ formatPodDropPct(row.dropPct) }}</span>
+            </div>
+            <div class="pod-follow-row__match">{{ row.home }} vs {{ row.away }}</div>
+            <div class="pod-follow-row__quote is-ok">{{ formatPodFollowLogQuote(row) }}</div>
+            <div class="pod-follow-row__meta">{{ row.league }} · {{ row.marketLabel }}</div>
+            <div class="pod-follow-row__bet">
+              <span>NVP {{ formatPodPrice(row.nvp) }}</span>
+              <span>{{ formatPodStake(row.stake) }}</span>
+              <span>{{ formatPodFollowLogWhen(row.at, nowTick) }}</span>
+            </div>
+            <div class="pod-follow-row__note">{{ formatPodFollowLogPlace(row) }}</div>
+          </article>
+        </div>
+      </template>
     </div>
     <button
       v-show="!collapsed"
@@ -686,6 +799,30 @@ onUnmounted(() => {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+
+.pod-follow-panel__tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 6px 10px 0;
+}
+
+.pod-follow-panel__tab {
+  padding: 2px 8px;
+  border: 1px solid #ffffff2e;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pod-follow-panel__tab.is-on,
+.pod-follow-panel__tab:hover {
+  color: #fde68a;
+  border-color: #f59e0b99;
 }
 
 .pod-follow-panel__hint {

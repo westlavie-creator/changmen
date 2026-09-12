@@ -1,39 +1,15 @@
 /**
- * 体育页 `/sports` 专用会话：账号/订单壳 + 余额刷新。
- * 禁止启动电竞 mainBetLoop / 采集 / fo（双标签时由 `/` 页负责电竞 runtime）。
+ * 体育页 `/sports` 专用会话：只共用投注账号（加载 + 余额刷新）。
+ * 禁止电竞 mainBetLoop / 采集 / fo / Client_GetOrderList（双标签时由 `/` 页负责电竞 runtime）。
  */
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 
-async function applyPmTransportRoutingOnLogin(): Promise<void> {
-  try {
-    const { applyPmAutoTransportOnLogin } = await import("@changmen/venue-adapter/polymarket");
-    await applyPmAutoTransportOnLogin();
-  }
-  catch (err) {
-    if (import.meta.env?.DEV)
-      console.warn("[sportsSession] PM transport skipped", err);
-  }
-}
-
-async function applyPfTransportRoutingOnLogin(): Promise<void> {
-  try {
-    const { applyPfAutoTransportOnLogin } = await import("@changmen/venue-adapter/predictfun");
-    await applyPfAutoTransportOnLogin();
-  }
-  catch (err) {
-    if (import.meta.env?.DEV)
-      console.warn("[sportsSession] PF transport skipped", err);
-  }
-}
-
-/** SportsWorkspace onMounted：共享壳，不启电竞环 */
+/** SportsWorkspace onMounted：账号壳，不启电竞环 */
 export async function mountSportsSession(): Promise<void> {
   const user = useUserStore();
   if (!user.userId)
     await user.fetchUserInfo();
-  await applyPmTransportRoutingOnLogin();
-  await applyPfTransportRoutingOnLogin();
   const accountStore = useAccountStore();
   await accountStore.loadAccounts(false);
   try {
@@ -65,9 +41,7 @@ export async function mountSportsSession(): Promise<void> {
       await accountStore.loadTagPlatforms();
       accountStore.startBalanceRefreshLoop();
       const balanceRefresh = await import("@/stores/account/balanceRefresh");
-      await balanceRefresh.refreshAllFromVenues(accountStore, true);
-      const { useOrderStore } = await import("@/stores/orderStore");
-      await useOrderStore().fetchOrders();
+      await balanceRefresh.refreshAllFromVenues(accountStore, true, { includeEsportOrderList: false });
     }
     catch (err) {
       if (import.meta.env?.DEV)

@@ -44,7 +44,6 @@ describe("podBetTicket", () => {
     expect(ticket!.marketLabel).toContain("大小");
     expect(ticket!.minObOdds).toBe(minObOddsForAlert(alert(), s));
     expect(ticket!.minObOdds).toBe(1.924);
-    expect(ticket!.remainSec).toBe(35);
     expect(formatPodStake(ticket!.stake)).toBe("¥80");
     expect(formatPodKickoff(ticket!.starts, now)).toBe("40秒后开");
     expect(formatPodKickoff(now + 30_000, now)).toBe("30秒后开");
@@ -57,5 +56,7 @@ describe("podBetTicket", () => {
     const off = { ...on, enabled: false };
     expect(listPodFollowTickets([alert(), alert({ id: "2", lineType: "spread", market: "AH", outcome: "home" })], on, now)).toHaveLength(1);
     expect(listPodFollowTickets([alert()], off, now)).toHaveLength(0);
+    const aged = alert({ alertedAt: now - 120_000 });
+    expect(listPodFollowTickets([aged], { ...on, maxAgeSec: 45 }, now)).toHaveLength(0);
   });
 });

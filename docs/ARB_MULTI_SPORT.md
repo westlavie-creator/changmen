@@ -18,7 +18,7 @@
 | 新 API（`Client_GetFootballMatchs` 等）、`sport_*` 表/缓存、足球 Tab / store | 改 `Client_GetMatchs` / `buildMatchList` / `client_matches` |
 | 体育专用 fetch / merge / catalog 的 `football` 段 | 改 matcher、`server/match/identity`、电竞 collector、`mainBetLoop` |
 | 可选 DTO 字段（电竞不填则行为不变） | 为足球改电竞 `getBetName` / 下单门控 / fo 语义 |
-| 共用 UI 壳（`MatchCard`/`BetRow`）且电竞分支保持原样 | 体育写 `oddsStore`(fo)；体育套利塞进电竞主循环 |
+| 共用投注账号（AccountBar / accountStore / 余额刷新） | 体育读电竞订单 / fo / `mainBetLoop` / 电竞参数配置 / 电竞当日盈亏 |
 | `sportOddsStore` + hub 只读体育板 | 「顺手」改 `manualBet` / 账号过滤等电竞路径 |
 
 **判定标准**：电竞列表、赔率 fo、套利主循环、手动/自动下单，在切到足球 Tab、拉足球盘口、合并让球/大小之后，行为须与改前一致。有疑义时 **优先保电竞、砍足球方案**。
@@ -36,7 +36,7 @@
 | 独立站 | 已弃用（`devtools/archive/baseball-web-b1`）；不再新建 `{sport}/web` 平行站 |
 | 不做（本期） | matcher profile、跨站匹配、按运动套利管线 |
 | **Tab ≠ 套利** | Tab 只换列表板；`matchStore.startMainLoop` 与 sportTab **无关**，切到棒球/足球时电竞套利仍可跑 |
-| **检测分开** | 棒球/足球套利检测环（未来）**禁止**塞进 `mainBetLoop`；账号 / 场馆 / 数学 / UI 壳继续共用 |
+| **检测分开** | 棒球/足球套利检测环（未来）**禁止**塞进 `mainBetLoop`；**只共用投注账号**，订单 / 采集 / 参数配置 / 侧栏统计不共用 |
 | **列表轮询** | 棒球/足球板 `v-if` 挂载才 `startPolling`，卸装 `stopPolling`；勿多 Tab 齐刷 |
 
 ### N1 列表硬化（已做）
@@ -60,7 +60,7 @@
 **PF 供给**：非胜负盘（`SPORTS_PROPS` / More Markets）目前几乎只有 **中超 CSL**（外加少量世界杯）；MLS 等常仅有胜负——属上游供给，非漏采。  
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗 / 联赛解析）小修。  
 **禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
-**例外（POD 跟单 · 2026-09-12）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 + `processBetPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。这不是 N4 套利。  
+**例外（POD 跟单 · 2026-09-12）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 + `processBetPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。已下单进足球页独立侧栏（本机 `podSportOrders`），**禁止** `Client_SaveOrder` / 电竞 `orderStore`。体育页 `sportsSession` **不**拉 `Client_GetOrderList`。这不是 N4 套利。  
 （电竞 house 已 `PredictFun.bet: true`；与 sport 下注无关。）  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
 **N4 套利盘口（产品硬规则 · 未实现）**：

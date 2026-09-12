@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useTransition } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { delay as esportDelay } from "@/api/apiDelay";
 import { countPrimaryOrderRows } from "@/shared/orderLink";
+import { POD_SPORT_ORDERS_UPDATED, summarizePodSportOrders } from "@/runtime/podSportOrders";
 import { useAccountStore } from "@/stores/accountStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
@@ -18,8 +19,9 @@ const props = withDefaults(
     embeddedUserName?: string;
     /** 体育工作区足球页：齿轮旁的足球专用设置 */
     showFootballSettings?: boolean;
+    workspace?: "esport" | "sports";
   }>(),
-  { embedded: false, showFootballSettings: false },
+  { embedded: false, showFootballSettings: false, workspace: "esport" },
 );
 
 const emit = defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
@@ -32,16 +34,29 @@ const { displayName, config } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
 const { dayProfit } = storeToRefs(orderStore);
 
+const isSports = computed(() => props.workspace === "sports");
+const sportTick = ref(0);
+const sportStats = computed(() => {
+  void sportTick.value;
+  return summarizePodSportOrders();
+});
+
 const totalOrders = computed(() => {
+  if (isSports.value)
+    return sportStats.value.count;
   let n = 0;
   for (const rows of orderStore.orders.values())
     n += countPrimaryOrderRows(rows);
   return n;
 });
 
+const reportMid = computed(() =>
+  isSports.value ? sportStats.value.todayStake : dayProfit.value,
+);
+
 /** 对齐 A8 UserInfoView `TT`：统计数字过渡 */
 const animBalance = useTransition(totalBalance, { duration: 1000 });
-const animToday = useTransition(dayProfit, { duration: 1000 });
+const animToday = useTransition(reportMid, { duration: 1000 });
 const animOrders = useTransition(totalOrders, { duration: 1000 });
 
 const configOpen = ref(false);
@@ -52,7 +67,7 @@ const shownDelay = computed(() => esportDelay.value ?? 0);
 
 /** [A8 可证实] UserInfoView 延迟按钮 type（success / warning / danger） */
 const delayButtonType = computed(() => {
-  if (props.embedded)
+  if (props.embedded || isSports.value)
     return undefined;
   if (!esportDelay.value)
     return undefined;
@@ -66,6 +81,19 @@ const delayButtonType = computed(() => {
 const shownUserName = computed(() =>
   props.embedded ? props.embeddedUserName || displayName.value : displayName.value,
 );
+
+function onSportOrdersUpdated() {
+  sportTick.value += 1;
+}
+
+onMounted(() => {
+  if (!isSports.value)
+    return;
+  window.addEventListener(POD_SPORT_ORDERS_UPDATED, onSportOrdersUpdated);
+});
+onUnmounted(() => {
+  window.removeEventListener(POD_SPORT_ORDERS_UPDATED, onSportOrdersUpdated);
+});
 </script>
 
 <template>
@@ -82,6 +110,7 @@ const shownUserName = computed(() =>
             {{ shownUserName }}
           </el-button>
           <el-button
+            v-if="!isSports"
             size="small"
             :type="delayButtonType"
             :disabled="embedded"
@@ -120,6 +149,7 @@ const shownUserName = computed(() =>
             @click="emit('openFootballSettings')"
           />
           <el-button
+            v-if="!isSports"
             size="small"
             class="am-icon-gear"
             :type="config.betting ? 'primary' : 'danger'"
@@ -158,7 +188,7 @@ const shownUserName = computed(() =>
         </el-col>
         <el-col :span="8">
           <el-statistic
-            title="当日盈亏"
+            :title="isSports ? '已下金额' : '当日盈亏'"
             :value="Math.round(animToday)"
             :precision="0"
             class="report-number"
@@ -175,7 +205,7 @@ const shownUserName = computed(() =>
       </el-row>
     </div>
 
-    <UserConfigDialog :open="configOpen" :readonly="embedded" @close="configOpen = false" />
+    <UserConfigDialog v-if="!isSports" :open="configOpen" :readonly="embedded" @close="configOpen = false" />
     <UserDiagDialog v-if="!embedded" :open="userDiagOpen" @close="userDiagOpen = false" />
   </section>
 </template>

@@ -183,6 +183,7 @@ export async function refreshAccountBalance(
 export async function refreshAllFromVenues(
   store: AccountStoreContext,
   continuous = false,
+  opts?: { includeEsportOrderList?: boolean },
 ): Promise<void> {
   const lines: string[] = [];
   const startedAt = Date.now();
@@ -210,13 +211,15 @@ export async function refreshAllFromVenues(
   }
   finally {
     let step = Date.now();
-    try {
-      const { useOrderStore } = await import("@/stores/orderStore");
-      await useOrderStore().fetchOrders();
-      lines.push(`加载本地订单：${Date.now() - step}ms`);
-    }
-    catch {
-      lines.push(`加载本地订单：${Date.now() - step}ms（失败）`);
+    if (opts?.includeEsportOrderList !== false) {
+      try {
+        const { useOrderStore } = await import("@/stores/orderStore");
+        await useOrderStore().fetchOrders();
+        lines.push(`加载本地订单：${Date.now() - step}ms`);
+      }
+      catch {
+        lines.push(`加载本地订单：${Date.now() - step}ms（失败）`);
+      }
     }
 
     step = Date.now();
@@ -234,7 +237,7 @@ export async function refreshAllFromVenues(
       await syncModifyHeaderRules(store.accounts);
       await a8Wait(a8RefreshDelayMs());
       if (store.balanceRefreshRunning) {
-        await refreshAllFromVenues(store, true);
+        await refreshAllFromVenues(store, true, opts);
       }
     }
   }

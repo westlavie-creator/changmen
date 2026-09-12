@@ -78,7 +78,7 @@ WS  wss://{api origin}/yewuws2/push?requestId={token}
 
 请求头要点：`requestId=token`、`lang=zh`、`request-code={"panda-bss-source":"2"}`、`checkId=pc-…`。
 
-**[changmen 扩展]** POD 跟单对场另开 `tryPlay?lang=en`（英文 token + 头 `lang=en`）按板上 `mid` 拉同一场的英文 `mhn`/`man`，只进内存缓存。足球板标题仍用中文会话；不写 `changmen.sportOb.session`，不订 `yewuws2`。中文 token 配 `lang=en` 打赔率会 `0401038`。对上身后，跟单再对 **全场/半场 进球大小、均势独赢、让球**。让球：POD `points` 是被降一侧的盘，OB `Line` 是主队 `hv`，主客相反时翻号。欧洲让球 1X2、角球/罚牌不算。对上盘后用板上 oid 读 `sportOddsStore` / `obSportLiveStore`（与格子同源：有缓存用 live 含锁盘 0，否则 HTTP），再和票上最低 OB 比「够/不够/锁盘」。点跟单票会清筛选、强制挂懒加载盘口，滚到那场/那格并高亮；命中仍标猜测。下单走熊猫体育 `yewu13` 预检 + `processBetPB`，**自动默认关**。禁止写电竞 `fo`、禁止电竞 `/game/bet` / `placeValueBetOrder` / `mainBetLoop`。
+**[changmen 扩展]** POD 跟单对场另开 `tryPlay?lang=en`（英文 token + 头 `lang=en`）按板上 `mid` 拉同一场的英文 `mhn`/`man`，只进内存缓存。足球板标题仍用中文会话；不写 `changmen.sportOb.session`，不订 `yewuws2`。中文 token 配 `lang=en` 打赔率会 `0401038`。对上身后，跟单再对 **全场/半场 进球大小、均势独赢、让球**。让球：POD `points` 是被降一侧的盘，OB `Line` 是主队 `hv`，主客相反时翻号。欧洲让球 1X2、角球/罚牌不算。对上盘后用板上 oid 读 `sportOddsStore` / `obSportLiveStore`（与格子同源：有缓存用 live 含锁盘 0，否则 HTTP），再和票上最低 OB 比「够/不够/锁盘」。点跟单票会清筛选、强制挂懒加载盘口，滚到那场/那格并高亮；命中仍标猜测。时效内对上且 OB 价够才写入本机「历史」；已写入的过期不删。「当前」和自动下单也按时效。下单走熊猫体育 `yewu13` 预检 + `processBetPB`，**自动默认关**。禁止写电竞 `fo`、禁止电竞 `/game/bet` / `placeValueBetOrder` / `mainBetLoop`。
 
 **[changmen 实现]** 足球页 Axios 直连 `yewu11`（`obSportFootballFetch.ts`，与电竞 OB `directGet` 同路），不经 Chrome 扩展、不经 VPS、不写电竞 `client_matches`。2026-09-08 预检：`Access-Control-Allow-Origin: *`，允许头含 `requestId` / `lang` / `checkId` / `request-code`。足球 store 默认 **30s** 再拉快照。
 

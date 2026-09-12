@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import UserInfoPanel from "@/components/user/UserInfoPanel.vue";
 import OrderView from "@/components/order/OrderView.vue";
+import FootballOrderView from "@/components/football/FootballOrderView.vue";
 
 withDefaults(
   defineProps<{
@@ -8,8 +9,9 @@ withDefaults(
     embeddedUserId?: string;
     embeddedUserName?: string;
     showFootballSettings?: boolean;
+    workspace?: "esport" | "sports";
   }>(),
-  { embedded: false, showFootballSettings: false },
+  { embedded: false, showFootballSettings: false, workspace: "esport" },
 );
 
 defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
@@ -21,10 +23,12 @@ defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
       :embedded="embedded"
       :embedded-user-name="embeddedUserName"
       :show-football-settings="showFootballSettings"
+      :workspace="workspace"
       @logout="$emit('logout')"
       @view-orders="$emit('viewOrders')"
       @open-football-settings="$emit('openFootballSettings')"
     />
-    <OrderView :embedded="embedded" :embedded-user-id="embeddedUserId" />
+    <FootballOrderView v-if="workspace === 'sports'" />
+    <OrderView v-else :embedded="embedded" :embedded-user-id="embeddedUserId" />
   </div>
 </template>

@@ -54,6 +54,7 @@ const props = withDefaults(defineProps<{
   workspace: "esport",
 });
 
+const SPORTS_VENUE_WS_IDS = new Set(["pm-sport-market", "ob-sport", "cm-hub"]);
 const { statuses } = useDirectRealtimeStatus();
 
 const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
@@ -108,6 +109,9 @@ const venueWsSecondRow = computed(() =>
       return false;
     return true;
   }),
+);
+const venueWsSports = computed(() =>
+  venueWsStatuses.value.filter(entry => SPORTS_VENUE_WS_IDS.has(entry.id)),
 );
 
 onMounted(() => {
@@ -368,8 +372,22 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
 <template>
   <div
     class="direct-realtime-bar"
-    aria-label="直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM（体育页为 PM-S / OB-S）"
+    :aria-label="workspace === 'sports'
+      ? '体育推送状态 PM-S OB-S HUB'
+      : '直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM'"
   >
+    <div v-if="workspace === 'sports'" class="direct-realtime-row">
+      <span
+        v-for="entry in venueWsSports"
+        :key="entry.id"
+        class="direct-realtime-item"
+        :title="venueWsTooltip(entry)"
+      >
+        <span class="direct-realtime-dot" :class="venueWsDotClass(entry)" />
+        {{ entry.label }}
+      </span>
+    </div>
+    <template v-else>
     <div class="direct-realtime-row direct-realtime-row--primary">
       <span
         v-if="venueWsPb"
@@ -421,6 +439,7 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
         {{ entry.label }}
       </span>
     </div>
+    </template>
   </div>
 </template>
 

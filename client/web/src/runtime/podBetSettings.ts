@@ -126,6 +126,19 @@ function alertOdds(alert: PodDropAlert): number {
   return alert.current;
 }
 
+/** 时效只挡「当前」和自动；0 = 不限。历史扫描应传 0。 */
+export function podAlertWithinFollowAge(
+  alert: Pick<PodDropAlert, "alertedAt">,
+  maxAgeSec: number,
+  now = Date.now(),
+): boolean {
+  if (!(maxAgeSec > 0))
+    return true;
+  if (!Number.isFinite(alert.alertedAt))
+    return false;
+  return now - alert.alertedAt <= maxAgeSec * 1000;
+}
+
 export type PodBetGateFail =
   | "disabled"
   | "age"
@@ -143,9 +156,7 @@ export function podAlertBetFailReason(
 ): PodBetGateFail | null {
   if (!settings.enabled)
     return "disabled";
-  if (settings.maxAgeSec > 0 && !Number.isFinite(alert.alertedAt))
-    return "age";
-  if (settings.maxAgeSec > 0 && now - alert.alertedAt > settings.maxAgeSec * 1000)
+  if (!podAlertWithinFollowAge(alert, settings.maxAgeSec, now))
     return "age";
   if (settings.footballOnly && !isFootballAlert(alert))
     return "sport";
