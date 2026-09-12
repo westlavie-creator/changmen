@@ -3,6 +3,7 @@ import {
   aggregateBuilderFeesByDay,
   currentMonthKey,
   daysInMonth,
+  formatBarValue,
   localDayKey,
   maxSeriesValue,
   parseMonthKey,
@@ -110,5 +111,22 @@ describe("chart scale helpers", () => {
     expect(maxSeriesValue(rows, ["builderFeeUsdc"])).toBeCloseTo(0.5);
     expect(maxSeriesValue(rows, ["feeUsdc", "builderFeeUsdc"])).toBeCloseTo(3);
     expect(maxSeriesValue(rows, ["volumeUsdc"])).toBe(100);
+  });
+});
+
+describe("formatBarValue", () => {
+  it("hides zeros and keeps small fees readable", () => {
+    expect(formatBarValue(0)).toBe("");
+    expect(formatBarValue(0.004)).toBe("0.004");
+    expect(formatBarValue(0.12)).toBe("0.12");
+    expect(formatBarValue(1.5)).toBe("1.5");
+    expect(formatBarValue(12.3)).toBe("12.3");
+    expect(formatBarValue(120)).toBe("120");
+    expect(formatBarValue(1250)).toBe("1.3k");
+  });
+
+  it("formats counts as integers", () => {
+    expect(formatBarValue(3, "count")).toBe("3");
+    expect(formatBarValue(0, "count")).toBe("");
   });
 });

@@ -5,6 +5,7 @@ import { todayKey } from "@/shared/dateKey";
 import {
   aggregateBuilderFeesByDay,
   currentMonthKey,
+  formatBarValue,
   maxSeriesValue,
   shiftMonthKey,
   sumDayFeeBuckets,
@@ -70,6 +71,14 @@ const hasAnyTrade = computed(() => totals.value.tradeCount > 0);
 
 function fmtUsdc(n: number): string {
   return toFixed(n, 2);
+}
+
+function barKind(): "money" | "count" {
+  return metricMode.value === "count" ? "count" : "money";
+}
+
+function barLabel(value: number): string {
+  return formatBarValue(value, barKind());
 }
 
 function barHeight(value: number): string {
@@ -176,16 +185,30 @@ function nextMonth() {
         v-for="row in buckets"
         :key="row.key"
         class="fee-chart__day"
-        :class="{ 'is-today': row.key === today, 'is-empty': row.tradeCount === 0 }"
+        :class="{
+          'is-today': row.key === today,
+          'is-empty': row.tradeCount === 0,
+          'is-grouped': series.length > 1,
+        }"
         :title="dayTitle(row)"
       >
         <div class="fee-chart__bars">
           <div
             v-for="s in series"
             :key="s.key"
-            class="fee-chart__bar"
-            :style="{ height: barHeight(row[s.key]), background: s.color }"
-          />
+            class="fee-chart__col"
+          >
+            <span
+              class="fee-chart__cap"
+              :style="{ color: s.color }"
+            >{{ row.tradeCount ? (barLabel(row[s.key]) || "·") : " " }}</span>
+            <div class="fee-chart__track">
+              <div
+                class="fee-chart__bar"
+                :style="{ height: barHeight(row[s.key]), background: s.color }"
+              />
+            </div>
+          </div>
         </div>
         <div class="fee-chart__label">
           {{ row.day }}
@@ -275,32 +298,66 @@ function nextMonth() {
 .fee-chart {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  gap: 4px;
   overflow-x: auto;
   padding: 4px 0 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .fee-chart__day {
-  flex: 1 0 22px;
-  min-width: 22px;
+  flex: 1 0 32px;
+  min-width: 32px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
+.fee-chart__day.is-grouped {
+  flex: 1 0 48px;
+  min-width: 48px;
+}
+
 .fee-chart__bars {
   width: 100%;
-  height: 140px;
+  height: 168px;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 3px;
+}
+
+.fee-chart__col {
+  flex: 1;
+  max-width: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.fee-chart__cap {
+  flex: 0 0 16px;
+  max-width: 100%;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.fee-chart__track {
+  flex: 1;
+  width: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 2px;
 }
 
 .fee-chart__bar {
-  flex: 1;
-  max-width: 10px;
+  width: 80%;
+  max-width: 16px;
   border-radius: 2px 2px 0 0;
   min-height: 0;
   transition: height 0.3s;
@@ -308,7 +365,7 @@ function nextMonth() {
 
 .fee-chart__label {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--el-text-color-secondary);
   font-variant-numeric: tabular-nums;
 }
@@ -318,7 +375,9 @@ function nextMonth() {
   color: var(--el-color-primary);
 }
 
-.fee-chart__day.is-empty .fee-chart__label {
-  opacity: 0.55;
+.fee-chart__day.is-empty .fee-chart__label,
+.fee-chart__day.is-empty .fee-chart__cap {
+  opacity: 0.4;
+  font-weight: 400;
 }
 </style>

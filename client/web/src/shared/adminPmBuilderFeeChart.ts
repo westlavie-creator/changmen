@@ -134,3 +134,22 @@ export function maxSeriesValue(buckets: DayFeeBucket[], keys: DayFeeSeriesKey[])
   }
   return max;
 }
+
+/** 柱顶/柱下短标签：0 不展示；小费用保留小数，大量级收成 k */
+export function formatBarValue(n: number, kind: "money" | "count" = "money"): string {
+  if (!Number.isFinite(n) || n <= 0)
+    return "";
+  if (kind === "count")
+    return String(Math.round(n));
+  if (n >= 1000)
+    return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
+  if (n >= 100)
+    return n.toFixed(0);
+  if (n >= 10)
+    return n.toFixed(1).replace(/\.0$/, "");
+  if (n >= 1)
+    return n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  if (n >= 0.01)
+    return n.toFixed(2);
+  return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
