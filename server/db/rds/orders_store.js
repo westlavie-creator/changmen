@@ -50,30 +50,36 @@ function sqlIsPredictionSell(alias = "") {
 }
 
 /**
- * 已卖光且已有赛果的 PM 买单。
- * applyPolymarketSettlement 卖光后只写 pmMatchResult，status 常仍为 None。
+ * 已卖光的预测市场买单（盈亏已在卖出路径，status 常仍为 None）。
+ * 对齐 hasOpenPolymarketPosition：closed/settled 或剩余份额≤尘量。
  */
-function sqlPmSoldOutWithMatchResult(alias = "") {
+function sqlPredictionBuyClosed(alias = "") {
   const p = alias ? `${alias}.` : "";
   const shares = `COALESCE(NULLIF(${p}raw->>'pmShares', ''), '0')::float8`;
   const attr = `COALESCE(NULLIF(${p}raw->>'pmAttributedSellShares', ''), '0')::float8`;
   return `(
-    ${p}provider = 'Polymarket'
-    AND LOWER(COALESCE(${p}raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
-    AND LOWER(COALESCE(${p}raw->>'pmMatchResult', '')) IN ('win', 'lose')
-    AND (
-      LOWER(COALESCE(${p}raw->>'pmSellState', '')) IN ('closed', 'settled')
-      OR (${attr} > 0 AND (${shares} - ${attr}) <= ${PM_SHARE_DUST})
+    (
+      ${p}provider = 'Polymarket'
+      AND LOWER(COALESCE(${p}raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
+      AND (
+        LOWER(COALESCE(${p}raw->>'pmSellState', '')) IN ('closed', 'settled')
+        OR (${attr} > 0 AND (${shares} - ${attr}) <= ${PM_SHARE_DUST})
+      )
+    )
+    OR (
+      ${p}provider = 'PredictFun'
+      AND LOWER(COALESCE(${p}raw->>'pfSide', '')) IS DISTINCT FROM 'sell'
+      AND LOWER(COALESCE(${p}raw->>'pfSellState', '')) IN ('closed', 'settled')
     )
   )`;
 }
 
-/** 数据分析 Pending：未结算仓位，不含卖单、不含已卖光且已有赛果的 PM 买单 */
+/** 数据分析 Pending：未平仓未结，不含卖单、不含已卖光买单 */
 function sqlAnalyticsPending(alias = "") {
   const p = alias ? `${alias}.` : "";
   return `(${p}status = 'None'
     AND NOT ${sqlIsPredictionSell(alias)}
-    AND NOT ${sqlPmSoldOutWithMatchResult(alias)})`;
+    AND NOT ${sqlPredictionBuyClosed(alias)})`;
 }
 
 const UPSERT_ORDERS_BATCH_SQL = `
@@ -1320,7 +1326,7 @@ function sqlArbUniqCtes(userFilterOnO = "") {
       )`;
 }
 
-/** 数据分析：按平台聚合盈亏统计（剔 PM/PF 卖单；Pending 不含已卖光且已有赛果的 PM 买单） */
+/** 数据分析：按平台聚合盈亏统计（剔 PM/PF 卖单；Pending 不含已卖光买单） */
 export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool)

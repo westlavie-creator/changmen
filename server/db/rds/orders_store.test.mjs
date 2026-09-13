@@ -523,8 +523,8 @@ describe("fetchPlatformAnalytics SQL", () => {
     const [sql] = queryMock.mock.calls[0];
     expect(sql).toMatch(/pmSide/);
     expect(sql).toMatch(/pfSide/);
-    expect(sql).toMatch(/pmMatchResult/);
     expect(sql).toMatch(/pmSellState/);
+    expect(sql).toMatch(/pfSellState/);
     expect(sql).toMatch(/pmAttributedSellShares/);
     expect(sql).toMatch(/AND NOT \(/);
     expect(sql).not.toMatch(/COUNT\(\*\) FILTER \(WHERE status = 'None'\)/);
@@ -564,7 +564,7 @@ describe("fetchArbPairAnalytics SQL", () => {
     expect(sql).toMatch(/hedge_ok/);
     expect(sql).toMatch(/settled_pairs/);
     expect(sql).toMatch(/pending_a/);
-    expect(sql).toMatch(/pmMatchResult/);
+    expect(sql).toMatch(/pmSellState/);
     expect(sql).toMatch(/FROM uniq a/);
   });
 });
@@ -644,7 +644,7 @@ describe("fetchValueBetOrderAnalytics SQL", () => {
       expect(sql).toMatch(/AVG\(odds\)/);
       expect(sql).toMatch(/total_profit/);
       expect(sql).toMatch(/pmSide/);
-      expect(sql).toMatch(/pmMatchResult/);
+      expect(sql).toMatch(/pmSellState/);
       expect(sql).not.toMatch(/COUNT\(\*\) FILTER \(WHERE status = 'None'\)/);
     }
     expect(providerSql).toMatch(/GROUP BY provider/);
