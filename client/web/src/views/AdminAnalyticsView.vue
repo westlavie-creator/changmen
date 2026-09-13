@@ -199,6 +199,9 @@ onMounted(async () => {
       <h3 class="analytics-section__title">
         平台盈亏
       </h3>
+      <p class="analytics-section__hint">
+        PM/PF 卖单不计入订单数。已卖光且已有赛果的 PM 买单不计 Pending（盈亏已在卖出路径）。
+      </p>
       <el-table :data="platforms" stripe size="small" :show-header="true">
         <el-table-column prop="provider" label="平台" width="90" />
         <el-table-column prop="total_orders" label="订单数" width="80" align="right" />

@@ -510,6 +510,37 @@ describe("rebindOrderLink", () => {
   });
 });
 
+describe("fetchPlatformAnalytics SQL", () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+  });
+
+  it("excludes prediction sells from order counts and pending", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchPlatformAnalytics } = await import("./orders_store.js");
+    await fetchPlatformAnalytics(1, 2, null);
+    expect(queryMock).toHaveBeenCalledOnce();
+    const [sql] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/pmSide/);
+    expect(sql).toMatch(/pfSide/);
+    expect(sql).toMatch(/pmMatchResult/);
+    expect(sql).toMatch(/pmSellState/);
+    expect(sql).toMatch(/pmAttributedSellShares/);
+    expect(sql).toMatch(/AND NOT \(/);
+    expect(sql).not.toMatch(/COUNT\(\*\) FILTER \(WHERE status = 'None'\)/);
+  });
+
+  it("scopes user filter when userIds present", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    const { fetchPlatformAnalytics } = await import("./orders_store.js");
+    const userIds = ["u1"];
+    await fetchPlatformAnalytics(1, 2, userIds);
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/user_id = ANY\(\$4::uuid\[\]\)/);
+    expect(params[3]).toEqual(userIds);
+  });
+});
+
 describe("fetchArbPairAnalytics SQL", () => {
   beforeEach(() => {
     queryMock.mockReset();
@@ -532,6 +563,8 @@ describe("fetchArbPairAnalytics SQL", () => {
     expect(sql).toMatch(/profit_reject/);
     expect(sql).toMatch(/hedge_ok/);
     expect(sql).toMatch(/settled_pairs/);
+    expect(sql).toMatch(/pending_a/);
+    expect(sql).toMatch(/pmMatchResult/);
     expect(sql).toMatch(/FROM uniq a/);
   });
 });
@@ -611,6 +644,8 @@ describe("fetchValueBetOrderAnalytics SQL", () => {
       expect(sql).toMatch(/AVG\(odds\)/);
       expect(sql).toMatch(/total_profit/);
       expect(sql).toMatch(/pmSide/);
+      expect(sql).toMatch(/pmMatchResult/);
+      expect(sql).not.toMatch(/COUNT\(\*\) FILTER \(WHERE status = 'None'\)/);
     }
     expect(providerSql).toMatch(/GROUP BY provider/);
     expect(bucketSql).toMatch(/odds_bucket/);

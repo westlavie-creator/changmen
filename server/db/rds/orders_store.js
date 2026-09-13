@@ -37,6 +37,45 @@ function sqlOrderBetCny(alias, fxParam) {
   END`;
 }
 
+/** 与 hasOpenPolymarketPosition / PM_SHARE_DUST 对齐 */
+const PM_SHARE_DUST = 0.01;
+
+/** PM/PF 卖单影子行（盈亏记在买单，数据分析不计订单数） */
+function sqlIsPredictionSell(alias = "") {
+  const p = alias ? `${alias}.` : "";
+  return `(
+    (${p}provider = 'Polymarket' AND LOWER(COALESCE(${p}raw->>'pmSide', '')) = 'sell')
+    OR (${p}provider = 'PredictFun' AND LOWER(COALESCE(${p}raw->>'pfSide', '')) = 'sell')
+  )`;
+}
+
+/**
+ * 已卖光且已有赛果的 PM 买单。
+ * applyPolymarketSettlement 卖光后只写 pmMatchResult，status 常仍为 None。
+ */
+function sqlPmSoldOutWithMatchResult(alias = "") {
+  const p = alias ? `${alias}.` : "";
+  const shares = `COALESCE(NULLIF(${p}raw->>'pmShares', ''), '0')::float8`;
+  const attr = `COALESCE(NULLIF(${p}raw->>'pmAttributedSellShares', ''), '0')::float8`;
+  return `(
+    ${p}provider = 'Polymarket'
+    AND LOWER(COALESCE(${p}raw->>'pmSide', '')) IS DISTINCT FROM 'sell'
+    AND LOWER(COALESCE(${p}raw->>'pmMatchResult', '')) IN ('win', 'lose')
+    AND (
+      LOWER(COALESCE(${p}raw->>'pmSellState', '')) IN ('closed', 'settled')
+      OR (${attr} > 0 AND (${shares} - ${attr}) <= ${PM_SHARE_DUST})
+    )
+  )`;
+}
+
+/** 数据分析 Pending：未结算仓位，不含卖单、不含已卖光且已有赛果的 PM 买单 */
+function sqlAnalyticsPending(alias = "") {
+  const p = alias ? `${alias}.` : "";
+  return `(${p}status = 'None'
+    AND NOT ${sqlIsPredictionSell(alias)}
+    AND NOT ${sqlPmSoldOutWithMatchResult(alias)})`;
+}
+
 const UPSERT_ORDERS_BATCH_SQL = `
   INSERT INTO orders (
     user_id, player_id, order_id, link, provider, match, bet, item,
@@ -1262,14 +1301,7 @@ function sqlArbUniqCtes(userFilterOnO = "") {
         WHERE ABS(o.link) >= 1000000000000
           AND o.create_at >= $1 AND o.create_at < $2
           AND o.provider IS NOT NULL AND o.provider != ''
-          AND NOT (
-            o.provider = 'Polymarket'
-            AND LOWER(COALESCE(o.raw->>'pmSide', '')) = 'sell'
-          )
-          AND NOT (
-            o.provider = 'PredictFun'
-            AND LOWER(COALESCE(o.raw->>'pfSide', '')) = 'sell'
-          )
+          AND NOT ${sqlIsPredictionSell("o")}
           ${userFilterOnO}
       ),
       ranked AS (
@@ -1288,7 +1320,7 @@ function sqlArbUniqCtes(userFilterOnO = "") {
       )`;
 }
 
-/** 数据分析：按平台聚合盈亏统计 */
+/** 数据分析：按平台聚合盈亏统计（剔 PM/PF 卖单；Pending 不含已卖光且已有赛果的 PM 买单） */
 export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
   const pool = getPgPool();
   if (!pool)
@@ -1299,17 +1331,19 @@ export async function fetchPlatformAnalytics(startMs, endMs, userIds) {
     const uf = appendUserIdsFilter(params, userIds);
     const moneyCny = sqlOrderMoneyCny("", "$3");
     const betCny = sqlOrderBetCny("", "$3");
+    const pending = sqlAnalyticsPending("");
     const { rows } = await pool.query(
       `SELECT provider,
         COUNT(*)::int AS total_orders,
         COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE status = 'Reject')::int AS rejects,
-        COUNT(*) FILTER (WHERE status = 'None')::int AS pending,
+        COUNT(*) FILTER (WHERE ${pending})::int AS pending,
         COALESCE(SUM(${betCny}), 0)::float AS total_bet,
         COALESCE(SUM(${moneyCny}), 0)::float AS total_profit
        FROM orders
-       WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''${uf}
+       WHERE create_at >= $1 AND create_at < $2 AND provider IS NOT NULL AND provider != ''
+         AND NOT ${sqlIsPredictionSell("")}${uf}
        GROUP BY provider
        ORDER BY total_orders DESC`,
       params,
@@ -1346,7 +1380,7 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
     const aLoseBWin = `(status_a = 'Lose' AND status_b = 'Win')`;
     const hedgeOk = `(${aWinBLose} OR ${aLoseBWin})`;
     const hasReject = `(status_a = 'Reject' OR status_b = 'Reject')`;
-    const pending = `(NOT ${hasReject} AND (status_a = 'None' OR status_b = 'None'
+    const pending = `(NOT ${hasReject} AND (pending_a OR pending_b
       OR status_a = 'Pending' OR status_b = 'Pending'
       OR status_a = 'Return' OR status_b = 'Return'))`;
     const { rows } = await pool.query(
@@ -1356,7 +1390,9 @@ export async function fetchArbPairAnalytics(startMs, endMs, userIds) {
           a.provider AS provider_a, b.provider AS provider_b,
           a.status AS status_a, b.status AS status_b,
           (${moneyA}) AS money_a, (${moneyB}) AS money_b,
-          (${betA}) AS bet_a, (${betB}) AS bet_b
+          (${betA}) AS bet_a, (${betB}) AS bet_b,
+          (${sqlAnalyticsPending("a")}) AS pending_a,
+          (${sqlAnalyticsPending("b")}) AS pending_b
         FROM uniq a
         JOIN uniq b ON ABS(a.link) = ABS(b.link)
           AND a.provider < b.provider
@@ -1434,7 +1470,8 @@ export async function fetchGameAnalytics(startMs, endMs, userIds) {
          LIMIT 1
        ) cm ON true
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace("user_id", "o.user_id") : ""}
+         AND o.provider IS NOT NULL AND o.provider != ''
+         AND NOT ${sqlIsPredictionSell("o")}${uf ? uf.replace("user_id", "o.user_id") : ""}
        GROUP BY COALESCE(cm.game, '未知')
        ORDER BY total_orders DESC`,
       params,
@@ -1468,7 +1505,8 @@ export async function fetchHourlyAnalytics(startMs, endMs, userIds) {
         COALESCE(SUM(${betCny}), 0)::float AS total_bet
        FROM orders
        WHERE create_at >= $1 AND create_at < $2
-         AND provider IS NOT NULL AND provider != ''${uf}
+         AND provider IS NOT NULL AND provider != ''
+         AND NOT ${sqlIsPredictionSell("")}${uf}
        GROUP BY hour
        ORDER BY hour`,
       params,
@@ -1514,13 +1552,15 @@ export async function fetchValueBetOrderAnalytics(startMs, endMs, userIds) {
     const oddsBucket = sqlOddsBucketExpr("odds");
     const where = `create_at >= $1 AND create_at < $2
          AND provider IS NOT NULL AND provider != ''
+         AND NOT ${sqlIsPredictionSell("")}
          AND ABS(link) >= $4${uf}`;
+    const pending = sqlAnalyticsPending("");
     const aggSelect = `
         COUNT(*)::int AS total_orders,
         COUNT(*) FILTER (WHERE status = 'Win')::int AS wins,
         COUNT(*) FILTER (WHERE status = 'Lose')::int AS losses,
         COUNT(*) FILTER (WHERE status = 'Reject')::int AS rejects,
-        COUNT(*) FILTER (WHERE status = 'None')::int AS pending,
+        COUNT(*) FILTER (WHERE ${pending})::int AS pending,
         COALESCE(SUM(${betCny}), 0)::float AS total_bet,
         COALESCE(SUM(${moneyCny}), 0)::float AS total_profit,
         AVG(odds)::float AS avg_odds`;
@@ -1990,7 +2030,8 @@ export async function fetchAccountAnalytics(startMs, endMs, userIds) {
         COALESCE(SUM(${moneyCny}), 0)::float AS total_profit
        FROM orders o
        WHERE o.create_at >= $1 AND o.create_at < $2
-         AND o.provider IS NOT NULL AND o.provider != ''${uf ? uf.replace("user_id", "o.user_id") : ""}
+         AND o.provider IS NOT NULL AND o.provider != ''
+         AND NOT ${sqlIsPredictionSell("o")}${uf ? uf.replace("user_id", "o.user_id") : ""}
        GROUP BY o.player_id, o.provider
        ORDER BY total_profit DESC`,
       params,
