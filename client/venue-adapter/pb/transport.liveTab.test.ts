@@ -15,6 +15,7 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
 vi.mock("./auth", () => ({
   buildPbAuthHeaders: () => ({ "x-browser-session-id": "frozen" }),
   pbAccountUsesLiveTab: () => true,
+  resolvePbAccountVenueMemberId: (account: { venueMemberId?: string }) => String(account.venueMemberId || ""),
 }));
 
 vi.mock("./tabId", async (importOriginal) => {
@@ -34,6 +35,7 @@ const account = {
   provider: "PB",
   gateway: "https://www.part888.com",
   token: "plain",
+  venueMemberId: "GB18ID",
 } as PlatformAccount;
 
 describe("pbGet live tab [changmen]", () => {
@@ -57,6 +59,7 @@ describe("pbGet live tab [changmen]", () => {
         tabId: 88,
         platform: "PB",
         provider: "PB",
+        venueMemberId: "GB18ID",
       },
     );
   });

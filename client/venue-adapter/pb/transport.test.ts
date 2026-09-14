@@ -11,6 +11,7 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
 vi.mock("./auth", () => ({
   buildPbAuthHeaders: () => ({ "x-custid-515": "1" }),
   pbAccountUsesLiveTab: () => false,
+  resolvePbAccountVenueMemberId: () => "",
 }));
 
 vi.mock("./tabId", () => ({

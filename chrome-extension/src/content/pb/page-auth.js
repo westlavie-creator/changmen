@@ -137,3 +137,110 @@ export function hasPbPageSession(store = readLocalStorageSnapshot()) {
   }
   return false;
 }
+
+function decodePbCustidRaw(raw) {
+  try {
+    return decodeURIComponent(String(raw).replace(/\+/g, "%20"));
+  }
+  catch {
+    return String(raw || "");
+  }
+}
+
+function custidMemberId(custidDecoded) {
+  const id = new URLSearchParams(custidDecoded).get("id");
+  return id != null ? String(id).trim() : "";
+}
+
+function tryParseJsonObject(raw) {
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === "object" && !Array.isArray(v) ? v : undefined;
+  }
+  catch {
+    return undefined;
+  }
+}
+
+function decodeBase64Utf8(raw) {
+  try {
+    const bin = atob(String(raw).replace(/\s+/g, ""));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+  catch {
+    return "";
+  }
+}
+
+/**
+ * 从官网 localStorage 快照解析会员 ID（与 venue-adapter parsePbVenueIdentity 对齐）。
+ * @param {Record<string, string> | Storage} [store]
+ * @returns {{ venueMemberId: string; venueAccountName: string } | undefined}
+ */
+export function parsePbPageVenueIdentity(store = readLocalStorageSnapshot()) {
+  const bag = store && typeof store === "object" ? store : {};
+  let app = {};
+  try {
+    app = JSON.parse(bag["x-app-data"] || "{}") || {};
+  }
+  catch {
+    app = {};
+  }
+  const mode = detectPbPageSessionMode(bag);
+  const custidRaw = mode.kind === "plain"
+    ? (app.custid || bag.custid || "")
+    : (app[`custid_${mode.suffix}`] || bag[`custid_${mode.suffix}`] || "");
+  const fromCustid = custidMemberId(decodePbCustidRaw(custidRaw));
+
+  let fromInnerCustid = "";
+  try {
+    const inner = JSON.parse(bag.token || "{}");
+    const innerCustid = mode.kind === "plain"
+      ? (inner["X-Custid"] || inner["x-custid"] || "")
+      : (inner[`X-Custid-${mode.suffix}`] || inner[`x-custid-${mode.suffix}`] || "");
+    fromInnerCustid = custidMemberId(decodePbCustidRaw(innerCustid));
+  }
+  catch {
+    /* optional */
+  }
+
+  const udata = tryParseJsonObject(decodeBase64Utf8(bag.__udata || ""));
+  const a = tryParseJsonObject(decodeBase64Utf8(bag.a || ""));
+  const userCode = String(udata?.userCode ?? "").trim();
+  const loginId = String(udata?.loginId ?? a?.loginId ?? "").trim();
+  const venueMemberId = userCode || fromCustid || fromInnerCustid;
+  const venueAccountName = loginId || venueMemberId;
+  if (!venueMemberId && !venueAccountName)
+    return undefined;
+  return {
+    venueMemberId: venueMemberId || venueAccountName,
+    venueAccountName: venueAccountName || venueMemberId,
+  };
+}
+
+export function pbVenueMemberIdsEqual(left, right) {
+  const a = String(left || "").trim();
+  const b = String(right || "").trim();
+  if (!a || !b)
+    return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * 官网当前登录必须等于账号绑定的会员，否则拒发（防止换号串单）。
+ * @param {Record<string, string> | Storage} store
+ * @param {string} [expectedMemberId]
+ */
+export function assertPbLiveTabMember(store, expectedMemberId) {
+  const expected = String(expectedMemberId || "").trim();
+  if (!expected)
+    return;
+  const pageId = parsePbPageVenueIdentity(store)?.venueMemberId || "";
+  if (!pageId) {
+    throw new Error(`平博官网登录账号无法识别，绑定 ${expected}，请刷新并登录正确账号`);
+  }
+  if (!pbVenueMemberIdsEqual(pageId, expected)) {
+    throw new Error(`平博官网登录账号不一致：页面 ${pageId}，绑定 ${expected}`);
+  }
+}

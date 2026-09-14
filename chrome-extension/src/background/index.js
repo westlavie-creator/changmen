@@ -30,7 +30,7 @@ const PB_WS_BOARD_KEY = "pbWsLatestOdds";
 const PB_WS_MAX_RECENT = 40;
 const PB_LIVE_HTTP_PORT = "pb-live-http";
 
-/** @typedef {{ port: chrome.runtime.Port; host: string; href: string; frameId?: number }} PbLivePortEntry */
+/** @typedef {{ port: chrome.runtime.Port; host: string; href: string; frameId?: number; venueMemberId?: string }} PbLivePortEntry */
 /** @type {Map<number, PbLivePortEntry[]>} */
 const pbLivePorts = new Map();
 
@@ -43,6 +43,7 @@ function rememberPbLivePort(port) {
     host: "",
     href: "",
     frameId: port.sender?.frameId,
+    venueMemberId: "",
   };
   const list = (pbLivePorts.get(tabId) || []).filter((e) => e.port !== port);
   list.push(entry);
@@ -51,6 +52,7 @@ function rememberPbLivePort(port) {
     if (msg?.kind === "hello") {
       entry.host = typeof msg.host === "string" ? msg.host : "";
       entry.href = typeof msg.href === "string" ? msg.href : "";
+      entry.venueMemberId = typeof msg.venueMemberId === "string" ? msg.venueMemberId : "";
     }
   });
   port.onDisconnect.addListener(() => {
@@ -62,9 +64,21 @@ function rememberPbLivePort(port) {
   });
 }
 
-function pickPbLivePort(tabId, requestUrl = "") {
+function pbMembersEqual(left, right) {
+  const a = String(left || "").trim().toLowerCase();
+  const b = String(right || "").trim().toLowerCase();
+  return Boolean(a && b && a === b);
+}
+
+function pickPbLivePort(tabId, requestUrl = "", venueMemberId = "") {
   const entries = pbLivePorts.get(tabId) || [];
   if (!entries.length) return undefined;
+  const want = String(venueMemberId || "").trim();
+  if (want) {
+    const byMember = entries.find((e) => pbMembersEqual(e.venueMemberId, want));
+    if (byMember)
+      return byMember.port;
+  }
   let reqHost = "";
   try {
     if (requestUrl)
@@ -81,15 +95,24 @@ function pickPbLivePort(tabId, requestUrl = "") {
   return entries[0]?.port;
 }
 
-function tabIdFromPbLivePorts(hosts) {
+function tabIdFromPbLivePorts(hosts, venueMemberId = "") {
   const list = normalizePbAccountHosts(hosts);
+  const want = String(venueMemberId || "").trim();
+  let hostHit;
   for (const [tabId, entries] of pbLivePorts) {
     for (const e of entries) {
-      if (!list.length || hostnameMatchesPbAccountHosts(e.host, list) || tabUrlMatchesPbAccountHosts(e.href, list))
+      const hostOk = !list.length
+        || hostnameMatchesPbAccountHosts(e.host, list)
+        || tabUrlMatchesPbAccountHosts(e.href, list);
+      if (!hostOk)
+        continue;
+      if (want && pbMembersEqual(e.venueMemberId, want))
         return tabId;
+      if (hostHit == null)
+        hostHit = tabId;
     }
   }
-  return undefined;
+  return want ? undefined : hostHit;
 }
 
 function pbLivePortDebug(hosts) {
@@ -97,7 +120,12 @@ function pbLivePortDebug(hosts) {
   const ports = [];
   for (const [tabId, entries] of pbLivePorts) {
     for (const e of entries) {
-      ports.push({ tabId, host: e.host, href: e.href || "" });
+      ports.push({
+        tabId,
+        host: e.host,
+        href: e.href || "",
+        venueMemberId: e.venueMemberId || "",
+      });
     }
   }
   return { hosts: list, ports };
@@ -107,8 +135,10 @@ function pingPbLiveTab(tabId) {
   return new Promise((resolve) => {
     chrome.tabs.sendMessage(tabId, { type: "pbLiveTabPing" }, (response) => {
       void chrome.runtime.lastError;
-      const host = response && typeof response.host === "string" ? response.host : "";
-      resolve(host);
+      resolve({
+        host: response && typeof response.host === "string" ? response.host : "",
+        venueMemberId: response && typeof response.venueMemberId === "string" ? response.venueMemberId : "",
+      });
     });
   });
 }
@@ -143,32 +173,44 @@ async function queryTabsForPbAccountHosts(hosts) {
   const pingHosts = {};
   const toPing = urlMatched.length ? urlMatched : pingCandidates;
   await Promise.all(toPing.map(async (t) => {
-    const host = await pingPbLiveTab(t.id);
-    if (host)
-      pingHosts[t.id] = host;
+    const ping = await pingPbLiveTab(t.id);
+    if (ping.host)
+      pingHosts[t.id] = ping.host;
   }));
   return new Set(pickPbLiveTabIds(tabs, list, pingHosts));
 }
 
 /**
  * 先 ping 官网自己登记的 PB tab（不依赖 tabs.query 权限），再按粘贴主机扫页。
+ * 有 venueMemberId 时优先同会员标签，避免同站两个登录串号。
  * @param {string[]} hosts
+ * @param {string} [venueMemberId]
  * @returns {Promise<number | null>}
  */
-async function resolvePbLiveTabId(hosts) {
+async function resolvePbLiveTabId(hosts, venueMemberId = "") {
   const list = normalizePbAccountHosts(hosts);
-  const fromPort = tabIdFromPbLivePorts(list);
+  const want = String(venueMemberId || "").trim();
+  const fromPort = tabIdFromPbLivePorts(list, want);
   if (fromPort)
     return fromPort;
   const storedPb = Number((await storageGet("PB"))?.PB);
   if (Number.isFinite(storedPb) && storedPb > 0) {
-    const host = await pingPbLiveTab(storedPb);
-    if (host && (!list.length || hostnameMatchesPbAccountHosts(host, list)))
-      return storedPb;
+    const ping = await pingPbLiveTab(storedPb);
+    if (ping.host && (!list.length || hostnameMatchesPbAccountHosts(ping.host, list))) {
+      if (!want || pbMembersEqual(ping.venueMemberId, want))
+        return storedPb;
+    }
   }
   if (!list.length)
     return Number.isFinite(storedPb) && storedPb > 0 ? storedPb : null;
   const tabIds = await queryTabsForPbAccountHosts(list);
+  if (want) {
+    for (const id of tabIds) {
+      const ping = await pingPbLiveTab(id);
+      if (pbMembersEqual(ping.venueMemberId, want))
+        return id;
+    }
+  }
   if (Number.isFinite(storedPb) && storedPb > 0 && tabIds.has(storedPb))
     return storedPb;
   const first = [...tabIds][0];
@@ -329,7 +371,7 @@ async function mergePbWsStatus(status) {
 }
 
 /** @typedef {{ type: string; uuid?: string; url?: string; data?: unknown; options?: TabRequestOptions }} ExternalMessage */
-/** @typedef {{ tabId?: number; headers?: Record<string, string>; timeout?: number; withCredentials?: boolean }} TabRequestOptions */
+/** @typedef {{ tabId?: number; headers?: Record<string, string>; timeout?: number; withCredentials?: boolean; platform?: string; provider?: string; venueMemberId?: string }} TabRequestOptions */
 
 /**
  * @param {ExternalMessage} message
@@ -337,7 +379,7 @@ async function mergePbWsStatus(status) {
  * @returns {Promise<unknown>}
  */
 function forwardToTab(message, tabId) {
-  const viaPort = pickPbLivePort(tabId, message.url);
+  const viaPort = pickPbLivePort(tabId, message.url, message.options?.venueMemberId);
   if (viaPort)
     return forwardViaPbLivePort(viaPort, message);
   return new Promise((resolve, reject) => {
@@ -414,7 +456,8 @@ async function handleExternalMessage(message, reply, sender) {
     }
     case "getPbLiveTab": {
       const hosts = normalizePbAccountHosts(message.data?.hosts);
-      const tabId = await resolvePbLiveTabId(hosts);
+      const venueMemberId = String(message.data?.venueMemberId || "").trim();
+      const tabId = await resolvePbLiveTabId(hosts, venueMemberId);
       reply({
         type,
         uuid,

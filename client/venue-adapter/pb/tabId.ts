@@ -2,6 +2,7 @@ import { a8PluginGetStore, a8PluginSend, hasA8PluginRuntime } from "@changmen/cl
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { PLATFORMS } from "../shared/platforms";
 import { pbHostsFromAccounts } from "./accountHosts";
+import { resolvePbAccountVenueMemberId } from "./auth";
 
 /** [changmen 扩展] 官网活标签 tabId；优先按账号快速填充 referer/gateway 查页 */
 let cachedTabId: number | undefined;
@@ -49,13 +50,20 @@ export function parsePbLiveTabId(response: unknown): number | undefined {
 }
 
 export async function readPbTabIdFromPlugin(
-  account?: Pick<PlatformAccount, "referer" | "gateway" | "provider">,
+  account?: Pick<PlatformAccount, "referer" | "gateway" | "provider" | "token" | "venueMemberId">,
 ): Promise<number | undefined> {
   if (!hasA8PluginRuntime()) return undefined;
   try {
     const hosts = account ? pbHostsFromAccounts([account]) : [];
-    if (hosts.length) {
-      const live = await a8PluginSend({ type: "getPbLiveTab", data: { hosts } });
+    if (hosts.length && account) {
+      const venueMemberId = resolvePbAccountVenueMemberId(account);
+      const live = await a8PluginSend({
+        type: "getPbLiveTab",
+        data: {
+          hosts,
+          ...(venueMemberId ? { venueMemberId } : {}),
+        },
+      });
       const fromQuery = parsePbLiveTabId(live);
       cachedTabId = fromQuery;
       return fromQuery;

@@ -196,6 +196,30 @@ export function parsePbVenueIdentity(
   }
 }
 
+export function pbVenueMemberIdsEqual(
+  left?: string | null,
+  right?: string | null,
+): boolean {
+  const a = String(left || "").trim();
+  const b = String(right || "").trim();
+  if (!a || !b)
+    return false;
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * 已绑定的 `venueMemberId` 优先；否则从 token 解析。
+ * 活标签代发 / 写回 token 都用这个，避免官网换号后打到别人账上。
+ */
+export function resolvePbAccountVenueMemberId(
+  account: Pick<PlatformAccount, "token" | "venueMemberId">,
+): string {
+  const bound = String(account.venueMemberId || "").trim();
+  if (bound)
+    return bound;
+  return parsePbVenueIdentity(account.token)?.venueMemberId || "";
+}
+
 /**
  * 合并 localStorage.token 内层鉴权头（part888/ps3838 的 X-U / X-SLID / X-Lcu 等）。
  * 只收 x-*，避免误把 Odds:Selections 等业务键写成非法 HTTP 头。

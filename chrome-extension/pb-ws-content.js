@@ -126,6 +126,84 @@
     }
     return false;
   }
+  function decodePbCustidRaw(raw) {
+    try {
+      return decodeURIComponent(String(raw).replace(/\+/g, "%20"));
+    } catch {
+      return String(raw || "");
+    }
+  }
+  function custidMemberId(custidDecoded) {
+    const id = new URLSearchParams(custidDecoded).get("id");
+    return id != null ? String(id).trim() : "";
+  }
+  function tryParseJsonObject(raw) {
+    try {
+      const v = JSON.parse(raw);
+      return v && typeof v === "object" && !Array.isArray(v) ? v : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  function decodeBase64Utf8(raw) {
+    try {
+      const bin = atob(String(raw).replace(/\s+/g, ""));
+      const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch {
+      return "";
+    }
+  }
+  function parsePbPageVenueIdentity(store = readLocalStorageSnapshot()) {
+    const bag = store && typeof store === "object" ? store : {};
+    let app = {};
+    try {
+      app = JSON.parse(bag["x-app-data"] || "{}") || {};
+    } catch {
+      app = {};
+    }
+    const mode = detectPbPageSessionMode(bag);
+    const custidRaw = mode.kind === "plain" ? app.custid || bag.custid || "" : app[`custid_${mode.suffix}`] || bag[`custid_${mode.suffix}`] || "";
+    const fromCustid = custidMemberId(decodePbCustidRaw(custidRaw));
+    let fromInnerCustid = "";
+    try {
+      const inner = JSON.parse(bag.token || "{}");
+      const innerCustid = mode.kind === "plain" ? inner["X-Custid"] || inner["x-custid"] || "" : inner[`X-Custid-${mode.suffix}`] || inner[`x-custid-${mode.suffix}`] || "";
+      fromInnerCustid = custidMemberId(decodePbCustidRaw(innerCustid));
+    } catch {
+    }
+    const udata = tryParseJsonObject(decodeBase64Utf8(bag.__udata || ""));
+    const a = tryParseJsonObject(decodeBase64Utf8(bag.a || ""));
+    const userCode = String(udata?.userCode ?? "").trim();
+    const loginId = String(udata?.loginId ?? a?.loginId ?? "").trim();
+    const venueMemberId = userCode || fromCustid || fromInnerCustid;
+    const venueAccountName = loginId || venueMemberId;
+    if (!venueMemberId && !venueAccountName)
+      return void 0;
+    return {
+      venueMemberId: venueMemberId || venueAccountName,
+      venueAccountName: venueAccountName || venueMemberId
+    };
+  }
+  function pbVenueMemberIdsEqual(left, right) {
+    const a = String(left || "").trim();
+    const b = String(right || "").trim();
+    if (!a || !b)
+      return false;
+    return a.toLowerCase() === b.toLowerCase();
+  }
+  function assertPbLiveTabMember(store, expectedMemberId) {
+    const expected = String(expectedMemberId || "").trim();
+    if (!expected)
+      return;
+    const pageId = parsePbPageVenueIdentity(store)?.venueMemberId || "";
+    if (!pageId) {
+      throw new Error(`\u5E73\u535A\u5B98\u7F51\u767B\u5F55\u8D26\u53F7\u65E0\u6CD5\u8BC6\u522B\uFF0C\u7ED1\u5B9A ${expected}\uFF0C\u8BF7\u5237\u65B0\u5E76\u767B\u5F55\u6B63\u786E\u8D26\u53F7`);
+    }
+    if (!pbVenueMemberIdsEqual(pageId, expected)) {
+      throw new Error(`\u5E73\u535A\u5B98\u7F51\u767B\u5F55\u8D26\u53F7\u4E0D\u4E00\u81F4\uFF1A\u9875\u9762 ${pageId}\uFF0C\u7ED1\u5B9A ${expected}`);
+    }
+  }
 
   // ../node_modules/axios/lib/helpers/bind.js
   function bind(fn, thisArg) {
@@ -3301,9 +3379,6 @@
       return false;
     }
   }
-  function liveHeaders(extra = {}) {
-    return buildLivePbAuthHeaders(readLocalStorageSnapshot(), extra);
-  }
   function publishLiveCredential() {
     if (!shouldRegisterPbLiveHttp()) return;
     const snapshot = readLocalStorageSnapshot();
@@ -3338,7 +3413,9 @@
     if (!requestHostMatchesPage(url))
       throw new Error("PB live tab host mismatch");
     const extra = message.options?.headers || {};
-    const headers = liveHeaders(extra);
+    const snapshot = readLocalStorageSnapshot();
+    assertPbLiveTabMember(snapshot, message.options?.venueMemberId);
+    const headers = buildLivePbAuthHeaders(snapshot, extra);
     const result = await axios_default.request({
       method,
       url,
@@ -3359,7 +3436,13 @@
     }
     const hello = () => {
       try {
-        port.postMessage({ kind: "hello", host: location.hostname, href: location.href });
+        const identity = parsePbPageVenueIdentity();
+        port.postMessage({
+          kind: "hello",
+          host: location.hostname,
+          href: location.href,
+          venueMemberId: identity?.venueMemberId || ""
+        });
       } catch {
       }
     };
@@ -3420,7 +3503,12 @@
       if (message?.type !== "pbLiveTabPing") return false;
       tryReg();
       if (!registered) return false;
-      sendResponse({ host: location.hostname, href: location.href });
+      const identity = parsePbPageVenueIdentity();
+      sendResponse({
+        host: location.hostname,
+        href: location.href,
+        venueMemberId: identity?.venueMemberId || ""
+      });
       return true;
     });
     window.addEventListener("focus", tryReg);

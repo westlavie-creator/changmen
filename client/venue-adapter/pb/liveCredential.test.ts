@@ -71,6 +71,21 @@ describe("applyPbLiveCredentialToAccount [changmen]", () => {
     expect(account.token).toBe(before);
   });
 
+  it("token 已换成别人、绑定 venueMemberId 仍是原号时不写", () => {
+    const account = {
+      provider: "PB",
+      gateway: "https://www.part888.com",
+      token: plainToken("bbb"),
+      venueMemberId: "aaa",
+    } as PlatformAccount;
+    const before = account.token;
+    expect(applyPbLiveCredentialToAccount(account, {
+      token: plainToken("bbb"),
+      gateway: "https://www.part888.com",
+    })).toBe(false);
+    expect(account.token).toBe(before);
+  });
+
   it("gateway 主机不一致不写", () => {
     const account = {
       provider: "PB",

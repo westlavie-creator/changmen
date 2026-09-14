@@ -1,6 +1,11 @@
 import { a8PluginGetStore, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { parsePbVenueIdentity, pbAccountUsesLiveTab } from "./auth";
+import {
+  parsePbVenueIdentity,
+  pbAccountUsesLiveTab,
+  pbVenueMemberIdsEqual,
+  resolvePbAccountVenueMemberId,
+} from "./auth";
 
 /** 扩展 storage：part888 页写入的活 localStorage 快照（与 GetConfig.token 同形） */
 export const PB_LIVE_CREDENTIAL_STORE_KEY = "PB_LIVE_CREDENTIAL";
@@ -49,9 +54,10 @@ export function parsePbLiveCredential(response: unknown): PbLiveCredential | und
 /**
  * [changmen 扩展] 把官网活快照写进账号 token。
  * 515 / 会员不一致 / 站点不一致：不写，避免破坏 A8 k0 或串号。
+ * 绑定 ID 已知但页面解析不出，也不写。
  */
 export function applyPbLiveCredentialToAccount(
-  account: Pick<PlatformAccount, "token" | "gateway" | "referer">,
+  account: Pick<PlatformAccount, "token" | "gateway" | "referer" | "venueMemberId">,
   cred: PbLiveCredential,
 ): boolean {
   if (!pbAccountUsesLiveTab(account))
@@ -60,8 +66,8 @@ export function applyPbLiveCredentialToAccount(
     return false;
 
   const liveId = parsePbVenueIdentity(cred.token)?.venueMemberId || "";
-  const accId = parsePbVenueIdentity(account.token)?.venueMemberId || "";
-  if (liveId && accId && liveId !== accId)
+  const accId = resolvePbAccountVenueMemberId(account);
+  if (accId && (!liveId || !pbVenueMemberIdsEqual(liveId, accId)))
     return false;
 
   const accHost = pbHost(account.gateway);

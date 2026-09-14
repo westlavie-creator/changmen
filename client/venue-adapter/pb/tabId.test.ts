@@ -71,6 +71,20 @@ describe("readPbTabIdFromPlugin", () => {
     expect(a8PluginGetStore).not.toHaveBeenCalled();
   });
 
+  test("queries live tab with bound venueMemberId so same-host logins do not mix", async () => {
+    a8PluginSend.mockResolvedValue({ tabId: 77 });
+    const tabId = await readPbTabIdFromPlugin({
+      provider: "PB",
+      referer: "https://www.part888.com/sports",
+      venueMemberId: "GB18ID",
+    });
+    expect(tabId).toBe(77);
+    expect(a8PluginSend).toHaveBeenCalledWith({
+      type: "getPbLiveTab",
+      data: { hosts: ["www.part888.com"], venueMemberId: "GB18ID" },
+    });
+  });
+
   test("does not fall back to another skin when paste host has no tab", async () => {
     a8PluginSend.mockResolvedValue(null);
     a8PluginGetStore.mockResolvedValue({ data: { PB: 11 } });
@@ -98,6 +112,7 @@ describe("isPbTabMiss", () => {
     expect(isPbTabMiss({ data: { success: true } })).toBe(false);
     expect(isPbTabMiss("Request failed with status code 403")).toBe(false);
     expect(isPbTabMiss(new Error("PB live tab host mismatch"))).toBe(true);
+    expect(isPbTabMiss(new Error("平博官网登录账号不一致：页面 aaa，绑定 bbb"))).toBe(false);
   });
 });
 
@@ -116,6 +131,8 @@ describe("pbLiveTabHardError", () => {
   test("venue 403 string becomes Error; miss stays undefined", () => {
     expect(pbLiveTabHardError("Request failed with status code 403")?.message)
       .toBe("Request failed with status code 403");
+    expect(pbLiveTabHardError("平博官网登录账号不一致：页面 aaa，绑定 bbb")?.message)
+      .toContain("登录账号不一致");
     expect(pbLiveTabHardError("PB live tab host mismatch")).toBeUndefined();
     expect(pbLiveTabHardError({ data: { success: true } })).toBeUndefined();
   });

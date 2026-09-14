@@ -4027,7 +4027,8 @@
       port,
       host: "",
       href: "",
-      frameId: port.sender?.frameId
+      frameId: port.sender?.frameId,
+      venueMemberId: ""
     };
     const list = (pbLivePorts.get(tabId2) || []).filter((e) => e.port !== port);
     list.push(entry);
@@ -4036,6 +4037,7 @@
       if (msg?.kind === "hello") {
         entry.host = typeof msg.host === "string" ? msg.host : "";
         entry.href = typeof msg.href === "string" ? msg.href : "";
+        entry.venueMemberId = typeof msg.venueMemberId === "string" ? msg.venueMemberId : "";
       }
     });
     port.onDisconnect.addListener(() => {
@@ -4046,9 +4048,20 @@
         pbLivePorts.delete(tabId2);
     });
   }
-  function pickPbLivePort(tabId2, requestUrl = "") {
+  function pbMembersEqual(left, right) {
+    const a = String(left || "").trim().toLowerCase();
+    const b = String(right || "").trim().toLowerCase();
+    return Boolean(a && b && a === b);
+  }
+  function pickPbLivePort(tabId2, requestUrl = "", venueMemberId = "") {
     const entries = pbLivePorts.get(tabId2) || [];
     if (!entries.length) return void 0;
+    const want = String(venueMemberId || "").trim();
+    if (want) {
+      const byMember = entries.find((e) => pbMembersEqual(e.venueMemberId, want));
+      if (byMember)
+        return byMember.port;
+    }
     let reqHost = "";
     try {
       if (requestUrl)
@@ -4062,22 +4075,34 @@
     }
     return entries[0]?.port;
   }
-  function tabIdFromPbLivePorts(hosts) {
+  function tabIdFromPbLivePorts(hosts, venueMemberId = "") {
     const list = normalizePbAccountHosts(hosts);
+    const want = String(venueMemberId || "").trim();
+    let hostHit;
     for (const [tabId2, entries] of pbLivePorts) {
       for (const e of entries) {
-        if (!list.length || hostnameMatchesPbAccountHosts(e.host, list) || tabUrlMatchesPbAccountHosts(e.href, list))
+        const hostOk = !list.length || hostnameMatchesPbAccountHosts(e.host, list) || tabUrlMatchesPbAccountHosts(e.href, list);
+        if (!hostOk)
+          continue;
+        if (want && pbMembersEqual(e.venueMemberId, want))
           return tabId2;
+        if (hostHit == null)
+          hostHit = tabId2;
       }
     }
-    return void 0;
+    return want ? void 0 : hostHit;
   }
   function pbLivePortDebug(hosts) {
     const list = normalizePbAccountHosts(hosts);
     const ports2 = [];
     for (const [tabId2, entries] of pbLivePorts) {
       for (const e of entries) {
-        ports2.push({ tabId: tabId2, host: e.host, href: e.href || "" });
+        ports2.push({
+          tabId: tabId2,
+          host: e.host,
+          href: e.href || "",
+          venueMemberId: e.venueMemberId || ""
+        });
       }
     }
     return { hosts: list, ports: ports2 };
@@ -4086,8 +4111,10 @@
     return new Promise((resolve) => {
       chrome.tabs.sendMessage(tabId2, { type: "pbLiveTabPing" }, (response) => {
         void chrome.runtime.lastError;
-        const host = response && typeof response.host === "string" ? response.host : "";
-        resolve(host);
+        resolve({
+          host: response && typeof response.host === "string" ? response.host : "",
+          venueMemberId: response && typeof response.venueMemberId === "string" ? response.venueMemberId : ""
+        });
       });
     });
   }
@@ -4116,26 +4143,36 @@
     const pingHosts = {};
     const toPing = urlMatched.length ? urlMatched : pingCandidates;
     await Promise.all(toPing.map(async (t) => {
-      const host = await pingPbLiveTab(t.id);
-      if (host)
-        pingHosts[t.id] = host;
+      const ping = await pingPbLiveTab(t.id);
+      if (ping.host)
+        pingHosts[t.id] = ping.host;
     }));
     return new Set(pickPbLiveTabIds(tabs, list, pingHosts));
   }
-  async function resolvePbLiveTabId(hosts) {
+  async function resolvePbLiveTabId(hosts, venueMemberId = "") {
     const list = normalizePbAccountHosts(hosts);
-    const fromPort = tabIdFromPbLivePorts(list);
+    const want = String(venueMemberId || "").trim();
+    const fromPort = tabIdFromPbLivePorts(list, want);
     if (fromPort)
       return fromPort;
     const storedPb = Number((await storageGet("PB"))?.PB);
     if (Number.isFinite(storedPb) && storedPb > 0) {
-      const host = await pingPbLiveTab(storedPb);
-      if (host && (!list.length || hostnameMatchesPbAccountHosts(host, list)))
-        return storedPb;
+      const ping = await pingPbLiveTab(storedPb);
+      if (ping.host && (!list.length || hostnameMatchesPbAccountHosts(ping.host, list))) {
+        if (!want || pbMembersEqual(ping.venueMemberId, want))
+          return storedPb;
+      }
     }
     if (!list.length)
       return Number.isFinite(storedPb) && storedPb > 0 ? storedPb : null;
     const tabIds = await queryTabsForPbAccountHosts(list);
+    if (want) {
+      for (const id of tabIds) {
+        const ping = await pingPbLiveTab(id);
+        if (pbMembersEqual(ping.venueMemberId, want))
+          return id;
+      }
+    }
     if (Number.isFinite(storedPb) && storedPb > 0 && tabIds.has(storedPb))
       return storedPb;
     const first = [...tabIds][0];
@@ -4272,7 +4309,7 @@
     await storageSet(patch);
   }
   function forwardToTab(message, tabId2) {
-    const viaPort = pickPbLivePort(tabId2, message.url);
+    const viaPort = pickPbLivePort(tabId2, message.url, message.options?.venueMemberId);
     if (viaPort)
       return forwardViaPbLivePort(viaPort, message);
     return new Promise((resolve, reject) => {
@@ -4341,7 +4378,8 @@
       }
       case "getPbLiveTab": {
         const hosts = normalizePbAccountHosts(message.data?.hosts);
-        const tabId2 = await resolvePbLiveTabId(hosts);
+        const venueMemberId = String(message.data?.venueMemberId || "").trim();
+        const tabId2 = await resolvePbLiveTabId(hosts, venueMemberId);
         reply({
           type,
           uuid,

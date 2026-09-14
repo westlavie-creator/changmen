@@ -4,9 +4,11 @@
  */
 import assert from "node:assert/strict";
 import {
+  assertPbLiveTabMember,
   buildLivePbAuthHeaders,
   detectPbPageSessionMode,
   isPbA8K0PageSession,
+  parsePbPageVenueIdentity,
 } from "./src/content/pb/page-auth.js";
 
 const s515 = {
@@ -44,5 +46,20 @@ const noOverwrite = buildLivePbAuthHeaders(plain, {
 assert.equal(noOverwrite["x-u"], "u-token");
 assert.equal(noOverwrite["x-browser-session-id"], "sess-plain");
 assert.equal(noOverwrite["content-type"], "application/json");
+
+const pageAaa = {
+  "x-app-data": JSON.stringify({ BrowserSessionId: "sess", custid: "id%3Daaa" }),
+  token: JSON.stringify({ "X-Custid": "id=aaa" }),
+};
+assert.equal(parsePbPageVenueIdentity(pageAaa)?.venueMemberId, "aaa");
+assert.doesNotThrow(() => assertPbLiveTabMember(pageAaa, "aaa"));
+assert.throws(
+  () => assertPbLiveTabMember(pageAaa, "bbb"),
+  /登录账号不一致/,
+);
+assert.throws(
+  () => assertPbLiveTabMember({}, "bbb"),
+  /无法识别/,
+);
 
 console.log("pb-page-auth.smoke.test.mjs: ok");

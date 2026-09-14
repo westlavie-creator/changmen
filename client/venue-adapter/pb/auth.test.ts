@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import { buildPbAuthHeaders, parsePbVenueIdentity, pbAccountUsesLiveTab } from "./auth";
+import {
+  buildPbAuthHeaders,
+  parsePbVenueIdentity,
+  pbAccountUsesLiveTab,
+  pbVenueMemberIdsEqual,
+  resolvePbAccountVenueMemberId,
+} from "./auth";
 
 function makeAccount(token: string): PlatformAccount {
   return { provider: "PB", gateway: "https://pb.example", token } as PlatformAccount;
@@ -235,5 +241,20 @@ describe("buildPbAuthHeaders ps3838 plain keys", () => {
       token: JSON.stringify({ "X-U": "u" }),
     });
     expect(pbAccountUsesLiveTab(makeAccount(token))).toBe(true);
+  });
+});
+
+describe("resolvePbAccountVenueMemberId", () => {
+  it("绑定字段优先于 token 解析", () => {
+    const token = JSON.stringify({
+      "x-app-data": JSON.stringify({ BrowserSessionId: "s", custid: "id%3DfromToken" }),
+    });
+    expect(resolvePbAccountVenueMemberId({
+      token,
+      venueMemberId: "bound-id",
+    })).toBe("bound-id");
+    expect(resolvePbAccountVenueMemberId({ token })).toBe("fromToken");
+    expect(pbVenueMemberIdsEqual("Gb18", "gb18")).toBe(true);
+    expect(pbVenueMemberIdsEqual("aaa", "bbb")).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 /** [A8 可证实] bundle `Zn.get/post` + `Ly` + `k0`；`unwrap` 等价 PZe 的 `r.data` */
 
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
-import { buildPbAuthHeaders, pbAccountUsesLiveTab } from "./auth";
+import { buildPbAuthHeaders, pbAccountUsesLiveTab, resolvePbAccountVenueMemberId } from "./auth";
 import {
   isPbLiveTabDead,
   isPbTabMiss,
@@ -39,14 +39,26 @@ function frozenOpts(account: PlatformAccount, extraHeaders: Record<string, strin
   return headers ? { headers } : undefined;
 }
 
-type PluginOpts = { headers?: Record<string, string>; tabId?: number; platform?: string; provider?: string };
+type PluginOpts = {
+  headers?: Record<string, string>;
+  tabId?: number;
+  platform?: string;
+  provider?: string;
+  venueMemberId?: string;
+};
 
-function liveTabOpts(tabId: number, extraHeaders: Record<string, string> = {}): PluginOpts {
+function liveTabOpts(
+  tabId: number,
+  extraHeaders: Record<string, string> = {},
+  account?: PlatformAccount,
+): PluginOpts {
+  const venueMemberId = account ? resolvePbAccountVenueMemberId(account) : "";
   return {
     ...(Object.keys(extraHeaders).length ? { headers: extraHeaders } : {}),
     tabId,
     platform: PLATFORMS.PB,
     provider: PLATFORMS.PB,
+    ...(venueMemberId ? { venueMemberId } : {}),
   };
 }
 
@@ -78,7 +90,7 @@ async function sendViaLiveTab<T>(
     if (!tabId)
       continue;
     try {
-      const raw = await send(liveTabOpts(tabId, extraHeaders));
+      const raw = await send(liveTabOpts(tabId, extraHeaders, account));
       if (!isPbLiveTabDead(raw)) {
         const hard = pbLiveTabHardError(raw);
         if (hard) throw hard;

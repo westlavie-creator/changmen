@@ -32,6 +32,7 @@ interface A8PluginMessage {
     withCredentials?: boolean;
     platform?: string;
     provider?: string;
+    venueMemberId?: string;
   };
 }
 

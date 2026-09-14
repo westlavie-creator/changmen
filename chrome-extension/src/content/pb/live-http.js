@@ -9,6 +9,8 @@ import {
   detectPbPageSessionMode,
   hasPbPageSession,
   isPbA8K0PageSession,
+  parsePbPageVenueIdentity,
+  assertPbLiveTabMember,
   readLocalStorageSnapshot,
 } from "./page-auth.js";
 import axios from "axios";
@@ -30,10 +32,6 @@ function requestHostMatchesPage(url) {
   catch {
     return false;
   }
-}
-
-function liveHeaders(extra = {}) {
-  return buildLivePbAuthHeaders(readLocalStorageSnapshot(), extra);
 }
 
 /** 与 GetConfig 同形：整包 localStorage JSON，供 changmen 回写 account.token */
@@ -62,7 +60,7 @@ function publishLiveCredential() {
 }
 
 /**
- * @param {{ type?: string; url?: string; data?: unknown; options?: { headers?: Record<string, string>; timeout?: number; withCredentials?: boolean } }} message
+ * @param {{ type?: string; url?: string; data?: unknown; options?: { headers?: Record<string, string>; timeout?: number; withCredentials?: boolean; venueMemberId?: string } }} message
  */
 export async function handlePbLiveTabMessage(message) {
   const method = String(message?.type || "GET").toUpperCase();
@@ -76,7 +74,9 @@ export async function handlePbLiveTabMessage(message) {
     throw new Error("PB live tab host mismatch");
 
   const extra = message.options?.headers || {};
-  const headers = liveHeaders(extra);
+  const snapshot = readLocalStorageSnapshot();
+  assertPbLiveTabMember(snapshot, message.options?.venueMemberId);
+  const headers = buildLivePbAuthHeaders(snapshot, extra);
   const result = await axios.request({
     method,
     url,
@@ -99,7 +99,13 @@ function connectLivePort() {
   }
   const hello = () => {
     try {
-      port.postMessage({ kind: "hello", host: location.hostname, href: location.href });
+      const identity = parsePbPageVenueIdentity();
+      port.postMessage({
+        kind: "hello",
+        host: location.hostname,
+        href: location.href,
+        venueMemberId: identity?.venueMemberId || "",
+      });
     }
     catch {
       /* disconnected */
@@ -170,7 +176,12 @@ export function initPbLiveHttp(registerHandler) {
     if (message?.type !== "pbLiveTabPing") return false;
     tryReg();
     if (!registered) return false;
-    sendResponse({ host: location.hostname, href: location.href });
+    const identity = parsePbPageVenueIdentity();
+    sendResponse({
+      host: location.hostname,
+      href: location.href,
+      venueMemberId: identity?.venueMemberId || "",
+    });
     return true;
   });
   window.addEventListener("focus", tryReg);
