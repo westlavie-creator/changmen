@@ -92,7 +92,7 @@ function onSportTab(v: string | number | boolean | undefined) {
     </el-aside>
     <el-container>
       <el-header>
-        <AccountBar />
+        <AccountBar workspace="sports" />
         <div class="home-header-trailing">
           <DirectRealtimeBadge workspace="sports" />
         </div>

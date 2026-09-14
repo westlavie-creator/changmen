@@ -14,6 +14,7 @@ const props = defineProps<{
   account: PlatformAccount;
   readonly?: boolean;
   preview?: boolean;
+  workspace?: "esport" | "sports";
 }>();
 
 const userStore = useUserStore();
@@ -173,7 +174,7 @@ async function confirmRemove() {
       />
     </div>
 
-    <div class="profit flex flex-center">
+    <div v-if="workspace !== 'sports'" class="profit flex flex-center">
       <el-tag size="small" round effect="dark" :type="todayTagType(account.today)">
         {{ account.today.toLocaleString() }}
       </el-tag>

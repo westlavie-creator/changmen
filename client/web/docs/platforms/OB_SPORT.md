@@ -146,7 +146,7 @@ C115：`eventTime` 比服务器时间早超过 **20s** 则丢。
 | **C112** | `R_CMD_CHANGE_CATEGORY` | 分类变更 | 不接 |
 | **C115** | | 事件 + `eventTime` | 不接（详情事件流） |
 | **C153** | | `{mid, hids[]}` 常与 C110 同帧 | 不接 |
-| **C201** | `R_CMD_ORDER_STATUS` | 注单状态 | **接**：写入 `football_orders.status/profit`（不进电竞 orders） |
+| **C201** | `R_CMD_ORDER_STATUS` | 注单。`cd.orderNo` + `cd.status`（0/1 受理，2/4 失败） | **接**：写 `football_orders`（不进电竞 orders） |
 | **C202** | `R_CMD_ORDER_COUNT` | 注单数量 | 不接 |
 | **C301** | `R_CMD_MENU_SECTION` | 菜单块 | 不接 |
 | **C302** | `R_CMD_MATCH_START` | 开赛 | **接**：未知 `mid` 时补拉列表（`csid=1`） |
@@ -233,7 +233,12 @@ WS C8(mids) → C105 → sportOddsStore（禁止 fo）
          → C102/C103 → obSportLiveStore（比分时钟）
          → C303 → 重拉该场详情盘口
 UI：HTTP 底 + store 覆盖；30s 快照后再用 store 盖回
+WS C201 → football_orders 拒单/盈亏（能解析才写）
+体育会话 45s：RDS 列表 + GET `/yewu13/v1/betOrder/queryOrderStatus` + POST `/yewurecord/order/betRecord/getOrderListPB`
+用户栏「当日盈亏」读 calendar today，不跟侧栏日期走
 ```
+
+足球跟单订单 **[changmen 实现]**：独立 `football_orders`，不进电竞 `orders`。结算对齐电竞「场馆轮询」而不是只靠 WS：下单后 2.5s 以及会话 45s 拉官网注单接口。`getOrderListPB` 请求体未抓到调用点，键沿用同包 `page/size/sportId/timeType`（**[changmen 推测]**）。
 
 | 层 | 文件 |
 |----|------|
@@ -245,6 +250,7 @@ UI：HTTP 底 + store 覆盖；30s 快照后再用 store 盖回
 | 实时赔率会话 | `sportLiveOdds.ts` |
 | 赔率缓存 | `stores/sportOddsStore.ts` |
 | 比赛态 | `stores/obSportLiveStore.ts` |
+| 注单轮询 | `obSportBetRecord.ts` → `footballOrderStore` |
 | 列表板 | `FootballMatchBoard.vue` / `FootballMatchCard.vue` |
 
 故意不接：C110/C153/C107/C3301/C106、消息中心 `yewuws4`、电竞 MQTT。

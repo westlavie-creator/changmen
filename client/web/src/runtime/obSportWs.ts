@@ -371,8 +371,9 @@ export function startObSportWs(
     const play = parseObSportHandicapPlay(parsed);
     if (play)
       handlers.onHandicapPlay?.(play);
+    const cmd = String(root?.cmd || root?.CMD || "").toUpperCase();
     const orderStatus = parseObSportOrderStatusPush(parsed);
-    if (orderStatus.length)
+    if (orderStatus.length || cmd === "C201" || cmd === "C118")
       handlers.onOrderStatus?.(orderStatus);
   };
 

@@ -7,11 +7,12 @@ import MoneyLogDialog from "@/components/account/MoneyLogDialog.vue";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 bundle AccountView：顶栏仅 providers 横排账号卡 */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     embedded?: boolean;
+    workspace?: "esport" | "sports";
   }>(),
-  { embedded: false },
+  { embedded: false, workspace: "esport" },
 );
 
 const accountStore = useAccountStore();
@@ -27,6 +28,8 @@ function openMoney(account: PlatformAccount) {
 
 async function refreshOne(account: PlatformAccount) {
   await account.updateBalance();
+  if (props.workspace === "sports")
+    return;
   await account.updateOrders();
   if (String(account.provider) === "PredictFun" && account.balance != null && !account.balanceStale) {
     const { ElMessage } = await import("element-plus");
@@ -46,6 +49,7 @@ async function removeAccount(account: PlatformAccount) {
       :key="acc.accountId"
       :account="acc"
       :preview="embedded"
+      :workspace="workspace"
       @refresh="refreshOne(acc)"
       @edit="accountStore.openEditAccount(acc)"
       @money="openMoney(acc)"

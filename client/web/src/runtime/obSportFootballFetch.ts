@@ -168,10 +168,18 @@ function unwrapData(decoded: unknown): Record<string, unknown> {
   return row;
 }
 
+function envelopeCodeOk(code: unknown): boolean {
+  if (code == null || code === "")
+    return true;
+  const s = String(code);
+  // yewu11 列表用 0 / 0000000；queryOrderStatus / yewurecord [官网可证实] 用 200
+  return s === "0" || s === "0000000" || s === "200";
+}
+
 async function assertEnvelope(envelope: unknown, apiPath: string): Promise<unknown> {
   const row = envelope && typeof envelope === "object" ? envelope as Record<string, unknown> : {};
   const code = row.code;
-  if (code != null && String(code) !== "0" && String(code) !== "0000000") {
+  if (!envelopeCodeOk(code)) {
     const msg = String(row.msg || row.message || code);
     throw new Error(`OB sport ${apiPath} code=${code} ${msg}`);
   }

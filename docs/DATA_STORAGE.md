@@ -16,7 +16,7 @@ changmen 使用 **RDS（PostgreSQL）** 与 **本机 JSON**。数据层入口为
 | `sport_canonical_teams` / `sport_team_venue_maps` | 预留；热路径用 JSON plugin | `sport_team_plugin`（当前） | 体育队名；与电竞队名表物理隔离 |
 | `sport_client_match_venue_overrides` | matcher UI（接线后） | sport reconcile | 场馆主客 force_aligned / force_reversed |
 | `orders` | 电竞下单 API | 前端电竞订单 / 管理端订单查询 | **仅电竞**；足球禁止写入 |
-| `football_orders` | 足球页 `Client_SaveFootballOrder` | 足球侧栏 Pinia / `Client_GetFootballOrders` / 管理端足球订单 | 与 `orders` 物理隔离；禁止 `Client_SaveOrder`；前端不写 localStorage；`status`/`profit` 由 C201 回写 |
+| `football_orders` | 足球页 `Client_SaveFootballOrder` | 足球侧栏 Pinia / `Client_GetFootballOrders` / 管理端足球订单 | 与 `orders` 物理隔离；禁止 `Client_SaveOrder`；前端不写 localStorage；`status`/`profit` 由 C201 + `queryOrderStatus` / yewurecord 列表回写 |
 
 - **RDS 迁移**：`server/backend/db/migrations/`（含 `033_sport_matcher_tables.sql`；`node scripts/apply-rds-schema.mjs`）
 - **统一 DB 入口**：`@changmen/db`（`server/db/index.js`）

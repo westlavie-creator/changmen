@@ -34,11 +34,12 @@ const footballOrders = useFootballOrderStore();
 const { displayName, config } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
 const { dayProfit } = storeToRefs(orderStore);
-const { rows: footballRows } = storeToRefs(footballOrders);
+const { rows: footballRows, todayRows } = storeToRefs(footballOrders);
 
 const isSports = computed(() => props.workspace === "sports");
 const sportStats = computed(() => {
   void footballRows.value;
+  void todayRows.value;
   return {
     count: footballOrders.count,
     todayProfit: footballOrders.todayProfit,

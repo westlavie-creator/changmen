@@ -191,7 +191,8 @@ export async function refreshAccountBalance(
 export async function refreshAllFromVenues(
   store: AccountStoreContext,
   continuous = false,
-  opts?: { includeEsportOrderList?: boolean },
+  /** 缺省与电竞 Io.f 一致：拉场馆订单 + Client_GetOrderList。体育页可关，禁止改缺省。 */
+  opts?: { includeEsportOrderList?: boolean; includeVenueOrders?: boolean },
 ): Promise<void> {
   const lines: string[] = [];
   const startedAt = Date.now();
@@ -207,9 +208,11 @@ export async function refreshAllFromVenues(
         let step = Date.now();
         await acc.updateBalance();
         lines.push(`读取余额：${Date.now() - step}ms`);
-        step = Date.now();
-        await acc.updateOrders();
-        lines.push(`读取订单：${Date.now() - step}ms`);
+        if (opts?.includeVenueOrders !== false) {
+          step = Date.now();
+          await acc.updateOrders();
+          lines.push(`读取订单：${Date.now() - step}ms`);
+        }
       }
       catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

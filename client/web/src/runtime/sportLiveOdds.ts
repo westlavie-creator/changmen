@@ -250,9 +250,11 @@ export function startSportLiveOddsSession(
         obLive.noteHandicapPlay(mid);
       },
       onOrderStatus(rows) {
-        if (stopped || !rows.length)
+        if (stopped)
           return;
-        void useFootballOrderStore().applyVenueStatus(rows);
+        if (rows.length)
+          void useFootballOrderStore().applyVenueStatus(rows);
+        useFootballOrderStore().syncVenueSettlementSoon();
       },
     },
   );

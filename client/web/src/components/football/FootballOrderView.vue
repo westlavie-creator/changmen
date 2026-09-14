@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import FootballOrderList from "@/components/football/FootballOrderList.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { wait } from "@changmen/client-core/shared/wait";
+import { todayKey } from "@/shared/dateKey";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
 const store = useFootballOrderStore();
@@ -22,6 +23,7 @@ async function reload(date?: string) {
   viewLoading.value = true;
   try {
     await store.load(date);
+    await store.syncVenueSettlement();
   }
   finally {
     await wait(1000);
@@ -82,7 +84,7 @@ function onDateChange(value: string) {
       当前账号筛选下无订单，请选「全部」或点刷新
     </p>
     <p v-else-if="!loading && !viewLoading && !filteredRows.length" class="order-filter-empty">
-      当日无足球订单
+      {{ orderDate === todayKey() ? "当日无足球订单" : "所选日期无足球订单" }}
     </p>
 
     <FootballOrderList

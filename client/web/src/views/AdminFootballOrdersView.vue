@@ -26,6 +26,7 @@ const loadError = ref("");
 const orders = ref<FootballOrderDto[]>([]);
 const todayStake = ref(0);
 const todayProfit = ref(0);
+const profitLabel = computed(() => date.value === todayKey() ? "当日盈亏" : "利润合计");
 const users = ref<AdminUserRow[]>([]);
 const pageReady = ref(false);
 const hScrollRef = ref<HTMLElement | null>(null);
@@ -388,7 +389,7 @@ onMounted(async () => {
       </div>
 
       <div v-if="filteredOrders.length" class="admin-orders-profit-summary">
-        <span class="admin-orders-profit-summary__label">当日盈亏</span>
+        <span class="admin-orders-profit-summary__label">{{ profitLabel }}</span>
         <span class="admin-orders-profit-summary__value">
           {{ fmtMoney(todayProfit) }}
         </span>

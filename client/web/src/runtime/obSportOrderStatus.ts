@@ -3,8 +3,9 @@
  *
  * [官网可证实] worker `R_CMD_ORDER_STATUS="C201"`；processBet 回包
  * `data.orderDetailRespList[].orderStatusCode===1` 表示受理成功（仍待结算）。
- * [changmen 推测] C201 `cd` 与下注回包同源字段：orderNo / outcome / profitAmount。
- * 仅在能解析出 Win/Lose/Reject/Return 时写库；orderStatusCode 单独不够。
+ * C201 `cd` 官方字段：`orderNo` / `status`（0/1 受理中，2/4 失败）。
+ * [changmen 推测] 同包还可能带 outcome / profitAmount；仅在能解析出
+ * Win/Lose/Reject/Return 时写库。queryOrderStatus 2/4 不要当成 outcome 2=赢。
  */
 import type { FootballOrderStatus } from "@/runtime/podSportOrders";
 
@@ -62,24 +63,77 @@ function outcomeStatus(raw: unknown): FootballOrderStatus | null {
   return null;
 }
 
+function orderIdOf(row: Record<string, unknown>): string {
+  return str(row.orderNo || row.order_no || row.orderId || row.order_id);
+}
+
+function profitOf(row: Record<string, unknown>): number | null {
+  return num(row.profitAmount ?? row.profit_amount ?? row.profit ?? row.netAmount ?? row.net_amount);
+}
+
 function patchFromRow(raw: unknown): ObSportOrderStatusPatch | null {
   const row = asRecord(raw);
   if (!row)
     return null;
-  const orderId = str(row.orderNo || row.order_no || row.orderId || row.order_id);
+  const orderId = orderIdOf(row);
   if (!orderId)
     return null;
 
   const named = namedStatus(row.status)
+    || namedStatus(row.orderStatus)
     || outcomeStatus(row.outcome ?? row.betResult ?? row.win ?? row.winStatus ?? row.result);
   if (!named || named === "None")
     return null;
 
-  const profitRaw = num(row.profitAmount ?? row.profit_amount ?? row.profit ?? row.netAmount ?? row.winAmount);
+  const profitRaw = profitOf(row) ?? num(row.winAmount ?? row.settleAmount);
   let profit = profitRaw ?? 0;
   if (named === "Reject")
     profit = 0;
   return { orderId, status: named, profit };
+}
+
+/**
+ * [官网可证实] query_order_status / C201 `status`：0/1 受理中，2/4 失败。
+ * 不要把这个数字当成 outcome（2=赢）。
+ */
+export function patchFromObSportQueryStatus(raw: unknown): ObSportOrderStatusPatch | null {
+  const row = asRecord(raw);
+  if (!row)
+    return null;
+  const settled = patchFromRow(row);
+  if (settled)
+    return settled;
+  const orderId = orderIdOf(row);
+  if (!orderId)
+    return null;
+  const st = num(row.status);
+  if (st === 2 || st === 4)
+    return { orderId, status: "Reject", profit: 0 };
+  return null;
+}
+
+function patchFromBetRecordRow(raw: unknown): ObSportOrderStatusPatch | null {
+  const settled = patchFromRow(raw);
+  if (settled)
+    return settled;
+  const row = asRecord(raw);
+  if (!row)
+    return null;
+  const orderId = orderIdOf(row);
+  if (!orderId)
+    return null;
+  const profit = profitOf(row);
+  if (profit == null)
+    return null;
+  if (profit > 0)
+    return { orderId, status: "Win", profit };
+  if (profit < 0)
+    return { orderId, status: "Lose", profit };
+  const settledFlag = row.settleTime != null || row.isSettled === 1 || row.isSettled === true
+    || str(row.orderStatus).toLowerCase() === "settled";
+  if (settledFlag)
+    return { orderId, status: "Return", profit: 0 };
+  return null;
 }
 
 function collectRows(raw: unknown, out: unknown[], depth: number) {
@@ -95,13 +149,26 @@ function collectRows(raw: unknown, out: unknown[], depth: number) {
     return;
   if (str(row.orderNo || row.order_no || row.orderId || row.order_id))
     out.push(row);
-  for (const key of ["cd", "data", "list", "orders", "orderList", "orderDetailRespList", "seriesOrderRespList"]) {
+  for (const key of ["cd", "data", "list", "orders", "orderList", "orderDetailRespList", "seriesOrderRespList", "records"]) {
     if (row[key] != null)
       collectRows(row[key], out, depth + 1);
   }
 }
 
 const ORDER_CMDS = new Set(["C201", "C118"]);
+
+function uniquePatches(items: unknown[], map: (raw: unknown) => ObSportOrderStatusPatch | null): ObSportOrderStatusPatch[] {
+  const seen = new Set<string>();
+  const out: ObSportOrderStatusPatch[] = [];
+  for (const item of items) {
+    const patch = map(item);
+    if (!patch || seen.has(patch.orderId))
+      continue;
+    seen.add(patch.orderId);
+    out.push(patch);
+  }
+  return out;
+}
 
 /** processBet / C201 共用。受理成功（code=1）不算结算。 */
 export function parseObSportOrderStatusPush(msg: unknown): ObSportOrderStatusPatch[] {
@@ -111,16 +178,21 @@ export function parseObSportOrderStatusPush(msg: unknown): ObSportOrderStatusPat
     return [];
   const bag: unknown[] = [];
   collectRows(msg, bag, 0);
-  const seen = new Set<string>();
-  const out: ObSportOrderStatusPatch[] = [];
-  for (const item of bag) {
-    const patch = patchFromRow(item);
-    if (!patch || seen.has(patch.orderId))
-      continue;
-    seen.add(patch.orderId);
-    out.push(patch);
-  }
-  return out;
+  return uniquePatches(bag, patchFromObSportQueryStatus);
+}
+
+/** [官网可证实] GET queryOrderStatus `data[]`：orderNo + status。 */
+export function parseObSportQueryOrderStatus(decoded: unknown): ObSportOrderStatusPatch[] {
+  const bag: unknown[] = [];
+  collectRows(decoded, bag, 0);
+  return uniquePatches(bag, patchFromObSportQueryStatus);
+}
+
+/** [changmen 推测] yewurecord 注单列表 records / list。只写能解析出盈亏的行。 */
+export function parseObSportBetRecordList(decoded: unknown): ObSportOrderStatusPatch[] {
+  const bag: unknown[] = [];
+  collectRows(decoded, bag, 0);
+  return uniquePatches(bag, patchFromBetRecordRow);
 }
 
 /**
@@ -159,5 +231,7 @@ export function obSportPlaceAccepted(decoded: unknown): { ok: true; orderId: str
     const msg = str(details?.msg || details?.message || data.msg || data.message);
     return { ok: false, message: msg || `场馆未确认(${code})` };
   }
+  if (!orderId)
+    return { ok: false, message: "场馆未返回单号" };
   return { ok: true, orderId };
 }
