@@ -78,6 +78,27 @@ export async function handleAdminAction(
         return fail((err as Error).message || "查询失败");
       }
     }
+    case "Client_AdminFootballMonthReport": {
+      const scoped = await getAdminMonthReportScope(ctx.user, {
+        userId: body.userId ?? body.user_id,
+        teamId: body.teamId ?? body.team_id,
+      }) as { error?: string; userId?: string; userIds?: string[] };
+      if (scoped.error)
+        return fail(scoped.error);
+      try {
+        const { getFootballMonthReport } = await import("../football/football_month_report.js");
+        return ok(
+          await getFootballMonthReport(
+            body.month ? String(body.month) : undefined,
+            scoped.userId,
+            scoped.userIds,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "查询失败");
+      }
+    }
     case "Client_AdminOrderLogs": {
       try {
         return ok(await adminService.listAdminOrderLogs(body, ctx.user));

@@ -2,7 +2,7 @@
  * football_orders — 足球跟单订单。禁止读写电竞 orders。
  */
 import { getPgPool } from "./common.js";
-import { localDayBounds } from "./time_bounds.js";
+import { localDayBounds, localMonthBounds } from "./time_bounds.js";
 
 const TABLE_DDL = `
 CREATE TABLE IF NOT EXISTS football_orders (
@@ -261,4 +261,38 @@ export async function fetchFootballOrdersAdmin(opts = {}) {
     params,
   );
   return rows;
+}
+
+/**
+ * 足球月报：只读 football_orders。禁止查电竞 orders / money_logs。
+ * @param {string} monthKey YYYY-MM
+ * @param {string} [userId]
+ * @param {string[]} [userIds]
+ */
+export async function fetchFootballOrdersForMonthAggregate(monthKey, userId, userIds) {
+  const { monthStart, monthEnd } = localMonthBounds(monthKey);
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  await ensureTable(pool);
+  try {
+    const params = [monthStart, monthEnd];
+    let sql = `SELECT user_id, stake, profit, status, placed_at
+               FROM football_orders
+               WHERE placed_at >= $1 AND placed_at < $2`;
+    if (userId) {
+      params.push(String(userId));
+      sql += ` AND user_id = $${params.length}::uuid`;
+    }
+    else if (Array.isArray(userIds) && userIds.length) {
+      params.push(userIds);
+      sql += ` AND user_id = ANY($${params.length}::uuid[])`;
+    }
+    const { rows } = await pool.query(sql, params);
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchFootballOrdersForMonthAggregate:", err.message);
+    return [];
+  }
 }

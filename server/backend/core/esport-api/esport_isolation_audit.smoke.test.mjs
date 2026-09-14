@@ -60,4 +60,31 @@ const marketsSlice = routerTs.slice(marketsCase, marketsCase + 120);
 assert.match(marketsSlice, /return ok\(\[\]\)/);
 assert.equal(/sport_ob_football_fetch/.test(marketsSlice), false, "GetFootballMatchMarkets must not fetch OB HTTP");
 
+const esportMonthReport = fs.readFileSync(
+  path.join(root, "server/backend/core/account/report_service.js"),
+  "utf8",
+);
+assert.match(esportMonthReport, /fetchOrdersForMonthAggregate/);
+assert.match(esportMonthReport, /fetchMoneyLogsForMonthAggregate/);
+assert.equal(/football_orders|fetchFootballOrders/.test(esportMonthReport), false);
+
+const footballMonthReport = fs.readFileSync(
+  path.join(root, "server/backend/core/football/football_month_report.js"),
+  "utf8",
+);
+assert.match(footballMonthReport, /fetchFootballOrdersForMonthAggregate/);
+assert.equal(/fetchMoneyLogsForMonthAggregate|account\/report_service|(?<!Football)fetchOrdersForMonthAggregate/.test(footballMonthReport), false);
+
+const adminRoutes = fs.readFileSync(
+  path.join(root, "server/backend/core/esport-api/admin_routes.ts"),
+  "utf8",
+);
+const esportReportCase = adminRoutes.indexOf('case "Client_AdminMonthReport"');
+assert.ok(esportReportCase >= 0);
+const esportReportSlice = adminRoutes.slice(esportReportCase, esportReportCase + 420);
+assert.match(esportReportSlice, /getMonthReport/);
+assert.equal(/getFootballMonthReport/.test(esportReportSlice), false);
+assert.match(adminRoutes, /Client_AdminFootballMonthReport/);
+assert.match(adminRoutes, /getFootballMonthReport/);
+
 console.log("esport_isolation_audit.smoke: ok");

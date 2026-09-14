@@ -227,6 +227,7 @@ export const {
   patchFootballOrderStatus,
   fetchFootballOrdersByUser,
   fetchFootballOrdersAdmin,
+  fetchFootballOrdersForMonthAggregate,
 } = impl;
 
 export const {

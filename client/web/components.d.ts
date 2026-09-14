@@ -85,6 +85,7 @@ declare module 'vue' {
     FootballMarketSection: typeof import('./src/components/football/FootballMarketSection.vue')['default']
     FootballMatchBoard: typeof import('./src/components/football/FootballMatchBoard.vue')['default']
     FootballMatchCard: typeof import('./src/components/football/FootballMatchCard.vue')['default']
+    FootballMonthReportTable: typeof import('./src/components/report/FootballMonthReportTable.vue')['default']
     FootballObSessionBar: typeof import('./src/components/match/FootballObSessionBar.vue')['default']
     FootballOddsCell: typeof import('./src/components/football/FootballOddsCell.vue')['default']
     FootballOrderList: typeof import('./src/components/football/FootballOrderList.vue')['default']

@@ -27,6 +27,14 @@ const migration = readFileSync(
   "utf8",
 );
 const apply = readFileSync(join(__dirname, "../backend/scripts/apply-rds-schema.mjs"), "utf8");
+const monthReport = readFileSync(
+  join(__dirname, "../backend/core/football/football_month_report.js"),
+  "utf8",
+);
+const esportReport = readFileSync(
+  join(__dirname, "../backend/core/account/report_service.js"),
+  "utf8",
+);
 const webStore = readFileSync(
   join(__dirname, "../../client/web/src/stores/footballOrderStore.ts"),
   "utf8",
@@ -37,7 +45,8 @@ function sqlTableHits(src, table) {
   return re.test(src);
 }
 
-assert.match(storeSrc, /football_orders/);
+assert.match(storeSrc, /fetchFootballOrdersForMonthAggregate/);
+assert.match(storeSrc, /FROM football_orders/);
 assert.match(storeSrc, /placed_at >=/);
 assert.match(storeSrc, /patchFootballOrderStatus/);
 assert.match(storeSrc, /ADD COLUMN IF NOT EXISTS status/);
@@ -63,5 +72,10 @@ assert.match(migration041, /ADD COLUMN IF NOT EXISTS profit/);
 assert.doesNotMatch(webStore, /localStorage\.(getItem|setItem|removeItem)/);
 assert.doesNotMatch(webStore, /from ["']@\/stores\/orderStore/);
 assert.doesNotMatch(webStore, /"Client_SaveOrder"|"Client_GetOrderList"/);
+assert.match(monthReport, /fetchFootballOrdersForMonthAggregate/);
+assert.doesNotMatch(monthReport, /(?<!Football)fetchOrdersForMonthAggregate|fetchMoneyLogsForMonthAggregate|account\/report_service/);
+assert.match(esportReport, /fetchOrdersForMonthAggregate/);
+assert.match(esportReport, /fetchMoneyLogsForMonthAggregate/);
+assert.doesNotMatch(esportReport, /football_orders|fetchFootballOrders/);
 
 console.log("football_orders.smoke: ok");

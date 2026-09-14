@@ -73,3 +73,33 @@ export async function getAdminFootballOrders(body: {
     userId: body.userId || "",
   }));
 }
+
+export type FootballMonthReportRow = {
+  Date?: string;
+  Profit?: number;
+  OrderCount?: number;
+  BetMoney?: number;
+  Rate?: number;
+};
+
+export type FootballMonthReportPayload = {
+  month?: string;
+  userId?: string;
+  list?: FootballMonthReportRow[];
+  total?: FootballMonthReportRow;
+};
+
+export async function getAdminFootballMonthReport(
+  month?: string,
+  userId?: string,
+  teamId?: string,
+): Promise<FootballMonthReportPayload> {
+  const body: Record<string, string> = {};
+  if (month)
+    body.month = month;
+  if (userId)
+    body.userId = userId;
+  if (teamId)
+    body.teamId = teamId;
+  return unwrap(await post<FootballMonthReportPayload>("Client_AdminFootballMonthReport", body));
+}

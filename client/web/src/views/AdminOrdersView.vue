@@ -366,7 +366,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AdminLayout title="订单查询" :subtitle="subtitle">
+  <AdminLayout title="电竞订单查询" :subtitle="subtitle">
     <section v-loading="loading" class="admin-card admin-card--orders">
       <div class="admin-card__toolbar admin-orders-filters">
         <OrderDateNav v-model="date" placeholder="统计日期" />

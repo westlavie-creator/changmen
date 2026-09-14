@@ -36,6 +36,7 @@ describe("action_registry", () => {
     expect(classifyAction("Client_SaveFootballOrder").bucket).toBe("core");
     expect(classifyAction("Client_GetFootballOrders").bucket).toBe("core");
     expect(classifyAction("Client_AdminFootballOrders").bucket).toBe("admin");
+    expect(classifyAction("Client_AdminFootballMonthReport").bucket).toBe("admin");
     expect(classifyAction("Client_SaveOrder").bucket).toBe("account");
   });
 

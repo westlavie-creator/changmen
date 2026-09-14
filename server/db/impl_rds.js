@@ -205,6 +205,7 @@ export {
 export {
   fetchFootballOrdersAdmin,
   fetchFootballOrdersByUser,
+  fetchFootballOrdersForMonthAggregate,
   patchFootballOrderStatus,
   upsertFootballOrder,
 } from "./rds/football_orders_store.js";

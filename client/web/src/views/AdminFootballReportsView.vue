@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { TeamRow } from "@/api/admin";
+import type { FootballMonthReportPayload } from "@/api/footballOrder";
 import type { AdminUserRow } from "@/types/admin";
-import type { MonthReportPayload } from "@/types/monthReport";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getAdminMonthReport, getAdminUsers, getTeams } from "@/api/admin";
+import { getAdminUsers, getTeams } from "@/api/admin";
+import { getAdminFootballMonthReport } from "@/api/footballOrder";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
-import MonthReportTable from "@/components/report/MonthReportTable.vue";
+import FootballMonthReportTable from "@/components/report/FootballMonthReportTable.vue";
 import { useUserStore } from "@/stores/userStore";
 
 /** 与后端 role_filter.UNGROUPED_TEAM_ID 一致 */
@@ -22,7 +23,7 @@ const filterTeamId = ref(String(route.query.teamId || ""));
 const users = ref<AdminUserRow[]>([]);
 const teams = ref<TeamRow[]>([]);
 const loading = ref(false);
-const report = ref<MonthReportPayload | null>(null);
+const report = ref<FootballMonthReportPayload | null>(null);
 const loadError = ref("");
 const filtersReady = ref(false);
 let loadSeq = 0;
@@ -98,18 +99,18 @@ const filterUserName = computed(() => {
 
 const pageTitle = computed(() => {
   if (filterUserId.value)
-    return `${filterUserName.value || "用户"} · 电竞月报表`;
+    return `${filterUserName.value || "用户"} · 足球月报表`;
   if (filterTeamId.value)
-    return `${selectedTeamName.value} · 电竞月报表`;
-  return userStore.isAdmin ? "全站电竞月报表" : "团队电竞月报表";
+    return `${selectedTeamName.value} · 足球月报表`;
+  return userStore.isAdmin ? "全站足球月报表" : "团队足球月报表";
 });
 
 const pageSubtitle = computed(() => {
   if (filterUserId.value)
-    return "按用户筛选：盈利、流水、充提与被黑";
+    return "按用户筛选：跟单笔数、流水与盈亏（不含充提）";
   if (filterTeamId.value)
-    return "按团队汇总：盈利、流水、充提与被黑";
-  return "按月汇总：盈利、流水、充提与被黑";
+    return "按团队汇总：跟单笔数、流水与盈亏（不含充提）";
+  return "按月汇总：跟单笔数、流水与盈亏（不含充提）";
 });
 
 async function loadUsers() {
@@ -137,7 +138,7 @@ async function load() {
   loadError.value = "";
   loading.value = true;
   try {
-    const payload = await getAdminMonthReport(
+    const payload = await getAdminFootballMonthReport(
       month.value,
       filterUserId.value || undefined,
       userStore.isAdmin ? (filterTeamId.value || undefined) : undefined,
@@ -167,13 +168,12 @@ function syncRouteQuery() {
     if (filterUserName.value)
       q.userName = filterUserName.value;
   }
-  void router.replace({ name: "admin-reports", query: q });
+  void router.replace({ name: "admin-football-reports", query: q });
 }
 
 function dropUserIfOutsideTeam() {
   if (!filterUserId.value)
     return false;
-  // 用户列表尚未拉到（或失败）时不要清掉 URL 里的 userId
   if (!users.value.length)
     return false;
   if (usersInSelectedTeam.value.some(u => u.id === filterUserId.value))
@@ -305,9 +305,8 @@ onMounted(async () => {
         <p v-if="loadError" class="admin-card__empty admin-card__empty--error">
           {{ loadError }}
         </p>
-        <MonthReportTable
+        <FootballMonthReportTable
           v-else
-          variant="admin"
           :list="report?.list ?? []"
           :total="report?.total ?? null"
           :loading="loading"

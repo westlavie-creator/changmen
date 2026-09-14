@@ -116,7 +116,7 @@ onMounted(() => {
         class="admin-kpi admin-kpi--orders admin-kpi--click"
         @click="router.push({ name: 'admin-orders', query: { date } })"
       >
-        <i class="admin-kpi__icon am-icon-list" aria-hidden="true" />
+        <i class="admin-kpi__icon am-icon-gamepad" aria-hidden="true" />
         <div class="admin-kpi__body">
           <div class="admin-kpi__label">
             当日订单
@@ -171,8 +171,8 @@ onMounted(() => {
             class="admin-quick__item"
             @click="router.push({ name: 'admin-orders', query: { date } })"
           >
-            <i class="am-icon-list" aria-hidden="true" />
-            <span>全部订单</span>
+            <i class="am-icon-gamepad" aria-hidden="true" />
+            <span>电竞订单查询</span>
           </button>
           <button
             type="button"
@@ -180,7 +180,7 @@ onMounted(() => {
             @click="router.push({ name: 'admin-reports', query: { date } })"
           >
             <i class="am-icon-bar-chart" aria-hidden="true" />
-            <span>报表查询</span>
+            <span>电竞报表查询</span>
           </button>
           <a
             class="admin-quick__item"

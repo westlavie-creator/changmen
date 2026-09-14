@@ -35,6 +35,9 @@
 .am-icon-futbol-o:before {
   content: "\f1e3";
 }
+.am-icon-gamepad:before {
+  content: "\f11b";
+}
 .am-icon-shield:before {
   content: "\f132";
 }
@@ -52,6 +55,9 @@
 }
 .am-icon-bar-chart:before {
   content: "\f080";
+}
+.am-icon-area-chart:before {
+  content: "\f1fe";
 }
 .am-icon-arrow-left:before {
   content: "\f060";

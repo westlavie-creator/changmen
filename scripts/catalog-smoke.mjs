@@ -45,6 +45,7 @@ const STEPS = [
   mjs("db: sport_matcher_tables", "server/db/sport_matcher_tables.smoke.test.mjs"),
   mjs("db: football_orders", "server/db/football_orders.smoke.test.mjs"),
   mjs("football: order dto", "server/backend/core/football/football_order.test.mjs"),
+  mjs("football: month report", "server/backend/core/football/football_month_report.test.mjs"),
   {
     label: "db: order_link_filter + order_changmen_bet (vitest)",
     cmd: VITEST,

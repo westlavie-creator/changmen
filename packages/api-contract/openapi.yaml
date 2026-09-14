@@ -39,6 +39,10 @@ paths:
     post:
       summary: 管理端足球订单（RDS football_orders；与电竞 Client_AdminOrders 隔离）
       operationId: Client_AdminFootballOrders
+  /esport/Client_AdminFootballMonthReport:
+    post:
+      summary: 管理端足球月报（RDS football_orders；不含电竞 orders / money_logs）
+      operationId: Client_AdminFootballMonthReport
   /esport/Client_GetTennisMatchs:
     post:
       summary: 网球列表（MVP：Polymarket Gamma ATP+WTA 单打 ∥ Predict.fun；不读写电竞 client_matches）

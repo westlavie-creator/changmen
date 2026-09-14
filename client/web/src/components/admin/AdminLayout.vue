@@ -24,7 +24,7 @@ const navItems: AdminNavItem[] = [
   { name: "admin", label: "数据概览", icon: "am-icon-dashboard", to: { name: "admin" } },
   { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" } },
   { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" } },
-  { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" } },
+  { name: "admin-orders", label: "电竞订单查询", icon: "am-icon-gamepad", to: { name: "admin-orders" } },
   { name: "admin-football-orders", label: "足球订单", icon: "am-icon-futbol-o", to: { name: "admin-football-orders" } },
   {
     name: "admin-maintenance",
@@ -34,9 +34,15 @@ const navItems: AdminNavItem[] = [
   },
   {
     name: "admin-reports",
-    label: "报表查询",
+    label: "电竞报表查询",
     icon: "am-icon-bar-chart",
     to: { name: "admin-reports" },
+  },
+  {
+    name: "admin-football-reports",
+    label: "足球报表查询",
+    icon: "am-icon-area-chart",
+    to: { name: "admin-football-reports" },
   },
   {
     name: "admin-analytics",
