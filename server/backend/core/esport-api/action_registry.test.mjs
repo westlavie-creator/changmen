@@ -33,6 +33,10 @@ describe("action_registry", () => {
     expect(classifyAction("Client_SaveAccounts").bucket).toBe("account");
     expect(classifyAction("Client_GetMatchs").bucket).toBe("core");
     expect(classifyAction("API_SaveMatch").bucket).toBe("core");
+    expect(classifyAction("Client_SaveFootballOrder").bucket).toBe("core");
+    expect(classifyAction("Client_GetFootballOrders").bucket).toBe("core");
+    expect(classifyAction("Client_AdminFootballOrders").bucket).toBe("admin");
+    expect(classifyAction("Client_SaveOrder").bucket).toBe("account");
   });
 
   it("defaults DISPATCH to legacy", () => {

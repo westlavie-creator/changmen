@@ -56,7 +56,9 @@ onUnmounted(() => {
     <p class="pod-bet-settings__hint">
       跟单门槛只存在本机，不写账号配置。过线且对上足球板的场和盘，才会出现在「POD 跟单」浮窗并一直留下，降赔列表本身不筛。
       对 OB 时仍要同一场、默认同档。EV / 副盘 / 同场闸门在下面「AutoYabo 决策」。
-      每条会标<strong>已下 / 未下</strong>；下单用侧栏 OB 账号里的体育 token。<strong>自动下注默认关</strong>，开了才真下。「时效」只挡自动下单，不把票从列表拿掉。
+      每条会标<strong>已下 / 未下</strong>；下单用下面选的跟单账号（体育 token）。
+      自动只打<strong>已确认</strong>的场，猜测场可手点。板上没有这场才热搜一次。
+      「时效」只挡自动下单，不把票从列表拿掉。
     </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
       <el-form-item label="启用筛选">
@@ -64,7 +66,30 @@ onUnmounted(() => {
       </el-form-item>
       <el-form-item label="自动下注">
         <el-switch v-model="form.autoPlace" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-        <span class="pod-bet-settings__note">默认关；开了才自动下过线且对上 OB 的票</span>
+        <span class="pod-bet-settings__note">默认关；开了才自动下过线且<strong>已确认</strong>的场</span>
+      </el-form-item>
+      <el-form-item label="跟单账号">
+        <el-input-number
+          v-model="form.followAccountId"
+          :min="0"
+          :max="1e16"
+          :step="1"
+          :precision="0"
+          controls-position="right"
+        />
+        <span class="pod-bet-settings__note">0 = 侧栏里第一个有体育 token 的 OB 号</span>
+      </el-form-item>
+      <el-form-item label="当日亏损帽">
+        <el-input-number
+          v-model="form.maxDailyLoss"
+          :min="0"
+          :max="1000000"
+          :step="50"
+          :precision="0"
+          controls-position="right"
+        />
+        <span class="pod-bet-settings__unit">元</span>
+        <span class="pod-bet-settings__note">0 = 不限；只挡自动</span>
       </el-form-item>
       <el-form-item label="下注金额">
         <el-input-number

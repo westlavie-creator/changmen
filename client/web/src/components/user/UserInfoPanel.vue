@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { useTransition } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { delay as esportDelay } from "@/api/apiDelay";
 import { countPrimaryOrderRows } from "@/shared/orderLink";
-import { POD_SPORT_ORDERS_UPDATED, summarizePodSportOrders } from "@/runtime/podSportOrders";
 import { useAccountStore } from "@/stores/accountStore";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 
@@ -30,15 +30,19 @@ const router = useRouter();
 const user = useUserStore();
 const accountStore = useAccountStore();
 const orderStore = useOrderStore();
+const footballOrders = useFootballOrderStore();
 const { displayName, config } = storeToRefs(user);
 const { totalBalance } = storeToRefs(accountStore);
 const { dayProfit } = storeToRefs(orderStore);
+const { rows: footballRows } = storeToRefs(footballOrders);
 
 const isSports = computed(() => props.workspace === "sports");
-const sportTick = ref(0);
 const sportStats = computed(() => {
-  void sportTick.value;
-  return summarizePodSportOrders();
+  void footballRows.value;
+  return {
+    count: footballOrders.count,
+    todayProfit: footballOrders.todayProfit,
+  };
 });
 
 const totalOrders = computed(() => {
@@ -51,7 +55,7 @@ const totalOrders = computed(() => {
 });
 
 const reportMid = computed(() =>
-  isSports.value ? sportStats.value.todayStake : dayProfit.value,
+  isSports.value ? sportStats.value.todayProfit : dayProfit.value,
 );
 
 /** 对齐 A8 UserInfoView `TT`：统计数字过渡 */
@@ -82,18 +86,6 @@ const shownUserName = computed(() =>
   props.embedded ? props.embeddedUserName || displayName.value : displayName.value,
 );
 
-function onSportOrdersUpdated() {
-  sportTick.value += 1;
-}
-
-onMounted(() => {
-  if (!isSports.value)
-    return;
-  window.addEventListener(POD_SPORT_ORDERS_UPDATED, onSportOrdersUpdated);
-});
-onUnmounted(() => {
-  window.removeEventListener(POD_SPORT_ORDERS_UPDATED, onSportOrdersUpdated);
-});
 </script>
 
 <template>
@@ -188,7 +180,7 @@ onUnmounted(() => {
         </el-col>
         <el-col :span="8">
           <el-statistic
-            :title="isSports ? '已下金额' : '当日盈亏'"
+            title="当日盈亏"
             :value="Math.round(animToday)"
             :precision="0"
             class="report-number"

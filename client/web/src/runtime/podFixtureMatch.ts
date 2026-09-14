@@ -1,9 +1,11 @@
 /**
  * POD 警报 → 足球板赛事。只对场，不对盘、不算价。
- * 拉丁队名 + 开赛时间窗；OB 中文标题用英文旁路 homeEn/awayEn。命中一律标猜测。
+ * 拉丁队名 + 开赛时间窗；OB 中文标题用英文旁路 homeEn/awayEn。
+ * 唯一且队名几乎全等 → confirmed（才能自动）；其余 matched 仍是猜测，可手点。
  */
 import { footballLeagueKey } from "@/runtime/footballLeague";
 import type { PodDropAlert } from "@/runtime/podAlerts";
+import { aliasPodTeamTokens, expandPodTeamName } from "@/runtime/podTeamAlias";
 
 export const POD_FIXTURE_TIME_WINDOW_MS = 20 * 60 * 1000;
 
@@ -56,9 +58,11 @@ export type PodFixtureHit = {
 
 export type PodFixtureMatchStatus = "matched" | "pending" | "none";
 
+export type PodFixtureMatchBasis = "guess" | "confirmed";
+
 export type PodFixtureMatch = {
   status: PodFixtureMatchStatus;
-  basis: "guess";
+  basis: PodFixtureMatchBasis;
   hits: PodFixtureHit[];
 };
 
@@ -95,9 +99,7 @@ function splitTitle(title: string): { home: string; away: string } | null {
   return { home, away };
 }
 
-export function teamNameScore(a: string, b: string): number {
-  const left = String(a || "").trim();
-  const right = String(b || "").trim();
+function rawTeamNameScore(left: string, right: string): number {
   if (!left || !right || isJunkTeam(left) || isJunkTeam(right))
     return 0;
   const compactA = fold(left).replace(/[^a-z0-9]+/g, "");
@@ -106,8 +108,8 @@ export function teamNameScore(a: string, b: string): number {
     return 1;
   if (!hasLatin(left) || !hasLatin(right))
     return 0;
-  const A = latinTokens(left);
-  const B = latinTokens(right);
+  const A = aliasPodTeamTokens(latinTokens(left));
+  const B = aliasPodTeamTokens(latinTokens(right));
   if (!A.length || !B.length)
     return 0;
   const setB = new Set(B);
@@ -128,6 +130,17 @@ export function teamNameScore(a: string, b: string): number {
   if (!strong.length)
     return 0;
   return strong.length / Math.min(A.filter(t => !WEAK.has(t)).length || A.length, B.filter(t => !WEAK.has(t)).length || B.length);
+}
+
+export function teamNameScore(a: string, b: string): number {
+  const left = String(a || "").trim();
+  const right = String(b || "").trim();
+  return Math.max(
+    rawTeamNameScore(left, right),
+    rawTeamNameScore(expandPodTeamName(left), right),
+    rawTeamNameScore(left, expandPodTeamName(right)),
+    rawTeamNameScore(expandPodTeamName(left), expandPodTeamName(right)),
+  );
 }
 
 function pairScore(
@@ -279,6 +292,18 @@ export function fixtureFromViewMatch(row: {
 }
 
 const TEAM_MIN = 0.5;
+const CONFIRMED_MIN = 0.99;
+
+function fixtureBasis(hits: PodFixtureHit[]): PodFixtureMatchBasis {
+  const hit = hits[0];
+  if (hits.length !== 1 || !hit)
+    return "guess";
+  if (!String(hit.fixture.obMid || "").trim())
+    return "guess";
+  if (hit.score + 1e-9 < CONFIRMED_MIN)
+    return "guess";
+  return "confirmed";
+}
 
 export function matchPodAlertToFixtures(
   alert: Pick<PodDropAlert, "home" | "away" | "starts" | "league">,
@@ -310,7 +335,7 @@ export function matchPodAlertToFixtures(
     }
   }
   if (hits.length === 1)
-    return { status: "matched", basis: "guess", hits };
+    return { status: "matched", basis: fixtureBasis(hits), hits };
   if (hits.length > 1)
     return { status: "pending", basis: "guess", hits };
   return { status: "none", basis: "guess", hits: [] };
@@ -323,9 +348,11 @@ export function formatPodFixtureMatch(row: PodFixtureMatch): string {
     return `待确认 · ${row.hits.length} 场`;
   const hit = row.hits[0];
   const title = hit?.fixture.title || "板上比赛";
-  const bits = ["已对上", title];
+  const bits = [row.basis === "confirmed" ? "已确认" : "已对上", title];
   if (hit?.fixture.obMid)
     bits.push("OB");
+  if (row.basis !== "confirmed")
+    bits.push("猜测");
   if (hit?.swapped)
     bits.push("主客相反");
   return bits.join(" · ");

@@ -60,7 +60,7 @@
 **PF 供给**：非胜负盘（`SPORTS_PROPS` / More Markets）目前几乎只有 **中超 CSL**（外加少量世界杯）；MLS 等常仅有胜负——属上游供给，非漏采。  
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗 / 联赛解析）小修。  
 **禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
-**例外（POD 跟单 · 2026-09-12）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 + `processBetPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。已下单进足球页独立侧栏（本机 `podSportOrders`），**禁止** `Client_SaveOrder` / 电竞 `orderStore`。体育页 `sportsSession` **不**拉 `Client_GetOrderList`。这不是 N4 套利。  
+**例外（POD 跟单 · 2026-09-14）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 + `processBetPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。已下单进足球页独立侧栏（日期/账号筛选 + `.orders` 卡片，对齐电竞 `OrderView` 壳）；读写对齐电竞订单（Pinia 内存 + RDS 强一致），表是 **`football_orders`**（`Client_SaveFootballOrder` / `Client_GetFootballOrders` / 管理端「足球订单」按用户/账号分列），**不写 localStorage**。结算走熊猫 **C201** 回写 `status`/`profit`（侧栏 Win/Lose/待结算），**禁止** `Client_SaveOrder` / 电竞 `orderStore` / 电竞 `orders` 表 / 复用 `OrderList` / 电竞 `getOrders`。体育页 `sportsSession` **不**拉 `Client_GetOrderList`。这不是 N4 套利。  
 （电竞 house 已 `PredictFun.bet: true`；与 sport 下注无关。）  
 **下一闸门** = 产品要 **自动下单** 再开 **N4** plan；或要对齐新场馆再单开。  
 **N4 套利盘口（产品硬规则 · 未实现）**：

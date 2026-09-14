@@ -208,6 +208,57 @@ export async function postObSportPb(
   return postPb(session, apiPath, body);
 }
 
+export async function getObSportPb(
+  apiPath: string,
+  query: Record<string, string> = {},
+  session = readLocalSportObSession(),
+) {
+  if (!session?.token)
+    throw new Error("未配置体育 OB 会话");
+  const origin = gatewayOrigin(session);
+  if (!origin)
+    throw new Error("sport OB session missing gateway");
+  const qs = new URLSearchParams({ ...query, t: String(Date.now()) });
+  const path = apiPath.includes("?") ? apiPath : `${apiPath}?${qs.toString()}`;
+  const url = path.startsWith("http") ? path : `${origin}${path.startsWith("/") ? "" : "/"}${path}`;
+  const res = await a8Axios.get(url, {
+    headers: buildHeaders(session),
+    timeout: 30_000,
+  });
+  if (res.status >= 400) {
+    const text = responseBodyText(res.data);
+    throw new Error(text.slice(0, 160) || `HTTP ${res.status}`);
+  }
+  return assertEnvelope(res.data, apiPath);
+}
+
+export async function fetchObFootballDtoByMid(
+  mid: string,
+  hint?: { home?: string; away?: string; tid?: string; tn?: string; tnjc?: string; startTime?: number },
+): Promise<ClientMatchDto | null> {
+  const session = readLocalSportObSession();
+  if (!session?.token || !gatewayOrigin(session))
+    return null;
+  const id = String(mid || "").trim();
+  if (!isObSportC8Mid(id))
+    return null;
+  const today = await fetchOddsByMids(session, [id]);
+  let odds = today.byMid.get(id);
+  if (!odds) {
+    const live = await fetchOddsByMids(session, [id], EUID_FOOTBALL_LIVE);
+    odds = live.byMid.get(id);
+  }
+  return buildDto({
+    mid: id,
+    tid: String(hint?.tid || odds?.tid || ""),
+    tn: String(hint?.tn || ""),
+    tnjc: String(hint?.tnjc || ""),
+    startTime: Number(hint?.startTime || odds?.mgt || 0) || 0,
+    home: hint?.home,
+    away: hint?.away,
+  }, odds);
+}
+
 export type ScheduleMeta = {
   mid: string;
   tid: string;

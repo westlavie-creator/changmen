@@ -43,6 +43,8 @@ const STEPS = [
   mjs("esport-api: esport_isolation_audit", "server/backend/core/esport-api/esport_isolation_audit.smoke.test.mjs"),
   mjs("team-resolver: sport_team_plugin", "server/match/resolver/sport_team_plugin.smoke.test.mjs"),
   mjs("db: sport_matcher_tables", "server/db/sport_matcher_tables.smoke.test.mjs"),
+  mjs("db: football_orders", "server/db/football_orders.smoke.test.mjs"),
+  mjs("football: order dto", "server/backend/core/football/football_order.test.mjs"),
   {
     label: "db: order_link_filter + order_changmen_bet (vitest)",
     cmd: VITEST,

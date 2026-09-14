@@ -34,6 +34,7 @@ const LEADER_ALLOWED_ACTIONS = new Set([
   "Client_AdminUsers",
   "Client_AdminOrders",
   "Client_AdminOrdersMatrix",
+  "Client_AdminFootballOrders",
   "Client_AdminOrderLogs",
   "Client_AdminResetPassword",
   "Client_AdminRenameUser",

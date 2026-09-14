@@ -30,6 +30,7 @@ import {
   fixtureFromViewMatch,
   formatPodFixtureMatch,
   matchPodAlertToFixtures,
+  type PodBoardFixture,
 } from "@/runtime/podFixtureMatch";
 import {
   formatPodMarketMatch,
@@ -57,6 +58,24 @@ import {
   type PodFollowLogRow,
 } from "@/runtime/podFollowLog";
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
+import {
+  listPodObMissFixtures,
+  searchPodObMissFixture,
+  subscribePodObMissSearch,
+} from "@/runtime/podObMissSearch";
+import {
+  listPrefetchedObMarkets,
+  mergePodBoardMarkets,
+  peekPrefetchedObOdds,
+  prefetchObSportMatchMarkets,
+  prefetchObSportOidQuote,
+  subscribePodMarketPrefetch,
+} from "@/runtime/podMarketPrefetch";
+import { fetchObSportAmount } from "@/runtime/obSportAmount";
+import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
+import { accountOrderDisplayName } from "@/shared/accountDisplayName";
+import { useAccountStore } from "@/stores/accountStore";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { usePodAlertStore } from "@/stores/podAlertStore";
@@ -74,29 +93,61 @@ const store = usePodAlertStore();
 const football = useFootballStore();
 const sportOdds = useSportOddsStore();
 const obLive = useObSportLiveStore();
+const accounts = useAccountStore();
+const footballOrders = useFootballOrderStore();
 const { snapshot, portReady, alerts } = storeToRefs(store);
 const { matchs } = storeToRefs(football);
 const { tick: sportOddsTick } = storeToRefs(sportOdds);
 const { lineTick } = storeToRefs(obLive);
 const betSettings = ref<PodBetSettings>(readPodBetSettings());
 const nowTick = ref(Date.now());
+const missTick = ref(0);
+const prefetchTick = ref(0);
+const sportAmount = ref(0);
 let nowTimer: ReturnType<typeof setInterval> | null = null;
+let amountTimer: ReturnType<typeof setInterval> | null = null;
+let stopMissSearch: (() => void) | null = null;
+let stopPrefetch: (() => void) | null = null;
+
+const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
+const followAccountOptions = computed(() => [
+  { value: 0, label: "默认账号" },
+  ...followAccounts.value.map(row => ({
+    value: Number(row.accountId) || 0,
+    label: `${row.platformName || row.provider}/${accountOrderDisplayName(row)}`,
+  })),
+]);
 
 const tickets = computed(() => {
   void sportOddsTick.value;
   void lineTick.value;
+  void missTick.value;
+  void prefetchTick.value;
   const live = {
-    get: (platform: string, id: string) => sportOdds.get(platform, id),
-    has: (platform: string, id: string) => sportOdds.has(platform, id),
+    get: (platform: string, id: string) => peekPrefetchedObOdds(id) || sportOdds.get(platform, id),
+    has: (platform: string, id: string) => peekPrefetchedObOdds(id) > 1 || sportOdds.has(platform, id),
     getLine: (oid: string) => obLive.getLine(oid),
   };
-  const fixtures = matchs.value.map((row) => {
+  const board = matchs.value.map((row) => {
     const fixture = fixtureFromViewMatch(row);
-    const en = peekObEnglishNames(fixture.obMid);
+    const extra = listPrefetchedObMarkets(fixture.obMid);
+    const withMarkets = extra.length
+      ? { ...fixture, markets: mergePodBoardMarkets(fixture.markets, extra) }
+      : fixture;
+    const en = peekObEnglishNames(withMarkets.obMid);
     if (!en)
-      return fixture;
-    return { ...fixture, homeEn: en.home, awayEn: en.away, gameEn: en.league };
+      return withMarkets;
+    return { ...withMarkets, homeEn: en.home, awayEn: en.away, gameEn: en.league };
   });
+  const seen = new Set(board.map(row => row.obMid).filter(Boolean));
+  const fixtures: PodBoardFixture[] = [...board];
+  for (const row of listPodObMissFixtures()) {
+    if (!row.obMid || seen.has(row.obMid))
+      continue;
+    const extra = listPrefetchedObMarkets(row.obMid);
+    fixtures.push(extra.length ? { ...row, markets: mergePodBoardMarkets(row.markets, extra) } : row);
+    seen.add(row.obMid);
+  }
   return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
     const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
     const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
@@ -143,6 +194,20 @@ function recordLiveTickets() {
 
 watch(tickets, recordLiveTickets, { immediate: true });
 
+watch(tickets, (rows) => {
+  for (const ticket of rows) {
+    if (ticket.fixtureMatch.status === "none")
+      void searchPodObMissFixture(ticket.alert);
+    const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
+    const mid = String(hit?.fixture.obMid || "").trim();
+    if (mid && ticket.marketMatch.status !== "matched")
+      void prefetchObSportMatchMarkets(mid);
+    const oid = String(ticket.marketMatch.oid || "").trim();
+    if (oid)
+      void prefetchObSportOidQuote(oid);
+  }
+}, { immediate: true });
+
 function jumpToTicket(ticket: (typeof tickets.value)[number]) {
   if (ticket.fixtureMatch.status !== "matched")
     return;
@@ -158,6 +223,7 @@ function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false
     id: ticket.id,
     stake: ticket.stake,
     fixtureStatus: ticket.fixtureMatch.status,
+    fixtureBasis: ticket.fixtureMatch.basis,
     obMid: String(hit?.fixture.obMid || "").trim(),
     home: ticket.alert.home,
     away: ticket.alert.away,
@@ -266,6 +332,11 @@ async function maybeAutoPlace() {
     ready.map(row => ticketPlacePayload(row)),
     skipped,
     placedEntries,
+    {
+      todayProfit: footballOrders.todayProfit,
+      openStake: footballOrders.todayOpenStake,
+      maxDailyLoss: betSettings.value.maxDailyLoss,
+    },
   );
   if (!next)
     return;
@@ -463,6 +534,27 @@ function persistAuto(raw: boolean) {
   });
 }
 
+function persistFollowAccount(raw: number | null | undefined) {
+  betSettings.value = writePodBetSettings({
+    ...betSettings.value,
+    followAccountId: Number(raw) || 0,
+  });
+}
+
+const followAccountModel = computed({
+  get: () => betSettings.value.followAccountId,
+  set: (v: number) => persistFollowAccount(v),
+});
+
+async function refreshSportAmount() {
+  try {
+    sportAmount.value = await fetchObSportAmount();
+  }
+  catch {
+    sportAmount.value = 0;
+  }
+}
+
 function reloadBetSettings() {
   betSettings.value = readPodBetSettings();
 }
@@ -499,18 +591,36 @@ onMounted(() => {
   placed.value = Object.fromEntries(logRows.value.filter(row => row.placed).map(row => [row.id, true as const]));
   window.addEventListener("resize", onWindowResize);
   window.addEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
+  stopMissSearch = subscribePodObMissSearch(() => {
+    missTick.value += 1;
+  });
+  stopPrefetch = subscribePodMarketPrefetch(() => {
+    prefetchTick.value += 1;
+  });
   nowTimer = setInterval(() => {
     nowTick.value = Date.now();
     void maybeAutoPlace();
   }, 1_000);
+  void refreshSportAmount();
+  amountTimer = setInterval(() => {
+    void refreshSportAmount();
+  }, 30_000);
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", onWindowResize);
   window.removeEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
+  stopMissSearch?.();
+  stopPrefetch?.();
+  stopMissSearch = null;
+  stopPrefetch = null;
   if (nowTimer) {
     clearInterval(nowTimer);
     nowTimer = null;
+  }
+  if (amountTimer) {
+    clearInterval(amountTimer);
+    amountTimer = null;
   }
 });
 </script>
@@ -569,6 +679,21 @@ onUnmounted(() => {
         inactive-text="关"
         :disabled="!betSettings.enabled"
       />
+      <span class="pod-follow-panel__stake-lab">账号</span>
+      <el-select
+        v-model="followAccountModel"
+        size="small"
+        style="width: 148px"
+        :disabled="!followAccounts.length"
+      >
+        <el-option
+          v-for="opt in followAccountOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </el-select>
+      <span v-if="sportAmount > 0" class="pod-follow-panel__stake-unit">余额 {{ sportAmount }}</span>
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">

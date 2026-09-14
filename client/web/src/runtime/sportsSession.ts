@@ -3,7 +3,11 @@
  * 禁止电竞 mainBetLoop / 采集 / fo / Client_GetOrderList（双标签时由 `/` 页负责电竞 runtime）。
  */
 import { useAccountStore } from "@/stores/accountStore";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useUserStore } from "@/stores/userStore";
+
+const FOOTBALL_ORDER_REFRESH_MS = 45_000;
+let footballOrderTimer: ReturnType<typeof setInterval> | null = null;
 
 /** SportsWorkspace onMounted：账号壳，不启电竞环 */
 export async function mountSportsSession(): Promise<void> {
@@ -12,6 +16,15 @@ export async function mountSportsSession(): Promise<void> {
     await user.fetchUserInfo();
   const accountStore = useAccountStore();
   await accountStore.loadAccounts(false);
+  const footballOrders = useFootballOrderStore();
+  void footballOrders.load();
+  if (!footballOrderTimer) {
+    footballOrderTimer = setInterval(() => {
+      if (useFootballOrderStore().loading)
+        return;
+      void useFootballOrderStore().load();
+    }, FOOTBALL_ORDER_REFRESH_MS);
+  }
   try {
     const {
       ensurePmVaultUnlocked,
@@ -55,5 +68,9 @@ export async function mountSportsSession(): Promise<void> {
  * 不 lock vault / 不 reset 传输 / 不清账号——避免双标签时误伤电竞页共享存储。
  */
 export function stopSportsSession(): void {
+  if (footballOrderTimer) {
+    clearInterval(footballOrderTimer);
+    footballOrderTimer = null;
+  }
   useAccountStore().stopBalanceRefreshLoop();
 }

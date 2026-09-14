@@ -69,6 +69,15 @@ export async function handleAdminAction(
     case "Client_AdminOrdersMatrix": {
       return ok(await adminService.listAdminOrdersMatrix(body, ctx.user));
     }
+    case "Client_AdminFootballOrders": {
+      try {
+        const { listAdminFootballOrders } = await import("../football/football_order_service.js");
+        return ok(await listAdminFootballOrders(body));
+      }
+      catch (err) {
+        return fail((err as Error).message || "查询失败");
+      }
+    }
     case "Client_AdminOrderLogs": {
       try {
         return ok(await adminService.listAdminOrderLogs(body, ctx.user));

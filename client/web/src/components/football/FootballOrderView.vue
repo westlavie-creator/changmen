@@ -1,130 +1,151 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
-import {
-  formatPodSportOrderMeta,
-  formatPodSportOrderTitle,
-  POD_SPORT_ORDERS_UPDATED,
-  readPodSportOrders,
-  type PodSportOrder,
-} from "@/runtime/podSportOrders";
-import { formatPodPrice } from "@/runtime/podAlerts";
+import { storeToRefs } from "pinia";
+import { computed, onMounted, ref } from "vue";
+import FootballOrderList from "@/components/football/FootballOrderList.vue";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
+import { wait } from "@changmen/client-core/shared/wait";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
-const rows = ref<PodSportOrder[]>(readPodSportOrders());
-const nowTick = ref(Date.now());
-let nowTimer: ReturnType<typeof setInterval> | null = null;
+const store = useFootballOrderStore();
+const { orderDate, loading, filterAccountId, accountOptions, rows, filteredRows }
+  = storeToRefs(store);
 
-function reload() {
-  rows.value = readPodSportOrders();
-}
+const viewLoading = ref(false);
 
 onMounted(() => {
-  reload();
-  window.addEventListener(POD_SPORT_ORDERS_UPDATED, reload);
-  nowTimer = setInterval(() => { nowTick.value = Date.now(); }, 15_000);
+  if (!store.rows.length)
+    void store.load();
 });
 
-onUnmounted(() => {
-  window.removeEventListener(POD_SPORT_ORDERS_UPDATED, reload);
-  if (nowTimer) {
-    clearInterval(nowTimer);
-    nowTimer = null;
+async function reload(date?: string) {
+  filterAccountId.value = 0;
+  viewLoading.value = true;
+  try {
+    await store.load(date);
   }
-});
+  finally {
+    await wait(1000);
+    viewLoading.value = false;
+  }
+}
+
+const showFilteredEmpty = computed(
+  () =>
+    filterAccountId.value !== 0
+    && filteredRows.value.length === 0
+    && rows.value.length > 0,
+);
+
+function onDateChange(value: string) {
+  if (value)
+    void reload(value);
+}
 </script>
 
 <template>
-  <div class="order-view-stack football-order-view">
-    <div class="football-order-view__head">
-      足球订单
-      <span class="football-order-view__n">{{ rows.length }}</span>
+  <div class="order-view-stack">
+    <div class="date flex flex-middle order-date-bar">
+      <OrderDateNav
+        v-model="orderDate"
+        class="date-nav--sidebar"
+        placeholder="选择日期"
+        picker-width="100px"
+        :disabled="loading || viewLoading"
+        @change="onDateChange"
+      />
+      <el-select
+        v-model="filterAccountId"
+        class="order-account-filter"
+        placeholder="Select"
+        size="small"
+        :disabled="loading || viewLoading"
+      >
+        <el-option
+          v-for="opt in accountOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </el-select>
+      <el-button
+        class="am-icon-refresh order-date-bar__refresh"
+        size="small"
+        :loading="loading || viewLoading"
+        @click="reload()"
+      />
     </div>
-    <p v-if="!rows.length" class="football-order-view__hint">
-      POD 跟单下出的单会出现在这里，不进电竞订单。自动关着只记 EV，开了才会出现订单。
+
+    <p v-if="store.persistError" class="order-filter-empty">
+      {{ store.persistError }}
     </p>
-    <div v-else class="football-order-view__list">
-      <article v-for="row in rows" :key="row.orderId || row.id" class="football-order-row">
-        <div class="football-order-row__top">
-          <span class="football-order-row__side">{{ row.sideLabel }}</span>
-          <span class="football-order-row__odds">{{ formatPodPrice(row.odds) }}</span>
-        </div>
-        <div class="football-order-row__match">{{ formatPodSportOrderTitle(row) }}</div>
-        <div class="football-order-row__meta">{{ row.marketLabel }}</div>
-        <div class="football-order-row__meta">{{ formatPodSportOrderMeta(row, nowTick) }}</div>
-      </article>
-    </div>
+    <p v-if="showFilteredEmpty" class="order-filter-empty">
+      当前账号筛选下无订单，请选「全部」或点刷新
+    </p>
+    <p v-else-if="!loading && !viewLoading && !filteredRows.length" class="order-filter-empty">
+      当日无足球订单
+    </p>
+
+    <FootballOrderList
+      :rows="filteredRows"
+      :loading="loading || viewLoading"
+      :player-label="store.playerLabel"
+      :platform-class="store.platformClass"
+    />
   </div>
 </template>
 
 <style scoped>
-.football-order-view {
-  min-height: 0;
-  overflow: hidden;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-.football-order-view__head {
+.order-view-stack {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-  padding: 8px 10px;
-  border-bottom: 1px solid #ffffff14;
-  font-size: 12px;
-  font-weight: 700;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
 }
 
-.football-order-view__n {
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.football-order-view__hint {
-  margin: 0;
-  padding: 12px 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #94a3b8;
-}
-
-.football-order-view__list {
+.order-view-stack > :deep(.orders) {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
 }
 
-.football-order-row {
-  padding: 8px 10px;
-  border-bottom: 1px solid #ffffff0f;
-}
-
-.football-order-row__top {
-  display: flex;
-  justify-content: space-between;
+.order-date-bar {
+  justify-content: flex-start;
   gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
 }
 
-.football-order-row__side {
-  color: #fbbf24;
+.order-date-bar__refresh {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.order-filter-empty {
+  margin: 6px 8px 0;
   font-size: 12px;
-  font-weight: 700;
+  color: var(--el-text-color-secondary, #999);
+  text-align: center;
 }
 
-.football-order-row__odds {
-  color: #4ade80;
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
+.order-account-filter {
+  width: 56px;
+  flex: 0 0 auto;
 }
 
-.football-order-row__match {
-  margin-top: 2px;
-  font-size: 12px;
-  font-weight: 600;
+.order-account-filter :deep(.el-select__wrapper) {
+  padding-left: 4px;
+  padding-right: 2px;
 }
 
-.football-order-row__meta {
-  margin-top: 2px;
+.order-account-filter :deep(.el-select__selected-item) {
   font-size: 11px;
-  color: #94a3b8;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-account-filter :deep(.el-select__suffix) {
+  margin-left: 0;
 }
 </style>

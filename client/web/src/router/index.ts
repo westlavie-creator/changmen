@@ -52,6 +52,12 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: "/admin/football-orders",
+      name: "admin-football-orders",
+      component: () => import("@/views/AdminFootballOrdersView.vue"),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: "/admin/maintenance",
       name: "admin-maintenance",
       component: () => import("@/views/AdminMaintenanceView.vue"),

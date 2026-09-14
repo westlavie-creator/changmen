@@ -87,6 +87,7 @@ declare module 'vue' {
     FootballMatchCard: typeof import('./src/components/football/FootballMatchCard.vue')['default']
     FootballObSessionBar: typeof import('./src/components/match/FootballObSessionBar.vue')['default']
     FootballOddsCell: typeof import('./src/components/football/FootballOddsCell.vue')['default']
+    FootballOrderList: typeof import('./src/components/football/FootballOrderList.vue')['default']
     FootballOrderView: typeof import('./src/components/football/FootballOrderView.vue')['default']
     FootballSettingsDialog: typeof import('./src/components/football/FootballSettingsDialog.vue')['default']
     GalaxySpinner: typeof import('./src/components/layout/GalaxySpinner.vue')['default']

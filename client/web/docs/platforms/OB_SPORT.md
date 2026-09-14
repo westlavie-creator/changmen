@@ -146,7 +146,8 @@ C115：`eventTime` 比服务器时间早超过 **20s** 则丢。
 | **C112** | `R_CMD_CHANGE_CATEGORY` | 分类变更 | 不接 |
 | **C115** | | 事件 + `eventTime` | 不接（详情事件流） |
 | **C153** | | `{mid, hids[]}` 常与 C110 同帧 | 不接 |
-| **C201/C202** | 订单状态/数量 | 注单 | 不接 |
+| **C201** | `R_CMD_ORDER_STATUS` | 注单状态 | **接**：写入 `football_orders.status/profit`（不进电竞 orders） |
+| **C202** | `R_CMD_ORDER_COUNT` | 注单数量 | 不接 |
 | **C301** | `R_CMD_MENU_SECTION` | 菜单块 | 不接 |
 | **C302** | `R_CMD_MATCH_START` | 开赛 | **接**：未知 `mid` 时补拉列表（`csid=1`） |
 | **C303** | `R_CMD_HANDICAP_PLAY` | `{mid,hpid}` 玩法集合变了 | **接**：2s 节流后重拉该场详情 |

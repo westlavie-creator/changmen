@@ -27,6 +27,18 @@ paths:
     post:
       summary: 足球列表（MVP：Polymarket Gamma soccer 全量，不做跨站匹配；不读写电竞 client_matches）
       operationId: Client_GetFootballMatchs
+  /esport/Client_SaveFootballOrder:
+    post:
+      summary: 保存足球跟单订单（RDS football_orders；不写电竞 orders）
+      operationId: Client_SaveFootballOrder
+  /esport/Client_GetFootballOrders:
+    post:
+      summary: 当前用户足球订单（RDS football_orders）
+      operationId: Client_GetFootballOrders
+  /esport/Client_AdminFootballOrders:
+    post:
+      summary: 管理端足球订单（RDS football_orders；与电竞 Client_AdminOrders 隔离）
+      operationId: Client_AdminFootballOrders
   /esport/Client_GetTennisMatchs:
     post:
       summary: 网球列表（MVP：Polymarket Gamma ATP+WTA 单打 ∥ Predict.fun；不读写电竞 client_matches）

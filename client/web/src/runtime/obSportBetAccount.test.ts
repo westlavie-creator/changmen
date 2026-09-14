@@ -79,5 +79,10 @@ describe("obSportBetAccount", () => {
     expect(pickObSportBetAccount([esport, paused, idle, active])).toEqual(active);
     expect(pickObSportBetAccount([esport, paused, idle])).toEqual(idle);
     expect(pickObSportBetAccount([esport, paused])).toBeNull();
+    expect(pickObSportBetAccount([idle, active], 0)).toEqual(active);
+    expect(pickObSportBetAccount([
+      { ...idle, accountId: 11 },
+      { ...active, accountId: 22 },
+    ], 11)).toMatchObject({ accountId: 11 });
   });
 });

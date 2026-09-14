@@ -17,7 +17,10 @@ export type ObSportCredential = {
 };
 
 export type ObSportBetAccountLike = {
+  accountId?: number;
   provider?: string;
+  platformName?: string;
+  playerName?: string;
   token?: string;
   gateway?: string;
   referer?: string;
@@ -67,7 +70,20 @@ export function sportObSessionFromAccount(account: ObSportBetAccountLike | null 
   };
 }
 
-export function pickObSportBetAccount<T extends ObSportBetAccountLike>(accounts: T[]): T | null {
+export function pickObSportBetAccount<T extends ObSportBetAccountLike>(
+  accounts: T[],
+  accountId = 0,
+): T | null {
   const rows = accounts.filter(row => !row.pause && sportObSessionFromAccount(row));
+  const want = Number(accountId) || 0;
+  if (want) {
+    const hit = rows.find(row => Number(row.accountId) === want);
+    if (hit)
+      return hit;
+  }
   return rows.find(row => row.active) || rows[0] || null;
+}
+
+export function listObSportFollowAccounts<T extends ObSportBetAccountLike>(accounts: T[]): T[] {
+  return accounts.filter(row => !row.pause && sportObSessionFromAccount(row));
 }

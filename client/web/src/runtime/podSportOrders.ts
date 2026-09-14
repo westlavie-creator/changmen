@@ -1,12 +1,13 @@
 /**
- * 足球 POD 已下订单。只存在本机，不进电竞侧栏订单 / RDS。
+ * 足球 POD 订单 DTO / 展示。数据在 Pinia + RDS football_orders。
+ * 禁止 localStorage、Client_SaveOrder / 电竞 orderStore。
  */
 import { formatPodAgo, formatPodPrice } from "@/runtime/podAlerts";
 import { formatPodStake } from "@/runtime/podBetTicket";
 
-export const POD_SPORT_ORDERS_KEY = "changmen:podSportOrders";
-export const POD_SPORT_ORDERS_UPDATED = "changmen:pod-sport-orders-updated";
-export const POD_SPORT_ORDERS_MAX = 100;
+export const POD_SPORT_ORDERS_MAX = 200;
+
+export type FootballOrderStatus = "None" | "Pending" | "Win" | "Lose" | "Reject" | "Return";
 
 export type PodSportOrder = {
   id: string;
@@ -21,6 +22,14 @@ export type PodSportOrder = {
   oid: string;
   obMid: string;
   auto: boolean;
+  status: FootballOrderStatus;
+  profit: number;
+  rdsId?: number;
+  venue?: string;
+  playerId?: number;
+  accountName?: string;
+  userId?: string;
+  userName?: string;
 };
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -36,6 +45,36 @@ function str(v: unknown): string {
 function num(v: unknown, fallback = 0): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function truthy(v: unknown): boolean {
+  return v === true || v === 1 || v === "1" || v === "true";
+}
+
+export function normalizeFootballOrderStatus(raw: unknown): FootballOrderStatus {
+  const s = str(raw).toLowerCase();
+  if (s === "win")
+    return "Win";
+  if (s === "lose")
+    return "Lose";
+  if (s === "reject" || s === "rejected")
+    return "Reject";
+  if (s === "return" || s === "void")
+    return "Return";
+  if (s === "pending")
+    return "Pending";
+  return "None";
+}
+
+export function isFootballOrderPending(status: unknown): boolean {
+  const s = normalizeFootballOrderStatus(status);
+  return s === "None" || s === "Pending";
+}
+
+export function footballOrderSettledProfit(row: Pick<PodSportOrder, "status" | "profit">): number {
+  if (isFootballOrderPending(row.status))
+    return 0;
+  return Number(row.profit) || 0;
 }
 
 export function parsePodSportOrder(raw: unknown): PodSportOrder | null {
@@ -57,7 +96,15 @@ export function parsePodSportOrder(raw: unknown): PodSportOrder | null {
     stake: num(row.stake),
     oid: str(row.oid),
     obMid: str(row.obMid),
-    auto: row.auto === true,
+    auto: truthy(row.auto),
+    status: normalizeFootballOrderStatus(row.status),
+    profit: num(row.profit),
+    rdsId: num(row.rdsId) || undefined,
+    venue: str(row.venue) || undefined,
+    playerId: num(row.playerId) || undefined,
+    accountName: str(row.accountName) || undefined,
+    userId: str(row.userId) || undefined,
+    userName: str(row.userName) || undefined,
   };
 }
 
@@ -82,37 +129,21 @@ export function parsePodSportOrders(raw: unknown): PodSportOrder[] {
   return out.slice(0, POD_SPORT_ORDERS_MAX);
 }
 
-function writeOrders(rows: PodSportOrder[]): PodSportOrder[] {
-  const next = parsePodSportOrders(rows);
-  try {
-    localStorage.setItem(POD_SPORT_ORDERS_KEY, JSON.stringify(next));
-  }
-  catch { /* quota */ }
-  if (typeof window !== "undefined")
-    window.dispatchEvent(new Event(POD_SPORT_ORDERS_UPDATED));
-  return next;
-}
-
-export function readPodSportOrders(): PodSportOrder[] {
-  try {
-    const raw = localStorage.getItem(POD_SPORT_ORDERS_KEY);
-    if (!raw)
-      return [];
-    return parsePodSportOrders(JSON.parse(raw));
-  }
-  catch {
-    return [];
-  }
-}
-
-export function appendPodSportOrder(row: PodSportOrder): PodSportOrder[] {
+/** 内存列表插入/覆盖一单（对齐电竞侧栏：只改 Pinia，不写磁盘）。 */
+export function mergePodSportOrder(rows: PodSportOrder[], row: PodSportOrder): PodSportOrder[] {
   const parsed = parsePodSportOrder(row);
   if (!parsed)
-    return readPodSportOrders();
-  const rows = readPodSportOrders();
-  if (rows.some(item => item.id === parsed.id || (parsed.orderId && item.orderId === parsed.orderId)))
-    return rows;
-  return writeOrders([parsed, ...rows]);
+    return parsePodSportOrders(rows);
+  const prev = rows.find(item =>
+    item.id === parsed.id || (parsed.orderId && item.orderId === parsed.orderId),
+  );
+  const next = prev && isFootballOrderPending(parsed.status) && !isFootballOrderPending(prev.status)
+    ? { ...parsed, status: prev.status, profit: prev.profit }
+    : parsed;
+  const rest = rows.filter(item =>
+    item.id !== next.id && !(next.orderId && item.orderId === next.orderId),
+  );
+  return parsePodSportOrders([next, ...rest]);
 }
 
 function localDayStart(now: number): number {
@@ -121,16 +152,55 @@ function localDayStart(now: number): number {
   return d.getTime();
 }
 
-/** 体育侧栏统计：全部本机单数 + 当日已下金额（不是电竞当日盈亏）。 */
-export function summarizePodSportOrders(now = Date.now()): { count: number; todayStake: number } {
-  const rows = readPodSportOrders();
+/** 体育侧栏统计：单数 + 当日已下 + 已结算盈亏（待结算不计）。 */
+export function summarizePodSportOrders(rows: PodSportOrder[], now = Date.now()): {
+  count: number;
+  todayStake: number;
+  todayProfit: number;
+} {
   const start = localDayStart(now);
   let todayStake = 0;
+  let todayProfit = 0;
   for (const row of rows) {
-    if (row.at >= start)
-      todayStake += Number(row.stake) || 0;
+    if (row.at < start)
+      continue;
+    todayStake += Number(row.stake) || 0;
+    todayProfit += footballOrderSettledProfit(row);
   }
-  return { count: rows.length, todayStake };
+  return { count: rows.length, todayStake, todayProfit };
+}
+
+export type PodSportOrderGroup = {
+  key: string;
+  legend: string;
+  legendClass: "default" | "success" | "fail";
+  rows: PodSportOrder[];
+};
+
+/** 侧栏 fieldset：按比赛分组。全结算后图例改盈亏（对齐电竞 legend success/fail）。 */
+export function groupPodSportOrders(rows: PodSportOrder[]): PodSportOrderGroup[] {
+  const map = new Map<string, PodSportOrder[]>();
+  for (const row of rows) {
+    const key = row.obMid || `${row.home}|${row.away}` || row.id;
+    const list = map.get(key) ?? [];
+    list.push(row);
+    map.set(key, list);
+  }
+  const groups: PodSportOrderGroup[] = [];
+  for (const [key, list] of map) {
+    const pending = list.some(row => isFootballOrderPending(row.status));
+    const stake = list.reduce((sum, row) => sum + (Number(row.stake) || 0), 0);
+    const profit = list.reduce((sum, row) => sum + footballOrderSettledProfit(row), 0);
+    const value = pending ? stake : profit;
+    groups.push({
+      key,
+      legend: String(Math.round(value)),
+      legendClass: pending || profit === 0 ? "default" : profit > 0 ? "success" : "fail",
+      rows: list,
+    });
+  }
+  groups.sort((a, b) => (b.rows[0]?.at || 0) - (a.rows[0]?.at || 0) || a.key.localeCompare(b.key));
+  return groups;
 }
 
 export function formatPodSportOrderTitle(row: Pick<PodSportOrder, "home" | "away">): string {

@@ -28,6 +28,7 @@ import { resolveA8Credentials } from "../integrations/a8/config.js";
 import { requirePlatform } from "../shared/adapter_paths.js";
 import { handleAccountClientAction, isAccountClientAction } from "./account_client_routes.js";
 import { handleAdminAction, isAdminAction } from "./admin_routes.js";
+import { handleFootballOrderAction, isFootballOrderAction } from "./football_order_routes.js";
 import { handleCommonApi } from "./hg_follow.js";
 import { handlePmPfAction, isPmPfAction } from "./pm_pf_routes.js";
 import {
@@ -344,6 +345,14 @@ async function dispatchLegacy(
     };
   }
 
+  if (isFootballOrderAction(action)) {
+    const footballResult = await handleFootballOrderAction(action, body, { user: ctx.user });
+    return {
+      bucket: "core",
+      result: footballResult ?? fail(`未知足球订单 action: ${action}`),
+    };
+  }
+
   if (isAccountClientAction(action)) {
     const accountResult = await handleAccountClientAction(action, body, { user: ctx.user });
     return {
@@ -392,6 +401,10 @@ async function dispatchViaRegistry(
       return (accountResult ?? fail(`未知账号端 action: ${action}`)) as ApiEnvelope;
     }
     case "core":
+      if (isFootballOrderAction(action)) {
+        const footballResult = await handleFootballOrderAction(action, body, { user: ctx.user });
+        return footballResult ?? fail(`未知足球订单 action: ${action}`);
+      }
       return handleCoreAction(action as EsportAction, body, ctx);
     default:
       return fail(`unknown action: ${action}`);

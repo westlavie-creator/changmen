@@ -25,6 +25,7 @@ const navItems: AdminNavItem[] = [
   { name: "admin-users", label: "用户管理", icon: "am-icon-users", to: { name: "admin-users" } },
   { name: "admin-accounts", label: "子账号", icon: "am-icon-credit-card", to: { name: "admin-accounts" } },
   { name: "admin-orders", label: "订单查询", icon: "am-icon-list", to: { name: "admin-orders" } },
+  { name: "admin-football-orders", label: "足球订单", icon: "am-icon-futbol-o", to: { name: "admin-football-orders" } },
   {
     name: "admin-maintenance",
     label: "订单和用户维护",

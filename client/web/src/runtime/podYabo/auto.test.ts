@@ -7,6 +7,7 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
     id: "1",
     stake: 50,
     fixtureStatus: "matched",
+    fixtureBasis: "confirmed",
     obMid: "5652292",
     market: { status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95, marketCode: "totals", boardSide: "over", fromLive: true },
     quote: { status: "ok", quote: 1.95, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 5.4 },
@@ -32,5 +33,11 @@ describe("podYabo/auto", () => {
     expect(pickPodYaboAutoTicket([ticket({ id: "http", market: {
       status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95, marketCode: "totals", boardSide: "over", fromLive: false,
     } })], [])).toBeNull();
+    expect(pickPodYaboAutoTicket([ticket({ id: "guess", fixtureBasis: "guess" })], [])).toBeNull();
+    expect(pickPodYaboAutoTicket([ticket({ id: "cap" })], [], [], {
+      todayProfit: -200,
+      openStake: 0,
+      maxDailyLoss: 200,
+    })).toBeNull();
   });
 });

@@ -5,6 +5,7 @@
  */
 import { reportVenueWsStatus, type VenueWsStatus } from "@changmen/venue-adapter/shared";
 import { unzipObSportPushCd } from "@/runtime/obSportCodec";
+import { parseObSportOrderStatusPush, type ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
 import { yieldToPaint } from "@/runtime/rafTick";
 import { olOdds, parseObHandicapLine } from "@/runtime/obSportOdds";
 import {
@@ -227,6 +228,7 @@ export function unwrapObSportPush(msg: unknown): unknown {
 /** C102/心跳等不含盘口，禁止整棵树扫 oid（滚球约 10 次/秒）。 */
 const SKIP_ODDS_WALK = new Set([
   "C0", "C00", "C8", "C101", "C102", "C103", "C109", "C302", "C303",
+  "C201", "C202", "C118",
 ]);
 
 /** 源站推送里抽出 oid + 欧赔（港水 ov2 / 欧赔 ov×1e5）。C105 hls/hls2 / 散字段都能走。 */
@@ -269,6 +271,7 @@ export type ObSportWsHandlers = {
   onQuotes: (rows: ObSportPushQuote[]) => void;
   onLive?: (patch: ObSportLivePatch) => void;
   onHandicapPlay?: (row: ObSportHandicapPlay) => void;
+  onOrderStatus?: (rows: ObSportOrderStatusPatch[]) => void;
 };
 
 export type ObSportWsHandle = {
@@ -368,6 +371,9 @@ export function startObSportWs(
     const play = parseObSportHandicapPlay(parsed);
     if (play)
       handlers.onHandicapPlay?.(play);
+    const orderStatus = parseObSportOrderStatusPush(parsed);
+    if (orderStatus.length)
+      handlers.onOrderStatus?.(orderStatus);
   };
 
   const clearReconnect = () => {

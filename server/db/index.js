@@ -223,6 +223,10 @@ export const {
   upsertSportCanonicalTeam,
   upsertSportTeamVenueMap,
   saveSportTeamMappingFireAndForget,
+  upsertFootballOrder,
+  patchFootballOrderStatus,
+  fetchFootballOrdersByUser,
+  fetchFootballOrdersAdmin,
 } = impl;
 
 export const {

@@ -38,6 +38,10 @@ export type PodBetSettings = {
   stake: number;
   /** 过线且对上 OB 后自动下单。默认关 */
   autoPlace: boolean;
+  /** 跟单用的侧栏 OB 账号；0 = 未暂停里第一个有体育 token 的 */
+  followAccountId: number;
+  /** 自动当日亏损上限（已结算亏损 + 未结算注码）；0 = 不设 */
+  maxDailyLoss: number;
 };
 
 export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
@@ -56,6 +60,8 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   maxAgeSec: 45,
   stake: 0,
   autoPlace: false,
+  followAccountId: 0,
+  maxDailyLoss: 0,
 };
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -101,6 +107,8 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     maxAgeSec: Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 5, 600)),
     stake: clampNum(row.stake, d.stake, 0, 1_000_000),
     autoPlace: bool(row.autoPlace, d.autoPlace),
+    followAccountId: Math.round(clampNum(row.followAccountId, d.followAccountId, 0, 1e16)),
+    maxDailyLoss: clampNum(row.maxDailyLoss, d.maxDailyLoss, 0, 1_000_000),
   };
 }
 

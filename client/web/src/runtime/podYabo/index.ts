@@ -32,3 +32,4 @@ export { comparePodYaboQuote } from "./quote";
 export { scorePodYaboFollow } from "./score";
 export type { PodYaboFollowScore, PodYaboScoreContext } from "./score";
 export { pickPodYaboAutoTicket } from "./auto";
+export { podYaboDailyLossBlocked } from "./loss";

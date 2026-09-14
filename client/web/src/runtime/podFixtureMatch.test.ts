@@ -38,6 +38,8 @@ describe("podFixtureMatch", () => {
     expect(teamNameScore("Arsenal", "Arsenal FC")).toBeGreaterThanOrEqual(0.5);
     expect(teamNameScore("Tottenham Hotspur", "Tottenham")).toBeGreaterThanOrEqual(0.5);
     expect(teamNameScore("Manchester United", "Newcastle United")).toBe(0);
+    expect(teamNameScore("Man Utd", "Manchester United")).toBeGreaterThanOrEqual(0.99);
+    expect(teamNameScore("Spurs", "Tottenham Hotspur")).toBeGreaterThanOrEqual(0.99);
     expect(teamNameScore("Arsenal", "阿森纳")).toBe(0);
     expect(teamNameScore("大", "小")).toBe(0);
   });
@@ -48,9 +50,9 @@ describe("podFixtureMatch", () => {
       fixture({ id: 2, title: "Liverpool vs Everton", homeName: "Liverpool", awayName: "Everton", startAt: kick + 3_600_000, obMid: "" }),
     ]);
     expect(row.status).toBe("matched");
-    expect(row.basis).toBe("guess");
+    expect(row.basis).toBe("confirmed");
     expect(row.hits[0]?.fixture.obMid).toBe("5652292");
-    expect(formatPodFixtureMatch(row)).toMatch(/已对上/);
+    expect(formatPodFixtureMatch(row)).toMatch(/已确认/);
     expect(formatPodFixtureMatch(row)).toMatch(/OB/);
   });
 
@@ -167,8 +169,17 @@ describe("podFixtureMatch", () => {
       }),
     ]);
     expect(row.status).toBe("matched");
-    expect(row.basis).toBe("guess");
+    expect(row.basis).toBe("confirmed");
     expect(row.hits[0]?.fixture.title).toBe("阿森纳 vs 切尔西");
-    expect(formatPodFixtureMatch(row)).toMatch(/已对上/);
+    expect(formatPodFixtureMatch(row)).toMatch(/已确认/);
+  });
+
+  it("keeps a unique weak-name hit as guess so auto will not take it", () => {
+    const row = matchPodAlertToFixtures(alert(), [
+      fixture({ obMid: "" }),
+    ]);
+    expect(row.status).toBe("matched");
+    expect(row.basis).toBe("guess");
+    expect(formatPodFixtureMatch(row)).toMatch(/猜测/);
   });
 });

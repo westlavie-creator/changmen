@@ -40,6 +40,8 @@ describe("podBetSettings", () => {
     expect(row.minDropPct).toBe(80);
     expect(row.stake).toBe(0);
     expect(row.autoPlace).toBe(false);
+    expect(row.followAccountId).toBe(0);
+    expect(row.maxDailyLoss).toBe(0);
     expect(row.prematchOnly).toBe(true);
     expect(row.spreads).toBe(false);
     expect(row.maxObEdgePct).toBe(18);

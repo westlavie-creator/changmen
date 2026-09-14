@@ -3,13 +3,15 @@
  * AutoYabo 自动挑选在 podYabo/auto。
  */
 import type { PodObQuoteCompare, PodMarketMatch } from "@/runtime/podMarketMatch";
+import type { PodFixtureMatchBasis } from "@/runtime/podFixtureMatch";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
-import { appendPodSportOrder } from "@/runtime/podSportOrders";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
 export type PodFollowPlaceTicket = {
   id: string;
   stake: number;
   fixtureStatus: string;
+  fixtureBasis?: PodFixtureMatchBasis;
   obMid: string;
   home?: string;
   away?: string;
@@ -56,7 +58,7 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   });
   if (!placed.ok)
     return { ok: false, message: placed.message };
-  appendPodSportOrder({
+  await useFootballOrderStore().appendPlaced({
     id: ticket.id,
     orderId: placed.orderId,
     at: Date.now(),
@@ -69,6 +71,8 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
     oid: String(ticket.market.oid || "").trim(),
     obMid: String(ticket.obMid || "").trim(),
     auto: ticket.auto === true,
+    status: "None",
+    profit: 0,
   });
   return { ok: true, message: placed.orderId ? `已下 ${placed.orderId}` : "已下单" };
 }

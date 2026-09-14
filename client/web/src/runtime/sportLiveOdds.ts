@@ -18,6 +18,7 @@ import { createRafTicker } from "@/runtime/rafTick";
 import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { startObSportWs, isObSportC8Mid, type ObSportSessionLite } from "@/runtime/obSportWs";
 import { SPORT_OB_SESSION_UPDATED } from "@/runtime/sportObSessionEvents";
+import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
 /** 体育侧硬顶；与电竞 token 合并订，控制 WS 帧量 */
 export const SPORT_SUBSCRIBE_HARD_CAP = 100;
@@ -247,6 +248,11 @@ export function startSportLiveOddsSession(
           return;
         playAt.set(mid, Date.now());
         obLive.noteHandicapPlay(mid);
+      },
+      onOrderStatus(rows) {
+        if (stopped || !rows.length)
+          return;
+        void useFootballOrderStore().applyVenueStatus(rows);
       },
     },
   );
