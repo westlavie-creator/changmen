@@ -6,7 +6,9 @@ import type { ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
 import {
   footballOrderSettledProfit,
+  hasPodSportOrderId,
   isFootballOrderPending,
+  listPodSportOrderedIds,
   mergePodSportOrder,
   parsePodSportOrders,
   type PodSportOrder,
@@ -98,8 +100,15 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       }
       return [{ value: 0, label: "全部" }, ...opts];
     },
+    /** 跟单 ticket id → 已有 football_orders；清空日志不得丢掉 */
+    orderedTicketIds(): string[] {
+      return listPodSportOrderedIds([...this.todayRows, ...this.rows]);
+    },
   },
   actions: {
+    hasTicketOrder(id: string): boolean {
+      return hasPodSportOrderId([...this.todayRows, ...this.rows], id);
+    },
     playerLabel(row: FootballOrderDto): string {
       const pid = Number(row.playerId) || 0;
       const acc = pid ? useAccountStore().findAccount(pid) : null;

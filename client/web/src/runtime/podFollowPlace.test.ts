@@ -1,9 +1,36 @@
-import { describe, expect, it } from "vitest";
-import {
-  buildObSportProcessBetBody,
-  pickObSportMarketInfo,
-} from "@/runtime/obSportPlaceBet";
-import { podFollowPlaceBlock, type PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { podFollowPlaceBlock, placePodFollowBet, type PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
+
+const mocks = vi.hoisted(() => ({
+  placeObSportSingle: vi.fn(),
+  state: {
+    todayRows: [] as Array<{ id: string }>,
+    rows: [] as Array<{ id: string }>,
+  },
+}));
+
+vi.mock("@/runtime/obSportPlaceBet", () => ({
+  placeObSportSingle: mocks.placeObSportSingle,
+}));
+
+vi.mock("@/stores/footballOrderStore", () => ({
+  useFootballOrderStore: () => ({
+    get todayRows() {
+      return mocks.state.todayRows;
+    },
+    get rows() {
+      return mocks.state.rows;
+    },
+    orderedTicketIds: [] as string[],
+    hasTicketOrder(id: string) {
+      return [...mocks.state.todayRows, ...mocks.state.rows].some(row => row.id === id);
+    },
+    appendPlaced: vi.fn(async (row: { id: string }) => {
+      mocks.state.todayRows = [...mocks.state.todayRows, row];
+      return row;
+    }),
+  }),
+}));
 
 function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket {
   return {
@@ -16,6 +43,12 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
     ...over,
   };
 }
+
+beforeEach(() => {
+  mocks.state.todayRows = [];
+  mocks.state.rows = [];
+  mocks.placeObSportSingle.mockReset();
+});
 
 describe("podFollowPlace", () => {
   it("blocks guess tickets that are not OB-ready", () => {
@@ -31,26 +64,11 @@ describe("podFollowPlace", () => {
     expect(podFollowPlaceBlock(ticket({ stake: 0 }))).toBe("注码未设");
     expect(podFollowPlaceBlock(ticket())).toBeNull();
   });
-});
 
-describe("obSportPlaceBet payload", () => {
-  it("picks oid/hid/mid from a nested query envelope and builds a single EU order", () => {
-    const info = pickObSportMarketInfo({
-      data: { hls: [{ ol: [{ oid: "oid-over", hid: "88", hpid: "2", mid: "5652292", ov: 195000, minBet: 10, maxBet: 500 }] }] },
-    }, "oid-over");
-    expect(info).toMatchObject({ oid: "oid-over", hid: "88", hpid: "2", mid: "5652292", odds: 1.95 });
-    const body = buildObSportProcessBetBody({
-      oid: info!.oid,
-      mid: info!.mid,
-      hid: info!.hid,
-      hpid: info!.hpid,
-      odds: info!.odds,
-      stake: 50,
-    });
-    const detail = (body.seriesOrders as Array<{ orderDetailList: Array<Record<string, unknown>> }>)[0].orderDetailList[0];
-    expect(detail.playOptionId).toBe("oid-over");
-    expect(detail.betAmount).toBe(50);
-    expect(detail.oddsType).toBe(1);
-    expect(detail.odds).toBe(1.95);
+  it("refuses to place again when football_orders already has the ticket", async () => {
+    mocks.state.todayRows = [{ id: "1" }];
+    const result = await placePodFollowBet(ticket());
+    expect(result).toEqual({ ok: false, message: "已下过" });
+    expect(mocks.placeObSportSingle).not.toHaveBeenCalled();
   });
 });

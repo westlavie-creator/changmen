@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   formatPodSportOrderMeta,
   groupPodSportOrders,
+  hasPodSportOrderId,
+  listPodSportOrderedIds,
   mergePodSportOrder,
   parsePodSportOrders,
   summarizePodSportOrders,
@@ -52,5 +54,11 @@ describe("podSportOrders", () => {
 
   it("keeps auto from numeric flags", () => {
     expect(parsePodSportOrders([{ id: "a", auto: 1, at: 1 }])[0].auto).toBe(true);
+  });
+
+  it("lists ticket ids that already have football orders", () => {
+    expect(hasPodSportOrderId([row], "a1")).toBe(true);
+    expect(hasPodSportOrderId([row], "missing")).toBe(false);
+    expect(listPodSportOrderedIds([row, { ...row, id: "a1" }, { ...row, id: "b2" }])).toEqual(["a1", "b2"]);
   });
 });

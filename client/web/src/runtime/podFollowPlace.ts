@@ -49,6 +49,10 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   const block = podFollowPlaceBlock(ticket);
   if (block)
     return { ok: false, message: block };
+  const footballOrders = useFootballOrderStore();
+  // 成单在 football_orders：跟单日志/清空不得再让同 ticket 进场馆
+  if (footballOrders.hasTicketOrder(ticket.id))
+    return { ok: false, message: "已下过" };
   const placed = await placeObSportSingle({
     oid: String(ticket.market.oid || "").trim(),
     mid: String(ticket.obMid || "").trim(),
@@ -58,7 +62,7 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   });
   if (!placed.ok)
     return { ok: false, message: placed.message };
-  await useFootballOrderStore().appendPlaced({
+  await footballOrders.appendPlaced({
     id: ticket.id,
     orderId: placed.orderId,
     at: Date.now(),

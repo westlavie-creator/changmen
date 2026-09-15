@@ -129,6 +129,31 @@ export function parsePodSportOrders(raw: unknown): PodSportOrder[] {
   return out.slice(0, POD_SPORT_ORDERS_MAX);
 }
 
+/** 已成单 ticket id（Pinia/RDS client_id）。清空跟单日志不得抹掉这些 id。 */
+export function hasPodSportOrderId(rows: Iterable<Pick<PodSportOrder, "id">>, id: string): boolean {
+  const want = str(id);
+  if (!want)
+    return false;
+  for (const row of rows) {
+    if (str(row.id) === want)
+      return true;
+  }
+  return false;
+}
+
+export function listPodSportOrderedIds(rows: Iterable<Pick<PodSportOrder, "id">>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const id = str(row.id);
+    if (!id || seen.has(id))
+      continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 /** 内存列表插入/覆盖一单（对齐电竞侧栏：只改 Pinia，不写磁盘）。 */
 export function mergePodSportOrder(rows: PodSportOrder[], row: PodSportOrder): PodSportOrder[] {
   const parsed = parsePodSportOrder(row);
