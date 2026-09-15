@@ -72,7 +72,8 @@ export async function handleAdminAction(
     case "Client_AdminFootballOrders": {
       try {
         const { listAdminFootballOrders } = await import("../football/football_order_service.js");
-        return ok(await listAdminFootballOrders(body));
+        // 必须传 ctx.user：团队长可见集与电竞 Client_AdminOrders 一致，禁止全站泄漏
+        return ok(await listAdminFootballOrders(body, ctx.user));
       }
       catch (err) {
         return fail((err as Error).message || "查询失败");

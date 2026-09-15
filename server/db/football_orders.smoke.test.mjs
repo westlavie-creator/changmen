@@ -19,7 +19,7 @@ const routesSrc = readFileSync(
   "utf8",
 ).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const accountRoutes = readFileSync(
-  join(__dirname, "../backend/core/esport-api/account_client_routes.js"),
+  join(__dirname, "../backend/core/esport-api/account_client_routes.ts"),
   "utf8",
 );
 const migration = readFileSync(
@@ -51,6 +51,7 @@ assert.match(storeSrc, /placed_at >=/);
 assert.match(storeSrc, /patchFootballOrderStatus/);
 assert.match(storeSrc, /ADD COLUMN IF NOT EXISTS status/);
 assert.match(storeSrc, /ADD COLUMN IF NOT EXISTS profit/);
+assert.match(storeSrc, /user_id = ANY\(/);
 assert.equal(sqlTableHits(storeSrc, "orders"), false, "football_orders_store 不得 SQL 引用电竞 orders");
 assert.equal(sqlTableHits(storeSrc, "client_matches"), false);
 assert.doesNotMatch(serviceSrc, /order_store|admin_orders|upsertOrders|Client_SaveOrder/);
@@ -77,5 +78,24 @@ assert.doesNotMatch(monthReport, /(?<!Football)fetchOrdersForMonthAggregate|fetc
 assert.match(esportReport, /fetchOrdersForMonthAggregate/);
 assert.match(esportReport, /fetchMoneyLogsForMonthAggregate/);
 assert.doesNotMatch(esportReport, /football_orders|fetchFootballOrders/);
+
+const adminRoutes = readFileSync(
+  join(__dirname, "../backend/core/esport-api/admin_routes.ts"),
+  "utf8",
+);
+assert.match(adminRoutes, /listAdminFootballOrders\(body,\s*ctx\.user\)/);
+assert.match(adminRoutes, /getAdminMonthReportScope/);
+assert.match(
+  readFileSync(join(__dirname, "../backend/core/football/football_order_service.js"), "utf8"),
+  /resolveAdminFootballOrdersScope/,
+);
+assert.match(
+  readFileSync(join(__dirname, "../backend/core/football/football_order_admin_scope.js"), "utf8"),
+  /isLeaderUser|getTeamId/,
+);
+assert.doesNotMatch(
+  readFileSync(join(__dirname, "../backend/core/football/football_order_admin_scope.js"), "utf8"),
+  /@changmen\/db|role_filter/,
+);
 
 console.log("football_orders.smoke: ok");

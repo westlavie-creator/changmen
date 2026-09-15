@@ -228,7 +228,8 @@ export async function fetchFootballOrdersByUser(userId, opts = {}) {
 }
 
 /**
- * @param {{ date?: string, userId?: string, limit?: number }} opts
+ * @param {{ date?: string, userId?: string, userIds?: string[], limit?: number }} opts
+ * userIds: 团队长可见集；[] = 无人（非全站）。userId 优先于 userIds。
  */
 export async function fetchFootballOrdersAdmin(opts = {}) {
   const pool = getPgPool();
@@ -248,6 +249,12 @@ export async function fetchFootballOrdersAdmin(opts = {}) {
   if (userId) {
     params.push(userId);
     clauses.push(`o.user_id = $${params.length}::uuid`);
+  }
+  else if (Array.isArray(opts.userIds)) {
+    if (!opts.userIds.length)
+      return [];
+    params.push(opts.userIds.map(id => String(id)));
+    clauses.push(`o.user_id = ANY($${params.length}::uuid[])`);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   params.push(limit);
