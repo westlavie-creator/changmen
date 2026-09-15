@@ -115,4 +115,103 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeA).toBe("filled_pending_settle");
     expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
+
+  it("Low + PM/RAY：并行下单（不等 CLOB 再 POST 即时馆）", async () => {
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((r) => setTimeout(r, 20));
+      concurrent--;
+      return new BetResult(option.type, true);
+    });
+    const lowParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Low" } as never,
+    };
+
+    await placeArbLegs(lowParams, checked({
+      legA: leg("Polymarket", "Home"),
+      legB: leg("RAY", "Away"),
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(2);
+    expect(maxConcurrent).toBe(2);
+  });
+
+  it("Low + RAY 赔更低排第一：仍顺序", async () => {
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((r) => setTimeout(r, 20));
+      concurrent--;
+      return new BetResult(option.type, true);
+    });
+    const lowParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Low" } as never,
+    };
+
+    await placeArbLegs(lowParams, checked({
+      legA: leg("RAY", "Away"),
+      legB: leg("Polymarket", "Home"),
+      accountA: account("RAY"),
+      accountB: account("Polymarket"),
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(2);
+    expect(maxConcurrent).toBe(1);
+  });
+
+  it("Custom + OB/RAY：仍顺序下单", async () => {
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((r) => setTimeout(r, 20));
+      concurrent--;
+      return new BetResult(option.type, true);
+    });
+    const customParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Custom" } as never,
+    };
+
+    await placeArbLegs(customParams, checked());
+
+    expect(betting).toHaveBeenCalledTimes(2);
+    expect(maxConcurrent).toBe(1);
+  });
+
+  it("Custom + RAY 在前 + PM：仍顺序（即时馆失败则不下对家）", async () => {
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((r) => setTimeout(r, 20));
+      concurrent--;
+      return new BetResult(option.type, true);
+    });
+    const customParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Custom" } as never,
+    };
+
+    await placeArbLegs(customParams, checked({
+      legA: leg("RAY", "Away"),
+      legB: leg("Polymarket", "Home"),
+      accountA: account("RAY"),
+      accountB: account("Polymarket"),
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(2);
+    expect(maxConcurrent).toBe(1);
+  });
 });

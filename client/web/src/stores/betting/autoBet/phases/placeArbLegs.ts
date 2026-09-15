@@ -18,6 +18,20 @@ import {
   syncActiveBetPlaceResults,
 } from "@/stores/betting/activeBetRunSync";
 
+/**
+ * [changmen 扩展] 顺序下单会先打 PM/PF 时改为并行，避免等 CLOB 把即时馆冻价拖过期。
+ * 即时馆已在前（Custom/High 把 RAY 放第一）保持顺序：先 RAY 再慢馆，RAY 失败则不下对家。
+ */
+export function shouldPlaceLegsInParallel(
+  betSorting: string | undefined,
+  typeA: unknown,
+  typeB: unknown,
+): boolean {
+  if (betSorting === "Parallel")
+    return true;
+  return isPendingConfirmVenueProvider(typeA) && !isPendingConfirmVenueProvider(typeB);
+}
+
 function buildPlaced(
   checked: ArbBetChecked,
   legA: BetOption,
@@ -84,7 +98,7 @@ export async function placeArbLegs(
       resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
   }
-  else if (config.betSorting === "Parallel") {
+  else if (shouldPlaceLegsInParallel(config.betSorting, legA.type, legB.type)) {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     attemptedA = true;
     attemptedB = true;

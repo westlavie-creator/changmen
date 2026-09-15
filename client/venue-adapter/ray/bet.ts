@@ -1,5 +1,7 @@
 import { parseVenueCreateAt } from "@changmen/shared/time/match_time";
+import type { BetOption } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
+import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import {
   sortVenueOrdersNewestFirst,
   type PlatformProvider,
@@ -95,6 +97,150 @@ function mapRayOrderRow(row: RayOrderRow): VenueOrder | null {
   };
 }
 
+type RayOddsGetRes = {
+  code?: number;
+  result?: { odds?: RayOddsRow[]; start_time?: string };
+};
+
+/** [changmen 扩展] 验盘过期后临下单重拉；低于此则沿用 A8 冻价 POST */
+export const RAY_PLACE_QUOTE_STALE_MS = 400;
+/** [changmen 扩展] 临下单允许相对冻价的最大掉幅；超过则不下（2.23→2.12 接，崩到 1.90 拒） */
+export const RAY_PLACE_MAX_SLIP = 0.2;
+
+export function shouldRelockRayPlaceQuote(
+  option: Pick<BetOption, "data" | "checkedAt">,
+  now = Date.now(),
+): boolean {
+  if (!option.data)
+    return true;
+  const checkedAt = Number(option.checkedAt) || 0;
+  return now - checkedAt > RAY_PLACE_QUOTE_STALE_MS;
+}
+
+function findRayOddsRow(res: RayOddsGetRes, itemId: string): RayOddsRow | undefined {
+  return res.result?.odds?.find((d) => d.odds_id == itemId);
+}
+
+function applyRayLockAndLimit(
+  account: PlatformAccount,
+  option: BetOption,
+  row: RayOddsRow | undefined,
+): row is RayOddsRow {
+  if (!row || row.enable_parlay !== 1 || row.status !== 1) {
+    option.checkError = `${row?.match_name} / [${row?.match_stage}] ${row?.group_name} / ${row?.name}@${row?.odds} 已封盘`;
+    option.updateOdds(0);
+    return false;
+  }
+  const betMin = row.bet_limit?.[0] ?? 0;
+  const betMax = row.bet_limit?.[1] ?? 0;
+  if (option.betMoney < betMin || option.betMoney > betMax) {
+    option.checkError = useMessageStore().limitMessage(account, {
+      match: option.match?.title,
+      bet: option.bet?.getBetName(),
+      odds: option.odds,
+      betMoney: option.betMoney,
+      limit: betMax,
+    });
+    return false;
+  }
+  return true;
+}
+
+function buildRayOrderData(
+  option: BetOption,
+  row: RayOddsRow,
+  res: RayOddsGetRes,
+): Record<string, unknown> {
+  const title = `${row.group_name}\n${row.name}`;
+  return {
+    total_stake: String(Math.round(option.betMoney)),
+    total_bet_bonus: (Math.round(option.betMoney) * option.odds).toFixed(2),
+    order: [
+      {
+        number: 1,
+        oddsId: option.itemId,
+        title,
+        order_type: 0,
+        stake: String(Math.round(option.betMoney)),
+        order_detail: {
+          odds_group_id: row.odds_group_id,
+          value: row.value,
+          win: row.win,
+          status: 1,
+          bet_limit: row.bet_limit,
+          last_update: row.last_update,
+          match_stage: row.match_stage,
+          match_name: row.match_name,
+          group_name: row.group_name,
+          group_short_name: row.group_short_name,
+          id: row.id,
+          odds_id: row.odds_id,
+          team_id: row.team_id,
+          name: row.name,
+          match_id: row.match_id,
+          odds: option.odds,
+          tag: row.tag,
+          enable_parlay: row.enable_parlay,
+          game_id: row.game_id,
+          start_time: row.start_time,
+          title,
+          isLive: new Date(res.result!.start_time!).getTime() < Date.now(),
+        },
+        betMin: row.bet_limit?.[0],
+        betMax: row.bet_limit?.[1],
+      },
+    ],
+  };
+}
+
+/** [changmen 扩展] 临下单按当场价重组订单；滑点内接单，过大跌幅拒绝 POST */
+export async function lockRayQuoteForPlace(
+  account: PlatformAccount,
+  option: BetOption,
+): Promise<BetOption> {
+  const snapshotOdds = Number(option.odds) || 0;
+  const res = await accountGet<RayOddsGetRes>(
+    account,
+    RAY_A8_V2.odds(String(option.matchId)),
+    { forceDirect: true },
+  );
+  option.response = res;
+  if (res.code !== 200) {
+    option.data = null;
+    if (!option.checkError)
+      option.checkError = "预检失败";
+    return option;
+  }
+
+  const row = findRayOddsRow(res, option.itemId);
+  option.response = row ?? res;
+  if (!applyRayLockAndLimit(account, option, row)) {
+    option.data = null;
+    return option;
+  }
+
+  const liveOdds = Number(row.odds);
+  if (!Number.isFinite(liveOdds) || liveOdds <= 1) {
+    option.data = null;
+    option.checkError = "预检失败";
+    return option;
+  }
+  if (snapshotOdds > liveOdds + RAY_PLACE_MAX_SLIP) {
+    option.updateOdds(liveOdds);
+    option.odds = liveOdds;
+    option.data = null;
+    option.checkError = `赔率下降至${liveOdds}`;
+    return option;
+  }
+
+  option.updateOdds(liveOdds);
+  option.odds = liveOdds;
+  option.data = buildRayOrderData(option, row, res);
+  option.checkedAt = Date.now();
+  option.checkError = undefined;
+  return option;
+}
+
 /** [A8 可证实] vYe：`${account.gateway}/v2/...` */
 const RAY_A8_V2 = {
   user: "/v2/user",
@@ -133,79 +279,23 @@ export const rayProvider: PlatformProvider = {
   },
 
   async checkBet(account, option) {
-    const res = await accountGet<{
-      code?: number;
-      result?: { odds?: RayOddsRow[]; start_time?: string };
-    }>(account, RAY_A8_V2.odds(String(option.matchId)), { forceDirect: true });
+    const res = await accountGet<RayOddsGetRes>(
+      account,
+      RAY_A8_V2.odds(String(option.matchId)),
+      { forceDirect: true },
+    );
     option.response = res;
     if (res.code !== 200) return option;
 
-    const row = res.result?.odds?.find((d) => d.odds_id == option.itemId);
+    const row = findRayOddsRow(res, option.itemId);
     option.response = row ?? res;
-    if (!row || row.enable_parlay !== 1 || row.status !== 1) {
-      option.checkError = `${row?.match_name} / [${row?.match_stage}] ${row?.group_name} / ${row?.name}@${row?.odds} 已封盘`;
-      option.updateOdds(0);
-      return option;
-    }
-
-    const betMin = row.bet_limit?.[0] ?? 0;
-    const betMax = row.bet_limit?.[1] ?? 0;
-    if (option.betMoney < betMin || option.betMoney > betMax) {
-      option.checkError = useMessageStore().limitMessage(account, {
-        match: option.match?.title,
-        bet: option.bet?.getBetName(),
-        odds: option.odds,
-        betMoney: option.betMoney,
-        limit: betMax,
-      });
-      return option;
-    }
+    if (!applyRayLockAndLimit(account, option, row)) return option;
 
     const liveOdds = Number(row.odds);
     option.updateOdds(liveOdds);
     if (option.odds > liveOdds + 0.01) return option;
     option.odds = liveOdds;
-
-    const title = `${row.group_name}\n${row.name}`;
-    option.data = {
-      total_stake: String(Math.round(option.betMoney)),
-      total_bet_bonus: (Math.round(option.betMoney) * option.odds).toFixed(2),
-      order: [
-        {
-          number: 1,
-          oddsId: option.itemId,
-          title,
-          order_type: 0,
-          stake: String(Math.round(option.betMoney)),
-          order_detail: {
-            odds_group_id: row.odds_group_id,
-            value: row.value,
-            win: row.win,
-            status: 1,
-            bet_limit: row.bet_limit,
-            last_update: row.last_update,
-            match_stage: row.match_stage,
-            match_name: row.match_name,
-            group_name: row.group_name,
-            group_short_name: row.group_short_name,
-            id: row.id,
-            odds_id: row.odds_id,
-            team_id: row.team_id,
-            name: row.name,
-            match_id: row.match_id,
-            odds: option.odds,
-            tag: row.tag,
-            enable_parlay: row.enable_parlay,
-            game_id: row.game_id,
-            start_time: row.start_time,
-            title,
-            isLive: new Date(res.result!.start_time!).getTime() < Date.now(),
-          },
-          betMin: row.bet_limit?.[0],
-          betMax: row.bet_limit?.[1],
-        },
-      ],
-    };
+    option.data = buildRayOrderData(option, row, res);
     return option;
   },
 
@@ -225,6 +315,17 @@ export const rayProvider: PlatformProvider = {
   },
 
   async betting(account, option) {
+    if (shouldRelockRayPlaceQuote(option)) {
+      await lockRayQuoteForPlace(account, option);
+      if (!option.data) {
+        return new BetResult(
+          account.provider,
+          false,
+          option.checkError || "预检失败",
+          option.data,
+        );
+      }
+    }
     const res = await accountPostForm<{ code?: number; desc?: string; result?: unknown }>(
       account,
       RAY_A8_V2.order,
