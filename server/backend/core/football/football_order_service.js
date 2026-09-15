@@ -2,11 +2,15 @@
  * 足球订单读写。不走电竞账号订单服务。
  */
 import * as sb from "@changmen/db";
+import { isAdminUser } from "../auth/admin_auth.js";
 import {
   parseFootballOrderInput,
   parseFootballOrderStatusPatch,
   publicFootballOrder,
 } from "./football_order.js";
+import { resolveAdminFootballOrdersScope } from "./football_order_admin_scope.js";
+
+export { resolveAdminFootballOrdersScope } from "./football_order_admin_scope.js";
 
 function fail(msg) {
   return { ok: false, msg };
@@ -118,16 +122,31 @@ export async function listFootballOrders(user, body = {}) {
 }
 
 /**
+ * 与电竞 listAdminOrders 同权：团队长只能看本队；跨队 userId 返回空。
  * @param {Record<string, unknown>} body
+ * @param {{ id?: string, role?: string, team_id?: string, teamId?: string } | null} [caller]
  */
-export async function listAdminFootballOrders(body = {}) {
+export async function listAdminFootballOrders(body = {}, caller = null) {
   const now = new Date();
   const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const date = String(body.date || "").trim() || fallback;
-  const userId = String(body.userId || "").trim();
+  const allProfiles = caller && !isAdminUser(caller)
+    ? await sb.fetchProfilesAdmin()
+    : [];
+  const scope = resolveAdminFootballOrdersScope(caller, body, allProfiles);
+  if (scope.denied) {
+    return {
+      date,
+      list: [],
+      total: 0,
+      todayStake: 0,
+      todayProfit: 0,
+    };
+  }
   const rows = await sb.fetchFootballOrdersAdmin({
     date,
-    userId,
+    userId: scope.userId || undefined,
+    userIds: scope.userIds,
     limit: 2000,
   });
   const list = rows.map(publicFootballOrder).filter(Boolean);
