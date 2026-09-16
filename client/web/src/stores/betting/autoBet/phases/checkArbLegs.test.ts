@@ -99,6 +99,32 @@ describe("checkArbLegs", () => {
     expect(out!.implied).toBe(1.05);
   });
 
+  it("混合对：即时馆预检通过后立即返回，不等 PM 拉簿", async () => {
+    let pmResolved = false;
+    checkBetting.mockImplementation(async (_acc, option: BetOption) => {
+      if (option.type === "Polymarket") {
+        await new Promise(r => setTimeout(r, 80));
+        pmResolved = true;
+        option.data = { ok: true };
+        return option;
+      }
+      option.data = { ok: true };
+      return option;
+    });
+    const legA = leg("RAY", 80, 1.36);
+    const legB = leg("Polymarket", 22, 3.125);
+
+    const out = await checkArbLegs(params, ready(legA, legB));
+
+    expect(out).not.toBeNull();
+    expect(pmResolved).toBe(false);
+    expect(out!.pendingCheckSide).toBe("B");
+    expect(out!.legA.data).toEqual({ ok: true });
+    expect(out!.legB.data).toBeNull();
+    await out!.pendingCheck;
+    expect(pmResolved).toBe(true);
+  });
+
   it("pm_sport 系列赛已决出时跳过 PM 腿预检", async () => {
     const legA = leg("RAY", 80, 1.36);
     const legB = leg("Polymarket", 35, 3.125, {

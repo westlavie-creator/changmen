@@ -114,10 +114,7 @@ export async function checkBetting(
     attachPredictFunDetectionQuote(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
     option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
-    const out = await provider.checkBet(account, option);
-    if (out.data && !out.checkError)
-      out.checkedAt = Date.now();
-    return out;
+    return await provider.checkBet(account, option);
   }
   catch (e) {
     option.checkError = e instanceof Error ? e.message : JSON.stringify(e);

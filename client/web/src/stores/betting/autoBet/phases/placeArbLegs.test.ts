@@ -26,6 +26,7 @@ vi.mock("@/stores/betting/activeBetRunSync", () => ({
   syncActiveBetPhase,
   syncActiveBetLeg,
   syncActiveBetFail: vi.fn(),
+  syncActiveBetPrecheckResults: vi.fn(),
 }));
 
 function leg(type: string, target: "Home" | "Away" = "Home"): BetOption {
@@ -116,56 +117,158 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
 
-  it("Low + PM/RAY：并行下单（不等 CLOB 再 POST 即时馆）", async () => {
-    let concurrent = 0;
-    let maxConcurrent = 0;
+  it("流水线：RAY POST 早于 PM 预检结束", async () => {
+    let resolvePm!: (value: BetOption) => void;
+    const pmLeg = leg("Polymarket", "Home");
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
+    const pendingCheck = new Promise<BetOption>((resolve) => {
+      resolvePm = resolve;
+    });
+    const order: string[] = [];
     betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
-      concurrent++;
-      maxConcurrent = Math.max(maxConcurrent, concurrent);
-      await new Promise((r) => setTimeout(r, 20));
-      concurrent--;
+      order.push(option.type);
       return new BetResult(option.type, true);
     });
-    const lowParams = {
-      ...params,
-      config: { ...createDefaultUserConfig(), betSorting: "Low" } as never,
-    };
 
-    await placeArbLegs(lowParams, checked({
-      legA: leg("Polymarket", "Home"),
-      legB: leg("RAY", "Away"),
+    const run = placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
       accountA: account("Polymarket"),
       accountB: account("RAY"),
+      pendingCheck,
+      pendingCheckSide: "A",
     }));
 
-    expect(betting).toHaveBeenCalledTimes(2);
-    expect(maxConcurrent).toBe(2);
+    await vi.waitFor(() => expect(order).toEqual(["RAY"]));
+    expect(betting).toHaveBeenCalledTimes(1);
+    pmLeg.data = { ok: true };
+    resolvePm(pmLeg);
+    const out = await run;
+    expect(order).toEqual(["RAY", "Polymarket"]);
+    expect(out.placeOutcomeA).toBe("filled_pending_settle");
+    expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
 
-  it("Low + RAY 赔更低排第一：仍顺序", async () => {
-    let concurrent = 0;
-    let maxConcurrent = 0;
+  it("流水线：PM 预检失败则 RAY 已下、PM 不 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
     betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
-      concurrent++;
-      maxConcurrent = Math.max(maxConcurrent, concurrent);
-      await new Promise((r) => setTimeout(r, 20));
-      concurrent--;
       return new BetResult(option.type, true);
     });
-    const lowParams = {
-      ...params,
-      config: { ...createDefaultUserConfig(), betSorting: "Low" } as never,
-    };
 
-    await placeArbLegs(lowParams, checked({
-      legA: leg("RAY", "Away"),
-      legB: leg("Polymarket", "Home"),
-      accountA: account("RAY"),
-      accountB: account("Polymarket"),
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      pendingCheck: Promise.resolve(pmLeg),
+      pendingCheckSide: "A",
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(out.legA.type).toBe("RAY");
+    expect(out.placeOutcomeA).toBe("filled_pending_settle");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("流水线：即时馆失败则不下 PM", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      return new BetResult(option.type, false);
+    });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      pendingCheck: Promise.resolve(pmLeg),
+      pendingCheckSide: "A",
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(out.placeOutcomeB).toBe("api_failed");
+    expect(out.placeOutcomeA).toBe("not_attempted");
+  });
+
+  it("流水线：deadline 已过但 PM 预检已完成仍 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      return new BetResult(option.type, true);
+    });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      pendingCheck: Promise.resolve(pmLeg),
+      pendingCheckSide: "A",
+      pendingCheckDeadline: Date.now() - 5_000,
     }));
 
     expect(betting).toHaveBeenCalledTimes(2);
-    expect(maxConcurrent).toBe(1);
+    expect(out.placeOutcomeA).toBe("filled_pending_settle");
+    expect(out.placeOutcomeB).toBe("filled_pending_settle");
+  });
+
+  it("流水线：即时馆失败不等挂起的 PM 预检", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
+    betting.mockResolvedValue(new BetResult("RAY", false));
+    const hang = new Promise<BetOption>(() => {});
+
+    const out = await Promise.race([
+      placeArbLegs(params, checked({
+        legA: pmLeg,
+        legB: rayLeg,
+        accountA: account("Polymarket"),
+        accountB: account("RAY"),
+        pendingCheck: hang,
+        pendingCheckSide: "A",
+      })),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("hung waiting for pending check")), 80);
+      }),
+    ]);
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect(out.placeOutcomeB).toBe("api_failed");
+    expect(out.placeOutcomeA).toBe("not_attempted");
+  });
+
+  it("流水线：RAY 为 B 且 PM POST 失败时换腿并 retry", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.data = { ok: 1 };
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      return new BetResult(option.type, option.type === "RAY");
+    });
+
+    await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      pendingCheck: Promise.resolve(pmLeg),
+      pendingCheckSide: "A",
+    }));
+
+    expect(retryFailedLeg).toHaveBeenCalledTimes(1);
+    expect(retryFailedLeg.mock.calls[0]![2].type).toBe("RAY");
+    expect(retryFailedLeg.mock.calls[0]![3].type).toBe("Polymarket");
   });
 
   it("Custom + OB/RAY：仍顺序下单", async () => {
@@ -184,32 +287,6 @@ describe("placeArbLegs two-leg report contract", () => {
     };
 
     await placeArbLegs(customParams, checked());
-
-    expect(betting).toHaveBeenCalledTimes(2);
-    expect(maxConcurrent).toBe(1);
-  });
-
-  it("Custom + RAY 在前 + PM：仍顺序（即时馆失败则不下对家）", async () => {
-    let concurrent = 0;
-    let maxConcurrent = 0;
-    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
-      concurrent++;
-      maxConcurrent = Math.max(maxConcurrent, concurrent);
-      await new Promise((r) => setTimeout(r, 20));
-      concurrent--;
-      return new BetResult(option.type, true);
-    });
-    const customParams = {
-      ...params,
-      config: { ...createDefaultUserConfig(), betSorting: "Custom" } as never,
-    };
-
-    await placeArbLegs(customParams, checked({
-      legA: leg("RAY", "Away"),
-      legB: leg("Polymarket", "Home"),
-      accountA: account("RAY"),
-      accountB: account("Polymarket"),
-    }));
 
     expect(betting).toHaveBeenCalledTimes(2);
     expect(maxConcurrent).toBe(1);

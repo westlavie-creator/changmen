@@ -16,20 +16,55 @@ import {
   syncActiveBetLeg,
   syncActiveBetPhase,
   syncActiveBetPlaceResults,
+  syncActiveBetPrecheckResults,
 } from "@/stores/betting/activeBetRunSync";
 
 /**
- * [changmen 扩展] 顺序下单会先打 PM/PF 时改为并行，避免等 CLOB 把即时馆冻价拖过期。
- * 即时馆已在前（Custom/High 把 RAY 放第一）保持顺序：先 RAY 再慢馆，RAY 失败则不下对家。
+ * 仅用户选 Parallel 时双侧同时 POST。混合 PM/即时馆走 pendingCheck 流水线，避免两套机制双打。
  */
-export function shouldPlaceLegsInParallel(
-  betSorting: string | undefined,
-  typeA: unknown,
-  typeB: unknown,
-): boolean {
-  if (betSorting === "Parallel")
-    return true;
-  return isPendingConfirmVenueProvider(typeA) && !isPendingConfirmVenueProvider(typeB);
+export function shouldPlaceLegsInParallel(betSorting: string | undefined): boolean {
+  return betSorting === "Parallel";
+}
+
+const PENDING_CHECK_TIMEOUT = "timeout" as const;
+
+function stripPendingCheckError(raw?: string): string {
+  if (!raw)
+    return "";
+  return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+async function settlePendingCheck(
+  pendingCheck: Promise<BetOption>,
+  deadline?: number,
+): Promise<BetOption | typeof PENDING_CHECK_TIMEOUT> {
+  if (deadline == null) {
+    try {
+      return await pendingCheck;
+    }
+    catch {
+      return PENDING_CHECK_TIMEOUT;
+    }
+  }
+  // 已完成的预检即使过了 checkTimeout 也要用：即时馆 POST 耗时不应作废已拉到的簿。
+  // remain=0 时 resolved promise（微任务）仍赢过 setTimeout(0)。
+  const remain = Math.max(0, deadline - Date.now());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      pendingCheck,
+      new Promise<typeof PENDING_CHECK_TIMEOUT>((resolve) => {
+        timer = setTimeout(() => resolve(PENDING_CHECK_TIMEOUT), remain);
+      }),
+    ]);
+  }
+  catch {
+    return PENDING_CHECK_TIMEOUT;
+  }
+  finally {
+    if (timer)
+      clearTimeout(timer);
+  }
 }
 
 function buildPlaced(
@@ -43,8 +78,14 @@ function buildPlaced(
   placeOutcomeA: ArbLegPlaceOutcome,
   placeOutcomeB: ArbLegPlaceOutcome,
 ): ArbBetPlaced {
+  const {
+    pendingCheck: _pendingCheck,
+    pendingCheckSide: _pendingCheckSide,
+    pendingCheckDeadline: _pendingCheckDeadline,
+    ...rest
+  } = checked;
   return {
-    ...checked,
+    ...rest,
     legA,
     legB,
     accountA,
@@ -76,15 +117,32 @@ export async function placeArbLegs(
     legB.deferPostAcceptSettlement = true;
 
   syncActiveBetPhase(bet.id, "placing", "提交场馆订单");
-  if (accountA)
-    syncActiveBetLeg(bet.id, "A", "placing");
-  if (accountB)
-    syncActiveBetLeg(bet.id, "B", "placing");
 
   let resultA: BetResult | undefined;
   let resultB: BetResult | undefined;
   let attemptedA = false;
   let attemptedB = false;
+
+  const pipeline = Boolean(
+    betBothLegs
+    && checked.pendingCheck
+    && (checked.pendingCheckSide === "A" || checked.pendingCheckSide === "B"),
+  );
+
+  if (pipeline) {
+    const pendingSide = checked.pendingCheckSide!;
+    const instantSide = pendingSide === "A" ? "B" : "A";
+    if (instantSide === "A" && accountA)
+      syncActiveBetLeg(bet.id, "A", "placing");
+    if (instantSide === "B" && accountB)
+      syncActiveBetLeg(bet.id, "B", "placing");
+  }
+  else {
+    if (accountA)
+      syncActiveBetLeg(bet.id, "A", "placing");
+    if (accountB)
+      syncActiveBetLeg(bet.id, "B", "placing");
+  }
 
   if (!betBothLegs) {
     if (accountA) {
@@ -98,7 +156,78 @@ export async function placeArbLegs(
       resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
   }
-  else if (shouldPlaceLegsInParallel(config.betSorting, legA.type, legB.type)) {
+  else if (pipeline) {
+    const pendingSide = checked.pendingCheckSide!;
+    const instantSide = pendingSide === "A" ? "B" : "A";
+    trace?.event("下单", `流水线 ${instantSide === "A" ? legA.type : legB.type} → ${pendingSide === "A" ? legA.type : legB.type}`);
+
+    if (instantSide === "A") {
+      attemptedA = true;
+      resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
+    }
+    else {
+      attemptedB = true;
+      resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
+    }
+
+    const instantOk = instantSide === "A" ? Boolean(resultA?.success) : Boolean(resultB?.success);
+    if (!instantOk) {
+      void checked.pendingCheck!.catch(() => {});
+    }
+    else {
+      const pendingSettled = await settlePendingCheck(
+        checked.pendingCheck!,
+        checked.pendingCheckDeadline,
+      );
+      if (pendingSettled === PENDING_CHECK_TIMEOUT) {
+        const pendingLeg = pendingSide === "A" ? legA : legB;
+        pendingLeg.checkError = pendingLeg.checkError || "前置检查超时";
+        void checked.pendingCheck!.catch(() => {});
+      }
+      else if (pendingSide === "A")
+        legA = pendingSettled;
+      else
+        legB = pendingSettled;
+
+      const pendingReady = pendingSettled !== PENDING_CHECK_TIMEOUT
+        && Boolean((pendingSide === "A" ? legA : legB).data);
+
+      if (pendingSide === "A") {
+        syncActiveBetPrecheckResults(bet.id, {
+          hasA: true,
+          okA: pendingReady,
+          detailA: pendingReady
+            ? undefined
+            : (stripPendingCheckError(legA.checkError) || "无盘口数据"),
+        });
+      }
+      else {
+        syncActiveBetPrecheckResults(bet.id, {
+          hasB: true,
+          okB: pendingReady,
+          detailB: pendingReady
+            ? undefined
+            : (stripPendingCheckError(legB.checkError) || "无盘口数据"),
+        });
+      }
+
+      if (pendingReady) {
+        if (pendingSide === "A" && accountA)
+          syncActiveBetLeg(bet.id, "A", "placing");
+        if (pendingSide === "B" && accountB)
+          syncActiveBetLeg(bet.id, "B", "placing");
+        if (pendingSide === "A") {
+          attemptedA = true;
+          resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
+        }
+        else {
+          attemptedB = true;
+          resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
+        }
+      }
+    }
+  }
+  else if (shouldPlaceLegsInParallel(config.betSorting)) {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     attemptedA = true;
     attemptedB = true;
@@ -127,6 +256,13 @@ export async function placeArbLegs(
       resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
     // A 失败：B 保持 not_attempted，仍回传编排层
+  }
+
+  if (resultB?.success && !resultA?.success) {
+    [legA, legB] = [legB, legA];
+    [accountA, accountB] = [accountB, accountA];
+    [resultA, resultB] = [resultB, resultA];
+    [attemptedA, attemptedB] = [attemptedB, attemptedA];
   }
 
   trace?.event(

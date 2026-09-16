@@ -4,6 +4,7 @@ import type { ViewBet, ViewMatch } from "@/models/match";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { UserConfig } from "@/types/userConfig";
+import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 
 export interface ArbBetReady {
   legA: BetOption;
@@ -23,8 +24,29 @@ export interface ArbBetReady {
   stakeScale: number;
 }
 
+/**
+ * [changmen 扩展] 一侧 PM/PF、一侧即时馆时，慢腿预检可在 place 阶段再汇合。
+ */
+export function resolveMixedPendingCheckSide(
+  betBothLegs: boolean,
+  typeA: unknown,
+  typeB: unknown,
+): "A" | "B" | null {
+  if (!betBothLegs)
+    return null;
+  const pendingA = isPendingConfirmVenueProvider(typeA);
+  const pendingB = isPendingConfirmVenueProvider(typeB);
+  if (pendingA === pendingB)
+    return null;
+  return pendingA ? "A" : "B";
+}
+
 export interface ArbBetChecked extends ArbBetReady {
   waitSec: number;
+  /** [changmen 扩展] 慢确认馆预检仍在飞；place 先打即时馆再 await */
+  pendingCheck?: Promise<BetOption>;
+  pendingCheckSide?: "A" | "B";
+  pendingCheckDeadline?: number;
 }
 
 /**

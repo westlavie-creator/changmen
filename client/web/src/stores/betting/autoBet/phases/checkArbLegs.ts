@@ -1,5 +1,10 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
-import type { ArbBetAttemptParams, ArbBetChecked, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
+import {
+  resolveMixedPendingCheckSide,
+  type ArbBetAttemptParams,
+  type ArbBetChecked,
+  type ArbBetReady,
+} from "@/stores/betting/autoBet/phases/types";
 import { isSingleLegPrecheckOnly } from "@/domain/betting/singleLegRate";
 import { shouldSkipAccountRateOnStakeScale } from "@/extensions/arbBet/stakeScaleByProfit";
 import { setArbExecutionTraceMeta } from "@/stores/betting/autoBet/arbProgressTrace";
@@ -94,23 +99,63 @@ export async function checkArbLegs(
 
   const checkStart = Date.now();
 
-  const checkTasks: Promise<BetOption>[] = [];
-  if (checkAccountA) {
-    checkTasks.push(accountStore.checkBetting(checkAccountA, legA, {
-      skipAccountRate: resolveSkipAccountRate("A", ready),
-    }));
+  const taskA = checkAccountA
+    ? accountStore.checkBetting(checkAccountA, legA, {
+        skipAccountRate: resolveSkipAccountRate("A", ready),
+      })
+    : undefined;
+  const taskB = checkAccountB
+    ? accountStore.checkBetting(checkAccountB, legB, {
+        skipAccountRate: resolveSkipAccountRate("B", ready),
+      })
+    : undefined;
+
+  const pendingCheckSide = resolveMixedPendingCheckSide(betBothLegs, legA.type, legB.type);
+  let pendingCheck: Promise<BetOption> | undefined;
+  let pendingCheckDeadline: number | undefined;
+
+  if (pendingCheckSide && taskA && taskB) {
+    const instantTask = pendingCheckSide === "A" ? taskB : taskA;
+    pendingCheck = pendingCheckSide === "A" ? taskA : taskB;
+    const instantLeg = await instantTask;
+    if (pendingCheckSide === "A")
+      legB = instantLeg;
+    else
+      legA = instantLeg;
+
+    if (config.checkTimeout && Date.now() - checkStart > config.checkTimeout) {
+      void pendingCheck.catch(() => {});
+      const elapsed = Date.now() - checkStart;
+      const msg = `超时时间：${elapsed}ms，大于设定值：${config.checkTimeout}ms`;
+      setMessage(`前置检查超时 ${elapsed}ms`);
+      a8Tip("前置检查超时", msg, 3000);
+      trace?.finish("fail", msg);
+      syncActiveBetFail(bet.id, msg);
+      return null;
+    }
+
+    if (!instantLeg.data) {
+      const pendingLeg = await pendingCheck;
+      if (pendingCheckSide === "A")
+        legA = pendingLeg;
+      else
+        legB = pendingLeg;
+      pendingCheck = undefined;
+    }
+    else {
+      pendingCheckDeadline = config.checkTimeout
+        ? checkStart + config.checkTimeout
+        : undefined;
+    }
   }
-  if (checkAccountB) {
-    checkTasks.push(accountStore.checkBetting(checkAccountB, legB, {
-      skipAccountRate: resolveSkipAccountRate("B", ready),
-    }));
+  else {
+    const checked = await Promise.all([taskA, taskB].filter(Boolean) as Promise<BetOption>[]);
+    let checkIdx = 0;
+    if (checkAccountA)
+      legA = checked[checkIdx++];
+    if (checkAccountB)
+      legB = checked[checkIdx++];
   }
-  const checked = await Promise.all(checkTasks);
-  let checkIdx = 0;
-  if (checkAccountA)
-    legA = checked[checkIdx++];
-  if (checkAccountB)
-    legB = checked[checkIdx++];
 
   const precheckLegs = buildArbProgressLegPair(
     legA,
@@ -135,13 +180,18 @@ export async function checkArbLegs(
     const checkAccount = side === "A" ? checkAccountA : checkAccountB;
     if (!checkAccount || leg.data)
       return null;
+    if (pendingCheck && pendingCheckSide === side)
+      return null;
     const base = `${leg.type} ${leg.target}: ${leg.checkError || "无盘口数据"}`;
     if (isSingleLegPrecheckOnly(side, accountA, accountB, checkAccountA, checkAccountB))
       return `${base}（9999仅预检）`;
     return base;
   }
 
-  if ((checkAccountA && !legA.data) || (checkAccountB && !legB.data)) {
+  const dualPrecheckFailed = !pendingCheck
+    && ((checkAccountA && !legA.data) || (checkAccountB && !legB.data));
+
+  if (dualPrecheckFailed) {
     const parts = [
       legPrecheckFailLabel("A"),
       legPrecheckFailLabel("B"),
@@ -164,19 +214,30 @@ export async function checkArbLegs(
     return null;
   }
 
-  syncActiveBetPrecheckResults(bet.id, {
-    hasA: Boolean(checkAccountA),
-    okA: true,
-    hasB: Boolean(checkAccountB),
-    okB: true,
-  });
+  if (pendingCheck && pendingCheckSide) {
+    const instantSide = pendingCheckSide === "A" ? "B" : "A";
+    syncActiveBetPrecheckResults(bet.id, {
+      hasA: instantSide === "A",
+      okA: instantSide === "A",
+      hasB: instantSide === "B",
+      okB: instantSide === "B",
+    });
+  }
+  else {
+    syncActiveBetPrecheckResults(bet.id, {
+      hasA: Boolean(checkAccountA),
+      okA: true,
+      hasB: Boolean(checkAccountB),
+      okB: true,
+    });
+  }
 
   // [A8 可证实] 预检通过后不再改 betMoney（PM 同：计划额 + 场馆跌价拒单）；orderIndex 在 checkTimeout 之前赋值
   if (accountA)
     legA.orderIndex = 1;
   if (accountB)
     legB.orderIndex = betBothLegs ? 2 : 1;
-  if (config.checkTimeout && Date.now() - checkStart > config.checkTimeout) {
+  if (!pendingCheck && config.checkTimeout && Date.now() - checkStart > config.checkTimeout) {
     const elapsed = Date.now() - checkStart;
     const msg = `超时时间：${elapsed}ms，大于设定值：${config.checkTimeout}ms`;
     setMessage(`前置检查超时 ${elapsed}ms`);
@@ -199,5 +260,8 @@ export async function checkArbLegs(
     accountB,
     implied: ready.implied,
     waitSec,
+    pendingCheck,
+    pendingCheckSide: pendingCheck ? pendingCheckSide ?? undefined : undefined,
+    pendingCheckDeadline: pendingCheck ? pendingCheckDeadline : undefined,
   };
 }

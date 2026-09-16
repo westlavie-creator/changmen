@@ -38,8 +38,6 @@ export class BetOption {
   request?: unknown;
   response?: unknown;
   startTime: number;
-  /** [changmen 扩展] 最近一次成功组单时刻；RAY 临下单用它判断冻价是否过期 */
-  checkedAt?: number;
 
   constructor(
     matchOrType: ViewMatch | PlatformId,

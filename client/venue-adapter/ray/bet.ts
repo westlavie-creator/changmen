@@ -102,21 +102,6 @@ type RayOddsGetRes = {
   result?: { odds?: RayOddsRow[]; start_time?: string };
 };
 
-/** [changmen 扩展] 验盘过期后临下单重拉；低于此则沿用 A8 冻价 POST */
-export const RAY_PLACE_QUOTE_STALE_MS = 400;
-/** [changmen 扩展] 临下单允许相对冻价的最大掉幅；超过则不下（2.23→2.12 接，崩到 1.90 拒） */
-export const RAY_PLACE_MAX_SLIP = 0.2;
-
-export function shouldRelockRayPlaceQuote(
-  option: Pick<BetOption, "data" | "checkedAt">,
-  now = Date.now(),
-): boolean {
-  if (!option.data)
-    return true;
-  const checkedAt = Number(option.checkedAt) || 0;
-  return now - checkedAt > RAY_PLACE_QUOTE_STALE_MS;
-}
-
 function findRayOddsRow(res: RayOddsGetRes, itemId: string): RayOddsRow | undefined {
   return res.result?.odds?.find((d) => d.odds_id == itemId);
 }
@@ -193,54 +178,6 @@ function buildRayOrderData(
   };
 }
 
-/** [changmen 扩展] 临下单按当场价重组订单；滑点内接单，过大跌幅拒绝 POST */
-export async function lockRayQuoteForPlace(
-  account: PlatformAccount,
-  option: BetOption,
-): Promise<BetOption> {
-  const snapshotOdds = Number(option.odds) || 0;
-  const res = await accountGet<RayOddsGetRes>(
-    account,
-    RAY_A8_V2.odds(String(option.matchId)),
-    { forceDirect: true },
-  );
-  option.response = res;
-  if (res.code !== 200) {
-    option.data = null;
-    if (!option.checkError)
-      option.checkError = "预检失败";
-    return option;
-  }
-
-  const row = findRayOddsRow(res, option.itemId);
-  option.response = row ?? res;
-  if (!applyRayLockAndLimit(account, option, row)) {
-    option.data = null;
-    return option;
-  }
-
-  const liveOdds = Number(row.odds);
-  if (!Number.isFinite(liveOdds) || liveOdds <= 1) {
-    option.data = null;
-    option.checkError = "预检失败";
-    return option;
-  }
-  if (snapshotOdds > liveOdds + RAY_PLACE_MAX_SLIP) {
-    option.updateOdds(liveOdds);
-    option.odds = liveOdds;
-    option.data = null;
-    option.checkError = `赔率下降至${liveOdds}`;
-    return option;
-  }
-
-  option.updateOdds(liveOdds);
-  option.odds = liveOdds;
-  option.data = buildRayOrderData(option, row, res);
-  option.checkedAt = Date.now();
-  option.checkError = undefined;
-  return option;
-}
-
 /** [A8 可证实] vYe：`${account.gateway}/v2/...` */
 const RAY_A8_V2 = {
   user: "/v2/user",
@@ -315,17 +252,6 @@ export const rayProvider: PlatformProvider = {
   },
 
   async betting(account, option) {
-    if (shouldRelockRayPlaceQuote(option)) {
-      await lockRayQuoteForPlace(account, option);
-      if (!option.data) {
-        return new BetResult(
-          account.provider,
-          false,
-          option.checkError || "预检失败",
-          option.data,
-        );
-      }
-    }
     const res = await accountPostForm<{ code?: number; desc?: string; result?: unknown }>(
       account,
       RAY_A8_V2.order,

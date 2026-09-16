@@ -1,19 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { BetOption } from "@changmen/client-core/models/betOption";
 import { PlatformAccount } from "@changmen/client-core/models/platformAccount";
-import {
-  RAY_PLACE_QUOTE_STALE_MS,
-  rayProvider,
-  shouldRelockRayPlaceQuote,
-} from "./bet";
+import { rayProvider } from "./bet";
 
-const { accountGet, accountPostForm } = vi.hoisted(() => ({
-  accountGet: vi.fn(),
-  accountPostForm: vi.fn(),
-}));
+const accountGet = vi.fn();
 vi.mock("./accountHttp", () => ({
   accountGet: (...args: unknown[]) => accountGet(...args),
-  accountPostForm: (...args: unknown[]) => accountPostForm(...args),
+  accountPostForm: vi.fn(),
 }));
 
 vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
@@ -98,104 +91,6 @@ describe("rayProvider.checkBet", () => {
     expect(out.odds).toBe(1.88);
     const order = (out.data as { order: Array<{ order_detail: { odds: number } }> }).order[0];
     expect(order.order_detail.odds).toBe(1.88);
-  });
-});
-
-describe("shouldRelockRayPlaceQuote", () => {
-  it("无 data 或无 checkedAt 视为过期", () => {
-    expect(shouldRelockRayPlaceQuote({ data: null })).toBe(true);
-    expect(shouldRelockRayPlaceQuote({ data: { ok: 1 } })).toBe(true);
-  });
-
-  it("checkedAt 在窗口内不重拉", () => {
-    const now = 1_700_000_000_400;
-    expect(shouldRelockRayPlaceQuote(
-      { data: { ok: 1 }, checkedAt: now - RAY_PLACE_QUOTE_STALE_MS },
-      now,
-    )).toBe(false);
-    expect(shouldRelockRayPlaceQuote(
-      { data: { ok: 1 }, checkedAt: now - RAY_PLACE_QUOTE_STALE_MS - 1 },
-      now,
-    )).toBe(true);
-  });
-});
-
-describe("rayProvider.betting lock-live", () => {
-  const account = new PlatformAccount({
-    accountId: 3,
-    playerName: "ray3",
-    provider: "RAY",
-    gateway: "https://ray.example",
-    token: "t",
-  });
-
-  beforeEach(() => {
-    accountGet.mockReset();
-    accountPostForm.mockReset();
-    accountPostForm.mockResolvedValue({ code: 200, result: 999 });
-  });
-
-  function postedOrder(): { total_stake: string; order: Array<{ order_detail: { odds: number } }> } {
-    const body = accountPostForm.mock.calls[0]![2] as { order: string };
-    return JSON.parse(body.order);
-  }
-
-  it("冻价未过期则不二次 GET，直接 POST", async () => {
-    const option = makeOption(2.23);
-    option.data = { frozen: true };
-    option.checkedAt = Date.now();
-    await rayProvider.betting(account, option);
-    expect(accountGet).not.toHaveBeenCalled();
-    expect(accountPostForm).toHaveBeenCalledTimes(1);
-    expect(JSON.parse((accountPostForm.mock.calls[0]![2] as { order: string }).order)).toEqual({ frozen: true });
-  });
-
-  it("过期后 2.23→2.12 按现价组单 POST，本金不变", async () => {
-    accountGet.mockResolvedValue(oddsResponse(2.12));
-    const option = makeOption(2.23);
-    option.betMoney = 180;
-    option.data = { frozen: 2.23 };
-    option.checkedAt = Date.now() - RAY_PLACE_QUOTE_STALE_MS - 1;
-    const result = await rayProvider.betting(account, option);
-    expect(result.success).toBe(true);
-    expect(option.odds).toBe(2.12);
-    const order = postedOrder();
-    expect(order.total_stake).toBe("180");
-    expect(order.order[0]!.order_detail.odds).toBe(2.12);
-  });
-
-  it("过期后赔率上涨按现价 POST", async () => {
-    accountGet.mockResolvedValue(oddsResponse(2.3));
-    const option = makeOption(2.23);
-    option.betMoney = 180;
-    option.data = { frozen: 2.23 };
-    option.checkedAt = Date.now() - RAY_PLACE_QUOTE_STALE_MS - 1;
-    const result = await rayProvider.betting(account, option);
-    expect(result.success).toBe(true);
-    expect(postedOrder().order[0]!.order_detail.odds).toBe(2.3);
-  });
-
-  it("过期后现价非法则拒绝 POST", async () => {
-    accountGet.mockResolvedValue(oddsResponse(Number.NaN));
-    const option = makeOption(2.23);
-    option.data = { frozen: 2.23 };
-    option.checkedAt = Date.now() - RAY_PLACE_QUOTE_STALE_MS - 1;
-    const result = await rayProvider.betting(account, option);
-    expect(accountPostForm).not.toHaveBeenCalled();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("预检失败");
-  });
-
-  it("过期后掉幅超过滑点则拒绝 POST", async () => {
-    accountGet.mockResolvedValue(oddsResponse(1.9));
-    const option = makeOption(2.23);
-    option.data = { frozen: 2.23 };
-    option.checkedAt = Date.now() - RAY_PLACE_QUOTE_STALE_MS - 1;
-    const result = await rayProvider.betting(account, option);
-    expect(accountPostForm).not.toHaveBeenCalled();
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("赔率下降至1.9");
-    expect(option.data).toBeNull();
   });
 });
 
