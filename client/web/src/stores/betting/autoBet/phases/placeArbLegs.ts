@@ -64,7 +64,7 @@ function buildPlaced(
 }
 
 function hasPlaceQuote(option: BetOption): boolean {
-  return option.data != null && option.data !== false;
+  return option.data != null;
 }
 
 async function recheckMixedPendingIfNeeded(
