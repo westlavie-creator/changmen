@@ -24,6 +24,8 @@ export interface PolymarketRawMarket {
   archived?: boolean;
   accepting_orders?: boolean;
   acceptingOrders?: boolean;
+  enable_order_book?: boolean;
+  enableOrderBook?: boolean;
   market?: string;
   game_start_time?: string | number;
   gameStartTime?: string | number;

@@ -25,6 +25,9 @@ export interface ArbBetReady {
 
 export interface ArbBetChecked extends ArbBetReady {
   waitSec: number;
+  /** 扫描检测价。混合对临 POST 再预检即时馆时恢复，不拿第一次 checkBet 写入的 live。 */
+  scanOddsA: number;
+  scanOddsB: number;
 }
 
 /**

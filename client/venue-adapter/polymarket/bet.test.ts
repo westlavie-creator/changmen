@@ -822,6 +822,65 @@ describe("polymarketProvider.betting", () => {
     expect(result.beginTime).toBe(1_700_000_000_000);
   });
 
+  test("trading is disabled is a closed-market reject, not a posted FOK", async () => {
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
+      error: "trading is disabled",
+    });
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("已停止交易");
+    expect(result.tip).toBeNull();
+    expect(result.orderId).toBeNull();
+  });
+
+  test("submit timeout is not marked pmPosted", async () => {
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(pmSubmitOrder).mockRejectedValueOnce(new Error("timeout of 15000ms exceeded"));
+
+    const account = accountWithToken(JSON.stringify({
+      walletAddress: "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      funder: "0x8ed24e533d24c2f381983eda8f97c2358f8d65e5",
+      signatureType: "3",
+      privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+      apiCreds: { apiKey: "key-1", secret: "c2VjcmV0", passphrase: "pass-1" },
+    }));
+
+    const result = await polymarketProvider.betting!(account, {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("未确认是否送达");
+    expect(result.tip).toBeNull();
+  });
+
   test("succeeds when API returns delayed with orderID (chain pending)", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
@@ -965,6 +1024,27 @@ describe("polymarketProvider.checkBet", () => {
     });
   });
 
+  test("rejects checkBet when /book says trading is disabled", async () => {
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("gamma-api.polymarket.com/markets")) {
+        return [{
+          clob_token_ids: JSON.stringify(["123456789"]),
+          outcomePrices: JSON.stringify(["0.5", "0.5"]),
+        }];
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockResolvedValue({ error: "trading is disabled" });
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      { itemId: "123456789", odds: 5, betMoney: 5 } as any,
+    );
+
+    expect(out.data).toBeNull();
+    expect(out.checkError).toContain("已停止交易");
+  });
+
   test("loads order book and sets executable odds within detection cap", async () => {
     vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
       if (url.includes("gamma-api.polymarket.com/markets")) {
@@ -1011,6 +1091,67 @@ describe("polymarketProvider.checkBet", () => {
     expect(out.checkError).toBeUndefined();
   });
 
+  test("fetches /book without waiting for Gamma", async () => {
+    let releaseGamma!: (value: unknown) => void;
+    const gammaGate = new Promise((resolve) => {
+      releaseGamma = resolve;
+    });
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("gamma-api.polymarket.com/markets")) {
+        await gammaGate;
+        return [{
+          clob_token_ids: JSON.stringify(["123456789"]),
+          outcomePrices: JSON.stringify(["0.5", "0.5"]),
+        }];
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockImplementation(async () => {
+      releaseGamma(undefined);
+      return {
+        tick_size: "0.01",
+        min_order_size: "5",
+        neg_risk: false,
+        asks: [{ price: "0.18", size: "100" }],
+      };
+    });
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      { itemId: "123456789", odds: 5, betMoney: 5 } as any,
+    );
+
+    expect(out.data).toBeTruthy();
+    expect(pmGetBook).toHaveBeenCalled();
+  });
+
+  test("Gamma 拦盘时即使 /book 已回也不写 data", async () => {
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("gamma-api.polymarket.com/markets")) {
+        return [{
+          clob_token_ids: JSON.stringify(["123456789"]),
+          outcomePrices: JSON.stringify(["0.5", "0.5"]),
+          acceptingOrders: false,
+        }];
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.mocked(pmGetBook).mockResolvedValue({
+      tick_size: "0.01",
+      min_order_size: "5",
+      neg_risk: false,
+      asks: [{ price: "0.18", size: "100" }],
+    });
+
+    const out = await polymarketProvider.checkBet(
+      accountWithToken("{}", { multiply: 7 }),
+      { itemId: "123456789", odds: 5, betMoney: 5 } as any,
+    );
+
+    expect(out.data).toBeNull();
+    expect(out.checkError).toContain("已停止交易");
+  });
+
   test("rejects when pm_sport shows series decided", async () => {
     const option = {
       itemId: "123456789",
@@ -1034,6 +1175,7 @@ describe("polymarketProvider.checkBet", () => {
     expect(out.data).toBeNull();
     expect(out.checkError).toContain("系列赛已决出");
     expect(polymarketPluginGet).not.toHaveBeenCalled();
+    expect(pmGetBook).not.toHaveBeenCalled();
   });
 
   test("rejects when pm_sport shows match ended", async () => {

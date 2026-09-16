@@ -8,7 +8,7 @@ import { enrichAccountFromPlatformDefaults } from "../../account/balance_provide
 import * as dbStore from "../../db/store.js";
 import store from "../../esport-api/store.js";
 import { fetchPolymarketCollateralBalance } from "./balance.js";
-import { executePolymarketHttpRequest, pickPolymarketPolyHeaders } from "./clob_proxy.js";
+import { executePolymarketHttpRequest, pickPolymarketPolyHeaders, PM_SUBMIT_ORDER_POST_TIMEOUT_MS } from "./clob_proxy.js";
 import { fetchPolymarketTradesSince, fetchPolymarketTradesById } from "./clob_l2.js";
 
 const DEFAULT_CLOB = "https://clob.polymarket.com";
@@ -220,6 +220,7 @@ export async function handlePmSubmitOrder(body, userId) {
       l2Path: ORDER_PATH,
       accountToken: resolved.account.token,
       body: order,
+      timeoutMs: PM_SUBMIT_ORDER_POST_TIMEOUT_MS,
     });
     return { ok: true, info: parseUpstreamJson(result) };
   }

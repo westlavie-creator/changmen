@@ -14,6 +14,42 @@ import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2HeadersFromAccount } from "./l2Auth";
 import { demotePmHttpToVpsFromLocalNetworkError, resolvePmHttpMode } from "./pmTransportMode";
 
+/** vps 模式下公开 /book 直连试探上限；≤0 则不试直连、仍走 VPS。 */
+export const PM_GET_BOOK_DIRECT_TIMEOUT_MS = 800;
+/**
+ * POST /order 只等 HTTP ACK，不是官方 delayed 窗。
+ * 官方：回包即 matched/delayed；itode 同步 +250ms；体育 delayed 立刻返回，撮合按市场 `sd`。
+ * 本值覆盖 VPS `/time`≤8s + CLOB ACK（尖峰数秒）+ 一跳；须大于 VPS POST abort（20s）。
+ * 勿对齐 PF 60s（那是签名+中继+RDS）。
+ */
+export const PM_SUBMIT_ORDER_TIMEOUT_MS = 30_000;
+
+let getBookDirectTimeoutMs = PM_GET_BOOK_DIRECT_TIMEOUT_MS;
+
+export function setPmGetBookDirectTimeoutMsForTests(ms: number): void {
+  getBookDirectTimeoutMs = ms;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  if (timeoutMs <= 0)
+    return promise;
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error(`timeout of ${timeoutMs}ms exceeded`), { code: "ECONNABORTED" }));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 const POLY_HEADER_NAMES = [
   "POLY_ADDRESS",
   "POLY_SIGNATURE",
@@ -532,15 +568,69 @@ async function pmEsportCallExtension<T>(
   return pmEsportCallLocal<T>("extension", action, body);
 }
 
-/** pmClientApi 底层：按 mode 走 VPS 语义 API / 直连 / 插件 */
+function isPmPluginDisconnectError(err: unknown): boolean {
+  const msg = pluginErrorMessage(err);
+  return /Could not establish connection/i.test(msg)
+    || /Receiving end does not exist/i.test(msg)
+    || /Extension context invalidated/i.test(msg);
+}
+
+function vpsEsportOpts(action: string): { timeoutMs: number } | undefined {
+  return action === "Pm_SubmitOrder" ? { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS } : undefined;
+}
+
+/** pmClientApi 底层：按 mode 走 VPS 语义 API / 直连 / 插件。
+ * 公开 Pm_GetBook 无 L2：vps 下短超时直连 CLOB，失败/超时回落 VPS；extension 保持插件。
+ * Pm_SubmitOrder：HTTP 只等 POST ACK（30s）；插件断连同一次回落 VPS。timeout 不重试 POST。
+ * 官方 delayed 撮合不占这个窗，见 marketDelay `sd`。
+ */
 export async function pmEsportCall<T>(
   action: string,
   body: Record<string, unknown>,
 ): Promise<T> {
+  if (action === "Pm_GetBook")
+    return pmGetBookPreferDirect<T>(body);
   const mode = resolvePmHttpMode();
-  if (mode === "vps")
-    return changmenPmEsportCall<T>(action, stripEsportBodyForVps(body));
+  if (mode === "vps") {
+    const opts = vpsEsportOpts(action);
+    return opts
+      ? changmenPmEsportCall<T>(action, stripEsportBodyForVps(body), opts)
+      : changmenPmEsportCall<T>(action, stripEsportBodyForVps(body));
+  }
   if (mode === "direct")
     return pmEsportCallDirect<T>(action, body);
-  return pmEsportCallExtension<T>(action, body);
+  try {
+    return await pmEsportCallExtension<T>(action, body);
+  }
+  catch (err) {
+    if (action === "Pm_SubmitOrder" && isPmPluginDisconnectError(err)) {
+      return changmenPmEsportCall<T>(
+        action,
+        stripEsportBodyForVps(body),
+        { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS },
+      );
+    }
+    throw err;
+  }
+}
+
+async function pmGetBookPreferDirect<T>(body: Record<string, unknown>): Promise<T> {
+  const mode = resolvePmHttpMode();
+  if (mode === "extension")
+    return pmEsportCallExtension<T>("Pm_GetBook", body);
+  const timeoutMs = mode === "vps" ? getBookDirectTimeoutMs : 0;
+  if (mode === "vps" && timeoutMs <= 0)
+    return changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body));
+  try {
+    const direct = pmEsportCallDirect<T>("Pm_GetBook", body);
+    return await (timeoutMs > 0 ? withTimeout(direct, timeoutMs) : direct);
+  }
+  catch (err) {
+    if (isPmTransportNetworkError(err)) {
+      if (mode === "direct")
+        demotePmHttpToVpsFromLocalNetworkError();
+      return changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body));
+    }
+    throw err;
+  }
 }

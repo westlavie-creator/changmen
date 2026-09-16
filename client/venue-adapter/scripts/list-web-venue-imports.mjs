@@ -24,6 +24,7 @@ const BARREL_TOPS = new Set([
   "ob",
   "pb",
   "polymarket",
+  "predictfun",
   "ray",
   "registry",
   "shared",
@@ -45,6 +46,11 @@ const MOCK_ONLY_DEEP = new Set([
 /** 运行时单点深 import（避免 registry barrel 拉起全平台 adapters） */
 const RUNTIME_DEEP = new Map([
   ["runtime/venueAdapters.ts", new Set(["registry/adapters"])],
+  // vitest setup → oddsStore：勿经 polymarket/predictfun barrel 预加载 CLOB transport，否则场馆单测 vi.mock 失效
+  ["stores/oddsStore.ts", new Set([
+    "polymarket/pmArbPriceBufferMode",
+    "predictfun/pfArbPriceBufferMode",
+  ])],
 ]);
 
 const IMPORT_RE = new RegExp(

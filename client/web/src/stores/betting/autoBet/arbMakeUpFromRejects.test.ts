@@ -46,6 +46,8 @@ function basePlaced(): ArbBetPlaced {
     singleLegByRate: false,
     stakeScale: 1,
     waitSec: 10,
+    scanOddsA: Number(legA.odds) || 0,
+    scanOddsB: Number(legB.odds) || 0,
     resultA: new BetResult("RAY", false),
     resultB: new BetResult("OB", true),
     placeOutcomeA: "api_failed",

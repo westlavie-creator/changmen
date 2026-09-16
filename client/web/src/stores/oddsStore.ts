@@ -18,11 +18,11 @@ import { PLATFORMS } from "@changmen/venue-adapter/shared";
 import {
   isPmArbPriceBufferActive,
   pmEffectiveOddsFromFoEntry,
-} from "@changmen/venue-adapter/polymarket";
+} from "@changmen/venue-adapter/polymarket/pmArbPriceBufferMode";
 import {
   isPfArbPriceBufferActive,
   pfEffectiveOddsFromFoEntry,
-} from "@changmen/venue-adapter/predictfun";
+} from "@changmen/venue-adapter/predictfun/pfArbPriceBufferMode";
 
 /** 写入赔率缓存的数据来源，便于排查 HTTP 初值 vs 推送覆盖 */
 export type OddsSaveSource = "mqtt" | "http";

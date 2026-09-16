@@ -13,17 +13,29 @@ import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import {
+  isMixedPendingConfirmArbPair,
+  mixedInstantIsLegA,
+} from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
+import {
   syncActiveBetLeg,
   syncActiveBetPhase,
   syncActiveBetPlaceResults,
 } from "@/stores/betting/activeBetRunSync";
 
 /**
- * 仅用户选 Parallel 时双侧同时 POST。
- * 混合 PM/即时馆与其它对相同：预检必须双侧过完才进入本函数。
+ * 仅用户选 Parallel 且非混合对时双侧同时 POST。
+ * 混合 PM/PF + 即时馆：预检齐活后仍先锁即时馆再 POST，不并行。
  */
-export function shouldPlaceLegsInParallel(betSorting: string | undefined): boolean {
-  return betSorting === "Parallel";
+export function shouldPlaceLegsInParallel(
+  betSorting: string | undefined,
+  legAType?: unknown,
+  legBType?: unknown,
+): boolean {
+  if (betSorting !== "Parallel")
+    return false;
+  if (legAType != null && legBType != null && isMixedPendingConfirmArbPair(legAType, legBType))
+    return false;
+  return true;
 }
 
 function buildPlaced(
@@ -48,6 +60,54 @@ function buildPlaced(
     placeOutcomeA,
     placeOutcomeB,
   };
+}
+
+async function relockInstantAtDetectionOdds(
+  accountStore: ReturnType<typeof useAccountStore>,
+  instant: BetOption,
+  instantAccount: PlatformAccount,
+  scanOdds: number,
+): Promise<BetOption> {
+  instant.data = null;
+  if (scanOdds > 0)
+    instant.odds = scanOdds;
+  // 资格预检已换成场馆额；再检只验检测价，不改 betMoney
+  return accountStore.checkBetting(instantAccount, instant, { skipStakeResolve: true });
+}
+
+async function relockMixedInstantIfNeeded(
+  accountStore: ReturnType<typeof useAccountStore>,
+  checked: ArbBetChecked,
+  legA: BetOption,
+  legB: BetOption,
+  accountA: PlatformAccount | undefined,
+  accountB: PlatformAccount | undefined,
+  trace: ArbBetAttemptParams["trace"],
+): Promise<{ legA: BetOption; legB: BetOption; blocked: boolean }> {
+  if (!isMixedPendingConfirmArbPair(legA.type, legB.type))
+    return { legA, legB, blocked: false };
+  const instantIsA = mixedInstantIsLegA(legA, legB);
+  const instantAccount = instantIsA ? accountA : accountB;
+  if (!instantAccount)
+    return { legA, legB, blocked: false };
+  const relocked = await relockInstantAtDetectionOdds(
+    accountStore,
+    instantIsA ? legA : legB,
+    instantAccount,
+    instantIsA ? checked.scanOddsA : checked.scanOddsB,
+  );
+  if (instantIsA)
+    legA = relocked;
+  else
+    legB = relocked;
+  if (!relocked.data) {
+    trace?.event(
+      "预检",
+      `${relocked.type} ${relocked.target}: 检测价已不能成交${relocked.checkError ? `（${relocked.checkError}）` : ""}`,
+    );
+    return { legA, legB, blocked: true };
+  }
+  return { legA, legB, blocked: false };
 }
 
 /**
@@ -81,7 +141,47 @@ export async function placeArbLegs(
   if (accountB)
     syncActiveBetLeg(bet.id, "B", "placing");
 
-  if (!betBothLegs) {
+  const mixedPair = isMixedPendingConfirmArbPair(legA.type, legB.type);
+  let mixedBlocked = false;
+  if (mixedPair) {
+    const relocked = await relockMixedInstantIfNeeded(
+      accountStore,
+      checked,
+      legA,
+      legB,
+      accountA,
+      accountB,
+      trace,
+    );
+    legA = relocked.legA;
+    legB = relocked.legB;
+    mixedBlocked = relocked.blocked;
+  }
+
+  const mixedDual = Boolean(mixedPair && betBothLegs && accountA && accountB && !mixedBlocked);
+
+  if (mixedDual) {
+    const instantIsA = mixedInstantIsLegA(legA, legB);
+    if (instantIsA) {
+      trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
+      attemptedA = true;
+      resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
+      if (resultA.success) {
+        attemptedB = true;
+        resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
+      }
+    }
+    else {
+      trace?.event("下单", `顺序 ${legB.type} → ${legA.type}`);
+      attemptedB = true;
+      resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
+      if (resultB.success) {
+        attemptedA = true;
+        resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
+      }
+    }
+  }
+  else if (!mixedBlocked && !betBothLegs) {
     if (accountA) {
       trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
       attemptedA = true;
@@ -93,7 +193,7 @@ export async function placeArbLegs(
       resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
   }
-  else if (shouldPlaceLegsInParallel(config.betSorting)) {
+  else if (!mixedBlocked && shouldPlaceLegsInParallel(config.betSorting, legA.type, legB.type)) {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     attemptedA = true;
     attemptedB = true;
@@ -113,7 +213,7 @@ export async function placeArbLegs(
       resultB = pair[0];
     }
   }
-  else {
+  else if (!mixedBlocked) {
     trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
     attemptedA = true;
     resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);

@@ -76,6 +76,21 @@
 - **不像 A8**：确认靠 hash/`wallet`，不是长 `rejectWait` + 列表首条；多 timeout
 - **不像 PM**：无 `matched` fill-confirmed 快路径
 
+## 混合对（PM/PF + 即时馆）
+
+**[changmen 扩展]** 检测价预检在 POST 前必须仍有效。
+
+传统 A8↔A8：两边预检都是短 HTTP，冻价到 POST 落在 0.01 里。混合对里 PM/PF 预检要拉 CLOB `/book`，即时馆（RAY 等）若把第一次 `checkBet` 的冻价拿去 POST，会在等待里过期 → 场馆 **501**。
+
+编排：
+
+1. 双侧 `checkBetting` 仍须都过才进入 place（零 POST）。即时馆这次 `data` 作废，只证明当时可下。
+2. place 入口用**扫描检测价**再预检即时馆（只验盘口，不改已换过的 `betMoney`；RAY 0.01 公式不变）。不过：两侧 `not_attempted`。过：立刻 POST 即时馆，成功再 POST CLOB。9999 只下即时馆时同样再预检检测价。
+3. 用户选 `Parallel` 也不对混合对并发 POST。
+4. 即时馆 POST 失败则 CLOB 不下。CLOB FOK/未下且即时馆已成：补单入队逻辑不变。
+
+PM `checkBet`：`GET /book` 与 Gamma 并行（官方 Place Orders 第一步即 `/book`）；两边都回才算预检成功。vps 下公开 `Pm_GetBook` 短超时（800ms）直连 CLOB，失败/超时回落 VPS；超时设 0 则不试直连。闸门再读 CLOB `/markets/{condition_id}` 的 `accepting_orders` / `closed`（CLOB `{error:"trading is disabled"}` 视为未受理，不标 `pmPosted`）。两套时钟：**HTTP 只等 POST ACK**（客户端 30s，VPS POST abort 20s，须覆盖 `/time`≤8s + ACK，禁止浏览器 15s 先切断）；**撮合等官方 `sd`**（`delayed` 回包后，见上表）。插件断连可同一次回落 VPS；timeout/Network Error **不**重试 POST。勿把 PF 60s 或 HTTP 60s 当成官方 delay。
+
 ## A8 场馆（OB / RAY / …）
 
 `[A8 可证实]`：`venueRejectWaitBeforePoll(rejectWaitSec)` → 拉单 → `orders[0].status === "reject"` 视为 unfilled。  

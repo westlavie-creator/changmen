@@ -20,7 +20,7 @@ function venueToPlanExchange(account: PlatformAccount): number {
 }
 
 export type ResolveVenueStakeOpts = {
-  /** 9999 单边预检：不按账号比例放大，仅用 Plan CNY 换算场馆原币 */
+  /** 9999 单边预检：不按账号比例放大，仅用 Plan CNY 换算场馆原币。已是场馆额时勿用（会再÷汇率），走 checkBetting skipStakeResolve */
   skipAccountRate?: boolean;
 };
 

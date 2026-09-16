@@ -1,5 +1,5 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
-import { POLYMARKET_GAMMA_API } from "./api";
+import { POLYMARKET_CLOB_API, POLYMARKET_GAMMA_API } from "./api";
 import { parsePeriodHead, type PmSportLike } from "./pmSportGuard";
 import { parseEsportsScore } from "./parseEsportsScore";
 import { type PolymarketRawMarket } from "./parse";
@@ -87,6 +87,22 @@ export async function fetchGammaMarketByTokenId(tokenId: string): Promise<Polyma
   );
   const rows = unwrapArray<PolymarketRawMarket>(data);
   return rows[0] ?? null;
+}
+
+/** CLOB 市场行：`accepting_orders` / closed 比 Gamma 更接近 POST /order 闸门 */
+export async function fetchClobMarketByConditionId(conditionId: string): Promise<PolymarketRawMarket | null> {
+  const id = String(conditionId ?? "").trim();
+  if (!id)
+    return null;
+  try {
+    const data = await polymarketPluginGet<PolymarketRawMarket>(
+      `${POLYMARKET_CLOB_API}/markets/${encodeURIComponent(id)}`,
+    );
+    return data && typeof data === "object" && !Array.isArray(data) ? data : null;
+  }
+  catch {
+    return null;
+  }
 }
 
 export async function fetchGammaEventById(eventId: string): Promise<GammaEventLike | null> {

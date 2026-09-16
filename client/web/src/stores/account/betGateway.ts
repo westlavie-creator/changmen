@@ -22,7 +22,10 @@ import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticO
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
 
-export type CheckBettingOpts = ResolveVenueStakeOpts;
+export type CheckBettingOpts = ResolveVenueStakeOpts & {
+  /** 场馆额已换过：再预检只验盘口，不改 betMoney（勿用 skipAccountRate，USDT 会二次÷汇率） */
+  skipStakeResolve?: boolean;
+};
 
 export interface PlaceBetOpts {
   /** [changmen 扩展] 套利/补单最终 Link；PM api_failed 落库用 */
@@ -113,7 +116,8 @@ export async function checkBetting(
     attachPolymarketDetectionQuote(option);
     attachPredictFunDetectionQuote(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
-    option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
+    if (!opts?.skipStakeResolve)
+      option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
     return await provider.checkBet(account, option);
   }
   catch (e) {

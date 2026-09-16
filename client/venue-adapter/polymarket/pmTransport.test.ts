@@ -8,6 +8,8 @@ vi.mock("@changmen/client-core/shared/http", () => ({
 
   directPostJson: vi.fn(),
 
+  directDeleteJson: vi.fn(),
+
 }));
 
 
@@ -29,6 +31,8 @@ vi.mock("@changmen/client-core/chrome-plugin/bridge", () => ({
   a8PluginGet: vi.fn(),
 
   a8PluginPost: vi.fn(),
+
+  a8PluginDelete: vi.fn(),
 
 }));
 
@@ -60,7 +64,7 @@ import { changmenPmEsportCall, changmenPmHttpRequest } from "@changmen/client-co
 
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 
-import { pmEsportCall, pmTransportHttpGet } from "./pmTransport";
+import { pmEsportCall, pmTransportHttpGet, setPmGetBookDirectTimeoutMsForTests, PM_GET_BOOK_DIRECT_TIMEOUT_MS, PM_SUBMIT_ORDER_TIMEOUT_MS } from "./pmTransport";
 
 import { resolvePmHttpMode, setPmHttpModeForTests } from "./pmTransportMode";
 
@@ -85,6 +89,8 @@ describe("pmTransport mode", () => {
   beforeEach(() => {
 
     setPmHttpModeForTests(null);
+
+    setPmGetBookDirectTimeoutMsForTests(PM_GET_BOOK_DIRECT_TIMEOUT_MS);
 
     vi.mocked(changmenPmHttpRequest).mockReset();
 
@@ -162,11 +168,119 @@ describe("pmTransport mode", () => {
 
     setPmHttpModeForTests("vps");
 
-    vi.mocked(changmenPmEsportCall).mockResolvedValue({ tick_size: "0.01" });
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ heartbeat_id: "h1" });
+
+    const out = await pmEsportCall("Pm_Heartbeat", { heartbeatId: "h0", _account: pmAccount });
+
+    expect(out).toEqual({ heartbeat_id: "h1" });
+
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_Heartbeat", { heartbeatId: "h0" });
+
+  });
+
+
+
+  test("vps Pm_SubmitOrder 只等 POST ACK 30s", async () => {
+
+    setPmHttpModeForTests("vps");
+
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ success: true, orderID: "oid" });
+
+    await pmEsportCall("Pm_SubmitOrder", { playerId: 42, order: { foo: 1 }, _account: pmAccount });
+
+    expect(changmenPmEsportCall).toHaveBeenCalledWith(
+      "Pm_SubmitOrder",
+      { playerId: 42, order: { foo: 1 } },
+      { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS },
+    );
+
+  });
+
+
+
+  test("vps 模式下公开 Pm_GetBook 优先直连 CLOB", async () => {
+
+    setPmHttpModeForTests("vps");
+
+    vi.mocked(directGet).mockResolvedValue({ tick_size: "0.01" });
 
     const book = await pmEsportCall("Pm_GetBook", { tokenId: "123", _account: pmAccount });
 
     expect(book).toEqual({ tick_size: "0.01" });
+
+    expect(directGet).toHaveBeenCalledWith(
+
+      expect.stringContaining("/book?token_id=123"),
+
+      {},
+
+    );
+
+    expect(changmenPmEsportCall).not.toHaveBeenCalled();
+
+  });
+
+
+
+  test("Pm_GetBook 直连 Network Error 时回落 VPS", async () => {
+
+    setPmHttpModeForTests("vps");
+
+    const netErr = Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" });
+
+    vi.mocked(directGet).mockRejectedValue(netErr);
+
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ tick_size: "0.02" });
+
+    const book = await pmEsportCall("Pm_GetBook", { tokenId: "123" });
+
+    expect(book).toEqual({ tick_size: "0.02" });
+
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetBook", { tokenId: "123" });
+
+  });
+
+
+
+  test("Pm_GetBook 直连超时回落 VPS", async () => {
+
+    setPmHttpModeForTests("vps");
+
+    setPmGetBookDirectTimeoutMsForTests(20);
+
+    vi.mocked(directGet).mockImplementation(async () => {
+
+      await new Promise(r => setTimeout(r, 80));
+
+      return { tick_size: "slow" };
+
+    });
+
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ tick_size: "0.03" });
+
+    const book = await pmEsportCall("Pm_GetBook", { tokenId: "123" });
+
+    expect(book).toEqual({ tick_size: "0.03" });
+
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetBook", { tokenId: "123" });
+
+  });
+
+
+
+  test("Pm_GetBook 超时为 0 时 vps 不试直连", async () => {
+
+    setPmHttpModeForTests("vps");
+
+    setPmGetBookDirectTimeoutMsForTests(0);
+
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ tick_size: "vps" });
+
+    const book = await pmEsportCall("Pm_GetBook", { tokenId: "123" });
+
+    expect(book).toEqual({ tick_size: "vps" });
+
+    expect(directGet).not.toHaveBeenCalled();
 
     expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetBook", { tokenId: "123" });
 
@@ -347,19 +461,26 @@ describe("pmTransport mode", () => {
     expect(resolvePmHttpMode()).toBe("vps");
   });
 
-  test("extension 扩展断连也将 HTTP 降回 vps", async () => {
+  test("extension 扩展断连时同一次 SubmitOrder 回落 VPS", async () => {
     setPmHttpModeForTests("extension");
     vi.mocked(a8PluginPost).mockRejectedValue(
       new Error("Could not establish connection. Receiving end does not exist."),
     );
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ success: true, orderID: "vps-oid" });
 
-    await expect(pmEsportCall("Pm_SubmitOrder", {
+    const result = await pmEsportCall("Pm_SubmitOrder", {
       playerId: 42,
       order: { foo: 1 },
       _account: pmAccount,
-    })).rejects.toThrow(/Could not establish connection/);
+    });
 
+    expect(result).toEqual({ success: true, orderID: "vps-oid" });
     expect(resolvePmHttpMode()).toBe("vps");
+    expect(changmenPmEsportCall).toHaveBeenCalledWith(
+      "Pm_SubmitOrder",
+      { playerId: 42, order: { foo: 1 } },
+      { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS },
+    );
   });
 
   test("extension 插件 resolve(AxiosError) 也将 HTTP 降回 vps", async () => {

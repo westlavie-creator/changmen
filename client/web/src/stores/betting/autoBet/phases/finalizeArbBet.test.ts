@@ -160,6 +160,8 @@ function makePlaced(overrides: Partial<ArbBetPlaced> = {}): ArbBetPlaced {
     linkId: 1_700_000_000_000,
     stakeScale: 1,
     waitSec: 10,
+    scanOddsA: Number(legA.odds) || 0,
+    scanOddsB: Number(legB.odds) || 0,
     resultA: new BetResult("OB", true),
     resultB: new BetResult("RAY", true),
     placeOutcomeA: "filled_pending_settle",

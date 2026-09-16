@@ -59,6 +59,8 @@ function placed(a: string, b: string): ArbBetPlaced {
     singleLegByRate: false,
     stakeScale: 1,
     waitSec: 10,
+    scanOddsA: 1.8,
+    scanOddsB: 2.1,
     resultA: new BetResult(a as never, true),
     resultB: new BetResult(b as never, true),
     placeOutcomeA: "filled_pending_settle",

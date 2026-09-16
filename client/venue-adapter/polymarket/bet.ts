@@ -32,6 +32,13 @@ import {
 import { resolvePolymarketProviderLegOutcome } from "./legOutcome";
 import { resolvePolymarketBetBlockReason } from "./pmBetGuard";
 import {
+  isPolymarketSubmitTimeoutError,
+  isPolymarketTradingDisabledError,
+  POLYMARKET_SUBMIT_TIMEOUT_MESSAGE,
+  POLYMARKET_TRADING_DISABLED_MESSAGE,
+} from "./pmMarketGuard";
+import { getPolymarketPmSportBlockReasonFromOption } from "./pmSportGuard";
+import {
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
@@ -77,6 +84,7 @@ interface PolymarketBalanceAllowanceResponse {
 
 interface PolymarketOrderResponse {
   success?: boolean;
+  error?: string;
   errorMsg?: string;
   orderID?: string;
   status?: string;
@@ -124,6 +132,7 @@ export function polymarketOrderFailureMessage(
 }
 
 interface PolymarketOrderBookResponse {
+  error?: string;
   tick_size?: string | number;
   minimum_tick_size?: string | number;
   min_order_size?: string | number;
@@ -179,8 +188,18 @@ interface PolymarketOrderDiagnostic {
   asks: PolymarketOrderOptions["asks"];
 }
 
+function polymarketSubmitCatchMessage(err: unknown): string {
+  if (isPolymarketTradingDisabledError(err))
+    return POLYMARKET_TRADING_DISABLED_MESSAGE;
+  if (isPolymarketSubmitTimeoutError(err) || /network error/i.test(err instanceof Error ? err.message : String(err)))
+    return POLYMARKET_SUBMIT_TIMEOUT_MESSAGE;
+  return err instanceof Error ? err.message : String(err);
+}
+
 async function fetchOrderOptions(gateway: string, tokenId: string): Promise<PolymarketOrderOptions> {
   const book = await pmGetBook<PolymarketOrderBookResponse>(tokenId, gateway);
+  if (isPolymarketTradingDisabledError(book))
+    throw new Error(POLYMARKET_TRADING_DISABLED_MESSAGE);
   return {
     tickSize: normalizePolymarketTickSize(book?.tick_size ?? book?.minimum_tick_size),
     minOrderSize: Number(book?.min_order_size) || 0,
@@ -529,9 +548,9 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
-    const pmBlock = await resolvePolymarketBetBlockReason(option);
-    if (pmBlock) {
-      option.checkError = pmBlock;
+    const localBlock = getPolymarketPmSportBlockReasonFromOption(option);
+    if (localBlock) {
+      option.checkError = localBlock;
       option.data = null;
       return option;
     }
@@ -546,13 +565,27 @@ export const polymarketProvider: PlatformProvider = {
     const gateway = account.gateway || POLYMARKET_CLOB_API;
     const tokenId = option.itemId;
     try {
-      const { price, bookOdds, orderOptions, bookFetchedAt } = await resolvePolymarketExecutableBuy(
+      // 立刻拉簿，不等 Gamma；两边都回才算预检成功（官方 Place Orders 第一步即 GET /book）
+      const buyP = resolvePolymarketExecutableBuy(
         gateway,
         tokenId,
         detectionOdds,
         apiBetMoney,
         maxPrice,
       );
+      const guardP = resolvePolymarketBetBlockReason(option);
+      const [buySettled, guardSettled] = await Promise.allSettled([buyP, guardP]);
+      if (guardSettled.status === "fulfilled" && guardSettled.value) {
+        option.checkError = guardSettled.value;
+        option.data = null;
+        return option;
+      }
+      if (guardSettled.status === "rejected")
+        console.warn("[Polymarket] bet guard gamma check failed", guardSettled.reason);
+      if (buySettled.status === "rejected")
+        throw buySettled.reason;
+
+      const { price, bookOdds, orderOptions, bookFetchedAt } = buySettled.value;
       option.odds = bookOdds;
       option.newOdds = bookOdds;
       option.data = {
@@ -633,6 +666,9 @@ export const polymarketProvider: PlatformProvider = {
       );
       const result = await pmSubmitOrder<PolymarketOrderResponse>(account, orderBody);
 
+      if (isPolymarketTradingDisabledError(result))
+        return new BetResult("Polymarket", false, POLYMARKET_TRADING_DISABLED_MESSAGE);
+
       if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({
           tokenId,
@@ -707,8 +743,7 @@ export const polymarketProvider: PlatformProvider = {
           console.warn("[Polymarket] fo sync after price-above bet failed", syncErr);
         }
       }
-      const msg = err instanceof Error ? err.message : String(err);
-      return new BetResult("Polymarket", false, msg);
+      return new BetResult("Polymarket", false, polymarketSubmitCatchMessage(err));
     }
   },
 };

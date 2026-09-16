@@ -89,4 +89,38 @@ describe("resolvePolymarketBetBlockReason", () => {
     const reason = await resolvePolymarketBetBlockReason(o);
     expect(reason).toMatch(/市场已决出胜负|几乎不可能/);
   });
+
+  test("CLOB accepting_orders false blocks even when Gamma still open", async () => {
+    vi.mocked(polymarketPluginGet).mockImplementation(async (url: string) => {
+      if (url.includes("gamma-api.polymarket.com/markets?")) {
+        return [{
+          clob_token_ids: JSON.stringify(["token-home", "token-away"]),
+          outcomePrices: JSON.stringify(["0.5", "0.5"]),
+          acceptingOrders: true,
+          closed: false,
+        }];
+      }
+      if (url.includes("clob.polymarket.com/markets/")) {
+        return { closed: false, accepting_orders: false };
+      }
+      if (url.includes("/events/"))
+        return { live: true, ended: false, score: "000-000|0-0|Bo3", period: "1/3" };
+      throw new Error(url);
+    });
+
+    const o = option({
+      match: {
+        startAt: Date.now() - 3600_000,
+        providers: { Polymarket: "650650" },
+        pmSport: {
+          mapScore: { home: 0, away: 0 },
+          bo: 3,
+          updatedAt: Date.now(),
+          live: true,
+        },
+      },
+    });
+    const reason = await resolvePolymarketBetBlockReason(o);
+    expect(reason).toContain("已停止交易");
+  });
 });

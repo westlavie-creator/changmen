@@ -4,6 +4,9 @@
 import { buildPolymarketL2HeadersFromToken } from "./clob_l2.js";
 
 const PM_CLOB_USER_AGENT = "@polymarket/clob-client";
+const PM_CLOB_FETCH_TIMEOUT_MS = 60_000;
+/** POST /order 只等 ACK（官方 delayed 立刻返回）；须小于客户端 Pm_SubmitOrder 30s */
+export const PM_SUBMIT_ORDER_POST_TIMEOUT_MS = 20_000;
 const POLY_HEADER_NAMES = [
   "POLY_ADDRESS",
   "POLY_SIGNATURE",
@@ -76,6 +79,7 @@ export function pickPolymarketPolyHeaders(raw) {
  *   accountToken?: string,
  *   polyHeaders?: Record<string, string> | null,
  *   body?: unknown,
+ *   timeoutMs?: number,
  * }} input
  * @returns {Promise<{ status: number, text: string }>}
  */
@@ -89,6 +93,10 @@ export async function executePolymarketHttpRequest(input) {
   const method = String(input?.method || "GET").toUpperCase();
   const bodyText = normalizeRequestBody(input?.body);
   const l2Path = String(input?.l2Path ?? "").trim();
+  const timeoutMs = Number(input?.timeoutMs);
+  const fetchTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : PM_CLOB_FETCH_TIMEOUT_MS;
 
   let authHeaders = null;
   if (l2Path && input?.accountToken) {
@@ -118,7 +126,7 @@ export async function executePolymarketHttpRequest(input) {
     method,
     headers,
     body: method === "GET" || method === "HEAD" ? undefined : bodyText || undefined,
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(fetchTimeoutMs),
   });
   const text = await res.text();
   return { status: res.status, text };

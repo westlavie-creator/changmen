@@ -1,6 +1,7 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
 import { getPolymarketMarketBlockReason } from "./pmMarketGuard";
 import {
+  fetchClobMarketByConditionId,
   fetchGammaEventById,
   fetchGammaMarketByTokenId,
   gammaEventToPmSportLike,
@@ -19,7 +20,13 @@ export async function resolvePolymarketBetBlockReason(option: BetOption): Promis
     return local;
 
   try {
-    const market = await fetchGammaMarketByTokenId(option.itemId);
+    const conditionId = String(option.betId ?? "").trim();
+    const [gammaSettled, clobSettled] = await Promise.allSettled([
+      fetchGammaMarketByTokenId(option.itemId),
+      conditionId ? fetchClobMarketByConditionId(conditionId) : Promise.resolve(null),
+    ]);
+    const market = gammaSettled.status === "fulfilled" ? gammaSettled.value : null;
+    const clob = clobSettled.status === "fulfilled" ? clobSettled.value : null;
 
     if (shouldRefreshPmSportForBet(option)) {
       let gammaPm = null;
@@ -40,6 +47,10 @@ export async function resolvePolymarketBetBlockReason(option: BetOption): Promis
         return `${gammaReason}（Gamma）`;
     }
 
+    // CLOB 行优先：Gamma 仍显示接单时 CLOB 可能已 trading is disabled
+    const clobReason = getPolymarketMarketBlockReason(clob, option.itemId);
+    if (clobReason)
+      return clobReason;
     const marketReason = getPolymarketMarketBlockReason(market, option.itemId);
     if (marketReason)
       return marketReason;

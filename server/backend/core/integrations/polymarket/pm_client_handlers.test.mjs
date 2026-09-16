@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 vi.mock("./clob_proxy.js", () => ({
+  PM_SUBMIT_ORDER_POST_TIMEOUT_MS: 20_000,
   executePolymarketHttpRequest: vi.fn(async ({ url, method }) => ({
     status: 200,
     text: method === "GET" && String(url).includes("/book")
@@ -106,6 +107,13 @@ describe("pm_client_handlers", () => {
     }, "user-1");
     expect(res.ok).toBe(true);
     expect(res.info).toMatchObject({ success: true, orderID: "oid-1" });
+    const { executePolymarketHttpRequest } = await import("./clob_proxy.js");
+    expect(executePolymarketHttpRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "POST",
+        timeoutMs: 20_000,
+      }),
+    );
   });
 
   test("Pm_GetTrades 返回数组", async () => {

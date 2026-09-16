@@ -4,17 +4,21 @@ import type { ArbBetAttemptParams, ArbBetChecked } from "@/stores/betting/autoBe
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetOption as BetOptionClass } from "@changmen/client-core/models/betOption";
 import { BetResult } from "@changmen/client-core/models/betResult";
-import { placeArbLegs } from "@/stores/betting/autoBet/phases/placeArbLegs";
+import {
+  placeArbLegs,
+  shouldPlaceLegsInParallel,
+} from "@/stores/betting/autoBet/phases/placeArbLegs";
 import { createDefaultUserConfig } from "@/types/userConfig";
 
 const betting = vi.hoisted(() => vi.fn());
+const checkBetting = vi.hoisted(() => vi.fn());
 const retryFailedLeg = vi.hoisted(() => vi.fn());
 const syncActiveBetPlaceResults = vi.hoisted(() => vi.fn());
 const syncActiveBetPhase = vi.hoisted(() => vi.fn());
 const syncActiveBetLeg = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/accountStore", () => ({
-  useAccountStore: () => ({ betting }),
+  useAccountStore: () => ({ betting, checkBetting }),
 }));
 
 vi.mock("@/stores/betting/autoBet/retryFailedLeg", () => ({
@@ -38,20 +42,22 @@ function account(provider: string): PlatformAccount {
 }
 
 function checked(overrides: Partial<ArbBetChecked> = {}): ArbBetChecked {
-  const legA = leg("OB", "Home");
-  const legB = leg("RAY", "Away");
+  const legA = overrides.legA ?? leg("OB", "Home");
+  const legB = overrides.legB ?? leg("RAY", "Away");
   return {
-    legA,
-    legB,
-    accountA: account("OB"),
-    accountB: account("RAY"),
     implied: 1.05,
     betBothLegs: true,
     singleLegByRate: false,
     linkId: 1_700_000_000_000,
     stakeScale: 1,
     waitSec: 10,
+    scanOddsA: Number(legA.odds) || 0,
+    scanOddsB: Number(legB.odds) || 0,
+    accountA: account("OB"),
+    accountB: account("RAY"),
     ...overrides,
+    legA,
+    legB,
   };
 }
 
@@ -62,10 +68,29 @@ const params: ArbBetAttemptParams = {
   setMessage: vi.fn(),
 };
 
+describe("shouldPlaceLegsInParallel", () => {
+  it("A8↔A8 Parallel 仍并发", () => {
+    expect(shouldPlaceLegsInParallel("Parallel", "OB", "RAY")).toBe(true);
+  });
+
+  it("混合对 Parallel 也不并发", () => {
+    expect(shouldPlaceLegsInParallel("Parallel", "Polymarket", "RAY")).toBe(false);
+    expect(shouldPlaceLegsInParallel("Parallel", "RAY", "PredictFun")).toBe(false);
+  });
+
+  it("非 Parallel 一律顺序", () => {
+    expect(shouldPlaceLegsInParallel("Serial", "OB", "RAY")).toBe(false);
+  });
+});
+
 describe("placeArbLegs two-leg report contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     retryFailedLeg.mockResolvedValue(null);
+    checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      option.data = option.data ?? { ok: true };
+      return option;
+    });
   });
 
   it("顺序 A API 失败：B 为 not_attempted，仍返回 placed（不 abort）", async () => {
@@ -117,28 +142,118 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
 
-  it("混合对预检过完后按顺序下：先 A 再 B，A 失败则 B 不下", async () => {
+  it("混合对预检过完后先下即时馆：RAY 失败则 PM 不下", async () => {
     const pmLeg = leg("Polymarket", "Home");
     pmLeg.data = { ok: true };
     const rayLeg = leg("RAY", "Away");
-    rayLeg.data = { ok: 1 };
-    betting.mockResolvedValue(new BetResult("Polymarket", false));
+    rayLeg.odds = 2.23;
+    betting.mockResolvedValue(new BetResult("RAY", false));
 
     const out = await placeArbLegs(params, checked({
       legA: pmLeg,
       legB: rayLeg,
       accountA: account("Polymarket"),
       accountB: account("RAY"),
+      scanOddsA: 1.9,
+      scanOddsB: 2.23,
     }));
 
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      { skipStakeResolve: true },
+    );
+    expect((checkBetting.mock.calls[0]![1] as BetOption).odds).toBe(2.23);
     expect(betting).toHaveBeenCalledTimes(1);
-    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("Polymarket");
-    expect(out.placeOutcomeA).toBe("api_failed");
-    expect(out.placeOutcomeB).toBe("not_attempted");
-    expect(out.resultB).toBeUndefined();
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("api_failed");
+    expect(out.resultA).toBeUndefined();
   });
 
-  it("并行：RAY 成交且 PM POST 失败时换腿并 retry", async () => {
+  it("混合对：检测价再预检失败则两侧都不 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.odds = 2.12;
+    checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      option.data = null;
+      option.checkError = "赔率下降";
+      return option;
+    });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      scanOddsA: 1.9,
+      scanOddsB: 2.23,
+    }));
+
+    expect((checkBetting.mock.calls[0]![1] as BetOption).odds).toBe(2.23);
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("9999 只下即时馆时仍按检测价再预检，且不改 betMoney 选项", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.odds = 2.12;
+    rayLeg.betMoney = 55;
+    betting.mockResolvedValue(new BetResult("RAY", true));
+
+    const out = await placeArbLegs(params, checked({
+      betBothLegs: false,
+      singleLegByRate: true,
+      accountA: undefined,
+      accountB: account("RAY"),
+      legA: pmLeg,
+      legB: rayLeg,
+      scanOddsA: 1.9,
+      scanOddsB: 2.23,
+    }));
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect((checkBetting.mock.calls[0]![1] as BetOption).odds).toBe(2.23);
+    expect((checkBetting.mock.calls[0]![1] as BetOption).betMoney).toBe(55);
+    expect(checkBetting.mock.calls[0]![2]).toEqual({ skipStakeResolve: true });
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(out.legA.type).toBe("RAY");
+    expect(out.placeOutcomeA).toBe("filled_pending_settle");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("9999 即时馆检测价再预检失败则不下", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      option.data = null;
+      option.checkError = "赔率下降";
+      return option;
+    });
+
+    const out = await placeArbLegs(params, checked({
+      betBothLegs: false,
+      singleLegByRate: true,
+      accountA: undefined,
+      accountB: account("RAY"),
+      legA: pmLeg,
+      legB: rayLeg,
+      scanOddsB: 2.23,
+    }));
+
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("混合 Parallel 也不并发：RAY 成交且 PM POST 失败时换腿并 retry", async () => {
     const parallelParams = {
       ...params,
       config: { ...createDefaultUserConfig(), betSorting: "Parallel" } as never,
@@ -147,7 +262,13 @@ describe("placeArbLegs two-leg report contract", () => {
     pmLeg.data = { ok: true };
     const rayLeg = leg("RAY", "Away");
     rayLeg.data = { ok: 1 };
+    let maxConcurrent = 0;
+    let concurrent = 0;
     betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      concurrent++;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise(r => setTimeout(r, 15));
+      concurrent--;
       return new BetResult(option.type, option.type === "RAY");
     });
 
@@ -158,6 +279,9 @@ describe("placeArbLegs two-leg report contract", () => {
       accountB: account("RAY"),
     }));
 
+    expect(maxConcurrent).toBe(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect((betting.mock.calls[1]![1] as BetOption).type).toBe("Polymarket");
     expect(retryFailedLeg).toHaveBeenCalledTimes(1);
     expect(retryFailedLeg.mock.calls[0]![2].type).toBe("RAY");
     expect(retryFailedLeg.mock.calls[0]![3].type).toBe("Polymarket");

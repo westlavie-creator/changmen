@@ -21,6 +21,10 @@ import {
   syncActiveBetPhase,
   syncActiveBetPrecheckResults,
 } from "@/stores/betting/activeBetRunSync";
+import {
+  isInstantFreezeVenueProvider,
+  isMixedPendingConfirmArbPair,
+} from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
 
 function stripPrecheckError(raw?: string): string {
   if (!raw)
@@ -97,6 +101,8 @@ export async function checkArbLegs(
   }
 
   const checkStart = Date.now();
+  const scanOddsA = Number(legA.odds) || 0;
+  const scanOddsB = Number(legB.odds) || 0;
 
   const taskA = checkAccountA
     ? accountStore.checkBetting(checkAccountA, legA, {
@@ -197,6 +203,14 @@ export async function checkArbLegs(
     [accountA?.provider, accountB?.provider].filter(Boolean) as string[],
   );
 
+  // 混合对：第一次即时馆 data 只证明当时可下，不能拿去 POST
+  if (isMixedPendingConfirmArbPair(legA.type, legB.type)) {
+    if (isInstantFreezeVenueProvider(legA.type))
+      legA.data = null;
+    if (isInstantFreezeVenueProvider(legB.type))
+      legB.data = null;
+  }
+
   return {
     ...ready,
     legA,
@@ -205,5 +219,7 @@ export async function checkArbLegs(
     accountB,
     implied: ready.implied,
     waitSec,
+    scanOddsA,
+    scanOddsB,
   };
 }

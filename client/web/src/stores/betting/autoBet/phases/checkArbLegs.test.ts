@@ -97,7 +97,9 @@ describe("checkArbLegs", () => {
     expect(out!.legA.betMoney).toBe(80);
     expect(out!.legB.betMoney).toBe(22);
     expect(out!.implied).toBe(1.05);
-    expect(out!.legA.data).toEqual({ ok: true });
+    expect(out!.scanOddsA).toBe(1.36);
+    expect(out!.scanOddsB).toBe(3.125);
+    expect(out!.legA.data).toBeNull();
     expect(out!.legB.data).toEqual({ ok: true });
   });
 
@@ -120,7 +122,7 @@ describe("checkArbLegs", () => {
 
     expect(out).not.toBeNull();
     expect(pmResolved).toBe(true);
-    expect(out!.legA.data).toEqual({ ok: true });
+    expect(out!.legA.data).toBeNull();
     expect(out!.legB.data).toEqual({ ok: true });
   });
 
