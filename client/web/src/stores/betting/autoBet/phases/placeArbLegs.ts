@@ -16,6 +16,7 @@ import {
   isMixedPendingConfirmArbPair,
   mixedInstantIsLegA,
 } from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
+import { mixedPendingAskAboveDetection } from "@/stores/betting/autoBet/phases/mixedPendingFoGuard";
 import {
   syncActiveBetLeg,
   syncActiveBetPhase,
@@ -156,6 +157,17 @@ export async function placeArbLegs(
     legA = relocked.legA;
     legB = relocked.legB;
     mixedBlocked = relocked.blocked;
+    if (!mixedBlocked && betBothLegs && accountA && accountB) {
+      const pending = mixedInstantIsLegA(legA, legB) ? legB : legA;
+      const foBlock = mixedPendingAskAboveDetection(pending);
+      if (foBlock) {
+        trace?.event(
+          "预检",
+          `${pending.type} ${pending.target}: 检测价已不能成交（${foBlock}）`,
+        );
+        mixedBlocked = true;
+      }
+    }
   }
 
   const mixedDual = Boolean(mixedPair && betBothLegs && accountA && accountB && !mixedBlocked);

@@ -16,9 +16,14 @@ const retryFailedLeg = vi.hoisted(() => vi.fn());
 const syncActiveBetPlaceResults = vi.hoisted(() => vi.fn());
 const syncActiveBetPhase = vi.hoisted(() => vi.fn());
 const syncActiveBetLeg = vi.hoisted(() => vi.fn());
+const getOddsEntry = vi.hoisted(() => vi.fn());
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ betting, checkBetting }),
+}));
+
+vi.mock("@/stores/oddsStore", () => ({
+  useOddsStore: () => ({ getEntry: getOddsEntry }),
 }));
 
 vi.mock("@/stores/betting/autoBet/retryFailedLeg", () => ({
@@ -87,6 +92,7 @@ describe("placeArbLegs two-leg report contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     retryFailedLeg.mockResolvedValue(null);
+    getOddsEntry.mockReturnValue(undefined);
     checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
       option.data = option.data ?? { ok: true };
       return option;
@@ -170,6 +176,88 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("api_failed");
     expect(out.resultA).toBeUndefined();
+  });
+
+  it("混合对：fo 卖一高于检测上限则两侧都不 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.itemId = "token-1";
+    pmLeg.odds = 5;
+    pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.odds = 2.23;
+    getOddsEntry.mockReturnValue({ clobPrice: 0.32, isLock: false });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+      scanOddsA: 5,
+      scanOddsB: 2.23,
+    }));
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("混合对：没有 fo 时仍下即时馆", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
+    const rayLeg = leg("RAY", "Away");
+    getOddsEntry.mockReturnValue(undefined);
+    betting.mockResolvedValue(new BetResult("RAY", false));
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("api_failed");
+  });
+
+  it("混合对：fo 在上限内仍下即时馆", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.odds = 5;
+    pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
+    const rayLeg = leg("RAY", "Away");
+    getOddsEntry.mockReturnValue({ clobPrice: 0.2, isLock: false });
+    betting.mockResolvedValue(new BetResult("RAY", false));
+
+    await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
+    expect(betting).toHaveBeenCalledTimes(1);
+    expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+  });
+
+  it("混合对：fo 已锁盘则两侧都不 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
+    const rayLeg = leg("RAY", "Away");
+    getOddsEntry.mockReturnValue({ clobPrice: 0.2, isLock: true });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
   });
 
   it("混合对：检测价再预检失败则两侧都不 POST", async () => {
@@ -306,5 +394,15 @@ describe("placeArbLegs two-leg report contract", () => {
 
     expect(betting).toHaveBeenCalledTimes(2);
     expect(maxConcurrent).toBe(1);
+  });
+
+  it("非混合对不读这条 fo 闸", async () => {
+    getOddsEntry.mockReturnValue({ clobPrice: 0.99 });
+    betting.mockResolvedValueOnce(new BetResult("OB", false));
+
+    await placeArbLegs(params, checked());
+
+    expect(getOddsEntry).not.toHaveBeenCalled();
+    expect(betting).toHaveBeenCalledTimes(1);
   });
 });
