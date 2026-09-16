@@ -14,7 +14,7 @@ import {
 /**
  * stake.com 页：setTab + GraphQL WS 订阅
  * [A8 可证实] setTab + graphql-transport-ws + lockdownToken；connection_ack 清空订阅表
- * [changmen] 不再连接 A8 聚合 47.115.75.57（a8-bridge no-op）；赔率经 tab 代发回 changmen 前端
+ * [changmen] 不连 A8 聚合 47.115.75.57；WS next 经 background `stake-odds` 端口推 changmen 写 fo
  * @param {(handler: ReturnType<typeof createStakeMessageHandler>) => void} registerHandler
  */
 export function initStakePage(registerHandler) {

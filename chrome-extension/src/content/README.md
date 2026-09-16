@@ -18,9 +18,9 @@
 | `ob-sport-ws-page.js` | dbgaming 文档开始注入，只挂 WS 旁路/隐式页建连 |
 | `hga-poll.js` | HGA 注单轮询上报（对齐 A8 `Ie`） |
 | `tab-proxy.js` | 带 `options.tabId` 的消息转发到 Stake handler |
-| `stake/init.js` | stake.com：setTab + GraphQL WS + A8 Socket.IO |
+| `stake/init.js` | stake.com：setTab + GraphQL WS；WS next 经 `stake-odds` 端口推前端 |
 | `stake/subscription.js` | 订阅管理与赔率增量格式 |
 | `stake/graphql-ws.js` | graphql-transport-ws 客户端（断线重连 + ping） |
-| `stake/a8-bridge.js` | A8 聚合已移除；no-op |
+| `stake/a8-bridge.js` | `stakeOddsPush` → background（替代 A8 聚合 Socket.IO） |
 | `polymarket/init.js` | polymarket.com：按需读取 storage 中可见凭证并生成复制配置 |
 | `config.js` | Stake lockdownToken 等（A8 WS 已清空） |

@@ -1,6 +1,6 @@
 # PB（平博）逻辑 parity：A8 bundle �?changmen
 
-真源：`A8/A8frontendscipts/2.0.1/index.js`（`Oi`/`q0`=PB，`AQ`/`k0`/`TQ`/`PZe`/`_Q`/`Zn`）�?
+真源：`A8/index0706.js`（`Oi`/`q0`=PB，`AQ`/`k0`/`TQ`/`PZe`/`_Q`/`Zn`）�?
 验收：同一 PB 账号与配置下，请求路径、关键头、body、轮询与分支�?A8 一致�?
 | # | 能力 | A8 符号 | changmen 路径 | 状�?|
 |---|------|---------|---------------|------|

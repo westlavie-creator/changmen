@@ -51,6 +51,7 @@
 
 | 文档 | 内容 |
 |------|------|
+| [../LOCAL_DEV.md](../LOCAL_DEV.md) | 本机 `A8/` 布局：`index0706.js` + `A8插件/` |
 | [../client/web/docs/README.md](../client/web/docs/README.md) | A8 parity 文档集索引 |
 | [../client/web/docs/A8_PARITY_REGISTRY.md](../client/web/docs/A8_PARITY_REGISTRY.md) | 对齐总览 |
 

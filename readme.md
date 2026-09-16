@@ -1,6 +1,6 @@
 # changmen — 多平台电竞赔率聚合
 
-> A8 参考在本地 `A8/`（不进 GitHub）。bundle：`A8/A8frontendscipts/2.0.1/index.js`。
+> A8 参考在仓库根 `A8/`（gitignore，不进 GitHub）。前端 bundle：`A8/index0706.js`；插件：`A8/A8插件/`（manifest 2.0.149）。见 [LOCAL_DEV.md](./LOCAL_DEV.md)。
 
 **客户端 + 服务端**系统：浏览器采集/下注 → `API_SaveMatch` / `API_SaveBet` → RDS → matcher → `Client_GetMatchs`。不是单机本地工具。
 

@@ -1,7 +1,9 @@
 {
   "generatedAt": "2026-06-22T02:56:55.649Z",
+  "note": "Historical snapshot. 2026-09-16: local dump is A8/index0706.js (2817665 bytes); A8/A8frontendscipts/2.0.1/ no longer exists. bundleJs below is the path used when this audit ran.",
   "sources": {
     "bundleJs": "A8/A8frontendscipts/2.0.1/index.js",
+    "bundleJsCurrent": "A8/index0706.js",
     "indexCss": "server/backend/public/assets/index.css",
     "a8Css": "src/styles/a8.css (extract-a8-css.mjs)",
     "a8AmIcon": "app/src/styles/a8-am-icon.css",

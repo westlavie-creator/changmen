@@ -89,6 +89,7 @@
 
 - `docs/*`、`readme.md`、`server/**/README.md` 中的 `client/venue-adapter` 文字
 - collector `parse_*.js` 头部注释「与 client/venue-adapter/… 对齐」
+- 本地 A8 对照（gitignore，见 [LOCAL_DEV.md](../LOCAL_DEV.md)）：`A8/index0706.js`、`A8/A8插件/`。不要写已不存在的 `A8/A8frontendscipts/2.0.1/` 或仓库旁 `../A8/`
 
 ---
 
@@ -127,4 +128,5 @@ npm run check:venue-adapter
 | 2026-07-13 | I3c：删 web `client-core` shim，直连 `@changmen/client-core/*` |
 | 2026-07-13 | I2b：web `@venue/*` → `@changmen/venue-adapter/*` |
 | 2026-07-13 | I2a：`@changmen/venue-adapter` exports、web 去 tsconfig include |
+| 2026-09-16 | 登记本机 A8 对照：`A8/index0706.js`、`A8/A8插件/`（旧 `A8frontendscipts/2.0.1` 路径作废） |
 | 2026-07-13 | I1：`CHANGMEN_LAYOUT`、PATH_REGISTRY、vite/boundaries/loader 接入 |

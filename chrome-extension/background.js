@@ -3872,6 +3872,40 @@
     return true;
   }
 
+  // src/stake-odds-protocol.js
+  var STAKE_ODDS_PORT = "stake-odds";
+  var STAKE_ODDS_PUSH_TYPE = "stakeOddsPush";
+  var STAKE_ODDS_EVENT = "stakeOdds";
+  function buildStakeOddsEvent(message) {
+    return { type: STAKE_ODDS_EVENT, channel: "Stake", message };
+  }
+  function fanoutStakeOdds(ports3, message) {
+    const payload2 = buildStakeOddsEvent(message);
+    for (const port of [...ports3]) {
+      try {
+        port.postMessage(payload2);
+      } catch {
+        ports3.delete(port);
+      }
+    }
+    return payload2;
+  }
+
+  // src/background/stake-odds.js
+  var ports2 = /* @__PURE__ */ new Set();
+  function attachStakeOddsPort(port) {
+    if (!port) return;
+    ports2.add(port);
+    port.onDisconnect.addListener(() => {
+      ports2.delete(port);
+    });
+  }
+  function handleStakeOddsPush(message) {
+    if (message?.type !== STAKE_ODDS_PUSH_TYPE) return false;
+    fanoutStakeOdds(ports2, message.message);
+    return true;
+  }
+
   // src/pb-ws-observe.js
   function isPbWsSocketOpen(s) {
     if (!s || typeof s !== "object") return false;
@@ -4094,10 +4128,10 @@
   }
   function pbLivePortDebug(hosts) {
     const list = normalizePbAccountHosts(hosts);
-    const ports2 = [];
+    const ports3 = [];
     for (const [tabId2, entries] of pbLivePorts) {
       for (const e of entries) {
-        ports2.push({
+        ports3.push({
           tabId: tabId2,
           host: e.host,
           href: e.href || "",
@@ -4105,7 +4139,7 @@
         });
       }
     }
-    return { hosts: list, ports: ports2 };
+    return { hosts: list, ports: ports3 };
   }
   function pingPbLiveTab(tabId2) {
     return new Promise((resolve) => {
@@ -4487,12 +4521,16 @@
   chrome.runtime.onConnect.addListener((port) => {
     if (port?.name === PB_LIVE_HTTP_PORT)
       rememberPbLivePort(port);
+    if (port?.name === STAKE_ODDS_PORT)
+      attachStakeOddsPort(port);
   });
   chrome.runtime.onConnectExternal.addListener((port) => {
     if (port?.name === OB_SPORT_WS_PORT)
       attachObSportWsPort(port);
     if (port?.name === POD_ALERTS_PORT)
       attachPodAlertsPort(port);
+    if (port?.name === STAKE_ODDS_PORT)
+      attachStakeOddsPort(port);
   });
   installObSportWsBackground();
   chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
@@ -4501,6 +4539,10 @@
     return true;
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (handleStakeOddsPush(message)) {
+      sendResponse({ ok: true });
+      return false;
+    }
     if (handleObSportWsEvent(message)) {
       sendResponse({ ok: true });
       return true;

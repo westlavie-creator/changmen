@@ -32,10 +32,11 @@ mogfpjihgoghabicofkbcmcidlcoofee
 | **凭证采集** | 在 PB / OB / RAY / IM 等站点登录后，页面顶部浮动图标 → 复制 Base64 凭证到 changmen 账号 |
 | **ModifyHeader** | 外部页面经 `setStore` 写入 `{ key: "ModifyHeader", data: [{ UrlPattern, UserAgent }] }`，background 用 DNR 改写 UA |
 | **Stake WS 重连** | graphql-transport-ws 断线自动重连 + ping |
+| **Stake 实时赔率** | WS next → background `stake-odds` 端口 → 前端写 `fo`（替代 A8 `47.115.75.57`） |
 | **Stake tabId** | 打开 `stake.com` 后自动 `setTab`，供采集/下注使用 |
 | **Polymarket 凭证采集** | 登录 `polymarket.com` 后按需读取 storage 中可见的 API 凭证片段、钱包/资金地址，右上角图标复制到 changmen 账号 |
 
-当前版本 **1.2.3**：content / background 均已可读化打包，协议对齐 A8 2.0.149；使用 `storage.local`（无 sync）。
+当前版本 **1.2.3**：content / background 均已可读化打包，协议对齐 A8 2.0.149（本地对照 `A8/A8插件/`）；使用 `storage.local`（无 sync）。
 
 ## 目录结构
 
@@ -79,7 +80,7 @@ Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\de
 | 协议 | Zn 消息 | 相同（含 ModifyHeader / setStore）；setTab 响应含 `value`/`tabId` |
 | 采集挂载 | 任意 frame，全量馆 Check | **同左**（已对齐）；另保留 OB 体育 / Polymarket / Dex |
 | OB 体育凭证 | 无 | 有（商户壳 `token+api+sessionId`；官网试玩 `token` + sessionStorage） |
-| Stake | setTab + GraphQL WS + 推 A8 聚合机 | setTab + GraphQL WS **同 A8**；聚合 Socket **已移除**（no-op） |
+| Stake | setTab + GraphQL WS + 推 A8 聚合机 | setTab + GraphQL WS **同 A8**；增量经扩展端口写 fo，**不连** `47.115.75.57` |
 | ModifyHeader | webRequest 改 UA | MV3 **declarativeNetRequest**（能力等价） |
 | 存储 | `storage.sync` | `storage.local`（Electron/MV3 兼容；键形状同 A8） |
 

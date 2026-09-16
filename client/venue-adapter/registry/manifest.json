@@ -166,12 +166,12 @@
     "label": "Stake",
     "labelZh": "Stake",
     "collectionMode": "plugin_graphql_ws",
-    "collectionDesc": "插件 GraphQL + 插件 WS → A8 Stake 频道",
+    "collectionDesc": "插件 GraphQL 30s + 插件 WS 增量经 stake-odds 端口写 fo",
     "implementation": "done",
     "a8Channel": true,
     "streamMeta": {
       "key": "ws",
-      "protocol": "Socket.IO"
+      "protocol": "graphql-transport-ws"
     }
   },
   {

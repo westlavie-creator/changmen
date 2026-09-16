@@ -1,6 +1,6 @@
 # client/web 文档索引
 
-最后更新：2026-07-02
+最后更新：2026-09-16
 
 ## 项目共识
 
@@ -30,7 +30,8 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 | 用途 | 基线 | 说明 |
 |------|------|------|
-| **控制台 `/` 行为与 UI** | `A8/A8frontendscipts/2.0.1/index.js` + `index.css` | 官方 A8 前端 bundle |
+| **控制台 `/` 行为与 UI** | `A8/index0706.js` | 官方 A8 前端 minified bundle（仓库根 gitignore；见 [LOCAL_DEV.md](../../../LOCAL_DEV.md)） |
+| **A8 Chrome 插件** | `A8/A8插件/` | manifest 2.0.149；对照 `chrome-extension/` |
 | **changmen 后端 API** | 由上述前端 **反推** | **不是** A8 服务端源码；见 [项目共识](#项目共识) |
 | **机器审计** | [`A8_PARITY_AUDIT_MACHINE.json`](./A8_PARITY_AUDIT_MACHINE.json) | 历史快照（CSS/View 映射）；`audit:a8` 脚本已下线，走查见 WALKTHROUGH |
 

@@ -1,10 +1,9 @@
-import { createA8BetsCollector } from "../shared/socket/collector";
 import { a8PluginSend, hasA8PluginRuntime } from "@changmen/client-core/chrome-plugin/bridge";
-import { subscribeA8Channel } from "../shared/socket/hub";
-import type { A8BetsMessage } from "../shared/socket/accumulator";
 import type { CollectBetDto } from "@changmen/client-core/types/collect";
 import { cleanStakeBets } from "./graphql";
 import { collectStakeSportViaPlugin, stakeSportSlugs } from "./graphql";
+import { applyStakeLiveOdds } from "./liveOdds";
+import { subscribeStakeOddsPush } from "./oddsPush";
 import { getStakeTabIdCached, setStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
 import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
@@ -14,29 +13,19 @@ import { useMatchStore } from "../shared/webBridge";
 
 const LOOP_MS = 30_000;
 
-/** 对齐 A8 `ZZe` — Socket 频道 Stake 只更新已有 outcome 赔率 */
-function registerStakeSocketHandler(
-  acc: ReturnType<typeof createA8BetsCollector>,
-  matchStore: ReturnType<typeof useMatchStore>,
-) {
-  return subscribeA8Channel("Stake", (msg) => {
-    acc.ingest(msg as A8BetsMessage);
+/** 对齐 A8 `LHe` / `n2[Stake]` */
+function registerStakeOddsHandler(matchStore: ReturnType<typeof useMatchStore>) {
+  return subscribeStakeOddsPush((msg) => {
+    applyStakeLiveOdds(msg);
     matchStore.refreshOddsOnBets();
   });
 }
 
-/** 对齐 A8 `MQ` — GraphQL 快照（插件 tabId）+ A8 聚合频道 Stake */
+/** 对齐 A8 `oZ` / `MQ` — GraphQL 快照（插件 tabId）+ 插件 WS 增量写 fo */
 export function startStakeCollector(): () => void {
   let stopped = false;
   let socketRegistered = false;
   const unsubs: Array<() => void> = [];
-
-  const acc = createA8BetsCollector({
-    platform: PLATFORMS.Stake,
-    homeSuffix: "1",
-    awaySuffix: "2",
-    useDirectIds: true,
-  });
 
   const collect = useCollectStore();
   const matchStore = useMatchStore();
@@ -48,8 +37,7 @@ export function startStakeCollector(): () => void {
     }
 
     if (!socketRegistered) {
-      const unsub = await registerStakeSocketHandler(acc, matchStore);
-      unsubs.push(unsub);
+      unsubs.push(registerStakeOddsHandler(matchStore));
       socketRegistered = true;
     }
 
@@ -75,16 +63,16 @@ export function startStakeCollector(): () => void {
       const { rows, subscribe: subRows } = await collectStakeSportViaPlugin(tabId, slug);
       for (const row of rows) {
         matches.push(row.match);
-        acc.ingest(row.ingestMessage);
+        applyStakeLiveOdds(row.ingestMessage);
         betsToSave.push({ matchId: row.match.SourceMatchID, bets: row.bets });
       }
       subscribe.push(...subRows);
     }
 
-    // [A8 可证实] MQ/lZ：空 e 仍 saveMatch，再 wf.clean(e) 清本地 fo
+    // [A8 可证实] oZ：空 e 仍 saveMatch，再 bf.clean(e)
     await collect.saveMatch(PLATFORMS.Stake, matches);
     for (const { matchId, bets } of betsToSave) {
-      if (bets.length) await collect.saveBets(PLATFORMS.Stake, matchId, bets);
+      await collect.saveBets(PLATFORMS.Stake, matchId, bets);
     }
 
     if (subscribe.length) {

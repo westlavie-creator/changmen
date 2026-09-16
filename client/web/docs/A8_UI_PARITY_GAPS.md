@@ -1,6 +1,6 @@
 # A8 UI / 行为复刻缺口清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js` + `index.css`�?本清单只�?*尚未对齐**�?*仅部分对�?*项；数据�?采集/下单�?`MIGRATION.md` 与各 `docs/platforms/*`�?
+对照基线：`A8/index0706.js`�?本清单只�?*尚未对齐**�?*仅部分对�?*项；数据�?采集/下单�?`MIGRATION.md` 与各 `docs/platforms/*`�?
 文档索引：[README.md](./README.md)
 
 最后更新：2026-06-16

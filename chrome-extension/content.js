@@ -4533,10 +4533,22 @@
   // src/content/config.js
   var STAKE_LOCKDOWN_TOKEN = "s5MNWtjTM5TvCMkAzxov";
 
+  // src/stake-odds-protocol.js
+  var STAKE_ODDS_PUSH_TYPE = "stakeOddsPush";
+  function buildStakeOddsPush(channel, message) {
+    return { type: STAKE_ODDS_PUSH_TYPE, channel, message };
+  }
+
   // src/content/stake/a8-bridge.js
-  function createA8Bridge(_channel) {
+  function createA8Bridge(channel) {
     return {
-      send() {
+      send(message) {
+        try {
+          chrome.runtime.sendMessage(buildStakeOddsPush(channel, message), () => {
+            void chrome.runtime.lastError;
+          });
+        } catch {
+        }
       }
     };
   }

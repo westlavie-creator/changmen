@@ -1,6 +1,6 @@
 # client/ 导航
 
-changmen 客户端对标 A8 前端 bundle（本地参考：`A8/index0706.js` 或 `A8/A8frontendscipts/2.0.1/index.js`）。  
+changmen 客户端对标 A8 前端 bundle（本地参考：仓库根 `A8/index0706.js`；插件 `A8/A8插件/`）。  
 A8 是**单文件单体**；changmen 拆成三个目录，但**逻辑模块**应与下表一致。
 
 ```

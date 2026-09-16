@@ -46,7 +46,7 @@ export function stakeTabIdHint(): string {
   if (!hasA8PluginRuntime()) {
     return "未安装 Gamebet 扩展；Stake 采集/下注需在 Chrome 中打开 stake.com";
   }
-  return "未找到 Stake 标签页：请先在浏览器打开 stake.com 并由扩展绑定 tabId";
+  return "未找到Stake标签页";
 }
 
 export async function waitForStakeTabId(maxAttempts = 10, intervalMs = 3000): Promise<number | undefined> {

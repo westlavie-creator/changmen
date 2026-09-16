@@ -13,7 +13,7 @@ changmen 是 **客户端 + 服务端** 系统（对标 A8 的分工），不是�
 
 开发时后端 `localhost:3560`（Windows）/ `3456`（其它）+ Vite `5274`（Windows）/ `5174`（其它）为本机联调地址（见 `client/web/vite.config.ts`）；生产见 [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)（同源 `/` + `/esport/*`）。
 
-A8 参考：仅有 minified bundle（`../A8/A8frontendscipts/2.0.1/index.js`）。A8 官方服务端不可见。changmen 服务端 API 形状由 bundle **反推**；行为验收以 bundle / 抓包为准，不是「本地复刻版后端」。
+A8 参考在仓库根 `A8/`（gitignore，不进 GitHub）：前端 bundle **`A8/index0706.js`**，插件 **`A8/A8插件/`**（manifest 2.0.149）。布局见 [LOCAL_DEV.md](./LOCAL_DEV.md)。A8 官方服务端不可见。changmen 服务端 API 形状由 bundle **反推**；行为验收以 bundle / 抓包为准，不是「本地复刻版后端」。
 
 **团队边界**：客户端 / 服务端目录与 `npm run check:boundaries` 见 [docs/TEAM_BOUNDARIES.md](./docs/TEAM_BOUNDARIES.md)。
 

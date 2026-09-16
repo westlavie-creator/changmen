@@ -1,6 +1,6 @@
 # Stake
 
-GraphQL 下单 / 余额 / 订单 + 赛事 GraphQL 采集 + A8 Socket 赔率频道。
+GraphQL 下单 / 余额 / 订单 + 赛事 GraphQL 采集 + 插件 GraphQL WS 实时赔率（经扩展 `stake-odds` 端口写 fo，不连 A8 聚合机）。
 
 | 目录 | 用途 |
 |------|------|

@@ -2,14 +2,26 @@
 
 GitHub 仓库 **仅含本目录内容**（`client/`、`server/`、`deploy/` 等）。
 
-以下目录**不进 Git**，可放在 clone 同级或仓库内（已在 `.gitignore`）：
+以下目录**不进 Git**，可放在 clone 同级或仓库内（已在 `.gitignore`）。**本机现状（2026-09-16）**：`A8/` 在仓库根，不是 `../A8/`。
 
 | 目录 | 用途 |
 |------|------|
-| `A8/` | A8 只读参考 |
+| `A8/` | A8 只读参考（见下） |
 | `pingtai_offical/` | 平台官网抓包参考 |
 | `BAT/` | Windows 部署/开发批处理（`deploy-shanghai.bat` 等） |
 | `sh/` | Ubuntu/Linux 本机脚本（对应 `BAT\`，见 [sh/README.md](./sh/README.md)） |
+
+### A8 对照文件（gitignore）
+
+Parity 真源是仓库根 `A8/`，**没有**旧文档写的 `A8/A8frontendscipts/2.0.1/`、`index.readable.js`、独立 `index.css`。
+
+| 路径 | 内容 |
+|------|------|
+| `A8/index0706.js` | 前端 minified bundle（约 2.8MB，内含 Vue 3.5.13）。控制台行为 / API 形状以此为准 |
+| `A8/A8插件/` | 官方 Chrome 扩展解压目录（`manifest.json` version **2.0.149**；`version.json` 为 2.0.65） |
+| `A8/peter插件.zip` | 另份插件包，不作为对照基线 |
+
+旧路径 `A8/A8frontendscipts/2.0.1/index.js`、`A8/A8chromeplug/2.0.149`、仓库旁 `../A8/` 在本机均不存在。CSS 对照用 changmen 抽出的样式 / 审计 JSON，不在 `A8/` 里。
 
 `BAT\` / `sh/` 会自动检测：仓库根即应用根（`package.json` 在根目录），或旧布局 `../changmen/`。
 

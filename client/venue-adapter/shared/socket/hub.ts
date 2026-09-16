@@ -1,6 +1,6 @@
 /**
- * IM / XBet / Stake 曾经 A8 Socket.IO 聚合（47.115.75.57）收频道推送。
- * 已禁用对该主机的连接；订阅为 no-op（Stake 仍可用 GraphQL 轮询）。
+ * IM / XBet 曾经 A8 Socket.IO 聚合（47.115.75.57）收频道推送，已禁用。
+ * Stake 实时赔率改走 Chrome 扩展 `stake-odds` 端口（见 `stake/oddsPush.ts`）。
  */
 
 type ChannelHandler = (message: unknown) => void;

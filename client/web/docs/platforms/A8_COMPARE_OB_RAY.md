@@ -8,7 +8,7 @@
 
 | 参考源（只读） | changmen 实现 |
 |----------------|----------------|
-| [`../../../../../A8/A8frontendscipts/2.0.1/index.js`](../../../../../A8/A8frontendscipts/2.0.1/index.js) | 前端：[`../ob/`](../ob/)、[`../ray/`](../ray/)、[`../../providers/`](../../providers/) |
+| [`../../../../A8/index0706.js`](../../../../A8/index0706.js) | 前端：[`../ob/`](../ob/)、[`../ray/`](../ray/)、[`../../providers/`](../../providers/) |
 
 ---
 
@@ -285,4 +285,4 @@ startRayCollector
 
 ---
 
-*文档随 `changmen` 实现变更时请同步更新；A8 bundle 以 `A8/A8frontendscipts/2.0.1/index.js` 为准。*
+*文档随 `changmen` 实现变更时请同步更新；A8 bundle 以 `A8/index0706.js` 为准。*

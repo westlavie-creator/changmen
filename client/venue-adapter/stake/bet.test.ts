@@ -5,6 +5,7 @@ import {
   mapStakeOrderStatus,
   stakeLimitExceeded,
 } from "./bet";
+import { stakeAccountHeaders } from "./pluginApi";
 
 describe("mapStakeOrderStatus", () => {
   test("maps settled win/lose/return", () => {
@@ -57,5 +58,18 @@ describe("stakeLimitExceeded", () => {
     expect(stakeLimitExceeded({ value: 100, expireTime: Date.now() + 60_000 }, 50)).toBe(false);
     expect(stakeLimitExceeded({ value: 100, expireTime: Date.now() + 60_000 }, 150)).toBe(true);
     expect(stakeLimitExceeded({ value: 100, expireTime: Date.now() - 1 }, 150)).toBe(false);
+  });
+});
+
+describe("stakeAccountHeaders", () => {
+  test("matches A8 im() betting headers", () => {
+    expect(stakeAccountHeaders({ token: "sess" })).toEqual({
+      "content-type": "application/json",
+      "x-language": "zh",
+      "x-operation-name": "CurrencyConfiguration",
+      "x-operation-type": "query",
+      "x-access-token": "sess",
+    });
+    expect(stakeAccountHeaders({ token: "" })).toBeUndefined();
   });
 });

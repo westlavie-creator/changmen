@@ -3,7 +3,7 @@
 开发地址：`http://localhost:5274/`（Windows）或 `5174`（其它）  
 联调/生产：`http://localhost:3560/`（Win）或 `3456`（backend 同源托管 Vue�?
 
-对照基线�?*只读** `A8/A8frontendscipts/2.0.1/index.js`（或 A8 原版环境 Network）。changmen �?`/console/` 入口（`/console/*` �?301 `/`）�?
+对照基线�?*只读** `A8/index0706.js`（或 A8 原版环境 Network）。changmen �?`/console/` 入口（`/console/*` �?301 `/`）�?
 
 登录建议�?*TJ01** / 配置密码（与 `a8_constants.js` 一致），便于平�?v4 与初赔数据一致�?
 

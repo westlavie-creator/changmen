@@ -1,33 +1,30 @@
-# Stake 采集
+# Stake 采集 / 下注
+
+对齐 A8 `index0706.js`：`oZ`（GraphQL 快照）+ `LHe`（只写 fo）+ `HHe`（GraphQL 下注）。
+
+实时赔率 **不连** A8 聚合机 `47.115.75.57`；插件 GraphQL WS next 经扩展 `stake-odds` 端口推 changmen。
 
 ## 入口
 
-`stake/index.ts` �?`startStakeCollector()`
+`stake/index.ts` → `startStakeCollector()` / `stakeProvider`
 
-## 双通道
+## 采集（对齐 A8 `MQ` / `oZ`）
 
-| 通道 | 间隔 | 作用 |
+| 路径 | 周期 | 行为 |
 |------|------|------|
-| A8 插件 GraphQL `/_api/graphql` | 60s | `STAKE_GRAPHQL` + `STAKE_SPORT_SLUGS` �?`acc.mergeGraphqlMatch` |
-| A8 Socket 频道 `Stake` | 实时 | `createA8BetsCollector({ useDirectIds: true })` ingest |
+| 插件 GraphQL `https://stake.com/_api/graphql` | 30s | `SportIndex` → `saveMatch` / `saveBets`；同时 `LHe` 写 `fo` |
+| 插件 GraphQL WS `sportFixtureMarketsNext` | 增量 | 扩展 `stake-odds` 端口 → `applyStakeLiveOdds` 写 `fo` |
 
-## GraphQL
+前置：Chrome 扩展 + 已登录 `stake.com` 标签（`setTab` / `getStore(Stake)`）。无 tabId 提示与 A8 相同：`未找到Stake标签页`。
 
-- 通过 `a8/pluginBridge` �?A8 已打开 Stake 标签页发请求（`getStakeTabId`�?- `stake/core.ts`：`normalizeGraphqlSport`、赛�?`startTime` 过滤 `> now + 1h` 跳过
+CollectConfig 只门控 `saveMatch` / `saveBets` 上报；采集器始终跑（changmen 全局语义）。
 
 ## 赔率 ID
 
-`useDirectIds: true` �?使用推送内�?`homeId` / `awayId`，非 `betId:1/2`�?
-## 子模�?
-| 文件 | 说明 |
-|------|------|
-| `stake/http.ts` | 无插件时�?HTTP 回退 |
-| `stake/core.ts` | GraphQL 查询与解�?|
+盘口 `homeId` / `awayId` 写入 `fo`。A8 `LHe` 不写 `betId:1/2` 后缀；`isLock` 恒 `false`（锁盘靠赔率清零）。
 
-## 下单
+## 下注（对齐 A8 `HHe` / `rJe`）
 
-- Provider：`client/venue-adapter/stake/bet.ts`（GraphQL `sportBet` mutation�?- �?`a8PluginPost` 在已绑定 tab 发请求；联调步骤�?`client/venue-adapter/stake/README.md`
+`stake/bet.ts`：`UserBalances` → `updateUserPreference` → `sportMarketOutcome` → `sportBet`。请求头对齐 A8 `im()`（含 `x-operation-name: CurrencyConfiguration`）。成功文案：`投注成功，${currency}${amount}@${odds}`。
 
-## A8 对照
-
-`PQ` + `StakeFeed` 频道；下单逻辑对齐 bundle `eu` Provider�?
+详见 `client/venue-adapter/stake/README.md`。

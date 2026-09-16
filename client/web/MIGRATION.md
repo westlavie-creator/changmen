@@ -26,7 +26,7 @@
 | 平博信用�?v4 | **完成** | login + `game/play/Login` E2E：`npm run test:v4` |
 
 ## 文档与验�?
-**对照基线**：控制台 `/` �?`A8/A8frontendscipts/2.0.1` 为准。索引见 [docs/README.md](./docs/README.md)�?
+**对照基线**：控制台 `/` �?`A8/index0706.js` 为准。索引见 [docs/README.md](./docs/README.md)�?
 | 文档 | 用�?|
 |------|------|
 | [docs/README.md](./docs/README.md) | 文档索引、基线说明、已删过期文件列�?|
@@ -36,7 +36,7 @@
 | [docs/A8_REPLICATE_8_PLATFORMS.md](./docs/A8_REPLICATE_8_PLATFORMS.md) | OB/IM/TF/PB/RAY/IMT/STAKE/IA 采集与下注复刻清�?|
 | [docs/A8_WALKTHROUGH_SCRIPT.md](./docs/A8_WALKTHROUGH_SCRIPT.md) | 同屏走查逐步操作（点哪里、看什�?API�?|
 | [docs/CREDIT_PLATE.md](./docs/CREDIT_PLATE.md) | 平博 v4 信用�?|
-| [docs/_A8_VS_CHANGMEN_AUDIT.json](./docs/_A8_VS_CHANGMEN_AUDIT.json) | 2.0.1 代码级缺口（只读审计�?|
+| [docs/_A8_VS_CHANGMEN_AUDIT.json](./docs/_A8_VS_CHANGMEN_AUDIT.json) | 历史代码级缺口（审计当时对照 `A8frontendscipts/2.0.1`；现本机为 `A8/index0706.js`） |
 | [docs/A8_PARITY_AUDIT_MACHINE.json](./docs/A8_PARITY_AUDIT_MACHINE.json) | 历史机器审计快照（audit:a8 已下线） |
 
 ```bash
@@ -84,5 +84,5 @@ npm run test:v4    # 平博 v4（backend 3456�?npm run build
 
 - 默认：backend 同源�?Vite dev（端口见 [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md)�?- Feed 调试：`http://localhost:3456/feed/`
 
-**行为不一致时**：以 `A8/A8frontendscipts/2.0.1/index.js` 为准 grep �?port�? 
+**行为不一致时**：以 `A8/index0706.js` 为准 grep �?port�? 
 同屏走查�?[A8_WALKTHROUGH_CHECKLIST.md](./docs/A8_WALKTHROUGH_CHECKLIST.md)�?

@@ -1,6 +1,6 @@
 # TF 平台逻辑 parity：A8 bundle �?changmen
 
-真源：`A8/A8frontendscipts/2.0.1/index.js`（`Uf=Xt.TF`、`UBe` 采集、`WBe`/`$3`/`LBe` 鉴权、`bYe` 下注、`ly`/`uy` 账号 HTTP）�?
+真源：`A8/index0706.js`（`Uf=Xt.TF`、`UBe` 采集、`WBe`/`$3`/`LBe` 鉴权、`bYe` 下注、`ly`/`uy` 账号 HTTP）�?
 验收：同一 A8 账号（如 `TJ01`）下，采集凭证、HTTP/WS 路径、请求头分工、轮询间隔与下注分支�?A8 一致�?
 | # | 能力 | A8 符号 | changmen 路径 | 状�?|
 |---|------|---------|---------------|------|

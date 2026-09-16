@@ -17,12 +17,14 @@ function unwrapPluginEnvelope(response: unknown): Record<string, unknown> {
   return {};
 }
 
-/** 对齐 A8 `by(account)` */
+/** 对齐 A8 `im(account)` */
 export function stakeAccountHeaders(account: Pick<PlatformAccount, "token">): Record<string, string> | undefined {
   if (!account.token) return undefined;
   return {
     "content-type": "application/json",
     "x-language": "zh",
+    "x-operation-name": "CurrencyConfiguration",
+    "x-operation-type": "query",
     "x-access-token": account.token,
   };
 }

@@ -1,7 +1,7 @@
 # A8 走查操作脚本
 
 配合 [A8_WALKTHROUGH_CHECKLIST.md](./A8_WALKTHROUGH_CHECKLIST.md) 使用：本文件写清**点哪里、看什么、Network 过滤什么**。  
-changmen 唯一入口 **`/`**（dev：Win `5274` / 其它 `5174`；联调：backend 同源 `3560` / `3456`）。对照 A8 行为见 `A8/A8frontendscipts/2.0.1/index.js`。
+changmen 唯一入口 **`/`**（dev：Win `5274` / 其它 `5174`；联调：backend 同源 `3560` / `3456`）。对照 A8 行为见 `A8/index0706.js`。
 
 建议账号：**TJ01**（与 `changmen/TJ01.JSON`、平博 v4 测试一致）。
 

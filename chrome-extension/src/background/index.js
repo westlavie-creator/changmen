@@ -13,6 +13,7 @@ import { axiosRequest } from "./http.js";
 import { storageGet, storageSet } from "./storage.js";
 import { attachObSportWsPort, handleObSportWsEvent, installObSportWsBackground, OB_SPORT_WS_PORT } from "./ob-sport-ws.js";
 import { attachPodAlertsPort, ingestPodAlertsMessage, POD_ALERTS_PORT } from "./pod-alerts.js";
+import { attachStakeOddsPort, handleStakeOddsPush, STAKE_ODDS_PORT } from "./stake-odds.js";
 import { isPbWsObserveLive, isPbWsSocketOpen, mergePbWsBoards } from "../pb-ws-observe.js";
 import {
   hostnameMatchesPbAccountHosts,
@@ -574,6 +575,8 @@ async function handleExternalMessage(message, reply, sender) {
 chrome.runtime.onConnect.addListener((port) => {
   if (port?.name === PB_LIVE_HTTP_PORT)
     rememberPbLivePort(port);
+  if (port?.name === STAKE_ODDS_PORT)
+    attachStakeOddsPort(port);
 });
 
 chrome.runtime.onConnectExternal.addListener((port) => {
@@ -581,6 +584,8 @@ chrome.runtime.onConnectExternal.addListener((port) => {
     attachObSportWsPort(port);
   if (port?.name === POD_ALERTS_PORT)
     attachPodAlertsPort(port);
+  if (port?.name === STAKE_ODDS_PORT)
+    attachStakeOddsPort(port);
 });
 
 installObSportWsBackground();
@@ -593,6 +598,10 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 
 /** content script 内 setTab / PB WS 观测帧 */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (handleStakeOddsPush(message)) {
+    sendResponse({ ok: true });
+    return false;
+  }
   if (handleObSportWsEvent(message)) {
     sendResponse({ ok: true });
     return true;

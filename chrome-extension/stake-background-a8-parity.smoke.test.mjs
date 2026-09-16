@@ -4,6 +4,13 @@
 import assert from "node:assert/strict";
 import { STAKE_LOCKDOWN_TOKEN } from "./src/content/config.js";
 import { FIXTURE_SUBSCRIPTION } from "./src/content/stake/subscription.js";
+import {
+  STAKE_ODDS_PORT,
+  STAKE_ODDS_PUSH_TYPE,
+  STAKE_ODDS_EVENT,
+  buildStakeOddsPush,
+  fanoutStakeOdds,
+} from "./src/stake-odds-protocol.js";
 
 assert.equal(STAKE_LOCKDOWN_TOKEN, "s5MNWtjTM5TvCMkAzxov");
 assert.ok(FIXTURE_SUBSCRIPTION.includes("sportFixtureMarketsNext"));
@@ -40,5 +47,19 @@ const initPayload = {
   lockdownToken: STAKE_LOCKDOWN_TOKEN,
 };
 assert.deepEqual(Object.keys(initPayload).sort(), ["accessToken", "language", "lockdownToken"]);
+
+assert.equal(STAKE_ODDS_PORT, "stake-odds");
+const push = buildStakeOddsPush("Stake", { matchId: "1", bets: [] });
+assert.equal(push.type, STAKE_ODDS_PUSH_TYPE);
+assert.equal(push.channel, "Stake");
+const delivered = [];
+const ports = new Set([
+  { postMessage(payload) { delivered.push(payload); } },
+]);
+const event = fanoutStakeOdds(ports, { matchId: "fx", bets: [{ homeId: "h" }] });
+assert.equal(event.type, STAKE_ODDS_EVENT);
+assert.equal(event.channel, "Stake");
+assert.equal(delivered.length, 1);
+assert.equal(delivered[0].message.matchId, "fx");
 
 console.log("stake-background-a8-parity: ok");

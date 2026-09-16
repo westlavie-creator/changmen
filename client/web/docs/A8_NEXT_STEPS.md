@@ -1,6 +1,6 @@
 # A8 复刻 — 下一步执行清单
 
-对照基线：`A8/A8frontendscipts/2.0.1/index.js`（只读 bundle）  
+对照基线：`A8/index0706.js`（仓库根 gitignore，只读 bundle）  
 changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：backend 同源 `/`
 
 文档索引：[README.md](./README.md)
@@ -110,7 +110,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 
 - [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`）
 - [ ] HG 真实赔率采集（**含 saveMatch**）；已做：启用 HG 开关时 60s 刷余额，见 `client/venue-adapter/hg/collect.ts`
-- [ ] Stake 插件下单（暂缓）
+- [x] Stake 插件下单（`stakeProvider` + tabId GraphQL；实时赔率走扩展 `stake-odds` 端口）
 
 ---
 
