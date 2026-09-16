@@ -24,8 +24,8 @@ import {
 } from "@/stores/betting/activeBetRunSync";
 
 /**
- * 仅用户选 Parallel 且非混合对时双侧同时 POST。
- * 混合 PM/PF + 即时馆：预检齐活后仍先锁即时馆再 POST，不并行。
+ * 仅用户选 Parallel 且非混合对时走 A8 并发 POST。
+ * 混合对的并发在 mixedDual（预检齐后再 Promise.all），不经本函数。
  */
 export function shouldPlaceLegsInParallel(
   betSorting: string | undefined,
@@ -181,8 +181,9 @@ export async function placeArbLegs(
   const mixedPair = isMixedPendingConfirmArbPair(legA.type, legB.type);
   let mixedBlocked = false;
   if (mixedPair) {
-    // 双腿：先确认 CLOB 仍可成交，再锁即时馆并立刻 POST。
+    // 双腿：先确认 CLOB 仍可成交，再锁即时馆；两张单都就绪后同时 POST。
     // 若先 relock 再等 /book，会把刚冻的 RAY 价再等死（9/15 的 501）。
+    // 若等雷 HTTP 200 再打 PM，对冲腿被人为拖在后面。
     if (betBothLegs && accountA && accountB) {
       const pending = mixedInstantIsLegA(legA, legB) ? legB : legA;
       const foBlock = mixedPendingAskAboveDetection(pending);
@@ -230,25 +231,15 @@ export async function placeArbLegs(
   const mixedDual = Boolean(mixedPair && betBothLegs && accountA && accountB && !mixedBlocked);
 
   if (mixedDual) {
-    const instantIsA = mixedInstantIsLegA(legA, legB);
-    if (instantIsA) {
-      trace?.event("下单", `顺序 ${legA.type} → ${legB.type}`);
-      attemptedA = true;
-      resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
-      if (resultA.success) {
-        attemptedB = true;
-        resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
-      }
-    }
-    else {
-      trace?.event("下单", `顺序 ${legB.type} → ${legA.type}`);
-      attemptedB = true;
-      resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
-      if (resultB.success) {
-        attemptedA = true;
-        resultA = await accountStore.betting(accountA!, legA, waitSec, placeOpts);
-      }
-    }
+    trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
+    attemptedA = true;
+    attemptedB = true;
+    const pair = await Promise.all([
+      accountStore.betting(accountA!, legA, waitSec, placeOpts),
+      accountStore.betting(accountB!, legB, waitSec, placeOpts),
+    ]);
+    resultA = pair[0];
+    resultB = pair[1];
   }
   else if (!mixedBlocked && !betBothLegs) {
     if (accountA) {

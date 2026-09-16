@@ -85,9 +85,9 @@
 编排：
 
 1. 双侧 `checkBetting` 仍须都过才进入 place（零 POST）。即时馆这次 `data` 作废，只证明当时可下。
-2. place：先确认 PM/PF 盘口仍在检测价内（fo 已高则直接放弃，不再拉簿）。不过：两侧 `not_attempted`。过：再用**扫描检测价**锁即时馆并立刻 POST（只验盘口，不改已换过的 `betMoney`；RAY 0.01 公式不变）。不可先锁即时馆再等 CLOB，否则冻价再次过期。即时馆成功再 POST CLOB。套利 `betting` 禁止内联预检（无 quote 直接失败）。9999 只下即时馆时只再预检即时馆检测价。
-3. 用户选 `Parallel` 也不对混合对并发 POST。
-4. 即时馆 POST 失败则 CLOB 不下。CLOB FOK/未下且即时馆已成：补单入队逻辑不变。
+2. place：先确认 PM/PF 盘口仍在检测价内（fo 已高则直接放弃，不再拉簿）。不过：两侧 `not_attempted`。过：再用**扫描检测价**锁即时馆。两张单都就绪后 **同时 POST**（不按 `betSorting` 串行、不等即时馆 HTTP 回包）。套利 `betting` 禁止内联预检（无 quote 直接失败）。PM FOK 限价打在检测上限，复用刚拉的 `/book`，不再等另一腿回包后重拉。9999 只下即时馆时只再预检即时馆检测价。
+3. 用户选 Serial 也对混合对并发 POST；A8↔A8 仍只在 Parallel 时并发。
+4. 一边 API 失败另一边仍可能成交：补单入队逻辑不变。
 
 PM `checkBet`：`GET /book` 与 Gamma 并行（官方 Place Orders 第一步即 `/book`）；两边都回才算预检成功。vps 下公开 `Pm_GetBook` 短超时（800ms）直连 CLOB，失败/超时回落 VPS；超时设 0 则不试直连。闸门再读 CLOB `/markets/{condition_id}` 的 `accepting_orders` / `closed`（CLOB `{error:"trading is disabled"}` 视为未受理，不标 `pmPosted`）。两套时钟：**HTTP 只等 POST ACK**（客户端 30s，VPS POST abort 20s，须覆盖 `/time`≤8s + ACK，禁止浏览器 15s 先切断）；**撮合等官方 `sd`**（`delayed` 回包后，见上表）。插件断连可同一次回落 VPS；timeout/Network Error **不**重试 POST。勿把 PF 60s 或 HTTP 60s 当成官方 delay。
 

@@ -39,6 +39,7 @@ import {
 } from "./pmMarketGuard";
 import { getPolymarketPmSportBlockReasonFromOption } from "./pmSportGuard";
 import {
+  isValidClobPrice,
   resolvePolymarketDetectionMaxPrice,
   type PolymarketOptionQuoteData,
 } from "./pmDetection";
@@ -47,7 +48,11 @@ import {
   PolymarketPriceAboveDetectionError,
   syncPolymarketFoOnPriceAboveDetection,
 } from "./pmTokenQuote";
-import { normalizePolymarketTickSize, type PolymarketTickSize } from "./pmTickPrice";
+import {
+  alignPolymarketPriceToTick,
+  normalizePolymarketTickSize,
+  type PolymarketTickSize,
+} from "./pmTickPrice";
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet } from "./transport";
 import { pmGetBook, pmSubmitOrder } from "./pmClientApi";
@@ -154,9 +159,27 @@ interface PolymarketOrderOptions {
   asks: Array<{ price: number; size: number }>;
 }
 
-/** 预检 /book 结果在下单前复用的最长时间（与其它场馆「预检写好 payload」对齐） */
-/** 预检 /book 不得复用于 FOK 提交：对馆预检 + 并行下单期间簿会变 */
-export const PRECHECK_BOOK_REUSE_MS = 0;
+/**
+ * 刚拉过的 /book 可直接拿去签单提交。
+ * 覆盖混合对：CLOB 重检 → 锁即时馆 → 两边同时 POST。
+ * 超时则 betting 再拉簿（手动隔很久再点下单）。
+ */
+export const PRECHECK_BOOK_REUSE_MS = 1500;
+
+let polymarketClobSdkWarm: Promise<unknown> | null = null;
+
+/** 预检成功后预加载签名 SDK，避免即时馆已 POST 才开始动态 import */
+export function warmupPolymarketClobSdk(): void {
+  if (polymarketClobSdkWarm)
+    return;
+  polymarketClobSdkWarm = Promise.all([
+    import("@polymarket/clob-client-v2"),
+    import("viem"),
+    import("viem/accounts"),
+  ]).catch(() => {
+    polymarketClobSdkWarm = null;
+  });
+}
 
 /** checkBet 写入、betting 可复用的 PM 买单预检缓存 */
 export interface PolymarketBuyCheckData {
@@ -174,6 +197,55 @@ export interface PolymarketBuyCheckData {
   orderOptions: PolymarketOrderOptions;
   /** 预检时的深度倍数（关=1）；复用 book 时须一致 */
   depthMultiplier?: number;
+}
+
+function isPolymarketBuyCheckData(data: unknown): data is PolymarketBuyCheckData {
+  if (!data || typeof data !== "object")
+    return false;
+  const row = data as PolymarketBuyCheckData;
+  return row.side === "BUY"
+    && Boolean(row.tokenId)
+    && Number.isFinite(row.bookFetchedAt) && row.bookFetchedAt > 0
+    && row.orderOptions != null
+    && Array.isArray(row.orderOptions.asks);
+}
+
+function reusedPolymarketBuyCheck(
+  option: BetOption,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+  maxPrice: number,
+): PolymarketBuyCheckData | null {
+  const prior = option.data;
+  if (!isPolymarketBuyCheckData(prior))
+    return null;
+  if (prior.tokenId !== tokenId)
+    return null;
+  if (Number(prior.detectionOdds) !== detectionOdds)
+    return null;
+  if (Number(prior.detectionMaxPrice) !== maxPrice)
+    return null;
+  if (Number(prior.apiBetMoney) !== apiBetMoney)
+    return null;
+  if (Date.now() - prior.bookFetchedAt > PRECHECK_BOOK_REUSE_MS)
+    return null;
+  if ((prior.depthMultiplier ?? 1) !== pmFokDepthReuseMultiplier())
+    return null;
+  return prior;
+}
+
+/** BUY FOK 限价打在检测上限（向下对齐 tick），不是当前卖一 */
+function polymarketFokLimitFromDetection(
+  maxPrice: number,
+  tickSize: TickSize,
+  fillPrice: number,
+): number {
+  const aligned = alignPolymarketPriceToTick(maxPrice, tickSize, "floor");
+  const limit = fillPrice > aligned + 1e-12 ? fillPrice : aligned;
+  if (!isValidClobPrice(limit))
+    throw new Error(`无效检测价 ${maxPrice}（tick ${tickSize}）`);
+  return limit;
 }
 
 interface PolymarketOrderDiagnostic {
@@ -474,9 +546,33 @@ async function resolvePolymarketExecutableBuyForBet(
   option: BetOption,
 ): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
   const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
-  const resolved = await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney, maxPrice);
+  const reused = reusedPolymarketBuyCheck(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
+  const resolved = reused
+    ? {
+        bookOdds: reused.odds,
+        orderOptions: reused.orderOptions,
+      }
+    : await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney, maxPrice);
+  const fillPrice = calculateBuyMarketLimitPrice(
+    resolved.orderOptions.asks,
+    apiBetMoney,
+    resolved.orderOptions.minOrderSize,
+    {
+      tokenId,
+      amountUsdc: apiBetMoney,
+      displayedOdds: detectionOdds,
+      displayedPrice: maxPrice,
+      minOrderSize: resolved.orderOptions.minOrderSize,
+    },
+    maxPrice,
+  );
+  const price = polymarketFokLimitFromDetection(
+    maxPrice,
+    resolved.orderOptions.tickSize,
+    fillPrice,
+  );
   return {
-    price: resolved.price,
+    price,
     bookOdds: resolved.bookOdds,
     orderOptions: resolved.orderOptions,
   };
@@ -602,6 +698,7 @@ export const polymarketProvider: PlatformProvider = {
         orderOptions,
         depthMultiplier: pmFokDepthReuseMultiplier(),
       } satisfies PolymarketBuyCheckData;
+      warmupPolymarketClobSdk();
     }
     catch (err) {
       if (isPolymarketPriceAboveDetectionError(err)) {
@@ -619,10 +716,6 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async betting(account: PlatformAccount, option: BetOption): Promise<BetResult> {
-    const pmBlock = await resolvePolymarketBetBlockReason(option);
-    if (pmBlock)
-      return new BetResult("Polymarket", false, pmBlock);
-
     const beginTime = Date.now();
     const config = parseTokenConfig(account.token);
     const creds = resolveApiCreds(config);
@@ -644,6 +737,15 @@ export const polymarketProvider: PlatformProvider = {
 
     const tokenId = option.itemId;
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
+    const reused = reusedPolymarketBuyCheck(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
+    if (!reused) {
+      const pmBlock = await resolvePolymarketBetBlockReason(option);
+      if (pmBlock)
+        return new BetResult("Polymarket", false, pmBlock);
+    }
+    else {
+      warmupPolymarketClobSdk();
+    }
 
     try {
       const { price, bookOdds, orderOptions } = await resolvePolymarketExecutableBuyForBet(

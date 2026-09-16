@@ -481,6 +481,40 @@ describe("polymarketProvider.betting", () => {
     expect((body as any).order.signature).toEqual(expect.stringMatching(/^0x[0-9a-f]+$/));
   });
 
+  test("FOK buy posts at detection cap when best ask is cheaper", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.36", size: "5000" }],
+    });
+    vi.mocked(pmSubmitOrder).mockResolvedValueOnce({
+      success: true,
+      orderID: "order-cap",
+      status: "matched",
+      takingAmount: "26315789",
+      makingAmount: "10000000",
+    });
+
+    const result = await polymarketProvider.betting!(pmBettingAccount(), {
+      itemId: "123456789",
+      odds: 2.631,
+      betMoney: 10,
+      data: {
+        detectionOdds: 2.631,
+        detectionMaxPrice: 0.38,
+        detectionClobPrice: 0.38,
+      },
+    } as any);
+
+    expect(result.success).toBe(true);
+    const [, body] = vi.mocked(pmSubmitOrder).mock.calls[0]!;
+    const maker = Number((body as { order: { makerAmount: string; takerAmount: string } }).order.makerAmount);
+    const taker = Number((body as { order: { makerAmount: string; takerAmount: string } }).order.takerAmount);
+    expect(maker / taker).toBeCloseTo(0.38, 4);
+  });
+
   test("uses market order price from book depth for FOK buy amount", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
     mockPluginGetWithBook({
@@ -1594,7 +1628,7 @@ describe("PM precheck /book reuse", () => {
     vi.mocked(pmSubmitOrder).mockReset();
   });
 
-  test("betting refetches /book even immediately after checkBet", async () => {
+  test("betting reuses /book immediately after checkBet", async () => {
     const now = 1_700_000_000_000;
     vi.spyOn(Date, "now").mockReturnValue(now);
     mockPluginGetWithBook({
@@ -1626,7 +1660,7 @@ describe("PM precheck /book reuse", () => {
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);
-    expect(bookGetCalls().length).toBeGreaterThan(0);
+    expect(bookGetCalls().length).toBe(0);
   });
 
   test("betting refetches /book when precheck cache expired", async () => {
@@ -1656,7 +1690,7 @@ describe("PM precheck /book reuse", () => {
     const checked = await polymarketProvider.checkBet!(account, option as any);
     expect(checked.data).toBeTruthy();
 
-    now += 801;
+    now += 1501;
     vi.mocked(pmGetBook).mockClear();
     const result = await polymarketProvider.betting!(account, checked as any);
 
