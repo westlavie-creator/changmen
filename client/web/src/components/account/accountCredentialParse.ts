@@ -30,6 +30,8 @@ export function parsePastedAccountCredential(raw: string): PastedAccountCredenti
     return undefined;
   if (parsed.provider) {
     const credential = parsed as PastedAccountCredential;
+    if (!credential.token && typeof parsed.accessToken === "string")
+      credential.token = String(parsed.accessToken);
     if (
       credential?.provider === "Polymarket"
       && !credential.token
@@ -151,7 +153,10 @@ export function tryParseJson(raw: string | undefined): Record<string, unknown> |
 
 export function decodeBase64Utf8(raw: string): string | undefined {
   try {
-    const binary = window.atob(raw);
+    const atobFn = typeof globalThis.atob === "function" ? globalThis.atob.bind(globalThis) : undefined;
+    if (!atobFn)
+      return undefined;
+    const binary = atobFn(raw);
     const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
     return new TextDecoder().decode(bytes);
   }

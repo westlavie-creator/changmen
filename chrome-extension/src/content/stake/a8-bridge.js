@@ -8,9 +8,10 @@ export function createA8Bridge(channel) {
   return {
     send(message) {
       try {
-        chrome.runtime.sendMessage(buildStakeOddsPush(channel, message), () => {
-          void chrome.runtime.lastError;
-        });
+        // 不等待 sendResponse：避免与 background→tab 的余额/下注 POST 互相卡住
+        const sent = chrome.runtime.sendMessage(buildStakeOddsPush(channel, message));
+        if (sent && typeof sent.then === "function")
+          void sent.catch(() => {});
       } catch {
         /* extension context invalidated */
       }

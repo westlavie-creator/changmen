@@ -3,6 +3,7 @@ import {
   STAKE_USDT_TO_CNY,
   mapStakeOrderRow,
   mapStakeOrderStatus,
+  readStakeSessionToken,
   stakeLimitExceeded,
 } from "./bet";
 import { stakeAccountHeaders } from "./pluginApi";
@@ -70,6 +71,18 @@ describe("stakeAccountHeaders", () => {
       "x-operation-type": "query",
       "x-access-token": "sess",
     });
-    expect(stakeAccountHeaders({ token: "" })).toBeUndefined();
+    expect(stakeAccountHeaders({ token: "" })).toEqual({
+      "content-type": "application/json",
+      "x-language": "zh",
+      "x-operation-name": "CurrencyConfiguration",
+      "x-operation-type": "query",
+    });
+  });
+});
+
+describe("readStakeSessionToken", () => {
+  test("trims account.token", () => {
+    expect(readStakeSessionToken({ token: "  abc  " })).toBe("abc");
+    expect(readStakeSessionToken({ token: "" })).toBe("");
   });
 });

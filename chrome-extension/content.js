@@ -221,6 +221,12 @@
         });
       });
       panel.querySelector(".gamebet-collect-panel-confirm")?.addEventListener("click", () => {
+        const data = String(config.data || config.token || "");
+        if (data) {
+          void navigator.clipboard.writeText(data).catch(() => {
+            document.execCommand("copy");
+          });
+        }
         icon.classList.remove("hide");
         panel.remove();
       });
@@ -3438,6 +3444,21 @@
       withCredentials: options.withCredentials !== false
     });
   }
+  function toTabHttpResponse(response) {
+    if (!response || typeof response !== "object")
+      return response;
+    const headers = response.headers;
+    let plainHeaders = {};
+    if (headers && typeof headers === "object") {
+      plainHeaders = typeof headers.toJSON === "function" ? headers.toJSON() : { ...headers };
+    }
+    return {
+      data: response.data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: plainHeaders
+    };
+  }
 
   // src/content/polymarket/init.js
   var CLOB_API = "https://clob.polymarket.com";
@@ -4544,9 +4565,10 @@
     return {
       send(message) {
         try {
-          chrome.runtime.sendMessage(buildStakeOddsPush(channel, message), () => {
-            void chrome.runtime.lastError;
-          });
+          const sent = chrome.runtime.sendMessage(buildStakeOddsPush(channel, message));
+          if (sent && typeof sent.then === "function")
+            void sent.catch(() => {
+            });
         } catch {
         }
       }
@@ -4762,9 +4784,16 @@
             console.error("url \u4E3A\u7A7A");
             return void 0;
           }
-          const response = await tabHttpPost(message.url, message.data, message.options);
-          console.log(PLATFORMS.Stake, "tabId\u8BF7\u6C42\u8FD4\u56DE => ", response);
-          return response;
+          const headers = { ...message.options?.headers || {} };
+          const session = getCookie("session");
+          if (session && !String(headers["x-access-token"] || "").trim())
+            headers["x-access-token"] = session;
+          const response = await tabHttpPost(message.url, message.data, {
+            ...message.options,
+            headers
+          });
+          console.log(PLATFORMS.Stake, "tabId\u8BF7\u6C42\u8FD4\u56DE => ", response?.status, response?.data);
+          return toTabHttpResponse(response);
         }
         case "":
           syncStakeSubscriptions(message.data);

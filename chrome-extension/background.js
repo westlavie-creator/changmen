@@ -4367,6 +4367,7 @@
       case "GET":
       case "POST":
       case "DELETE":
+      case "GET_CONFIG":
       case "": {
         const tabId2 = message.options?.tabId;
         if (tabId2) {

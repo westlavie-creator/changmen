@@ -106,6 +106,8 @@ export async function refreshAccountBalance(
   _store: AccountStoreContext,
   account: PlatformAccount,
 ): Promise<void> {
+  if (account.loadingBalance)
+    return;
   account.loadingBalance = true;
   const hadBalance = account.balance !== undefined;
   try {

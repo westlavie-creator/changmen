@@ -1,6 +1,8 @@
 # Stake
 
-GraphQL 下单 / 余额 / 订单 + 赛事 GraphQL 采集 + 插件 GraphQL WS 实时赔率（经扩展 `stake-odds` 端口写 fo，不连 A8 聚合机）。
+GraphQL 下单 / 余额 / 订单 + 赛事 GraphQL 采集 + 插件 GraphQL WS 实时赔率。
+
+实时赔率对齐 A8 `xn.send` → `join room Stake` → `LHe` 写 fo；传输层用扩展 `stake-odds` 端口，**不连** A8 聚合机 `47.115.75.57`。
 
 | 目录 | 用途 |
 |------|------|
@@ -9,7 +11,7 @@ GraphQL 下单 / 余额 / 订单 + 赛事 GraphQL 采集 + 插件 GraphQL WS 实
 
 生产代码在平台根目录，不在 `frontend/`。
 
-**前置**：安装 Chrome 扩展、登录 stake.com；采集账号需配置 `token`（x-access-token）与 `gateway`。
+**前置**：安装 Chrome 扩展、登录 stake.com；下注账号 token 用插件「数据」粘贴（`GetConfig` 的 session cookie，对齐 A8）。
 
 ```bat
 cd changmen/devtools/platform-probes

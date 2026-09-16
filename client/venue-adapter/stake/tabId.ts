@@ -2,6 +2,9 @@ import { a8PluginGetStore, hasA8PluginRuntime } from "@changmen/client-core/chro
 import { PLATFORMS } from "../shared/platforms";
 import { wait } from "@changmen/client-core/shared/wait";
 
+const GET_STORE_TIMEOUT_MS = 4_000;
+const GET_STORE_TIMEOUT = {};
+
 /** 对齐 A8 全局 `qs.tabId` */
 let cachedTabId: number | undefined;
 
@@ -13,25 +16,53 @@ export function setStakeTabIdCached(tabId: number | undefined) {
   cachedTabId = tabId;
 }
 
-/** 对齐 bundle `XZe`：`getStore(Stake)` → `response.data[Stake]` */
-export function parseStakeTabIdFromStore(response: unknown): number | undefined {
-  if (typeof response === "number") return response;
-  const root = response as { data?: Record<string, unknown>; response?: { data?: Record<string, unknown> } };
-  const direct = root?.data?.[PLATFORMS.Stake];
-  if (typeof direct === "number") return direct;
-  const nested = root?.response?.data?.[PLATFORMS.Stake];
-  if (typeof nested === "number") return nested;
+function asTabId(raw: unknown): number | undefined {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0)
+    return raw;
+  if (typeof raw === "string" && /^\d+$/.test(raw)) {
+    const n = Number(raw);
+    if (n > 0)
+      return n;
+  }
   return undefined;
+}
+
+/** 对齐 bundle `XZe`：`getStore(Stake)` → `response.data[Stake]`；兼容 storageGet 直接把 tabId 放在 data */
+export function parseStakeTabIdFromStore(response: unknown): number | undefined {
+  const fromRoot = asTabId(response);
+  if (fromRoot)
+    return fromRoot;
+  const root = response as { data?: unknown; response?: { data?: unknown } } | null;
+  const fromData = asTabId(root?.data) ?? asTabId((root?.data as { Stake?: unknown } | undefined)?.[PLATFORMS.Stake]);
+  if (fromData)
+    return fromData;
+  const nested = root?.response?.data;
+  return asTabId(nested) ?? asTabId((nested as { Stake?: unknown } | undefined)?.[PLATFORMS.Stake]);
 }
 
 export async function readStakeTabIdFromPlugin(): Promise<number | undefined> {
   if (!hasA8PluginRuntime()) return undefined;
   try {
-    const response = await a8PluginGetStore(PLATFORMS.Stake);
+    const response = await Promise.race([
+      a8PluginGetStore(PLATFORMS.Stake),
+      wait(GET_STORE_TIMEOUT_MS).then(() => GET_STORE_TIMEOUT),
+    ]);
+    if (response === GET_STORE_TIMEOUT) return undefined;
     return parseStakeTabIdFromStore(response);
   } catch {
     return undefined;
   }
+}
+
+/**
+ * 对齐 A8 `HHe`：余额/下注只用当前 `qs.tabId`，不等 10×3s。
+ * 采集器仍走 `waitForStakeTabId`。
+ */
+export async function resolveStakeTabIdNow(): Promise<number | undefined> {
+  if (cachedTabId) return cachedTabId;
+  const tabId = await readStakeTabIdFromPlugin();
+  if (tabId) cachedTabId = tabId;
+  return tabId;
 }
 
 /** 登录后预取 tabId，减少首次 Stake 采集/下注等待 */

@@ -411,6 +411,7 @@ async function handleExternalMessage(message, reply, sender) {
       case "GET":
       case "POST":
       case "DELETE":
+      case "GET_CONFIG":
       case "": {
       const tabId = message.options?.tabId;
       if (tabId) {

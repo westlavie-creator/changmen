@@ -245,6 +245,12 @@ export async function mountCollectIcon(provider) {
     });
 
     panel.querySelector(".gamebet-collect-panel-confirm")?.addEventListener("click", () => {
+      const data = String(config.data || config.token || "");
+      if (data) {
+        void navigator.clipboard.writeText(data).catch(() => {
+          document.execCommand("copy");
+        });
+      }
       icon.classList.remove("hide");
       panel.remove();
     });

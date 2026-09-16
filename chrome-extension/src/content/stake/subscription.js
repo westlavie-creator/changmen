@@ -1,5 +1,5 @@
 import { PLATFORMS } from "../platforms.js";
-import { generateUuid, tabHttpPost } from "../utils.js";
+import { generateUuid, getCookie, tabHttpPost, toTabHttpResponse } from "../utils.js";
 
 const STAKE_MARKET_RE = /(比赛获胜者 - Two 路线)|(地图\d获胜者 - Two 路线)/;
 
@@ -152,9 +152,17 @@ export function createStakeMessageHandler() {
           console.error("url 为空");
           return undefined;
         }
-        const response = await tabHttpPost(message.url, message.data, message.options);
-        console.log(PLATFORMS.Stake, "tabId请求返回 => ", response);
-        return response;
+        const headers = { ...(message.options?.headers || {}) };
+        const session = getCookie("session");
+        // A8 GetConfig 把 session cookie 写成 x-access-token；账号 token 为空时仍用标签页登录态
+        if (session && !String(headers["x-access-token"] || "").trim())
+          headers["x-access-token"] = session;
+        const response = await tabHttpPost(message.url, message.data, {
+          ...message.options,
+          headers,
+        });
+        console.log(PLATFORMS.Stake, "tabId请求返回 => ", response?.status, response?.data);
+        return toTabHttpResponse(response);
       }
       case "":
         syncStakeSubscriptions(message.data);

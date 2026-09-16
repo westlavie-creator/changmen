@@ -32,6 +32,23 @@ export function tabHttpPost(url, data, options = {}) {
   });
 }
 
+/** chrome.runtime 无法克隆 axios 响应（config/request 含函数），只回传 A8 用到的 r.data */
+export function toTabHttpResponse(response) {
+  if (!response || typeof response !== "object")
+    return response;
+  const headers = response.headers;
+  let plainHeaders = {};
+  if (headers && typeof headers === "object") {
+    plainHeaders = typeof headers.toJSON === "function" ? headers.toJSON() : { ...headers };
+  }
+  return {
+    data: response.data,
+    status: response.status,
+    statusText: response.statusText,
+    headers: plainHeaders,
+  };
+}
+
 export async function postFormUrlEncoded(url, fields, headers = {}) {
   const body = new URLSearchParams();
   for (const [k, v] of Object.entries(fields)) {

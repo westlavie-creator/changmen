@@ -671,6 +671,15 @@ async function pasteFromClipboard() {
   }
 }
 
+function onPasteQuickFill(ev: ClipboardEvent) {
+  const text = ev.clipboardData?.getData("text") || "";
+  if (!text.trim())
+    return;
+  ev.preventDefault();
+  pasteRaw.value = text;
+  void applyPaste();
+}
+
 async function applyPaste() {
   if (!pasteRaw.value.trim())
     return;
@@ -707,6 +716,12 @@ async function applyPaste() {
     }
     const parsed = parsePastedAccountCredential(raw);
     if (!parsed) {
+      if (form.provider === "Stake") {
+        form.token = raw;
+        pasteRaw.value = "";
+        ElMessage.success("已填入 Stake token");
+        return;
+      }
       ElMessage.error("解析失败");
       return;
     }
@@ -719,18 +734,18 @@ async function applyPaste() {
       : parsed.gateway
         ? [parsed.gateway]
         : [];
-    if (!gateways.length)
-      return;
-
     form.provider = parsed.provider;
     form.token = parsed.token ?? "";
     form.referer = parsed.referer ?? "";
-    form.gateway = gateways[0]!;
+    if (gateways.length)
+      form.gateway = gateways[0]!;
+    else if (parsed.provider === "Stake" && !form.gateway.trim())
+      form.gateway = "https://stake.com";
     syncPolymarketFieldsFromToken(form.token);
     if (parsed.provider === "PB")
       applyPbIdentityFromToken(form.token);
 
-    if (gateways.length === 1) {
+    if (gateways.length <= 1) {
       ElMessage.success("粘贴成功");
       return;
     }
@@ -1661,6 +1676,7 @@ function unlockRate() {
               ? '粘贴体育 OB token / 进馆数据到下注账号'
               : '通过插件获取到的数据快速填充进入'"
             @change="applyPaste"
+            @paste="onPasteQuickFill"
           >
             <template #append>
               <div class="parse" @click="pasteFromClipboard">

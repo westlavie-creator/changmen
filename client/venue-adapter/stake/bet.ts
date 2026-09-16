@@ -4,7 +4,7 @@ import { BetResult } from "@changmen/client-core/models/betResult";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 export const STAKE_USDT_TO_CNY = 6.977023058793687;
 import { stakeAccountHeaders, stakePluginGraphql } from "./pluginApi";
-import { getStakeTabIdCached, stakeTabIdHint, waitForStakeTabId } from "./tabId";
+import { resolveStakeTabIdNow, stakeTabIdHint } from "./tabId";
 import type { PlatformProvider, VenueOrder, VenueOrderStatus } from "../contract";
 import type { LimitEntry } from "@changmen/client-core/types/limit";
 import { PLATFORMS } from "../shared/platforms";
@@ -275,8 +275,12 @@ export function stakeLimitExceeded(limit: LimitEntry, betMoney: number): boolean
   return betMoney > value;
 }
 
+export function readStakeSessionToken(account: Pick<PlatformAccount, "token">): string {
+  return String(account.token || "").trim();
+}
+
 async function resolveTabId(): Promise<number | undefined> {
-  return getStakeTabIdCached() ?? (await waitForStakeTabId());
+  return resolveStakeTabIdNow();
 }
 
 async function stakeGraphqlForAccount(
@@ -286,51 +290,52 @@ async function stakeGraphqlForAccount(
 ): Promise<Record<string, unknown>> {
   const tabId = await resolveTabId();
   if (!tabId) throw new Error(stakeTabIdHint());
-  const headers = stakeAccountHeaders(account);
-  if (!headers) throw new Error("账号参数读取失败");
-  return stakePluginGraphql(label, body, { tabId, headers });
+  return stakePluginGraphql(label, body, { tabId, headers: stakeAccountHeaders(account) });
 }
 
 export const stakeProvider: PlatformProvider = {
   async getBalance(account) {
-    try {
-      const tabId = await resolveTabId();
-      if (!tabId) return undefined;
-
-      const root = await stakeGraphqlForAccount(account, "getBalance", {
-        query: USER_BALANCES_QUERY,
-        operationName: "UserBalances",
-      });
-      const gql = (root.data as Record<string, unknown> | undefined) ?? {};
-      const user = (gql.user as Record<string, unknown> | undefined) ?? {};
-      const balances = (user.balances as Array<Record<string, unknown>> | undefined) ?? [];
-      const usdt = balances.find((row) => {
-        const available = row.available as Record<string, unknown> | undefined;
-        return available?.currency === "usdt";
-      });
-      const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
-      const amount = available.amount != null ? Number(available.amount) : undefined;
-      const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY : undefined;
-      if (balanceCny === undefined) return undefined;
-
-      await stakeGraphqlForAccount(account, "UpdateUserBettingPreference", {
-        query: UPDATE_PREFERENCE_MUTATION,
-        variables: {
-          preference: {
-            noBetConfirmation: false,
-            singleBetSlipDisplayFirst: true,
-            oddsChangeCondition: "higher",
-          },
-        },
-      });
-
-      return {
-        currency: "CNY",
-        balance: balanceCny,
-      };
-    } catch {
+    // [A8 可证实] HHe.getBalance：无 tabId 静默 return；headers = im(account)；不读标签页 cookie
+    const tabId = await resolveTabId();
+    if (!tabId)
       return undefined;
+
+    const root = await stakeGraphqlForAccount(account, "getBalance", {
+      query: USER_BALANCES_QUERY,
+      operationName: "UserBalances",
+    });
+    const gqlErrors = root.errors as Array<{ message?: unknown }> | undefined;
+    if (gqlErrors?.length) {
+      throw new Error(String(gqlErrors[0]?.message ?? "Stake GraphQL 失败"));
     }
+    const gql = (root.data as Record<string, unknown> | undefined) ?? {};
+    const user = (gql.user as Record<string, unknown> | undefined) ?? {};
+    const balances = (user.balances as Array<Record<string, unknown>> | undefined) ?? [];
+    const usdt = balances.find((row) => {
+      const available = row.available as Record<string, unknown> | undefined;
+      return available?.currency === "usdt";
+    });
+    const available = (usdt?.available as Record<string, unknown> | undefined) ?? {};
+    const amount = available.amount != null ? Number(available.amount) : undefined;
+    const balanceCny = amount !== undefined ? amount * STAKE_USDT_TO_CNY : undefined;
+
+    await stakeGraphqlForAccount(account, "UpdateUserBettingPreference", {
+      query: UPDATE_PREFERENCE_MUTATION,
+      variables: {
+        preference: {
+          noBetConfirmation: false,
+          singleBetSlipDisplayFirst: true,
+          oddsChangeCondition: "higher",
+        },
+      },
+    });
+
+    if (balanceCny === undefined)
+      return undefined;
+    return {
+      currency: "CNY",
+      balance: balanceCny,
+    };
   },
 
   async checkBet(account, option) {
@@ -339,11 +344,6 @@ export const stakeProvider: PlatformProvider = {
       option.checkError = stakeTabIdHint();
       return option;
     }
-    if (!stakeAccountHeaders(account)) {
-      option.checkError = "账号参数读取失败";
-      return option;
-    }
-
     const lastAt = lastBetAtByMarket.get(option.betId);
     if (lastAt && lastAt > Date.now() - BET_THROTTLE_MS) {
       const sec = Math.floor((Date.now() - lastAt) / 1000);
@@ -397,9 +397,8 @@ export const stakeProvider: PlatformProvider = {
 
   async betting(account, option) {
     const tabId = await resolveTabId();
-    if (!tabId) {
-      return new BetResult(account.provider, false, stakeTabIdHint(), option.data);
-    }
+    if (!tabId)
+      return new BetResult(account.provider, false, stakeTabIdHint());
 
     const root = await stakeGraphqlForAccount(account, "betting", option.data as Record<string, unknown>);
     const errors = root.errors as Array<Record<string, unknown>> | undefined;
@@ -449,7 +448,7 @@ export const stakeProvider: PlatformProvider = {
 
   async getOrders(account) {
     const tabId = await resolveTabId();
-    if (!tabId || !stakeAccountHeaders(account)) return [];
+    if (!tabId) return [];
 
     const queries = [
       {

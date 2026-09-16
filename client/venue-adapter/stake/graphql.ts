@@ -1,4 +1,5 @@
 import { stakePluginGraphql } from "./pluginApi";
+import { applyStakeLiveOdds } from "./liveOdds";
 import { parseMapFromMarketName, STAKE_GRAPHQL, STAKE_SPORT_SLUGS } from "./parse";
 import type { CollectBetDto, CollectMatchDto, CollectTeamDto } from "@changmen/client-core/types/collect";
 import type { PlatformId } from "@changmen/api-contract";
@@ -183,21 +184,24 @@ export function parseSportIndexResponse(
 
     const sub: StakeSubscribeRow = { id: matchId, slug: String(fixture.slug ?? "") };
     subscribe.push(sub);
+    const ingestMessage = {
+      matchId,
+      bets: mergedBets.map((b) => ({
+        betId: String(b.SourceBetID),
+        name: b.BetName,
+        homeId: String(b.SourceHomeID),
+        awayId: String(b.SourceAwayID),
+        home: b.HomeOdds,
+        away: b.AwayOdds,
+      })),
+    };
+    // [A8 可证实] UHe：`Mi.send(Ws, o)` → 聚合回 `n2[Stake]`/`LHe`；此处本地直写 fo
+    applyStakeLiveOdds(ingestMessage);
     rows.push({
       match,
       bets: mergedBets,
       subscribe: sub,
-      ingestMessage: {
-        matchId,
-        bets: mergedBets.map((b) => ({
-          betId: String(b.SourceBetID),
-          name: b.BetName,
-          homeId: String(b.SourceHomeID),
-          awayId: String(b.SourceAwayID),
-          home: b.HomeOdds,
-          away: b.AwayOdds,
-        })),
-      },
+      ingestMessage,
     });
   }
 

@@ -18,6 +18,7 @@ import { assertPlayerOwnedByUser, assertPlayersOwnedByUser, isPredictFunPlayerRo
 import { resolvePresenceState } from "./user_presence.js";
 import { enforcePolymarketPersistDto, stripPrivateKeysFromAccountList } from "./pm_token_strip.js";
 import { mergeSportObPatch, preserveSportObOnAccountSave } from "./ob_sport_account.js";
+import { preserveStoredAccountToken } from "./account_token_preserve.js";
 
 async function handleCreateTagPlatform(body, userId) {
   const platformName = body.platform || body.platformName || "";
@@ -285,7 +286,10 @@ async function handleSaveAccounts(accounts, userId) {
     const enriched = enrichAccountRowFromPlayer(row);
     const prev = existingById.get(id);
     const player = playerById.get(id);
-    const locked = preserveStoredAccountMultiply(enriched, prev);
+    const locked = preserveStoredAccountToken(
+      preserveStoredAccountMultiply(enriched, prev),
+      prev,
+    );
     // 禁止客户端改掉服务端绑定的场馆身份（尤其 PredictFun）
     if (player?.provider)
       locked.provider = player.provider;
