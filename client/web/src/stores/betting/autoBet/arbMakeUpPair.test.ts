@@ -58,4 +58,10 @@ describe("arbMakeUpSides", () => {
     const pm = Object.assign(new BetResult("Polymarket", true), { orderId: "0xpm" });
     expect(arbMakeUpSides(ray, true, pm, false)).toBe("enqueueA");
   });
+
+  it("treats not-attempted opposite leg as failed when the other is filled", () => {
+    const ray = new BetResult("RAY", true);
+    expect(arbMakeUpSides(ray, false, undefined, false)).toBe("enqueueB");
+    expect(arbMakeUpSides(undefined, false, ray, false)).toBe("enqueueA");
+  });
 });

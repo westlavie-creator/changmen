@@ -271,6 +271,35 @@ describe("applyArbMakeUpFromRejects", () => {
     );
   });
 
+  it("enqueues PM makeup when RAY filled and PM was never posted", async () => {
+    const placed = basePlaced();
+    placed.legA = new BetOption("RAY" as never, "m1", "b1", "h1", 55, "Away", 2.23);
+    placed.legB = new BetOption("Polymarket" as never, "m2", "b2", "a1", 26, "Home", 1.72);
+    placed.accountA = { accountId: 14 } as never;
+    placed.accountB = { accountId: 23 } as never;
+    placed.resultA = new BetResult("RAY", true);
+    placed.resultB = undefined;
+    placed.placeOutcomeA = "filled_pending_settle";
+    placed.placeOutcomeB = "not_attempted";
+
+    const out = await applyArbMakeUpFromRejects(
+      params(),
+      placed,
+      false,
+      false,
+      { ordersA: [{ betMoney: 55, odds: 2.23, status: "none" } as never], ordersB: [] },
+    );
+
+    expect(out).toEqual({ enqueuedForLegA: false, enqueuedForLegB: true });
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: "Home",
+        accountId: 14,
+        failedPlatformLabel: "Polymarket",
+      }),
+    );
+  });
+
   it("hangs pendingVenue resume when OB filled and PF still pendingConfirm", async () => {
     const placed = basePlaced();
     placed.accountA = { accountId: 14, provider: "OB" } as never;
