@@ -30,6 +30,11 @@ export type CheckBettingOpts = ResolveVenueStakeOpts & {
 export interface PlaceBetOpts {
   /** [changmen 扩展] 套利/补单最终 Link；PM api_failed 落库用 */
   linkId?: number;
+  /**
+   * 套利双腿 POST：禁止在本函数内再预检。
+   * 无 data 直接失败，避免 Parallel 时一边 check+bet、另一边还在拉簿。
+   */
+  requirePreparedQuote?: boolean;
 }
 
 /**
@@ -166,12 +171,16 @@ export async function placeBet(
   let result: BetResult = new BetResult(account.provider, false, "未知错误");
   try {
     if (!option.data) {
-      option = await checkBetting(store, account, option);
+      if (opts?.requirePreparedQuote) {
+        result = new BetResult(option.type, false, option.checkError || "预检未通过");
+      }
+      else {
+        option = await checkBetting(store, account, option);
+        if (!option.data)
+          result = new BetResult(option.type, false, option.checkError || "预检失败");
+      }
     }
-    if (!option.data) {
-      result = new BetResult(option.type, false, option.checkError || "预检失败");
-    }
-    else {
+    if (option.data) {
       result = await provider.betting(account, option);
       // PM matched：官方 POST 成交即真相，立刻落库，勿干等 /data/trades
       if (result.success && !result.pending && account.provider === "Polymarket") {

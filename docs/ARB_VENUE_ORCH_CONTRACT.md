@@ -85,7 +85,7 @@
 编排：
 
 1. 双侧 `checkBetting` 仍须都过才进入 place（零 POST）。即时馆这次 `data` 作废，只证明当时可下。
-2. place 入口用**扫描检测价**再预检即时馆（只验盘口，不改已换过的 `betMoney`；RAY 0.01 公式不变）。不过：两侧 `not_attempted`。过：立刻 POST 即时馆，成功再 POST CLOB。9999 只下即时馆时同样再预检检测价。
+2. place：先确认 PM/PF 盘口仍在检测价内（fo 已高则直接放弃，不再拉簿）。不过：两侧 `not_attempted`。过：再用**扫描检测价**锁即时馆并立刻 POST（只验盘口，不改已换过的 `betMoney`；RAY 0.01 公式不变）。不可先锁即时馆再等 CLOB，否则冻价再次过期。即时馆成功再 POST CLOB。套利 `betting` 禁止内联预检（无 quote 直接失败）。9999 只下即时馆时只再预检即时馆检测价。
 3. 用户选 `Parallel` 也不对混合对并发 POST。
 4. 即时馆 POST 失败则 CLOB 不下。CLOB FOK/未下且即时馆已成：补单入队逻辑不变。
 

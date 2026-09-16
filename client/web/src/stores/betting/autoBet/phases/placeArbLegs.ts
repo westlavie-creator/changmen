@@ -63,6 +63,42 @@ function buildPlaced(
   };
 }
 
+function hasPlaceQuote(option: BetOption): boolean {
+  return option.data != null && option.data !== false;
+}
+
+async function recheckMixedPendingIfNeeded(
+  accountStore: ReturnType<typeof useAccountStore>,
+  legA: BetOption,
+  legB: BetOption,
+  accountA: PlatformAccount | undefined,
+  accountB: PlatformAccount | undefined,
+  trace: ArbBetAttemptParams["trace"],
+): Promise<{ legA: BetOption; legB: BetOption; blocked: boolean }> {
+  if (!isMixedPendingConfirmArbPair(legA.type, legB.type))
+    return { legA, legB, blocked: false };
+  const instantIsA = mixedInstantIsLegA(legA, legB);
+  const pending = instantIsA ? legB : legA;
+  const pendingAccount = instantIsA ? accountB : accountA;
+  if (!pendingAccount || !isPendingConfirmVenueProvider(pending.type))
+    return { legA, legB, blocked: false };
+  const rechecked = await accountStore.checkBetting(pendingAccount, pending, {
+    skipStakeResolve: true,
+  });
+  if (instantIsA)
+    legB = rechecked;
+  else
+    legA = rechecked;
+  if (!hasPlaceQuote(rechecked)) {
+    trace?.event(
+      "预检",
+      `${rechecked.type} ${rechecked.target}: 检测价已不能成交${rechecked.checkError ? `（${rechecked.checkError}）` : ""}`,
+    );
+    return { legA, legB, blocked: true };
+  }
+  return { legA, legB, blocked: false };
+}
+
 async function relockInstantAtDetectionOdds(
   accountStore: ReturnType<typeof useAccountStore>,
   instant: BetOption,
@@ -101,7 +137,7 @@ async function relockMixedInstantIfNeeded(
     legA = relocked;
   else
     legB = relocked;
-  if (!relocked.data) {
+  if (!hasPlaceQuote(relocked)) {
     trace?.event(
       "预检",
       `${relocked.type} ${relocked.target}: 检测价已不能成交${relocked.checkError ? `（${relocked.checkError}）` : ""}`,
@@ -123,7 +159,7 @@ export async function placeArbLegs(
   const { match, bet, config, trace } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec, linkId } = checked;
-  const placeOpts = { linkId };
+  const placeOpts = { linkId, requirePreparedQuote: true };
 
   if (isPendingConfirmVenueProvider(legA.type))
     legA.deferPostAcceptSettlement = true;
@@ -145,19 +181,9 @@ export async function placeArbLegs(
   const mixedPair = isMixedPendingConfirmArbPair(legA.type, legB.type);
   let mixedBlocked = false;
   if (mixedPair) {
-    const relocked = await relockMixedInstantIfNeeded(
-      accountStore,
-      checked,
-      legA,
-      legB,
-      accountA,
-      accountB,
-      trace,
-    );
-    legA = relocked.legA;
-    legB = relocked.legB;
-    mixedBlocked = relocked.blocked;
-    if (!mixedBlocked && betBothLegs && accountA && accountB) {
+    // 双腿：先确认 CLOB 仍可成交，再锁即时馆并立刻 POST。
+    // 若先 relock 再等 /book，会把刚冻的 RAY 价再等死（9/15 的 501）。
+    if (betBothLegs && accountA && accountB) {
       const pending = mixedInstantIsLegA(legA, legB) ? legB : legA;
       const foBlock = mixedPendingAskAboveDetection(pending);
       if (foBlock) {
@@ -167,7 +193,38 @@ export async function placeArbLegs(
         );
         mixedBlocked = true;
       }
+      if (!mixedBlocked) {
+        const pendingRecheck = await recheckMixedPendingIfNeeded(
+          accountStore,
+          legA,
+          legB,
+          accountA,
+          accountB,
+          trace,
+        );
+        legA = pendingRecheck.legA;
+        legB = pendingRecheck.legB;
+        mixedBlocked = pendingRecheck.blocked;
+      }
     }
+    if (!mixedBlocked) {
+      const relocked = await relockMixedInstantIfNeeded(
+        accountStore,
+        checked,
+        legA,
+        legB,
+        accountA,
+        accountB,
+        trace,
+      );
+      legA = relocked.legA;
+      legB = relocked.legB;
+      mixedBlocked = relocked.blocked;
+    }
+  }
+  else if (betBothLegs && accountA && accountB && (!hasPlaceQuote(legA) || !hasPlaceQuote(legB))) {
+    trace?.event("预检", "双侧预检未齐，取消下单");
+    mixedBlocked = true;
   }
 
   const mixedDual = Boolean(mixedPair && betBothLegs && accountA && accountB && !mixedBlocked);

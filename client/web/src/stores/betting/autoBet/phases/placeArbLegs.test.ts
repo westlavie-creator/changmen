@@ -39,7 +39,9 @@ vi.mock("@/stores/betting/activeBetRunSync", () => ({
 }));
 
 function leg(type: string, target: "Home" | "Away" = "Home"): BetOption {
-  return new BetOptionClass(type as never, "m1", "b1", "i1", 100, target, 1.9);
+  const option = new BetOptionClass(type as never, "m1", "b1", "i1", 100, target, 1.9);
+  option.data = { ok: true };
+  return option;
 }
 
 function account(provider: string): PlatformAccount {
@@ -164,15 +166,18 @@ describe("placeArbLegs two-leg report contract", () => {
       scanOddsB: 2.23,
     }));
 
-    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting).toHaveBeenCalledTimes(2);
     expect(checkBetting).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
       { skipStakeResolve: true },
     );
-    expect((checkBetting.mock.calls[0]![1] as BetOption).odds).toBe(2.23);
+    const rayCheck = checkBetting.mock.calls.find(call => (call[1] as BetOption).type === "RAY");
+    expect(rayCheck).toBeDefined();
+    expect((rayCheck![1] as BetOption).odds).toBe(2.23);
     expect(betting).toHaveBeenCalledTimes(1);
     expect((betting.mock.calls[0]![1] as BetOption).type).toBe("RAY");
+    expect(betting.mock.calls[0]![3]).toEqual(expect.objectContaining({ requirePreparedQuote: true }));
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("api_failed");
     expect(out.resultA).toBeUndefined();
@@ -196,7 +201,7 @@ describe("placeArbLegs two-leg report contract", () => {
       scanOddsB: 2.23,
     }));
 
-    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(checkBetting).not.toHaveBeenCalled();
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
@@ -254,7 +259,50 @@ describe("placeArbLegs two-leg report contract", () => {
       accountB: account("RAY"),
     }));
 
+    expect(checkBetting).not.toHaveBeenCalled();
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("混合对：临 POST 再预检 PM 失败则两侧都不 POST", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      if (option.type === "Polymarket") {
+        option.data = null;
+        option.checkError = "盘口价高于检测价";
+        return option;
+      }
+      option.data = option.data ?? { ok: true };
+      return option;
+    });
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
     expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect((checkBetting.mock.calls[0]![1] as BetOption).type).toBe("Polymarket");
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("A8 双腿缺预检 data 时两侧都不 POST", async () => {
+    const home = leg("OB", "Home");
+    home.data = null;
+    const away = leg("RAY", "Away");
+
+    const out = await placeArbLegs(params, checked({
+      legA: home,
+      legB: away,
+    }));
+
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
@@ -280,7 +328,7 @@ describe("placeArbLegs two-leg report contract", () => {
       scanOddsB: 2.23,
     }));
 
-    expect((checkBetting.mock.calls[0]![1] as BetOption).odds).toBe(2.23);
+    expect((checkBetting.mock.calls[0]![1] as BetOption).type).toBe("Polymarket");
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
