@@ -44,6 +44,12 @@ export class PlatformAccount implements AccountRecord {
    * 不落库；真鉴权失败仍清 balance → TOKEN ERROR。
    */
   balanceStale = false;
+  /**
+   * [changmen 扩展] 熊猫体育钱包，只给 `/sports` 展示。
+   * 不进 `account.balance`、不写 Client_UpdateBalance、不进 ACCOUNT JSON。
+   */
+  sportBalance?: number;
+  sportBalanceStale = false;
   active = false;
   today = 0;
   orderCount = 0;
@@ -92,14 +98,20 @@ export class PlatformAccount implements AccountRecord {
     this.platformName = raw.platformName;
     this.playerName = raw.playerName || "";
     this.provider = (raw.provider as PlatformId) || "OB";
-    const legacy = raw as Partial<AccountRecord> & { venueId?: string };
-    const { balance: _storedBalance, active: _storedActive, venueId: legacyVenueId, ...rest } = legacy;
+    const legacy = raw as Partial<AccountRecord> & {
+      venueId?: string;
+      sportBalance?: number;
+      sportBalanceStale?: boolean;
+    };
+    const { balance: _storedBalance, active: _storedActive, venueId: legacyVenueId, sportBalance: _sportBal, sportBalanceStale: _sportStale, ...rest } = legacy;
     Object.assign(this, rest);
     if (!this.venueMemberId && legacyVenueId != null && String(legacyVenueId).trim())
       this.venueMemberId = String(legacyVenueId).trim();
     this.rateConfig = normalizeAccountRateConfig(raw.rateConfig);
     this.balance = undefined;
     this.balanceStale = false;
+    this.sportBalance = undefined;
+    this.sportBalanceStale = false;
     this.active = false;
     this.credit = raw.credit ?? 0;
     this.currency = resolveAccountCurrency(this.provider, raw.currency);
@@ -238,7 +250,7 @@ export class PlatformAccount implements AccountRecord {
   }
 
   toJSON(): AccountRecord {
-    const { loadingBalance: _lb, balanceStale: _stale, ...rest } = this;
+    const { loadingBalance: _lb, balanceStale: _stale, sportBalance: _sb, sportBalanceStale: _sbs, ...rest } = this;
     return JSON.parse(JSON.stringify(rest)) as AccountRecord;
   }
 

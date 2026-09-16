@@ -54,6 +54,15 @@ describe("platformAccount currency exchange", () => {
     });
     expect(acc.getBetMoney(70, 1.8)).toBe(10);
   });
+
+  it("sportBalance does not enter ACCOUNT JSON or getBalance", () => {
+    const acc = makeAccount({ provider: "OB" });
+    acc.balance = 40;
+    acc.sportBalance = 9999882;
+    expect(acc.getBalance()).toBe(40);
+    expect(acc.toJSON()).not.toHaveProperty("sportBalance");
+    expect(acc.toJSON().balance).toBe(40);
+  });
 });
 
 describe("normalizeAccountRateConfig", () => {

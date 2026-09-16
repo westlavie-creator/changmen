@@ -11,6 +11,7 @@ import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
+import { readObSportDisplayBalance, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 
 const props = withDefaults(
   defineProps<{
@@ -32,7 +33,7 @@ const accountStore = useAccountStore();
 const orderStore = useOrderStore();
 const footballOrders = useFootballOrderStore();
 const { displayName, config } = storeToRefs(user);
-const { totalBalance } = storeToRefs(accountStore);
+const { accounts, totalBalance } = storeToRefs(accountStore);
 const { dayProfit } = storeToRefs(orderStore);
 const { rows: footballRows, todayRows } = storeToRefs(footballOrders);
 
@@ -59,8 +60,19 @@ const reportMid = computed(() =>
   isSports.value ? sportStats.value.todayProfit : dayProfit.value,
 );
 
+const panelBalance = computed(() => {
+  if (!isSports.value)
+    return totalBalance.value;
+  return accounts.value.reduce((sum, row) => {
+    const n = sportObSessionFromAccount(row)
+      ? readObSportDisplayBalance(row)
+      : row.balance;
+    return sum + (n ?? 0);
+  }, 0);
+});
+
 /** 对齐 A8 UserInfoView `TT`：统计数字过渡 */
-const animBalance = useTransition(totalBalance, { duration: 1000 });
+const animBalance = useTransition(panelBalance, { duration: 1000 });
 const animToday = useTransition(reportMid, { duration: 1000 });
 const animOrders = useTransition(totalOrders, { duration: 1000 });
 

@@ -30,6 +30,7 @@ import { getApiBase } from "@/config/apiBase";
 import { getToken } from "@/api/client";
 import { parseSportObSessionInput } from "@/runtime/obSportSessionLocal";
 import { isObSportBetToken } from "@/runtime/obSportBetAccount";
+import { isObSportPcShellHost, resolveObSportHttpGateway } from "@/runtime/obSportTrial";
 import {
   createOrDerivePolymarketApiCreds,
   type PolymarketApiCreds,
@@ -698,8 +699,11 @@ async function applyPaste() {
       }
       form.provider = "OB";
       sportObForm.token = sportSession.session.token || "";
-      sportObForm.gateway = String(sportSession.session.gateway || "").trim();
-      sportObForm.referer = String(sportSession.session.referer || "").trim();
+      const pastedGw = String(sportSession.session.gateway || "").trim();
+      const pastedRef = String(sportSession.session.referer || "").trim();
+      sportObForm.gateway = resolveObSportHttpGateway(pastedGw, pastedRef)
+        || (isObSportPcShellHost(pastedGw) ? "" : pastedGw);
+      sportObForm.referer = pastedRef;
       sportObForm.venueMemberId = String(
         sportSession.session.sessionId || sportSession.session.uid || "",
       ).trim();

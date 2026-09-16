@@ -3,7 +3,7 @@ import type { AccountStoreContext } from "@/stores/account/context";
 import type { AccountBalanceResult } from "@changmen/venue-adapter/contract";
 import { updateBalance } from "@/api/vt";
 import { getAdapter } from "@/runtime/venueAdapters";
-import { isObSportBetToken } from "@/runtime/obSportBetAccount";
+import { isObSportBetToken, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 import { Currency } from "@/shared/currency";
 import { syncModifyHeaderRules } from "@/stores/account/modifyHeaderSync";
 
@@ -44,6 +44,10 @@ export function isVenueAuthFailureMessage(msg: string): boolean {
   if (/^(SESSION|LOGIN|UNAUTHORIZED|FORBIDDEN)$/i.test(m))
     return true;
   return false;
+}
+
+export function isSportsWorkspacePath(pathname = globalThis.location?.pathname): boolean {
+  return String(pathname || "").startsWith("/sports");
 }
 
 function noteAuthFailure(account: PlatformAccount, msg: string) {
@@ -112,6 +116,23 @@ export async function refreshAccountBalance(
   const hadBalance = account.balance !== undefined;
   try {
     const providerId = String(account.provider ?? "").toLowerCase();
+    if (providerId === "ob" && sportObSessionFromAccount(account) && isSportsWorkspacePath()) {
+      // 只写 sportBalance，不动电竞 account.balance / Client_UpdateBalance。
+      try {
+        const { fetchObSportAmountForAccount } = await import("@/runtime/obSportAmount");
+        const amount = await fetchObSportAmountForAccount(account);
+        account.sportBalance = amount;
+        account.sportBalanceStale = false;
+        account.errorCount = 0;
+      }
+      catch {
+        if (account.sportBalance !== undefined)
+          account.sportBalanceStale = true;
+        else
+          account.sportBalance = undefined;
+      }
+      return;
+    }
     if (providerId === "ob") {
       const tok = String(account.token || "");
       if (isObSportBetToken(tok))

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   formatPandaSportTrialPaste,
+  isObSportPcShellHost,
   PANDA_SPORT_TRIAL_GATEWAY,
   pandaSportTryPlayUrl,
   parsePandaSportTryPlay,
+  resolveObSportHttpGateway,
 } from "@/runtime/obSportTrial";
 import { parseSportObSessionInput } from "@/runtime/obSportSessionLocal";
 
@@ -42,5 +44,15 @@ describe("obSportTrial", () => {
     expect(pandaSportTryPlayUrl("zh")).toContain("lang=zh");
     expect(pandaSportTryPlayUrl("en")).toContain("lang=en");
     expect(pandaSportTryPlayUrl()).toContain("lang=zh");
+  });
+
+  it("does not treat the official PC shell as an HTTP gateway", () => {
+    expect(isObSportPcShellHost("https://user-pc-new.dbgaming.com")).toBe(true);
+    expect(resolveObSportHttpGateway(
+      "https://user-pc-new.dbgaming.com",
+      "https://user-pc-new.dbgaming.com/",
+    )).toBe(PANDA_SPORT_TRIAL_GATEWAY);
+    expect(resolveObSportHttpGateway("https://api.jpbfa750.com")).toBe("https://api.jpbfa750.com");
+    expect(resolveObSportHttpGateway("https://user-pc-new.janbo0931.com")).toBe("");
   });
 });

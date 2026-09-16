@@ -9,6 +9,7 @@ import {
   pmAccountShowsUnlockPending,
 } from "@/security/pmVault";
 import { useUserStore } from "@/stores/userStore";
+import { readObSportDisplayBalance, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 
 const props = defineProps<{
   account: PlatformAccount;
@@ -23,6 +24,18 @@ const pmNeedsUnlock = computed(() => {
   if (props.preview)
     return false;
   return pmAccountShowsUnlockPending(props.account, userStore.userId);
+});
+
+const shownBalance = computed(() => {
+  if (props.workspace === "sports" && sportObSessionFromAccount(props.account))
+    return readObSportDisplayBalance(props.account);
+  return props.account.balance;
+});
+
+const shownStale = computed(() => {
+  if (props.workspace === "sports" && sportObSessionFromAccount(props.account))
+    return Boolean(props.account.sportBalanceStale);
+  return Boolean(props.account.balanceStale);
 });
 
 const emit = defineEmits<{
@@ -107,19 +120,19 @@ async function confirmRemove() {
       class="balance"
       :class="{
         danger:
-          account.balance !== undefined
+          shownBalance !== undefined
           && account.maxBalance !== 0
-          && account.balance > account.maxBalance,
-        error: account.balance === undefined,
-        stale: account.balance !== undefined && account.balanceStale,
+          && shownBalance > account.maxBalance,
+        error: shownBalance === undefined,
+        stale: shownBalance !== undefined && shownStale,
       }"
-      :title="pmNeedsUnlock ? '本机钱包未解锁，鼠标移入后点钥匙按钮解锁' : account.balanceStale ? '刷新失败，显示上次余额' : undefined"
+      :title="pmNeedsUnlock ? '本机钱包未解锁，鼠标移入后点钥匙按钮解锁' : shownStale ? '刷新失败，显示上次余额' : undefined"
     >
       <label class="currency">
         {{ account.currency || 'CNY' }}
       </label>
-      <template v-if="account.balance !== undefined && !pmNeedsUnlock">
-        {{ formatBalance(account.balance) }}
+      <template v-if="shownBalance !== undefined && !pmNeedsUnlock">
+        {{ formatBalance(shownBalance) }}
       </template>
     </div>
 

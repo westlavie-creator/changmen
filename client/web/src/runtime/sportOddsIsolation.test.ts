@@ -304,10 +304,11 @@ describe("sport / esport UI isolation", () => {
     const betAccount = readFileSync(join(root, "runtime/obSportBetAccount.ts"), "utf8");
     expect(betAccount).toMatch(/isObSportBetToken/);
     expect(betAccount).toMatch(/sportOb/);
+    expect(betAccount).toMatch(/readObSportDisplayBalance/);
     expect(betAccount).not.toMatch(/venue-adapter\/ob|\/game\/bet|useOddsStore/);
     const obBet = readFileSync(join(root, "../../venue-adapter/ob/bet.ts"), "utf8");
     expect(obBet).toMatch(/\/game\/balance/);
-    expect(obBet).not.toMatch(/sportOb|SaveSportAccount/);
+    expect(obBet).not.toMatch(/sportOb|SaveSportAccount|yewu12/);
     const sportOrders = readFileSync(join(root, "runtime/podSportOrders.ts"), "utf8");
     expect(sportOrders).toMatch(/mergePodSportOrder/);
     expect(sportOrders).not.toMatch(/localStorage\.(getItem|setItem|removeItem)/);
@@ -394,6 +395,7 @@ describe("sport / esport UI isolation", () => {
     const accountCard = readFileSync(join(root, "components/account/AccountCard.vue"), "utf8");
     expect(accountCard).toMatch(/workspace !== ["']sports["']/);
     expect(accountCard).toMatch(/account\.today/);
+    expect(accountCard).toMatch(/readObSportDisplayBalance/);
     expect(accountCard).not.toMatch(/useFootballOrderStore|useOrderStore|Client_SaveOrder/);
     const appSession = readFileSync(join(root, "runtime/appSession.ts"), "utf8");
     expect(appSession).toMatch(/refreshAllFromVenues\(accountStore, true\)/);
@@ -410,6 +412,11 @@ describe("sport / esport UI isolation", () => {
     expect(accountCrud).toMatch(/delete row\.sportOb/);
     expect(accountCrud).toMatch(/persistSportAccount/);
     expect(accountCrud).not.toMatch(/placeValueBetOrder/);
+    const balanceRefresh = readFileSync(join(root, "stores/account/balanceRefresh.ts"), "utf8");
+    expect(balanceRefresh).toMatch(/sportBalance/);
+    expect(balanceRefresh).toMatch(/isSportsWorkspacePath/);
+    expect(balanceRefresh).toMatch(/updateBalance\(/);
+    expect(balanceRefresh).toMatch(/fetchVenueBalance/);
     const accountApi = readFileSync(join(root, "api/account.ts"), "utf8");
     expect(accountApi).toMatch(/Client_SaveSportAccount/);
     expect(accountApi).toMatch(/export async function saveAccounts/);

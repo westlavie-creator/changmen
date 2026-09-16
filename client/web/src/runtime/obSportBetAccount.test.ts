@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isObSportBetToken,
   pickObSportBetAccount,
+  readObSportDisplayBalance,
   sportObSessionFromAccount,
 } from "@/runtime/obSportBetAccount";
 
@@ -34,6 +35,20 @@ describe("obSportBetAccount", () => {
     expect(session?.token).toBe("e9734a4d633b350be25b428556622ca2f161b633");
     expect(session?.gateway).toBe("https://api.jpbfa750.com");
     expect(session?.sessionId).toBe("53660752045779641317887613834871");
+  });
+
+  it("rewrites official panda PC shell gateway to the trial API", () => {
+    const session = sportObSessionFromAccount({
+      provider: "OB",
+      sportOb: {
+        token: "4be9f09298fe183b0cc029d3db4b32d1cc2d8d89",
+        gateway: "https://user-pc-new.dbgaming.com",
+        referer: "https://user-pc-new.dbgaming.com/",
+        venueMemberId: "1009139033518055424",
+      },
+    });
+    expect(session?.gateway).toBe("https://api.dbsporxxxw1box.com");
+    expect(session?.sessionId).toBe("1009139033518055424");
   });
 
   it("still accepts legacy hex-in-token accounts", () => {
@@ -84,5 +99,18 @@ describe("obSportBetAccount", () => {
       { ...idle, accountId: 11 },
       { ...active, accountId: 22 },
     ], 11)).toMatchObject({ accountId: 11 });
+  });
+
+  it("exposes sportBalance only for OB sport credentials", () => {
+    expect(readObSportDisplayBalance({
+      provider: "OB",
+      sportOb: { token: "e9734a4d633b350be25b428556622ca2f161b633" },
+      sportBalance: 80,
+    })).toBe(80);
+    expect(readObSportDisplayBalance({
+      provider: "OB",
+      token: "1234567890123456789",
+      sportBalance: 80,
+    })).toBeUndefined();
   });
 });

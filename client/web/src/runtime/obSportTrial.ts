@@ -15,6 +15,52 @@ export const PANDA_SPORT_TRYPLAY_URL = pandaSportTryPlayUrl("zh");
 export const PANDA_SPORT_TRIAL_GATEWAY = "https://api.dbsporxxxw1box.com";
 export const PANDA_SPORT_TRIAL_SHELL = "https://user-pc-new.dbgaming.com";
 
+function hostOf(value: string): string {
+  const raw = String(value || "").trim();
+  if (!raw)
+    return "";
+  try {
+    return new URL(raw.includes("://") ? raw : `https://${raw}`).hostname;
+  }
+  catch {
+    return "";
+  }
+}
+
+function asHttpOrigin(value: string): string {
+  const raw = String(value || "").trim().replace(/\/$/, "");
+  if (!raw)
+    return "";
+  try {
+    return new URL(raw.includes("://") ? raw : `https://${raw}`).origin;
+  }
+  catch {
+    return raw.startsWith("http") ? raw : "";
+  }
+}
+
+/** 熊猫 PC 壳（`user-pc-new.*`）不是 yewu* HTTP 网关。 */
+export function isObSportPcShellHost(value: string): boolean {
+  return /^user-pc-new\./i.test(hostOf(value));
+}
+
+export function isOfficialPandaSportShell(value: string): boolean {
+  return /(^|\.)user-pc-new\.dbgaming\.com$/i.test(hostOf(value));
+}
+
+/**
+ * 插件常把官网壳抄进 gateway。余额/下单必须打 API 域。
+ * 官网试玩壳 → `api.dbsporxxxw1box.com`；其它商户壳不要猜，留给采集会话补。
+ */
+export function resolveObSportHttpGateway(gateway: string, referer = ""): string {
+  const origin = asHttpOrigin(gateway);
+  if (origin && !isObSportPcShellHost(origin))
+    return origin;
+  if (isOfficialPandaSportShell(gateway) || isOfficialPandaSportShell(referer))
+    return PANDA_SPORT_TRIAL_GATEWAY;
+  return "";
+}
+
 export type PandaSportTrialPaste = {
   provider: "OB";
   kind: "sport";

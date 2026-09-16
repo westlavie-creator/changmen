@@ -3,6 +3,7 @@
  * 采集仍走 changmen.sportOb.session；禁止用电竞数字 token 和下注接口。
  */
 import type { SportObSessionLocal } from "@/runtime/obSportSessionLocal";
+import { resolveObSportHttpGateway } from "@/runtime/obSportTrial";
 
 export function isObSportBetToken(token: string): boolean {
   const t = String(token || "").trim();
@@ -59,12 +60,13 @@ export function sportObSessionFromAccount(account: ObSportBetAccountLike | null 
   if (!cred)
     return null;
   const sessionId = String(cred.venueMemberId || "").trim();
-  const gateway = String(cred.gateway || "").trim().replace(/\/$/, "");
+  const referer = String(cred.referer || "").trim();
+  const gateway = resolveObSportHttpGateway(String(cred.gateway || "").trim(), referer);
   return {
     kind: "sport",
     token: cred.token,
     gateway,
-    referer: String(cred.referer || "").trim(),
+    referer,
     sessionId,
     uid: sessionId,
   };
@@ -86,4 +88,13 @@ export function pickObSportBetAccount<T extends ObSportBetAccountLike>(
 
 export function listObSportFollowAccounts<T extends ObSportBetAccountLike>(accounts: T[]): T[] {
   return accounts.filter(row => !row.pause && sportObSessionFromAccount(row));
+}
+
+export function readObSportDisplayBalance(
+  account: ObSportBetAccountLike & { sportBalance?: number },
+): number | undefined {
+  if (!sportObSessionFromAccount(account))
+    return undefined;
+  const n = Number(account.sportBalance);
+  return Number.isFinite(n) ? n : undefined;
 }

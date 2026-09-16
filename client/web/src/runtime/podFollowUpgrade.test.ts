@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseObSportAmount } from "@/runtime/obSportAmount";
+import { parseObSportAmount, resolveObSportAmountSession } from "@/runtime/obSportAmount";
 import { podBoardMarketsFromObDetail, mergePodBoardMarkets } from "@/runtime/podMarketPrefetch";
 import { podYaboDailyLossBlocked } from "@/runtime/podYabo/loss";
 
@@ -8,6 +8,20 @@ describe("obSportAmount", () => {
     expect(parseObSportAmount({ data: { amount: 1288.5 } })).toBe(1288.5);
     expect(parseObSportAmount({ gold: "80" })).toBe(80);
     expect(parseObSportAmount({})).toBe(0);
+  });
+
+  it("rewrites official shell gateway before amount fetch", () => {
+    const session = resolveObSportAmountSession({
+      provider: "OB",
+      sportOb: {
+        token: "4be9f09298fe183b0cc029d3db4b32d1cc2d8d89",
+        gateway: "https://user-pc-new.dbgaming.com",
+        referer: "https://user-pc-new.dbgaming.com/",
+        venueMemberId: "1009139033518055424",
+      },
+    });
+    expect(session?.gateway).toBe("https://api.dbsporxxxw1box.com");
+    expect(session?.uid).toBe("1009139033518055424");
   });
 });
 

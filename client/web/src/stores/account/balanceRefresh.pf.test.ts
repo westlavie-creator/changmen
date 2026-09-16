@@ -11,6 +11,7 @@ const refreshPfBalance = vi.hoisted(() => vi.fn(async () => ({
 })));
 const getBalance = vi.hoisted(() => vi.fn());
 const pmAccountShowsUnlockPending = vi.hoisted(() => vi.fn(() => false));
+const fetchObSportAmountForAccount = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/vt", () => ({
   updateBalance,
@@ -19,6 +20,10 @@ vi.mock("@/api/vt", () => ({
 vi.mock("@/api/account", () => ({
   refreshPfBalance,
   refreshPmBalance: vi.fn(),
+}));
+
+vi.mock("@/runtime/obSportAmount", () => ({
+  fetchObSportAmountForAccount: (...args: unknown[]) => fetchObSportAmountForAccount(...args),
 }));
 
 vi.mock("@/runtime/venueAdapters", () => ({
@@ -176,5 +181,110 @@ describe("isVenueAuthFailureMessage", () => {
     expect(isVenueAuthFailureMessage("Request failed with status code 403 Forbidden")).toBe(false);
     expect(isVenueAuthFailureMessage("PB 官网标签页暂时不可用")).toBe(false);
     expect(isVenueAuthFailureMessage("PB 官网标签页暂时不可用（未找到 https://skin.example/ 的登录页，请打开并刷新该站后重试）")).toBe(false);
+  });
+});
+
+const SPORT_HEX = "4be9f09298fe183b0cc029d3db4b32d1cc2d8d89";
+
+describe("refreshAccountBalance OB sport wallet", () => {
+  beforeEach(() => {
+    updateBalance.mockClear();
+    getBalance.mockReset();
+    fetchObSportAmountForAccount.mockReset();
+    fetchObSportAmountForAccount.mockResolvedValue(9999882);
+  });
+
+  it("writes yewu12 into sportBalance on /sports and never Client_UpdateBalance", async () => {
+    const { refreshAccountBalance } = await import("./balanceRefresh");
+    vi.stubGlobal("location", { pathname: "/sports/football" });
+    try {
+      const acc = new PlatformAccount({
+        accountId: 21,
+        playerName: "ob-sport",
+        provider: "OB",
+        sportOb: {
+          token: SPORT_HEX,
+          gateway: "https://user-pc-new.dbgaming.com",
+          referer: "https://user-pc-new.dbgaming.com/",
+          venueMemberId: "1009139033518055424",
+        },
+      });
+      acc.balance = 12;
+
+      await refreshAccountBalance({} as never, acc);
+
+      expect(fetchObSportAmountForAccount).toHaveBeenCalled();
+      expect(getBalance).not.toHaveBeenCalled();
+      expect(updateBalance).not.toHaveBeenCalled();
+      expect(acc.sportBalance).toBe(9999882);
+      expect(acc.balance).toBe(12);
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps esport /game/balance when an esport token exists off the sports page", async () => {
+    const { refreshAccountBalance } = await import("./balanceRefresh");
+    getBalance.mockResolvedValue({ balance: 0, currency: "CNY" });
+    const acc = new PlatformAccount({
+      accountId: 22,
+      playerName: "ob-both",
+      provider: "OB",
+      token: "1234567890123456789",
+      sportOb: { token: SPORT_HEX, venueMemberId: "1009139033518055424" },
+    });
+    acc.sportBalance = 9999882;
+
+    await refreshAccountBalance({} as never, acc);
+
+    expect(fetchObSportAmountForAccount).not.toHaveBeenCalled();
+    expect(getBalance).toHaveBeenCalled();
+    expect(updateBalance).toHaveBeenCalledWith(22, 0);
+    expect(acc.balance).toBe(0);
+    expect(acc.sportBalance).toBe(9999882);
+  });
+
+  it("skips yewu12 and /game/balance for sport-only accounts on the esport page", async () => {
+    const { refreshAccountBalance } = await import("./balanceRefresh");
+    const acc = new PlatformAccount({
+      accountId: 24,
+      playerName: "ob-sport",
+      provider: "OB",
+      sportOb: { token: SPORT_HEX, venueMemberId: "1009139033518055424" },
+    });
+    acc.balance = 7;
+
+    await refreshAccountBalance({} as never, acc);
+
+    expect(fetchObSportAmountForAccount).not.toHaveBeenCalled();
+    expect(getBalance).not.toHaveBeenCalled();
+    expect(updateBalance).not.toHaveBeenCalled();
+    expect(acc.balance).toBe(7);
+    expect(acc.sportBalance).toBeUndefined();
+  });
+
+  it("reads sport wallet on /sports even when the account still has an esport token", async () => {
+    const { refreshAccountBalance } = await import("./balanceRefresh");
+    vi.stubGlobal("location", { pathname: "/sports/football" });
+    try {
+      const acc = new PlatformAccount({
+        accountId: 23,
+        playerName: "ob-both",
+        provider: "OB",
+        token: "1234567890123456789",
+        sportOb: { token: SPORT_HEX, venueMemberId: "1009139033518055424" },
+      });
+      acc.balance = 55;
+      await refreshAccountBalance({} as never, acc);
+      expect(fetchObSportAmountForAccount).toHaveBeenCalled();
+      expect(getBalance).not.toHaveBeenCalled();
+      expect(updateBalance).not.toHaveBeenCalled();
+      expect(acc.sportBalance).toBe(9999882);
+      expect(acc.balance).toBe(55);
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

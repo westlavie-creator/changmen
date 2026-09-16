@@ -22,6 +22,7 @@ import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { livePatchFromObMatchRow, type ObSportLivePatch } from "@/runtime/obSportLive";
 import { refreshObEnglishNamesForMids } from "@/runtime/obSportEnglishNames";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
+import { resolveObSportHttpGateway } from "@/runtime/obSportTrial";
 
 const CACHE_TTL_MS = 120_000;
 const ODDS_BATCH = 12;
@@ -84,14 +85,7 @@ function gatewayOrigin(session: SportObSessionLocal): string {
     ? String(raw.find(item => String(item || "").trim()) || "")
     : String(raw || "")
   ).trim().replace(/\/$/, "");
-  if (!g)
-    return "";
-  try {
-    return new URL(g).origin;
-  }
-  catch {
-    return g.startsWith("http") ? g : `https://${g}`;
-  }
+  return resolveObSportHttpGateway(g, String(session.referer || ""));
 }
 
 function buildHeaders(session: SportObSessionLocal): Record<string, string> {
