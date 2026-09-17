@@ -111,9 +111,11 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
 
   if (!okNotes.length)
     return { ok: false, message: failNotes.join("；") || "下单失败" };
-  const head = `已下 ${okNotes.length}/${accounts.length}`;
+  // 面板标签已是「已下」，这里只留 账号:订单号（多号带成功数）
+  const head = accounts.length > 1 ? `${okNotes.length}/${accounts.length} ` : "";
+  const body = okNotes.join("、");
   const msg = failNotes.length
-    ? `${head} ${okNotes.join("、")}；失败 ${failNotes.join("；")}`
-    : `${head} ${okNotes.join("、")}`;
+    ? `${head}${body}；失败 ${failNotes.join("；")}`
+    : `${head}${body}`;
   return { ok: true, message: msg.slice(0, 180) };
 }

@@ -301,6 +301,12 @@ function pendingStateFor(
     maxAgeSec: betSettings.value.maxAgeSec,
     autoAttempted: !!autoAttempted.value[log.id],
     placeNote: placeNote.value[log.id] || log.placeNote,
+    placedAt: log.placedAt || (isPlaced(log.id) ? log.at : 0),
+    home: live?.alert.home || log.home,
+    away: live?.alert.away || log.away,
+    sideLabel: live?.sideLabel || log.sideLabel,
+    marketLabel: live?.marketLabel || log.marketLabel,
+    now: nowTick.value,
     placedIds: pendingPlacedIds(),
     placedEntries: pendingPlacedEntries(),
     cap: pendingCap(),
@@ -838,6 +844,7 @@ onUnmounted(() => {
             :class="{
               'is-fresh': row.live && isFreshPodAlert(row.live.alert.alertedAt, nowTick),
               'is-jumpable': row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid,
+              'is-placed': row.pending.placed,
             }"
             :title="(row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid) ? '点到板上这场' : undefined"
             @click="onDisplayClick(row)"
@@ -883,15 +890,16 @@ onUnmounted(() => {
                 >
                   <span class="pod-follow-row__status-lab">{{ row.pending.label }}</span>
                   <span
-                    v-if="row.pending.detail"
+                    v-if="!row.pending.receipt && row.pending.detail"
                     class="pod-follow-row__status-detail"
                   >{{ row.pending.detail }}</span>
                 </div>
-                <span class="pod-follow-row__foot-meta">
+                <span v-if="!row.pending.placed" class="pod-follow-row__foot-meta">
                   {{ formatPodStake(row.live.stake) }}
                   · {{ formatPodKickoff(row.live.starts, nowTick) }}
                 </span>
                 <button
+                  v-if="!row.pending.placed"
                   type="button"
                   class="pod-follow-row__place"
                   :disabled="!!placeBlock(row.live) || placingId === row.live.id"
@@ -900,6 +908,23 @@ onUnmounted(() => {
                 >
                   {{ placeLabel(row.live) }}
                 </button>
+              </div>
+              <div v-if="row.pending.receipt" class="pod-follow-row__receipt">
+                <div class="pod-follow-row__receipt-line">
+                  <span v-if="row.pending.receipt.clock" class="pod-follow-row__receipt-clock">
+                    {{ row.pending.receipt.clock }}
+                  </span>
+                  <span v-if="row.pending.receipt.ago" class="pod-follow-row__receipt-ago">
+                    {{ row.pending.receipt.ago }}
+                  </span>
+                  <span v-if="row.pending.receipt.pick">{{ row.pending.receipt.pick }}</span>
+                </div>
+                <div v-if="row.pending.receipt.match" class="pod-follow-row__receipt-match">
+                  {{ row.pending.receipt.match }}
+                </div>
+                <div v-if="row.pending.receipt.accounts" class="pod-follow-row__receipt-acc">
+                  {{ row.pending.receipt.accounts }}
+                </div>
               </div>
             </template>
             <template v-else>
@@ -918,14 +943,34 @@ onUnmounted(() => {
                 <div
                   class="pod-follow-row__status"
                   :class="`is-${row.pending.tone}`"
+                  :title="row.pending.detail || undefined"
                 >
                   <span class="pod-follow-row__status-lab">{{ row.pending.label }}</span>
                   <span
-                    v-if="row.pending.detail"
+                    v-if="!row.pending.receipt && row.pending.detail"
                     class="pod-follow-row__status-detail"
                   >{{ row.pending.detail }}</span>
                 </div>
-                <span class="pod-follow-row__foot-meta">{{ formatPodStake(row.log.stake) }}</span>
+                <span v-if="!row.pending.placed" class="pod-follow-row__foot-meta">
+                  {{ formatPodStake(row.log.stake) }}
+                </span>
+              </div>
+              <div v-if="row.pending.receipt" class="pod-follow-row__receipt">
+                <div class="pod-follow-row__receipt-line">
+                  <span v-if="row.pending.receipt.clock" class="pod-follow-row__receipt-clock">
+                    {{ row.pending.receipt.clock }}
+                  </span>
+                  <span v-if="row.pending.receipt.ago" class="pod-follow-row__receipt-ago">
+                    {{ row.pending.receipt.ago }}
+                  </span>
+                  <span v-if="row.pending.receipt.pick">{{ row.pending.receipt.pick }}</span>
+                </div>
+                <div v-if="row.pending.receipt.match" class="pod-follow-row__receipt-match">
+                  {{ row.pending.receipt.match }}
+                </div>
+                <div v-if="row.pending.receipt.accounts" class="pod-follow-row__receipt-acc">
+                  {{ row.pending.receipt.accounts }}
+                </div>
               </div>
             </template>
           </article>
@@ -1273,6 +1318,56 @@ onUnmounted(() => {
   color: #64748b;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.pod-follow-row.is-placed {
+  background: #22c55e0c;
+}
+
+.pod-follow-row__receipt {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #22c55e33;
+  background: #22c55e12;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #bbf7d0;
+}
+
+.pod-follow-row__receipt-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pod-follow-row__receipt-clock {
+  font-weight: 700;
+  color: #86efac;
+}
+
+.pod-follow-row__receipt-ago {
+  color: #86efac99;
+}
+
+.pod-follow-row__receipt-match {
+  margin-top: 2px;
+  color: #e2e8f0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pod-follow-row__receipt-acc {
+  margin-top: 2px;
+  color: #86efac;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pod-follow-row__place {

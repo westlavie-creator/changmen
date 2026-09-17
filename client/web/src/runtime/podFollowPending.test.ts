@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
 import {
+  buildPodFollowPlacedReceipt,
   formatPodFollowPending,
+  normalizePodFollowPlaceAccounts,
   resolvePodFollowPending,
 } from "@/runtime/podFollowPending";
 
@@ -29,15 +31,46 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
 }
 
 describe("podFollowPending", () => {
-  it("shows placed / placing / failure note first", () => {
-    expect(resolvePodFollowPending({
+  it("builds placed receipt with time, pick, match, accounts", () => {
+    expect(normalizePodFollowPlaceAccounts("已下 1/1 river:ord-1")).toBe("river:ord-1");
+    const receipt = buildPodFollowPlacedReceipt({
+      placedAt: Date.UTC(2026, 8, 17, 13, 50, 12),
+      home: "Arsenal",
+      away: "Chelsea",
+      sideLabel: "大 2.5",
+      marketLabel: "全场大小",
+      placeNote: "已下 1/1 river:ord-1",
+      now: Date.UTC(2026, 8, 17, 13, 51, 12),
+    });
+    expect(receipt.match).toBe("Arsenal vs Chelsea");
+    expect(receipt.pick).toContain("买大 2.5");
+    expect(receipt.pick).toContain("全场大小");
+    expect(receipt.accounts).toBe("river:ord-1");
+    expect(receipt.clock).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+
+    const placed = resolvePodFollowPending({
       ticket: ticket(),
       placed: true,
       autoPlace: true,
       withinAge: true,
       maxAgeSec: 30,
-      placeNote: "ord-1",
-    })).toEqual({ placed: true, label: "已下", detail: "ord-1", tone: "ok" });
+      placeNote: "已下 1/1 river:ord-1",
+      placedAt: 1_700_000_000_000,
+      home: "Arsenal",
+      away: "Chelsea",
+      sideLabel: "大 2.5",
+      marketLabel: "全场大小",
+    });
+    expect(placed).toMatchObject({ placed: true, label: "已下", tone: "ok" });
+    expect(placed.detail).toContain("买大 2.5");
+    expect(placed.detail).toContain("全场大小");
+    expect(placed.detail).toContain("Arsenal vs Chelsea");
+    expect(placed.detail).toContain("river:ord-1");
+    expect(placed.detail).not.toMatch(/^已下/);
+    expect(placed.receipt?.accounts).toBe("river:ord-1");
+  });
+
+  it("shows placing / failure note first", () => {
     expect(resolvePodFollowPending({
       ticket: ticket(),
       placed: false,
