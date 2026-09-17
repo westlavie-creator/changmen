@@ -1,10 +1,12 @@
 /**
  * POD 跟单机会列表。对上场和盘才落本机，一直显示；记下有没有下单。不进 USERCONFIG / fo。
+ * 已下后冻结下单时的 OB/NVP/PIN，列表不再跟现价。
  */
 import { formatPodAgo, formatPodPrice } from "@/runtime/podAlerts";
 import type { PodBetTicket } from "@/runtime/podBetTicket";
 import type { PodObQuoteCompare, PodMarketMatch, PodMarketSide } from "@/runtime/podMarketMatch";
 import type { PodFixtureMatch } from "@/runtime/podFixtureMatch";
+import { formatPodEv, podEvPercent } from "@/runtime/podYabo/ev";
 
 export const POD_FOLLOW_LOG_KEY = "changmen:podFollowLog";
 export const POD_FOLLOW_LOG_MAX = 200;
@@ -27,7 +29,10 @@ export type PodFollowLogRow = {
   marketLabel: string;
   nvp: number;
   minObOdds: number;
+  maxObOdds: number;
   obQuote: number;
+  pinPrevious: number;
+  pinCurrent: number;
   dropPct: number;
   stake: number;
   oid: string;
@@ -39,6 +44,12 @@ export type PodFollowLogRow = {
   placedAt: number;
   placeNote: string;
 };
+
+/** 下单成功时写入日志的盘口快照（冻住当时价，不再跟 live） */
+export type PodFollowPlaceSnap = Partial<Pick<
+  PodFollowLogRow,
+  "obQuote" | "nvp" | "minObOdds" | "maxObOdds" | "pinPrevious" | "pinCurrent" | "dropPct"
+>>;
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
   return raw && typeof raw === "object" && !Array.isArray(raw)
@@ -92,7 +103,10 @@ export function parsePodFollowLogRow(raw: unknown): PodFollowLogRow | null {
     marketLabel: str(row.marketLabel),
     nvp: num(row.nvp),
     minObOdds: num(row.minObOdds),
+    maxObOdds: num(row.maxObOdds),
     obQuote: num(row.obQuote),
+    pinPrevious: num(row.pinPrevious),
+    pinCurrent: num(row.pinCurrent),
     dropPct: num(row.dropPct),
     stake: num(row.stake),
     oid: str(row.oid),
@@ -135,7 +149,10 @@ export function buildPodFollowLogRow(ticket: PodFollowLiveTicket, now = Date.now
     marketLabel: ticket.marketLabel,
     nvp: ticket.marketMatch.nvp > 1 ? ticket.marketMatch.nvp : ticket.nvp,
     minObOdds: Number(ticket.obQuote.minObOdds) || ticket.minObOdds,
+    maxObOdds: Number(ticket.obQuote.maxObOdds) || ticket.maxObOdds,
     obQuote: Number(ticket.obQuote.quote) || 0,
+    pinPrevious: ticket.pinPrevious,
+    pinCurrent: ticket.pinCurrent,
     dropPct: ticket.dropPct,
     stake: ticket.stake,
     oid: String(ticket.marketMatch.oid || "").trim(),
@@ -146,6 +163,19 @@ export function buildPodFollowLogRow(ticket: PodFollowLiveTicket, now = Date.now
     placed: false,
     placedAt: 0,
     placeNote: "",
+  };
+}
+
+export function buildPodFollowPlaceSnap(ticket: PodFollowLiveTicket): PodFollowPlaceSnap {
+  const row = buildPodFollowLogRow(ticket);
+  return {
+    obQuote: row.obQuote,
+    nvp: row.nvp,
+    minObOdds: row.minObOdds,
+    maxObOdds: row.maxObOdds,
+    pinPrevious: row.pinPrevious,
+    pinCurrent: row.pinCurrent,
+    dropPct: row.dropPct,
   };
 }
 
@@ -198,7 +228,12 @@ export function upsertPodFollowEv(row: PodFollowLogRow): { rows: PodFollowLogRow
   return { rows: writeLog(copy), added: false, wrote: true };
 }
 
-export function markPodFollowLogPlaced(id: string, note: string, now = Date.now()): PodFollowLogRow[] {
+export function markPodFollowLogPlaced(
+  id: string,
+  note: string,
+  now = Date.now(),
+  snap?: PodFollowPlaceSnap | null,
+): PodFollowLogRow[] {
   const want = String(id || "").trim();
   if (!want)
     return readPodFollowLog();
@@ -208,12 +243,29 @@ export function markPodFollowLogPlaced(id: string, note: string, now = Date.now(
     if (row.id !== want)
       return row;
     hit = true;
-    return {
+    const frozen: PodFollowLogRow = {
       ...row,
       placed: true,
       placedAt: row.placedAt || now,
       placeNote: String(note || "").trim() || row.placeNote,
     };
+    if (snap) {
+      if (Number(snap.obQuote) > 1)
+        frozen.obQuote = Number(snap.obQuote);
+      if (Number(snap.nvp) > 1)
+        frozen.nvp = Number(snap.nvp);
+      if (Number(snap.minObOdds) > 1)
+        frozen.minObOdds = Number(snap.minObOdds);
+      if (Number(snap.maxObOdds) > 1)
+        frozen.maxObOdds = Number(snap.maxObOdds);
+      if (Number(snap.pinPrevious) > 1)
+        frozen.pinPrevious = Number(snap.pinPrevious);
+      if (Number(snap.pinCurrent) > 1)
+        frozen.pinCurrent = Number(snap.pinCurrent);
+      if (Number.isFinite(Number(snap.dropPct)))
+        frozen.dropPct = Number(snap.dropPct);
+    }
+    return frozen;
   });
   return hit ? writeLog(next) : rows;
 }
@@ -227,7 +279,18 @@ export function formatPodFollowLogWhen(at: number, now = Date.now()): string {
 }
 
 export function formatPodFollowLogQuote(row: Pick<PodFollowLogRow, "obQuote" | "minObOdds">): string {
-  return `OB ${formatPodPrice(row.obQuote)} ≥ ${formatPodPrice(row.minObOdds)}`;
+  const price = formatPodPrice(row.obQuote);
+  const min = Number(row.minObOdds) || 0;
+  const quote = Number(row.obQuote) || 0;
+  if (!(quote > 1))
+    return "OB价 —";
+  if (!(min > 1))
+    return `OB ${price}`;
+  return quote + 1e-6 >= min ? `OB ${price} 够` : `OB ${price} 不够`;
+}
+
+export function formatPodFollowLogEv(row: Pick<PodFollowLogRow, "obQuote" | "nvp">): string {
+  return formatPodEv(podEvPercent(Number(row.obQuote) || 0, Number(row.nvp) || 0));
 }
 
 export function formatPodFollowLogPlace(row: Pick<PodFollowLogRow, "placed" | "placeNote">): string {

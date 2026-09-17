@@ -47,7 +47,9 @@ import {
 } from "@/runtime/podFollowPlace";
 import {
   buildPodFollowLogRow,
+  buildPodFollowPlaceSnap,
   clearPodFollowLog,
+  formatPodFollowLogEv,
   formatPodFollowLogQuote,
   formatPodFollowLogWhen,
   markPodFollowLogPlaced,
@@ -364,7 +366,12 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
     placeNote.value = { ...placeNote.value, [ticket.id]: result.message };
     if (result.ok) {
       placed.value = { ...placed.value, [ticket.id]: true };
-      logRows.value = markPodFollowLogPlaced(ticket.id, result.message);
+      logRows.value = markPodFollowLogPlaced(
+        ticket.id,
+        result.message,
+        Date.now(),
+        buildPodFollowPlaceSnap(ticket),
+      );
       ElMessage.success(result.message);
       return;
     }
@@ -438,7 +445,10 @@ function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | unde
     marketLabel: "",
     nvp: 0,
     minObOdds: 0,
+    maxObOdds: 0,
     obQuote: 0,
+    pinPrevious: 0,
+    pinCurrent: 0,
     dropPct: 0,
     stake: 0,
     oid: "",
@@ -851,10 +861,14 @@ onUnmounted(() => {
           >
             <template v-if="row.live">
               <div class="pod-follow-row__top">
-                <span class="pod-follow-row__side">买 {{ row.live.sideLabel }}</span>
-                <span class="pod-follow-row__drop">{{ formatPodDropPct(row.live.dropPct) }}</span>
+                <span class="pod-follow-row__side">买 {{ row.pending.placed ? (row.log.sideLabel || row.live.sideLabel) : row.live.sideLabel }}</span>
+                <span class="pod-follow-row__drop">{{ formatPodDropPct(row.pending.placed ? row.log.dropPct : row.live.dropPct) }}</span>
               </div>
-              <div class="pod-follow-row__match">{{ row.live.alert.home }} vs {{ row.live.alert.away }}</div>
+              <div class="pod-follow-row__match">
+                {{ row.pending.placed
+                  ? `${row.log.home || row.live.alert.home} vs ${row.log.away || row.live.alert.away}`
+                  : `${row.live.alert.home} vs ${row.live.alert.away}` }}
+              </div>
               <div class="pod-follow-row__fixture" :class="`is-${row.live.fixtureMatch.status}`">
                 {{ formatPodFixtureMatch(row.live.fixtureMatch) }}
               </div>
@@ -866,21 +880,38 @@ onUnmounted(() => {
                 {{ formatPodMarketMatch(row.live.marketMatch) }}
               </div>
               <div
-                v-if="row.live.marketMatch.status === 'matched'"
+                v-if="row.pending.placed || row.live.marketMatch.status === 'matched'"
                 class="pod-follow-row__quote"
-                :class="`is-${row.live.obQuote.status}`"
+                :class="row.pending.placed ? 'is-ok' : `is-${row.live.obQuote.status}`"
               >
-                {{ formatPodObQuote(row.live.obQuote) }}
-                <span v-if="row.live.obQuote.evPercent" class="pod-follow-row__ev">
-                  {{ formatPodEv(row.live.obQuote.evPercent) }}
-                </span>
+                <template v-if="row.pending.placed">
+                  {{ formatPodFollowLogQuote(row.log) }}
+                  <span class="pod-follow-row__ev">{{ formatPodFollowLogEv(row.log) }}</span>
+                </template>
+                <template v-else>
+                  {{ formatPodObQuote(row.live.obQuote) }}
+                  <span v-if="row.live.obQuote.evPercent" class="pod-follow-row__ev">
+                    {{ formatPodEv(row.live.obQuote.evPercent) }}
+                  </span>
+                </template>
               </div>
               <div class="pod-follow-row__meta">
-                {{ row.live.alert.league }} · {{ row.live.marketLabel }}
-                · PIN {{ formatPodPrice(row.live.pinPrevious) }}→{{ formatPodPrice(row.live.pinCurrent) }}
-                · NVP {{ formatPodPrice(row.live.nvp) }}
-                · ≥{{ formatPodPrice(row.live.minObOdds) }}
-                <template v-if="row.live.maxObOdds">· ≤{{ formatPodPrice(row.live.maxObOdds) }}</template>
+                <template v-if="row.pending.placed">
+                  {{ row.log.league || row.live.alert.league }} · {{ row.log.marketLabel || row.live.marketLabel }}
+                  <template v-if="row.log.pinPrevious > 1 && row.log.pinCurrent > 1">
+                    · PIN {{ formatPodPrice(row.log.pinPrevious) }}→{{ formatPodPrice(row.log.pinCurrent) }}
+                  </template>
+                  · NVP {{ formatPodPrice(row.log.nvp) }}
+                  · ≥{{ formatPodPrice(row.log.minObOdds) }}
+                  <template v-if="row.log.maxObOdds">· ≤{{ formatPodPrice(row.log.maxObOdds) }}</template>
+                </template>
+                <template v-else>
+                  {{ row.live.alert.league }} · {{ row.live.marketLabel }}
+                  · PIN {{ formatPodPrice(row.live.pinPrevious) }}→{{ formatPodPrice(row.live.pinCurrent) }}
+                  · NVP {{ formatPodPrice(row.live.nvp) }}
+                  · ≥{{ formatPodPrice(row.live.minObOdds) }}
+                  <template v-if="row.live.maxObOdds">· ≤{{ formatPodPrice(row.live.maxObOdds) }}</template>
+                </template>
               </div>
               <div class="pod-follow-row__foot">
                 <div
@@ -933,10 +964,20 @@ onUnmounted(() => {
                 <span class="pod-follow-row__drop">{{ formatPodDropPct(row.log.dropPct) }}</span>
               </div>
               <div class="pod-follow-row__match">{{ row.log.home }} vs {{ row.log.away }}</div>
-              <div class="pod-follow-row__quote">{{ formatPodFollowLogQuote(row.log) }}</div>
+              <div class="pod-follow-row__quote" :class="row.pending.placed ? 'is-ok' : undefined">
+                {{ formatPodFollowLogQuote(row.log) }}
+                <span v-if="row.log.obQuote > 1" class="pod-follow-row__ev">
+                  {{ formatPodFollowLogEv(row.log) }}
+                </span>
+              </div>
               <div class="pod-follow-row__meta">
                 {{ row.log.league }} · {{ row.log.marketLabel }}
+                <template v-if="row.log.pinPrevious > 1 && row.log.pinCurrent > 1">
+                  · PIN {{ formatPodPrice(row.log.pinPrevious) }}→{{ formatPodPrice(row.log.pinCurrent) }}
+                </template>
                 · NVP {{ formatPodPrice(row.log.nvp) }}
+                · ≥{{ formatPodPrice(row.log.minObOdds) }}
+                <template v-if="row.log.maxObOdds">· ≤{{ formatPodPrice(row.log.maxObOdds) }}</template>
                 · {{ formatPodFollowLogWhen(row.log.at, nowTick) }}
               </div>
               <div class="pod-follow-row__foot">

@@ -4,7 +4,9 @@ import { POD_BET_SETTINGS_DEFAULTS } from "@/runtime/podBetSettings";
 import { buildPodBetTicket } from "@/runtime/podBetTicket";
 import {
   buildPodFollowLogRow,
+  formatPodFollowLogEv,
   formatPodFollowLogPlace,
+  formatPodFollowLogQuote,
   parsePodFollowLog,
   ticketHasPodFollowEv,
   ticketHasPodFollowMatch,
@@ -86,8 +88,12 @@ describe("podFollowLog", () => {
     expect(row.home).toBe("Arsenal");
     expect(row.obMid).toBe("5652292");
     expect(row.obQuote).toBe(1.95);
+    expect(row.pinPrevious).toBe(2.1);
+    expect(row.pinCurrent).toBe(1.9);
     expect(row.placed).toBe(false);
     expect(formatPodFollowLogPlace(row)).toBe("未下");
+    expect(formatPodFollowLogQuote(row)).toBe("OB 1.95 够");
+    expect(formatPodFollowLogEv(row)).toBe("EV +5.4%");
     const first = upsertPodFollowEv(row);
     expect(first.added).toBe(true);
     expect(first.rows).toHaveLength(1);
@@ -105,13 +111,20 @@ describe("podFollowLog", () => {
     expect(again.wrote).toBe(true);
     expect(again.rows.find(item => item.id === "1")?.obQuote).toBe(2.2);
     expect(again.rows.find(item => item.id === "1")?.at).toBe(1_970_000);
-    const placed = markPodFollowLogPlaced("1", "已下 88");
+    const placed = markPodFollowLogPlaced("1", "已下 88", 1_985_000, {
+      obQuote: 2.05,
+      nvp: 1.85,
+      minObOdds: 1.924,
+      pinPrevious: 2.1,
+      pinCurrent: 1.9,
+    });
     const hit = placed.find(item => item.id === "1")!;
     expect(hit.placed).toBe(true);
+    expect(hit.obQuote).toBe(2.05);
     expect(formatPodFollowLogPlace(hit)).toMatch(/^已下/);
     const frozen = upsertPodFollowEv({ ...row, obQuote: 3, at: 1_990_000 });
     expect(frozen.wrote).toBe(false);
-    expect(frozen.rows.find(item => item.id === "1")?.obQuote).toBe(2.2);
+    expect(frozen.rows.find(item => item.id === "1")?.obQuote).toBe(2.05);
     expect(parsePodFollowLog([{ id: "1" }, { id: "1", home: "dup" }])).toHaveLength(1);
   });
 });
