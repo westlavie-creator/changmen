@@ -37,33 +37,41 @@ const zhNames = computed(() => {
   return mid ? peekObChineseNames(mid) : null;
 });
 
-const zhTitle = computed(() => {
-  const zh = zhNames.value;
-  if (!zh?.home || !zh?.away)
-    return "";
-  return `${zh.home} vs ${zh.away}`;
-});
+function splitVs(title: string): { home: string; away: string } | null {
+  const parts = String(title || "").split(/\s+vs\.?\s+/i);
+  const home = String(parts[0] || "").trim();
+  const away = String(parts.slice(1).join(" vs ") || "").trim();
+  if (!home || !away)
+    return null;
+  return { home, away };
+}
 
-/** 主标题：英文主会话优先；占位时退中文旁路，再退联赛+mid。 */
-const displayTitle = computed(() => {
+/** 两侧队名：英文主；中文旁路有则挂在后面。 */
+const titleSides = computed(() => {
   const title = boardTitle.value;
   const mid = obMid.value;
-  if (!isObFootballPlaceholderTitle(title, mid, String(props.match.game || "")))
-    return title || "Football";
-  if (zhTitle.value)
-    return zhTitle.value;
-  return title || (mid ? `Football ${mid}` : "Home vs Away");
-});
+  const zh = zhNames.value;
+  const enPair = !isObFootballPlaceholderTitle(title, mid, String(props.match.game || ""))
+    ? splitVs(title)
+    : null;
+  const homeEn = enPair?.home || "";
+  const awayEn = enPair?.away || "";
+  const homeZh = zh?.home || "";
+  const awayZh = zh?.away || "";
 
-/** 英文主标题后附中文；中文已作主标题时不重复。 */
-const displayChinese = computed(() => {
-  const zh = zhTitle.value;
-  if (!zh)
-    return "";
-  const main = displayTitle.value.trim().toLowerCase();
-  if (main === zh.toLowerCase())
-    return "";
-  return zh;
+  if (homeEn && awayEn) {
+    return {
+      home: homeEn,
+      away: awayEn,
+      homeZh: homeZh && homeZh.toLowerCase() !== homeEn.toLowerCase() ? homeZh : "",
+      awayZh: awayZh && awayZh.toLowerCase() !== awayEn.toLowerCase() ? awayZh : "",
+    };
+  }
+  if (homeZh && awayZh) {
+    return { home: homeZh, away: awayZh, homeZh: "", awayZh: "" };
+  }
+  const fallback = title || (mid ? `Football ${mid}` : "Home vs Away");
+  return { home: fallback, away: "", homeZh: "", awayZh: "" };
 });
 
 /** 只订本场 byMid 的比分/节次，不订全局 liveTick，也不读 elapsedSec。 */
@@ -110,8 +118,14 @@ onUnmounted(stopClock);
   <div class="match-title football-match__title">
     <label v-if="leagueTag" class="game-tag">[{{ leagueTag }}]</label>
     <label class="football-match__name">
-      {{ displayTitle }}
-      <span v-if="displayChinese" class="football-match__zh">{{ displayChinese }}</span>
+      <template v-if="titleSides.away">
+        <span>{{ titleSides.home }}</span>
+        <span v-if="titleSides.homeZh" class="football-match__zh"> ({{ titleSides.homeZh }})</span>
+        <span> vs </span>
+        <span>{{ titleSides.away }}</span>
+        <span v-if="titleSides.awayZh" class="football-match__zh"> ({{ titleSides.awayZh }})</span>
+      </template>
+      <template v-else>{{ titleSides.home }}</template>
     </label>
     <span v-if="showLive" class="football-match__live">
       <span v-if="periodLabel" class="football-match__period">{{ periodLabel }}</span>
@@ -135,7 +149,6 @@ onUnmounted(stopClock);
   font-weight: 600;
 }
 .football-match__zh {
-  margin-left: 8px;
   font-weight: 500;
   font-size: 0.92em;
   color: #94a3b8;

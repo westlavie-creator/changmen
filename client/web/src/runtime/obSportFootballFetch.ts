@@ -941,7 +941,8 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   lastLiveByMid = nextLive;
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
   seedEnglishNamesFromDtos(dtos, mids);
-  await Promise.race([chineseWork, sleep(8_000)]);
+  // 中文旁路不挡列表；到齐后 obChineseNamesRev 刷新板卡括号中文。
+  void chineseWork;
   return dtos.map(fillDtoTitleFromChinese);
 }
 

@@ -236,42 +236,52 @@ async function fetchChineseOddsNames(
   mids: string[],
 ): Promise<Map<string, ObChineseTeamNames>> {
   const out = new Map<string, ObChineseTeamNames>();
-  const queue = chunk(mids, ODDS_BATCH);
+  const want = [...new Set(mids.map(mid => String(mid || "").trim()).filter(isC8Mid))];
   let rateHits = 0;
-  let retriedPart = false;
-  while (queue.length) {
-    const part = queue.shift()!;
-    try {
-      const decoded = await postZhOdds(session, part, EUID_FOOTBALL);
-      for (const [mid, names] of collectObChineseNames(decoded))
-        out.set(mid, names);
-      const missing = part.filter(mid => !out.has(mid));
-      if (missing.length) {
-        const live = await postZhOdds(session, missing, EUID_FOOTBALL_LIVE);
-        for (const [mid, names] of collectObChineseNames(live))
+
+  const runParts = async (parts: string[][], allowShrink: boolean) => {
+    const queue = [...parts];
+    while (queue.length) {
+      const part = queue.shift()!;
+      try {
+        const decoded = await postZhOdds(session, part, EUID_FOOTBALL);
+        for (const [mid, names] of collectObChineseNames(decoded))
           out.set(mid, names);
+        const missing = part.filter(mid => !out.has(mid));
+        if (missing.length) {
+          const live = await postZhOdds(session, missing, EUID_FOOTBALL_LIVE);
+          for (const [mid, names] of collectObChineseNames(live))
+            out.set(mid, names);
+        }
       }
-      retriedPart = false;
-    }
-    catch (err) {
-      if (isAuthFail(err))
-        throw err;
-      if (isRateLimited(err)) {
-        rateHits += 1;
-        if (!retriedPart && rateHits < MAX_RATE_LIMIT_HITS) {
-          retriedPart = true;
-          await sleep(RATE_LIMIT_SLEEP_MS);
+      catch (err) {
+        if (isAuthFail(err))
+          throw err;
+        if (isRateLimited(err)) {
+          rateHits += 1;
+          if (rateHits >= MAX_RATE_LIMIT_HITS) {
+            console.warn("[football] OB Chinese names rate-limited, keep partial", part.length);
+            return;
+          }
+          await sleep(RATE_LIMIT_SLEEP_MS * Math.min(rateHits, 3));
+          if (allowShrink && part.length > 4) {
+            queue.unshift(...chunk(part, Math.max(4, Math.ceil(part.length / 2))));
+            continue;
+          }
           queue.unshift(part);
           continue;
         }
-        console.warn("[football] OB Chinese names rate-limited", part.length);
-        break;
+        console.warn("[football] OB Chinese names batch skipped", err instanceof Error ? err.message : err);
       }
-      retriedPart = false;
+      if (queue.length)
+        await sleep(BATCH_GAP_MS);
     }
-    if (queue.length)
-      await sleep(BATCH_GAP_MS);
-  }
+  };
+
+  await runParts(chunk(want, ODDS_BATCH), true);
+  const still = want.filter(mid => !out.has(mid));
+  if (still.length && rateHits < MAX_RATE_LIMIT_HITS)
+    await runParts(chunk(still, 4), false);
   return out;
 }
 
