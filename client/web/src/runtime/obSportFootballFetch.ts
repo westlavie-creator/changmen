@@ -20,7 +20,10 @@ import {
 } from "@/runtime/sportBoardFilter";
 import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { livePatchFromObMatchRow, type ObSportLivePatch } from "@/runtime/obSportLive";
-import { refreshObEnglishNamesForMids } from "@/runtime/obSportEnglishNames";
+import {
+  peekObEnglishNames,
+  refreshObEnglishNamesForMids,
+} from "@/runtime/obSportEnglishNames";
 import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
 import { resolveObSportHttpGateway } from "@/runtime/obSportTrial";
 
@@ -640,6 +643,39 @@ export function buildObFootballListDto(
   return buildDto(meta, oddsRow);
 }
 
+/** 赛程占位标题：`亚足联冠军联赛二 5602643`（无 vs、无队名）。 */
+export function isObFootballPlaceholderTitle(title: string, mid = "", game = ""): boolean {
+  const t = String(title || "").trim();
+  if (!t)
+    return true;
+  if (/\svs\.?\s/i.test(t))
+    return false;
+  const id = String(mid || "").trim();
+  const g = String(game || "").trim();
+  if (id && (t === `${g} ${id}` || t === `足球 ${id}` || t.endsWith(` ${id}`)))
+    return true;
+  return Boolean(id && new RegExp(`(?:^|\\s)${id}$`).test(t));
+}
+
+function fillDtoTitleFromEnglish(dto: ClientMatchDto): ClientMatchDto {
+  const mid = String(dto.Matchs?.OB || "").trim();
+  if (!mid || !isObFootballPlaceholderTitle(String(dto.Title || ""), mid, String(dto.Game || "")))
+    return dto;
+  const en = peekObEnglishNames(mid);
+  if (!en?.home || !en?.away)
+    return dto;
+  return { ...dto, Title: `${en.home} vs ${en.away}` };
+}
+
+function metaOrOddsNamed(meta: ScheduleMeta, oddsRow: Record<string, unknown> | undefined): boolean {
+  if (meta.home && meta.away)
+    return true;
+  if (!oddsRow)
+    return false;
+  const names = teamNames(oddsRow);
+  return Boolean(names.home && names.away);
+}
+
 function mergeMarketRows(lists: ClientMarketRow[][]): ClientMarketRow[] {
   const out: ClientMarketRow[] = [];
   const seen = new Set<string>();
@@ -748,21 +784,40 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   });
   const oddsFirst = await fetchOddsByMids(session, mids);
   const oddsMap = oddsFirst.byMid;
-  const missingLive = windowed
-    .filter((m) => {
-      if (!m.isLive || !m.mid)
-        return false;
-      const row = oddsMap.get(m.mid);
-      if (!row)
-        return true;
-      const names = teamNames(row);
-      return !(names.home && names.away) && !(m.home && m.away);
-    })
+  // 早盘赛程袋常只有 mids、无 mhn/man；早盘 euid 也可能没带回队名，再用滚球 euid 补一轮。
+  const missingNames = windowed
+    .filter(m => m.mid && !metaOrOddsNamed(m, oddsMap.get(m.mid)))
     .map(m => m.mid);
-  if (missingLive.length && !oddsFirst.rateLimited) {
-    const extra = await fetchOddsByMids(session, missingLive, EUID_FOOTBALL_LIVE);
+  if (missingNames.length && !oddsFirst.rateLimited) {
+    const extra = await fetchOddsByMids(session, missingNames, EUID_FOOTBALL_LIVE);
     for (const [mid, row] of extra.byMid)
       oddsMap.set(mid, row);
+  }
+  const stillMissing = windowed
+    .filter(m => m.mid && !metaOrOddsNamed(m, oddsMap.get(m.mid)))
+    .map(m => m.mid)
+    .slice(0, 8);
+  for (const mid of stillMissing) {
+    try {
+      const detailRow = matchRowFromDecoded(await postPb(session, DETAIL_ODDS_PATH, {
+        cuid: sportCuid(session),
+        cos: 0,
+        orpt: 0,
+        euid: EUID_FOOTBALL,
+        mid,
+        mcid: 0,
+        newUser: 0,
+      }));
+      if (detailRow) {
+        const prev = oddsMap.get(mid);
+        oddsMap.set(mid, prev ? { ...prev, ...detailRow } : detailRow);
+      }
+    }
+    catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[football] OB detail names skipped", mid, msg);
+    }
+    await sleep(BATCH_GAP_MS);
   }
   const dtos: ClientMatchDto[] = [];
   const nextLive = new Map<string, ObSportLivePatch>();
@@ -780,7 +835,7 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   lastLiveByMid = nextLive;
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
   await Promise.race([englishWork, sleep(8_000)]);
-  return dtos;
+  return dtos.map(fillDtoTitleFromEnglish);
 }
 
 export async function fetchObFootballAsClientMatchDtos(): Promise<ClientMatchDto[]> {

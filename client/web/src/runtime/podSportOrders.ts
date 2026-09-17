@@ -204,7 +204,11 @@ export function groupPodSportOrders(rows: PodSportOrder[]): PodSportOrderGroup[]
 }
 
 export function formatPodSportOrderTitle(row: Pick<PodSportOrder, "home" | "away">): string {
-  return `${row.home} vs ${row.away}`.trim() || "足球";
+  const home = String(row.home || "").trim();
+  const away = String(row.away || "").trim();
+  if (home && away)
+    return `${home} vs ${away}`;
+  return home || away || "足球";
 }
 
 export function formatPodSportOrderMeta(row: Pick<PodSportOrder, "odds" | "stake" | "at" | "auto" | "orderId">, now = Date.now()): string {

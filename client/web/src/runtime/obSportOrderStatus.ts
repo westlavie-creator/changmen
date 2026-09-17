@@ -9,10 +9,20 @@
  */
 import type { FootballOrderStatus } from "@/runtime/podSportOrders";
 
+/** 结算补丁；也可带官网注单展示字段（赔率/金额/比赛等）。 */
 export type ObSportOrderStatusPatch = {
   orderId: string;
   status: FootballOrderStatus;
   profit: number;
+  odds?: number;
+  stake?: number;
+  home?: string;
+  away?: string;
+  sideLabel?: string;
+  marketLabel?: string;
+  oid?: string;
+  obMid?: string;
+  at?: number;
 };
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -46,19 +56,20 @@ function namedStatus(raw: unknown): FootballOrderStatus | null {
 }
 
 /**
- * 熊猫 outcome / win 常见 2=赢 3=输 4=走水。
- * [changmen 推测]
+ * [官网可证实] PC `result_status_map`：
+ * 2走水 3输 4赢 5赢半 6输半；7+ 取消/延迟/无效 → Return。
+ * 禁止把 queryOrderStatus 的 status=2（拒单）当成 outcome。
  */
 function outcomeStatus(raw: unknown): FootballOrderStatus | null {
   const named = namedStatus(raw);
   if (named)
     return named;
   const n = num(raw);
-  if (n === 2)
+  if (n === 4 || n === 5)
     return "Win";
-  if (n === 3)
+  if (n === 3 || n === 6)
     return "Lose";
-  if (n === 4)
+  if (n === 2 || n === 7 || n === 8 || n === 11 || n === 12 || n === 13 || n === 15 || n === 16)
     return "Return";
   return null;
 }
@@ -68,7 +79,136 @@ function orderIdOf(row: Record<string, unknown>): string {
 }
 
 function profitOf(row: Record<string, unknown>): number | null {
-  return num(row.profitAmount ?? row.profit_amount ?? row.profit ?? row.netAmount ?? row.net_amount);
+  return num(
+    row.profitAmount
+    ?? row.profit_amount
+    ?? row.profit
+    ?? row.netAmount
+    ?? row.net_amount
+    ?? row.backAmount
+    ?? row.back_amount
+    ?? row.winAmount
+    ?? row.win_amount
+    ?? row.settleAmount
+    ?? row.settle_amount
+    ?? row.profitLoss,
+  );
+}
+
+/** 官网欧赔：优先 oddFinally / oddsValues（赔率变动后成交价）。 */
+function oddsOf(row: Record<string, unknown>): number | null {
+  const raw = row.oddFinally
+    ?? row.oddsFinally
+    ?? row.oddsValues
+    ?? row.oddsValue
+    ?? row.origin_finally
+    ?? row.odds;
+  const n = num(raw);
+  if (n == null)
+    return null;
+  // ov 馆内整数（如 221000）→ 欧赔
+  if (n >= 1000)
+    return Math.round((n / 100000) * 1000) / 1000;
+  return n > 1 ? n : null;
+}
+
+/** 注额：优先 betAmount；若像分（≥1000 的整数）则 /100。 */
+function stakeOf(row: Record<string, unknown>): number | null {
+  const raw = row.betAmount ?? row.orderAmount ?? row.seriesBetAmount ?? row.betMoney ?? row.stake;
+  const n = num(raw);
+  if (n == null || n <= 0)
+    return null;
+  if (Number.isInteger(n) && Math.abs(n) >= 1000 && Math.abs(n) % 100 === 0)
+    return n / 100;
+  return n;
+}
+
+function teamsOf(row: Record<string, unknown>): { home: string; away: string } {
+  // [官网可证实] PC 注单卡：detailList[0].homeName + " VS " + awayName
+  const home = str(row.homeName || row.home_name || row.mhn || row.home);
+  const away = str(row.awayName || row.away_name || row.man || row.away);
+  if (home && away && !isPlaceholderTeam(home) && !isPlaceholderTeam(away))
+    return { home, away };
+  const matchInfo = str(row.matchInfo || row.oriMatchInfo);
+  const parts = matchInfo.split(/\s+(?:VS|vs|v)\s+/);
+  if (parts.length >= 2) {
+    const h = str(parts[0]);
+    const a = str(parts.slice(1).join(" VS "));
+    if (h && a && !isPlaceholderTeam(h) && !isPlaceholderTeam(a))
+      return { home: h, away: a };
+  }
+  if (home && away)
+    return { home, away };
+  return { home: "", away: "" };
+}
+
+/** 本地盘面占位 / 联赛+mid，不是官网队名。 */
+export function isPlaceholderTeam(name: string): boolean {
+  const s = str(name);
+  if (!s)
+    return true;
+  if (/^(主|客|主队|客队)$/.test(s))
+    return true;
+  if (/\s\d{4,12}$/.test(s))
+    return true;
+  if (/^\d{4,12}$/.test(s))
+    return true;
+  return false;
+}
+
+function marketLabelOf(row: Record<string, unknown>): string {
+  const play = str(row.playName || row.play_name);
+  const market = str(row.marketValue || row.market_value || row.hv);
+  if (play && market)
+    return `${play} ${market}`;
+  if (play)
+    return play;
+  if (market)
+    return market;
+  return "";
+}
+
+function sideLabelOf(row: Record<string, unknown>): string {
+  const raw = str(row.playOptionName || row.play_option_name || row.options_name || row.options);
+  if (!raw)
+    return "";
+  // 「大 2.5」→ 侧边只留选项名
+  const m = raw.match(/^(大|小|主|客|和|主胜|客胜|平)\b/);
+  return m ? m[1] : raw;
+}
+
+function atOf(row: Record<string, unknown>): number | null {
+  const raw = row.betTime ?? row.createTime ?? row.modifyTime ?? row.beginTime ?? row.orderTime;
+  const n = num(raw);
+  if (n == null || n <= 0)
+    return null;
+  return n < 1e12 ? n * 1000 : n;
+}
+
+function firstDetail(row: Record<string, unknown>): Record<string, unknown> {
+  const list = row.detailList;
+  if (!Array.isArray(list) || !list.length)
+    return {};
+  return asRecord(list[0]) || {};
+}
+
+/** 合并注单顶层 + detailList[0]。队名/玩法以 detail 为准（官网 PC 注单卡同结构）。 */
+function mergedBetRecord(raw: unknown): Record<string, unknown> | null {
+  const top = asRecord(raw);
+  if (!top || !orderIdOf(top))
+    return null;
+  const detail = firstDetail(top);
+  return {
+    ...top,
+    ...detail,
+    orderNo: orderIdOf(top),
+    outcome: top.outcome ?? detail.outcome,
+    profitAmount: top.profitAmount ?? detail.profitAmount,
+    backAmount: top.backAmount ?? detail.backAmount,
+    betAmount: top.betAmount ?? detail.betAmount,
+    // 成交赔率：detail.oddFinally / 顶层 odds（未结展示）
+    oddFinally: detail.oddFinally ?? top.oddFinally ?? top.oddsValues ?? top.odds,
+  };
 }
 
 function patchFromRow(raw: unknown): ObSportOrderStatusPatch | null {
@@ -81,11 +221,19 @@ function patchFromRow(raw: unknown): ObSportOrderStatusPatch | null {
 
   const named = namedStatus(row.status)
     || namedStatus(row.orderStatus)
-    || outcomeStatus(row.outcome ?? row.betResult ?? row.win ?? row.winStatus ?? row.result);
+    || namedStatus(row.betStatus)
+    || outcomeStatus(
+      row.outcome
+      ?? row.betResult
+      ?? row.win
+      ?? row.winStatus
+      ?? row.result
+      ?? row.settleResult,
+    );
   if (!named || named === "None")
     return null;
 
-  const profitRaw = profitOf(row) ?? num(row.winAmount ?? row.settleAmount);
+  const profitRaw = profitOf(row);
   let profit = profitRaw ?? 0;
   if (named === "Reject")
     profit = 0;
@@ -123,17 +271,68 @@ function patchFromBetRecordRow(raw: unknown): ObSportOrderStatusPatch | null {
   if (!orderId)
     return null;
   const profit = profitOf(row);
-  if (profit == null)
+  // 请求筛选用 orderStatus 0/1；回包以 outcome / profitAmount 为准。
+  const settledFlag = row.settleTime != null
+    || row.isSettled === 1
+    || row.isSettled === true
+    || str(row.orderStatus).toLowerCase() === "settled"
+    || outcomeStatus(row.outcome ?? row.betResult ?? row.settleResult) != null;
+  if (profit == null) {
+    if (settledFlag)
+      return { orderId, status: "Return", profit: 0 };
     return null;
+  }
   if (profit > 0)
     return { orderId, status: "Win", profit };
   if (profit < 0)
     return { orderId, status: "Lose", profit };
-  const settledFlag = row.settleTime != null || row.isSettled === 1 || row.isSettled === true
-    || str(row.orderStatus).toLowerCase() === "settled";
   if (settledFlag)
     return { orderId, status: "Return", profit: 0 };
   return null;
+}
+
+/**
+ * [官网可证实] 注单 records[] + detailList[] → 展示字段。
+ * 未结也可能有 oddFinally / betAmount / matchInfo；结算状态可缺。
+ */
+export function hydrateFromObSportBetRecord(raw: unknown): ObSportOrderStatusPatch | null {
+  const row = mergedBetRecord(raw);
+  if (!row)
+    return null;
+  const orderId = orderIdOf(row);
+  if (!orderId)
+    return null;
+
+  const settled = patchFromBetRecordRow(row);
+  const teams = teamsOf(row);
+  const odds = oddsOf(row);
+  const stake = stakeOf(row);
+  const marketLabel = marketLabelOf(row);
+  const sideLabel = sideLabelOf(row);
+  const oid = str(row.playOptionsId || row.oddsId || row.oid);
+  const obMid = str(row.matchInfoId || row.mid || row.matchId);
+  const at = atOf(row);
+
+  const status = settled?.status || "None";
+  const profit = settled?.profit ?? 0;
+  // 未结也要回写展示字段；没有可展示信息且未结算则跳过
+  if (!settled && !(odds || stake || teams.home || teams.away || marketLabel || sideLabel))
+    return null;
+
+  return {
+    orderId,
+    status,
+    profit,
+    ...(odds ? { odds } : {}),
+    ...(stake ? { stake } : {}),
+    ...(teams.home ? { home: teams.home } : {}),
+    ...(teams.away ? { away: teams.away } : {}),
+    ...(sideLabel ? { sideLabel } : {}),
+    ...(marketLabel ? { marketLabel } : {}),
+    ...(oid ? { oid } : {}),
+    ...(obMid ? { obMid } : {}),
+    ...(at ? { at } : {}),
+  };
 }
 
 function collectRows(raw: unknown, out: unknown[], depth: number) {
@@ -188,11 +387,30 @@ export function parseObSportQueryOrderStatus(decoded: unknown): ObSportOrderStat
   return uniquePatches(bag, patchFromObSportQueryStatus);
 }
 
-/** [changmen 推测] yewurecord 注单列表 records / list。只写能解析出盈亏的行。 */
+/** [官网可证实] yewurecord 注单列表：完整回填展示字段 + 能解析则写结算。 */
 export function parseObSportBetRecordList(decoded: unknown): ObSportOrderStatusPatch[] {
   const bag: unknown[] = [];
   collectRows(decoded, bag, 0);
+  return uniquePatches(bag, hydrateFromObSportBetRecord);
+}
+
+/** 仅结算（无展示字段）。C201 / queryOrderStatus 用。 */
+export function parseObSportBetRecordSettlement(decoded: unknown): ObSportOrderStatusPatch[] {
+  const bag: unknown[] = [];
+  collectRows(decoded, bag, 0);
   return uniquePatches(bag, patchFromBetRecordRow);
+}
+
+/**
+ * [官网可证实] betPB `orderDetailRespList[0].oddsValues`（赔率变动后成交价）。
+ */
+export function oddsFromObSportPlace(decoded: unknown): number | null {
+  const row = asRecord(decoded) || {};
+  const data = asRecord(row.data) || row;
+  const details = Array.isArray(data.orderDetailRespList) ? asRecord(data.orderDetailRespList[0]) : null;
+  if (!details)
+    return null;
+  return oddsOf(details);
 }
 
 /**

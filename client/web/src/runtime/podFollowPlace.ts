@@ -96,7 +96,7 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
       away: String(ticket.away || "").trim(),
       sideLabel: String(ticket.sideLabel || "").trim(),
       marketLabel: String(ticket.marketLabel || "").trim(),
-      odds,
+      odds: Number(placed.odds) > 1 ? Number(placed.odds) : odds,
       stake,
       oid,
       obMid: mid,

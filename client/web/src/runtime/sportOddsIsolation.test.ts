@@ -333,7 +333,9 @@ describe("sport / esport UI isolation", () => {
     expect(footballOrderStore).toMatch(/getFootballOrders/);
     expect(footballOrderStore).toMatch(/todayRows/);
     expect(footballOrderStore).toMatch(/syncVenueSettlement/);
-    expect(footballOrderStore).toMatch(/fetchObSportOrderStatusPatches/);
+    expect(footballOrderStore).toMatch(/fetchObSportPendingOrderPatches/);
+    expect(footballOrderStore).toMatch(/waitObSportVenueOrderHydration/);
+    expect(footballOrderStore).toMatch(/isPlaceholderTeam/);
     expect(footballOrderStore).not.toMatch(/applyAccountStats/);
     expect(footballOrderStore).not.toMatch(/acc\.(unsettle|todayOrder|winBalance)/);
     expect(footballOrderStore).not.toMatch(/localStorage\.(getItem|setItem|removeItem)|readPodSportOrders|writePodSportOrders|hydrateFromCache/);
@@ -415,6 +417,10 @@ describe("sport / esport UI isolation", () => {
     const betRecord = readFileSync(join(root, "runtime/obSportBetRecord.ts"), "utf8");
     expect(betRecord).toMatch(/yewu13\/v1\/betOrder\/queryOrderStatus/);
     expect(betRecord).toMatch(/yewurecord\/order\/betRecord\/getOrderListPB/);
+    expect(betRecord).toMatch(/orderStatus/);
+    expect(betRecord).toMatch(/fetchObSportPendingOrderPatches/);
+    expect(betRecord).toMatch(/waitObSportVenueOrderHydration/);
+    expect(betRecord).not.toMatch(/settleFlag/);
     expect(betRecord).not.toMatch(/Client_SaveOrder|Client_GetOrderList|useOrderStore|\/game\/orderList/);
     const accountCrud = readFileSync(join(root, "stores/account/accountCrud.ts"), "utf8");
     expect(accountCrud).toMatch(/delete row\.sportOb/);

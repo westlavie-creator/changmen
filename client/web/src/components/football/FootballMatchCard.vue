@@ -8,6 +8,8 @@ import {
   obSportPeriodLabel,
   obSportShowLiveBadge,
 } from "@/runtime/obSportLive";
+import { isObFootballPlaceholderTitle } from "@/runtime/obSportFootballFetch";
+import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
 import { computed, onUnmounted, ref, watch } from "vue";
@@ -23,6 +25,16 @@ let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const leagueTag = computed(() => footballLeagueTag(props.match.game));
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
+const displayTitle = computed(() => {
+  const title = String(props.match.title || "").trim();
+  const mid = obMid.value;
+  if (!isObFootballPlaceholderTitle(title, mid, String(props.match.game || "")))
+    return title || "足球";
+  const en = mid ? peekObEnglishNames(mid) : null;
+  if (en?.home && en?.away)
+    return `${en.home} vs ${en.away}`;
+  return "主队 vs 客队";
+});
 /** 只订本场 byMid 的比分/节次，不订全局 liveTick，也不读 elapsedSec。 */
 const live = computed(() => {
   const mid = obMid.value;
@@ -66,7 +78,7 @@ onUnmounted(stopClock);
 <template>
   <div class="match-title football-match__title">
     <label v-if="leagueTag" class="game-tag">[{{ leagueTag }}]</label>
-    <label class="football-match__name">{{ match.title }}</label>
+    <label class="football-match__name">{{ displayTitle }}</label>
     <span v-if="showLive" class="football-match__live">
       <span v-if="periodLabel" class="football-match__period">{{ periodLabel }}</span>
       <span v-if="clockLabel" class="football-match__clock">{{ clockLabel }}</span>

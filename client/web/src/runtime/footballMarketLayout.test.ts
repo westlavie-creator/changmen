@@ -22,6 +22,7 @@ function row(partial: FootballObMarketRow): FootballObMarketRow {
 describe("footballMarketLayout", () => {
   it("splits match title teams", () => {
     expect(splitFootballTeams("卡利亚里 vs 莱切")).toEqual({ home: "卡利亚里", away: "莱切" });
+    expect(splitFootballTeams("亚足联冠军联赛二 5602643")).toEqual({ home: "主队", away: "客队" });
   });
 
   it("formats signed handicap lines", () => {

@@ -6,6 +6,8 @@ import {
   splitFootballTeams,
   type FootballBookColumn,
 } from "@/runtime/footballMarketLayout";
+import { isObFootballPlaceholderTitle } from "@/runtime/obSportFootballFetch";
+import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import {
   invalidateFootballObMarkets,
   isFootballObMarketsComplete,
@@ -31,7 +33,16 @@ const obLive = useObSportLiveStore();
 const { playRevByMid } = storeToRefs(obLive);
 
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
-const teams = computed(() => splitFootballTeams(String(props.match.title || "")));
+const teams = computed(() => {
+  const title = String(props.match.title || "");
+  const mid = obMid.value;
+  if (isObFootballPlaceholderTitle(title, mid, String(props.match.game || ""))) {
+    const en = mid ? peekObEnglishNames(mid) : null;
+    if (en?.home && en?.away)
+      return { home: en.home, away: en.away };
+  }
+  return splitFootballTeams(title);
+});
 
 /** HTTP 结构稳定；实时价由 FootballOddsCell 按 oid 读 sportOddsStore，不订全局 tick。 */
 const listRows = computed(() => viewBetsToMarketRows(props.match));

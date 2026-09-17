@@ -238,7 +238,9 @@ WS C201 → football_orders 拒单/盈亏（能解析才写）
 用户栏「当日盈亏」读 calendar today，不跟侧栏日期走
 ```
 
-足球跟单订单 **[changmen 实现]**：独立 `football_orders`，不进电竞 `orders`。结算对齐电竞「场馆轮询」而不是只靠 WS：下单后 2.5s 以及会话 45s 拉官网注单接口。`getOrderListPB` 请求体未抓到调用点，键沿用同包 `page/size/sportId/timeType`（**[changmen 推测]**）。
+足球跟单订单 **[changmen 实现]**：独立 `football_orders`，不进电竞 `orders`。展示对齐电竞 `getOrders`：下单后 `waitObSportVenueOrderHydration` 等注单出现再落库；队名取 `detailList[].homeName`/`awayName`，赔率取 `oddFinally`，本地「联赛 mid vs 客」占位不落库。
+
+**[官网可证实]** `post_getOrderList` 请求体（PC `use-id`）：`orderStatus`/`selected` 0=未结、1=已结；`timeType:1`、`orderBy:1`、`page`/`size`、`userId`。回包 `data.records[]` + `detailList[]`：`oddFinally`/`oddsValues`、`betAmount`、`matchInfo`、`playName`、`playOptionName`、`marketValue`、`outcome`（2走水 3输 4赢 5赢半 6输半）。**没有** `settleFlag`。
 
 | 层 | 文件 |
 |----|------|

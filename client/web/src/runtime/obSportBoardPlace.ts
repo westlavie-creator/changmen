@@ -138,7 +138,8 @@ export async function placeObSportBoardBet(
         away: String(input.away || "").trim(),
         sideLabel: side,
         marketLabel: market,
-        odds,
+        // 优先场馆成交赔率；完整字段由 syncVenueSettlement 从 getOrderListPB 覆盖
+        odds: Number(placed.odds) > 1 ? Number(placed.odds) : odds,
         stake,
         oid,
         obMid: mid,

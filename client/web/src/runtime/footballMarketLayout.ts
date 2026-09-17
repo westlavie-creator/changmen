@@ -35,9 +35,15 @@ const KIND_ORDER: Record<FootballBookKind, number> = { ml: 0, ah: 1, ou: 2, grid
 
 export function splitFootballTeams(title: string): { home: string; away: string } {
   const parts = String(title || "").split(/\s+vs\.?\s+/i);
-  const home = String(parts[0] || "").trim() || "主";
-  const away = String(parts.slice(1).join(" vs ") || "").trim() || "客";
-  return { home, away };
+  const home = String(parts[0] || "").trim();
+  const away = String(parts.slice(1).join(" vs ") || "").trim();
+  // 无 vs 时整串多半是「联赛 mid」占位，不要拆成「联赛 mid vs 客」
+  if (!away) {
+    if (!home || /\s\d{4,12}$/.test(home))
+      return { home: "主队", away: "客队" };
+    return { home: home || "主", away: "客" };
+  }
+  return { home: home || "主", away };
 }
 
 export function formatFootballLine(line: number | null | undefined): string {

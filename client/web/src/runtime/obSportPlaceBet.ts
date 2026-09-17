@@ -8,7 +8,7 @@
  * 旧预检/提交路径在官网 PC 包里不存在（预检固定业务不支持，提交 404）。
  */
 import { pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
-import { obSportPlaceAccepted } from "@/runtime/obSportOrderStatus";
+import { obSportPlaceAccepted, oddsFromObSportPlace } from "@/runtime/obSportOrderStatus";
 import { postObSportPb } from "@/runtime/obSportFootballFetch";
 import {
   extractObPlaySelections,
@@ -42,7 +42,7 @@ export type ObSportPlaceRequest = {
 };
 
 export type ObSportPlaceResult =
-  | { ok: true; orderId: string }
+  | { ok: true; orderId: string; odds?: number }
   | { ok: false; message: string };
 
 export type ObSportMarketInfo = {
@@ -740,7 +740,8 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
     const accepted = obSportPlaceAccepted(placed);
     if (!accepted.ok)
       return accepted;
-    return { ok: true, orderId: accepted.orderId };
+    const venueOdds = oddsFromObSportPlace(placed) || odds;
+    return { ok: true, orderId: accepted.orderId, odds: venueOdds > 1 ? venueOdds : undefined };
   };
 
   const firstType: 1 | 2 = req.matchType === 2 ? 2 : 1;

@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
-import { getFootballOrders, patchFootballOrderStatus, saveFootballOrder, type FootballOrderDto } from "@/api/footballOrder";
-import { fetchObSportOrderStatusPatches } from "@/runtime/obSportBetRecord";
+import { getFootballOrders, saveFootballOrder, type FootballOrderDto } from "@/api/footballOrder";
+import { fetchObSportPendingOrderPatches, waitObSportVenueOrderHydration } from "@/runtime/obSportBetRecord";
 import { pickObSportBetAccount } from "@/runtime/obSportBetAccount";
-import type { ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
+import { isPlaceholderTeam, type ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
 import {
   footballOrderSettledProfit,
@@ -186,14 +186,47 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       ) as
         | { accountId?: number; playerName?: string }
         | null;
-      const dto: FootballOrderDto = {
+      const playerId = Number(row.playerId) || Number(picked?.accountId) || 0;
+      // 对齐电竞：本地只作占位；队名/赔率等以官网注单为准，占位队名不落库
+      const home = isPlaceholderTeam(row.home) ? "" : String(row.home || "").trim();
+      const away = isPlaceholderTeam(row.away) ? "" : String(row.away || "").trim();
+      let dto: FootballOrderDto = {
         ...row,
+        home,
+        away,
         status: row.status || "None",
         profit: Number(row.profit) || 0,
         venue: "OB",
-        playerId: Number(row.playerId) || Number(picked?.accountId) || 0,
+        playerId,
         accountName: String(row.accountName || picked?.playerName || ""),
       };
+      const orderId = String(dto.orderId || "").trim();
+      if (orderId) {
+        try {
+          const [venue] = await waitObSportVenueOrderHydration({ orderId, playerId });
+          if (venue) {
+            dto = {
+              ...dto,
+              ...(venue.odds && venue.odds > 1 ? { odds: venue.odds } : {}),
+              ...(venue.stake && venue.stake > 0 ? { stake: venue.stake } : {}),
+              ...(venue.home ? { home: venue.home } : {}),
+              ...(venue.away ? { away: venue.away } : {}),
+              ...(venue.sideLabel ? { sideLabel: venue.sideLabel } : {}),
+              ...(venue.marketLabel ? { marketLabel: venue.marketLabel } : {}),
+              ...(venue.oid ? { oid: venue.oid } : {}),
+              ...(venue.obMid ? { obMid: venue.obMid } : {}),
+              ...(venue.at && venue.at > 0 ? { at: venue.at } : {}),
+              ...(!isFootballOrderPending(venue.status)
+                ? { status: venue.status, profit: Number(venue.profit) || 0 }
+                : {}),
+            };
+          }
+        }
+        catch (err) {
+          if (import.meta.env?.DEV)
+            console.warn("[football] wait venue order skipped", err);
+        }
+      }
       const saved = await this.persist(dto);
       this.syncVenueSettlementSoon();
       return saved;
@@ -207,20 +240,62 @@ export const useFootballOrderStore = defineStore("footballOrders", {
           continue;
         const row = this.rows.find(item => item.orderId === orderId)
           || this.todayRows.find(item => item.orderId === orderId);
-        if (row && row.status === patch.status && Number(row.profit) === Number(patch.profit))
+        const nextStatus = patch.status || row?.status || "None";
+        const nextProfit = patch.status && !isFootballOrderPending(patch.status)
+          ? Number(patch.profit) || 0
+          : (row ? Number(row.profit) || 0 : Number(patch.profit) || 0);
+        const venueHome = patch.home && !isPlaceholderTeam(patch.home) ? patch.home : "";
+        const venueAway = patch.away && !isPlaceholderTeam(patch.away) ? patch.away : "";
+        const keepHome = row?.home && !isPlaceholderTeam(row.home) ? row.home : "";
+        const keepAway = row?.away && !isPlaceholderTeam(row.away) ? row.away : "";
+        const merged: FootballOrderDto = {
+          ...(row || {
+            id: orderId,
+            orderId,
+            at: Number(patch.at) || Date.now(),
+            home: "",
+            away: "",
+            sideLabel: "",
+            marketLabel: "",
+            odds: 0,
+            stake: 0,
+            oid: "",
+            obMid: "",
+            auto: false,
+            status: "None",
+            profit: 0,
+            venue: "OB",
+          }),
+          orderId,
+          status: nextStatus,
+          profit: nextProfit,
+          home: venueHome || keepHome,
+          away: venueAway || keepAway,
+          ...(patch.odds && patch.odds > 1 ? { odds: patch.odds } : {}),
+          ...(patch.stake && patch.stake > 0 ? { stake: patch.stake } : {}),
+          ...(patch.sideLabel ? { sideLabel: patch.sideLabel } : {}),
+          ...(patch.marketLabel ? { marketLabel: patch.marketLabel } : {}),
+          ...(patch.oid ? { oid: patch.oid } : {}),
+          ...(patch.obMid ? { obMid: patch.obMid } : {}),
+          ...(patch.at && patch.at > 0 ? { at: patch.at } : {}),
+        };
+        if (
+          row
+          && row.status === merged.status
+          && Number(row.profit) === Number(merged.profit)
+          && Number(row.odds) === Number(merged.odds)
+          && Number(row.stake) === Number(merged.stake)
+          && row.home === merged.home
+          && row.away === merged.away
+          && row.sideLabel === merged.sideLabel
+          && row.marketLabel === merged.marketLabel
+        )
           continue;
         try {
-          const saved = row
-            ? await saveFootballOrder({ ...row, status: patch.status, profit: patch.profit })
-            : await patchFootballOrderStatus({
-              orderId,
-              status: patch.status,
-              profit: patch.profit,
-              venue: "OB",
-            });
+          const saved = await saveFootballOrder(merged);
           if (!saved || typeof saved !== "object")
             continue;
-          const next = asDto({ ...(row || saved), ...saved, id: saved.id || row?.id || orderId });
+          const next = asDto({ ...merged, ...saved, id: saved.id || merged.id || orderId });
           if (!next.id)
             continue;
           this.mergeLocal(next);
@@ -234,14 +309,21 @@ export const useFootballOrderStore = defineStore("footballOrders", {
     async syncVenueSettlement() {
       if (syncing)
         return;
-      const pending = [...this.todayRows, ...this.rows]
-        .filter(row => isFootballOrderPending(row.status) && String(row.orderId || "").trim());
-      const ids = [...new Set(pending.map(row => String(row.orderId).trim()))];
-      if (!ids.length)
+      const seen = new Set<string>();
+      const pending: { orderId: string; playerId: number }[] = [];
+      // 全部当日单都从官网注单回填（赔率/盘口/盈亏），不只待结算
+      for (const row of [...this.todayRows, ...this.rows]) {
+        const orderId = String(row.orderId || "").trim();
+        if (!orderId || seen.has(orderId))
+          continue;
+        seen.add(orderId);
+        pending.push({ orderId, playerId: Number(row.playerId) || 0 });
+      }
+      if (!pending.length)
         return;
       syncing = true;
       try {
-        const patches = await fetchObSportOrderStatusPatches(ids);
+        const patches = await fetchObSportPendingOrderPatches(pending);
         await this.applyVenueStatus(patches);
       }
       catch (err) {
@@ -252,7 +334,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         syncing = false;
       }
     },
-    syncVenueSettlementSoon(delayMs = 2500) {
+    syncVenueSettlementSoon(delayMs = 800) {
       if (settleTimer)
         clearTimeout(settleTimer);
       settleTimer = setTimeout(() => {

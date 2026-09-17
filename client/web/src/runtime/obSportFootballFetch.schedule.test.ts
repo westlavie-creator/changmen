@@ -3,6 +3,7 @@ import {
   buildObFootballListDto,
   collectObFootballSchedule,
   isObElectronicFootball,
+  isObFootballPlaceholderTitle,
 } from "@/runtime/obSportFootballFetch";
 
 describe("collectObFootballSchedule", () => {
@@ -205,6 +206,8 @@ describe("buildObFootballListDto", () => {
     expect(dto?.Game).toBe("泰超");
     expect(dto?.Matchs).toEqual({ OB: "5555289" });
     expect(dto?.Bets).toEqual([]);
+    expect(isObFootballPlaceholderTitle(String(dto?.Title), "5555289", "泰超")).toBe(true);
+    expect(isObFootballPlaceholderTitle("阿森纳 vs 切尔西", "5555289", "泰超")).toBe(false);
   });
 
   it("still drops 大 vs 小 junk titles", () => {
