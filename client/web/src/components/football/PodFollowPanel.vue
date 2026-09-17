@@ -23,6 +23,7 @@ import {
 import {
   formatPodEv,
   pickPodYaboAutoTicket,
+  podYaboAutoSkipReason,
   scorePodYaboFollow,
 } from "@/runtime/podYabo";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
@@ -104,10 +105,15 @@ const nowTick = ref(Date.now());
 const missTick = ref(0);
 const prefetchTick = ref(0);
 const sportAmount = ref(0);
+/** 对齐 AutoYabo seenAlertKeys：自动试过的票不再每轮重打 */
+const autoAttempted = ref<Record<string, true>>({});
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 let amountTimer: ReturnType<typeof setInterval> | null = null;
 let stopMissSearch: (() => void) | null = null;
 let stopPrefetch: (() => void) | null = null;
+/** AutoYabo 50ms；Vue 侧 250ms 兼顾反应与开销 */
+const AUTO_TICK_MS = 250;
+const IDLE_TICK_MS = 1_000;
 
 const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
 
@@ -203,6 +209,9 @@ watch(tickets, (rows) => {
         odds: Number(ticket.marketMatch.quote) || Number(ticket.obQuote.quote) || 0,
       });
   }
+  // 票一就绪立刻试，不等下一轮 tick（对齐 AutoYabo 新行立刻处理）
+  if (betSettings.value.autoPlace)
+    void maybeAutoPlace();
 }, { immediate: true });
 
 function jumpToTicket(ticket: (typeof tickets.value)[number]) {
@@ -311,11 +320,12 @@ function onPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) {
 async function maybeAutoPlace() {
   if (!betSettings.value.autoPlace || placingId.value)
     return;
-  const ready = tickets.value.filter(ticket =>
+  const ageOk = tickets.value.filter(ticket =>
     podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value),
   );
   const skipped = [
     ...Object.keys(placed.value),
+    ...Object.keys(autoAttempted.value),
     ...logRows.value.filter(row => row.placed).map(row => row.id),
   ];
   const placedEntries = logRows.value
@@ -325,8 +335,64 @@ async function maybeAutoPlace() {
       marketCode: row.marketCode,
       boardSide: row.boardSide,
     }));
+  const cap = {
+    todayProfit: footballOrders.todayProfit,
+    openStake: footballOrders.todayOpenStake,
+    maxDailyLoss: betSettings.value.maxDailyLoss,
+  };
+  // 暖一下预检价，给 EV/锁盘判断；真下单仍走 queryBetAmountPB
+  for (const ticket of ageOk.slice(0, 6)) {
+    const payload = ticketPlacePayload(ticket);
+    if (payload.fixtureBasis !== "confirmed")
+      continue;
+    if (podFollowPlaceBlock(payload))
+      continue;
+    const oid = String(payload.market.oid || "").trim();
+    const mid = String(payload.obMid || "").trim();
+    if (oid && mid)
+      void prefetchObSportOidQuote(oid, mid, {
+        marketCode: payload.market.marketCode,
+        boardSide: payload.market.boardSide || undefined,
+        odds: Number(payload.quote.quote) || Number(payload.market.quote) || 0,
+      });
+  }
   const next = pickPodYaboAutoTicket(
-    ready.map(row => ticketPlacePayload(row)),
+    ageOk.map(row => ticketPlacePayload(row)),
+    skipped,
+    placedEntries,
+    cap,
+  );
+  if (!next)
+    return;
+  const ui = tickets.value.find(row => row.id === next.id);
+  if (!ui)
+    return;
+  // 先占坑再下：对齐 seenAlertKeys，避免管道慢时重复打同一票
+  autoAttempted.value = { ...autoAttempted.value, [next.id]: true };
+  await placeTicket(ui, true);
+}
+
+function autoSkipHint(ticket: (typeof tickets.value)[number]): string {
+  if (!betSettings.value.autoPlace || isPlaced(ticket.id))
+    return "";
+  if (autoAttempted.value[ticket.id])
+    return "自动跳过：已试过";
+  if (!podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value))
+    return `自动跳过：已过时效(${betSettings.value.maxAgeSec || 0}s)`;
+  const skipped = [
+    ...Object.keys(placed.value),
+    ...Object.keys(autoAttempted.value),
+    ...logRows.value.filter(row => row.placed).map(row => row.id),
+  ];
+  const placedEntries = logRows.value
+    .filter(row => row.placed && row.obMid && row.boardSide)
+    .map(row => ({
+      obMid: row.obMid,
+      marketCode: row.marketCode,
+      boardSide: row.boardSide,
+    }));
+  const reason = podYaboAutoSkipReason(
+    ticketPlacePayload(ticket),
     skipped,
     placedEntries,
     {
@@ -335,11 +401,7 @@ async function maybeAutoPlace() {
       maxDailyLoss: betSettings.value.maxDailyLoss,
     },
   );
-  if (!next)
-    return;
-  const ui = tickets.value.find(row => row.id === next.id);
-  if (ui)
-    await placeTicket(ui, true);
+  return reason ? `自动跳过：${reason}` : "";
 }
 
 const stakeModel = computed({
@@ -529,6 +591,21 @@ function persistAuto(raw: boolean) {
     ...betSettings.value,
     autoPlace: raw === true,
   });
+  restartAutoTick();
+}
+
+function restartAutoTick() {
+  if (nowTimer) {
+    clearInterval(nowTimer);
+    nowTimer = null;
+  }
+  const ms = betSettings.value.autoPlace ? AUTO_TICK_MS : IDLE_TICK_MS;
+  nowTimer = setInterval(() => {
+    nowTick.value = Date.now();
+    void maybeAutoPlace();
+  }, ms);
+  if (betSettings.value.autoPlace)
+    void maybeAutoPlace();
 }
 
 function persistFollowAccounts(raw: number[] | null | undefined) {
@@ -557,7 +634,10 @@ async function refreshSportAmount() {
 }
 
 function reloadBetSettings() {
+  const prevAuto = betSettings.value.autoPlace;
   betSettings.value = readPodBetSettings();
+  if (prevAuto !== betSettings.value.autoPlace)
+    restartAutoTick();
 }
 
 function openPodSettings() {
@@ -598,10 +678,7 @@ onMounted(() => {
   stopPrefetch = subscribePodMarketPrefetch(() => {
     prefetchTick.value += 1;
   });
-  nowTimer = setInterval(() => {
-    nowTick.value = Date.now();
-    void maybeAutoPlace();
-  }, 1_000);
+  restartAutoTick();
   void refreshSportAmount();
   amountTimer = setInterval(() => {
     void refreshSportAmount();
@@ -765,11 +842,14 @@ onUnmounted(() => {
                   type="button"
                   class="pod-follow-row__place"
                   :disabled="!!placeBlock(row.live) || placingId === row.live.id"
-                  :title="placeBlock(row.live) || undefined"
+                  :title="placeBlock(row.live) || autoSkipHint(row.live) || undefined"
                   @click="onPlaceClick($event, row.live)"
                 >
                   {{ placeLabel(row.live) }}
                 </button>
+              </div>
+              <div v-if="autoSkipHint(row.live)" class="pod-follow-row__auto-skip">
+                {{ autoSkipHint(row.live) }}
               </div>
             </template>
             <template v-else>
@@ -1094,6 +1174,12 @@ onUnmounted(() => {
 
 .pod-follow-row__placed.is-no {
   color: #fbbf24;
+}
+.pod-follow-row__auto-skip {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #f59e0b;
+  line-height: 1.35;
 }
 
 .pod-follow-row__place {

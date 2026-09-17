@@ -17,7 +17,7 @@ import { pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSp
 import { readPodBetSettings } from "@/runtime/podBetSettings";
 import { useAccountStore } from "@/stores/accountStore";
 
-const OID_TTL_MS = 8_000;
+const OID_TTL_MS = 90_000;
 const MARKET_TTL_MS = 30_000;
 
 const oidQuotes = new Map<string, { at: number; odds: number }>();

@@ -102,7 +102,7 @@ onUnmounted(() => {
       对 OB 时仍要同一场、默认同档。EV / 副盘 / 同场闸门在下面「AutoYabo 决策」。
       每条会标<strong>已下 / 未下</strong>；下单用下面选的跟单账号（可多选，每个号各下一注）。
       自动只打<strong>已确认</strong>的场，猜测场可手点。板上没有这场才热搜一次。
-      「时效」只挡自动下单，不把票从列表拿掉。改完即时写入本机。
+      「时效」= 降赔出现后允许对场/核价/下单的短管道（默认 30s），对齐 AutoYabo「新票立刻打」；过时不再自动，列表仍留。改完即时写入本机。
     </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
       <el-form-item label="启用筛选">
@@ -225,13 +225,13 @@ onUnmounted(() => {
         <el-input-number
           v-model="form.maxAgeSec"
           :disabled="!form.enabled"
-          :min="5"
+          :min="0"
           :max="600"
           :step="5"
           controls-position="right"
         />
         <span class="pod-bet-settings__unit">秒内</span>
-        <span class="pod-bet-settings__note">过时不再自动下；列表仍留</span>
+        <span class="pod-bet-settings__note">默认 30；0 = 不限（可打冷边）。过时不再自动，列表仍留</span>
       </el-form-item>
     </el-form>
   </div>

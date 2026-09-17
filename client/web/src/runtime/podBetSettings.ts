@@ -62,7 +62,9 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   ...POD_YABO_SETTINGS_DEFAULTS,
   minOdds: 1.45,
   maxOdds: 3.2,
-  maxAgeSec: 45,
+  // AutoYabo 无「挂几分钟」：50ms 盯最新一行，见过就不再打。
+  // 这里只给对场/核价/下单的短管道预算，不是冷票续命窗口。
+  maxAgeSec: 30,
   stake: 0,
   autoPlace: false,
   followAccountIds: [],
@@ -132,7 +134,11 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     ...yabo,
     minOdds: Math.min(lo, hi),
     maxOdds: Math.max(lo, hi),
-    maxAgeSec: Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 5, 600)),
+    maxAgeSec: (() => {
+      const n = Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 0, 600));
+      // 撤回误把默认拉到 180 的迁移；45 是旧默认，保留用户显式设置
+      return n === 180 ? d.maxAgeSec : n;
+    })(),
     stake: clampNum(row.stake, d.stake, 0, 1_000_000),
     autoPlace: bool(row.autoPlace, d.autoPlace),
     followAccountIds,
@@ -171,7 +177,11 @@ function alertOdds(alert: PodDropAlert): number {
   return alert.current;
 }
 
-/** 时效只挡自动下单；0 = 不限。列表扫描应传 0。 */
+/**
+ * 自动管道时效：降赔出现后允许完成对场/核价/下单的最长时间。
+ * 0 = 不限（危险，可打冷边）。列表扫描应传 0。
+ * [A8/AutoYabo] 原文无此字段；对齐其「新警报立刻打、见过不重打」。
+ */
 export function podAlertWithinFollowAge(
   alert: Pick<PodDropAlert, "alertedAt">,
   maxAgeSec: number,

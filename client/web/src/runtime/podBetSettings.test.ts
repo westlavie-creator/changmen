@@ -58,6 +58,10 @@ describe("podBetSettings", () => {
     expect(emptyMarkets.spreads).toBe(false);
     expect(parsePodBetSettings({ autoPlace: true }).autoPlace).toBe(true);
     expect(parsePodBetSettings({ lineMatch: "loose" }).lineMatch).toBe("loose");
+    expect(POD_BET_SETTINGS_DEFAULTS.maxAgeSec).toBe(30);
+    // 撤回误默认 180；显式 45 保留
+    expect(parsePodBetSettings({ maxAgeSec: 180 }).maxAgeSec).toBe(30);
+    expect(parsePodBetSettings({ maxAgeSec: 45 }).maxAgeSec).toBe(45);
   });
 
   it("classifies line kinds", () => {
@@ -74,7 +78,7 @@ describe("podBetSettings", () => {
     expect(podAlertPassesBetGate(alert(), s, now)).toBe(true);
     expect(podAlertPassesBetGate(alert({ starts: now - 1 }), s, now)).toBe(false);
     expect(podAlertPassesBetGate(alert({ lineType: "spread", market: "AH", outcome: "home" }), s, now)).toBe(false);
-    expect(podAlertPassesBetGate(alert({ alertedAt: now - 120_000 }), s, now)).toBe(false);
+    expect(podAlertPassesBetGate(alert({ alertedAt: now - 200_000 }), s, now)).toBe(false);
     expect(podAlertPassesBetGate(alert({ sportId: 3, sport: "Tennis" }), s, now)).toBe(false);
     expect(podAlertPassesBetGate(alert({ period: 1 }), s, now)).toBe(false);
     expect(podAlertPassesBetGate(alert({ period: 1 }), { ...s, includeHt: true }, now)).toBe(true);

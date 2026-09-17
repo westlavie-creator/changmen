@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PodFollowPlaceTicket } from "@/runtime/podFollowPlace";
-import { pickPodYaboAutoTicket } from "@/runtime/podYabo/auto";
+import { pickPodYaboAutoTicket, podYaboAutoSkipReason } from "@/runtime/podYabo/auto";
 
 function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket {
   return {
@@ -26,7 +26,7 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
 }
 
 describe("podYabo/auto", () => {
-  it("picks the highest EV live ticket and skips HTTP / same-side add", () => {
+  it("picks the highest EV ticket; skips blocked / guess / same-side", () => {
     const ready = ticket({ id: "a" });
     const blocked = ticket({ id: "b", stake: 0 });
     const later = ticket({ id: "c" });
@@ -40,9 +40,13 @@ describe("podYabo/auto", () => {
       marketCode: "totals",
       boardSide: "over",
     }])).toBeNull();
+    // 对齐 AutoYabo：自动等馆内实时价；HTTP 快照不进自动
     expect(pickPodYaboAutoTicket([ticket({ id: "http", market: {
       status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: false,
     } })], [])).toBeNull();
+    expect(podYaboAutoSkipReason(ticket({ id: "http", market: {
+      status: "matched", ob: true, locked: false, oid: "oid-over", quote: 1.95, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: false,
+    } }))).toBe("等实时价");
     expect(pickPodYaboAutoTicket([ticket({ id: "guess", fixtureBasis: "guess" })], [])).toBeNull();
     expect(pickPodYaboAutoTicket([ticket({ id: "cap" })], [], [], {
       todayProfit: -200,
