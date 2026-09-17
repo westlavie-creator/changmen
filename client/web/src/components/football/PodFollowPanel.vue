@@ -43,6 +43,7 @@ import {
 import {
   placePodFollowBet,
   podFollowPlaceBlock,
+  type PodFollowPlaceTicket,
 } from "@/runtime/podFollowPlace";
 import {
   buildPodFollowLogRow,
