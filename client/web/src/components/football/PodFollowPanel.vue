@@ -23,7 +23,6 @@ import {
 import {
   formatPodEv,
   pickPodYaboAutoTicket,
-  podYaboAutoSkipReason,
   scorePodYaboFollow,
 } from "@/runtime/podYabo";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
@@ -44,12 +43,10 @@ import {
 import {
   placePodFollowBet,
   podFollowPlaceBlock,
-  type PodFollowPlaceTicket,
 } from "@/runtime/podFollowPlace";
 import {
   buildPodFollowLogRow,
   clearPodFollowLog,
-  formatPodFollowLogPlace,
   formatPodFollowLogQuote,
   formatPodFollowLogWhen,
   markPodFollowLogPlaced,
@@ -58,6 +55,11 @@ import {
   upsertPodFollowEv,
   type PodFollowLogRow,
 } from "@/runtime/podFollowLog";
+import {
+  formatPodFollowPending,
+  resolvePodFollowPending,
+  type PodFollowPendingState,
+} from "@/runtime/podFollowPending";
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import {
   listPodObMissFixtures,
@@ -167,12 +169,6 @@ const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
 const liveById = computed(() => new Map(
   tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
 ));
-const displayRows = computed(() => logRows.value
-  .filter(log => log.obMid)
-  .map(log => ({
-    log,
-    live: liveById.value.get(log.id),
-  })));
 
 function refreshLog() {
   logRows.value = readPodFollowLog();
@@ -263,12 +259,75 @@ function placeLabel(ticket: (typeof tickets.value)[number]): string {
   return "下单";
 }
 
-function placeStatus(row: { log: PodFollowLogRow }): string {
-  return formatPodFollowLogPlace({
-    placed: isPlaced(row.log.id),
-    placeNote: placeNote.value[row.log.id] || row.log.placeNote,
+function pendingCap() {
+  return {
+    todayProfit: footballOrders.todayProfit,
+    openStake: footballOrders.todayOpenStake,
+    maxDailyLoss: betSettings.value.maxDailyLoss,
+  };
+}
+
+function pendingPlacedIds(): string[] {
+  return [
+    ...Object.keys(placed.value),
+    ...Object.keys(autoAttempted.value),
+    ...logRows.value.filter(row => row.placed).map(row => row.id),
+  ];
+}
+
+function pendingPlacedEntries() {
+  return logRows.value
+    .filter(row => row.placed && row.obMid && row.boardSide)
+    .map(row => ({
+      obMid: row.obMid,
+      marketCode: row.marketCode,
+      boardSide: row.boardSide,
+    }));
+}
+
+function pendingStateFor(
+  live: (typeof tickets.value)[number] | undefined,
+  log: PodFollowLogRow,
+): PodFollowPendingState {
+  return resolvePodFollowPending({
+    ticket: live ? ticketPlacePayload(live) : null,
+    placed: isPlaced(log.id),
+    placing: placingId.value === log.id,
+    autoPlace: betSettings.value.autoPlace,
+    withinAge: live
+      ? podAlertWithinFollowAge(live.alert, betSettings.value.maxAgeSec, nowTick.value)
+      : false,
+    maxAgeSec: betSettings.value.maxAgeSec,
+    autoAttempted: !!autoAttempted.value[log.id],
+    placeNote: placeNote.value[log.id] || log.placeNote,
+    placedIds: pendingPlacedIds(),
+    placedEntries: pendingPlacedEntries(),
+    cap: pendingCap(),
   });
 }
+
+const displayRows = computed(() => {
+  void nowTick.value;
+  void placingId.value;
+  void placed.value;
+  void autoAttempted.value;
+  void placeNote.value;
+  void betSettings.value.autoPlace;
+  void betSettings.value.maxAgeSec;
+  void betSettings.value.maxDailyLoss;
+  void footballOrders.todayProfit;
+  void footballOrders.todayOpenStake;
+  return logRows.value
+    .filter(log => log.obMid)
+    .map(log => {
+      const live = liveById.value.get(log.id);
+      return {
+        log,
+        live,
+        pending: pendingStateFor(live, log),
+      };
+    });
+});
 
 function onDisplayClick(row: { live?: (typeof tickets.value)[number]; log: PodFollowLogRow }) {
   if (row.live)
@@ -323,23 +382,9 @@ async function maybeAutoPlace() {
   const ageOk = tickets.value.filter(ticket =>
     podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value),
   );
-  const skipped = [
-    ...Object.keys(placed.value),
-    ...Object.keys(autoAttempted.value),
-    ...logRows.value.filter(row => row.placed).map(row => row.id),
-  ];
-  const placedEntries = logRows.value
-    .filter(row => row.placed && row.obMid && row.boardSide)
-    .map(row => ({
-      obMid: row.obMid,
-      marketCode: row.marketCode,
-      boardSide: row.boardSide,
-    }));
-  const cap = {
-    todayProfit: footballOrders.todayProfit,
-    openStake: footballOrders.todayOpenStake,
-    maxDailyLoss: betSettings.value.maxDailyLoss,
-  };
+  const skipped = pendingPlacedIds();
+  const placedEntries = pendingPlacedEntries();
+  const cap = pendingCap();
   // 暖一下预检价，给 EV/锁盘判断；真下单仍走 queryBetAmountPB
   for (const ticket of ageOk.slice(0, 6)) {
     const payload = ticketPlacePayload(ticket);
@@ -372,36 +417,35 @@ async function maybeAutoPlace() {
   await placeTicket(ui, true);
 }
 
-function autoSkipHint(ticket: (typeof tickets.value)[number]): string {
-  if (!betSettings.value.autoPlace || isPlaced(ticket.id))
-    return "";
-  if (autoAttempted.value[ticket.id])
-    return "自动跳过：已试过";
-  if (!podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value))
-    return `自动跳过：已过时效(${betSettings.value.maxAgeSec || 0}s)`;
-  const skipped = [
-    ...Object.keys(placed.value),
-    ...Object.keys(autoAttempted.value),
-    ...logRows.value.filter(row => row.placed).map(row => row.id),
-  ];
-  const placedEntries = logRows.value
-    .filter(row => row.placed && row.obMid && row.boardSide)
-    .map(row => ({
-      obMid: row.obMid,
-      marketCode: row.marketCode,
-      boardSide: row.boardSide,
-    }));
-  const reason = podYaboAutoSkipReason(
-    ticketPlacePayload(ticket),
-    skipped,
-    placedEntries,
-    {
-      todayProfit: footballOrders.todayProfit,
-      openStake: footballOrders.todayOpenStake,
-      maxDailyLoss: betSettings.value.maxDailyLoss,
-    },
-  );
-  return reason ? `自动跳过：${reason}` : "";
+function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | undefined {
+  const block = placeBlock(ticket);
+  if (block)
+    return block;
+  const pending = pendingStateFor(ticket, {
+    id: ticket.id,
+    at: 0,
+    home: "",
+    away: "",
+    league: "",
+    sideLabel: "",
+    marketLabel: "",
+    nvp: 0,
+    minObOdds: 0,
+    obQuote: 0,
+    dropPct: 0,
+    stake: 0,
+    oid: "",
+    obMid: "",
+    marketCode: "",
+    boardSide: null,
+    boardLine: null,
+    placed: isPlaced(ticket.id),
+    placedAt: 0,
+    placeNote: placeNote.value[ticket.id] || "",
+  });
+  if (pending.placed || pending.detail === "可手点" || pending.detail === "待自动")
+    return undefined;
+  return formatPodFollowPending(pending);
 }
 
 const stakeModel = computed({
@@ -780,7 +824,7 @@ onUnmounted(() => {
           </button>
         </div>
         <p v-if="!snapshot.sourceConnected && !displayRows.length" class="pod-follow-panel__hint">
-          等 POD 连通后，对上场和盘的会进来并一直留下。时效只挡自动下注。
+          等 POD 连通后，对上场和盘的会进来并一直留下。冷票保护只挡自动。
         </p>
         <p v-else-if="!displayRows.length" class="pod-follow-panel__hint">
           还没有跟单机会。对上足球板的场和盘才会进来，并标有没有下单。
@@ -825,31 +869,36 @@ onUnmounted(() => {
               </div>
               <div class="pod-follow-row__meta">
                 {{ row.live.alert.league }} · {{ row.live.marketLabel }}
+                · PIN {{ formatPodPrice(row.live.pinPrevious) }}→{{ formatPodPrice(row.live.pinCurrent) }}
+                · NVP {{ formatPodPrice(row.live.nvp) }}
+                · ≥{{ formatPodPrice(row.live.minObOdds) }}
+                <template v-if="row.live.maxObOdds">· ≤{{ formatPodPrice(row.live.maxObOdds) }}</template>
               </div>
-              <div class="pod-follow-row__bet">
-                <span>PIN {{ formatPodPrice(row.live.pinPrevious) }} → {{ formatPodPrice(row.live.pinCurrent) }}</span>
-                <span>NVP {{ formatPodPrice(row.live.nvp) }}</span>
-                <span class="pod-follow-row__ob">OB ≥ {{ formatPodPrice(row.live.minObOdds) }}</span>
-                <span v-if="row.live.maxObOdds">OB ≤ {{ formatPodPrice(row.live.maxObOdds) }}</span>
-              </div>
-              <div class="pod-follow-row__plan">
-                <span>{{ formatPodStake(row.live.stake) }}</span>
-                <span>{{ formatPodKickoff(row.live.starts, nowTick) }}</span>
-                <span class="pod-follow-row__placed" :class="isPlaced(row.log.id) ? 'is-yes' : 'is-no'">
-                  {{ placeStatus(row) }}
+              <div class="pod-follow-row__foot">
+                <div
+                  class="pod-follow-row__status"
+                  :class="`is-${row.pending.tone}`"
+                  :title="row.pending.detail || undefined"
+                >
+                  <span class="pod-follow-row__status-lab">{{ row.pending.label }}</span>
+                  <span
+                    v-if="row.pending.detail"
+                    class="pod-follow-row__status-detail"
+                  >{{ row.pending.detail }}</span>
+                </div>
+                <span class="pod-follow-row__foot-meta">
+                  {{ formatPodStake(row.live.stake) }}
+                  · {{ formatPodKickoff(row.live.starts, nowTick) }}
                 </span>
                 <button
                   type="button"
                   class="pod-follow-row__place"
                   :disabled="!!placeBlock(row.live) || placingId === row.live.id"
-                  :title="placeBlock(row.live) || autoSkipHint(row.live) || undefined"
+                  :title="placeButtonTitle(row.live)"
                   @click="onPlaceClick($event, row.live)"
                 >
                   {{ placeLabel(row.live) }}
                 </button>
-              </div>
-              <div v-if="autoSkipHint(row.live)" class="pod-follow-row__auto-skip">
-                {{ autoSkipHint(row.live) }}
               </div>
             </template>
             <template v-else>
@@ -859,19 +908,25 @@ onUnmounted(() => {
               </div>
               <div class="pod-follow-row__match">{{ row.log.home }} vs {{ row.log.away }}</div>
               <div class="pod-follow-row__quote">{{ formatPodFollowLogQuote(row.log) }}</div>
-              <div class="pod-follow-row__meta">{{ row.log.league }} · {{ row.log.marketLabel }}</div>
-              <div class="pod-follow-row__bet">
-                <span>NVP {{ formatPodPrice(row.log.nvp) }}</span>
-                <span>{{ formatPodStake(row.log.stake) }}</span>
-                <span>{{ formatPodFollowLogWhen(row.log.at, nowTick) }}</span>
-                <span class="pod-follow-row__placed" :class="isPlaced(row.log.id) ? 'is-yes' : 'is-no'">
-                  {{ placeStatus(row) }}
-                </span>
+              <div class="pod-follow-row__meta">
+                {{ row.log.league }} · {{ row.log.marketLabel }}
+                · NVP {{ formatPodPrice(row.log.nvp) }}
+                · {{ formatPodFollowLogWhen(row.log.at, nowTick) }}
+              </div>
+              <div class="pod-follow-row__foot">
+                <div
+                  class="pod-follow-row__status"
+                  :class="`is-${row.pending.tone}`"
+                >
+                  <span class="pod-follow-row__status-lab">{{ row.pending.label }}</span>
+                  <span
+                    v-if="row.pending.detail"
+                    class="pod-follow-row__status-detail"
+                  >{{ row.pending.detail }}</span>
+                </div>
+                <span class="pod-follow-row__foot-meta">{{ formatPodStake(row.log.stake) }}</span>
               </div>
             </template>
-            <div v-if="placeNote[row.log.id] && !isPlaced(row.log.id)" class="pod-follow-row__note">
-              {{ placeNote[row.log.id] }}
-            </div>
           </article>
         </div>
       </template>
@@ -1111,9 +1166,7 @@ onUnmounted(() => {
 .pod-follow-row__fixture,
 .pod-follow-row__market,
 .pod-follow-row__quote,
-.pod-follow-row__meta,
-.pod-follow-row__bet,
-.pod-follow-row__plan {
+.pod-follow-row__meta {
   margin-top: 4px;
   font-size: 11px;
   color: #94a3b8;
@@ -1151,35 +1204,74 @@ onUnmounted(() => {
   margin-left: 6px;
 }
 
-.pod-follow-row__bet,
-.pod-follow-row__plan {
+.pod-follow-row__foot {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  font-variant-numeric: tabular-nums;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.pod-follow-row__ob {
-  color: #fde68a;
-  font-weight: 600;
-}
-
-.pod-follow-row__placed {
-  font-weight: 600;
-}
-
-.pod-follow-row__placed.is-yes {
-  color: #4ade80;
-}
-
-.pod-follow-row__placed.is-no {
-  color: #fbbf24;
-}
-.pod-follow-row__auto-skip {
-  margin-top: 4px;
+.pod-follow-row__status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
   font-size: 11px;
-  color: #f59e0b;
   line-height: 1.35;
+}
+
+.pod-follow-row__status-lab {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.pod-follow-row__status-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.92;
+}
+
+.pod-follow-row__status.is-ok {
+  color: #86efac;
+  background: #22c55e18;
+  border-color: #22c55e44;
+}
+
+.pod-follow-row__status.is-ready {
+  color: #fde68a;
+  background: #f59e0b18;
+  border-color: #f59e0b55;
+}
+
+.pod-follow-row__status.is-wait {
+  color: #7dd3fc;
+  background: #0ea5e918;
+  border-color: #0ea5e944;
+}
+
+.pod-follow-row__status.is-block {
+  color: #fdba74;
+  background: #ea580c18;
+  border-color: #ea580c44;
+}
+
+.pod-follow-row__status.is-idle {
+  color: #94a3b8;
+  background: #64748b18;
+  border-color: #64748b44;
+}
+
+.pod-follow-row__foot-meta {
+  color: #64748b;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .pod-follow-row__place {
@@ -1200,12 +1292,6 @@ onUnmounted(() => {
 .pod-follow-row__place:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.pod-follow-row__note {
-  margin-top: 4px;
-  font-size: 11px;
-  color: #fbbf24;
 }
 
 .pod-follow-panel__resize {

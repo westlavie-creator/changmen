@@ -11,7 +11,7 @@ defineProps<{
     <p class="pod-yabo-settings__title">AutoYabo 决策</p>
     <p class="pod-yabo-settings__hint">
       独立模块 <code>runtime/podYabo</code>：EV 上下限、让球更高边、同场同向/反向闸门、自动等实时价、优先高 EV。
-      对齐 AutoYabo：新降赔就绪立刻打，不用长时效续冷票。「含副盘」只对 ±0.25 邻档，且必须用该档自己的 NVP。
+      对齐 AutoYabo：新降赔<strong>就绪立刻打</strong>，见过不重打；冷票保护是我们列表常驻才加的，原文没有。「含副盘」须用该档 NVP。
     </p>
     <el-form-item label="盘口">
       <el-switch
