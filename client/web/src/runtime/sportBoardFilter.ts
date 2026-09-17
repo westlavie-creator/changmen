@@ -75,7 +75,8 @@ export function sortSportBoardMatchesByStartTime(matches: ViewMatch[]): ViewMatc
 /**
  * 默认：纯 OB 未来 2 小时未开赛 + 开赛后 4 小时内（滚球）；
  * 带 PM/PF 的场未来 6 小时（服务端同窗；板上再裁一次，避免 7 天缓存把几天后的盘漏进来）。
- * 有搜索词时不裁窗口。结果按开赛时间排序。
+ * `showLive:false` 时不含已开赛（滚球）。有搜索词时仍裁窗口，但默认不因搜索放开滚球开关。
+ * 结果按开赛时间排序。
  */
 export function filterSportBoardMatches(
   matches: ViewMatch[],
@@ -85,19 +86,34 @@ export function filterSportBoardMatches(
     lookbackMs?: number;
     pmHorizonMs?: number;
     now?: number;
+    /** 默认 true；false = 只显示未开赛 */
+    showLive?: boolean;
   } = {},
 ): ViewMatch[] {
   const list = (Array.isArray(matches) ? matches : [])
     .filter(m => !isFootballJunkMatchTitle(String(m.title || "")));
   const q = String(opts.query || "").trim();
   const searched = !q ? list : list.filter(m => matchMatchesSearch(m, q));
-  if (q)
-    return sortSportBoardMatchesByStartTime(searched);
-  const horizon = Number(opts.horizonMs);
-  if (!(horizon > 0))
-    return sortSportBoardMatchesByStartTime(searched);
+  const showLive = opts.showLive !== false;
   const now = opts.now ?? Date.now();
-  const lookback = opts.lookbackMs ?? FOOTBALL_LIVE_LOOKBACK_MS;
+  const lookback = showLive
+    ? (opts.lookbackMs ?? FOOTBALL_LIVE_LOOKBACK_MS)
+    : 0;
+  const horizon = Number(opts.horizonMs);
+  // 搜索：不裁「未来多久」，但仍尊重是否显示滚球
+  if (q) {
+    if (showLive)
+      return sortSportBoardMatchesByStartTime(searched);
+    return sortSportBoardMatchesByStartTime(
+      searched.filter(m => (Number(m.startAt) || 0) >= now),
+    );
+  }
+  if (!(horizon > 0))
+    return sortSportBoardMatchesByStartTime(
+      showLive
+        ? searched
+        : searched.filter(m => (Number(m.startAt) || 0) >= now),
+    );
   const pmHorizon = Number(opts.pmHorizonMs) > 0
     ? Number(opts.pmHorizonMs)
     : FOOTBALL_PM_UPCOMING_MS;

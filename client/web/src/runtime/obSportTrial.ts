@@ -7,11 +7,12 @@ export type PandaSportTrialLang = "zh" | "en";
 
 const TRYPLAY_ORIGIN = "https://api.dbsporxxxw1box.com/yewu6/user/tryPlay";
 
-export function pandaSportTryPlayUrl(lang: PandaSportTrialLang = "zh"): string {
+export function pandaSportTryPlayUrl(lang: PandaSportTrialLang = "en"): string {
   return `${TRYPLAY_ORIGIN}?lang=${lang}&terminal=PC`;
 }
 
-export const PANDA_SPORT_TRYPLAY_URL = pandaSportTryPlayUrl("zh");
+/** 足球板默认英文主会话；中文队名走旁路。 */
+export const PANDA_SPORT_TRYPLAY_URL = pandaSportTryPlayUrl("en");
 export const PANDA_SPORT_TRIAL_GATEWAY = "https://api.dbsporxxxw1box.com";
 export const PANDA_SPORT_TRIAL_SHELL = "https://user-pc-new.dbgaming.com";
 
@@ -69,6 +70,8 @@ export type PandaSportTrialPaste = {
   referer: string;
   href: string;
   userName?: string;
+  /** 与 tryPlay?lang= 一致；足球主会话默认 en。 */
+  lang?: PandaSportTrialLang;
 };
 
 function asObject(value: unknown): Record<string, unknown> | null {
@@ -126,7 +129,7 @@ export function formatPandaSportTrialPaste(row: PandaSportTrialPaste): string {
 }
 
 export async function fetchPandaSportTrialRow(
-  lang: PandaSportTrialLang = "zh",
+  lang: PandaSportTrialLang = "en",
 ): Promise<PandaSportTrialPaste> {
   const res = await fetch(pandaSportTryPlayUrl(lang), {
     method: "GET",
@@ -134,9 +137,13 @@ export async function fetchPandaSportTrialRow(
   });
   if (!res.ok)
     throw new Error(`试玩 token HTTP ${res.status}`);
-  return parsePandaSportTryPlay(await res.json());
+  const row = parsePandaSportTryPlay(await res.json());
+  row.lang = lang;
+  return row;
 }
 
-export async function fetchPandaSportTrialPaste(): Promise<string> {
-  return formatPandaSportTrialPaste(await fetchPandaSportTrialRow());
+export async function fetchPandaSportTrialPaste(
+  lang: PandaSportTrialLang = "en",
+): Promise<string> {
+  return formatPandaSportTrialPaste(await fetchPandaSportTrialRow(lang));
 }

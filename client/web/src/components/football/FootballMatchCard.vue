@@ -9,7 +9,10 @@ import {
   obSportShowLiveBadge,
 } from "@/runtime/obSportLive";
 import { isObFootballPlaceholderTitle } from "@/runtime/obSportFootballFetch";
-import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
+import {
+  obChineseNamesRev,
+  peekObChineseNames,
+} from "@/runtime/obSportChineseNames";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { storeToRefs } from "pinia";
 import { computed, onUnmounted, ref, watch } from "vue";
@@ -25,16 +28,44 @@ let clockTimer: ReturnType<typeof setInterval> | null = null;
 
 const leagueTag = computed(() => footballLeagueTag(props.match.game));
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
+
+const boardTitle = computed(() => String(props.match.title || "").trim());
+
+const zhNames = computed(() => {
+  void obChineseNamesRev.value;
+  const mid = obMid.value;
+  return mid ? peekObChineseNames(mid) : null;
+});
+
+const zhTitle = computed(() => {
+  const zh = zhNames.value;
+  if (!zh?.home || !zh?.away)
+    return "";
+  return `${zh.home} vs ${zh.away}`;
+});
+
+/** 主标题：英文主会话优先；占位时退中文旁路，再退联赛+mid。 */
 const displayTitle = computed(() => {
-  const title = String(props.match.title || "").trim();
+  const title = boardTitle.value;
   const mid = obMid.value;
   if (!isObFootballPlaceholderTitle(title, mid, String(props.match.game || "")))
-    return title || "足球";
-  const en = mid ? peekObEnglishNames(mid) : null;
-  if (en?.home && en?.away)
-    return `${en.home} vs ${en.away}`;
-  return "主队 vs 客队";
+    return title || "Football";
+  if (zhTitle.value)
+    return zhTitle.value;
+  return title || (mid ? `Football ${mid}` : "Home vs Away");
 });
+
+/** 英文主标题后附中文；中文已作主标题时不重复。 */
+const displayChinese = computed(() => {
+  const zh = zhTitle.value;
+  if (!zh)
+    return "";
+  const main = displayTitle.value.trim().toLowerCase();
+  if (main === zh.toLowerCase())
+    return "";
+  return zh;
+});
+
 /** 只订本场 byMid 的比分/节次，不订全局 liveTick，也不读 elapsedSec。 */
 const live = computed(() => {
   const mid = obMid.value;
@@ -78,7 +109,10 @@ onUnmounted(stopClock);
 <template>
   <div class="match-title football-match__title">
     <label v-if="leagueTag" class="game-tag">[{{ leagueTag }}]</label>
-    <label class="football-match__name">{{ displayTitle }}</label>
+    <label class="football-match__name">
+      {{ displayTitle }}
+      <span v-if="displayChinese" class="football-match__zh">{{ displayChinese }}</span>
+    </label>
     <span v-if="showLive" class="football-match__live">
       <span v-if="periodLabel" class="football-match__period">{{ periodLabel }}</span>
       <span v-if="clockLabel" class="football-match__clock">{{ clockLabel }}</span>
@@ -99,6 +133,12 @@ onUnmounted(stopClock);
 .football-match__name {
   min-width: 0;
   font-weight: 600;
+}
+.football-match__zh {
+  margin-left: 8px;
+  font-weight: 500;
+  font-size: 0.92em;
+  color: #94a3b8;
 }
 .football-match__live {
   margin-left: auto;

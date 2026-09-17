@@ -12,6 +12,8 @@ export type SportObSessionLocal = ObSportSessionLite & {
   api?: string;
   uid?: string;
   lastGateway?: string;
+  /** tryPlay 语言；足球主会话应为 en。 */
+  lang?: "zh" | "en";
   updatedAt?: number;
   configured?: boolean;
   tokenMasked?: string;
@@ -186,6 +188,8 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
   const isSportKind = String(parsed.kind || "").toLowerCase() === "sport";
   if (!sessionId && !isSportKind)
     return { ok: false, msg: "缺少 sessionId" };
+  const langRaw = String(parsed.lang || "").trim().toLowerCase();
+  const lang = langRaw === "zh" || langRaw === "en" ? langRaw : undefined;
   const session: SportObSessionLocal = {
     kind: "sport",
     token,
@@ -195,6 +199,7 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
     referer: String(parsed.referer || "").trim(),
     wsUrl: String(parsed.wsUrl || parsed.ws || "").trim(),
     uid: String(parsed.uid || "").trim(),
+    lang,
     updatedAt: Date.now(),
   };
   session.wsUrl = resolveObSportWsUrl(session) || session.wsUrl;
@@ -217,6 +222,7 @@ export function mergeIncomingSportObSession(
     referer: String(incoming.referer || prev?.referer || "").trim(),
     api: String(incoming.api || prev?.api || "").trim(),
     sessionId: String(incoming.sessionId || prev?.sessionId || "").trim(),
+    lang: incoming.lang || prev?.lang,
     token,
     updatedAt: Date.now(),
   };

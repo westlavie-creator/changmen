@@ -9,6 +9,10 @@ import {
   filterSportBoardMatches,
 } from "@/runtime/sportBoardFilter";
 import {
+  readFootballBoardShowLive,
+  writeFootballBoardShowLive,
+} from "@/runtime/footballBoardPrefs";
+import {
   startSportLiveOddsSession,
   type SportLiveOddsSession,
 } from "@/runtime/sportLiveOdds";
@@ -32,6 +36,7 @@ const { listRev } = storeToRefs(obLive);
 
 const searchQuery = ref("");
 const leagueFilter = ref("");
+const showLive = ref(readFootballBoardShowLive());
 const nowTick = ref(Date.now());
 const matchsEl = ref<HTMLElement | null>(null);
 let nowTimer: ReturnType<typeof setInterval> | null = null;
@@ -51,7 +56,18 @@ const displayedMatchs = computed(() => {
     horizonMs: FOOTBALL_UPCOMING_MS,
     lookbackMs: FOOTBALL_LIVE_LOOKBACK_MS,
     now: nowTick.value,
+    showLive: showLive.value,
   });
+});
+
+const horizonHint = computed(() => (
+  showLive.value
+    ? "预测市场 6小时 · OB 2小时/滚球"
+    : "预测市场 6小时 · OB 2小时（不含滚球）"
+));
+
+watch(showLive, (v) => {
+  writeFootballBoardShowLive(v);
 });
 
 const leagueTabs = computed(() => {
@@ -201,11 +217,14 @@ watch(() => podBoardFocus.value?.token, async (token) => {
         clearable
         class="match-search"
       />
+      <el-checkbox v-model="showLive" class="match-show-live">
+        显示滚球
+      </el-checkbox>
       <span class="match-count" :title="`当前列表 ${displayedMatchs.length} 场`">
         {{ matchCountLabel }}
       </span>
       <span class="sport-toolbar__meta">
-        预测市场 6小时 · OB 2小时/滚球
+        {{ horizonHint }}
       </span>
       <el-button link type="primary" :loading="loading || refreshing" @click="football.fetchMatchs(true)">
         刷新
@@ -273,6 +292,17 @@ watch(() => podBoardFocus.value?.token, async (token) => {
 }
 .football-board-list .match-search-row {
   flex: 0 0 auto;
+}
+.match-show-live {
+  flex: 0 0 auto;
+  margin: 0;
+  white-space: nowrap;
+  color: #cbd5e1;
+}
+.match-show-live :deep(.el-checkbox__label) {
+  color: #cbd5e1;
+  font-size: 13px;
+  padding-left: 6px;
 }
 .football-board-list .matchs,
 .football-board-list .match-empty {

@@ -95,6 +95,29 @@ describe("sportBoardFilter", () => {
   });
 
 
+  it("showLive false drops in-play kickoffs", () => {
+    const live = match(3, "Live vs Team", now - 30 * 60_000);
+    const soon = match(1, "Soon vs Team", now + 20 * 60_000);
+    const def = filterSportBoardMatches([live, soon], {
+      horizonMs: FOOTBALL_UPCOMING_MS,
+      now,
+      showLive: false,
+    });
+    expect(def.map(m => m.id)).toEqual([1]);
+  });
+
+  it("search still respects showLive false", () => {
+    const live = match(3, "Arsenal Live vs Team", now - 10 * 60_000);
+    const soon = match(1, "Arsenal Soon vs Team", now + 20 * 60_000);
+    const searched = filterSportBoardMatches([live, soon], {
+      query: "arsenal",
+      horizonMs: FOOTBALL_UPCOMING_MS,
+      now,
+      showLive: false,
+    });
+    expect(searched.map(m => m.id)).toEqual([1]);
+  });
+
   it("sorts remaining matches by kickoff time", () => {
     const later = match(2, "Later vs Team", now + 90 * 60_000);
     const sooner = match(1, "Soon vs Team", now + 20 * 60_000);

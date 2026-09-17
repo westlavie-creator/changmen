@@ -43,7 +43,7 @@ describe("obSportTrial", () => {
   it("builds zh and en tryPlay URLs without mixing tokens", () => {
     expect(pandaSportTryPlayUrl("zh")).toContain("lang=zh");
     expect(pandaSportTryPlayUrl("en")).toContain("lang=en");
-    expect(pandaSportTryPlayUrl()).toContain("lang=zh");
+    expect(pandaSportTryPlayUrl()).toContain("lang=en");
   });
 
   it("does not treat the official PC shell as an HTTP gateway", () => {

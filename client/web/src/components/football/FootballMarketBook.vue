@@ -7,6 +7,10 @@ import {
   type FootballBookColumn,
 } from "@/runtime/footballMarketLayout";
 import { isObFootballPlaceholderTitle } from "@/runtime/obSportFootballFetch";
+import {
+  obChineseNamesRev,
+  peekObChineseNames,
+} from "@/runtime/obSportChineseNames";
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import {
   invalidateFootballObMarkets,
@@ -34,9 +38,13 @@ const { playRevByMid } = storeToRefs(obLive);
 
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
 const teams = computed(() => {
+  void obChineseNamesRev.value;
   const title = String(props.match.title || "");
   const mid = obMid.value;
   if (isObFootballPlaceholderTitle(title, mid, String(props.match.game || ""))) {
+    const zh = mid ? peekObChineseNames(mid) : null;
+    if (zh?.home && zh?.away)
+      return { home: zh.home, away: zh.away };
     const en = mid ? peekObEnglishNames(mid) : null;
     if (en?.home && en?.away)
       return { home: en.home, away: en.away };

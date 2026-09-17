@@ -21,11 +21,24 @@ import {
 import { isObSportC8Mid } from "@/runtime/obSportWs";
 import { livePatchFromObMatchRow, type ObSportLivePatch } from "@/runtime/obSportLive";
 import {
-  peekObEnglishNames,
-  refreshObEnglishNamesForMids,
+  rememberObEnglishNames,
+  type ObEnglishTeamNames,
 } from "@/runtime/obSportEnglishNames";
-import { readLocalSportObSession, type SportObSessionLocal } from "@/runtime/obSportSessionLocal";
-import { resolveObSportHttpGateway } from "@/runtime/obSportTrial";
+import {
+  peekObChineseNames,
+  refreshObChineseNamesForMids,
+} from "@/runtime/obSportChineseNames";
+import {
+  parseSportObSessionInput,
+  readLocalSportObSession,
+  writeLocalSportObSession,
+  type SportObSessionLocal,
+} from "@/runtime/obSportSessionLocal";
+import {
+  fetchPandaSportTrialRow,
+  formatPandaSportTrialPaste,
+  resolveObSportHttpGateway,
+} from "@/runtime/obSportTrial";
 
 const CACHE_TTL_MS = 120_000;
 const ODDS_BATCH = 12;
@@ -98,7 +111,7 @@ function buildHeaders(session: SportObSessionLocal): Record<string, string> {
   return {
     "Content-Type": "application/json",
     Accept: "application/json, text/plain, */*",
-    lang: "zh",
+    lang: "en",
     requestId: token,
     checkId: `pc-${uuidNoDash()}-${cuid}-${ts}`,
     "request-code": "{\"panda-bss-source\":\"2\"}",
@@ -434,7 +447,21 @@ function ingestOddsRow(row: unknown, byMid: Map<string, Record<string, unknown>>
   if (!mid || !isObSportC8Mid(mid))
     return;
   const prev = byMid.get(mid);
-  byMid.set(mid, prev ? { ...prev, ...rec } : rec);
+  if (!prev) {
+    byMid.set(mid, rec);
+    return;
+  }
+  // 玩法子行也带 mid、无 mhn/man；后写空串会冲掉已有队名。
+  const next = { ...prev, ...rec };
+  if (!names.home && prev.mhn)
+    next.mhn = prev.mhn;
+  if (!names.away && prev.man)
+    next.man = prev.man;
+  if (!String(next.tnjc || "").trim() && prev.tnjc)
+    next.tnjc = prev.tnjc;
+  if (!String(next.tn || "").trim() && prev.tn)
+    next.tn = prev.tn;
+  byMid.set(mid, next);
 }
 
 function ingestOddsRows(decoded: unknown, byMid: Map<string, Record<string, unknown>>) {
@@ -456,44 +483,68 @@ function ingestOddsRows(decoded: unknown, byMid: Map<string, Record<string, unkn
   }
 }
 
+/**
+ * 按 mid 拉底价。实拉：接口常漏回部分 mid，且易 0401038。
+ * 限流时退避续跑（不整批放弃）；漏回的 mid 再缩批重试。
+ */
 async function fetchOddsByMids(
   session: SportObSessionLocal,
   mids: string[],
   euid = EUID_FOOTBALL,
 ): Promise<{ byMid: Map<string, Record<string, unknown>>; rateLimited: boolean }> {
   const byMid = new Map<string, Record<string, unknown>>();
-  const queue = chunk(mids, ODDS_BATCH);
+  const want = [...new Set(mids.map(mid => String(mid || "").trim()).filter(isObSportC8Mid))];
+  let rateLimited = false;
   let rateHits = 0;
-  let retriedPart = false;
-  while (queue.length) {
-    const part = queue.shift()!;
-    try {
-      const decoded = await postPb(session, LIST_ODDS_PATH, {
-        cuid: sportCuid(session),
-        euid,
-        mids: part.join(","),
-      });
-      ingestOddsRows(decoded, byMid);
-      retriedPart = false;
-    }
-    catch (err) {
-      if (isRateLimited(err)) {
-        rateHits += 1;
-        if (!retriedPart && rateHits < MAX_RATE_LIMIT_HITS) {
-          retriedPart = true;
-          await sleep(RATE_LIMIT_SLEEP_MS);
+
+  const runParts = async (parts: string[][], allowShrink: boolean) => {
+    const queue = [...parts];
+    while (queue.length) {
+      const part = queue.shift()!;
+      try {
+        const decoded = await postPb(session, LIST_ODDS_PATH, {
+          cuid: sportCuid(session),
+          euid,
+          mids: part.join(","),
+        });
+        ingestOddsRows(decoded, byMid);
+      }
+      catch (err) {
+        if (isRateLimited(err)) {
+          rateLimited = true;
+          rateHits += 1;
+          if (rateHits >= MAX_RATE_LIMIT_HITS) {
+            console.warn("[football] OB odds rate-limited, skip rest of wave", euid, queue.length + 1);
+            return;
+          }
+          await sleep(RATE_LIMIT_SLEEP_MS * Math.min(rateHits, 3));
+          if (allowShrink && part.length > 4) {
+            queue.unshift(...chunk(part, Math.max(4, Math.ceil(part.length / 2))));
+            continue;
+          }
           queue.unshift(part);
           continue;
         }
-        console.warn("[football] OB odds rate-limited, keep schedule cards", euid, part.length);
-        break;
+        console.warn("[football] OB odds batch skipped", euid, err instanceof Error ? err.message : err);
       }
-      retriedPart = false;
+      if (queue.length)
+        await sleep(BATCH_GAP_MS);
     }
-    if (queue.length)
-      await sleep(BATCH_GAP_MS);
-  }
-  return { byMid, rateLimited: rateHits > 0 };
+  };
+
+  await runParts(chunk(want, ODDS_BATCH), true);
+
+  const missing = want.filter(mid => {
+    const row = byMid.get(mid);
+    if (!row)
+      return true;
+    const names = teamNames(row);
+    return !(names.home && names.away);
+  });
+  if (missing.length && rateHits < MAX_RATE_LIMIT_HITS)
+    await runParts(chunk(missing, 4), false);
+
+  return { byMid, rateLimited };
 }
 
 function matchRowFromDecoded(decoded: unknown): Record<string, unknown> | null {
@@ -657,14 +708,53 @@ export function isObFootballPlaceholderTitle(title: string, mid = "", game = "")
   return Boolean(id && new RegExp(`(?:^|\\s)${id}$`).test(t));
 }
 
-function fillDtoTitleFromEnglish(dto: ClientMatchDto): ClientMatchDto {
+function fillDtoTitleFromChinese(dto: ClientMatchDto): ClientMatchDto {
   const mid = String(dto.Matchs?.OB || "").trim();
   if (!mid || !isObFootballPlaceholderTitle(String(dto.Title || ""), mid, String(dto.Game || "")))
     return dto;
-  const en = peekObEnglishNames(mid);
-  if (!en?.home || !en?.away)
+  const zh = peekObChineseNames(mid);
+  if (!zh?.home || !zh?.away)
     return dto;
-  return { ...dto, Title: `${en.home} vs ${en.away}` };
+  return { ...dto, Title: `${zh.home} vs ${zh.away}` };
+}
+
+function seedEnglishNamesFromDtos(dtos: ClientMatchDto[], keepMids: string[]) {
+  const rows = new Map<string, ObEnglishTeamNames>();
+  for (const dto of dtos) {
+    const mid = String(dto.Matchs?.OB || "").trim();
+    if (!mid || isObFootballPlaceholderTitle(String(dto.Title || ""), mid, String(dto.Game || "")))
+      continue;
+    const parts = String(dto.Title || "").split(/\s+vs\.?\s+/i);
+    const home = String(parts[0] || "").trim();
+    const away = String(parts.slice(1).join(" vs ") || "").trim();
+    if (!home || !away)
+      continue;
+    rows.set(mid, {
+      home,
+      away,
+      league: String(dto.Game || "").trim(),
+    });
+  }
+  rememberObEnglishNames(rows, keepMids);
+}
+
+/** 旧中文试玩 token 配 lang=en 会 0401038；无 lang 或非 en 时自动换英文试玩。 */
+async function ensureEnglishSportSession(): Promise<SportObSessionLocal | null> {
+  const cur = readLocalSportObSession();
+  if (cur?.token && cur.lang === "en" && gatewayOrigin(cur))
+    return cur;
+  try {
+    const row = await fetchPandaSportTrialRow("en");
+    const parsed = parseSportObSessionInput(formatPandaSportTrialPaste(row));
+    if (!parsed.ok)
+      return cur;
+    return writeLocalSportObSession({ ...parsed.session, lang: "en" });
+  }
+  catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[football] OB en trial refresh skipped", msg);
+    return cur;
+  }
 }
 
 function metaOrOddsNamed(meta: ScheduleMeta, oddsRow: Record<string, unknown> | undefined): boolean {
@@ -752,7 +842,7 @@ function mergeSchedule(parts: ScheduleMeta[][]): ScheduleMeta[] {
 }
 
 async function doFetch(): Promise<ClientMatchDto[]> {
-  const session = readLocalSportObSession();
+  const session = await ensureEnglishSportSession();
   if (!session?.token)
     return [];
   if (!gatewayOrigin(session))
@@ -778,17 +868,17 @@ async function doFetch(): Promise<ClientMatchDto[]> {
     return matchInUpcomingWindow(t, now);
   }).sort((a, b) => Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)));
   const mids = windowed.map(m => m.mid).filter(Boolean);
-  const englishWork = refreshObEnglishNamesForMids(mids).catch((err) => {
+  const chineseWork = refreshObChineseNamesForMids(mids).catch((err) => {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn("[football] OB English names skipped", msg);
+    console.warn("[football] OB Chinese names skipped", msg);
   });
   const oddsFirst = await fetchOddsByMids(session, mids);
   const oddsMap = oddsFirst.byMid;
-  // 早盘赛程袋常只有 mids、无 mhn/man；早盘 euid 也可能没带回队名，再用滚球 euid 补一轮。
+  // 赛程袋无队名；按 mid 赔率常漏回/限流。缺名再打滚球 euid，再用详情补。
   const missingNames = windowed
     .filter(m => m.mid && !metaOrOddsNamed(m, oddsMap.get(m.mid)))
     .map(m => m.mid);
-  if (missingNames.length && !oddsFirst.rateLimited) {
+  if (missingNames.length) {
     const extra = await fetchOddsByMids(session, missingNames, EUID_FOOTBALL_LIVE);
     for (const [mid, row] of extra.byMid)
       oddsMap.set(mid, row);
@@ -796,26 +886,42 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   const stillMissing = windowed
     .filter(m => m.mid && !metaOrOddsNamed(m, oddsMap.get(m.mid)))
     .map(m => m.mid)
-    .slice(0, 8);
+    // 详情是单 mid；全量扫太慢且易 0401038。赔率缩批补完后通常只剩少数。
+    .slice(0, 40);
+  let detailRateHits = 0;
   for (const mid of stillMissing) {
-    try {
-      const detailRow = matchRowFromDecoded(await postPb(session, DETAIL_ODDS_PATH, {
-        cuid: sportCuid(session),
-        cos: 0,
-        orpt: 0,
-        euid: EUID_FOOTBALL,
-        mid,
-        mcid: 0,
-        newUser: 0,
-      }));
-      if (detailRow) {
-        const prev = oddsMap.get(mid);
-        oddsMap.set(mid, prev ? { ...prev, ...detailRow } : detailRow);
+    if (detailRateHits >= MAX_RATE_LIMIT_HITS)
+      break;
+    let done = false;
+    for (let attempt = 0; attempt < 3 && !done; attempt++) {
+      try {
+        const detailRow = matchRowFromDecoded(await postPb(session, DETAIL_ODDS_PATH, {
+          cuid: sportCuid(session),
+          cos: 0,
+          orpt: 0,
+          euid: EUID_FOOTBALL,
+          mid,
+          mcid: 0,
+          newUser: 0,
+        }));
+        if (detailRow) {
+          const prev = oddsMap.get(mid);
+          oddsMap.set(mid, prev ? { ...prev, ...detailRow } : detailRow);
+        }
+        done = true;
       }
-    }
-    catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[football] OB detail names skipped", mid, msg);
+      catch (err) {
+        if (isRateLimited(err)) {
+          detailRateHits += 1;
+          await sleep(RATE_LIMIT_SLEEP_MS * Math.min(detailRateHits, 3));
+          if (detailRateHits >= MAX_RATE_LIMIT_HITS)
+            break;
+          continue;
+        }
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[football] OB detail names skipped", mid, msg);
+        done = true;
+      }
     }
     await sleep(BATCH_GAP_MS);
   }
@@ -834,8 +940,9 @@ async function doFetch(): Promise<ClientMatchDto[]> {
   }
   lastLiveByMid = nextLive;
   dtos.sort((a, b) => (Number(a.StartTime) || 0) - (Number(b.StartTime) || 0));
-  await Promise.race([englishWork, sleep(8_000)]);
-  return dtos.map(fillDtoTitleFromEnglish);
+  seedEnglishNamesFromDtos(dtos, mids);
+  await Promise.race([chineseWork, sleep(8_000)]);
+  return dtos.map(fillDtoTitleFromChinese);
 }
 
 export async function fetchObFootballAsClientMatchDtos(): Promise<ClientMatchDto[]> {
