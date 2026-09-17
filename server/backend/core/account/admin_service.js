@@ -235,6 +235,8 @@ export async function listAdminUsers(dateKey = toDateKey(Date.now()), caller = n
   ]);
   const visibleIds = resolveVisibleUserIds(caller, allProfiles);
   const profiles = filterProfiles(allProfiles, visibleIds);
+  // 与 listAdminAccounts / Client_GetData(ACCOUNT) 一致：从 players 回源，避免运维改 owner 后内存缓存缺行
+  await Promise.all((profiles || []).map(p => loadAccountsForUser(String(p.id))));
   const profitByUser = new Map(
     (Array.isArray(rank) ? rank : []).map(r => [String(r.UserName).toLowerCase(), r]),
   );
@@ -257,6 +259,7 @@ export async function getAdminUserDetail(userId, dateKey = toDateKey(Date.now())
   const profile = (profiles || []).find(p => String(p.id) === id);
   if (!profile)
     return null;
+  await loadAccountsForUser(id);
   return mapAdminUserRow(profile, profitByUser);
 }
 
@@ -462,6 +465,7 @@ export async function getAdminUserTradeAccounts(userId, provider, caller = null)
       throw new Error("无权查看该用户");
   }
   await loadProfileById(uid);
+  await loadAccountsForUser(uid);
   const platform = String(provider || "").trim();
   return store.getAccountsForUser(uid)
     .map(mapAccountForTrade)
