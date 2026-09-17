@@ -38,7 +38,12 @@ export type PodBetSettings = {
   stake: number;
   /** 过线且对上 OB 后自动下单。默认关 */
   autoPlace: boolean;
-  /** 跟单用的侧栏 OB 账号；0 = 未暂停里第一个有体育 token 的 */
+  /**
+   * 跟单用的侧栏 OB 账号（可多选）。
+   * 空 = 未暂停里第一个有体育 token 的（兼容旧 followAccountId=0）。
+   */
+  followAccountIds: number[];
+  /** @deprecated 读时等于 followAccountIds[0]||0；写仍会迁进 followAccountIds */
   followAccountId: number;
   /** 自动当日亏损上限（已结算亏损 + 未结算注码）；0 = 不设 */
   maxDailyLoss: number;
@@ -60,6 +65,7 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   maxAgeSec: 45,
   stake: 0,
   autoPlace: false,
+  followAccountIds: [],
   followAccountId: 0,
   maxDailyLoss: 0,
 };
@@ -81,6 +87,27 @@ function clampNum(v: unknown, fallback: number, min: number, max: number): numbe
   return Math.min(max, Math.max(min, n));
 }
 
+/** 归一跟单账号 id 列表；兼容旧 followAccountId。 */
+export function parseFollowAccountIds(raw: unknown, legacyId: unknown = 0): number[] {
+  const out: number[] = [];
+  const push = (v: unknown) => {
+    const n = Math.round(Number(v) || 0);
+    if (!(n > 0) || out.includes(n))
+      return;
+    out.push(n);
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw)
+      push(item);
+  }
+  else if (raw != null && raw !== "") {
+    push(raw);
+  }
+  if (!out.length)
+    push(legacyId);
+  return out;
+}
+
 export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const row = asRecord(raw) || {};
   const d = POD_BET_SETTINGS_DEFAULTS;
@@ -91,6 +118,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const spreads = bool(row.spreads, d.spreads);
   const anyMarket = moneyline || totals || spreads;
   const yabo = parsePodYaboSettings(row);
+  const followAccountIds = parseFollowAccountIds(row.followAccountIds, row.followAccountId);
   return {
     enabled: bool(row.enabled, d.enabled),
     prematchOnly: bool(row.prematchOnly, d.prematchOnly),
@@ -107,7 +135,8 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     maxAgeSec: Math.round(clampNum(row.maxAgeSec, d.maxAgeSec, 5, 600)),
     stake: clampNum(row.stake, d.stake, 0, 1_000_000),
     autoPlace: bool(row.autoPlace, d.autoPlace),
-    followAccountId: Math.round(clampNum(row.followAccountId, d.followAccountId, 0, 1e16)),
+    followAccountIds,
+    followAccountId: followAccountIds[0] || 0,
     maxDailyLoss: clampNum(row.maxDailyLoss, d.maxDailyLoss, 0, 1_000_000),
   };
 }

@@ -21,7 +21,11 @@ export const OB_SPORT_QUERY_ORDER_STATUS_PATH = "/yewu13/v1/betOrder/queryOrderS
 export const OB_SPORT_GET_ORDER_LIST_PATH = "/yewurecord/order/betRecord/getOrderListPB";
 
 function resolveObSportRecordSession(): SportObSessionLocal | null {
-  const account = pickObSportBetAccount(useAccountStore().accounts, readPodBetSettings().followAccountId);
+  const settings = readPodBetSettings();
+  const account = pickObSportBetAccount(
+    useAccountStore().accounts,
+    settings.followAccountIds[0] || settings.followAccountId,
+  );
   const session = sportObSessionFromAccount(account);
   if (!session?.token)
     return null;

@@ -117,6 +117,7 @@ watch(
           :section="sec"
           :home="teams.home"
           :away="teams.away"
+          :mid="obMid"
           :show-title="col.sections.length > 1 || sec.title !== col.label"
         />
       </section>

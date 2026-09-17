@@ -179,6 +179,9 @@ export function playsFromObMatchRow(row: unknown): Record<string, unknown>[] {
   const plays: Record<string, unknown>[] = [];
   if (Array.isArray(src.playData) && src.playData.length)
     pushPlayList(plays, src.playData);
+  // 详情 getMatchBaseInfoByOddsPB 常直接挂 hps / hpsAdd
+  pushPlayList(plays, src.hps);
+  pushPlayList(plays, src.hpsAdd);
   const bags = Array.isArray(src.hpsData) ? src.hpsData : src.hpsData ? [src.hpsData] : [];
   for (const bag of bags as Record<string, unknown>[]) {
     pushPlayList(plays, bag?.hps);

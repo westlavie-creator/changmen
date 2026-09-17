@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * 足球赔率格：按 oddId 读 sportOddsStore，不订全局 tick，不读电竞 fo。
+ * 双击 OB 格 → 用 POD 跟单金额/账号手动下单。
  */
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { confirmPlaceObSportBoardBet } from "@/runtime/obSportBoardPlace";
 import { resolveFootballCellOdds } from "@/runtime/footballMarketRows";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 
@@ -13,12 +15,19 @@ const props = withDefaults(defineProps<{
   compact?: boolean;
   label?: string;
   side?: string;
+  mid?: string;
+  marketCode?: string;
+  line?: number | null;
+  home?: string;
+  away?: string;
 }>(), {
   fallback: 0,
   compact: false,
+  line: null,
 });
 
 const sportOdds = useSportOddsStore();
+const busy = ref(false);
 
 const display = computed(() => resolveFootballCellOdds(
   props.venue || "OB",
@@ -36,15 +45,53 @@ const text = computed(() => {
 });
 
 const locked = computed(() => !(display.value.odds > 0));
+
+const canPlace = computed(() => {
+  const venue = String(props.venue || "OB").trim().toUpperCase() || "OB";
+  return venue === "OB"
+    && !!String(props.oddId || "").trim()
+    && !!String(props.mid || "").trim()
+    && !locked.value;
+});
+
+async function onDblClick(ev: MouseEvent) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (!canPlace.value || busy.value)
+    return;
+  busy.value = true;
+  try {
+    await confirmPlaceObSportBoardBet({
+      oid: String(props.oddId || "").trim(),
+      mid: String(props.mid || "").trim(),
+      odds: Number(display.value.odds) || 0,
+      boardSide: String(props.side || "").trim(),
+      marketCode: String(props.marketCode || "").trim(),
+      line: props.line,
+      home: String(props.home || "").trim(),
+      away: String(props.away || "").trim(),
+    });
+  }
+  finally {
+    busy.value = false;
+  }
+}
 </script>
 
 <template>
   <div
     class="fb-sec__cell"
-    :class="{ lock: locked, 'fb-sec__cell--sm': compact }"
+    :class="{
+      lock: locked,
+      'fb-sec__cell--sm': compact,
+      'fb-sec__cell--bet': canPlace,
+      'is-busy': busy,
+    }"
     :data-odd-id="oddId || undefined"
     :data-pod-side="side || undefined"
     :data-pod-venue="venue || undefined"
+    :title="canPlace ? '双击下单' : undefined"
+    @dblclick="onDblClick"
   >
     <span v-if="label" class="fb-sec__lab">{{ label }}</span>
     <span class="fb-sec__odd">
@@ -68,6 +115,18 @@ const locked = computed(() => !(display.value.odds > 0));
   border-radius: 6px;
   background: hsla(210, 40%, 50%, 0.16);
   border: 1px solid hsla(210, 40%, 70%, 0.18);
+  user-select: none;
+}
+.fb-sec__cell--bet {
+  cursor: pointer;
+}
+.fb-sec__cell--bet:hover:not(.lock) {
+  border-color: #f59e0b99;
+  background: hsla(38, 90%, 45%, 0.22);
+}
+.fb-sec__cell--bet.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
 }
 .fb-sec__cell--sm {
   flex-direction: column;
@@ -105,6 +164,7 @@ const locked = computed(() => !(display.value.odds > 0));
 }
 .fb-sec__cell.lock {
   opacity: 0.45;
+  cursor: default;
 }
 .fb-sec__cell.is-pod-flash {
   outline: 2px solid #fde68a;

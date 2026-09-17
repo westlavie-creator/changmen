@@ -4,7 +4,10 @@
  */
 import type { PodObQuoteCompare, PodMarketMatch } from "@/runtime/podMarketMatch";
 import type { PodFixtureMatchBasis } from "@/runtime/podFixtureMatch";
+import { pickObSportBetAccounts } from "@/runtime/obSportBetAccount";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
+import { readPodBetSettings } from "@/runtime/podBetSettings";
+import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
 export type PodFollowPlaceTicket = {
@@ -18,7 +21,7 @@ export type PodFollowPlaceTicket = {
   sideLabel?: string;
   marketLabel?: string;
   auto?: boolean;
-  market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote" | "marketCode" | "boardSide" | "fromLive">;
+  market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote" | "marketCode" | "boardSide" | "boardLine" | "fromLive">;
   quote: PodObQuoteCompare;
 };
 
@@ -49,30 +52,68 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   const block = podFollowPlaceBlock(ticket);
   if (block)
     return { ok: false, message: block };
-  const placed = await placeObSportSingle({
-    oid: String(ticket.market.oid || "").trim(),
-    mid: String(ticket.obMid || "").trim(),
-    odds: Number(ticket.quote.quote) || Number(ticket.market.quote) || 0,
-    stake: Number(ticket.stake),
-    minOdds: Number(ticket.quote.minObOdds) || 0,
-  });
-  if (!placed.ok)
-    return { ok: false, message: placed.message };
-  await useFootballOrderStore().appendPlaced({
-    id: ticket.id,
-    orderId: placed.orderId,
-    at: Date.now(),
-    home: String(ticket.home || "").trim(),
-    away: String(ticket.away || "").trim(),
-    sideLabel: String(ticket.sideLabel || "").trim(),
-    marketLabel: String(ticket.marketLabel || "").trim(),
-    odds: Number(ticket.quote.quote) || Number(ticket.market.quote) || 0,
-    stake: Number(ticket.stake),
-    oid: String(ticket.market.oid || "").trim(),
-    obMid: String(ticket.obMid || "").trim(),
-    auto: ticket.auto === true,
-    status: "None",
-    profit: 0,
-  });
-  return { ok: true, message: placed.orderId ? `已下 ${placed.orderId}` : "已下单" };
+  const settings = readPodBetSettings();
+  const accounts = pickObSportBetAccounts(useAccountStore().accounts, settings.followAccountIds);
+  if (!accounts.length)
+    return { ok: false, message: "请选择跟单账号（需体育 token）" };
+
+  const orders = useFootballOrderStore();
+  const okNotes: string[] = [];
+  const failNotes: string[] = [];
+  const stake = Number(ticket.stake);
+  const odds = Number(ticket.quote.quote) || Number(ticket.market.quote) || 0;
+  const oid = String(ticket.market.oid || "").trim();
+  const mid = String(ticket.obMid || "").trim();
+  const line = ticket.market.boardLine;
+  // fromLive 只表示板上实时仓有价，不等于滚球；matchType 以预检回包为准，这里只给查询初值
+  const matchType = 1;
+
+  for (const account of accounts) {
+    const accountId = Number(account.accountId) || 0;
+    const label = String(account.playerName || accountId || "账号").trim() || "账号";
+    const placed = await placeObSportSingle({
+      oid,
+      mid,
+      odds,
+      stake,
+      minOdds: Number(ticket.quote.minObOdds) || 0,
+      marketCode: String(ticket.market.marketCode || "").trim(),
+      boardSide: String(ticket.market.boardSide || "").trim(),
+      line,
+      matchType,
+      accountId,
+    });
+    if (!placed.ok) {
+      failNotes.push(`${label}:${placed.message}`);
+      continue;
+    }
+    const orderId = String(placed.orderId || "").trim();
+    await orders.appendPlaced({
+      id: accountId ? `${ticket.id}#${accountId}` : ticket.id,
+      orderId,
+      at: Date.now(),
+      home: String(ticket.home || "").trim(),
+      away: String(ticket.away || "").trim(),
+      sideLabel: String(ticket.sideLabel || "").trim(),
+      marketLabel: String(ticket.marketLabel || "").trim(),
+      odds,
+      stake,
+      oid,
+      obMid: mid,
+      auto: ticket.auto === true,
+      status: "None",
+      profit: 0,
+      playerId: accountId,
+      accountName: label,
+    }, account);
+    okNotes.push(orderId ? `${label}:${orderId}` : label);
+  }
+
+  if (!okNotes.length)
+    return { ok: false, message: failNotes.join("；") || "下单失败" };
+  const head = `已下 ${okNotes.length}/${accounts.length}`;
+  const msg = failNotes.length
+    ? `${head} ${okNotes.join("、")}；失败 ${failNotes.join("；")}`
+    : `${head} ${okNotes.join("、")}`;
+  return { ok: true, message: msg.slice(0, 180) };
 }

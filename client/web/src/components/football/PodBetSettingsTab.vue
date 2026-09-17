@@ -1,40 +1,77 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, watch } from "vue";
 import {
-  parsePodBetSettings,
   POD_BET_SETTINGS_UPDATED,
   POD_FOLLOW_STAKE_PRESETS,
   readPodBetSettings,
   writePodBetSettings,
   type PodBetSettings,
 } from "@/runtime/podBetSettings";
+import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
+import { useAccountStore } from "@/stores/accountStore";
+import PodFollowAccountPicker from "@/components/football/PodFollowAccountPicker.vue";
 import PodYaboSettings from "@/components/football/PodYaboSettings.vue";
 
-const form = reactive<PodBetSettings>(parsePodBetSettings(null));
+const form = reactive<PodBetSettings>(readPodBetSettings());
+const accounts = useAccountStore();
+const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
+
+/** write / apply 期间挡掉回声，避免深监听空转或互相覆盖 */
 let ready = false;
-let applying = false;
+let gate = false;
+
+function snapshot(): PodBetSettings {
+  return {
+    ...form,
+    followAccountIds: form.followAccountIds.slice(),
+    followAccountId: form.followAccountIds[0] || 0,
+  };
+}
 
 function persist() {
-  if (!ready || applying)
+  if (!ready || gate)
     return;
-  applying = true;
+  gate = true;
   try {
-    Object.assign(form, writePodBetSettings(form));
+    writePodBetSettings(snapshot());
   }
   finally {
-    applying = false;
+    gate = false;
   }
 }
 
 function applyExternal() {
-  if (applying)
+  if (gate)
     return;
-  applying = true;
+  gate = true;
   try {
-    Object.assign(form, readPodBetSettings());
+    const next = readPodBetSettings();
+    form.enabled = next.enabled;
+    form.prematchOnly = next.prematchOnly;
+    form.footballOnly = next.footballOnly;
+    form.includeHt = next.includeHt;
+    form.moneyline = next.moneyline;
+    form.totals = next.totals;
+    form.spreads = next.spreads;
+    form.minDropPct = next.minDropPct;
+    form.minObEdgePct = next.minObEdgePct;
+    form.spreadObEdgePct = next.spreadObEdgePct;
+    form.maxObEdgePct = next.maxObEdgePct;
+    form.lineMatch = next.lineMatch;
+    form.minOdds = next.minOdds;
+    form.maxOdds = next.maxOdds;
+    form.maxAgeSec = next.maxAgeSec;
+    form.stake = next.stake;
+    form.autoPlace = next.autoPlace;
+    form.maxDailyLoss = next.maxDailyLoss;
+    form.followAccountId = next.followAccountId;
+    const cur = form.followAccountIds;
+    const ids = next.followAccountIds;
+    if (cur.length !== ids.length || cur.some((id, i) => id !== ids[i]))
+      form.followAccountIds = ids.slice();
   }
   finally {
-    applying = false;
+    gate = false;
   }
 }
 
@@ -48,6 +85,13 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener(POD_BET_SETTINGS_UPDATED, applyExternal);
+  // destroy-on-close：关窗前强制落盘（含未 blur 的数字）
+  gate = false;
+  ready = true;
+  try {
+    writePodBetSettings(snapshot());
+  }
+  catch { /* ignore */ }
 });
 </script>
 
@@ -56,9 +100,9 @@ onUnmounted(() => {
     <p class="pod-bet-settings__hint">
       跟单门槛只存在本机，不写账号配置。过线且对上足球板的场和盘，才会出现在「POD 跟单」浮窗并一直留下，降赔列表本身不筛。
       对 OB 时仍要同一场、默认同档。EV / 副盘 / 同场闸门在下面「AutoYabo 决策」。
-      每条会标<strong>已下 / 未下</strong>；下单用下面选的跟单账号（体育 token）。
+      每条会标<strong>已下 / 未下</strong>；下单用下面选的跟单账号（可多选，每个号各下一注）。
       自动只打<strong>已确认</strong>的场，猜测场可手点。板上没有这场才热搜一次。
-      「时效」只挡自动下单，不把票从列表拿掉。
+      「时效」只挡自动下单，不把票从列表拿掉。改完即时写入本机。
     </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
       <el-form-item label="启用筛选">
@@ -69,15 +113,11 @@ onUnmounted(() => {
         <span class="pod-bet-settings__note">默认关；开了才自动下过线且<strong>已确认</strong>的场</span>
       </el-form-item>
       <el-form-item label="跟单账号">
-        <el-input-number
-          v-model="form.followAccountId"
-          :min="0"
-          :max="1e16"
-          :step="1"
-          :precision="0"
-          controls-position="right"
+        <PodFollowAccountPicker
+          v-model="form.followAccountIds"
+          :accounts="followAccounts"
+          variant="settings"
         />
-        <span class="pod-bet-settings__note">0 = 侧栏里第一个有体育 token 的 OB 号</span>
       </el-form-item>
       <el-form-item label="当日亏损帽">
         <el-input-number

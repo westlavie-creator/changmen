@@ -176,10 +176,13 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         return row;
       }
     },
-    async appendPlaced(row: PodSportOrder) {
-      const account = pickObSportBetAccount(
+    async appendPlaced(
+      row: PodSportOrder,
+      account?: { accountId?: number; playerName?: string } | null,
+    ) {
+      const picked = account || pickObSportBetAccount(
         useAccountStore().accounts,
-        readPodBetSettings().followAccountId,
+        readPodBetSettings().followAccountIds[0] || readPodBetSettings().followAccountId,
       ) as
         | { accountId?: number; playerName?: string }
         | null;
@@ -188,8 +191,8 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         status: row.status || "None",
         profit: Number(row.profit) || 0,
         venue: "OB",
-        playerId: Number(account?.accountId) || 0,
-        accountName: String(account?.playerName || ""),
+        playerId: Number(row.playerId) || Number(picked?.accountId) || 0,
+        accountName: String(row.accountName || picked?.playerName || ""),
       };
       const saved = await this.persist(dto);
       this.syncVenueSettlementSoon();

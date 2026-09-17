@@ -38,12 +38,7 @@ const shownStale = computed(() => {
   return Boolean(props.account.balanceStale);
 });
 
-const emit = defineEmits<{
-  refresh: [];
-  edit: [];
-  money: [];
-  remove: [];
-}>();
+const emit = defineEmits<{ refresh: []; edit: []; money: []; remove: [] }>();
 
 async function promptPmVaultUnlock() {
   if (!pmNeedsUnlock.value || props.preview)

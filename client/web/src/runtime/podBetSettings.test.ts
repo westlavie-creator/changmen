@@ -41,6 +41,10 @@ describe("podBetSettings", () => {
     expect(row.stake).toBe(0);
     expect(row.autoPlace).toBe(false);
     expect(row.followAccountId).toBe(0);
+    expect(row.followAccountIds).toEqual([]);
+    expect(parsePodBetSettings({ followAccountId: 12 }).followAccountIds).toEqual([12]);
+    expect(parsePodBetSettings({ followAccountIds: [3, 3, 5], followAccountId: 9 }).followAccountIds).toEqual([3, 5]);
+    expect(parsePodBetSettings({ followAccountIds: [3, 5] }).followAccountId).toBe(3);
     expect(row.maxDailyLoss).toBe(0);
     expect(row.prematchOnly).toBe(true);
     expect(row.spreads).toBe(false);

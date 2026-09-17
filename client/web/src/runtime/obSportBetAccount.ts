@@ -76,14 +76,27 @@ export function pickObSportBetAccount<T extends ObSportBetAccountLike>(
   accounts: T[],
   accountId = 0,
 ): T | null {
+  return pickObSportBetAccounts(accounts, accountId > 0 ? [accountId] : [])[0] || null;
+}
+
+/** 多选跟单账号。ids 空 = 未暂停里第一个有体育 token 的（与旧 followAccountId=0 一致）。 */
+export function pickObSportBetAccounts<T extends ObSportBetAccountLike>(
+  accounts: T[],
+  accountIds: Iterable<number> = [],
+): T[] {
   const rows = accounts.filter(row => !row.pause && sportObSessionFromAccount(row));
-  const want = Number(accountId) || 0;
-  if (want) {
+  const wants = [...new Set([...accountIds].map(n => Math.round(Number(n) || 0)).filter(n => n > 0))];
+  if (!wants.length) {
+    const one = rows.find(row => row.active) || rows[0];
+    return one ? [one] : [];
+  }
+  const out: T[] = [];
+  for (const want of wants) {
     const hit = rows.find(row => Number(row.accountId) === want);
     if (hit)
-      return hit;
+      out.push(hit);
   }
-  return rows.find(row => row.active) || rows[0] || null;
+  return out;
 }
 
 export function listObSportFollowAccounts<T extends ObSportBetAccountLike>(accounts: T[]): T[] {

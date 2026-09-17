@@ -80,7 +80,10 @@ export async function fetchObSportAmountForAccount(
 
 export async function fetchObSportAmount(): Promise<number> {
   const settings = readPodBetSettings();
-  const account = pickObSportBetAccount(useAccountStore().accounts, settings.followAccountId);
+  const account = pickObSportBetAccount(
+    useAccountStore().accounts,
+    settings.followAccountIds[0] || settings.followAccountId,
+  );
   try {
     return await fetchObSportAmountForAccount(account);
   }

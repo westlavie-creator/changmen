@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isObSportBetToken,
   pickObSportBetAccount,
+  pickObSportBetAccounts,
   readObSportDisplayBalance,
   sportObSessionFromAccount,
 } from "@/runtime/obSportBetAccount";
@@ -99,6 +100,14 @@ describe("obSportBetAccount", () => {
       { ...idle, accountId: 11 },
       { ...active, accountId: 22 },
     ], 11)).toMatchObject({ accountId: 11 });
+    expect(pickObSportBetAccounts([
+      { ...idle, accountId: 11 },
+      { ...active, accountId: 22 },
+    ], [22, 11, 99])).toMatchObject([{ accountId: 22 }, { accountId: 11 }]);
+    expect(pickObSportBetAccounts([
+      { ...idle, accountId: 11 },
+      { ...active, accountId: 22 },
+    ], [])).toMatchObject([{ accountId: 22 }]);
   });
 
   it("exposes sportBalance only for OB sport credentials", () => {

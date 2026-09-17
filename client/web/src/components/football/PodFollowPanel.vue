@@ -73,7 +73,7 @@ import {
 } from "@/runtime/podMarketPrefetch";
 import { fetchObSportAmount } from "@/runtime/obSportAmount";
 import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
-import { accountOrderDisplayName } from "@/shared/accountDisplayName";
+import PodFollowAccountPicker from "@/components/football/PodFollowAccountPicker.vue";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useFootballStore } from "@/stores/footballStore";
@@ -110,13 +110,6 @@ let stopMissSearch: (() => void) | null = null;
 let stopPrefetch: (() => void) | null = null;
 
 const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
-const followAccountOptions = computed(() => [
-  { value: 0, label: "默认账号" },
-  ...followAccounts.value.map(row => ({
-    value: Number(row.accountId) || 0,
-    label: `${row.platformName || row.provider}/${accountOrderDisplayName(row)}`,
-  })),
-]);
 
 const tickets = computed(() => {
   void sportOddsTick.value;
@@ -203,8 +196,12 @@ watch(tickets, (rows) => {
     if (mid && ticket.marketMatch.status !== "matched")
       void prefetchObSportMatchMarkets(mid);
     const oid = String(ticket.marketMatch.oid || "").trim();
-    if (oid)
-      void prefetchObSportOidQuote(oid);
+    if (oid && mid)
+      void prefetchObSportOidQuote(oid, mid, {
+        marketCode: ticket.marketMatch.marketCode,
+        boardSide: ticket.marketMatch.boardSide || undefined,
+        odds: Number(ticket.marketMatch.quote) || Number(ticket.obQuote.quote) || 0,
+      });
   }
 }, { immediate: true });
 
@@ -534,16 +531,20 @@ function persistAuto(raw: boolean) {
   });
 }
 
-function persistFollowAccount(raw: number | null | undefined) {
+function persistFollowAccounts(raw: number[] | null | undefined) {
+  const ids = (Array.isArray(raw) ? raw : [])
+    .map(n => Math.round(Number(n) || 0))
+    .filter(n => n > 0);
   betSettings.value = writePodBetSettings({
     ...betSettings.value,
-    followAccountId: Number(raw) || 0,
+    followAccountIds: ids,
+    followAccountId: ids[0] || 0,
   });
 }
 
 const followAccountModel = computed({
-  get: () => betSettings.value.followAccountId,
-  set: (v: number) => persistFollowAccount(v),
+  get: () => betSettings.value.followAccountIds.slice(),
+  set: (v: number[]) => persistFollowAccounts(v),
 });
 
 async function refreshSportAmount() {
@@ -679,21 +680,17 @@ onUnmounted(() => {
         inactive-text="关"
         :disabled="!betSettings.enabled"
       />
-      <span class="pod-follow-panel__stake-lab">账号</span>
-      <el-select
+      <span v-if="sportAmount > 0 && followAccountModel.length <= 1" class="pod-follow-panel__stake-unit">
+        余额 {{ sportAmount }}
+      </span>
+    </div>
+    <div v-show="!collapsed" class="pod-follow-panel__accounts" @pointerdown.stop>
+      <span class="pod-follow-panel__stake-lab">跟单账号</span>
+      <PodFollowAccountPicker
         v-model="followAccountModel"
-        size="small"
-        style="width: 148px"
-        :disabled="!followAccounts.length"
-      >
-        <el-option
-          v-for="opt in followAccountOptions"
-          :key="opt.value"
-          :label="opt.label"
-          :value="opt.value"
-        />
-      </el-select>
-      <span v-if="sportAmount > 0" class="pod-follow-panel__stake-unit">余额 {{ sportAmount }}</span>
+        :accounts="followAccounts"
+        variant="panel"
+      />
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
@@ -898,9 +895,10 @@ onUnmounted(() => {
   color: #fff;
 }
 
-.pod-follow-panel__stake {
+.pod-follow-panel__stake,
+.pod-follow-panel__accounts {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   flex-wrap: wrap;
   gap: 6px;
   flex: 0 0 auto;
@@ -909,6 +907,19 @@ onUnmounted(() => {
   border-bottom: 1px solid #ffffff14;
   font-size: 12px;
   color: #cbd5e1;
+}
+
+.pod-follow-panel__stake {
+  align-items: center;
+}
+
+.pod-follow-panel__accounts {
+  align-items: center;
+}
+
+.pod-follow-panel__accounts :deep(.pod-acct-picker) {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 .pod-follow-panel__stake-lab {

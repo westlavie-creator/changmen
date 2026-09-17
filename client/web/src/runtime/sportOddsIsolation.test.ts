@@ -196,7 +196,8 @@ describe("sport / esport UI isolation", () => {
     expect(followPanel).toMatch(/pickPodYaboAutoTicket/);
     expect(followPanel).toMatch(/searchPodObMissFixture/);
     expect(followPanel).toMatch(/prefetchObSportOidQuote/);
-    expect(followPanel).toMatch(/followAccountId/);
+    expect(followPanel).toMatch(/followAccountIds/);
+    expect(followPanel).toMatch(/PodFollowAccountPicker/);
     expect(followPanel).toMatch(/fetchObSportAmount/);
     expect(followPanel).toMatch(/formatPodMarketMatch/);
     expect(followPanel).toMatch(/formatPodObQuote/);
@@ -255,7 +256,9 @@ describe("sport / esport UI isolation", () => {
     expect(podBet).toMatch(/changmen:podBetSettings/);
     expect(podBet).toMatch(/localStorage/);
     expect(podBet).toMatch(/autoPlace:\s*false/);
+    expect(podBet).toMatch(/followAccountIds:\s*\[\]/);
     expect(podBet).toMatch(/followAccountId:\s*0/);
+    expect(podBet).toMatch(/parseFollowAccountIds/);
     expect(podBet).toMatch(/maxDailyLoss:\s*0/);
     expect(podBet).toMatch(/POD_YABO_SETTINGS_DEFAULTS/);
     expect(podBet).not.toMatch(/Client_SaveData/);
@@ -265,6 +268,8 @@ describe("sport / esport UI isolation", () => {
     expect(yaboSettings).toMatch(/spreadObEdgePct:\s*8/);
     expect(yaboSettings).toMatch(/lineMatch:\s*"strict"/);
     const podBetTab = readFileSync(join(root, "components/football/PodBetSettingsTab.vue"), "utf8");
+    expect(podBetTab).toMatch(/followAccountIds/);
+    expect(podBetTab).toMatch(/PodFollowAccountPicker/);
     expect(podBetTab).toMatch(/PodYaboSettings/);
     expect(podBetTab).toMatch(/AutoYabo 决策/);
     const yaboTab = readFileSync(join(root, "components/football/PodYaboSettings.vue"), "utf8");
@@ -279,9 +284,12 @@ describe("sport / esport UI isolation", () => {
     expect(yaboIndex).not.toMatch(/useOddsStore|placeValueBetOrder|fo\b/);
     const place = readFileSync(join(root, "runtime/obSportPlaceBet.ts"), "utf8");
     expect(place).toMatch(/obSportPlaceAccepted/);
-    expect(place).toMatch(/yewu13\/v1\/betOrder\/queryLatestMarketInfoPB/);
-    expect(place).toMatch(/yewu13\/v1\/betOrder\/processBetPB/);
+    expect(place).toMatch(/OB_SPORT_QUERY_MARKET_PATH = "\/yewu13\/v1\/betOrder\/queryBetAmountPB"/);
+    expect(place).toMatch(/OB_SPORT_PROCESS_BET_PATH = "\/yewu13\/v1\/betOrder\/betPB"/);
+    expect(place).not.toMatch(/OB_SPORT_QUERY_MARKET_PATH = "\/yewu13\/v1\/betOrder\/queryLatest/);
+    expect(place).not.toMatch(/OB_SPORT_PROCESS_BET_PATH = "\/yewu13\/v1\/betOrder\/processBet/);
     expect(place).toMatch(/pickObSportBetAccount/);
+    expect(place).toMatch(/followAccountIds/);
     expect(place).toMatch(/followAccountId/);
     expect(place).toMatch(/useAccountStore/);
     expect(place).not.toMatch(/\/game\/bet/);
@@ -461,10 +469,14 @@ describe("sport / esport UI isolation", () => {
     expect(cell).toMatch(/resolveFootballCellOdds/);
     expect(cell).toMatch(/odds-src/);
     expect(cell).toMatch(/data-odd-id/);
+    expect(cell).toMatch(/dblclick/);
+    expect(cell).toMatch(/confirmPlaceObSportBoardBet|obSportBoardPlace/);
     expect(cell).not.toMatch(/podBoardFocus|requestPodBoardFocus/);
     expect(cell).not.toMatch(/useOddsStore/);
     expect(cell).not.toMatch(/from\s+["']@\/stores\/oddsStore["']/);
     expect(cell).not.toMatch(/quoteTick|foRevision/);
+    expect(section).toMatch(/:mid="mid"/);
+    expect(book).toMatch(/:mid="obMid"/);
     expect(layout).toMatch(/全场独赢/);
     expect(layout).toMatch(/半场独赢/);
     expect(layout).toMatch(/全场让球/);

@@ -1,10 +1,13 @@
 /**
- * 出票后预检：oid 走 queryLatestMarketInfoPB；缺档拉详情盘。
+ * 出票后预检：oid 走 queryBetAmountPB；缺档拉详情盘。
  * 结果叠进跟单 live reader，不写电竞 fo。
  */
 import { fetchObFootballMatchMarkets } from "@/runtime/obSportFootballFetch";
 import {
+  buildObSportQueryBetAmountBody,
   OB_SPORT_QUERY_MARKET_PATH,
+  obSportPlayIdFromMarketCode,
+  obSportPlayOptions,
   pickObSportMarketInfo,
 } from "@/runtime/obSportPlaceBet";
 import { postObSportPb } from "@/runtime/obSportFootballFetch";
@@ -43,7 +46,10 @@ export function podMarketPrefetchVersion(): number {
 
 function placeSession(): SportObSessionLocal | null {
   const settings = readPodBetSettings();
-  const account = pickObSportBetAccount(useAccountStore().accounts, settings.followAccountId);
+  const account = pickObSportBetAccount(
+    useAccountStore().accounts,
+    settings.followAccountIds[0] || settings.followAccountId,
+  );
   const session = sportObSessionFromAccount(account);
   if (!session?.token)
     return readLocalSportObSession();
@@ -104,9 +110,14 @@ export function podBoardMarketsFromObDetail(
   }).filter(row => row.marketCode && (row.oidHome || row.oidAway));
 }
 
-export async function prefetchObSportOidQuote(oid: string): Promise<number> {
+export async function prefetchObSportOidQuote(
+  oid: string,
+  mid = "",
+  opts: { marketCode?: string; boardSide?: string; odds?: number } = {},
+): Promise<number> {
   const id = String(oid || "").trim();
-  if (!id)
+  const matchId = String(mid || "").trim();
+  if (!id || !matchId)
     return 0;
   const cached = peekPrefetchedObOdds(id);
   if (cached > 0)
@@ -119,7 +130,17 @@ export async function prefetchObSportOidQuote(oid: string): Promise<number> {
     return 0;
   const work = (async () => {
     try {
-      const queried = await postObSportPb(OB_SPORT_QUERY_MARKET_PATH, { id }, session);
+      const queried = await postObSportPb(
+        OB_SPORT_QUERY_MARKET_PATH,
+        buildObSportQueryBetAmountBody({
+          oid: id,
+          mid: matchId,
+          odds: Number(opts.odds) || 0,
+          hpid: obSportPlayIdFromMarketCode(opts.marketCode),
+          playOptions: obSportPlayOptions(opts.boardSide),
+        }),
+        session,
+      );
       const info = pickObSportMarketInfo(queried, id);
       const odds = Number(info?.odds) || 0;
       if (odds > 1) {

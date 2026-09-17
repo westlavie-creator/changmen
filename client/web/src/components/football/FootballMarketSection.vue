@@ -17,6 +17,7 @@ defineProps<{
   section: FootballBookSection;
   home: string;
   away: string;
+  mid?: string;
   showTitle?: boolean;
 }>();
 
@@ -91,18 +92,33 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           <FootballOddsCell
             side="home"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'home')?.OddID"
             :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
           />
           <FootballOddsCell
             side="draw"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'draw')?.OddID"
             :fallback="Number(selAt(v.Selections, 'draw')?.Odds) || 0"
           />
           <FootballOddsCell
             side="away"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'away')?.OddID"
             :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
           />
@@ -137,12 +153,22 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           <FootballOddsCell
             side="over"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'over')?.OddID"
             :fallback="Number(selAt(v.Selections, 'over')?.Odds) || 0"
           />
           <FootballOddsCell
             side="under"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'under')?.OddID"
             :fallback="Number(selAt(v.Selections, 'under')?.Odds) || 0"
           />
@@ -177,12 +203,22 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
           <FootballOddsCell
             side="home"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'home')?.OddID"
             :fallback="Number(selAt(v.Selections, 'home')?.Odds) || 0"
           />
           <FootballOddsCell
             side="away"
             :venue="v.venue"
+            :mid="mid"
+            :market-code="marketAttr(row)"
+            :line="row.Line"
+            :home="home"
+            :away="away"
             :odd-id="selAt(v.Selections, 'away')?.OddID"
             :fallback="Number(selAt(v.Selections, 'away')?.Odds) || 0"
           />
@@ -212,6 +248,11 @@ function selAt(list: FootballSelection[] | undefined, side: string): FootballSel
               :key="j"
               compact
               :venue="v.venue"
+              :mid="mid"
+              :market-code="marketAttr(row)"
+              :line="row.Line"
+              :home="home"
+              :away="away"
               :odd-id="sel.OddID"
               :fallback="Number(sel.Odds) || 0"
               :label="sel.Name || sel.Side"
