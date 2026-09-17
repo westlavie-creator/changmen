@@ -67,6 +67,33 @@ function hasPlaceQuote(option: BetOption): boolean {
   return option.data != null;
 }
 
+function stripPlaceError(raw?: string): string {
+  if (!raw)
+    return "";
+  return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function mixedSkipReason(
+  option: BetOption,
+  kind: "pending" | "instant",
+  foBlock?: string | null,
+): string {
+  const err = stripPlaceError(option.checkError);
+  if (foBlock)
+    return `${option.type} ${option.target}: 检测价已不能成交（${foBlock}）`;
+  const verb = kind === "pending" ? "临下单复检失败" : "检测价重锁失败";
+  return err
+    ? `${option.type} ${option.target}: ${verb}（${err}）`
+    : `${option.type} ${option.target}: ${verb}`;
+}
+
+type MixedGateResult = {
+  legA: BetOption;
+  legB: BetOption;
+  blocked: boolean;
+  reason?: string;
+};
+
 async function recheckMixedPendingIfNeeded(
   accountStore: ReturnType<typeof useAccountStore>,
   legA: BetOption,
@@ -74,7 +101,7 @@ async function recheckMixedPendingIfNeeded(
   accountA: PlatformAccount | undefined,
   accountB: PlatformAccount | undefined,
   trace: ArbBetAttemptParams["trace"],
-): Promise<{ legA: BetOption; legB: BetOption; blocked: boolean }> {
+): Promise<MixedGateResult> {
   if (!isMixedPendingConfirmArbPair(legA.type, legB.type))
     return { legA, legB, blocked: false };
   const instantIsA = mixedInstantIsLegA(legA, legB);
@@ -90,11 +117,9 @@ async function recheckMixedPendingIfNeeded(
   else
     legA = rechecked;
   if (!hasPlaceQuote(rechecked)) {
-    trace?.event(
-      "预检",
-      `${rechecked.type} ${rechecked.target}: 检测价已不能成交${rechecked.checkError ? `（${rechecked.checkError}）` : ""}`,
-    );
-    return { legA, legB, blocked: true };
+    const reason = mixedSkipReason(rechecked, "pending");
+    trace?.event("预检", reason);
+    return { legA, legB, blocked: true, reason };
   }
   return { legA, legB, blocked: false };
 }
@@ -120,7 +145,7 @@ async function relockMixedInstantIfNeeded(
   accountA: PlatformAccount | undefined,
   accountB: PlatformAccount | undefined,
   trace: ArbBetAttemptParams["trace"],
-): Promise<{ legA: BetOption; legB: BetOption; blocked: boolean }> {
+): Promise<MixedGateResult> {
   if (!isMixedPendingConfirmArbPair(legA.type, legB.type))
     return { legA, legB, blocked: false };
   const instantIsA = mixedInstantIsLegA(legA, legB);
@@ -138,11 +163,9 @@ async function relockMixedInstantIfNeeded(
   else
     legB = relocked;
   if (!hasPlaceQuote(relocked)) {
-    trace?.event(
-      "预检",
-      `${relocked.type} ${relocked.target}: 检测价已不能成交${relocked.checkError ? `（${relocked.checkError}）` : ""}`,
-    );
-    return { legA, legB, blocked: true };
+    const reason = mixedSkipReason(relocked, "instant");
+    trace?.event("预检", reason);
+    return { legA, legB, blocked: true, reason };
   }
   return { legA, legB, blocked: false };
 }
@@ -180,6 +203,7 @@ export async function placeArbLegs(
 
   const mixedPair = isMixedPendingConfirmArbPair(legA.type, legB.type);
   let mixedBlocked = false;
+  let mixedBlockReason = "";
   if (mixedPair) {
     // 双腿：先确认 CLOB 仍可成交，再锁即时馆；两张单都就绪后同时 POST。
     // 若先 relock 再等 /book，会把刚冻的 RAY 价再等死（9/15 的 501）。
@@ -188,10 +212,8 @@ export async function placeArbLegs(
       const pending = mixedInstantIsLegA(legA, legB) ? legB : legA;
       const foBlock = mixedPendingAskAboveDetection(pending);
       if (foBlock) {
-        trace?.event(
-          "预检",
-          `${pending.type} ${pending.target}: 检测价已不能成交（${foBlock}）`,
-        );
+        mixedBlockReason = mixedSkipReason(pending, "pending", foBlock);
+        trace?.event("预检", mixedBlockReason);
         mixedBlocked = true;
       }
       if (!mixedBlocked) {
@@ -206,6 +228,8 @@ export async function placeArbLegs(
         legA = pendingRecheck.legA;
         legB = pendingRecheck.legB;
         mixedBlocked = pendingRecheck.blocked;
+        if (pendingRecheck.reason)
+          mixedBlockReason = pendingRecheck.reason;
       }
     }
     if (!mixedBlocked) {
@@ -221,10 +245,13 @@ export async function placeArbLegs(
       legA = relocked.legA;
       legB = relocked.legB;
       mixedBlocked = relocked.blocked;
+      if (relocked.reason)
+        mixedBlockReason = relocked.reason;
     }
   }
   else if (betBothLegs && accountA && accountB && (!hasPlaceQuote(legA) || !hasPlaceQuote(legB))) {
-    trace?.event("预检", "双侧预检未齐，取消下单");
+    mixedBlockReason = "双侧预检未齐，取消下单";
+    trace?.event("预检", mixedBlockReason);
     mixedBlocked = true;
   }
 
@@ -344,6 +371,7 @@ export async function placeArbLegs(
     Boolean(accountB),
     placeOutcomeA,
     placeOutcomeB,
+    mixedBlocked ? mixedBlockReason || undefined : undefined,
   );
 
   return buildPlaced(

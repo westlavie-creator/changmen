@@ -119,6 +119,7 @@ describe("placeArbLegs two-leg report contract", () => {
       true,
       "api_failed",
       "not_attempted",
+      undefined,
     );
   });
 
@@ -207,6 +208,16 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
+    expect(syncActiveBetPlaceResults).toHaveBeenCalledWith(
+      10,
+      undefined,
+      undefined,
+      true,
+      true,
+      "not_attempted",
+      "not_attempted",
+      expect.stringContaining("fo 卖一高于上限"),
+    );
   });
 
   it("混合对：没有 fo 时仍两边 POST", async () => {
@@ -271,6 +282,16 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
+    expect(syncActiveBetPlaceResults).toHaveBeenCalledWith(
+      10,
+      undefined,
+      undefined,
+      true,
+      true,
+      "not_attempted",
+      "not_attempted",
+      expect.stringContaining("盘口已锁"),
+    );
   });
 
   it("混合对：临 POST 再预检 PM 失败则两侧都不 POST", async () => {
@@ -299,6 +320,16 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(betting).not.toHaveBeenCalled();
     expect(out.placeOutcomeA).toBe("not_attempted");
     expect(out.placeOutcomeB).toBe("not_attempted");
+    expect(syncActiveBetPlaceResults).toHaveBeenCalledWith(
+      10,
+      undefined,
+      undefined,
+      true,
+      true,
+      "not_attempted",
+      "not_attempted",
+      expect.stringContaining("临下单复检失败"),
+    );
   });
 
   it("A8 双腿缺预检 data 时两侧都不 POST", async () => {

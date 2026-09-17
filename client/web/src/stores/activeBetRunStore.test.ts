@@ -428,6 +428,49 @@ describe("activeBetRunStore", () => {
     )).toBe(true);
   });
 
+  it("双侧 not_attempted 收尾保留第二道闸原因", () => {
+    const store = useActiveBetRunStore();
+    syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "Polymarket", target: "Home", odds: 2.4, betMoney: 150 } as never,
+      legB: { type: "OB", target: "Away", odds: 1.85, betMoney: 200 } as never,
+      accountA: { playerName: "pm1" } as never,
+      accountB: { playerName: "ob1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    const reason = "Polymarket Home: 检测价已不能成交（fo 卖一高于上限）";
+    syncActiveBetPlaceResults(
+      100,
+      undefined,
+      undefined,
+      true,
+      true,
+      "not_attempted",
+      "not_attempted",
+      reason,
+    );
+    expect(store.visibleRuns[0]?.overallLabel).toBe(reason);
+    expect(store.visibleRuns[0]?.legs.every(l => l.detail === `未下单 · ${reason}`)).toBe(true);
+
+    syncActiveBetAfterRejectSync(100, {
+      hasA: true,
+      hasB: true,
+      rejectA: false,
+      rejectB: false,
+      okA: false,
+      okB: false,
+      makeupQueued: false,
+      placeOutcomeA: "not_attempted",
+      placeOutcomeB: "not_attempted",
+    });
+
+    expect(store.visibleRuns[0]?.overallLabel).toBe(reason);
+    expect(store.visibleRuns[0]?.legs.every(l => l.detail === `未下单 · ${reason}`)).toBe(true);
+  });
+
   it("bind success appends 已绑单 on reject layer", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({

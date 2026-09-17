@@ -280,12 +280,18 @@ function legStatusAfterPost(
   return "submitted";
 }
 
+function formatNotAttemptedDetail(skipReason?: string): string {
+  const reason = String(skipReason ?? "").trim();
+  return reason ? `未下单 · ${reason}` : "未下单";
+}
+
 function legDetailAfterPost(
   result?: PostLegResult,
   placeOutcome?: PlaceOutcome,
+  skipReason?: string,
 ): string {
   if (placeOutcome === "not_attempted")
-    return "未下单";
+    return formatNotAttemptedDetail(skipReason);
   const msg = String(result?.message ?? "").trim();
   if (!result?.success)
     return msg || "下单失败";
@@ -304,6 +310,8 @@ export function syncActiveBetPlaceResults(
   hasB?: boolean,
   placeOutcomeA?: PlaceOutcome,
   placeOutcomeB?: PlaceOutcome,
+  /** 混合对第二道闸等：两侧 not_attempted 时写进「未下单」详情 */
+  skipReason?: string,
 ) {
   const store = activeStore();
   if (hasA) {
@@ -311,7 +319,7 @@ export function syncActiveBetPlaceResults(
       betId,
       "A",
       legStatusAfterPost(resultA, placeOutcomeA),
-      legDetailAfterPost(resultA, placeOutcomeA),
+      legDetailAfterPost(resultA, placeOutcomeA, skipReason),
     );
     // 非 delayed/pending：进入拒单检测层（追加，不覆盖）；仅 API 成功腿
     if (store && resultA?.success && !resultA.pending)
@@ -322,7 +330,7 @@ export function syncActiveBetPlaceResults(
       betId,
       "B",
       legStatusAfterPost(resultB, placeOutcomeB),
-      legDetailAfterPost(resultB, placeOutcomeB),
+      legDetailAfterPost(resultB, placeOutcomeB, skipReason),
     );
     if (store && resultB?.success && !resultB.pending)
       store.appendLegEvent(betId, "B", "拒单", "等待场馆确认");
@@ -331,7 +339,13 @@ export function syncActiveBetPlaceResults(
     (hasA && resultA?.success) || (hasB && resultB?.success),
   );
   if (!anyApiOk) {
-    syncActiveBetPhase(betId, "syncing", "下单未成功");
+    const bothSkipped = placeOutcomeA === "not_attempted" && placeOutcomeB === "not_attempted";
+    const reason = String(skipReason ?? "").trim();
+    syncActiveBetPhase(
+      betId,
+      "syncing",
+      bothSkipped && reason ? reason : "下单未成功",
+    );
     return;
   }
   const venuePending = Boolean((hasA && resultA?.pending) || (hasB && resultB?.pending));
@@ -360,13 +374,19 @@ function finalizeLegDetail(flags: {
   ok: boolean;
   reject: boolean;
   placeOutcome?: PlaceOutcome;
+  /** place 阶段已写入的详情（含「未下单 · 原因」时保留） */
+  existingDetail?: string;
 }): string | undefined {
   if (flags.ok)
     return "已成交";
   if (flags.reject)
     return "拒单";
-  if (flags.placeOutcome === "not_attempted")
+  if (flags.placeOutcome === "not_attempted") {
+    const existing = String(flags.existingDetail ?? "").trim();
+    if (existing.startsWith("未下单"))
+      return undefined;
     return "未下单";
+  }
   if (flags.placeOutcome === "api_failed")
     return "下单失败";
   return undefined;
@@ -394,10 +414,20 @@ export function syncActiveBetAfterRejectSync(
   if (!store)
     return;
 
+  const run = store.runs.get(betId);
   const pendingA = Boolean(flags.pendingConfirmA);
   const pendingB = Boolean(flags.pendingConfirmB);
 
   if (flags.hasA) {
+    const existingA = run?.legs.find(l => l.side === "A")?.detail;
+    const detailA = pendingA
+      ? (flags.placeOutcomeA === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
+      : finalizeLegDetail({
+        ok: flags.okA,
+        reject: flags.rejectA,
+        placeOutcome: flags.placeOutcomeA,
+        existingDetail: existingA,
+      });
     store.patchLeg(betId, "A", {
       status: flags.okA
         ? "confirmed"
@@ -406,16 +436,19 @@ export function syncActiveBetAfterRejectSync(
           : flags.rejectA
             ? "rejected"
             : "failed",
-      detail: pendingA
-        ? (flags.placeOutcomeA === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
-        : finalizeLegDetail({
-          ok: flags.okA,
-          reject: flags.rejectA,
-          placeOutcome: flags.placeOutcomeA,
-        }),
+      ...(detailA !== undefined ? { detail: detailA } : {}),
     });
   }
   if (flags.hasB) {
+    const existingB = run?.legs.find(l => l.side === "B")?.detail;
+    const detailB = pendingB
+      ? (flags.placeOutcomeB === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
+      : finalizeLegDetail({
+        ok: flags.okB,
+        reject: flags.rejectB,
+        placeOutcome: flags.placeOutcomeB,
+        existingDetail: existingB,
+      });
     store.patchLeg(betId, "B", {
       status: flags.okB
         ? "confirmed"
@@ -424,13 +457,7 @@ export function syncActiveBetAfterRejectSync(
           : flags.rejectB
             ? "rejected"
             : "failed",
-      detail: pendingB
-        ? (flags.placeOutcomeB === "accepted_pending_confirm" ? "已挂单待确认" : "delayed 待确认")
-        : finalizeLegDetail({
-          ok: flags.okB,
-          reject: flags.rejectB,
-          placeOutcome: flags.placeOutcomeB,
-        }),
+      ...(detailB !== undefined ? { detail: detailB } : {}),
     });
   }
 
@@ -499,7 +526,16 @@ export function syncActiveBetAfterRejectSync(
       store.appendLegEvent(betId, "A", "拒单", "未成单");
     if (flags.hasB)
       store.appendLegEvent(betId, "B", "拒单", "未成单");
-    store.setPhase(betId, "syncing", "未成单");
+    // 双侧 not_attempted：保留 place 阶段写入的第二道闸原因，勿盖成光秃「未成单」
+    const bothNotAttempted
+      = flags.placeOutcomeA === "not_attempted" && flags.placeOutcomeB === "not_attempted";
+    const skipDetail = bothNotAttempted
+      ? (run?.legs ?? [])
+          .map(l => String(l.detail ?? "").trim())
+          .find(d => d.startsWith("未下单 · "))
+      : undefined;
+    const skipReason = skipDetail?.slice("未下单 · ".length).trim();
+    store.setPhase(betId, "syncing", skipReason || "未成单");
     return;
   }
 
