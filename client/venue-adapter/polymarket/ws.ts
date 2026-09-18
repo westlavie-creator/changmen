@@ -8,7 +8,6 @@ import {
   type PmMarketWsSourceMode,
 } from "./pmMarketWsMode";
 import { setPmUserWsSourceMode } from "./pmUserWsMode";
-import { isPmTransportManualOverride } from "./pmAutoTransport";
 import { getPmRoutingPreference } from "./pmRoutingPreference";
 import {
   getPmMarketClientMetricsSnapshot,
@@ -109,7 +108,7 @@ function clearOfficialFirstQuoteTimer() {
 function fallbackOfficialToChangmen(reason: string, error = ""): boolean {
   if (getPmMarketWsSourceMode() !== "official")
     return false;
-  if (isPmTransportManualOverride() || getPmRoutingPreference() !== "auto") {
+  if (getPmRoutingPreference() !== "auto") {
     notePmMarketClientError(`manual_override_${reason}`, error);
     reportPmMarketMeta({ reason: `manual_override_${reason}`, lastError: error });
     return false;

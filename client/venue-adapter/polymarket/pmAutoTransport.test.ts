@@ -137,41 +137,24 @@ describe("pmAutoTransport", () => {
     expect(resolvePmHttpMode()).toBe("vps");
   });
 
-  it("skips auto routing after manual override but reconciles extension HTTP when WS is changmen", async () => {
+  it("ignores legacy manual override when routing preference is auto", async () => {
     setPmMarketWsSourceMode("changmen");
     setPmHttpMode("extension");
     markPmTransportManualOverride();
-    const probe = vi.spyOn(reachability, "probePolymarketOfficialReachable");
+    const probe = vi.spyOn(reachability, "probePolymarketOfficialReachable").mockResolvedValue({
+      reachable: true,
+      httpOk: true,
+      marketWsOk: true,
+    });
 
     const result = await applyPmAutoTransportOnLogin();
-    expect(result.skippedManualOverride).toBe(true);
-    expect(probe).not.toHaveBeenCalled();
-    expect(result.httpMode).toBe("vps");
+    expect(result.applied).toBe(true);
+    expect(result.skippedManualOverride).toBe(false);
+    expect(result.routingPreference).toBe("auto");
+    expect(probe).toHaveBeenCalledOnce();
+    expect(getPmMarketWsSourceMode()).toBe("official");
+    expect(getPmUserWsSourceMode()).toBe("official");
     expect(resolvePmHttpMode()).toBe("vps");
-  });
-
-  it("under manual override + official WS, demotes extension when CLOB probe fails", async () => {
-    setPmMarketWsSourceMode("official");
-    setPmHttpMode("extension");
-    markPmTransportManualOverride();
-    vi.mocked(reachability.probePolymarketClobViaExtension).mockResolvedValue(false);
-
-    const result = await applyPmAutoTransportOnLogin();
-    expect(result.skippedManualOverride).toBe(true);
-    expect(result.httpMode).toBe("vps");
-    expect(resolvePmHttpMode()).toBe("vps");
-  });
-
-  it("under manual override + official WS, keeps extension when CLOB probe succeeds", async () => {
-    setPmMarketWsSourceMode("official");
-    setPmHttpMode("extension");
-    markPmTransportManualOverride();
-    vi.mocked(reachability.probePolymarketClobViaExtension).mockResolvedValue(true);
-
-    const result = await applyPmAutoTransportOnLogin();
-    expect(result.skippedManualOverride).toBe(true);
-    expect(result.httpMode).toBe("extension");
-    expect(resolvePmHttpMode()).toBe("extension");
   });
 
   it("syncPmHttpModeWithMarketWs forces vps for changmen WS", async () => {

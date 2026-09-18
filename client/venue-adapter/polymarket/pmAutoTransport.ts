@@ -5,12 +5,11 @@ import {
   probePolymarketClobViaExtension,
   probePolymarketOfficialReachable,
 } from "./pmOfficialReachability";
-import { resolvePmHttpMode, setPmHttpMode, type PmHttpMode } from "./pmTransportMode";
+import { setPmHttpMode, type PmHttpMode } from "./pmTransportMode";
 import { getPmUserWsSourceMode, setPmUserWsSourceMode, type PmUserWsSourceMode } from "./pmUserWsMode";
 import {
   applyPmRoutingPreference,
   getPmRoutingPreference,
-  sourceModeToPmRoutingPreference,
   type PmRoutingPreference,
 } from "./pmRoutingPreference";
 
@@ -103,28 +102,6 @@ export async function syncPmHttpModeWithMarketWs(
   return httpMode;
 }
 
-/** 手动覆盖下纠偏 HTTP，避免卡在不可用的 extension */
-async function reconcileHttpUnderManualOverride(): Promise<PmHttpMode> {
-  let httpMode = resolvePmHttpMode();
-
-  // WS 已是 changmen 时，本机官方 REST 不可用 → 强制 vps
-  if (getPmMarketWsSourceMode() === "changmen" && httpMode !== "vps") {
-    setPmHttpMode("vps");
-    return "vps";
-  }
-
-  // WS 仍是 official 但 HTTP=extension：再测插件 CLOB；不通则降级（关墙后常见）
-  if (httpMode === "extension") {
-    const clobOk = await probePolymarketClobViaExtension();
-    if (!clobOk) {
-      setPmHttpMode("vps");
-      return "vps";
-    }
-  }
-
-  return httpMode;
-}
-
 async function applyModes(
   marketWsOk: boolean,
 ): Promise<Omit<PmAutoTransportApplyResult, "applied" | "skippedManualOverride" | "reachable" | "routingPreference"> & { reachable: boolean }> {
@@ -180,25 +157,6 @@ export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportAppl
     };
     notifyRoutingApplied(result);
     return result;
-  }
-
-  if (readManualOverride()) {
-    const httpMode = await reconcileHttpUnderManualOverride();
-    const legacyPref = sourceModeToPmRoutingPreference(getPmMarketWsSourceMode());
-    reportVenueWsMeta("pm-market", {
-      sourceMode: getPmMarketWsSourceMode(),
-      reason: "manual_override",
-      routingPreference: legacyPref,
-    });
-    return {
-      applied: false,
-      skippedManualOverride: true,
-      reachable: getPmMarketWsSourceMode() === "official",
-      httpMode,
-      marketWsMode: getPmMarketWsSourceMode(),
-      userWsMode: getPmUserWsSourceMode(),
-      routingPreference: legacyPref,
-    };
   }
 
   const probe = await probePolymarketOfficialReachable();

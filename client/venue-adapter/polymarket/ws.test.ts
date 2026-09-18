@@ -10,10 +10,7 @@ import {
 import { POLYMARKET_MARKET_WS } from "./api";
 import { getPmMarketWsSourceMode, resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
 import { resetPmUserWsSourceModeForTests } from "./pmUserWsMode";
-import {
-  markPmTransportManualOverride,
-  resetPmTransportManualOverrideForTests,
-} from "./pmAutoTransport";
+import { markPmTransportManualOverride, resetPmTransportManualOverrideForTests } from "./pmAutoTransport";
 import { resetPmRoutingPreferenceForTests, setPmRoutingPreference } from "./pmRoutingPreference";
 import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 import { PM_MARKET_WS_FORWARD_PATH } from "./wsConfig";
@@ -243,7 +240,7 @@ describe("polymarket market ws", () => {
     expect(MockWebSocket.instances.at(-1)!.url).toBe(POLYMARKET_MARKET_WS);
   });
 
-  it("does not auto-fallback on no-book timeout after manual override", () => {
+  it("legacy manual override does not block auto no-book fallback", () => {
     resetPmMarketWsSourceModeForTests("official");
     markPmTransportManualOverride();
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
@@ -253,6 +250,7 @@ describe("polymarket market ws", () => {
     vi.advanceTimersByTime(8_000);
     vi.advanceTimersByTime(5_000);
 
-    expect(getPmMarketWsSourceMode()).toBe("official");
+    expect(getPmMarketWsSourceMode()).toBe("changmen");
+    expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
   });
 });
