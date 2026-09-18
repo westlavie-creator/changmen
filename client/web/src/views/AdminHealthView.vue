@@ -10,6 +10,10 @@ import {
 import { authHeaders } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 import { useUserStore } from "@/stores/userStore";
+import {
+  getPmMarketClientMetricsSnapshot,
+  type PmMarketClientMetricsSnapshot,
+} from "@changmen/venue-adapter/polymarket/pmMarketClientMetrics";
 
 const router = useRouter();
 const user = useUserStore();
@@ -132,12 +136,14 @@ interface PmMarketObservability {
 
 const health = ref<HealthData | null>(null);
 const pmMarketObs = ref<PmMarketObservability | null>(null);
+const pmMarketClientMetrics = ref<PmMarketClientMetricsSnapshot>(getPmMarketClientMetricsSnapshot());
 const error = ref("");
 const pmMarketObsError = ref("");
 const loading = ref(false);
 const pmMarketObsLoading = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
 let pmMarketObsTimer: ReturnType<typeof setInterval> | null = null;
+let pmMarketClientMetricsTimer: ReturnType<typeof setInterval> | null = null;
 
 const pmHubSites = computed(() => {
   const hubs = health.value?.wsForward.hubs;
@@ -346,6 +352,14 @@ function probeText(step?: ProbeStep | null): string {
   return bits.join(" · ");
 }
 
+function msText(ms: number | null): string {
+  return typeof ms === "number" && Number.isFinite(ms) ? `${ms}ms` : "—";
+}
+
+function refreshPmMarketClientMetrics() {
+  pmMarketClientMetrics.value = getPmMarketClientMetricsSnapshot();
+}
+
 onMounted(async () => {
   if (!user.ready) {
     try { await user.fetchUserInfo(); }
@@ -363,6 +377,7 @@ onMounted(async () => {
   ]);
   timer = setInterval(fetchHealth, 5000);
   pmMarketObsTimer = setInterval(fetchPmMarketObservability, 30000);
+  pmMarketClientMetricsTimer = setInterval(refreshPmMarketClientMetrics, 1000);
 });
 
 onUnmounted(() => {
@@ -370,6 +385,8 @@ onUnmounted(() => {
     clearInterval(timer);
   if (pmMarketObsTimer)
     clearInterval(pmMarketObsTimer);
+  if (pmMarketClientMetricsTimer)
+    clearInterval(pmMarketClientMetricsTimer);
 });
 </script>
 
@@ -815,6 +832,32 @@ onUnmounted(() => {
           <div v-if="pmMarketObs.summary.failedChecks.length" class="health-row health-row--sub">
             <span>失败项</span>
             <span class="health-val--bad">{{ pmMarketObs.summary.failedChecks.join(", ") }}</span>
+          </div>
+          <div class="health-row">
+            <span>当前浏览器</span>
+            <span class="health-val">{{ pmMarketClientMetrics.mode }}</span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span />
+            <span class="health-val">
+              connect {{ msText(pmMarketClientMetrics.connectMs) }}
+              <span class="health-sub">
+                · frame {{ msText(pmMarketClientMetrics.firstFrameMs) }}
+                · quote {{ msText(pmMarketClientMetrics.firstQuoteMs) }}
+                · fresh {{ msText(pmMarketClientMetrics.quoteFreshMs) }}
+              </span>
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span />
+            <span class="health-sub">
+              assets {{ pmMarketClientMetrics.assetCount }}
+              · reconnect {{ pmMarketClientMetrics.reconnectCount }}
+              · empty-book {{ pmMarketClientMetrics.emptyBookCount }}
+              <template v-if="pmMarketClientMetrics.fallbackReason">
+                · fallback {{ pmMarketClientMetrics.fallbackReason }}
+              </template>
+            </span>
           </div>
         </template>
         <div v-else class="health-row health-row--sub">

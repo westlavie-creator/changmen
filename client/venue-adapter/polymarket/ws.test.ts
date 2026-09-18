@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cyclePmMarketWsSourceModeAndReconnect,
+  getPmMarketClientMetricsSnapshot,
   notePolymarketMarketWsSubscription,
+  notePolymarketMarketWsQuote,
   resetOfficialFailStreakForTests,
   startPolymarketMarketWs,
 } from "./ws";
@@ -170,6 +172,58 @@ describe("polymarket market ws", () => {
     vi.advanceTimersByTime(8_000);
 
     expect(getPmMarketWsSourceMode()).toBe("official");
+  });
+
+  it("records connect and first frame metrics without changing transport", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    vi.advanceTimersByTime(25);
+    MockWebSocket.instances[0]!.open();
+    notePolymarketMarketWsSubscription(2);
+    vi.advanceTimersByTime(40);
+    MockWebSocket.instances[0]!.onmessage?.({
+      data: JSON.stringify({ event_type: "best_bid_ask", asset_id: "asset-a", best_ask: "0.42" }),
+    });
+
+    const metrics = getPmMarketClientMetricsSnapshot();
+    expect(metrics.mode).toBe("official");
+    expect(metrics.connectMs).toBe(25);
+    expect(metrics.firstFrameMs).toBe(40);
+    expect(metrics.assetCount).toBe(2);
+    expect(metrics.reconnectCount).toBe(1);
+    expect(metrics.lastReason).toBe("subscribed_assets");
+  });
+
+  it("records first usable quote separately from first frame", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+    notePolymarketMarketWsSubscription(2);
+    vi.advanceTimersByTime(30);
+    MockWebSocket.instances[0]!.onmessage?.({
+      data: JSON.stringify({ event_type: "subscribed", status: "ok" }),
+    });
+    vi.advanceTimersByTime(70);
+    notePolymarketMarketWsQuote(Date.now() - 12);
+
+    const metrics = getPmMarketClientMetricsSnapshot();
+    expect(metrics.firstFrameMs).toBe(30);
+    expect(metrics.firstQuoteMs).toBe(100);
+    expect(metrics.quoteFreshMs).toBe(12);
+    expect(metrics.lastReason).toBe("quote");
+  });
+
+  it("records empty book fallback reason on official watchdog timeout", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+
+    notePolymarketMarketWsSubscription(2);
+    vi.advanceTimersByTime(8_000);
+
+    const metrics = getPmMarketClientMetricsSnapshot();
+    expect(metrics.emptyBookCount).toBe(1);
+    expect(metrics.fallbackReason).toBe("official_no_book_timeout");
   });
 
   it("does not auto-fallback on no-book timeout after manual override", () => {

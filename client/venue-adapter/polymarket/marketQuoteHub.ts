@@ -9,6 +9,7 @@
 import { polymarketMarketSubscribeMessage } from "./api";
 import {
   notePolymarketMarketWsSubscription,
+  notePolymarketMarketWsQuote,
   startPolymarketMarketWs,
   type PolymarketMarketWsHandle,
 } from "./ws";
@@ -124,6 +125,7 @@ export function ensurePolymarketMarketQuoteHub(): void {
           continue;
         if (!shouldApplyPolymarketWsQuote(update.assetId, update.timestamp))
           continue;
+        notePolymarketMarketWsQuote(update.timestamp);
         emitQuote(update.assetId, price);
       }
     },

@@ -29,6 +29,7 @@
     "./polymarket/orderSettlement": "./polymarket/orderSettlement.ts",
     "./polymarket/orders": "./polymarket/orders.ts",
     "./polymarket/pmArbPriceBufferMode": "./polymarket/pmArbPriceBufferMode.ts",
+    "./polymarket/pmMarketClientMetrics": "./polymarket/pmMarketClientMetrics.ts",
     "./polymarket/settlementJob": "./polymarket/settlementJob.ts",
     "./predictfun": "./predictfun/index.ts",
     "./predictfun/pfArbPriceBufferMode": "./predictfun/pfArbPriceBufferMode.ts",

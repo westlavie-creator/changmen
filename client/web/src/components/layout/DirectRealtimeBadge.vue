@@ -252,6 +252,20 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
       lines.push(`选择原因：${entry.meta.reason}`);
     if (typeof entry.meta?.assetCount === "number")
       lines.push(`订阅 asset：${entry.meta.assetCount}`);
+    if (typeof entry.meta?.connectMs === "number")
+      lines.push(`连接耗时：${entry.meta.connectMs}ms`);
+    if (typeof entry.meta?.firstFrameMs === "number")
+      lines.push(`首帧：${entry.meta.firstFrameMs}ms`);
+    if (typeof entry.meta?.firstQuoteMs === "number")
+      lines.push(`首个有效报价：${entry.meta.firstQuoteMs}ms`);
+    if (typeof entry.meta?.quoteFreshMs === "number")
+      lines.push(`报价新鲜度：${entry.meta.quoteFreshMs}ms`);
+    if (typeof entry.meta?.reconnectCount === "number")
+      lines.push(`重连次数：${entry.meta.reconnectCount}`);
+    if (typeof entry.meta?.emptyBookCount === "number" && entry.meta.emptyBookCount > 0)
+      lines.push(`空盘口次数：${entry.meta.emptyBookCount}`);
+    if (entry.meta?.fallbackReason)
+      lines.push(`降级原因：${entry.meta.fallbackReason}`);
     if (entry.meta?.lastMessageAt)
       lines.push(`最近 book：${formatAgo(entry.meta.lastMessageAt)}`);
     if (entry.meta?.lastError)

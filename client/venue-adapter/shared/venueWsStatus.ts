@@ -15,6 +15,13 @@ export type VenueWsStatusMeta = {
   lastMessageAt?: number;
   lastError?: string;
   failStreak?: number;
+  connectMs?: number | null;
+  firstFrameMs?: number | null;
+  firstQuoteMs?: number | null;
+  quoteFreshMs?: number | null;
+  reconnectCount?: number;
+  emptyBookCount?: number;
+  fallbackReason?: string;
 };
 
 const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
