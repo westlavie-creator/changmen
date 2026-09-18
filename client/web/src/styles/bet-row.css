@@ -137,7 +137,11 @@
 }
 
 .matchs .bet .bet-items .item.defaultOdds .item-type {
+  flex-shrink:0;
   background-image:url(/esport2/assets/BV3jdLt7.png);
+  /* 源图上半是方块、下半是 t=0；contain 会把方块缩成场馆标的一半 */
+  background-size:auto 210%;
+  background-position:center 20%;
 }
 
 .matchs .bet .bet-items .item .item-type {

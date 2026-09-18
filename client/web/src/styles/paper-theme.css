@@ -1,6 +1,7 @@
 /**
  * [changmen 扩展] 浅纸感皮肤
- * 暖米白纸面 + 柔和阴影；只换显示，不改 DOM。
+ * 暖米桌面 + 象牙卡片；图标用纸面印记，不用深色圆底。
+ * 只换显示，不改 DOM。
  *
  * 策略同 brutal：优先覆写 --cm-* / --el-*；业务 DOM 靠特异性；
  * !important 仅留给 EP 强样式或基类已有 !important。
@@ -9,60 +10,72 @@
 html[data-ui-theme="paper"] {
   color-scheme: light;
 
-  --cm-body-bg: #f3eee4;
-  --cm-body-bg-mid: #f3eee4;
-  --cm-body-bg-gradient: none;
-  --cm-sidebar-bg: #f3eee4;
+  --cm-body-bg: #efe6d8;
+  --cm-body-bg-mid: #efe6d8;
+  --cm-body-bg-gradient: var(--paper-grain);
+  --cm-sidebar-bg: #f6f0e6;
   --cm-sidebar-shadow: none;
-  --cm-color-primary: #5b6b4a;
-  --cm-color-success: #3f6f4e;
-  --cm-color-warning: #a16207;
-  --cm-color-danger: #b42318;
-  --cm-color-info: #64748b;
-  --cm-color-odds: #1d4ed8;
-  --cm-color-link: #3f6f4e;
-  --cm-color-on-accent: #f7f3eb;
-  --cm-color-pos: #3f6f4e;
-  --cm-color-neg: #b42318;
-  --cm-color-muted: #6b655c;
-  --cm-color-hacked: #b42318;
+  --cm-color-primary: #4c5c3c;
+  --cm-color-success: #3d6b4a;
+  --cm-color-warning: #9a5b12;
+  --cm-color-danger: #a33b2b;
+  --cm-color-info: #6e675e;
+  --cm-color-odds: #2f4d7a;
+  --cm-color-link: #3d6b4a;
+  --cm-color-on-accent: #faf6ee;
+  --cm-color-pos: #2f6a45;
+  --cm-color-neg: #a33b2b;
+  --cm-color-muted: #7a7268;
+  --cm-color-hacked: #a33b2b;
 
-  --paper-ink: #2a2a2a;
-  --paper-bg: #f3eee4;
-  --paper-panel: #ebe4d6;
-  --paper-panel-2: #e2d9c8;
-  --paper-muted: #6b655c;
-  --paper-accent: #5b6b4a;
-  --paper-accent-soft: #dce5d2;
-  --paper-home: #e8eef8;
-  --paper-away: #f8e8ea;
-  --paper-soft-danger: #f8e8ea;
-  --paper-makeup: #f5efd8;
-  --paper-border: 1px solid #c9bfae;
-  --paper-shadow: 0 1px 2px rgba(42, 42, 42, 0.06), 0 4px 12px rgba(42, 42, 42, 0.04);
+  --paper-ink: #2c2823;
+  --paper-bg: #efe6d8;
+  --paper-panel: #fbf7f0;
+  --paper-panel-2: #f4ecdf;
+  --paper-muted: #7a7268;
+  --paper-accent: #4c5c3c;
+  --paper-accent-soft: #e4ead8;
+  --paper-home: #e3efe4;
+  --paper-away: #f6e6d8;
+  --paper-soft-danger: #f6e2dc;
+  --paper-makeup: #f7efd2;
+  --paper-line: #d5cbbd;
+  --paper-line-soft: #e4dccf;
+  --paper-icon-well: #f7f1e6;
+  --paper-border: 1px solid var(--paper-line);
+  --paper-shadow: 0 1px 0 rgba(255, 252, 246, 0.9) inset, 0 1px 2px rgba(70, 52, 28, 0.05), 0 8px 18px rgba(70, 52, 28, 0.045);
   --paper-radius: 8px;
+  --paper-grain:
+    radial-gradient(ellipse 90% 42% at 50% -8%, rgba(255, 252, 246, 0.72), transparent 58%),
+    repeating-linear-gradient(0deg, rgba(92, 72, 42, 0.018) 0 1px, transparent 1px 5px);
 
-  --el-color-primary: #5b6b4a;
-  --el-color-success: #3f6f4e;
-  --el-color-warning: #a16207;
-  --el-color-danger: #b42318;
-  --el-color-info: #64748b;
+  --el-color-primary: #4c5c3c;
+  --el-color-primary-light-3: #70805f;
+  --el-color-primary-light-5: #9aa88c;
+  --el-color-primary-light-7: #c9d2bf;
+  --el-color-primary-light-8: #dde4d4;
+  --el-color-primary-light-9: #eef2e8;
+  --el-color-primary-dark-2: #3c4a30;
+  --el-color-success: #3d6b4a;
+  --el-color-warning: #9a5b12;
+  --el-color-danger: #a33b2b;
+  --el-color-info: #6e675e;
   --el-bg-color: var(--paper-panel);
   --el-bg-color-overlay: var(--paper-panel);
   --el-bg-color-page: var(--paper-bg);
   --el-text-color-primary: var(--paper-ink);
-  --el-text-color-regular: #3a3a3a;
+  --el-text-color-regular: #3f3a34;
   --el-text-color-secondary: var(--paper-muted);
-  --el-text-color-placeholder: #8a8378;
-  --el-border-color: #c9bfae;
-  --el-border-color-light: #d6cebd;
-  --el-border-color-lighter: #e2d9c8;
-  --el-border-color-extra-light: #ebe4d6;
+  --el-text-color-placeholder: #9a9186;
+  --el-border-color: var(--paper-line);
+  --el-border-color-light: var(--paper-line-soft);
+  --el-border-color-lighter: #efe6d8;
+  --el-border-color-extra-light: var(--paper-panel);
   --el-fill-color-blank: var(--paper-panel);
   --el-fill-color-light: var(--paper-panel-2);
-  --el-fill-color: #ddd4c4;
-  --el-fill-color-lighter: #f7f3eb;
-  --el-mask-color: rgba(42, 42, 42, 0.35);
+  --el-fill-color: #e7dfd2;
+  --el-fill-color-lighter: #f7f2e8;
+  --el-mask-color: rgba(44, 40, 35, 0.32);
   --el-box-shadow: var(--paper-shadow);
   --el-box-shadow-light: var(--paper-shadow);
   --el-border-radius-base: 8px;
@@ -70,20 +83,23 @@ html[data-ui-theme="paper"] {
   --el-border-radius-round: 999px;
 }
 
-html[data-ui-theme="paper"] body {
+html[data-ui-theme="paper"] body,
+html[data-ui-theme="paper"] #app .el-aside,
+html[data-ui-theme="paper"] .common-layout .el-aside,
+html[data-ui-theme="paper"] #app .el-main,
+html[data-ui-theme="paper"] .common-layout .el-main,
+html[data-ui-theme="paper"] .home-main {
   color: var(--paper-ink);
+  background-color: var(--paper-bg);
+  background-image: var(--paper-grain);
+  background-size: auto;
+  background-repeat: repeat;
 }
 
 html[data-ui-theme="paper"] #app .el-aside,
 html[data-ui-theme="paper"] .common-layout .el-aside {
   border-right: var(--paper-border);
   box-shadow: none;
-}
-
-html[data-ui-theme="paper"] #app .el-main,
-html[data-ui-theme="paper"] .common-layout .el-main,
-html[data-ui-theme="paper"] .home-main {
-  background: var(--paper-bg);
 }
 
 html[data-ui-theme="paper"] .userinfo {
@@ -95,7 +111,7 @@ html[data-ui-theme="paper"] .userinfo {
 html[data-ui-theme="paper"] .userinfo .info,
 html[data-ui-theme="paper"] .userinfo .report {
   color: var(--paper-ink);
-  border-color: #c9bfae;
+  border-color: var(--paper-line);
 }
 
 html[data-ui-theme="paper"] .userinfo .info .ms {
@@ -199,10 +215,22 @@ html[data-ui-theme="paper"] .providers .account .balance .currency {
   color: var(--paper-muted);
 }
 
+html[data-ui-theme="paper"] .cm-platform-icon,
+html[data-ui-theme="paper"] .provider-icon {
+  background-color: var(--paper-icon-well);
+  border: none;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(90, 74, 48, 0.16);
+}
+
 html[data-ui-theme="paper"] .providers .account .cm-platform-icon,
 html[data-ui-theme="paper"] .providers .account .provider-icon {
-  border: var(--paper-border);
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 7px;
+  background-color: var(--paper-icon-well);
+  box-shadow: 0 1px 2px rgba(70, 52, 28, 0.12), inset 0 0 0 1px rgba(90, 74, 48, 0.14);
   box-sizing: border-box;
 }
 
@@ -220,8 +248,10 @@ html[data-ui-theme="paper"] .sport-tab-row {
 }
 
 html[data-ui-theme="paper"] .home-main .sport-tab-row {
-  background: var(--paper-bg);
-  background-image: none;
+  background-color: var(--paper-bg);
+  background-image: var(--paper-grain);
+  background-size: auto;
+  background-repeat: repeat;
 }
 
 html[data-ui-theme="paper"] .matchs .match {
@@ -236,7 +266,7 @@ html[data-ui-theme="paper"] .matchs .match {
 html[data-ui-theme="paper"] .matchs .match .match-title {
   color: var(--paper-ink);
   font-weight: 600;
-  border-bottom: 1px solid #d6cebd;
+  border-bottom: 1px solid var(--paper-line-soft);
   margin-bottom: 10px;
   padding-bottom: 10px;
 }
@@ -249,7 +279,10 @@ html[data-ui-theme="paper"] .matchs .match .match-title .game-tag {
 }
 
 html[data-ui-theme="paper"] .matchs .match .match-title .game-icon {
-  border: 1px solid var(--paper-ink);
+  border: none;
+  border-radius: 4px;
+  background: var(--paper-icon-well);
+  box-shadow: 0 0 0 1px rgba(90, 74, 48, 0.2);
 }
 
 html[data-ui-theme="paper"] .matchs .bet {
@@ -290,7 +323,7 @@ html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds
 }
 
 html[data-ui-theme="paper"] .matchs .bet .bet-items .item.defaultOdds .item-odds.high {
-  color: #9d174d;
+  color: #9a3d4a;
   background: var(--paper-soft-danger);
 }
 
@@ -301,19 +334,61 @@ html[data-ui-theme="paper"] .matchs .bet .item .item-odds.target {
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-odds.lock:after {
-  background-color: rgba(42, 42, 42, 0.4);
+  background-color: rgba(44, 40, 35, 0.28);
   border-radius: 6px;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .map-mute-toggle {
+  border: 1px solid var(--paper-line);
+  border-radius: 4px;
+  background: var(--paper-panel);
+  color: var(--paper-muted);
+}
+
+html[data-ui-theme="paper"] .matchs .bet .map-mute-toggle:hover {
+  border-color: var(--paper-accent);
+  background: var(--paper-accent-soft);
+  color: var(--paper-accent);
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds .pb-ws-shadow {
+  color: #3d5f8a;
+  text-decoration-color: #7a96b4;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds .pb-ws-shadow--h {
+  color: var(--paper-muted);
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds .pb-ws-shadow--m {
+  color: var(--cm-color-success);
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item .item-odds .pb-ws-shadow--diff {
+  color: var(--cm-color-warning);
+  text-decoration-color: #7a96b4;
 }
 
 html[data-ui-theme="paper"] .matchs .bet .item .item-type,
 html[data-ui-theme="paper"] .matchs .bet .item .provider-icon,
 html[data-ui-theme="paper"] .matchs .bet .item.defaultOdds .item-type {
-  border: var(--paper-border);
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  border: none;
   border-radius: 6px;
-  background-color: var(--paper-panel);
+  background-color: var(--paper-icon-well);
+  box-shadow: inset 0 0 0 1px rgba(90, 74, 48, 0.16);
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+html[data-ui-theme="paper"] .matchs .bet .item.defaultOdds .item-type {
+  background-size: auto 210%;
+  background-position: center 20%;
 }
 
 html[data-ui-theme="paper"] .odds-src {
@@ -340,38 +415,41 @@ html[data-ui-theme="paper"] .active-bet-run__leg {
 html[data-ui-theme="paper"] .admin-shell,
 html[data-ui-theme="paper"] .admin-drawer,
 html[data-ui-theme="paper"] .admin-dialog {
-  --adm-bg-deep: #f3eee4;
-  --adm-bg: #ebe4d6;
-  --adm-surface: #ebe4d6;
-  --adm-surface-2: #e2d9c8;
-  --adm-surface-hover: #dce5d2;
-  --adm-border: #c9bfae;
-  --adm-border-strong: #b5ab99;
-  --adm-text: #2a2a2a;
-  --adm-text-secondary: #3a3a3a;
-  --adm-text-muted: #6b655c;
-  --adm-accent: #5b6b4a;
-  --adm-accent-soft: #dce5d2;
-  --adm-accent-glow: #5b6b4a;
-  --adm-gold: #a16207;
-  --adm-gold-soft: rgba(161, 98, 7, 0.12);
-  --adm-purple: #6d28d9;
-  --adm-purple-soft: rgba(109, 40, 217, 0.08);
-  --adm-success: #3f6f4e;
-  --adm-success-soft: rgba(63, 111, 78, 0.12);
-  --adm-danger: #b42318;
-  --adm-danger-soft: rgba(180, 35, 24, 0.1);
-  --adm-warning: #a16207;
-  --adm-warning-soft: rgba(161, 98, 7, 0.12);
+  --adm-bg-deep: #efe6d8;
+  --adm-bg: #f6f0e6;
+  --adm-surface: #fbf7f0;
+  --adm-surface-2: #f4ecdf;
+  --adm-surface-hover: #e4ead8;
+  --adm-border: var(--paper-line);
+  --adm-border-strong: #c4b8a6;
+  --adm-text: #2c2823;
+  --adm-text-secondary: #3f3a34;
+  --adm-text-muted: #7a7268;
+  --adm-accent: #4c5c3c;
+  --adm-accent-soft: #e4ead8;
+  --adm-accent-glow: #4c5c3c;
+  --adm-gold: #9a5b12;
+  --adm-gold-soft: rgba(154, 91, 18, 0.12);
+  --adm-purple: #6b4c8a;
+  --adm-purple-soft: rgba(107, 76, 138, 0.1);
+  --adm-success: #3d6b4a;
+  --adm-success-soft: rgba(61, 107, 74, 0.12);
+  --adm-danger: #a33b2b;
+  --adm-danger-soft: rgba(163, 59, 43, 0.1);
+  --adm-warning: #9a5b12;
+  --adm-warning-soft: rgba(154, 91, 18, 0.12);
   --adm-radius: 8px;
   --adm-radius-lg: 12px;
-  --adm-shadow: 0 1px 2px rgba(42, 42, 42, 0.06), 0 4px 12px rgba(42, 42, 42, 0.04);
+  --adm-shadow: 0 1px 0 rgba(255, 252, 246, 0.9) inset, 0 1px 2px rgba(70, 52, 28, 0.05), 0 8px 18px rgba(70, 52, 28, 0.045);
 }
 
 html[data-ui-theme="paper"] .admin-shell,
 html[data-ui-theme="paper"] .admin-shell__main,
 html[data-ui-theme="paper"] .admin-shell__content {
-  background: var(--paper-bg);
+  background-color: var(--paper-bg);
+  background-image: var(--paper-grain);
+  background-size: auto;
+  background-repeat: repeat;
   color: var(--paper-ink);
 }
 
@@ -407,6 +485,12 @@ html[data-ui-theme="paper"] .admin-toolbar {
 html[data-ui-theme="paper"] .el-button {
   border-radius: 8px !important;
   font-weight: 600;
+  --el-button-bg-color: var(--paper-panel);
+  --el-button-border-color: var(--paper-line);
+  --el-button-text-color: var(--paper-ink);
+  --el-button-hover-bg-color: var(--paper-accent-soft);
+  --el-button-hover-border-color: var(--paper-accent);
+  --el-button-hover-text-color: var(--paper-accent);
 }
 
 html[data-ui-theme="paper"] .el-button--primary {
@@ -415,12 +499,92 @@ html[data-ui-theme="paper"] .el-button--primary {
   color: var(--cm-color-on-accent) !important;
 }
 
+html[data-ui-theme="paper"] .admin-shell .el-button--primary,
+html[data-ui-theme="paper"] .admin-dialog .el-button--primary,
+html[data-ui-theme="paper"] .admin-drawer .el-button--primary {
+  --el-button-bg-color: var(--paper-accent);
+  --el-button-border-color: var(--paper-accent);
+  --el-button-hover-bg-color: #5d6e4c;
+  --el-button-hover-border-color: #5d6e4c;
+  --el-button-text-color: var(--cm-color-on-accent);
+}
+
+/* 图标按钮做成纸面印记，不再用 Element 的蓝/橙/绿实心 */
+html[data-ui-theme="paper"] .el-button[class*="am-icon-"],
+html[data-ui-theme="paper"] .el-button[class*="iconfont-base-"] {
+  background: var(--paper-panel) !important;
+  border-color: var(--paper-line) !important;
+  color: var(--paper-ink) !important;
+  box-shadow: none !important;
+}
+
+html[data-ui-theme="paper"] .el-button[class*="am-icon-"]:hover,
+html[data-ui-theme="paper"] .el-button[class*="iconfont-base-"]:hover {
+  background: var(--paper-accent-soft) !important;
+  border-color: var(--paper-accent) !important;
+  color: var(--paper-accent) !important;
+}
+
+html[data-ui-theme="paper"] .el-button--primary[class*="am-icon-"] {
+  background: var(--paper-accent) !important;
+  border-color: var(--paper-accent) !important;
+  color: var(--cm-color-on-accent) !important;
+}
+
+html[data-ui-theme="paper"] .el-button--danger[class*="am-icon-"] {
+  background: var(--paper-soft-danger) !important;
+  border-color: #e4c4bc !important;
+  color: var(--cm-color-danger) !important;
+}
+
+html[data-ui-theme="paper"] .el-button--warning[class*="am-icon-"] {
+  background: var(--paper-makeup) !important;
+  border-color: #e4d4a4 !important;
+  color: var(--cm-color-warning) !important;
+}
+
+html[data-ui-theme="paper"] .el-button--success[class*="am-icon-"] {
+  background: var(--paper-accent-soft) !important;
+  border-color: #c5d2b6 !important;
+  color: var(--paper-accent) !important;
+}
+
+html[data-ui-theme="paper"] .el-button--info[class*="am-icon-"] {
+  background: var(--paper-panel-2) !important;
+  border-color: var(--paper-line) !important;
+  color: var(--paper-muted) !important;
+}
+
+html[data-ui-theme="paper"] .el-radio-button__inner {
+  background: var(--paper-panel);
+  border-color: var(--paper-line) !important;
+  color: var(--paper-ink);
+  box-shadow: none !important;
+}
+
+html[data-ui-theme="paper"] .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: var(--paper-accent) !important;
+  border-color: var(--paper-accent) !important;
+  color: var(--cm-color-on-accent) !important;
+  box-shadow: none !important;
+}
+
+html[data-ui-theme="paper"] .admin-order-card__item,
+html[data-ui-theme="paper"] .admin-order-card__profit .admin-order-card__odds {
+  color: var(--cm-color-odds);
+}
+
+html[data-ui-theme="paper"] .admin-kpi__icon,
+html[data-ui-theme="paper"] .admin-shell__nav-item [class*="am-icon-"] {
+  color: inherit;
+}
+
 html[data-ui-theme="paper"] .el-input__wrapper,
 html[data-ui-theme="paper"] .el-textarea__inner,
 html[data-ui-theme="paper"] .el-select__wrapper {
   border-radius: 8px !important;
   background: var(--paper-panel) !important;
-  box-shadow: 0 0 0 1px #c9bfae inset !important;
+  box-shadow: 0 0 0 1px var(--paper-line) inset !important;
 }
 
 html[data-ui-theme="paper"] .el-card,
@@ -440,8 +604,8 @@ html[data-ui-theme="paper"] .el-table {
   --el-table-bg-color: var(--paper-panel);
   --el-table-tr-bg-color: var(--paper-panel);
   --el-table-header-bg-color: var(--paper-panel-2);
-  --el-table-row-hover-bg-color: #f7f3eb;
-  --el-table-border-color: #d6cebd;
+  --el-table-row-hover-bg-color: #f7f2e8;
+  --el-table-border-color: var(--paper-line-soft);
   --el-table-text-color: var(--paper-ink);
   --el-table-header-text-color: var(--paper-ink);
 }
@@ -472,4 +636,89 @@ html[data-ui-theme="paper"] .el-menu-item {
 html[data-ui-theme="paper"] .el-menu-item.is-active {
   background: var(--paper-accent-soft) !important;
   color: var(--paper-accent) !important;
+}
+
+/* 侧栏订单：黑底白字角标改成纸面印章 */
+html[data-ui-theme="paper"] .orders .order {
+  background: rgba(90, 74, 48, 0.045);
+}
+
+html[data-ui-theme="paper"] #app .el-aside .orders .orderlink--paired,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .orderlink--paired,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .orderlink--paired {
+  border-color: var(--paper-accent);
+  box-shadow: none;
+}
+
+html[data-ui-theme="paper"] #app .el-aside .orders .order .platform,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order .platform,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order .platform {
+  background-color: var(--paper-panel-2);
+  color: var(--paper-ink);
+  border: 1px solid var(--paper-line);
+}
+
+html[data-ui-theme="paper"] #app .el-aside .orders .order .platform .player,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order .platform .player,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order .platform .player {
+  color: var(--paper-ink);
+}
+
+html[data-ui-theme="paper"] #app .el-aside .orders .order .platform .cm-platform-icon,
+html[data-ui-theme="paper"] #app .el-aside .orders .order .platform .provider-icon,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order .platform .cm-platform-icon,
+html[data-ui-theme="paper"] .common-layout .el-aside .orders .order .platform .provider-icon,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order .platform .cm-platform-icon,
+html[data-ui-theme="paper"] .admin-orders-user-col .orders .order .platform .provider-icon {
+  border-radius: 5px;
+  background-color: var(--paper-icon-well);
+  box-shadow: inset 0 0 0 1px rgba(90, 74, 48, 0.16);
+}
+
+html[data-ui-theme="paper"] .orders .status {
+  border-color: var(--paper-line);
+  color: var(--paper-ink);
+  background-image: none;
+}
+
+html[data-ui-theme="paper"] .orders .status.None,
+html[data-ui-theme="paper"] .orders .status.Pending,
+html[data-ui-theme="paper"] .orders .status.PmSell,
+html[data-ui-theme="paper"] .orders .status.PmSettled,
+html[data-ui-theme="paper"] .orders .status.PfSell {
+  color: var(--paper-muted);
+  background: var(--paper-panel-2);
+  border-color: var(--paper-line);
+}
+
+html[data-ui-theme="paper"] .orders .status.Win {
+  color: var(--paper-accent);
+  background: var(--paper-accent-soft);
+  border-color: #c5d2b6;
+}
+
+html[data-ui-theme="paper"] .orders .status.Lose {
+  color: var(--cm-color-danger);
+  background: var(--paper-soft-danger);
+  border-color: #e4c4bc;
+}
+
+html[data-ui-theme="paper"] .orders .status.Return {
+  color: var(--paper-muted);
+  background: var(--paper-makeup);
+  border-color: #e4d4a4;
+}
+
+/* 登录页保持品牌深色，不被纸面控件盖掉 */
+html[data-ui-theme="paper"] .login-page .el-input__wrapper,
+html[data-ui-theme="paper"] .login-page .el-textarea__inner {
+  background: #0f172a !important;
+  box-shadow: 0 0 0 1px #475569 inset !important;
+  color: #f1f5f9 !important;
+}
+
+html[data-ui-theme="paper"] .login-page .el-button--primary {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #fff !important;
 }
