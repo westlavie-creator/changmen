@@ -8,6 +8,8 @@ import {
 import { POLYMARKET_BUILDER_CODE_DEFAULT } from "./builder";
 import { POLYMARKET_CLOB_API } from "./api";
 import { resetPolymarketOrderSyncForTest } from "./pmOrderSync";
+import { clearPmExecutionMetrics, getPmExecutionMetrics } from "./pmExecutionMetrics";
+import { clearPolymarketOrderClientCacheForTests } from "./pmOrderClientCache";
 
 const polymarketPluginGet = vi.hoisted(() => vi.fn());
 const polymarketPluginPost = vi.hoisted(() => vi.fn());
@@ -45,6 +47,11 @@ vi.mock("@changmen/client-core/bridge/oddsAccess", () => ({
   registerOddsAccess: () => {},
   clearOddsAccess: () => {},
 }));
+
+beforeEach(() => {
+  clearPmExecutionMetrics();
+  clearPolymarketOrderClientCacheForTests();
+});
 
 function accountWithToken(token: string, extra: Partial<PlatformAccount> = {}): PlatformAccount {
   return {
@@ -1657,10 +1664,59 @@ describe("PM precheck /book reuse", () => {
     expect(bookGetCalls().length).toBeGreaterThan(0);
 
     vi.mocked(pmGetBook).mockClear();
+    clearPmExecutionMetrics();
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);
     expect(bookGetCalls().length).toBe(0);
+    expect(getPmExecutionMetrics().find(row => row.kind === "sign")).toMatchObject({
+      kind: "sign",
+      bookReuse: true,
+      bookAgeMs: 0,
+      signWarm: true,
+      orderClientCacheHit: false,
+      success: true,
+    });
+  });
+
+  test("betting records order client cache hit on repeated PM signatures", async () => {
+    const now = 1_700_000_000_000;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    mockPluginGetWithBook({
+      tick_size: "0.01",
+      min_order_size: "1",
+      neg_risk: false,
+      asks: [{ price: "0.5", size: "100" }],
+    });
+    vi.mocked(pmSubmitOrder).mockResolvedValue({
+      success: true,
+      orderID: "order-cache",
+      status: "matched",
+      takingAmount: "2000000",
+      makingAmount: "1000000",
+    });
+
+    const account = pmBettingAccount();
+    const option = {
+      itemId: "123456789",
+      odds: 2,
+      betMoney: 10,
+    };
+
+    const checked = await polymarketProvider.checkBet!(account, option as any);
+    expect(checked.data).toBeTruthy();
+    await polymarketProvider.betting!(account, checked as any);
+
+    clearPmExecutionMetrics();
+    const result = await polymarketProvider.betting!(account, checked as any);
+
+    expect(result.success).toBe(true);
+    expect(getPmExecutionMetrics().find(row => row.kind === "sign")).toMatchObject({
+      kind: "sign",
+      bookReuse: true,
+      orderClientCacheHit: true,
+      success: true,
+    });
   });
 
   test("betting refetches /book when precheck cache expired", async () => {
@@ -1692,9 +1748,17 @@ describe("PM precheck /book reuse", () => {
 
     now += 1501;
     vi.mocked(pmGetBook).mockClear();
+    clearPmExecutionMetrics();
     const result = await polymarketProvider.betting!(account, checked as any);
 
     expect(result.success).toBe(true);
     expect(bookGetCalls().length).toBeGreaterThan(0);
+    expect(getPmExecutionMetrics().find(row => row.kind === "sign")).toMatchObject({
+      kind: "sign",
+      bookReuse: false,
+      bookAgeMs: 1501,
+      reuseRejectReason: "expired",
+      success: true,
+    });
   });
 });

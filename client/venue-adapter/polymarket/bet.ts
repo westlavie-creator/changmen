@@ -58,6 +58,10 @@ import { polymarketPluginGet } from "./transport";
 import { pmGetBook, pmSubmitOrder } from "./pmClientApi";
 import { measurePmExecution, recordPmExecutionMetric } from "./pmExecutionMetrics";
 import {
+  getPolymarketOrderClientRuntime,
+  hasPolymarketOrderClientRuntime,
+} from "./pmOrderClientCache";
+import {
   pmFokDepthReuseMultiplier,
   getPmFokDepthBufferPrefs,
   pmFokDepthBufferNeedUsdc,
@@ -163,7 +167,7 @@ function builderCodeMetric(): { builderCodePresent: boolean } {
   }
 }
 
-interface PolymarketOrderOptions {
+export interface PolymarketOrderOptions {
   tickSize: TickSize;
   minOrderSize: number;
   negRisk: boolean;
@@ -190,6 +194,10 @@ export function warmupPolymarketClobSdk(): void {
   ]).catch(() => {
     polymarketClobSdkWarm = null;
   });
+}
+
+function isPolymarketClobSdkWarmStarted(): boolean {
+  return Boolean(polymarketClobSdkWarm);
 }
 
 /** checkBet 写入、betting 可复用的 PM 买单预检缓存 */
@@ -228,22 +236,49 @@ function reusedPolymarketBuyCheck(
   apiBetMoney: number,
   maxPrice: number,
 ): PolymarketBuyCheckData | null {
+  const diagnostic = diagnosePolymarketBuyCheckReuse(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
+  return diagnostic.data;
+}
+
+type PolymarketBuyCheckReuseRejectReason =
+  | "missing_data"
+  | "token_mismatch"
+  | "detection_odds_mismatch"
+  | "max_price_mismatch"
+  | "amount_mismatch"
+  | "expired"
+  | "depth_multiplier_mismatch";
+
+interface PolymarketBuyCheckReuseDiagnostic {
+  data: PolymarketBuyCheckData | null;
+  bookAgeMs?: number;
+  rejectReason?: PolymarketBuyCheckReuseRejectReason;
+}
+
+function diagnosePolymarketBuyCheckReuse(
+  option: BetOption,
+  tokenId: string,
+  detectionOdds: number,
+  apiBetMoney: number,
+  maxPrice: number,
+): PolymarketBuyCheckReuseDiagnostic {
   const prior = option.data;
   if (!isPolymarketBuyCheckData(prior))
-    return null;
+    return { data: null, rejectReason: "missing_data" };
+  const bookAgeMs = Date.now() - prior.bookFetchedAt;
   if (prior.tokenId !== tokenId)
-    return null;
+    return { data: null, bookAgeMs, rejectReason: "token_mismatch" };
   if (Number(prior.detectionOdds) !== detectionOdds)
-    return null;
+    return { data: null, bookAgeMs, rejectReason: "detection_odds_mismatch" };
   if (Number(prior.detectionMaxPrice) !== maxPrice)
-    return null;
+    return { data: null, bookAgeMs, rejectReason: "max_price_mismatch" };
   if (Number(prior.apiBetMoney) !== apiBetMoney)
-    return null;
-  if (Date.now() - prior.bookFetchedAt > PRECHECK_BOOK_REUSE_MS)
-    return null;
+    return { data: null, bookAgeMs, rejectReason: "amount_mismatch" };
+  if (bookAgeMs > PRECHECK_BOOK_REUSE_MS)
+    return { data: null, bookAgeMs, rejectReason: "expired" };
   if ((prior.depthMultiplier ?? 1) !== pmFokDepthReuseMultiplier())
-    return null;
-  return prior;
+    return { data: null, bookAgeMs, rejectReason: "depth_multiplier_mismatch" };
+  return { data: prior, bookAgeMs };
 }
 
 /** BUY FOK 限价打在检测上限（向下对齐 tick），不是当前卖一 */
@@ -473,37 +508,14 @@ async function createPolymarketOrderBody(
   amount: number,
   orderOptions: PolymarketOrderOptions,
 ) {
-  const [
-    clob,
-    viem,
-    accounts,
-  ] = await Promise.all([
-    import("@polymarket/clob-client-v2"),
-    import("viem"),
-    import("viem/accounts"),
-  ]);
-  const { createPolygonHttpTransport, polygonChainForRpc } = await import("./polygonRpc");
-  const account = accounts.privateKeyToAccount(privateKey);
-  const signer = viem.createWalletClient({
-    account,
-    chain: polygonChainForRpc(),
-    transport: createPolygonHttpTransport(),
+  const { runtime } = await getPolymarketOrderClientRuntime({
+    gateway,
+    privateKey,
+    creds,
+    config,
+    signatureType: resolveSdkSignatureType(creds.signatureType),
   });
-  const builderCode = resolvePolymarketBuilderCode();
-  const client = new clob.ClobClient({
-    host: gateway,
-    chain: clob.Chain.POLYGON,
-    signer,
-    creds: {
-      key: creds.apiKey!,
-      secret: creds.secret!,
-      passphrase: creds.passphrase!,
-    },
-    signatureType: resolveSdkSignatureType(creds.signatureType) as any,
-    funderAddress: resolveFunder(config) || undefined,
-    builderConfig: { builderCode },
-  });
-  Reflect.set(client, "cachedVersion", 2);
+  const { client, clob, builderCode } = runtime;
   // SDK TickSize 尚未含官方 0.0025；运行时仍按 book tick 写入
   client.tickSizes[tokenId] = orderOptions.tickSize as any;
   client.negRisk[tokenId] = orderOptions.negRisk;
@@ -788,12 +800,36 @@ export const polymarketProvider: PlatformProvider = {
 
     const tokenId = option.itemId;
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
-    const reused = reusedPolymarketBuyCheck(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
+    const reuse = diagnosePolymarketBuyCheckReuse(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
+    const reused = reuse.data;
+    if (reused)
+      warmupPolymarketClobSdk();
+    const orderClientInput = privateKey
+      ? {
+          gateway,
+          privateKey,
+          creds,
+          config,
+          signatureType: readiness.signatureType,
+        }
+      : null;
+    const signWarm = isPolymarketClobSdkWarmStarted();
+    const orderClientCacheHit = orderClientInput
+      ? hasPolymarketOrderClientRuntime(orderClientInput)
+      : false;
+    const executionReadiness = {
+      ...readiness,
+      bookReuse: Boolean(reused),
+      bookAgeMs: reuse.bookAgeMs,
+      reuseRejectReason: reuse.rejectReason,
+      signWarm,
+      orderClientCacheHit,
+    };
     if (!reused) {
       const pmBlock = await resolvePolymarketBetBlockReason(option);
       if (pmBlock) {
         recordPmExecutionMetric({
-          ...readiness,
+          ...executionReadiness,
           kind: "betting",
           ms: Date.now() - beginTime,
           success: false,
@@ -801,9 +837,6 @@ export const polymarketProvider: PlatformProvider = {
         });
         return new BetResult("Polymarket", false, pmBlock);
       }
-    }
-    else {
-      warmupPolymarketClobSdk();
     }
 
     try {
@@ -815,7 +848,7 @@ export const polymarketProvider: PlatformProvider = {
         option,
       );
       option.newOdds = bookOdds;
-      const orderBody = await measurePmExecution("sign", readiness, () =>
+      const orderBody = await measurePmExecution("sign", executionReadiness, () =>
         createPolymarketOrderBody(
           gateway,
           privateKey,
@@ -827,13 +860,13 @@ export const polymarketProvider: PlatformProvider = {
           orderOptions,
         ),
       );
-      const result = await measurePmExecution("submit", readiness, () =>
+      const result = await measurePmExecution("submit", executionReadiness, () =>
         pmSubmitOrder<PolymarketOrderResponse>(account, orderBody),
       );
 
       if (isPolymarketTradingDisabledError(result)) {
         recordPmExecutionMetric({
-          ...readiness,
+          ...executionReadiness,
           kind: "betting",
           ms: Date.now() - beginTime,
           success: false,
@@ -867,7 +900,7 @@ export const polymarketProvider: PlatformProvider = {
         failed.beginTime = beginTime;
         failed.tip = { pmPosted: true };
         recordPmExecutionMetric({
-          ...readiness,
+          ...executionReadiness,
           kind: "betting",
           ms: Date.now() - beginTime,
           success: false,
@@ -914,7 +947,7 @@ export const polymarketProvider: PlatformProvider = {
         startPolymarketSettlementJob(account, bet.orderId, { poll, conditionId });
       }
       recordPmExecutionMetric({
-        ...readiness,
+        ...executionReadiness,
         kind: "betting",
         ms: Date.now() - beginTime,
         success: true,
@@ -930,7 +963,7 @@ export const polymarketProvider: PlatformProvider = {
         }
       }
       recordPmExecutionMetric({
-        ...readiness,
+        ...executionReadiness,
         kind: "betting",
         ms: Date.now() - beginTime,
         success: false,

@@ -27,6 +27,11 @@ export interface PmExecutionMetricEntry {
   privateKeyReady?: boolean;
   signatureType?: number;
   funderPresent?: boolean;
+  bookReuse?: boolean;
+  bookAgeMs?: number;
+  reuseRejectReason?: string;
+  signWarm?: boolean;
+  orderClientCacheHit?: boolean;
 }
 
 const MAX_ENTRIES = 300;
