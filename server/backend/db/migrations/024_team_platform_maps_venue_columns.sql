@@ -53,11 +53,37 @@ ALTER INDEX IF EXISTS team_platform_maps_name_idx RENAME TO team_platform_maps_v
 DO $$
 BEGIN
   IF to_regclass('public.team_venue_maps') IS NOT NULL THEN
-    EXECUTE $c$COMMENT ON COLUMN team_venue_maps.venue_id IS '场馆侧队伍 ID（SaveMatch HomeID/AwayID 等）'$c$;
-    EXECUTE $c$COMMENT ON COLUMN team_venue_maps.venue_name IS '场馆侧队名'$c$;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'team_venue_maps' AND column_name = 'venue_id'
+    ) THEN
+      EXECUTE $c$COMMENT ON COLUMN team_venue_maps.venue_id IS '场馆侧队伍 ID（SaveMatch HomeID/AwayID 等）'$c$;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'team_venue_maps' AND column_name = 'venue_team_id'
+    ) THEN
+      EXECUTE $c$COMMENT ON COLUMN team_venue_maps.venue_team_id IS '场馆侧队伍 ID（SaveMatch HomeID/AwayID 等）'$c$;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'team_venue_maps' AND column_name = 'venue_name'
+    ) THEN
+      EXECUTE $c$COMMENT ON COLUMN team_venue_maps.venue_name IS '场馆侧队名'$c$;
+    END IF;
   ELSIF to_regclass('public.team_platform_maps') IS NOT NULL THEN
-    EXECUTE $c$COMMENT ON COLUMN team_platform_maps.venue_id IS '场馆侧队伍 ID（SaveMatch HomeID/AwayID 等）'$c$;
-    EXECUTE $c$COMMENT ON COLUMN team_platform_maps.venue_name IS '场馆侧队名'$c$;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'team_platform_maps' AND column_name = 'venue_id'
+    ) THEN
+      EXECUTE $c$COMMENT ON COLUMN team_platform_maps.venue_id IS '场馆侧队伍 ID（SaveMatch HomeID/AwayID 等）'$c$;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'team_platform_maps' AND column_name = 'venue_name'
+    ) THEN
+      EXECUTE $c$COMMENT ON COLUMN team_platform_maps.venue_name IS '场馆侧队名'$c$;
+    END IF;
   END IF;
 END $$;
 
