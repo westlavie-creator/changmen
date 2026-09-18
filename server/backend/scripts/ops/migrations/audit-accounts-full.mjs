@@ -2,7 +2,7 @@
 /** Full account audit — players 为唯一真相 */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 import { ensurePgPoolReady, getPgPool } from "@changmen/db";
-import { playerRowToAccountRecord } from "../../db/player_account_record.js";
+import { playerRowToAccountRecord } from "../../../../db/player_account_record.js";
 
 loadChangmenEnv();
 const pool = await ensurePgPoolReady();
