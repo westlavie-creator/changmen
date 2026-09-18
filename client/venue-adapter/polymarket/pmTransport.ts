@@ -617,9 +617,7 @@ async function pmL2GetDirectFirst<T>(
       PM_PRIVATE_READ_DIRECT_TIMEOUT_MS,
     );
   }
-  catch (err) {
-    if (!isPmTransportNetworkError(err))
-      throw err;
+  catch {
     return pmHttpViaVps<T>("GET", url, undefined, options);
   }
 }
@@ -634,9 +632,7 @@ async function pmPrivateReadDirectFirst<T>(
       PM_PRIVATE_READ_DIRECT_TIMEOUT_MS,
     );
   }
-  catch (err) {
-    if (!isPmTransportNetworkError(err))
-      throw err;
+  catch {
     return changmenPmEsportCall<T>(action, stripEsportBodyForVps(body));
   }
 }

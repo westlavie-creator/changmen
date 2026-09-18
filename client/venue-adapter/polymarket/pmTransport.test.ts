@@ -241,6 +241,24 @@ describe("pmTransport mode", () => {
     expect(changmenPmHttpRequest).toHaveBeenCalledOnce();
   });
 
+  test("official PM-M 下 vps L2 GET 直连鉴权失败也回落 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockRejectedValue(new Error("HTTP 401"));
+    vi.mocked(changmenPmHttpRequest).mockResolvedValue({
+      status: 200,
+      text: JSON.stringify({ balance: "3000000" }),
+    });
+
+    const out = await pmTransportHttpGet<{ balance: string }>(
+      "https://clob.polymarket.com/balance-allowance?asset_type=COLLATERAL",
+      { account: pmAccount, l2Path: "/balance-allowance?asset_type=COLLATERAL" },
+    );
+
+    expect(out).toEqual({ balance: "3000000" });
+    expect(changmenPmHttpRequest).toHaveBeenCalledOnce();
+  });
+
   test("official PM-M 下 vps 私有只读接口优先直连", async () => {
     setPmHttpModeForTests("vps");
     resetPmMarketWsSourceModeForTests("official");
@@ -276,6 +294,25 @@ describe("pmTransport mode", () => {
     expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetTrades", {
       playerId: 42,
       id: "trade-1",
+    });
+  });
+
+  test("official PM-M 下私有只读直连鉴权失败也回落 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockRejectedValue(new Error("HTTP 401"));
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ id: "vps-order" });
+
+    const out = await pmEsportCall("Pm_GetOrder", {
+      playerId: 42,
+      orderId: "order-401",
+      _account: pmAccount,
+    });
+
+    expect(out).toEqual({ id: "vps-order" });
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetOrder", {
+      playerId: 42,
+      orderId: "order-401",
     });
   });
 
