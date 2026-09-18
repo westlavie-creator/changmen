@@ -2,7 +2,8 @@ import { getPmMarketWsSourceMode } from "./pmMarketWsMode";
 import { resolvePmHttpMode, type PmHttpMode } from "./pmTransportMode";
 
 export type PmBookSource = "direct-live" | "vps-live" | "vps-fallback" | "extension" | "unknown";
-export type PmExecutionMetricKind = "book" | "check" | "sign" | "submit" | "betting";
+export type PmQuoteSource = "ws" | "http-seed" | "book-correct";
+export type PmExecutionMetricKind = "quote_to_fo" | "book" | "check" | "sign" | "submit" | "betting";
 
 export interface PmExecutionMetricEntry {
   at: number;
@@ -13,6 +14,11 @@ export interface PmExecutionMetricEntry {
   httpMode: PmHttpMode;
   ms?: number;
   bookSource?: PmBookSource;
+  quoteSource?: PmQuoteSource;
+  quotePrice?: number;
+  betId?: string;
+  side?: "home" | "away";
+  rejectReason?: string;
   success?: boolean;
   fallback?: boolean;
   error?: string;
@@ -42,6 +48,22 @@ export function recordPmExecutionMetric(
   });
   if (entries.length > MAX_ENTRIES)
     entries.splice(0, entries.length - MAX_ENTRIES);
+}
+
+export function recordPmQuoteToFoMetric(entry: {
+  tokenId?: string;
+  betId?: string;
+  side?: "home" | "away";
+  quotePrice?: number;
+  quoteSource: PmQuoteSource;
+  success: boolean;
+  rejectReason?: string;
+  error?: string;
+}): void {
+  recordPmExecutionMetric({
+    kind: "quote_to_fo",
+    ...entry,
+  });
 }
 
 export async function measurePmExecution<T>(

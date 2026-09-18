@@ -15,6 +15,7 @@ import {
 } from "./ws";
 import { extractPolymarketWsBestAsks } from "./wsQuotes";
 import { shouldApplyPolymarketWsQuote } from "./pmTokenQuote";
+import { recordPmQuoteToFoMetric } from "./pmExecutionMetrics";
 
 export interface PolymarketMarketQuote {
   assetId: string;
@@ -123,8 +124,16 @@ export function ensurePolymarketMarketQuoteHub(): void {
         const price = Number(update.bestAsk);
         if (!Number.isFinite(price))
           continue;
-        if (!shouldApplyPolymarketWsQuote(update.assetId, update.timestamp))
+        if (!shouldApplyPolymarketWsQuote(update.assetId, update.timestamp)) {
+          recordPmQuoteToFoMetric({
+            tokenId: update.assetId,
+            quotePrice: price,
+            quoteSource: "ws",
+            success: false,
+            rejectReason: "stale_ws_guard",
+          });
           continue;
+        }
         notePolymarketMarketWsQuote(update.timestamp);
         emitQuote(update.assetId, price);
       }

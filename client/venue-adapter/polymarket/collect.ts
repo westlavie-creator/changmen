@@ -27,6 +27,7 @@ import {
   registerPolymarketQuoteAssets,
   unregisterPolymarketQuoteConsumer,
 } from "./marketQuoteHub";
+import { recordPmQuoteToFoMetric } from "./pmExecutionMetrics";
 import { saveTokenQuote } from "./pmTokenQuote";
 
 export { saveTokenQuote } from "./pmTokenQuote";
@@ -132,21 +133,53 @@ export function startPolymarketCollector(): () => void {
 
   function updateBetFromAsset(assetId: string, bestAsk: string | number | undefined) {
     const marketId = assetToMarket.get(assetId);
-    if (!marketId)
+    if (!marketId) {
+      recordPmQuoteToFoMetric({
+        tokenId: assetId,
+        quotePrice: Number(bestAsk),
+        quoteSource: "ws",
+        success: false,
+        rejectReason: "missing_mapping",
+      });
       return;
+    }
     const mapped = marketsById.get(marketId);
-    if (!mapped)
+    if (!mapped) {
+      recordPmQuoteToFoMetric({
+        tokenId: assetId,
+        quotePrice: Number(bestAsk),
+        quoteSource: "ws",
+        success: false,
+        rejectReason: "missing_market",
+      });
       return;
+    }
 
     const price = Number(bestAsk);
     // 与 emitQuote / decimalOddsFromProbability 一致：无有效买价不写 fo
-    if (!Number.isFinite(price) || price <= 0 || price >= 1)
+    if (!Number.isFinite(price) || price <= 0 || price >= 1) {
+      recordPmQuoteToFoMetric({
+        tokenId: assetId,
+        quotePrice: price,
+        quoteSource: "ws",
+        success: false,
+        rejectReason: "invalid_price",
+      });
       return;
+    }
 
     const next: CollectBetDto = { ...mapped.bet };
     const decimalOdds = decimalOddsFromProbability(price);
-    if (!(decimalOdds > 0))
+    if (!(decimalOdds > 0)) {
+      recordPmQuoteToFoMetric({
+        tokenId: assetId,
+        quotePrice: price,
+        quoteSource: "ws",
+        success: false,
+        rejectReason: "invalid_decimal_odds",
+      });
       return;
+    }
     if (assetId === String(next.SourceHomeID))
       next.HomeOdds = decimalOdds;
     if (assetId === String(next.SourceAwayID))
@@ -162,7 +195,7 @@ export function startPolymarketCollector(): () => void {
       betId,
       side,
       locked: false,
-    }, "mqtt");
+    }, "mqtt", "ws");
   }
 
   const unQuote = onPolymarketMarketQuote((q) => {

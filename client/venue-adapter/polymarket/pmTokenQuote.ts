@@ -6,6 +6,7 @@ import { getVenueOddsEntry, saveVenueOdds } from "@changmen/client-core/bridge/o
 import { PLATFORMS } from "../shared/platforms";
 import { decimalOddsFromProbability } from "./parse";
 import { isValidClobPrice } from "./pmDetection";
+import { recordPmQuoteToFoMetric, type PmQuoteSource } from "./pmExecutionMetrics";
 
 const PLATFORM = PLATFORMS.Polymarket;
 
@@ -19,6 +20,7 @@ export function saveTokenQuote(
     locked: boolean;
   },
   source: "http" | "mqtt",
+  metricSource: PmQuoteSource = source === "mqtt" ? "ws" : "http-seed",
 ) {
   saveVenueOdds(PLATFORM, {
     id: params.tokenId,
@@ -29,6 +31,14 @@ export function saveTokenQuote(
     side: params.side,
     time: Date.now(),
   }, source);
+  recordPmQuoteToFoMetric({
+    tokenId: params.tokenId,
+    betId: params.betId,
+    side: params.side,
+    quotePrice: params.clobPrice,
+    quoteSource: metricSource,
+    success: true,
+  });
 }
 
 /** 预检/下单：book best ask 高于检测限价时抛出，便于 catch 回写 fo */
@@ -81,7 +91,7 @@ export function syncPolymarketFoOnPriceAboveDetection(
     side,
     // 本侧已有有效 book ask：必须解锁，否则 getOdds 仍为 0（与 collect WS 路径一致）
     locked: false,
-  }, "http");
+  }, "http", "book-correct");
   notePolymarketLiveBookQuote(tokenId);
 }
 
