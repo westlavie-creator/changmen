@@ -1,4 +1,5 @@
 import { probeGamebetExtension } from "@changmen/client-core/chrome-plugin/bridge";
+import { reportVenueWsMeta } from "../shared/venueWsStatus";
 import { getPmMarketWsSourceMode, setPmMarketWsSourceMode, type PmMarketWsSourceMode } from "./pmMarketWsMode";
 import {
   probePolymarketClobViaExtension,
@@ -153,6 +154,10 @@ async function applyModes(
 export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportApplyResult> {
   if (readManualOverride()) {
     const httpMode = await reconcileHttpUnderManualOverride();
+    reportVenueWsMeta("pm-market", {
+      sourceMode: getPmMarketWsSourceMode(),
+      reason: "manual_override",
+    });
     return {
       applied: false,
       skippedManualOverride: true,
@@ -165,6 +170,11 @@ export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportAppl
 
   const probe = await probePolymarketOfficialReachable();
   const modes = await applyModes(probe.marketWsOk);
+  reportVenueWsMeta("pm-market", {
+    sourceMode: modes.marketWsMode,
+    reason: probe.marketWsOk ? "official_ok" : "official_timeout",
+    lastError: probe.marketWsOk ? "" : "official market ws probe failed",
+  });
   const result: PmAutoTransportApplyResult = {
     applied: true,
     skippedManualOverride: false,

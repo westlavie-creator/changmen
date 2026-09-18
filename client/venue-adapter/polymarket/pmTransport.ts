@@ -13,6 +13,7 @@ import {
 import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2HeadersFromAccount } from "./l2Auth";
 import { demotePmHttpToVpsFromLocalNetworkError, resolvePmHttpMode } from "./pmTransportMode";
+import { measurePmExecution, recordPmExecutionMetric } from "./pmExecutionMetrics";
 
 /** vps 模式下公开 /book 直连试探上限；≤0 则不试直连、仍走 VPS。 */
 export const PM_GET_BOOK_DIRECT_TIMEOUT_MS = 800;
@@ -616,21 +617,48 @@ export async function pmEsportCall<T>(
 
 async function pmGetBookPreferDirect<T>(body: Record<string, unknown>): Promise<T> {
   const mode = resolvePmHttpMode();
+  const tokenId = String(body.tokenId ?? "").trim() || undefined;
   if (mode === "extension")
-    return pmEsportCallExtension<T>("Pm_GetBook", body);
+    return measurePmExecution("book", { tokenId, bookSource: "extension" }, () =>
+      pmEsportCallExtension<T>("Pm_GetBook", body),
+    );
   const timeoutMs = mode === "vps" ? getBookDirectTimeoutMs : 0;
-  if (mode === "vps" && timeoutMs <= 0)
-    return changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body));
+  if (mode === "vps" && timeoutMs <= 0) {
+    return measurePmExecution("book", { tokenId, bookSource: "vps-live" }, () =>
+      changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body)),
+    );
+  }
   try {
+    const startedAt = Date.now();
     const direct = pmEsportCallDirect<T>("Pm_GetBook", body);
-    return await (timeoutMs > 0 ? withTimeout(direct, timeoutMs) : direct);
+    const value = await (timeoutMs > 0 ? withTimeout(direct, timeoutMs) : direct);
+    recordPmExecutionMetric({
+      kind: "book",
+      tokenId,
+      bookSource: "direct-live",
+      ms: Date.now() - startedAt,
+      success: true,
+      fallback: false,
+    });
+    return value;
   }
   catch (err) {
     if (isPmTransportNetworkError(err)) {
       if (mode === "direct")
         demotePmHttpToVpsFromLocalNetworkError();
-      return changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body));
+      return measurePmExecution("book", {
+        tokenId,
+        bookSource: "vps-fallback",
+        fallback: true,
+      }, () => changmenPmEsportCall<T>("Pm_GetBook", stripEsportBodyForVps(body)));
     }
+    recordPmExecutionMetric({
+      kind: "book",
+      tokenId,
+      bookSource: "direct-live",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   }
 }

@@ -5,6 +5,16 @@ export type VenueWsStatusEntry = {
   id: string;
   label: string;
   status: VenueWsStatus;
+  meta?: VenueWsStatusMeta;
+};
+
+export type VenueWsStatusMeta = {
+  sourceMode?: string;
+  reason?: string;
+  assetCount?: number;
+  lastMessageAt?: number;
+  lastError?: string;
+  failStreak?: number;
 };
 
 const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
@@ -24,6 +34,7 @@ const REGISTRY: ReadonlyArray<{ id: string; label: string }> = [
 const statusById = new Map<string, VenueWsStatus>(
   REGISTRY.map(row => [row.id, "disconnected" as VenueWsStatus]),
 );
+const metaById = new Map<string, VenueWsStatusMeta>();
 const listeners = new Set<() => void>();
 
 function notifyVenueWsListeners(): void {
@@ -40,6 +51,23 @@ export function reportVenueWsStatus(id: string, status: VenueWsStatus): void {
   notifyVenueWsListeners();
 }
 
+export function reportVenueWsMeta(id: string, patch: VenueWsStatusMeta): void {
+  const prev = metaById.get(id) ?? {};
+  const next = { ...prev, ...patch };
+  let changed = false;
+  const keys = new Set([...Object.keys(prev), ...Object.keys(next)]);
+  for (const key of keys) {
+    if (prev[key as keyof VenueWsStatusMeta] !== next[key as keyof VenueWsStatusMeta]) {
+      changed = true;
+      break;
+    }
+  }
+  if (!changed)
+    return;
+  metaById.set(id, next);
+  notifyVenueWsListeners();
+}
+
 export function getVenueWsStatus(id: string): VenueWsStatus {
   return statusById.get(id) ?? "disconnected";
 }
@@ -49,6 +77,7 @@ export function listVenueWsStatuses(): VenueWsStatusEntry[] {
     id,
     label,
     status: getVenueWsStatus(id),
+    meta: metaById.get(id),
   }));
 }
 
@@ -59,7 +88,9 @@ export function subscribeVenueWsStatus(listener: () => void): () => void {
 
 /** 单测重置 */
 export function resetVenueWsStatusesForTests(): void {
-  for (const { id } of REGISTRY)
+  for (const { id } of REGISTRY) {
     statusById.set(id, "disconnected");
+    metaById.delete(id);
+  }
   notifyVenueWsListeners();
 }

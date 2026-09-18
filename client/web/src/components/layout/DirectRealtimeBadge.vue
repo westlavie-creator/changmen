@@ -248,6 +248,14 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   }
   if (entry.id === "pm-market") {
     lines.push(`当前选择：${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}`);
+    if (entry.meta?.reason)
+      lines.push(`选择原因：${entry.meta.reason}`);
+    if (typeof entry.meta?.assetCount === "number")
+      lines.push(`订阅 asset：${entry.meta.assetCount}`);
+    if (entry.meta?.lastMessageAt)
+      lines.push(`最近 book：${formatAgo(entry.meta.lastMessageAt)}`);
+    if (entry.meta?.lastError)
+      lines.push(`错误：${entry.meta.lastError}`);
     lines.push("点击切换 CHANGMEN / 官方");
   }
   if (entry.id === "pm-sport-market") {

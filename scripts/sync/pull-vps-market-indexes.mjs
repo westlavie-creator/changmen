@@ -35,6 +35,13 @@ function loadDeployConfig() {
     sshIdentity: process.env.SSH_IDENTITY || "",
   };
   const home = process.env.HOME || os.homedir() || "";
+  const userProfile = process.env.USERPROFILE || home;
+  const expandLocalPath = (value) => String(value || "")
+    .trim()
+    .replace(/%USERPROFILE%/ig, userProfile)
+    .replace(/%HOME%/ig, home)
+    .replace(/^\$\{HOME\}/, home)
+    .replace(/^~/, home);
   const defaultKey = home ? path.join(home, ".ssh", "id_ed25519_changmen") : "";
   if (!cfg.sshIdentity && defaultKey && fs.existsSync(defaultKey))
     cfg.sshIdentity = defaultKey;
@@ -49,7 +56,7 @@ function loadDeployConfig() {
       if (u) cfg.user = u[1].trim();
       if (h) cfg.host = h[1].trim();
       if (r) cfg.repo = r[1].trim();
-      if (k) cfg.sshIdentity = k[1].trim();
+      if (k) cfg.sshIdentity = expandLocalPath(k[1]);
     }
   }
 
@@ -59,7 +66,7 @@ function loadDeployConfig() {
       const m = line.match(/^\s*(DEPLOY_USER|DEPLOY_HOST|DEPLOY_REPO|SSH_IDENTITY)="?([^"#]+)"?\s*$/);
       if (!m) continue;
       const key = m[1];
-      const val = m[2].trim().replace(/^\$\{HOME\}/, home).replace(/^~/, home);
+      const val = expandLocalPath(m[2]);
       if (key === "DEPLOY_USER") cfg.user = val;
       if (key === "DEPLOY_HOST") cfg.host = val;
       if (key === "DEPLOY_REPO") cfg.repo = val;

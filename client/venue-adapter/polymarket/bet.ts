@@ -56,6 +56,7 @@ import {
 import { resolvePolymarketVenueIdentityFromToken } from "./profile";
 import { polymarketPluginGet } from "./transport";
 import { pmGetBook, pmSubmitOrder } from "./pmClientApi";
+import { measurePmExecution, recordPmExecutionMetric } from "./pmExecutionMetrics";
 import {
   pmFokDepthReuseMultiplier,
   getPmFokDepthBufferPrefs,
@@ -150,6 +151,16 @@ interface PolymarketOrderBookResponse {
 function resolveSdkSignatureType(value: string | number | undefined): number {
   const numeric = Number(value ?? 0);
   return [1, 2, 3].includes(numeric) ? numeric : 0;
+}
+
+function builderCodeMetric(): { builderCodePresent: boolean } {
+  try {
+    resolvePolymarketBuilderCode();
+    return { builderCodePresent: true };
+  }
+  catch {
+    return { builderCodePresent: false };
+  }
 }
 
 interface PolymarketOrderOptions {
@@ -644,10 +655,19 @@ export const polymarketProvider: PlatformProvider = {
   },
 
   async checkBet(account: PlatformAccount, option: BetOption): Promise<BetOption> {
+    const checkStartedAt = Date.now();
     const localBlock = getPolymarketPmSportBlockReasonFromOption(option);
     if (localBlock) {
       option.checkError = localBlock;
       option.data = null;
+      recordPmExecutionMetric({
+        kind: "check",
+        tokenId: option.itemId,
+        accountId: Number(account.accountId) || undefined,
+        ms: Date.now() - checkStartedAt,
+        success: false,
+        error: localBlock,
+      });
       return option;
     }
 
@@ -712,6 +732,14 @@ export const polymarketProvider: PlatformProvider = {
       option.checkError = err instanceof Error ? err.message : String(err);
       option.data = null;
     }
+    recordPmExecutionMetric({
+      kind: "check",
+      tokenId,
+      accountId: Number(account.accountId) || undefined,
+      ms: Date.now() - checkStartedAt,
+      success: Boolean(option.data),
+      error: option.data ? undefined : option.checkError,
+    });
     return option;
   },
 
@@ -720,28 +748,59 @@ export const polymarketProvider: PlatformProvider = {
     const config = parseTokenConfig(account.token);
     const creds = resolveApiCreds(config);
     const privateKey = resolvePrivateKey(config);
+    const readiness = {
+      accountId: Number(account.accountId) || undefined,
+      tokenId: option.itemId,
+      apiCredsReady: Boolean(creds.apiKey && creds.secret && creds.passphrase),
+      privateKeyReady: Boolean(privateKey),
+      signatureType: resolveSdkSignatureType(resolveSignatureType(config)),
+      funderPresent: Boolean(resolveFunder(config)),
+      ...builderCodeMetric(),
+    };
 
-    if (!creds.address)
+    if (!creds.address) {
+      recordPmExecutionMetric({ ...readiness, kind: "betting", success: false, error: "missing walletAddress" });
       return new BetResult("Polymarket", false, "凭证缺少 walletAddress");
-    if (!privateKey)
+    }
+    if (!privateKey) {
+      recordPmExecutionMetric({ ...readiness, kind: "betting", success: false, error: "missing privateKey" });
       return new BetResult("Polymarket", false, "缺少有效私钥：请先解锁本机钱包，或在账号设置中重新导入私钥");
-    if (!creds.apiKey || !creds.secret || !creds.passphrase)
+    }
+    if (!creds.apiKey || !creds.secret || !creds.passphrase) {
+      recordPmExecutionMetric({ ...readiness, kind: "betting", success: false, error: "missing api credentials" });
       return new BetResult("Polymarket", false, "凭证缺少用户 API Key（apiKey/secret/passphrase），请重新通过插件采集");
+    }
 
     const gateway = account.gateway || POLYMARKET_CLOB_API;
 
     const detectionOdds = resolvePolymarketDetectionOdds(option);
     const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
-    if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
+    if (!maxPrice || maxPrice <= 0 || maxPrice >= 1) {
+      recordPmExecutionMetric({
+        ...readiness,
+        kind: "betting",
+        ms: Date.now() - beginTime,
+        success: false,
+        error: `invalid maxPrice ${maxPrice}`,
+      });
       return new BetResult("Polymarket", false, `无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
+    }
 
     const tokenId = option.itemId;
     const apiBetMoney = resolvePolymarketApiBetMoney(account, option);
     const reused = reusedPolymarketBuyCheck(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
     if (!reused) {
       const pmBlock = await resolvePolymarketBetBlockReason(option);
-      if (pmBlock)
+      if (pmBlock) {
+        recordPmExecutionMetric({
+          ...readiness,
+          kind: "betting",
+          ms: Date.now() - beginTime,
+          success: false,
+          error: pmBlock,
+        });
         return new BetResult("Polymarket", false, pmBlock);
+      }
     }
     else {
       warmupPolymarketClobSdk();
@@ -756,20 +815,32 @@ export const polymarketProvider: PlatformProvider = {
         option,
       );
       option.newOdds = bookOdds;
-      const orderBody = await createPolymarketOrderBody(
-        gateway,
-        privateKey,
-        creds,
-        config,
-        tokenId,
-        price,
-        apiBetMoney,
-        orderOptions,
+      const orderBody = await measurePmExecution("sign", readiness, () =>
+        createPolymarketOrderBody(
+          gateway,
+          privateKey,
+          creds,
+          config,
+          tokenId,
+          price,
+          apiBetMoney,
+          orderOptions,
+        ),
       );
-      const result = await pmSubmitOrder<PolymarketOrderResponse>(account, orderBody);
+      const result = await measurePmExecution("submit", readiness, () =>
+        pmSubmitOrder<PolymarketOrderResponse>(account, orderBody),
+      );
 
-      if (isPolymarketTradingDisabledError(result))
+      if (isPolymarketTradingDisabledError(result)) {
+        recordPmExecutionMetric({
+          ...readiness,
+          kind: "betting",
+          ms: Date.now() - beginTime,
+          success: false,
+          error: POLYMARKET_TRADING_DISABLED_MESSAGE,
+        });
         return new BetResult("Polymarket", false, POLYMARKET_TRADING_DISABLED_MESSAGE);
+      }
 
       if (!isPolymarketOrderAccepted(result)) {
         const diagnostic = diagnosticLines({
@@ -795,6 +866,13 @@ export const polymarketProvider: PlatformProvider = {
         failed.orderId = String(result?.orderID ?? "").trim() || null;
         failed.beginTime = beginTime;
         failed.tip = { pmPosted: true };
+        recordPmExecutionMetric({
+          ...readiness,
+          kind: "betting",
+          ms: Date.now() - beginTime,
+          success: false,
+          error: polymarketOrderFailureMessage(result, fallback),
+        });
         return failed;
       }
 
@@ -835,6 +913,12 @@ export const polymarketProvider: PlatformProvider = {
         // delayed：后台确认成交（拒单/撮合）；手动卖出见 pmManualSell
         startPolymarketSettlementJob(account, bet.orderId, { poll, conditionId });
       }
+      recordPmExecutionMetric({
+        ...readiness,
+        kind: "betting",
+        ms: Date.now() - beginTime,
+        success: true,
+      });
       return bet;
     } catch (err) {
       if (isPolymarketPriceAboveDetectionError(err)) {
@@ -845,6 +929,13 @@ export const polymarketProvider: PlatformProvider = {
           console.warn("[Polymarket] fo sync after price-above bet failed", syncErr);
         }
       }
+      recordPmExecutionMetric({
+        ...readiness,
+        kind: "betting",
+        ms: Date.now() - beginTime,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return new BetResult("Polymarket", false, polymarketSubmitCatchMessage(err));
     }
   },

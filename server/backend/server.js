@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import http from "node:http";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -69,6 +70,7 @@ const server = http.createServer(
 );
 
 const DEFAULT_WS_FORWARD_PLATFORMS = ["IA", "OB", "RAY", "PM-USER"];
+let marketIndexSyncProcess = null;
 
 function resolveWsForwardPlatforms() {
   const raw = String(process.env.WS_FORWARD_PLATFORMS || "").trim();
@@ -172,6 +174,78 @@ function startEmbeddedMatcherAfter(readyPromise) {
       }));
 }
 
+function boolEnv(name, fallback) {
+  const raw = String(process.env[name] ?? "").trim().toLowerCase();
+  if (!raw)
+    return fallback;
+  if (raw === "0" || raw === "false" || raw === "off" || raw === "no")
+    return false;
+  if (raw === "1" || raw === "true" || raw === "on" || raw === "yes")
+    return true;
+  return fallback;
+}
+
+function shouldStartVpsMarketIndexSync() {
+  return boolEnv("CHANGMEN_VPS_MARKET_INDEX_SYNC", PORT === 3700);
+}
+
+function startVpsMarketIndexSync() {
+  if (!shouldStartVpsMarketIndexSync()) {
+    console.log("[vps-market-index-sync] disabled");
+    return;
+  }
+
+  if (marketIndexSyncProcess) {
+    console.log("[vps-market-index-sync] already running");
+    return;
+  }
+
+  const intervalSec = Number(process.env.MARKET_INDEX_SYNC_INTERVAL_SEC || 60);
+  const safeIntervalSec = Number.isFinite(intervalSec) && intervalSec >= 30 ? intervalSec : 60;
+  const script = path.resolve(__dirname, "../../scripts/sync/pull-vps-market-indexes.mjs");
+  const child = spawn(
+    process.execPath,
+    [script, "--watch", "--interval", String(safeIntervalSec)],
+    {
+      cwd: path.resolve(__dirname, "../.."),
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  marketIndexSyncProcess = child;
+  console.log(`[vps-market-index-sync] enabled interval=${safeIntervalSec}s`);
+
+  child.stdout.on("data", (chunk) => {
+    for (const line of String(chunk).split(/\r?\n/).filter(Boolean))
+      console.log(line);
+  });
+  child.stderr.on("data", (chunk) => {
+    for (const line of String(chunk).split(/\r?\n/).filter(Boolean))
+      console.warn(line);
+  });
+  child.on("exit", (code, signal) => {
+    marketIndexSyncProcess = null;
+    if (signal === "SIGTERM" || signal === "SIGINT")
+      return;
+    console.warn(`[vps-market-index-sync] exited code=${code ?? "null"} signal=${signal ?? "null"}`);
+  });
+  child.on("error", (err) => {
+    marketIndexSyncProcess = null;
+    console.warn("[vps-market-index-sync] failed to start:", err.message);
+  });
+}
+
+function stopVpsMarketIndexSync() {
+  if (!marketIndexSyncProcess)
+    return;
+  try {
+    marketIndexSyncProcess.kill("SIGTERM");
+  }
+  catch {}
+  marketIndexSyncProcess = null;
+}
+
 function onListen() {
   store.ensureSeed();
   void pullProfilesFromDb().catch((err) => {
@@ -186,10 +260,15 @@ function onListen() {
   console.log(
     `App: http://localhost:${PORT}/  |  matcher: http://localhost:${PORT}/matcher/  |  collect: browser`,
   );
+  startVpsMarketIndexSync();
   // matchMerge 读 RDS 快照，不依赖 hot 恢复；避免 deploy 心跳被全量 hydrate 拖过等待窗口
   startEmbeddedMatcherAfter(Promise.resolve());
 }
 
-process.on("SIGINT", () => {
+function shutdown() {
+  stopVpsMarketIndexSync();
   server.close(() => process.exit(0));
-});
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

@@ -7,7 +7,11 @@
  */
 
 import { polymarketMarketSubscribeMessage } from "./api";
-import { startPolymarketMarketWs, type PolymarketMarketWsHandle } from "./ws";
+import {
+  notePolymarketMarketWsSubscription,
+  startPolymarketMarketWs,
+  type PolymarketMarketWsHandle,
+} from "./ws";
 import { extractPolymarketWsBestAsks } from "./wsQuotes";
 import { shouldApplyPolymarketWsQuote } from "./pmTokenQuote";
 
@@ -53,6 +57,7 @@ function resubscribe(initialDump: boolean): void {
   if (!wsHandle)
     return;
   const assetIds = mergedAssetIds();
+  notePolymarketMarketWsSubscription(assetIds.length);
   if (assetIds.length)
     wsHandle.send(polymarketMarketSubscribeMessage(assetIds, initialDump));
 }
@@ -87,6 +92,18 @@ function notifyReady(): void {
 function maybeStopTransport(): void {
   if (consumers.size > 0)
     return;
+  notePolymarketMarketWsSubscription(0);
+  if (!wsHandle)
+    return;
+  wsHandle.stop();
+  wsHandle = null;
+  readyEpoch += 1;
+}
+
+/** 停掉 market quote transport；logout / session teardown 使用。 */
+export function stopPolymarketMarketQuoteHub(): void {
+  consumers.clear();
+  notePolymarketMarketWsSubscription(0);
   if (!wsHandle)
     return;
   wsHandle.stop();
@@ -210,5 +227,5 @@ export function __testResetPolymarketMarketQuoteHub(): void {
   consumers.clear();
   quoteListeners.clear();
   readyListeners.clear();
-  maybeStopTransport();
+  stopPolymarketMarketQuoteHub();
 }

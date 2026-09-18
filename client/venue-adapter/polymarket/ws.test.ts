@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cyclePmMarketWsSourceModeAndReconnect,
+  notePolymarketMarketWsSubscription,
   resetOfficialFailStreakForTests,
   startPolymarketMarketWs,
 } from "./ws";
 import { POLYMARKET_MARKET_WS } from "./api";
 import { getPmMarketWsSourceMode, resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
 import { resetPmUserWsSourceModeForTests } from "./pmUserWsMode";
+import {
+  markPmTransportManualOverride,
+  resetPmTransportManualOverrideForTests,
+} from "./pmAutoTransport";
 import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 import { PM_MARKET_WS_FORWARD_PATH } from "./wsConfig";
 
@@ -44,8 +49,15 @@ class MockWebSocket {
 describe("polymarket market ws", () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
+    const storage = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => { storage.delete(key); },
+    });
     resetPmMarketWsSourceModeForTests("changmen");
     resetPmUserWsSourceModeForTests("changmen");
+    resetPmTransportManualOverrideForTests();
     resetOfficialFailStreakForTests();
     setChangmenAuthTokenGetter(() => "test-jwt");
     vi.stubGlobal("WebSocket", Object.assign(MockWebSocket, { OPEN: 1 }) as unknown as typeof WebSocket);
@@ -117,5 +129,59 @@ describe("polymarket market ws", () => {
 
     expect(getPmMarketWsSourceMode()).toBe("changmen");
     expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
+  });
+
+  it("falls back to changmen when official receives no book after subscribing real assets", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+
+    notePolymarketMarketWsSubscription(2);
+    vi.advanceTimersByTime(8_000);
+    vi.advanceTimersByTime(5_000);
+
+    expect(getPmMarketWsSourceMode()).toBe("changmen");
+    expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
+  });
+
+  it("does not treat non-quote json as a book frame for official watchdog", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+
+    notePolymarketMarketWsSubscription(2);
+    MockWebSocket.instances[0]!.onmessage?.({ data: JSON.stringify({ event_type: "subscribed", status: "ok" }) });
+    vi.advanceTimersByTime(8_000);
+    vi.advanceTimersByTime(5_000);
+
+    expect(getPmMarketWsSourceMode()).toBe("changmen");
+    expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
+  });
+
+  it("keeps official mode when a real quote frame arrives before watchdog timeout", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+
+    notePolymarketMarketWsSubscription(2);
+    MockWebSocket.instances[0]!.onmessage?.({
+      data: JSON.stringify({ event_type: "best_bid_ask", asset_id: "asset-a", best_ask: "0.42" }),
+    });
+    vi.advanceTimersByTime(8_000);
+
+    expect(getPmMarketWsSourceMode()).toBe("official");
+  });
+
+  it("does not auto-fallback on no-book timeout after manual override", () => {
+    resetPmMarketWsSourceModeForTests("official");
+    markPmTransportManualOverride();
+    startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
+    MockWebSocket.instances[0]!.open();
+
+    notePolymarketMarketWsSubscription(2);
+    vi.advanceTimersByTime(8_000);
+    vi.advanceTimersByTime(5_000);
+
+    expect(getPmMarketWsSourceMode()).toBe("official");
   });
 });

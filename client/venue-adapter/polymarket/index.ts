@@ -42,6 +42,7 @@ export * from "./pmUserWsMode";
 export * from "./pmLogicalPosition";
 export * from "./pmMapOutcomeStore";
 export * from "./pmTransportMode";
+export * from "./pmExecutionMetrics";
 export * from "./pmWalletPrepSdk";
 export * from "./credentials";
 export * from "./depositWallet";

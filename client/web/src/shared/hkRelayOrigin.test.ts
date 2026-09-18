@@ -27,6 +27,13 @@ describe("resolveHkRelayHttpOrigin", () => {
     expect(resolveHkRelayHttpOrigin()).toBe("http://127.0.0.1:5274");
   });
 
+  it("dev Market hub 优先使用显式 env 覆盖", () => {
+    vi.stubGlobal("window", { location: { origin: "http://127.0.0.1:5274", hostname: "127.0.0.1" } });
+    vi.stubEnv("DEV", true);
+    vi.stubEnv("VITE_MARKET_HUB_ORIGIN", "https://ws.changmen.fun/");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
+  });
+
   it("生产主站：未下发 origin 走 ws（202）", () => {
     vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
     vi.stubEnv("DEV", false);

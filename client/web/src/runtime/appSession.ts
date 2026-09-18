@@ -14,8 +14,13 @@ import { lockPmVault, resetPmVaultAccountUi } from "@/security/pmVault";
 
 async function applyPmTransportRoutingOnLogin(): Promise<void> {
   try {
-    const { applyPmAutoTransportOnLogin } = await import("@changmen/venue-adapter/polymarket");
-    await applyPmAutoTransportOnLogin();
+    const {
+      applyPmAutoTransportOnLogin,
+      ensurePolymarketMarketQuoteHub,
+    } = await import("@changmen/venue-adapter/polymarket");
+    const result = await applyPmAutoTransportOnLogin();
+    if (result.marketWsMode === "official")
+      ensurePolymarketMarketQuoteHub();
   }
   catch (err) {
     if (import.meta.env?.DEV)
@@ -36,7 +41,11 @@ async function applyPfTransportRoutingOnLogin(): Promise<void> {
 
 async function resetPmTransportRoutingOnLogout(): Promise<void> {
   try {
-    const { resetPmTransportRoutingOnLogout } = await import("@changmen/venue-adapter/polymarket");
+    const {
+      resetPmTransportRoutingOnLogout,
+      stopPolymarketMarketQuoteHub,
+    } = await import("@changmen/venue-adapter/polymarket");
+    stopPolymarketMarketQuoteHub();
     resetPmTransportRoutingOnLogout();
   }
   catch {

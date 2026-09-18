@@ -193,9 +193,14 @@ async function handleAppRoutes(req, res, serveStatic) {
     const ws = getWsForwardStatus();
     const hubs = { ...(ws.hubs || {}) };
     if (!hubs.pmMarket) {
-      const remote = await fetchPmMarketHubStatusRemote();
-      if (remote)
-        hubs.pmMarket = remote;
+      const [localPm, publicPm] = await Promise.all([
+        fetchPmMarketHubStatusLocal(),
+        fetchPmMarketHubStatusPublic(),
+      ]);
+      if (localPm)
+        hubs.pmMarket = localPm;
+      else if (publicPm)
+        hubs.pmMarket = publicPm;
     }
     if (!hubs.predictFunMarket) {
       const remotePf = await fetchPredictFunMarketHubStatusRemote();
@@ -378,14 +383,12 @@ async function buildHealthData() {
   const matches = getClientMatches();
   const ws = getWsForwardStatus();
   const hubs = { ...(ws.hubs || {}) };
-  // 独立 Market hub：软拉本机 + 166，供 Admin 页展示（失败不拖垮 /health）
-  const [localPm, secondaryPm] = await Promise.all([
-    hubs.pmMarket ? Promise.resolve(hubs.pmMarket) : fetchPmMarketHubStatusRemote(),
-    fetchPmMarketHubStatusSecondary(),
-  ]);
+  // 独立 Market hub：软拉本机，其次 202 公网 health（失败不拖垮 /health）
+  const localPm = hubs.pmMarket
+    ? hubs.pmMarket
+    : await fetchPmMarketHubStatusPreferred();
   if (localPm)
     hubs.pmMarket = localPm;
-  hubs.pmMarketSecondary = secondaryPm;
   if (!hubs.predictFunMarket) {
     const remotePf = await fetchPredictFunMarketHubStatusRemote();
     if (remotePf)
@@ -447,26 +450,30 @@ async function fetchHubHealthJson(url, timeoutMs) {
 }
 
 /** @returns {Promise<object | null>} */
-async function fetchPmMarketHubStatusRemote() {
+async function fetchPmMarketHubStatusLocal() {
   const port = Number(process.env.PM_MARKET_HUB_PORT || 3457);
   if (!Number.isFinite(port) || port <= 0)
     return null;
   return fetchHubHealthJson(`http://127.0.0.1:${port}/health`, 300);
 }
 
-/** 166 / ws2 上的 PM-MARKET hub。设 MARKET_HUB_SECONDARY_HEALTH_URL=0 可关。 */
-function secondaryPmMarketHubHealthUrl() {
-  const raw = String(process.env.MARKET_HUB_SECONDARY_HEALTH_URL ?? "").trim();
+function primaryPmMarketHubHealthUrl() {
+  const raw = String(process.env.MARKET_HUB_PRIMARY_HEALTH_URL ?? "").trim();
   if (raw === "0" || raw.toLowerCase() === "off")
     return "";
   if (raw)
     return raw;
-  return "https://ws2.changmen.fun/health/pm-market";
+  const origin = String(process.env.MARKET_HUB_PRIMARY_ORIGIN || "https://ws.changmen.fun").trim().replace(/\/+$/, "");
+  return origin ? `${origin}/health/pm-market` : "";
 }
 
-/** @returns {Promise<object | null>} */
-async function fetchPmMarketHubStatusSecondary() {
-  return fetchHubHealthJson(secondaryPmMarketHubHealthUrl(), 800);
+async function fetchPmMarketHubStatusPublic() {
+  return fetchHubHealthJson(primaryPmMarketHubHealthUrl(), 800);
+}
+
+async function fetchPmMarketHubStatusPreferred() {
+  return await fetchPmMarketHubStatusLocal()
+    || await fetchPmMarketHubStatusPublic();
 }
 
 /** @returns {Promise<object | null>} */

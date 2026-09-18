@@ -9,9 +9,11 @@ import { fileURLToPath } from "node:url";
 import {
   __testPushPolymarketMarketQuote,
   __testResetPolymarketMarketQuoteHub,
+  ensurePolymarketMarketQuoteHub,
   getPolymarketQuoteConsumerAssetIds,
   onPolymarketMarketQuote,
   registerPolymarketQuoteAssets,
+  stopPolymarketMarketQuoteHub,
   unregisterPolymarketQuoteConsumer,
 } from "./marketQuoteHub";
 
@@ -47,6 +49,20 @@ describe("PM marketQuoteHub lifecycle contracts", () => {
     expect(send).toHaveBeenCalledTimes(1);
     registerPolymarketQuoteAssets("esport", ["b", "a"]);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  test("preconnect starts transport without sending an empty subscription", async () => {
+    const { send, startSpy } = await mockPmWs();
+    ensurePolymarketMarketQuoteHub();
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  test("session stop tears down a preconnected transport with no consumers", async () => {
+    const { stop } = await mockPmWs();
+    ensurePolymarketMarketQuoteHub();
+    stopPolymarketMarketQuoteHub();
+    expect(stop).toHaveBeenCalledTimes(1);
   });
 
   test("unregister esport keeps transport when sport still registered", async () => {

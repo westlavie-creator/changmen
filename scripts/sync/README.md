@@ -18,7 +18,7 @@ VPS 端 `.env` 合并逻辑在 [`deploy/scripts/`](../../deploy/scripts/)（`syn
 
 ### MarketIndex（本机开发）
 
-生产用户不需要：VPS collector 写同机文件，backend 直接读。本机开发没有 collector，PM-M 灰多半是本地 Index 过期。
+生产用户不需要：VPS collector 写同机文件，backend 直接读。本机开发没有 collector，`PORT=3700` 的 backend 默认会启动 VPS → 本机同步；PM-M 灰多半是本地 Index 过期或同步未连上 VPS。
 
 ```bash
 # 拉一次

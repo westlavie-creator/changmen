@@ -71,12 +71,12 @@ function marketHubOriginFromEnv(): string {
  * dev / IP / 其它域名仍同源。PM-USER、http-relay 不要用这个。
  */
 export function resolveMarketHubHttpOrigin(): string {
-  if (typeof window !== "undefined" && typeof import.meta !== "undefined" && import.meta.env?.DEV)
-    return resolveHkRelayHttpOrigin();
-
   const fromEnv = marketHubOriginFromEnv();
   if (fromEnv)
     return fromEnv;
+
+  if (typeof window !== "undefined" && typeof import.meta !== "undefined" && import.meta.env?.DEV)
+    return resolveHkRelayHttpOrigin();
 
   if (typeof window !== "undefined") {
     const host = String(window.location?.hostname || "");

@@ -1,4 +1,4 @@
-import { reportVenueWsStatus } from "../shared/venueWsStatus";
+import { reportVenueWsMeta, reportVenueWsStatus } from "../shared/venueWsStatus";
 import { resolvePolymarketMarketWsUrl } from "./wsConfig";
 import {
   cyclePmMarketWsSourceMode,
@@ -8,9 +8,11 @@ import {
   type PmMarketWsSourceMode,
 } from "./pmMarketWsMode";
 import { setPmUserWsSourceMode } from "./pmUserWsMode";
+import { isPmTransportManualOverride } from "./pmAutoTransport";
 
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
+const OFFICIAL_FIRST_QUOTE_TIMEOUT_MS = 8_000;
 /** 官方源连续失败后自动回退 CHANGMEN，避免国内网络卡在「未连接」 */
 const OFFICIAL_FAIL_FALLBACK = 3;
 
@@ -20,10 +22,22 @@ type PolymarketWsStatusListener = (status: PolymarketWsStatus) => void;
 let polymarketWsStatus: PolymarketWsStatus = "disconnected";
 const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
 let officialFailStreak = 0;
+let subscribedAssetCount = 0;
+let officialFirstQuoteTimer: ReturnType<typeof setTimeout> | null = null;
 
-function setPolymarketWsStatus(status: PolymarketWsStatus) {
+function reportPmMarketMeta(patch: Parameters<typeof reportVenueWsMeta>[1]) {
+  reportVenueWsMeta("pm-market", {
+    sourceMode: getPmMarketWsSourceMode(),
+    assetCount: subscribedAssetCount,
+    failStreak: officialFailStreak,
+    ...patch,
+  });
+}
+
+function setPolymarketWsStatus(status: PolymarketWsStatus, reason?: string) {
   polymarketWsStatus = status;
   reportVenueWsStatus("pm-market", status);
+  reportPmMarketMeta({ ...(reason ? { reason } : {}) });
   for (const fn of polymarketWsStatusListeners) fn(status);
 }
 
@@ -53,21 +67,81 @@ let activeMarketWsOpts: MarketWsOpts | null = null;
 /** @internal vitest */
 export function resetOfficialFailStreakForTests(): void {
   officialFailStreak = 0;
+  subscribedAssetCount = 0;
+  if (officialFirstQuoteTimer) {
+    clearTimeout(officialFirstQuoteTimer);
+    officialFirstQuoteTimer = null;
+  }
+  reportPmMarketMeta({ reason: "test_reset", lastError: "", lastMessageAt: 0 });
 }
 
-function maybeFallbackOfficialToChangmen(): boolean {
+function clearOfficialFirstQuoteTimer() {
+  if (!officialFirstQuoteTimer)
+    return;
+  clearTimeout(officialFirstQuoteTimer);
+  officialFirstQuoteTimer = null;
+}
+
+function fallbackOfficialToChangmen(reason: string, error = ""): boolean {
+  if (getPmMarketWsSourceMode() !== "official")
+    return false;
+  if (isPmTransportManualOverride()) {
+    reportPmMarketMeta({ reason: `manual_override_${reason}`, lastError: error });
+    return false;
+  }
+  officialFailStreak = 0;
+  setPmMarketWsSourceMode("changmen");
+  setPmUserWsSourceMode("changmen");
+  reportPmMarketMeta({ reason, lastError: error, failStreak: 0 });
+  console.warn(`[Polymarket WS] official ${reason}, fallback to changmen relay`);
+  return true;
+}
+
+function maybeFallbackOfficialToChangmen(reason: string, error = ""): boolean {
   if (getPmMarketWsSourceMode() !== "official") {
     officialFailStreak = 0;
     return false;
   }
   officialFailStreak += 1;
+  reportPmMarketMeta({ reason, lastError: error, failStreak: officialFailStreak });
   if (officialFailStreak < OFFICIAL_FAIL_FALLBACK)
     return false;
-  officialFailStreak = 0;
-  setPmMarketWsSourceMode("changmen");
-  setPmUserWsSourceMode("changmen");
-  console.warn("[Polymarket WS] official unreachable, fallback to changmen relay");
-  return true;
+  return fallbackOfficialToChangmen("official_fail_fallback", error);
+}
+
+function armOfficialFirstQuoteWatchdog(reconnect: () => void) {
+  clearOfficialFirstQuoteTimer();
+  if (getPmMarketWsSourceMode() !== "official" || subscribedAssetCount <= 0)
+    return;
+  officialFirstQuoteTimer = setTimeout(() => {
+    officialFirstQuoteTimer = null;
+    if (fallbackOfficialToChangmen("official_no_book_timeout", `${subscribedAssetCount} subscribed assets had no book frame`))
+      reconnect();
+  }, OFFICIAL_FIRST_QUOTE_TIMEOUT_MS);
+}
+
+function isPolymarketQuoteFrame(raw: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  }
+  catch {
+    return false;
+  }
+  const messages = Array.isArray(parsed) ? parsed : [parsed];
+  for (const msg of messages) {
+    if (!msg || typeof msg !== "object")
+      continue;
+    const row = msg as Record<string, unknown>;
+    const eventType = String(row.event_type ?? "").trim();
+    if (eventType === "best_bid_ask" && row.asset_id && row.best_ask !== undefined)
+      return true;
+    if (eventType === "price_change" && Array.isArray(row.price_changes) && row.price_changes.length > 0)
+      return true;
+    if (eventType === "book" && row.asset_id && Array.isArray(row.asks))
+      return true;
+  }
+  return false;
 }
 
 function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle {
@@ -98,9 +172,25 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
     }, WS_RECONNECT_MS);
   }
 
+  function reconnectNow() {
+    if (stopped)
+      return;
+    clearPing();
+    const socket = ws;
+    ws = null;
+    try {
+      socket?.close();
+    }
+    catch {
+      /* ignore */
+    }
+    setPolymarketWsStatus("connecting", "fallback_reconnect");
+    scheduleReconnect();
+  }
+
   function connect() {
     if (stopped || ws) return;
-    setPolymarketWsStatus("connecting");
+    setPolymarketWsStatus("connecting", "connect_start");
     const socket = new WebSocket(resolvePolymarketMarketWsUrl());
     ws = socket;
 
@@ -108,8 +198,9 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
       if (ws !== socket)
         return;
       officialFailStreak = 0;
-      setPolymarketWsStatus("connected");
+      setPolymarketWsStatus("connected", getPmMarketWsSourceMode() === "official" ? "official_connected" : "changmen_connected");
       opts.onOpen();
+      armOfficialFirstQuoteWatchdog(reconnectNow);
       clearPing();
       pingTimer = setInterval(() => {
         if (ws?.readyState === WebSocket.OPEN) ws.send("PING");
@@ -122,6 +213,10 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
       const raw = String(event.data);
       if (raw === "PONG") return;
       if (!raw.trim().startsWith("{") && !raw.trim().startsWith("[")) return;
+      if (isPolymarketQuoteFrame(raw)) {
+        clearOfficialFirstQuoteTimer();
+        reportPmMarketMeta({ lastMessageAt: Date.now(), reason: "book_frame", lastError: "" });
+      }
       try {
         opts.onMessage(raw);
       } catch (err) {
@@ -135,18 +230,18 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
       clearPing();
       ws = null;
       if (stopped) {
-        setPolymarketWsStatus("disconnected");
+        setPolymarketWsStatus("disconnected", "stopped");
         return;
       }
-      setPolymarketWsStatus("error");
-      maybeFallbackOfficialToChangmen();
+      setPolymarketWsStatus("error", "socket_close");
+      maybeFallbackOfficialToChangmen("socket_close");
       scheduleReconnect();
     };
 
     socket.onerror = () => {
       if (ws !== socket)
         return;
-      setPolymarketWsStatus("error");
+      setPolymarketWsStatus("error", "socket_error");
       socket.close();
     };
   }
@@ -164,6 +259,7 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
         reconnectTimer = null;
       }
       clearPing();
+      clearOfficialFirstQuoteTimer();
       const socket = ws;
       ws = null;
       // 必须先取出再 close：若先 cleanup 置空，旧连接会成 hub 僵尸客户端
@@ -173,7 +269,7 @@ function createPolymarketMarketWs(opts: MarketWsOpts): PolymarketMarketWsHandle 
       catch {
         /* ignore */
       }
-      setPolymarketWsStatus("disconnected");
+      setPolymarketWsStatus("disconnected", "stopped");
       clearActiveIfSelf(handle);
     },
   };
@@ -213,6 +309,7 @@ export type { PmMarketWsSourceMode };
 
 export function cyclePmMarketWsSourceModeAndReconnect(): PmMarketWsSourceMode {
   const next = cyclePmMarketWsSourceMode();
+  reportPmMarketMeta({ reason: "manual_override", sourceMode: next, lastError: "" });
   const opts = activeMarketWsOpts;
   if (!opts)
     return next;
@@ -221,4 +318,18 @@ export function cyclePmMarketWsSourceModeAndReconnect(): PmMarketWsSourceMode {
   activeMarketWsOpts = opts;
   activeMarketWsHandle = createPolymarketMarketWs(opts);
   return next;
+}
+
+export function notePolymarketMarketWsSubscription(assetCount: number): void {
+  subscribedAssetCount = Math.max(0, Number(assetCount) || 0);
+  reportPmMarketMeta({ assetCount: subscribedAssetCount, reason: subscribedAssetCount ? "subscribed_assets" : "no_assets" });
+  if (activeMarketWsHandle)
+    armOfficialFirstQuoteWatchdog(() => {
+      const opts = activeMarketWsOpts;
+      activeMarketWsHandle?.stop();
+      if (opts) {
+        activeMarketWsOpts = opts;
+        activeMarketWsHandle = createPolymarketMarketWs(opts);
+      }
+    });
 }
