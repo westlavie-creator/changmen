@@ -7,6 +7,12 @@ import {
 } from "./pmOfficialReachability";
 import { resolvePmHttpMode, setPmHttpMode, type PmHttpMode } from "./pmTransportMode";
 import { getPmUserWsSourceMode, setPmUserWsSourceMode, type PmUserWsSourceMode } from "./pmUserWsMode";
+import {
+  applyPmRoutingPreference,
+  getPmRoutingPreference,
+  sourceModeToPmRoutingPreference,
+  type PmRoutingPreference,
+} from "./pmRoutingPreference";
 
 const PM_TRANSPORT_MANUAL_OVERRIDE_KEY = "changmen:pm:transport-manual-override";
 
@@ -17,6 +23,7 @@ export type PmAutoTransportApplyResult = {
   httpMode: PmHttpMode;
   marketWsMode: PmMarketWsSourceMode;
   userWsMode: PmUserWsSourceMode;
+  routingPreference: PmRoutingPreference;
 };
 
 const routingListeners = new Set<(result: PmAutoTransportApplyResult) => void>();
@@ -120,7 +127,7 @@ async function reconcileHttpUnderManualOverride(): Promise<PmHttpMode> {
 
 async function applyModes(
   marketWsOk: boolean,
-): Promise<Omit<PmAutoTransportApplyResult, "applied" | "skippedManualOverride" | "reachable"> & { reachable: boolean }> {
+): Promise<Omit<PmAutoTransportApplyResult, "applied" | "skippedManualOverride" | "reachable" | "routingPreference"> & { reachable: boolean }> {
   // REST（book / 下单）固定 VPS，与余额同一出口；翻墙只切行情 WS。
   setPmHttpMode("vps");
 
@@ -146,17 +153,42 @@ async function applyModes(
 }
 
 /**
- * 登录后：探测官方 Market WS。
- * - 可达：WS 直连官方；HTTP 一律 VPS（预检/下单同一出口）
- * - 不可达：WS + HTTP 均 changmen VPS
- * 角标手动切官方后才可能把 HTTP 升到 extension；仍会纠偏不可用的 extension。
+ * 登录后：按用户偏好选择 PM WS。
+ * - auto：探测官方 Market WS；可达则 official，不可达则 CHANGMEN relay
+ * - official / relay：用户强制选择，不做探测
+ * - HTTP（book / 下单）固定 VPS，保护 builder code / 签名链路不漂移
  */
 export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportApplyResult> {
+  const routingPreference = getPmRoutingPreference();
+  if (routingPreference !== "auto") {
+    setPmHttpMode("vps");
+    const mode = applyPmRoutingPreference(routingPreference) ?? getPmMarketWsSourceMode();
+    reportVenueWsMeta("pm-market", {
+      sourceMode: mode,
+      reason: `user_${routingPreference}`,
+      routingPreference,
+      lastError: "",
+    });
+    const result: PmAutoTransportApplyResult = {
+      applied: false,
+      skippedManualOverride: true,
+      reachable: mode === "official",
+      httpMode: "vps",
+      marketWsMode: getPmMarketWsSourceMode(),
+      userWsMode: getPmUserWsSourceMode(),
+      routingPreference,
+    };
+    notifyRoutingApplied(result);
+    return result;
+  }
+
   if (readManualOverride()) {
     const httpMode = await reconcileHttpUnderManualOverride();
+    const legacyPref = sourceModeToPmRoutingPreference(getPmMarketWsSourceMode());
     reportVenueWsMeta("pm-market", {
       sourceMode: getPmMarketWsSourceMode(),
       reason: "manual_override",
+      routingPreference: legacyPref,
     });
     return {
       applied: false,
@@ -165,6 +197,7 @@ export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportAppl
       httpMode,
       marketWsMode: getPmMarketWsSourceMode(),
       userWsMode: getPmUserWsSourceMode(),
+      routingPreference: legacyPref,
     };
   }
 
@@ -172,12 +205,14 @@ export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportAppl
   const modes = await applyModes(probe.marketWsOk);
   reportVenueWsMeta("pm-market", {
     sourceMode: modes.marketWsMode,
+    routingPreference: "auto",
     reason: probe.marketWsOk ? "official_ok" : "official_timeout",
     lastError: probe.marketWsOk ? "" : "official market ws probe failed",
   });
   const result: PmAutoTransportApplyResult = {
     applied: true,
     skippedManualOverride: false,
+    routingPreference: "auto",
     ...modes,
   };
   notifyRoutingApplied(result);
@@ -191,7 +226,7 @@ export async function applyPmAutoTransportOnLogin(): Promise<PmAutoTransportAppl
   return result;
 }
 
-/** logout 时清除手动覆盖，下次登录重新探测 */
+/** logout 时只清除旧版手动覆盖；新版 official/relay 用户偏好长期保留 */
 export function resetPmTransportRoutingOnLogout(): void {
   clearPmTransportManualOverride();
 }

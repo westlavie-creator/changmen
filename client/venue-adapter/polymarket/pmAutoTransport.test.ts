@@ -5,6 +5,7 @@ import {
   resetPmTransportManualOverrideForTests,
   syncPmHttpModeWithMarketWs,
 } from "./pmAutoTransport";
+import { resetPmRoutingPreferenceForTests, setPmRoutingPreference } from "./pmRoutingPreference";
 import { resetPmMarketWsSourceModeForTests, getPmMarketWsSourceMode, setPmMarketWsSourceMode } from "./pmMarketWsMode";
 import { resetPmUserWsSourceModeForTests, getPmUserWsSourceMode } from "./pmUserWsMode";
 import { setPmHttpModeForTests, resolvePmHttpMode, setPmHttpMode } from "./pmTransportMode";
@@ -26,6 +27,7 @@ describe("pmAutoTransport", () => {
       removeItem: (key: string) => { storage.delete(key); },
     });
     resetPmTransportManualOverrideForTests();
+    resetPmRoutingPreferenceForTests();
     resetPmMarketWsSourceModeForTests("changmen");
     resetPmUserWsSourceModeForTests("changmen");
     setPmHttpModeForTests(null);
@@ -106,6 +108,32 @@ describe("pmAutoTransport", () => {
     expect(result.httpMode).toBe("vps");
     expect(getPmMarketWsSourceMode()).toBe("changmen");
     expect(getPmUserWsSourceMode()).toBe("changmen");
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  it("uses forced relay preference without probing official", async () => {
+    setPmRoutingPreference("relay");
+    const probe = vi.spyOn(reachability, "probePolymarketOfficialReachable");
+
+    const result = await applyPmAutoTransportOnLogin();
+    expect(result.skippedManualOverride).toBe(true);
+    expect(result.routingPreference).toBe("relay");
+    expect(probe).not.toHaveBeenCalled();
+    expect(getPmMarketWsSourceMode()).toBe("changmen");
+    expect(getPmUserWsSourceMode()).toBe("changmen");
+    expect(resolvePmHttpMode()).toBe("vps");
+  });
+
+  it("uses forced official preference without probing official", async () => {
+    setPmRoutingPreference("official");
+    const probe = vi.spyOn(reachability, "probePolymarketOfficialReachable");
+
+    const result = await applyPmAutoTransportOnLogin();
+    expect(result.skippedManualOverride).toBe(true);
+    expect(result.routingPreference).toBe("official");
+    expect(probe).not.toHaveBeenCalled();
+    expect(getPmMarketWsSourceMode()).toBe("official");
+    expect(getPmUserWsSourceMode()).toBe("official");
     expect(resolvePmHttpMode()).toBe("vps");
   });
 

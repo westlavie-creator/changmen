@@ -15,6 +15,7 @@ export type VenueWsStatusMeta = {
   lastMessageAt?: number;
   lastError?: string;
   failStreak?: number;
+  routingPreference?: string;
   connectMs?: number | null;
   firstFrameMs?: number | null;
   firstQuoteMs?: number | null;
@@ -22,8 +23,6 @@ export type VenueWsStatusMeta = {
   connectionAttemptCount?: number;
   reconnectCount?: number;
   emptyBookCount?: number;
-  officialRetryAt?: number;
-  officialRecoveryProbeCount?: number;
   fallbackReason?: string;
 };
 

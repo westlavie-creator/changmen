@@ -15,8 +15,6 @@ export interface PmMarketClientMetricsSnapshot {
   connectionAttemptCount: number;
   reconnectCount: number;
   emptyBookCount: number;
-  officialRetryAt: number;
-  officialRecoveryProbeCount: number;
   fallbackReason: string;
   lastReason: string;
   lastError: string;
@@ -37,8 +35,6 @@ const metrics: PmMarketClientMetricsSnapshot = {
   connectionAttemptCount: 0,
   reconnectCount: 0,
   emptyBookCount: 0,
-  officialRetryAt: 0,
-  officialRecoveryProbeCount: 0,
   fallbackReason: "",
   lastReason: "",
   lastError: "",
@@ -87,10 +83,8 @@ export function notePmMarketClientSubscription(assetCount: number): void {
   metrics.firstFrameMs = null;
   metrics.firstQuoteMs = null;
   metrics.quoteFreshMs = null;
-  if (!metrics.assetCount) {
+  if (!metrics.assetCount)
     metrics.emptyBookCount = 0;
-    metrics.officialRetryAt = 0;
-  }
   metrics.lastReason = metrics.assetCount ? "subscribed_assets" : "no_assets";
 }
 
@@ -121,24 +115,6 @@ export function notePmMarketClientFallback(reason: string, error = ""): void {
   metrics.fallbackReason = reason;
   metrics.lastReason = reason;
   metrics.lastError = error;
-}
-
-export function notePmMarketClientOfficialRetryScheduled(retryAt: number, reason: string): void {
-  metrics.officialRetryAt = Math.max(0, Number(retryAt) || 0);
-  metrics.lastReason = reason;
-}
-
-export function notePmMarketClientOfficialRecoveryProbe(reason: string): void {
-  metrics.officialRecoveryProbeCount += 1;
-  metrics.lastReason = reason;
-}
-
-export function notePmMarketClientOfficialRecovered(reason = "official_recovered"): void {
-  syncMode();
-  metrics.officialRetryAt = 0;
-  metrics.fallbackReason = "";
-  metrics.lastReason = reason;
-  metrics.lastError = "";
 }
 
 export function notePmMarketClientEmptyBook(reason: string, error = ""): void {
@@ -172,8 +148,6 @@ export function resetPmMarketClientMetricsForTests(): void {
   metrics.connectionAttemptCount = 0;
   metrics.reconnectCount = 0;
   metrics.emptyBookCount = 0;
-  metrics.officialRetryAt = 0;
-  metrics.officialRecoveryProbeCount = 0;
   metrics.fallbackReason = "";
   metrics.lastReason = "";
   metrics.lastError = "";

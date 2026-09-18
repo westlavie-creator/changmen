@@ -20,16 +20,21 @@ import {
   type RayWsSourceMode,
 } from "@changmen/venue-adapter/ray";
 import {
-  cyclePmMarketWsSourceModeAndReconnect,
   cyclePmUserWsSourceModeAndReconnect,
+  applyPmAutoTransportOnLogin,
+  cyclePmRoutingPreference,
   getPmMarketWsSourceMode,
+  getPmRoutingPreference,
   getPmUserWsSourceMode,
   markPmTransportManualOverride,
   onPmAutoTransportApplied,
   pmMarketWsSourceModeLabel,
+  pmRoutingPreferenceLabel,
   pmUserWsSourceModeLabel,
-  syncPmHttpModeWithMarketWs,
+  setPmMarketWsSourceModeAndReconnect,
+  sourceModeForPmRoutingPreference,
   type PmMarketWsSourceMode,
+  type PmRoutingPreference,
   type PmUserWsSourceMode,
 } from "@changmen/venue-adapter/polymarket";
 import {
@@ -61,6 +66,7 @@ const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
 const raySourceMode = ref<RayWsSourceMode>(getRayWsSourceMode());
 const pmMarketWsSourceMode = ref<PmMarketWsSourceMode>(getPmMarketWsSourceMode());
+const pmRoutingPreference = ref<PmRoutingPreference>(getPmRoutingPreference());
 const pmUserWsSourceMode = ref<PmUserWsSourceMode>(getPmUserWsSourceMode());
 const pfMarketWsSourceMode = ref<PfMarketWsSourceMode>(getPfMarketWsSourceMode());
 let venueWsUnsub: (() => void) | undefined;
@@ -120,6 +126,7 @@ onMounted(() => {
   });
   pmTransportUnsub = onPmAutoTransportApplied(() => {
     pmMarketWsSourceMode.value = getPmMarketWsSourceMode();
+    pmRoutingPreference.value = getPmRoutingPreference();
     pmUserWsSourceMode.value = getPmUserWsSourceMode();
   });
   pfTransportUnsub = onPfAutoTransportApplied(() => {
@@ -197,16 +204,6 @@ function formatAgo(ms: number): string {
   return `${Math.floor(min / 60)}小时前`;
 }
 
-function formatUntil(ms: number): string {
-  const sec = Math.max(0, Math.ceil((ms - Date.now()) / 1000));
-  if (sec < 60)
-    return `${sec}秒后`;
-  const min = Math.ceil(sec / 60);
-  if (min < 60)
-    return `${min}分钟后`;
-  return `${Math.ceil(min / 60)}小时后`;
-}
-
 function venueWsTooltip(entry: VenueWsStatusEntry): string {
   const names: Record<string, string> = {
     "pm-market": "Polymarket Market WS（电竞赔率采集）",
@@ -258,6 +255,7 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
   }
   if (entry.id === "pm-market") {
     lines.push(`当前选择：${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}`);
+    lines.push(`用户模式：${pmRoutingPreferenceLabel(pmRoutingPreference.value)}`);
     if (entry.meta?.reason)
       lines.push(`选择原因：${entry.meta.reason}`);
     if (typeof entry.meta?.assetCount === "number")
@@ -276,17 +274,13 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
       lines.push(`重连次数：${entry.meta.reconnectCount}`);
     if (typeof entry.meta?.emptyBookCount === "number" && entry.meta.emptyBookCount > 0)
       lines.push(`空盘口次数：${entry.meta.emptyBookCount}`);
-    if (typeof entry.meta?.officialRecoveryProbeCount === "number" && entry.meta.officialRecoveryProbeCount > 0)
-      lines.push(`官方恢复探测：${entry.meta.officialRecoveryProbeCount}`);
-    if (typeof entry.meta?.officialRetryAt === "number" && entry.meta.officialRetryAt > Date.now())
-      lines.push(`下次官方探测：${formatUntil(entry.meta.officialRetryAt)}`);
     if (entry.meta?.fallbackReason)
       lines.push(`降级原因：${entry.meta.fallbackReason}`);
     if (entry.meta?.lastMessageAt)
       lines.push(`最近 book：${formatAgo(entry.meta.lastMessageAt)}`);
     if (entry.meta?.lastError)
       lines.push(`错误：${entry.meta.lastError}`);
-    lines.push("点击切换 CHANGMEN / 官方");
+    lines.push("点击切换：自动 / 官方 / relay");
   }
   if (entry.id === "pm-sport-market") {
     lines.push("固定 CHANGMEN 体育 hub（:3459）");
@@ -355,11 +349,17 @@ function venueWsItemClass(entry: VenueWsStatusEntry): Record<string, boolean> {
 
 function handleVenueWsClick(entry: VenueWsStatusEntry): void {
   if (entry.id === "pm-market") {
-    markPmTransportManualOverride();
-    pmMarketWsSourceMode.value = cyclePmMarketWsSourceModeAndReconnect();
-    void syncPmHttpModeWithMarketWs(pmMarketWsSourceMode.value);
+    pmRoutingPreference.value = cyclePmRoutingPreference();
+    const mode = sourceModeForPmRoutingPreference(pmRoutingPreference.value);
+    if (mode)
+      pmMarketWsSourceMode.value = setPmMarketWsSourceModeAndReconnect(mode, `user_${pmRoutingPreference.value}`);
+    else
+      void applyPmAutoTransportOnLogin().then(() => {
+        pmMarketWsSourceMode.value = getPmMarketWsSourceMode();
+        pmRoutingPreference.value = getPmRoutingPreference();
+      });
     ElMessage({
-      message: `PM-M WS 已切换到${pmMarketWsSourceModeLabel(pmMarketWsSourceMode.value)}，正在重连`,
+      message: `PM-M 已切换到${pmRoutingPreferenceLabel(pmRoutingPreference.value)}`,
       type: "success",
       plain: true,
     });

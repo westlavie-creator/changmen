@@ -14,6 +14,7 @@ import {
   markPmTransportManualOverride,
   resetPmTransportManualOverrideForTests,
 } from "./pmAutoTransport";
+import { resetPmRoutingPreferenceForTests, setPmRoutingPreference } from "./pmRoutingPreference";
 import { setChangmenAuthTokenGetter } from "../shared/changmenAuthToken";
 import { PM_MARKET_WS_FORWARD_PATH } from "./wsConfig";
 
@@ -60,6 +61,7 @@ describe("polymarket market ws", () => {
     resetPmMarketWsSourceModeForTests("changmen");
     resetPmUserWsSourceModeForTests("changmen");
     resetPmTransportManualOverrideForTests();
+    resetPmRoutingPreferenceForTests();
     resetOfficialFailStreakForTests();
     setChangmenAuthTokenGetter(() => "test-jwt");
     vi.stubGlobal("WebSocket", Object.assign(MockWebSocket, { OPEN: 1 }) as unknown as typeof WebSocket);
@@ -225,33 +227,20 @@ describe("polymarket market ws", () => {
     const metrics = getPmMarketClientMetricsSnapshot();
     expect(metrics.emptyBookCount).toBe(1);
     expect(metrics.fallbackReason).toBe("official_no_book_timeout");
-    expect(metrics.officialRetryAt).toBeGreaterThan(Date.now());
   });
 
-  it("recovers official mode after relay cooldown when official probe succeeds", async () => {
+  it("does not fallback on no-book timeout when user forces official", () => {
+    setPmRoutingPreference("official");
     resetPmMarketWsSourceModeForTests("official");
     startPolymarketMarketWs({ onMessage: () => {}, onOpen: () => {} });
     MockWebSocket.instances[0]!.open();
 
     notePolymarketMarketWsSubscription(2);
     vi.advanceTimersByTime(8_000);
-    expect(getPmMarketWsSourceMode()).toBe("changmen");
-
     vi.advanceTimersByTime(5_000);
-    expect(MockWebSocket.instances.at(-1)!.url).toContain(PM_MARKET_WS_FORWARD_PATH);
-
-    vi.advanceTimersByTime(5 * 60_000 - 5_000);
-    const probe = MockWebSocket.instances.at(-1)!;
-    expect(probe.url).toBe(POLYMARKET_MARKET_WS);
-    probe.open();
-    await vi.advanceTimersByTimeAsync(0);
 
     expect(getPmMarketWsSourceMode()).toBe("official");
     expect(MockWebSocket.instances.at(-1)!.url).toBe(POLYMARKET_MARKET_WS);
-    const metrics = getPmMarketClientMetricsSnapshot();
-    expect(metrics.officialRecoveryProbeCount).toBe(1);
-    expect(metrics.officialRetryAt).toBe(0);
-    expect(metrics.fallbackReason).toBe("");
   });
 
   it("does not auto-fallback on no-book timeout after manual override", () => {
