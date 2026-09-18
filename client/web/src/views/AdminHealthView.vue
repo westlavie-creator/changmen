@@ -101,8 +101,7 @@ let timer: ReturnType<typeof setInterval> | null = null;
 const pmHubSites = computed(() => {
   const hubs = health.value?.wsForward.hubs;
   return [
-    { id: "202", label: "202 / ws", hub: hubs?.pmMarket ?? null },
-    { id: "166", label: "166 / ws2", hub: hubs?.pmMarketSecondary ?? null },
+    { id: "202", label: "ws", hub: hubs?.pmMarket ?? null },
   ];
 });
 
@@ -188,12 +187,11 @@ const routeLoaded = ref(false);
 const routeError = ref("");
 const routeUsersText = ref("");
 const routePrimaryOrigin = ref("https://ws.changmen.fun");
-const routeSecondaryOrigin = ref("https://ws2.changmen.fun");
+const routeSecondaryOrigin = ref("https://ws.changmen.fun");
 const routeUpdatedAt = ref<number | null>(null);
 
 const HUB_ORIGIN_OPTIONS = [
-  { label: "ws（202）", value: "https://ws.changmen.fun" },
-  { label: "ws2（166）", value: "https://ws2.changmen.fun" },
+  { label: "ws", value: "https://ws.changmen.fun" },
 ];
 
 async function loadMarketHubRoute() {
@@ -534,9 +532,9 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- PM-MARKET Hub 连接监测（202 + 166） -->
+      <!-- PM-MARKET Hub 连接监测 -->
       <div
-        v-if="health.wsForward.hubs?.pmMarket || health.wsForward.hubs?.pmMarketSecondary !== undefined"
+        v-if="health.wsForward.hubs?.pmMarket"
         class="health-card health-card--wide"
       >
         <div class="health-card__title">

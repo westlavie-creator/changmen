@@ -42,14 +42,17 @@ export function resolveHkRelayHttpOrigin(): string {
 
 /** 生产主站打开时，Market hub 单独走此 origin（无尾斜杠）。 */
 export const CHANGMEN_MARKET_HUB_ORIGIN = "https://ws.changmen.fun";
-/** 备用 166。默认走 202；仅 GetUserInfo 明确下发 ws2 时才用。 */
-export const CHANGMEN_MARKET_HUB_ORIGIN_B = "https://ws2.changmen.fun";
 
 /** 本次会话由 Client_GetUserInfo 写入；不进 sessionStorage，避免刷新后抢先用旧值。 */
 let assignedMarketHubOrigin = "";
 
+function normalizeAllowedMarketHubOrigin(origin: string | null | undefined): string {
+  const normalized = String(origin || "").trim().replace(/\/+$/, "");
+  return normalized === CHANGMEN_MARKET_HUB_ORIGIN ? normalized : "";
+}
+
 export function setAssignedMarketHubOrigin(origin: string | null | undefined): void {
-  assignedMarketHubOrigin = String(origin || "").trim().replace(/\/+$/, "");
+  assignedMarketHubOrigin = normalizeAllowedMarketHubOrigin(origin);
 }
 
 export function getAssignedMarketHubOrigin(): string {

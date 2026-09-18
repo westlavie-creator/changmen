@@ -1,9 +1,9 @@
 /**
- * Market hub 分流（202 配置；166 不读这份）。
+ * Market hub 分流（202 配置）。
  * 落盘：ESPORT_DATA_DIR/market_hub_route.json；未落盘时回退 env，再回退默认。
  *
  * primaryUsers → primaryOrigin（默认 ws.changmen.fun / 202）
- * 其他人：defaultHub=secondary 才走 166；默认全员 202（166 无回国优化）。
+ * 其他人：默认全员 202。166/ws2 已下线，不再允许新配置。
  */
 import { readJsonFile, writeJsonFile } from "@changmen/storage/json_file_store.js";
 
@@ -11,11 +11,10 @@ const FILE = "market_hub_route";
 
 export const MARKET_HUB_ALLOWED_ORIGINS = Object.freeze([
   "https://ws.changmen.fun",
-  "https://ws2.changmen.fun",
 ]);
 
 export const MARKET_HUB_DEFAULT_PRIMARY_ORIGIN = MARKET_HUB_ALLOWED_ORIGINS[0];
-export const MARKET_HUB_DEFAULT_SECONDARY_ORIGIN = MARKET_HUB_ALLOWED_ORIGINS[1];
+export const MARKET_HUB_DEFAULT_SECONDARY_ORIGIN = MARKET_HUB_ALLOWED_ORIGINS[0];
 export const MARKET_HUB_DEFAULT_PRIMARY_USERS = Object.freeze([
   "gb11",
   "gb12",
@@ -137,7 +136,7 @@ export function saveMarketHubRouteConfig(input = {}) {
     ? normalizeMarketHubOrigin(input.secondaryOrigin)
     : getMarketHubRouteConfig().secondaryOrigin;
   if (!primaryOrigin || !secondaryOrigin)
-    throw new Error("非法 Market hub origin（仅允许 ws / ws2.changmen.fun）");
+    throw new Error("非法 Market hub origin（仅允许 ws.changmen.fun）");
   const users = input.primaryUsers !== undefined
     ? parseMarketHubUserList(input.primaryUsers)
     : getMarketHubRouteConfig().primaryUsers;

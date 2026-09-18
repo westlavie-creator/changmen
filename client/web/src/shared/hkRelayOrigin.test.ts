@@ -48,14 +48,14 @@ describe("resolveHkRelayHttpOrigin", () => {
     expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
   });
 
-  it("生产主站：下发 ws2 不因本地用户名改走 202", () => {
+  it("生产主站：忽略已下线的 ws2 下发值，回到 ws", () => {
     vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => (key === "app:userName" ? "gb11" : null),
     });
     vi.stubEnv("DEV", false);
     setAssignedMarketHubOrigin("https://ws2.changmen.fun");
-    expect(resolveMarketHubHttpOrigin()).toBe("https://ws2.changmen.fun");
+    expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
   });
 
   it("IP 入口 Market hub 仍同源", () => {

@@ -32,11 +32,11 @@ describe("market_hub_route", () => {
     expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws.changmen.fun");
   });
 
-  it("empty primaryUsers + defaultHub secondary sends everyone to ws2", async () => {
+  it("empty primaryUsers + defaultHub secondary still sends everyone to ws", async () => {
     const mod = await import("./market_hub_route.js");
     mod.saveMarketHubRouteConfig({ primaryUsers: [], defaultHub: "secondary" });
     expect(mod.getMarketHubRouteConfig().primaryUsers).toEqual([]);
-    expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws2.changmen.fun");
+    expect(mod.resolveMarketHubOriginForUser("gb11")).toBe("https://ws.changmen.fun");
   });
 
   it("rejects non-allowlisted origin", async () => {
@@ -44,8 +44,12 @@ describe("market_hub_route", () => {
     expect(() => mod.saveMarketHubRouteConfig({
       primaryOrigin: "https://evil.example",
     })).toThrow(/非法/);
+    expect(() => mod.saveMarketHubRouteConfig({
+      secondaryOrigin: "https://ws2.changmen.fun",
+    })).toThrow(/非法/);
     expect(mod.normalizeMarketHubOrigin("http://ws.changmen.fun")).toBeNull();
     expect(mod.normalizeMarketHubOrigin("https://ws.changmen.fun/")).toBe("https://ws.changmen.fun");
+    expect(mod.normalizeMarketHubOrigin("https://ws2.changmen.fun")).toBeNull();
   });
 
   it("file overrides env", async () => {
@@ -53,6 +57,6 @@ describe("market_hub_route", () => {
     const mod = await import("./market_hub_route.js");
     mod.saveMarketHubRouteConfig({ primaryUsers: ["carol"], defaultHub: "secondary" });
     expect(mod.resolveMarketHubOriginForUser("carol")).toBe("https://ws.changmen.fun");
-    expect(mod.resolveMarketHubOriginForUser("alice")).toBe("https://ws2.changmen.fun");
+    expect(mod.resolveMarketHubOriginForUser("alice")).toBe("https://ws.changmen.fun");
   });
 });
