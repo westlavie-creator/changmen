@@ -197,6 +197,16 @@ function formatAgo(ms: number): string {
   return `${Math.floor(min / 60)}小时前`;
 }
 
+function formatUntil(ms: number): string {
+  const sec = Math.max(0, Math.ceil((ms - Date.now()) / 1000));
+  if (sec < 60)
+    return `${sec}秒后`;
+  const min = Math.ceil(sec / 60);
+  if (min < 60)
+    return `${min}分钟后`;
+  return `${Math.ceil(min / 60)}小时后`;
+}
+
 function venueWsTooltip(entry: VenueWsStatusEntry): string {
   const names: Record<string, string> = {
     "pm-market": "Polymarket Market WS（电竞赔率采集）",
@@ -260,10 +270,16 @@ function venueWsTooltip(entry: VenueWsStatusEntry): string {
       lines.push(`首个有效报价：${entry.meta.firstQuoteMs}ms`);
     if (typeof entry.meta?.quoteFreshMs === "number")
       lines.push(`报价新鲜度：${entry.meta.quoteFreshMs}ms`);
+    if (typeof entry.meta?.connectionAttemptCount === "number")
+      lines.push(`连接尝试：${entry.meta.connectionAttemptCount}`);
     if (typeof entry.meta?.reconnectCount === "number")
       lines.push(`重连次数：${entry.meta.reconnectCount}`);
     if (typeof entry.meta?.emptyBookCount === "number" && entry.meta.emptyBookCount > 0)
       lines.push(`空盘口次数：${entry.meta.emptyBookCount}`);
+    if (typeof entry.meta?.officialRecoveryProbeCount === "number" && entry.meta.officialRecoveryProbeCount > 0)
+      lines.push(`官方恢复探测：${entry.meta.officialRecoveryProbeCount}`);
+    if (typeof entry.meta?.officialRetryAt === "number" && entry.meta.officialRetryAt > Date.now())
+      lines.push(`下次官方探测：${formatUntil(entry.meta.officialRetryAt)}`);
     if (entry.meta?.fallbackReason)
       lines.push(`降级原因：${entry.meta.fallbackReason}`);
     if (entry.meta?.lastMessageAt)

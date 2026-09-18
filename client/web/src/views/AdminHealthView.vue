@@ -356,6 +356,16 @@ function msText(ms: number | null): string {
   return typeof ms === "number" && Number.isFinite(ms) ? `${ms}ms` : "—";
 }
 
+function timeUntilText(ms: number): string {
+  const sec = Math.max(0, Math.ceil((ms - Date.now()) / 1000));
+  if (sec < 60)
+    return `${sec}s`;
+  const min = Math.ceil(sec / 60);
+  if (min < 60)
+    return `${min}m`;
+  return `${Math.ceil(min / 60)}h`;
+}
+
 function refreshPmMarketClientMetrics() {
   pmMarketClientMetrics.value = getPmMarketClientMetricsSnapshot();
 }
@@ -852,10 +862,15 @@ onUnmounted(() => {
             <span />
             <span class="health-sub">
               assets {{ pmMarketClientMetrics.assetCount }}
+              · attempts {{ pmMarketClientMetrics.connectionAttemptCount }}
               · reconnect {{ pmMarketClientMetrics.reconnectCount }}
               · empty-book {{ pmMarketClientMetrics.emptyBookCount }}
+              · recovery-probe {{ pmMarketClientMetrics.officialRecoveryProbeCount }}
               <template v-if="pmMarketClientMetrics.fallbackReason">
                 · fallback {{ pmMarketClientMetrics.fallbackReason }}
+              </template>
+              <template v-if="pmMarketClientMetrics.officialRetryAt > Date.now()">
+                · retry official {{ timeUntilText(pmMarketClientMetrics.officialRetryAt) }}
               </template>
             </span>
           </div>

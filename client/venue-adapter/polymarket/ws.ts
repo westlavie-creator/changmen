@@ -9,6 +9,7 @@ import {
 } from "./pmMarketWsMode";
 import { setPmUserWsSourceMode } from "./pmUserWsMode";
 import { isPmTransportManualOverride } from "./pmAutoTransport";
+import { probePolymarketOfficialMarketWs } from "./pmOfficialReachability";
 import {
   getPmMarketClientMetricsSnapshot,
   notePmMarketClientConnectStart,
@@ -17,6 +18,9 @@ import {
   notePmMarketClientError,
   notePmMarketClientFallback,
   notePmMarketClientFrame,
+  notePmMarketClientOfficialRecovered,
+  notePmMarketClientOfficialRecoveryProbe,
+  notePmMarketClientOfficialRetryScheduled,
   notePmMarketClientQuote,
   notePmMarketClientSubscription,
   resetPmMarketClientMetricsForTests,
@@ -25,6 +29,8 @@ import {
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
 const OFFICIAL_FIRST_QUOTE_TIMEOUT_MS = 8_000;
+const OFFICIAL_RECOVERY_COOLDOWN_MS = 5 * 60_000;
+const OFFICIAL_RECOVERY_PROBE_TIMEOUT_MS = 3_000;
 /** 官方源连续失败后自动回退 CHANGMEN，避免国内网络卡在「未连接」 */
 const OFFICIAL_FAIL_FALLBACK = 3;
 
@@ -36,6 +42,8 @@ const polymarketWsStatusListeners = new Set<PolymarketWsStatusListener>();
 let officialFailStreak = 0;
 let subscribedAssetCount = 0;
 let officialFirstQuoteTimer: ReturnType<typeof setTimeout> | null = null;
+let officialRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+let officialRecoveryProbeRunning = false;
 
 function reportPmMarketMeta(patch: Parameters<typeof reportVenueWsMeta>[1]) {
   const metrics = getPmMarketClientMetricsSnapshot();
@@ -47,8 +55,11 @@ function reportPmMarketMeta(patch: Parameters<typeof reportVenueWsMeta>[1]) {
     firstFrameMs: metrics.firstFrameMs,
     firstQuoteMs: metrics.firstQuoteMs,
     quoteFreshMs: metrics.quoteFreshMs,
+    connectionAttemptCount: metrics.connectionAttemptCount,
     reconnectCount: metrics.reconnectCount,
     emptyBookCount: metrics.emptyBookCount,
+    officialRetryAt: metrics.officialRetryAt,
+    officialRecoveryProbeCount: metrics.officialRecoveryProbeCount,
     fallbackReason: metrics.fallbackReason,
     ...patch,
   });
@@ -93,6 +104,11 @@ export function resetOfficialFailStreakForTests(): void {
     clearTimeout(officialFirstQuoteTimer);
     officialFirstQuoteTimer = null;
   }
+  if (officialRecoveryTimer) {
+    clearTimeout(officialRecoveryTimer);
+    officialRecoveryTimer = null;
+  }
+  officialRecoveryProbeRunning = false;
   reportPmMarketMeta({ reason: "test_reset", lastError: "", lastMessageAt: 0 });
 }
 
@@ -101,6 +117,72 @@ function clearOfficialFirstQuoteTimer() {
     return;
   clearTimeout(officialFirstQuoteTimer);
   officialFirstQuoteTimer = null;
+}
+
+function clearOfficialRecoveryTimer() {
+  if (!officialRecoveryTimer)
+    return;
+  clearTimeout(officialRecoveryTimer);
+  officialRecoveryTimer = null;
+}
+
+function reconnectActiveMarketWs(reason: string) {
+  const opts = activeMarketWsOpts;
+  if (!opts)
+    return;
+  activeMarketWsHandle?.stop();
+  activeMarketWsOpts = opts;
+  activeMarketWsHandle = createPolymarketMarketWs(opts);
+  reportPmMarketMeta({ reason, lastError: "" });
+}
+
+function scheduleOfficialRecovery(reason: string) {
+  clearOfficialRecoveryTimer();
+  if (isPmTransportManualOverride())
+    return;
+  if (getPmMarketWsSourceMode() !== "changmen" || subscribedAssetCount <= 0)
+    return;
+
+  const retryAt = Date.now() + OFFICIAL_RECOVERY_COOLDOWN_MS;
+  notePmMarketClientOfficialRetryScheduled(retryAt, `official_retry_scheduled:${reason}`);
+  reportPmMarketMeta({ reason: `official_retry_scheduled:${reason}`, officialRetryAt: retryAt });
+
+  officialRecoveryTimer = setTimeout(() => {
+    officialRecoveryTimer = null;
+    void probeAndRecoverOfficial();
+  }, OFFICIAL_RECOVERY_COOLDOWN_MS);
+}
+
+async function probeAndRecoverOfficial() {
+  if (officialRecoveryProbeRunning)
+    return;
+  if (isPmTransportManualOverride())
+    return;
+  if (getPmMarketWsSourceMode() !== "changmen" || subscribedAssetCount <= 0)
+    return;
+
+  officialRecoveryProbeRunning = true;
+  notePmMarketClientOfficialRecoveryProbe("official_recovery_probe");
+  reportPmMarketMeta({ reason: "official_recovery_probe" });
+  try {
+    const ok = await probePolymarketOfficialMarketWs(OFFICIAL_RECOVERY_PROBE_TIMEOUT_MS);
+    if (!ok) {
+      notePmMarketClientOfficialRetryScheduled(Date.now() + OFFICIAL_RECOVERY_COOLDOWN_MS, "official_recovery_probe_failed");
+      reportPmMarketMeta({ reason: "official_recovery_probe_failed", lastError: "official market ws recovery probe failed" });
+      scheduleOfficialRecovery("official_recovery_probe_failed");
+      return;
+    }
+
+    setPmMarketWsSourceMode("official");
+    setPmUserWsSourceMode("official");
+    officialFailStreak = 0;
+    notePmMarketClientOfficialRecovered();
+    reportPmMarketMeta({ reason: "official_recovered", sourceMode: "official", lastError: "", officialRetryAt: 0 });
+    reconnectActiveMarketWs("official_recovered");
+  }
+  finally {
+    officialRecoveryProbeRunning = false;
+  }
 }
 
 function fallbackOfficialToChangmen(reason: string, error = ""): boolean {
@@ -116,6 +198,7 @@ function fallbackOfficialToChangmen(reason: string, error = ""): boolean {
   setPmUserWsSourceMode("changmen");
   notePmMarketClientFallback(reason, error);
   reportPmMarketMeta({ reason, lastError: error, failStreak: 0 });
+  scheduleOfficialRecovery(reason);
   console.warn(`[Polymarket WS] official ${reason}, fallback to changmen relay`);
   return true;
 }
@@ -339,6 +422,8 @@ export { getPmMarketClientMetricsSnapshot } from "./pmMarketClientMetrics";
 export type { PmMarketWsSourceMode };
 
 export function cyclePmMarketWsSourceModeAndReconnect(): PmMarketWsSourceMode {
+  clearOfficialRecoveryTimer();
+  notePmMarketClientOfficialRetryScheduled(0, "manual_override");
   const next = cyclePmMarketWsSourceMode();
   reportPmMarketMeta({ reason: "manual_override", sourceMode: next, lastError: "" });
   const opts = activeMarketWsOpts;
@@ -353,6 +438,8 @@ export function cyclePmMarketWsSourceModeAndReconnect(): PmMarketWsSourceMode {
 
 export function notePolymarketMarketWsSubscription(assetCount: number): void {
   subscribedAssetCount = Math.max(0, Number(assetCount) || 0);
+  if (subscribedAssetCount <= 0)
+    clearOfficialRecoveryTimer();
   notePmMarketClientSubscription(subscribedAssetCount);
   reportPmMarketMeta({ assetCount: subscribedAssetCount, reason: subscribedAssetCount ? "subscribed_assets" : "no_assets" });
   if (activeMarketWsHandle)

@@ -19,8 +19,11 @@ export type VenueWsStatusMeta = {
   firstFrameMs?: number | null;
   firstQuoteMs?: number | null;
   quoteFreshMs?: number | null;
+  connectionAttemptCount?: number;
   reconnectCount?: number;
   emptyBookCount?: number;
+  officialRetryAt?: number;
+  officialRecoveryProbeCount?: number;
   fallbackReason?: string;
 };
 
