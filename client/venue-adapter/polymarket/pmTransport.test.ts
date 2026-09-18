@@ -64,9 +64,17 @@ import { changmenPmEsportCall, changmenPmHttpRequest } from "@changmen/client-co
 
 import { a8PluginGet, a8PluginPost } from "@changmen/client-core/chrome-plugin/bridge";
 
-import { pmEsportCall, pmTransportHttpGet, setPmGetBookDirectTimeoutMsForTests, PM_GET_BOOK_DIRECT_TIMEOUT_MS, PM_SUBMIT_ORDER_TIMEOUT_MS } from "./pmTransport";
+import {
+  pmEsportCall,
+  pmTransportHttpGet,
+  setPmGetBookDirectTimeoutMsForTests,
+  PM_GET_BOOK_DIRECT_TIMEOUT_MS,
+  PM_PRIVATE_READ_DIRECT_TIMEOUT_MS,
+  PM_SUBMIT_ORDER_TIMEOUT_MS,
+} from "./pmTransport";
 
 import { resolvePmHttpMode, setPmHttpModeForTests } from "./pmTransportMode";
+import { resetPmMarketWsSourceModeForTests } from "./pmMarketWsMode";
 
 
 
@@ -91,6 +99,7 @@ describe("pmTransport mode", () => {
     setPmHttpModeForTests(null);
 
     setPmGetBookDirectTimeoutMsForTests(PM_GET_BOOK_DIRECT_TIMEOUT_MS);
+    resetPmMarketWsSourceModeForTests("changmen");
 
     vi.mocked(changmenPmHttpRequest).mockReset();
 
@@ -194,6 +203,122 @@ describe("pmTransport mode", () => {
       { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS },
     );
 
+  });
+
+  test("official PM-M 下 vps L2 GET 优先直连", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockResolvedValue({ balance: "1000000" });
+
+    const out = await pmTransportHttpGet<{ balance: string }>(
+      "https://clob.polymarket.com/balance-allowance?asset_type=COLLATERAL",
+      { account: pmAccount, l2Path: "/balance-allowance?asset_type=COLLATERAL" },
+    );
+
+    expect(out).toEqual({ balance: "1000000" });
+    expect(directGet).toHaveBeenCalledWith(
+      "https://clob.polymarket.com/balance-allowance?asset_type=COLLATERAL",
+      expect.objectContaining({ POLY_API_KEY: "key" }),
+    );
+    expect(changmenPmHttpRequest).not.toHaveBeenCalled();
+  });
+
+  test("official PM-M 下 vps L2 GET 直连失败回落 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockRejectedValue(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }));
+    vi.mocked(changmenPmHttpRequest).mockResolvedValue({
+      status: 200,
+      text: JSON.stringify({ balance: "2000000" }),
+    });
+
+    const out = await pmTransportHttpGet<{ balance: string }>(
+      "https://clob.polymarket.com/balance-allowance?asset_type=COLLATERAL",
+      { account: pmAccount, l2Path: "/balance-allowance?asset_type=COLLATERAL" },
+    );
+
+    expect(out).toEqual({ balance: "2000000" });
+    expect(changmenPmHttpRequest).toHaveBeenCalledOnce();
+  });
+
+  test("official PM-M 下 vps 私有只读接口优先直连", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockResolvedValue({ id: "order-1" });
+
+    const out = await pmEsportCall("Pm_GetOrder", {
+      playerId: 42,
+      orderId: "order-1",
+      _account: pmAccount,
+    });
+
+    expect(out).toEqual({ id: "order-1" });
+    expect(directGet).toHaveBeenCalledWith(
+      "https://clob.polymarket.com/data/order/order-1",
+      expect.objectContaining({ POLY_API_KEY: "key" }),
+    );
+    expect(changmenPmEsportCall).not.toHaveBeenCalled();
+  });
+
+  test("official PM-M 下私有只读直连网络失败回落 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockRejectedValue(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }));
+    vi.mocked(changmenPmEsportCall).mockResolvedValue([{ id: "t1" }]);
+
+    const out = await pmEsportCall("Pm_GetTrades", {
+      playerId: 42,
+      id: "trade-1",
+      _account: pmAccount,
+    });
+
+    expect(out).toEqual([{ id: "t1" }]);
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetTrades", {
+      playerId: 42,
+      id: "trade-1",
+    });
+  });
+
+  test("official PM-M 下私有只读直连超时回落 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(directGet).mockImplementation(async () => {
+      await new Promise(r => setTimeout(r, PM_PRIVATE_READ_DIRECT_TIMEOUT_MS + 50));
+      return { id: "slow" };
+    });
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ id: "vps-order" });
+
+    const out = await pmEsportCall("Pm_GetOrder", {
+      playerId: 42,
+      orderId: "order-2",
+      _account: pmAccount,
+    });
+
+    expect(out).toEqual({ id: "vps-order" });
+    expect(changmenPmEsportCall).toHaveBeenCalledWith("Pm_GetOrder", {
+      playerId: 42,
+      orderId: "order-2",
+    });
+  });
+
+  test("official PM-M 下 SubmitOrder 仍走 VPS", async () => {
+    setPmHttpModeForTests("vps");
+    resetPmMarketWsSourceModeForTests("official");
+    vi.mocked(changmenPmEsportCall).mockResolvedValue({ success: true, orderID: "vps-oid" });
+
+    const out = await pmEsportCall("Pm_SubmitOrder", {
+      playerId: 42,
+      order: { foo: 1 },
+      _account: pmAccount,
+    });
+
+    expect(out).toEqual({ success: true, orderID: "vps-oid" });
+    expect(directPostJson).not.toHaveBeenCalled();
+    expect(changmenPmEsportCall).toHaveBeenCalledWith(
+      "Pm_SubmitOrder",
+      { playerId: 42, order: { foo: 1 } },
+      { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS },
+    );
   });
 
 

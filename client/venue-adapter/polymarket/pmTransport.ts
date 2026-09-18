@@ -12,11 +12,13 @@ import {
 } from "@changmen/client-core/shared/platformHttp";
 import { POLYMARKET_CLOB_API } from "./api";
 import { buildL2HeadersFromAccount } from "./l2Auth";
+import { getPmMarketWsSourceMode } from "./pmMarketWsMode";
 import { demotePmHttpToVpsFromLocalNetworkError, resolvePmHttpMode } from "./pmTransportMode";
 import { measurePmExecution, recordPmExecutionMetric } from "./pmExecutionMetrics";
 
 /** vps 模式下公开 /book 直连试探上限；≤0 则不试直连、仍走 VPS。 */
 export const PM_GET_BOOK_DIRECT_TIMEOUT_MS = 800;
+export const PM_PRIVATE_READ_DIRECT_TIMEOUT_MS = 1_500;
 /**
  * POST /order 只等 HTTP ACK，不是官方 delayed 窗。
  * 官方：回包即 matched/delayed；itode 同步 +250ms；体育 delayed 立刻返回，撮合按市场 `sd`。
@@ -264,6 +266,8 @@ function dispatchHttp<T>(
     return pmHttpViaDirect<T>(method, url, data, options);
   if (mode === "extension")
     return pmHttpViaExtension<T>(method, url, data, options);
+  if (shouldDirectFirstL2Get(method, options))
+    return pmL2GetDirectFirst<T>(url, options);
   return pmHttpViaVps<T>(method, url, data, options);
 }
 
@@ -580,8 +584,66 @@ function vpsEsportOpts(action: string): { timeoutMs: number } | undefined {
   return action === "Pm_SubmitOrder" ? { timeoutMs: PM_SUBMIT_ORDER_TIMEOUT_MS } : undefined;
 }
 
+const PRIVATE_READ_DIRECT_FIRST_ACTIONS = new Set([
+  "Pm_GetTrades",
+  "Pm_GetOrder",
+  "Pm_GetOpenOrders",
+  "Pm_Heartbeat",
+]);
+
+function shouldDirectFirstPrivateRead(action: string): boolean {
+  return PRIVATE_READ_DIRECT_FIRST_ACTIONS.has(action)
+    && resolvePmHttpMode() === "vps"
+    && getPmMarketWsSourceMode() === "official";
+}
+
+function shouldDirectFirstL2Get(
+  method: PmHttpMethod,
+  options?: PmTransportHttpOptions,
+): boolean {
+  return method === "GET"
+    && resolvePmHttpMode() === "vps"
+    && getPmMarketWsSourceMode() === "official"
+    && Boolean(options?.account && options?.l2Path);
+}
+
+async function pmL2GetDirectFirst<T>(
+  url: string,
+  options?: PmTransportHttpOptions,
+): Promise<T> {
+  try {
+    return await withTimeout(
+      pmHttpViaDirect<T>("GET", url, undefined, options),
+      PM_PRIVATE_READ_DIRECT_TIMEOUT_MS,
+    );
+  }
+  catch (err) {
+    if (!isPmTransportNetworkError(err))
+      throw err;
+    return pmHttpViaVps<T>("GET", url, undefined, options);
+  }
+}
+
+async function pmPrivateReadDirectFirst<T>(
+  action: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  try {
+    return await withTimeout(
+      pmEsportCallDirect<T>(action, body),
+      PM_PRIVATE_READ_DIRECT_TIMEOUT_MS,
+    );
+  }
+  catch (err) {
+    if (!isPmTransportNetworkError(err))
+      throw err;
+    return changmenPmEsportCall<T>(action, stripEsportBodyForVps(body));
+  }
+}
+
 /** pmClientApi 底层：按 mode 走 VPS 语义 API / 直连 / 插件。
  * 公开 Pm_GetBook 无 L2：vps 下短超时直连 CLOB，失败/超时回落 VPS；extension 保持插件。
+ * 官方 PM-M 用户：私有只读接口 direct-first；交易写入仍走 VPS。
  * Pm_SubmitOrder：HTTP 只等 POST ACK（30s）；插件断连同一次回落 VPS。timeout 不重试 POST。
  * 官方 delayed 撮合不占这个窗，见 marketDelay `sd`。
  */
@@ -591,6 +653,8 @@ export async function pmEsportCall<T>(
 ): Promise<T> {
   if (action === "Pm_GetBook")
     return pmGetBookPreferDirect<T>(body);
+  if (shouldDirectFirstPrivateRead(action))
+    return pmPrivateReadDirectFirst<T>(action, body);
   const mode = resolvePmHttpMode();
   if (mode === "vps") {
     const opts = vpsEsportOpts(action);
