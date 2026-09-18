@@ -92,11 +92,52 @@ interface HealthData {
   };
   esportApi?: EsportApiHealth;
 }
+interface ProbeStep {
+  name: string;
+  ok: boolean | null;
+  skipped?: boolean;
+  latencyMs?: number;
+  status?: number;
+  error?: string;
+  reason?: string;
+}
+interface PmMarketObservability {
+  status: string;
+  checkedAt: string;
+  timeoutMs: number;
+  upstream: {
+    clobOrigin: string;
+    marketWsUrl: string;
+    dns: { clob: ProbeStep; marketWs: ProbeStep };
+    marketWs: { tcp: ProbeStep; tls: ProbeStep };
+    clob: { origin: string; time: ProbeStep; book: ProbeStep };
+  };
+  hub: {
+    source: string;
+    localUrl: string;
+    publicUrl: string;
+    selected: PmMarketHubStatus | null;
+  };
+  summary: {
+    failedChecks: string[];
+    activeClients: number;
+    subscribedAssets: number;
+    upstreamConnected: boolean;
+    pendingMaxAgeMs: number;
+    softSkipTotal: number;
+    hardSkipTotal: number;
+    bookProbeEnabled: boolean;
+  };
+}
 
 const health = ref<HealthData | null>(null);
+const pmMarketObs = ref<PmMarketObservability | null>(null);
 const error = ref("");
+const pmMarketObsError = ref("");
 const loading = ref(false);
+const pmMarketObsLoading = ref(false);
 let timer: ReturnType<typeof setInterval> | null = null;
+let pmMarketObsTimer: ReturnType<typeof setInterval> | null = null;
 
 const pmHubSites = computed(() => {
   const hubs = health.value?.wsForward.hubs;
@@ -150,6 +191,40 @@ async function fetchHealth() {
   }
   finally {
     loading.value = false;
+  }
+}
+
+function isPmMarketObservability(v: unknown): v is PmMarketObservability {
+  if (!v || typeof v !== "object")
+    return false;
+  const o = v as Partial<PmMarketObservability>;
+  return typeof o.status === "string"
+    && typeof o.checkedAt === "string"
+    && o.upstream != null
+    && o.hub != null
+    && o.summary != null;
+}
+
+async function fetchPmMarketObservability() {
+  if (!user.canAccessAdmin)
+    return;
+  pmMarketObsLoading.value = true;
+  try {
+    const base = getApiBase();
+    const res = await fetch(`${base}/health/pm-market`, {
+      headers: { Accept: "application/json", ...authHeaders() },
+    });
+    const payload: unknown = await res.json();
+    if (!isPmMarketObservability(payload))
+      throw new Error((payload as { msg?: string })?.msg || `PM-M 观测接口异常（${res.status}）`);
+    pmMarketObs.value = payload;
+    pmMarketObsError.value = "";
+  }
+  catch (e) {
+    pmMarketObsError.value = e instanceof Error ? e.message : String(e);
+  }
+  finally {
+    pmMarketObsLoading.value = false;
   }
 }
 
@@ -249,6 +324,28 @@ function delayColor(ms: number): string {
   return "health-val--bad";
 }
 
+function probeTagType(step?: ProbeStep | null): "success" | "danger" | "warning" | "info" {
+  if (!step)
+    return "info";
+  if (step.skipped || step.ok == null)
+    return "info";
+  return step.ok ? "success" : "danger";
+}
+
+function probeText(step?: ProbeStep | null): string {
+  if (!step)
+    return "—";
+  if (step.skipped)
+    return step.reason || "skipped";
+  const bits = [
+    step.ok ? "OK" : "FAIL",
+    step.status ? `HTTP ${step.status}` : "",
+    typeof step.latencyMs === "number" ? `${step.latencyMs}ms` : "",
+    step.error || "",
+  ].filter(Boolean);
+  return bits.join(" · ");
+}
+
 onMounted(async () => {
   if (!user.ready) {
     try { await user.fetchUserInfo(); }
@@ -261,14 +358,18 @@ onMounted(async () => {
   if (!user.canAccessAdmin) { await router.replace({ name: "home" }); return; }
   await Promise.all([
     fetchHealth(),
+    fetchPmMarketObservability(),
     user.isAdmin ? loadMarketHubRoute() : Promise.resolve(),
   ]);
   timer = setInterval(fetchHealth, 5000);
+  pmMarketObsTimer = setInterval(fetchPmMarketObservability, 30000);
 });
 
 onUnmounted(() => {
   if (timer)
     clearInterval(timer);
+  if (pmMarketObsTimer)
+    clearInterval(pmMarketObsTimer);
 });
 </script>
 
@@ -285,7 +386,7 @@ onUnmounted(() => {
         Market hub 分流
       </div>
       <p class="health-sub">
-        默认全员 202 / ws。仅当把 defaultHub 改回 secondary 时，名单外才走 166。保存后已在线用户需刷新。
+        默认全员走 ws.changmen.fun。保存后已在线用户需刷新。
       </p>
       <el-alert
         v-if="routeError"
@@ -633,6 +734,93 @@ onUnmounted(() => {
           <span class="health-sub">暂无客户端连接</span>
         </div>
       </div>
+
+      <div class="health-card health-card--wide">
+        <div class="health-card__title health-card__title-row">
+          <span>PM-M 生产观测</span>
+          <el-button size="small" :loading="pmMarketObsLoading" @click="fetchPmMarketObservability">
+            刷新
+          </el-button>
+        </div>
+        <el-alert
+          v-if="pmMarketObsError"
+          type="error"
+          :closable="false"
+          :title="pmMarketObsError"
+          class="health-error"
+        />
+        <template v-if="pmMarketObs">
+          <div class="health-row">
+            <span>总状态</span>
+            <el-tag :type="pmMarketObs.status === 'ok' ? 'success' : 'danger'" size="small" effect="dark">
+              {{ pmMarketObs.status }}
+            </el-tag>
+          </div>
+          <div class="health-row health-row--sub">
+            <span />
+            <span class="health-sub">
+              {{ new Date(pmMarketObs.checkedAt).toLocaleString("zh-CN", { hour12: false }) }}
+              · timeout {{ pmMarketObs.timeoutMs }}ms
+            </span>
+          </div>
+          <div class="health-row">
+            <span>CLOB</span>
+            <span class="health-val">{{ pmMarketObs.upstream.clobOrigin }}</span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>time</span>
+            <el-tag :type="probeTagType(pmMarketObs.upstream.clob.time)" size="small">
+              {{ probeText(pmMarketObs.upstream.clob.time) }}
+            </el-tag>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>book</span>
+            <el-tag :type="probeTagType(pmMarketObs.upstream.clob.book)" size="small">
+              {{ probeText(pmMarketObs.upstream.clob.book) }}
+            </el-tag>
+          </div>
+          <div class="health-row">
+            <span>官方 Market WS</span>
+            <span class="health-val">{{ pmMarketObs.upstream.marketWsUrl }}</span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>DNS / TCP / TLS</span>
+            <span class="health-probe-tags">
+              <el-tag :type="probeTagType(pmMarketObs.upstream.dns.marketWs)" size="small">
+                DNS {{ probeText(pmMarketObs.upstream.dns.marketWs) }}
+              </el-tag>
+              <el-tag :type="probeTagType(pmMarketObs.upstream.marketWs.tcp)" size="small">
+                TCP {{ probeText(pmMarketObs.upstream.marketWs.tcp) }}
+              </el-tag>
+              <el-tag :type="probeTagType(pmMarketObs.upstream.marketWs.tls)" size="small">
+                TLS {{ probeText(pmMarketObs.upstream.marketWs.tls) }}
+              </el-tag>
+            </span>
+          </div>
+          <div class="health-row">
+            <span>Hub 来源</span>
+            <span class="health-val">{{ pmMarketObs.hub.source }}</span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span />
+            <span class="health-val">
+              {{ pmMarketObs.summary.activeClients }} 连接
+              <span class="health-sub">
+                · 订阅 {{ pmMarketObs.summary.subscribedAssets }}
+                · 上游 {{ pmMarketObs.summary.upstreamConnected ? "已连" : "未连" }}
+                · pending {{ pmMarketObs.summary.pendingMaxAgeMs }}ms
+              </span>
+            </span>
+          </div>
+          <div v-if="pmMarketObs.summary.failedChecks.length" class="health-row health-row--sub">
+            <span>失败项</span>
+            <span class="health-val--bad">{{ pmMarketObs.summary.failedChecks.join(", ") }}</span>
+          </div>
+        </template>
+        <div v-else class="health-row health-row--sub">
+          <span class="health-sub">等待观测数据</span>
+        </div>
+      </div>
     </div>
     <div v-else-if="loading" class="health-loading">
       加载中...
@@ -689,6 +877,11 @@ onUnmounted(() => {
   margin-bottom: 12px;
   font-weight: 600;
 }
+.health-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 .health-row {
   display: flex;
   justify-content: space-between;
@@ -729,6 +922,7 @@ onUnmounted(() => {
 }
 .health-platform-dot--active { background: #67c23a; }
 .health-platform-dot--error { background: #f56c6c; }
+.health-probe-tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .health-error { margin-bottom: 16px; }
 .health-loading { text-align: center; padding: 40px; color: var(--el-text-color-secondary); }
 </style>

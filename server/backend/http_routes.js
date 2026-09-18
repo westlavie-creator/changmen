@@ -16,6 +16,7 @@ import {
   handlePolymarketRelayerStatus,
 } from "./core/integrations/polymarket/relayer_http.js";
 import { handlePolymarketClobL1ApiCreds } from "./core/integrations/polymarket/clob_l1_http.js";
+import { buildPmMarketObservabilitySnapshot } from "./core/integrations/polymarket/pm_market_observability.js";
 import { adapterRequire, requirePlatform } from "./core/shared/adapter_paths.js";
 import { tryHttpProxyRelay } from "./proxy/http_proxy_relay.js";
 import { tryIaHttpProxy } from "./proxy/ia_http_proxy.js";
@@ -277,6 +278,32 @@ async function handleAppRoutes(req, res, serveStatic) {
     }
     const diag = await buildMemoryDiagSnapshot();
     jsonResponse(res, 200, diag);
+    return;
+  }
+  if (url === "/health/pm-market") {
+    if (req.method !== "GET") {
+      jsonResponse(res, 405, { success: 0, msg: "GET only", info: null });
+      return;
+    }
+    const sendPmMarketHealth = async () => {
+      const parsed = new URL(String(req.url || "/"), "http://localhost");
+      const timeoutMs = Number(parsed.searchParams.get("timeoutMs") || parsed.searchParams.get("timeout") || 0);
+      const data = await buildPmMarketObservabilitySnapshot({ timeoutMs });
+      jsonResponse(res, data.status === "ok" ? 200 : 503, data);
+    };
+    if (isLocalRequest(req)) {
+      await sendPmMarketHealth();
+      return;
+    }
+    const token = String(req.headers.token || req.headers.Token || "");
+    if (token) {
+      const user = await store.getUserByToken(token);
+      if (user && canAccessAdminPanel(user)) {
+        await sendPmMarketHealth();
+        return;
+      }
+    }
+    jsonResponse(res, 403, { success: 0, msg: "无管理权限", info: null });
     return;
   }
   if (url === "/health") {

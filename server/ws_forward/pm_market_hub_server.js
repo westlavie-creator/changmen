@@ -28,7 +28,7 @@ function sendJson(res, status, body) {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || "/", "http://localhost");
-  if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/")) {
+  if (req.method === "GET" && (url.pathname === "/health" || url.pathname === "/health/pm-market" || url.pathname === "/")) {
     sendJson(res, 200, {
       status: "ok",
       service: "changmen-pm-market-hub",
