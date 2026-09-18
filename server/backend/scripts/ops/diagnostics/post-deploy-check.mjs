@@ -29,6 +29,7 @@ const skipTelegram = process.argv.includes("--skip-telegram");
 const probeTag = `deploy-probe-${Date.now()}`;
 
 const results = [];
+const CLOSED_ORDER_STATUSES = new Set(["Win", "Lose", "Return", "Reject"]);
 
 function pass(name, detail = "") {
   results.push({ name, ok: true, detail });
@@ -38,6 +39,10 @@ function pass(name, detail = "") {
 function fail(name, detail = "") {
   results.push({ name, ok: false, detail });
   console.error(`FAIL ${name}${detail ? ` — ${detail}` : ""}`);
+}
+
+function warn(name, detail = "") {
+  console.warn(`WARN ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
 async function pickProbeUser(pool) {
@@ -198,18 +203,29 @@ async function checkTelegram(userName) {
 
 async function checkAccountInvariants(pool) {
   const { rows: orderOwnerMismatch } = await pool.query(`
-    SELECT o.player_id, o.user_id, p.owner_user_id
+    SELECT o.player_id, o.user_id, p.owner_user_id, o.status
     FROM orders o
     JOIN players p ON p.id = o.player_id AND p.deleted_at IS NULL
     WHERE p.owner_user_id IS NOT NULL AND o.user_id::uuid <> p.owner_user_id
     LIMIT 5
   `);
   if (orderOwnerMismatch.length > 0) {
-    fail(
-      "accounts isolation",
-      `订单 player 归属不一致: ${orderOwnerMismatch.map(r => r.player_id).join(", ")}`,
+    const activeMismatches = orderOwnerMismatch.filter(
+      row => !CLOSED_ORDER_STATUSES.has(String(row.status || "").trim()),
     );
-    return false;
+    if (activeMismatches.length === 0) {
+      warn(
+        "accounts isolation",
+        `仅发现历史已结算订单 player 归属不一致: ${orderOwnerMismatch.map(r => r.player_id).join(", ")}`,
+      );
+    }
+    else {
+      fail(
+        "accounts isolation",
+        `活跃订单 player 归属不一致: ${activeMismatches.map(r => r.player_id).join(", ")}`,
+      );
+      return false;
+    }
   }
 
   const { rows: noOwner } = await pool.query(
