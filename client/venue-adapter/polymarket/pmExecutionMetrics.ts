@@ -34,6 +34,66 @@ export interface PmExecutionMetricEntry {
   orderClientCacheHit?: boolean;
 }
 
+export interface PmExecutionKindSummary {
+  count: number;
+  success: number;
+  fail: number;
+  p50Ms: number | null;
+  p90Ms: number | null;
+  p95Ms: number | null;
+  maxMs: number | null;
+}
+
+export interface PmExecutionMetricsSummary {
+  generatedAt: number;
+  windowSize: number;
+  total: number;
+  byKind: Record<PmExecutionMetricKind, PmExecutionKindSummary>;
+  book: {
+    total: number;
+    directLive: number;
+    vpsLive: number;
+    vpsFallback: number;
+    extension: number;
+    unknown: number;
+    directLiveRate: number | null;
+    fallbackRate: number | null;
+  };
+  bookReuse: {
+    observed: number;
+    hit: number;
+    miss: number;
+    hitRate: number | null;
+    ageP50Ms: number | null;
+    ageP90Ms: number | null;
+    ageP95Ms: number | null;
+    rejectReasons: Record<string, number>;
+  };
+  sign: {
+    observed: number;
+    warm: number;
+    cacheHit: number;
+    warmRate: number | null;
+    cacheHitRate: number | null;
+  };
+  quoteToFo: {
+    total: number;
+    success: number;
+    fail: number;
+    successRate: number | null;
+    sources: Record<string, number>;
+    rejectReasons: Record<string, number>;
+  };
+  recentErrors: Array<{
+    at: number;
+    kind: PmExecutionMetricKind;
+    tokenId?: string;
+    error?: string;
+    rejectReason?: string;
+    reuseRejectReason?: string;
+  }>;
+}
+
 const MAX_ENTRIES = 300;
 const entries: PmExecutionMetricEntry[] = [];
 
@@ -111,6 +171,178 @@ function elapsedMs(startedAt: number): number {
 
 export function getPmExecutionMetrics(): readonly PmExecutionMetricEntry[] {
   return entries;
+}
+
+function emptyKindSummary(): PmExecutionKindSummary {
+  return {
+    count: 0,
+    success: 0,
+    fail: 0,
+    p50Ms: null,
+    p90Ms: null,
+    p95Ms: null,
+    maxMs: null,
+  };
+}
+
+function metricKinds(): PmExecutionMetricKind[] {
+  return ["quote_to_fo", "book", "check", "sign", "submit", "betting"];
+}
+
+function percentile(values: number[], pct: number): number | null {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length)
+    return null;
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil((pct / 100) * sorted.length) - 1));
+  return sorted[index]!;
+}
+
+function rate(part: number, total: number): number | null {
+  return total > 0 ? Number((part / total).toFixed(4)) : null;
+}
+
+function increment(map: Record<string, number>, key: string | undefined): void {
+  const safeKey = key || "unknown";
+  map[safeKey] = (map[safeKey] ?? 0) + 1;
+}
+
+export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
+  const snapshot = [...entries];
+  const byKind = Object.fromEntries(metricKinds().map(kind => [kind, emptyKindSummary()])) as Record<PmExecutionMetricKind, PmExecutionKindSummary>;
+  const durations = Object.fromEntries(metricKinds().map(kind => [kind, [] as number[]])) as Record<PmExecutionMetricKind, number[]>;
+  const book = {
+    total: 0,
+    directLive: 0,
+    vpsLive: 0,
+    vpsFallback: 0,
+    extension: 0,
+    unknown: 0,
+    directLiveRate: null as number | null,
+    fallbackRate: null as number | null,
+  };
+  const bookReuse = {
+    observed: 0,
+    hit: 0,
+    miss: 0,
+    hitRate: null as number | null,
+    ageP50Ms: null as number | null,
+    ageP90Ms: null as number | null,
+    ageP95Ms: null as number | null,
+    rejectReasons: {} as Record<string, number>,
+  };
+  const sign = {
+    observed: 0,
+    warm: 0,
+    cacheHit: 0,
+    warmRate: null as number | null,
+    cacheHitRate: null as number | null,
+  };
+  const quoteToFo = {
+    total: 0,
+    success: 0,
+    fail: 0,
+    successRate: null as number | null,
+    sources: {} as Record<string, number>,
+    rejectReasons: {} as Record<string, number>,
+  };
+  const bookAgeMs: number[] = [];
+
+  for (const row of snapshot) {
+    const kindSummary = byKind[row.kind];
+    kindSummary.count += 1;
+    if (row.success === true)
+      kindSummary.success += 1;
+    else if (row.success === false)
+      kindSummary.fail += 1;
+    if (typeof row.ms === "number" && Number.isFinite(row.ms))
+      durations[row.kind].push(row.ms);
+
+    if (row.kind === "book") {
+      book.total += 1;
+      if (row.bookSource === "direct-live")
+        book.directLive += 1;
+      else if (row.bookSource === "vps-live")
+        book.vpsLive += 1;
+      else if (row.bookSource === "vps-fallback")
+        book.vpsFallback += 1;
+      else if (row.bookSource === "extension")
+        book.extension += 1;
+      else
+        book.unknown += 1;
+    }
+
+    if (row.bookReuse !== undefined) {
+      bookReuse.observed += 1;
+      if (row.bookReuse)
+        bookReuse.hit += 1;
+      else
+        bookReuse.miss += 1;
+      if (typeof row.bookAgeMs === "number" && Number.isFinite(row.bookAgeMs))
+        bookAgeMs.push(row.bookAgeMs);
+      if (row.reuseRejectReason)
+        increment(bookReuse.rejectReasons, row.reuseRejectReason);
+    }
+
+    if (row.kind === "sign") {
+      sign.observed += 1;
+      if (row.signWarm)
+        sign.warm += 1;
+      if (row.orderClientCacheHit)
+        sign.cacheHit += 1;
+    }
+
+    if (row.kind === "quote_to_fo") {
+      quoteToFo.total += 1;
+      if (row.success)
+        quoteToFo.success += 1;
+      else
+        quoteToFo.fail += 1;
+      increment(quoteToFo.sources, row.quoteSource);
+      if (row.rejectReason)
+        increment(quoteToFo.rejectReasons, row.rejectReason);
+    }
+  }
+
+  for (const kind of metricKinds()) {
+    const values = durations[kind];
+    byKind[kind].p50Ms = percentile(values, 50);
+    byKind[kind].p90Ms = percentile(values, 90);
+    byKind[kind].p95Ms = percentile(values, 95);
+    byKind[kind].maxMs = values.length ? Math.max(...values) : null;
+  }
+
+  book.directLiveRate = rate(book.directLive, book.total);
+  book.fallbackRate = rate(book.vpsFallback, book.total);
+  bookReuse.hitRate = rate(bookReuse.hit, bookReuse.observed);
+  bookReuse.ageP50Ms = percentile(bookAgeMs, 50);
+  bookReuse.ageP90Ms = percentile(bookAgeMs, 90);
+  bookReuse.ageP95Ms = percentile(bookAgeMs, 95);
+  sign.warmRate = rate(sign.warm, sign.observed);
+  sign.cacheHitRate = rate(sign.cacheHit, sign.observed);
+  quoteToFo.successRate = rate(quoteToFo.success, quoteToFo.total);
+
+  return {
+    generatedAt: Date.now(),
+    windowSize: MAX_ENTRIES,
+    total: snapshot.length,
+    byKind,
+    book,
+    bookReuse,
+    sign,
+    quoteToFo,
+    recentErrors: snapshot
+      .filter(row => row.success === false || row.error || row.rejectReason || row.reuseRejectReason)
+      .slice(-8)
+      .reverse()
+      .map(row => ({
+        at: row.at,
+        kind: row.kind,
+        tokenId: row.tokenId,
+        error: row.error,
+        rejectReason: row.rejectReason,
+        reuseRejectReason: row.reuseRejectReason,
+      })),
+  };
 }
 
 export function clearPmExecutionMetrics(): void {

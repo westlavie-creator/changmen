@@ -11,6 +11,12 @@ import { authHeaders } from "@/api/client";
 import { getApiBase } from "@/config/apiBase";
 import { useUserStore } from "@/stores/userStore";
 import {
+  getPmExecutionMetricsSummary,
+  type PmExecutionMetricsSummary,
+  type PmExecutionMetricKind,
+  type PmExecutionKindSummary,
+} from "@changmen/venue-adapter/polymarket/pmExecutionMetrics";
+import {
   getPmMarketClientMetricsSnapshot,
   type PmMarketClientMetricsSnapshot,
 } from "@changmen/venue-adapter/polymarket/pmMarketClientMetrics";
@@ -137,6 +143,7 @@ interface PmMarketObservability {
 const health = ref<HealthData | null>(null);
 const pmMarketObs = ref<PmMarketObservability | null>(null);
 const pmMarketClientMetrics = ref<PmMarketClientMetricsSnapshot>(getPmMarketClientMetricsSnapshot());
+const pmExecutionMetrics = ref<PmExecutionMetricsSummary>(getPmExecutionMetricsSummary());
 const error = ref("");
 const pmMarketObsError = ref("");
 const loading = ref(false);
@@ -356,8 +363,33 @@ function msText(ms: number | null): string {
   return typeof ms === "number" && Number.isFinite(ms) ? `${ms}ms` : "—";
 }
 
+function rateText(value: number | null): string {
+  return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value * 100)}%` : "—";
+}
+
+function kindLatencyText(row: PmExecutionKindSummary | undefined): string {
+  if (!row || row.count <= 0)
+    return "—";
+  return `p50 ${msText(row.p50Ms)} · p90 ${msText(row.p90Ms)} · p95 ${msText(row.p95Ms)}`;
+}
+
+function kindCountText(kind: PmExecutionMetricKind): string {
+  const row = pmExecutionMetrics.value.byKind[kind];
+  if (!row || row.count <= 0)
+    return "0";
+  return `${row.count} / 成功 ${row.success} / 失败 ${row.fail}`;
+}
+
+function topReasonText(reasons: Record<string, number>): string {
+  const rows = Object.entries(reasons).sort((a, b) => b[1] - a[1]);
+  if (!rows.length)
+    return "—";
+  return rows.slice(0, 3).map(([key, count]) => `${key} ${count}`).join(" · ");
+}
+
 function refreshPmMarketClientMetrics() {
   pmMarketClientMetrics.value = getPmMarketClientMetricsSnapshot();
+  pmExecutionMetrics.value = getPmExecutionMetricsSummary();
 }
 
 onMounted(async () => {
@@ -846,6 +878,49 @@ onUnmounted(() => {
                 · quote {{ msText(pmMarketClientMetrics.firstQuoteMs) }}
                 · fresh {{ msText(pmMarketClientMetrics.quoteFreshMs) }}
               </span>
+            </span>
+          </div>
+          <div class="health-row">
+            <span>PM 执行窗口</span>
+            <span class="health-val">
+              {{ pmExecutionMetrics.total }} / {{ pmExecutionMetrics.windowSize }}
+              <span class="health-sub">
+                · book {{ kindLatencyText(pmExecutionMetrics.byKind.book) }}
+              </span>
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>book 来源</span>
+            <span class="health-sub">
+              direct {{ pmExecutionMetrics.book.directLive }}
+              · fallback {{ pmExecutionMetrics.book.vpsFallback }}
+              · direct率 {{ rateText(pmExecutionMetrics.book.directLiveRate) }}
+              · fallback率 {{ rateText(pmExecutionMetrics.book.fallbackRate) }}
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>book 复用</span>
+            <span class="health-sub">
+              {{ pmExecutionMetrics.bookReuse.hit }}/{{ pmExecutionMetrics.bookReuse.observed }}
+              · 命中 {{ rateText(pmExecutionMetrics.bookReuse.hitRate) }}
+              · age p90 {{ msText(pmExecutionMetrics.bookReuse.ageP90Ms) }}
+              · 拒因 {{ topReasonText(pmExecutionMetrics.bookReuse.rejectReasons) }}
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>sign / submit</span>
+            <span class="health-sub">
+              sign {{ kindLatencyText(pmExecutionMetrics.byKind.sign) }}
+              · cache {{ rateText(pmExecutionMetrics.sign.cacheHitRate) }}
+              · submit {{ kindLatencyText(pmExecutionMetrics.byKind.submit) }}
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>quote→fo</span>
+            <span class="health-sub">
+              {{ kindCountText("quote_to_fo") }}
+              · 成功率 {{ rateText(pmExecutionMetrics.quoteToFo.successRate) }}
+              · 拒因 {{ topReasonText(pmExecutionMetrics.quoteToFo.rejectReasons) }}
             </span>
           </div>
           <div class="health-row health-row--sub">
