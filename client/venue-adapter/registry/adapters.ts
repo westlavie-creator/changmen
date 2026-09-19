@@ -1,9 +1,8 @@
+import type { PlatformId } from "@changmen/api-contract";
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import type { CollectorFactory, PlatformAdapter, PlatformProvider } from "../contract";
-import type { PlatformId } from "@changmen/api-contract";
 import { withA8ResolveLegOutcome } from "../adaptation/a8LegOutcome";
 import { azuroAdapter } from "../azuro";
-import { predictFunAdapter } from "../predictfun";
 import { dexAdapter } from "../dex";
 import { hgAdapter } from "../hg";
 import { iaAdapter } from "../ia";
@@ -13,18 +12,20 @@ import { limitlessAdapter } from "../limitless";
 import { obAdapter } from "../ob";
 import { pbAdapter } from "../pb";
 import { polymarketAdapter } from "../polymarket";
+import { predictFunAdapter } from "../predictfun";
 import { rayAdapter } from "../ray";
 import { sabaAdapter } from "../saba";
-import { sxbetAdapter } from "../sxbet";
 import { stakeAdapter } from "../stake";
+import { sxbetAdapter } from "../sxbet";
 import { tfAdapter } from "../tf";
 import { xbetAdapter } from "../xbet";
 import {
   betPlatformIds,
   collectPlatformIds,
-  getPlatformMeta,
+  PLATFORM_REGISTRY,
   platformSupportsBet,
 } from "./meta";
+import { validateVenueTruth } from "./venueTruth";
 
 /** 全平台适配器 — 对齐 A8 `bf.GetProvider` 注册表 */
 export const PLATFORM_ADAPTERS: PlatformAdapter[] = [
@@ -83,27 +84,17 @@ export function supportedBetProviders(): PlatformId[] {
   return betPlatformIds();
 }
 
+/**
+ * DEV ontology (Phase 3):
+ * - collect/bet = Product Activation; collector/provider = Implementation
+ * - Activation without Implementation → ERROR
+ * - Implementation without Activation → ALLOWED (no warn)
+ */
 if (import.meta.env.DEV) {
-  const expectedCollect = new Set(collectPlatformIds());
-  for (const adapter of PLATFORM_ADAPTERS) {
-    if (adapter.collector && !expectedCollect.has(adapter.id)) {
-      console.warn(`[platform_adapter] 未在 manifest 声明采集: ${adapter.id}`);
-    }
-  }
-  for (const id of collectPlatformIds()) {
-    if (!getCollectorFactory(id)) {
-      console.warn(`[platform_adapter] manifest 声明采集但未注册 collector: ${id}`);
-    }
-  }
-  for (const adapter of PLATFORM_ADAPTERS) {
-    if (platformSupportsBet(adapter.id) && !adapter.provider) {
-      console.warn(`[platform_adapter] manifest bet:true 但缺少 provider: ${adapter.id}`);
-    }
-  }
-  for (const adapter of PLATFORM_ADAPTERS) {
-    const meta = getPlatformMeta(adapter.id);
-    if (!meta) {
-      console.warn(`[platform_adapter] adapter 未在 manifest 中: ${adapter.id}`);
-    }
-  }
+  const report = validateVenueTruth({
+    catalog: PLATFORM_REGISTRY,
+    adapters: PLATFORM_ADAPTERS,
+  });
+  for (const err of report.errors)
+    console.error(`[platform_adapter] ${err.message}`);
 }

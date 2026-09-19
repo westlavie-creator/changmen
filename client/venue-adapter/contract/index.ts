@@ -217,32 +217,42 @@ export interface PlatformProvider {
 type StopFn = () => void;
 export type CollectorFactory = () => StopFn;
 
-export type CollectionMode =
-  | "http_mqtt"
-  | "http_ws"
-  | "http_poll"
-  | "aggregator_ws"
-  | "parse_ws"
-  | "plugin_http"
-  | "plugin_graphql_ws"
-  | "plugin_http_ws"
-  | "vps_http_ws"
-  | "none";
+export type CollectionMode
+  = | "http_mqtt"
+    | "http_ws"
+    | "http_poll"
+    | "aggregator_ws"
+    | "parse_ws"
+    | "plugin_http"
+    | "plugin_graphql_ws"
+    | "plugin_http_ws"
+    | "vps_http_ws"
+    | "none";
 
-/** 平台能力元数据（与 registry/manifest.json 对齐） */
+/** 平台能力元数据（与 registry/manifest.json 对齐；Adapter.meta 当前未填充） */
 export interface PlatformAdapterMeta {
   id: PlatformId;
   /** 目录名，小写：ob、xbet */
   dir: string;
   sort: number;
+  /** Product Activation — not Implementation */
   collect: boolean;
+  /** Product Activation — not Implementation */
   bet: boolean;
+  /** LEGACY / RETIRE CANDIDATE — no runtime consumers */
   pluginOnly?: boolean;
+  /** LEGACY — no runtime consumers */
   a8Channel?: boolean;
+  /** Runtime ownership/topology; hard gate: vps_http_ws */
   collectionMode: CollectionMode;
+  /** LEGACY / DEAD — collectors hardcode intervals */
   saveMatchIntervalMs?: number;
 }
 
+/**
+ * Implementation registration for a Venue.
+ * `collector` / `provider` = CODE exists; Product enablement is manifest.collect / bet.
+ */
 export interface PlatformAdapter {
   id: PlatformId;
   meta?: PlatformAdapterMeta;
