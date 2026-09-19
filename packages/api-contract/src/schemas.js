@@ -1,45 +1,46 @@
 import { z } from "zod";
+/** TYPE MIRROR of Catalog Venue ids (manifest.json). CI: npm run check:venue-catalog */
 const PlatformId = z.enum(["OB", "RAY", "TF", "IA", "SABA", "PB", "IM", "IMT", "HG", "Stake", "XBet", "Dex", "Polymarket", "Limitless", "SXBet", "Azuro", "PredictFun"]);
 const LoginRequest = z.object({
   userName: z.string().min(1).or(z.string().min(1).describe("username")),
-  password: z.string().min(1)
+  password: z.string().min(1),
 });
 const RefreshTokenRequest = z.object({
   refreshToken: z.string().min(1).optional(),
-  refresh_token: z.string().min(1).optional()
-}).refine((d) => d.refreshToken || d.refresh_token, { message: "\u7F3A\u5C11 refreshToken" });
+  refresh_token: z.string().min(1).optional(),
+}).refine(d => d.refreshToken || d.refresh_token, { message: "\u7F3A\u5C11 refreshToken" });
 const SaveMatchRequest = z.object({
   provider: z.string().min(1),
-  matchs: z.string().min(1)
+  matchs: z.string().min(1),
 });
 const SaveBetRequest = z.object({
   provider: z.string().min(1),
   matchId: z.union([z.string(), z.number()]),
-  bets: z.string().min(1)
+  bets: z.string().min(1),
 });
 const SaveLiveTimerRequest = z.object({
   provider: z.string().min(1),
-  timer: z.string().min(1)
+  timer: z.string().min(1),
 });
 const GetCollectPlatformRequest = z.object({
-  provider: z.string().min(1)
+  provider: z.string().min(1),
 });
 const GetGamesRequest = z.object({
-  provider: z.string().min(1)
+  provider: z.string().min(1),
 });
 const UpdatePlatformRequest = z.object({
   provider: z.string().min(1),
   gateway: z.string().optional(),
   token: z.string().optional(),
   betName: z.string().optional(),
-  games: z.string().optional()
+  games: z.string().optional(),
 });
 const UpdateSettingRequest = z.object({
-  setting: z.unknown().optional()
+  setting: z.unknown().optional(),
 }).passthrough();
 const SaveAccountsRequest = z.object({
   Key: z.literal("ACCOUNT").optional(),
-  Value: z.string().min(1)
+  Value: z.string().min(1),
 });
 const GetOrderListRequest = z.object({
   pageIndex: z.coerce.number().int().min(0).default(0),
@@ -47,7 +48,7 @@ const GetOrderListRequest = z.object({
   dateStart: z.coerce.number().optional(),
   dateEnd: z.coerce.number().optional(),
   provider: z.string().optional(),
-  status: z.string().optional()
+  status: z.string().optional(),
 });
 const SaveOrderRequest = z.object({
   Link: z.coerce.number().optional(),
@@ -60,7 +61,7 @@ const SaveOrderRequest = z.object({
   Money: z.coerce.number().optional(),
   Status: z.string().optional(),
   CreateAt: z.coerce.number().optional(),
-  PlayerID: z.coerce.number().optional()
+  PlayerID: z.coerce.number().optional(),
 }).passthrough();
 const GetMatchsBetSourceOutbound = z.object({
   Type: z.string().optional(),
@@ -72,15 +73,15 @@ const GetMatchsBetSourceOutbound = z.object({
   Status: z.string().optional(),
   HomeMarketID: z.string().optional(),
   AwayMarketID: z.string().optional(),
-  LineID: z.union([z.string(), z.number()]).optional()
+  LineID: z.union([z.string(), z.number()]).optional(),
 }).passthrough();
 const GetMatchsBetRowOutbound = z.object({
   Map: z.union([z.string(), z.number()]).optional(),
-  Sources: z.record(z.string(), z.unknown()).optional()
+  Sources: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 const GetMatchsMatchOutbound = z.object({
   ID: z.union([z.string(), z.number()]).optional(),
-  Bets: z.array(z.unknown()).optional()
+  Bets: z.array(z.unknown()).optional(),
 }).passthrough();
 const GetMatchsListOutbound = z.array(GetMatchsMatchOutbound);
 function isPredictFunSourceKey(key, src) {
@@ -102,7 +103,7 @@ const _getMatchsWarn = {
   issueEvents: 0,
   lastIssueCount: 0,
   lastIssues: [],
-  lastAt: 0
+  lastAt: 0,
 };
 function getGetMatchsOutboundWarnStats() {
   return { ..._getMatchsWarn, lastIssues: [..._getMatchsWarn.lastIssues] };
@@ -122,7 +123,8 @@ function warnClientGetMatchsOutbound(list, opts = {}) {
   const parsed = GetMatchsListOutbound.safeParse(list);
   if (!parsed.success) {
     issues.push(`list_shape: ${parsed.error.issues[0]?.message || "invalid"}`);
-  } else {
+  }
+  else {
     for (const match of parsed.data) {
       if (issues.length >= maxIssues)
         break;
@@ -149,7 +151,7 @@ function warnClientGetMatchsOutbound(list, opts = {}) {
           const miss = missingPfMarketIds(src);
           if (miss.length) {
             issues.push(
-              `match=${matchId} bet[${bi}] source=${key} missing ${miss.join(",")}`
+              `match=${matchId} bet[${bi}] source=${key} missing ${miss.join(",")}`,
             );
           }
         }
@@ -161,14 +163,17 @@ function warnClientGetMatchsOutbound(list, opts = {}) {
     _getMatchsWarn.lastIssueCount = issues.length;
     _getMatchsWarn.lastIssues = issues.slice(0, 20);
     _getMatchsWarn.lastAt = Date.now();
-  } else {
+  }
+  else {
     _getMatchsWarn.lastIssueCount = 0;
   }
   return { ok: issues.length === 0, issues, pfSourceCount };
 }
 export {
+  __resetGetMatchsOutboundWarnStatsForTests,
   GetCollectPlatformRequest,
   GetGamesRequest,
+  getGetMatchsOutboundWarnStats,
   GetMatchsBetRowOutbound,
   GetMatchsBetSourceOutbound,
   GetMatchsListOutbound,
@@ -183,7 +188,5 @@ export {
   SaveOrderRequest,
   UpdatePlatformRequest,
   UpdateSettingRequest,
-  __resetGetMatchsOutboundWarnStatsForTests,
-  getGetMatchsOutboundWarnStats,
-  warnClientGetMatchsOutbound
+  warnClientGetMatchsOutbound,
 };

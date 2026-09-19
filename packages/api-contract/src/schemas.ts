@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** TYPE MIRROR of Catalog Venue ids (manifest.json). CI: npm run check:venue-catalog */
 const PlatformId = z.enum(["OB", "RAY", "TF", "IA", "SABA", "PB", "IM", "IMT", "HG", "Stake", "XBet", "Dex", "Polymarket", "Limitless", "SXBet", "Azuro", "PredictFun"]);
 
 // ── Auth ──
@@ -134,13 +135,13 @@ function missingPfMarketIds(src: Record<string, unknown>): string[] {
   return miss;
 }
 
-type GetMatchsWarnStats = {
+interface GetMatchsWarnStats {
   checks: number;
   issueEvents: number;
   lastIssueCount: number;
   lastIssues: string[];
   lastAt: number;
-};
+}
 
 const _getMatchsWarn: GetMatchsWarnStats = {
   checks: 0,

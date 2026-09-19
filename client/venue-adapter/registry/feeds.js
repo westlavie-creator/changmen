@@ -1,18 +1,21 @@
 import {
+  getManifestEntry,
   MANIFEST,
   normalizePlatformId,
-  getManifestEntry,
 } from "./paths.js";
 
 export function listPlatforms() {
-  return MANIFEST.map((p) => ({
+  return MANIFEST.map(p => ({
     id: p.id,
     dir: p.dir,
     label: p.label,
     labelZh: p.labelZh,
     collectionMode: p.collectionMode,
+    /** UI/docs hint — weak field; not Runtime Policy authority */
     collectionDesc: p.collectionDesc,
+    /** LEGACY / RETIRE CANDIDATE — no runtime branch on this value */
     implementation: p.implementation,
+    /** UI/docs hint — weak field */
     streamMeta: p.streamMeta,
     collect: p.collect,
     bet: p.bet,

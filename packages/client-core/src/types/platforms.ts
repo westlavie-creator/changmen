@@ -1,6 +1,15 @@
 import type { PlatformId } from "@changmen/api-contract";
 
-/** 与 venue-adapter/registry/manifest.json 顺序一致（用于账号排序等） */
+/**
+ * LEGACY COPY of Venue Catalog order — NOT Source of Truth.
+ *
+ * PRIMARY SOURCE: `client/venue-adapter/registry/manifest.json`
+ * Keep set+order identical to manifest `sort` order.
+ * Do NOT import `@changmen/venue-adapter` (would cycle: venue-adapter → client-core).
+ * CI: `npm run check:venue-catalog` (`scripts/check-venue-catalog-consistency.mjs`).
+ *
+ * Used for account provider sort (`PlatformAccount.sortByProvider`).
+ */
 export const ALL_PLATFORMS: PlatformId[] = [
   "OB",
   "IM",
@@ -15,4 +24,8 @@ export const ALL_PLATFORMS: PlatformId[] = [
   "Stake",
   "Dex",
   "Polymarket",
+  "Limitless",
+  "SXBet",
+  "Azuro",
+  "PredictFun",
 ];
