@@ -943,4 +943,502 @@ Catalog → Adapter → Activation → Runtime Policy → Runtime Registry
 
 ---
 
-*End of audit.*
+# Phase 2 — Fact Ownership Design
+
+> **Date**: 2026-09-19 (same day, second pass)  
+> **Scope**: READ → TRACE → DESIGN only. No production code / no new config files / no field deletion.  
+> **Correction to Phase 1**: `adapter.collector` + `manifest.collect=false` is **not automatically Drift**. It can be two different facts (Implementation vs Activation). Phase 1 §12 labeled several of these as HIGH drift; this phase reclassifies them.
+
+---
+
+# 19. Fact Ownership Model
+
+## 19.1 Corrected mental model (proven against code)
+
+```
+Adapter (CODE)
+  collector? / provider? / VPS package exists?
+        ↓
+  IMPLEMENTATION exists (capability-in-code)
+
+Manifest flags (CONFIG / Product Activation)
+  collect / bet
+        ↓
+  PRODUCT ENABLEMENT for browser runtime paths
+
+collectionMode / ownership (RUNTIME POLICY)
+  especially vps_http_ws
+        ↓
+  WHERE / HOW collection infrastructure runs
+  (who may write platform_*)
+
+CollectConfig (USER CONFIG)
+        ↓
+  whether SaveMatch/SaveBet are allowed for this user
+
+deploy/PM2 (DEPLOYMENT ACTIVATION)
+        ↓
+  whether VPS daemon process is running
+```
+
+**This model holds** for Changmen today:
+
+| Claim | Evidence |
+|-------|----------|
+| `adapter.collector` = implementation | SABA/IMT/Dex/Azuro: collector wired on adapter; `buildCollectorFactories` ignores them when `collect:false` |
+| `manifest.collect` = enablement of **browser collector registration** | `collectPlatformIds()` → `buildCollectorFactories()` only |
+| `collectionMode === vps_http_ws` = ownership topology | `isVpsOwnedPlatformCollect` gates Save* FE+BE; independent of collect/bet |
+| Hybrid OK | PM/PF: collect true + vps_http_ws + browser collector (quote) + provider |
+
+**Where it does NOT fully hold (nuance, not refutation):**
+
+1. For VPS venues, `collect:true` does **not** mean “VPS discovery is running” — that is deploy. It means “register browser collector factory” (PM/PF quote loops).  
+2. `implementation: paused` is **not** wired into the model; real pause uses empty adapter and/or collect/bet false and/or PM2.  
+3. DEV warns in `adapters.ts` treat collect↔collector mismatch as error — that warn **embeds the wrong ontology** (treats dual-fact as drift).
+
+## 19.2 CODE / CONFIG / RUNTIME / DERIVED
+
+| Kind | Meaning | Examples |
+|------|---------|----------|
+| **CODE** | Exists only as implementation | `adapter.collector`, `adapter.provider`, `server/collectors/*`, chrome content handlers |
+| **CONFIG** | Product/UI/catalog choices | Venue id list, sort, icon, label, `collect`, `bet`, user CollectConfig |
+| **RUNTIME POLICY** | Where/how infra runs | `collectionMode` / VPS ownership; (deploy process enablement is **Deployment Activation**, adjacent) |
+| **DERIVED** | Computed from above | `ALL_PLATFORMS`, `browserSaveMatchPlatformIds`, `isVpsOwned*`, `buildCollectorFactories` map, `betPlatformIds` |
+
+## 19.3 VENUE FACT OWNERSHIP MATRIX
+
+| Fact | 当前 Source | 应有 Source | Kind | 是否重复事实？ | 是否需要迁移？ |
+|------|-------------|-------------|------|----------------|----------------|
+| Venue ID | manifest + api-contract + shared/platforms + copies | **Catalog primary** = manifest id（或 adapters 对账）；api-contract 类型镜像 | CONFIG (+ type CODE) | 多份 ID 列表 = **真重复** | 对齐/生成 copies；勿删 Catalog |
+| dir | manifest | Catalog 或约定 = 文件夹名 | CONFIG（可 DERIVE） | 弱 | 可选 DERIVE |
+| sort | manifest | CONFIG | CONFIG | 否 | 否 |
+| label / labelZh | manifest → listPlatforms | CONFIG / UI | CONFIG | 弱（Web 多用 id） | 可选 |
+| icon | manifest → icons.ts | CONFIG | CONFIG | 否 | 否 |
+| collector implementation | adapter.collector | **CODE** | CODE | 否 | 否 |
+| provider implementation | adapter.provider | **CODE** | CODE | 否 | 否 |
+| browser collection (impl) | adapter collect.ts | CODE | CODE | 否 | 否 |
+| plugin collection (impl) | adapter + chrome-extension | CODE | CODE | 否 | 否 |
+| VPS collection (impl) | server/collectors/* | CODE | CODE | 否 | 否 |
+| quote (runtime) | adapter collector / hubs | CODE | CODE | 否 | 否 |
+| order / betting (impl) | adapter.provider (+ 馆专属) | CODE | CODE | 否 | 否 |
+| **collect enabled** (browser factory) | manifest.collect | **CONFIG Activation** | CONFIG | **≠** adapter.collector | **保留**；纠正“重复”叙事 |
+| **bet enabled** | manifest.bet | **CONFIG Activation** | CONFIG | **≠** adapter.provider | **保留** |
+| collectionMode | manifest | RUNTIME POLICY | RUNTIME | 否（唯一 vps 权威） | 语义冻结；勿当 capability |
+| VPS ownership | collectionMode==vps_http_ws | RUNTIME POLICY | RUNTIME / DERIVED gate | 否 | 否 |
+| Browser Save ownership | ¬vps ∧ product paths | DERIVE from ownership + collect | DERIVED | 否 | 否 |
+| pluginOnly | manifest（无运行时读） | — | LEGACY | 文档重复 | RETIRE CANDIDATE |
+| implementation | manifest → listPlatforms only | — | LEGACY 标注 | 与 activation 真重复心智 | RETIRE CANDIDATE 或降为文档 |
+| paused (product) | 空 adapter + collect/bet false | Activation + CODE 形状 | CONFIG+CODE | implementation 字段多余 | 不新增状态机字段 |
+| collection interval | collect.ts 常量 | CODE（或未来 POLICY） | CODE | saveMatchIntervalMs 死字段 | 死字段标废弃 |
+| stream protocol | 实现代码 | CODE | CODE | streamMeta 弱重复 | 可选废弃 |
+| collection description | manifest | docs / UI | CONFIG | 弱 | 可选 |
+| UI visibility (platform list) | ALL_PLATFORMS ← manifest | Catalog DERIVE | DERIVED | client-core 旁路列表 = 真重复 | 修旁路 |
+| user Save activation | CollectConfig | USER CONFIG | CONFIG | 否 | 否 |
+| deploy process enabled | ecosystem + deploy script | DEPLOYMENT ACTIVATION | CONFIG(ops) | 与 manifest.collect **不同层** | 文档化边界；可选对账测试 |
+
+### Capability ≠ Activation（硬规则）
+
+```
+Capability (CODE):     adapter.provider !== undefined
+Activation (CONFIG):   manifest.bet === true
+Runtime use:           getProvider ⇒ bet && provider
+```
+
+同理 collect：
+
+```
+Capability:  adapter.collector !== undefined
+Activation:  manifest.collect === true
+Runtime:     buildCollectorFactories ⇒ collect && collector
+```
+
+**删除 manifest.collect/bet 会破坏 Activation，不会“消除重复”。**
+
+---
+
+# 20. collect / bet Semantic Audit
+
+## 20.1 Implementation vs Activation model — verdict
+
+**成立。** SABA / IMT / Dex / Azuro 是正面证据，不是必须修掉的 drift。
+
+| Venue | collector CODE | collect CONFIG | 运行时 browser collector | 解读 |
+|-------|----------------|----------------|--------------------------|------|
+| SABA | ✓ | false | 不启动 | 有实现，产品未开采集；bet 仍开 |
+| IMT | ✓ | false | 不启动 | 同上 |
+| Dex | ✓ | false | 不启动 | paused 产品；代码保留 |
+| Azuro | ✓ | false | 不启动 | 同上 |
+| OB | ✓ | true | 启动 | 实现+启用 |
+| PM/PF | ✓ | true | 启动（报价，非 Save） | 实现+启用 browser 路径；Save 由 ownership 另控 |
+
+Phase 1 DEV warn「未在 manifest 声明采集」把 **双事实** 误标成 **不一致**。正确 CI 应为：
+
+- `collect:true` ⇒ `adapter.collector` 必须存在（激活不能没有实现）  
+- `collect:false` ∧ `adapter.collector` ⇒ **允许**（未启用实现）  
+- 可选：显式 allowlist 注释，防止 AI“帮你改成一致”
+
+## 20.2 若删除 `manifest.collect`？
+
+| # | 问题 | 答案 |
+|---|------|------|
+| 1 | Browser collector 如何知道启动哪些？ | 只能退化为「凡有 collector 就启」→ SABA/IMT/Dex/Azuro 被误启 |
+| 2 | CollectConfig 如何知道哪些可采集？ | 今日 UI 用 `browserSaveMatchPlatformIds` = collect∧¬vps；删 collect 后需新 activation 源 |
+| 3 | UI 如何知道哪些平台可配置 Save？ | 同上 |
+| 4 | paused Venue 如何表达？ | 今日靠空 adapter 和/或 collect/bet false；删 collect 削弱一维 |
+| 5 | 新写未启用 Venue？ | **必须**有 Activation=false；仅 CODE 不够 |
+| 6 | 灰度启用？ | 改 collect true（+有 collector）即可；无需删代码 |
+| 7 | VPS-only？ | ownership=`vps_http_ws`；collect 仍可 true（启 browser quote）或 false |
+| 8 | Plugin-only？ | 仍是 CODE（plugin transport）+ collect activation；无独立 pluginOnly 运行时 |
+| 9 | Hybrid？ | 已由 collect + vps ownership + provider 组合表达 |
+
+## 20.3 方案比较（collect）
+
+| 方案 | 含义 | 与当前代码 |
+|------|------|------------|
+| **A** adapter existence = enabled | 有 collector 就启用 | **不符合**（SABA/IMT 反例） |
+| **B** adapter = capability；manifest.collect = activation | 双事实 | **符合当前** |
+| **C** adapter capability metadata + 独立 activation 文件 | 显式拆文件 | 语义同 B；多一个 SoT 风险，非必须 |
+
+**最符合当前代码：B。**
+
+## 20.4 bet 审计
+
+消费者：
+
+- `platformSupportsBet` → `getProvider` **硬门控**  
+- `betPlatformIds` → `supportedBetProviders`、诊断扩展 UI  
+- DEV：`bet:true` 缺 provider 则 warn  
+
+`platformSupportsCollect`：**仅定义/导出，无其他调用方**（collect 路径走 `collectPlatformIds`）。
+
+| 方案 | 结论 |
+|------|------|
+| A provider existence = bet capability | 对（CODE） |
+| B manifest.bet = activation | 对（CONFIG） |
+| C 两者都保留 | **应对应当前** |
+| D 其他 | 不需要第三字段 |
+
+Dex：`provider` 存在 + `bet:false` → 下注路径关闭。  
+SABA/IMT：`bet:true` + provider → 可下注；采集关闭。
+
+**Capability ≠ Activation** 对 bet 同样成立。
+
+## 20.5 两层用户相关开关（勿合并）
+
+```
+manifest.collect     → 是否注册 browser collector 工厂（产品级）
+CollectConfig[id]    → 是否允许该用户 SaveMatch/SaveBet（用户级）
+isVpsOwned           → 是否禁止 Save*（拓扑级，覆盖前两者的 Save）
+```
+
+VPS 馆：collector 可跑（fo）；CollectConfig UI 不展示；Save 三道门拒绝。
+
+---
+
+# 21. Catalog vs Activation vs Runtime Policy
+
+## 21.1 collectionMode → COLLECTION TOPOLOGY
+
+**不要再叫“能力”。**
+
+| Topology（产品语言） | 判定（代码） | 代表 |
+|----------------------|--------------|------|
+| **Browser-owned Save** | ¬vps ∧ collect ∧ browser collector | OB, RAY, PB, IA |
+| **Plugin-transport + Browser Save** | plugin 实现 + ¬vps + collect | Stake, Limitless |
+| **VPS-owned platform_*** | collectionMode=vps_http_ws | PM, PF, SXBet |
+| **Hybrid** | vps_http_ws + browser collector/provider | **PM, PF** |
+| **Implemented but collect off** | collector CODE ∧ collect false | SABA, IMT, Dex, Azuro |
+
+逐馆：
+
+| Venue | Topology |
+|-------|----------|
+| Polymarket | Hybrid（VPS discovery + browser quote/order；Save 禁） |
+| PredictFun | Hybrid（同上；**VPS discovery deploy 可另停**） |
+| Stake | Plugin-transport Browser Save |
+| Limitless | Plugin-transport Browser Save（无 bet） |
+| IA | Browser Save（实现可走插件 HTTP，mode 仍 http_ws — hint 不准但不影响门控） |
+
+### 是否拆 runtime topology + transport？
+
+**现阶段不拆。**
+
+理由：除 `vps_http_ws` 外，mode 字符串**无代码分支**；拆字段增加维护面，零行为收益。  
+保留单一 `collectionMode`（或未来改名 `platformWriteOwner`）即可；`http_mqtt` 等当作 **文档/UI hint**。
+
+## 21.2 manifest 三个模型 — 哪个符合真实使用？
+
+| 模型 | 内容 | 符合度 |
+|------|------|--------|
+| **A Catalog**（id/dir/sort/label + 或许 flags） | ALL_PLATFORMS、UI、paused 存在 | **高（必要部分）** |
+| **B Activation-only**（id/enabled/sort） | 破坏 Catalog；paused/历史馆 | **低（危险）** |
+| **C Runtime Policy-only** | 丢掉 Catalog/UI | **低** |
+
+**真实使用：manifest = A + 嵌入式 Activation + 嵌入式 Runtime Policy（胖文件）。**
+
+这不是理论错误——对中等规模 monorepo，**单文件多区语义**可接受，前提是：
+
+1. 字段语义写清（collect/bet ≠ capability）  
+2. 不把整文件改成“仅启用列表”  
+3. 列表旁路（client-core/chrome）用 DERIVE/对账消灭真重复  
+
+### 最终裁决（迎合与否）
+
+| 命题 | 裁决 |
+|------|------|
+| 「manifest 只应保存当前启用 Venue」 | **不成立**（被 ALL_PLATFORMS / paused / 账号 / CollectConfig 键集否定） |
+| 「manifest 作为 Catalog 合理」 | **成立** |
+| 「必须拆成 catalog.json + activation.json」 | **不必须**；语义分区优先于拆文件 |
+| 「不需要 Catalog 文件，只靠 adapter 目录」 | **不成立**：paused 空壳、sort/icon、尚未挂满能力的 ID、api-contract 仍需显式存在集 |
+
+**Changmen 需要手工维护的 Catalog（今日即 manifest 的 id 列表）。**  
+Adapter registry 是 **实现集**，是 Catalog 的子集或对账对象，不能单独当 Catalog。
+
+## 21.3 Catalog 三种方案（最少重复）
+
+| 方案 | 新增 Venue 改几处 | paused / 未启用 | AI 漏改 | 结论 |
+|------|-------------------|-----------------|---------|------|
+| 1 manifest=Catalog | manifest + PlatformId + adapters +（条件）chrome/deploy | 易 | 中 | **现状最优核** |
+| 2 adapters=Catalog | 仍要 PlatformId/UI meta；空壳 adapter 占位别扭 | 难 | 中高 | 不推荐独占 |
+| 3 目录扫描生成 | 打包/Node/FE 复杂；空目录≠产品馆 | 难 | 低（若生成可靠） | 过度 |
+
+**最少重复事实：方案 1 + 生成/对账 DERIVE 旁路列表。**
+
+---
+
+# 22. pluginOnly / implementation Retirement Analysis
+
+## 22.1 pluginOnly
+
+| 检查 | 结果 |
+|------|------|
+| 运行时读？ | **无**（仅 contract/meta 类型 + docs） |
+| API consumer？ | listPlatforms **不输出** pluginOnly |
+| 外部 consumer？ | 仓内无；无法证明仓外依赖该 JSON 字段 |
+| UI hint？ | 未接线 |
+| 可 DERIVE？ | 不能可靠 DERIVE（PM/PF 有扩展痕迹但非「only」） |
+| 与 vps 并存？ | **语义冲突命名** |
+
+**裁决：`RETIRE CANDIDATE`。**  
+不在本阶段删除。退役条件：文档去引用 + 确认无仓外工具读 raw manifest 该键 + changelog。
+
+字段若保留，语义应是历史标注，**禁止**写成架构开关。
+
+## 22.2 implementation
+
+| 检查 | 结果 |
+|------|------|
+| 运行时分支？ | **无** `=== "paused"` |
+| 出口？ | 仅 `feeds.listPlatforms` → `/api/platforms`（仓内无 FE 消费者） |
+| 与 collect/bet？ | 心智重叠；真实停用靠 CODE 形状 + activation flags |
+| 万能状态？ | **是风险**（paused 掩盖多种情况） |
+
+**不需要**新建 `absent|partial|ready` × `enabled|disabled` 字段机。
+
+当前系统已用：
+
+- CODE 形状（空 adapter vs 挂载）  
+- CONFIG collect/bet  
+- DEPLOY PM2  
+
+**裁决：`implementation` = RETIRE CANDIDATE**（文档/运维标签）。  
+若保留，禁止作为第三套 Activation。
+
+### 馆状态对照（为何三处不同）
+
+| Venue | CODE | manifest collect/bet | implementation | deploy |
+|-------|------|----------------------|----------------|--------|
+| IM/TF/XBet/HG | 空 adapter | false/false | paused | n/a |
+| Dex/Azuro | 有 collector（±provider） | false | paused | n/a |
+| SXBet | 空 adapter | false；仍 vps_http_ws | paused | collector **强制 delete** |
+| PredictFun | browser collector+provider | true/true | **done** | **esports collector delete**；hub 仍启 |
+| Polymarket | 全开 | true/true | done | collector **启** |
+
+→ 证明 **Product Activation ≠ Deployment Activation**（见 §23）。
+
+---
+
+# 23. Deploy Activation vs Product Activation
+
+## 23.1 PredictFun 案例
+
+| 层 | 状态 | 表达什么 |
+|----|------|----------|
+| Product（manifest） | collect true, bet true, vps_http_ws, implementation done | 产品支持 Hybrid：browser 报价/下单路径启用；Save 仍禁 |
+| Browser runtime | collector 启动 | Index → WS → fo |
+| Deployment（deploy script） | `pm2 delete changmen-predictfun-collector` | **VPS discovery 进程不跑** |
+| Collateral | market-hub / 体育 REST / 下注仍可 | 注释已写明 |
+
+## 23.2 同一事实两个 SoT？还是两层 Activation？
+
+**判定：两层不同事实（正确理解时），但今天文档/字段未分开命名 → AI 易当成同一事实冲突。**
+
+| Activation 层 | 权威应属 | 控制对象 |
+|---------------|----------|----------|
+| **Product Activation** | manifest.collect / bet（+ ownership） | 浏览器工厂、下注门控、Save 策略 |
+| **User Activation** | CollectConfig | 该用户是否 Save* |
+| **Deployment Activation** | deploy/ecosystem / ops | VPS（或 hub）进程是否存在 |
+
+PredictFun：Product 开 browser 路径 + Deploy 关 VPS discovery = **合法组合**，不是必须把 manifest 改成 paused。
+
+## 23.3 最小解决方式（设计，不实施）
+
+1. **文档/审计规则**：禁止用 `implementation` 或 `collect` 断言“VPS 进程在跑”。  
+2. **对账测试（可选）**：`vps_http_ws ∧ collect:true` 馆 → 期望 PM2 名列表；允许显式 `deployOptional: true` 豁免（仍不建新文件也可写在测试 allowlist）。  
+3. **不要**让 manifest 驱动 pm2（过重）；**不要**让 deploy 改写 manifest。
+
+---
+
+# 24. Target Minimal Architecture
+
+## CURRENT（压缩）
+
+```
+manifest (Catalog ∪ Product Activation ∪ Runtime Policy ∪ dead UI fields)
+   + PLATFORM_ADAPTERS (CODE impl)
+   + CollectConfig (User Activation)
+   + deploy/PM2 (Deployment Activation)
+   + leaked copies (client-core / chrome / scripts)
+```
+
+## TARGET MINIMAL（只加概念，不加文件）
+
+```
+┌─────────────────────────────┐
+│ Catalog (manifest ids…)     │  Venue exists (incl. paused)
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│ Adapter / VPS / Plugin CODE │  Implementation
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│ Product Activation          │  manifest.collect / manifest.bet
+│ User Activation             │  CollectConfig
+│ Deployment Activation       │  PM2 (VPS only)
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│ Runtime Policy              │  vps_http_ws ownership (collectionMode)
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│ Derived Registries          │  ALL_*, browserSave*, factories, gates
+└─────────────────────────────┘
+```
+
+**保留**：paused、未启用已实现、VPS-only、Browser、Plugin、Hybrid、UI list、CollectConfig、Provider、PlatformId。  
+**减少**：旁路 Venue list、把 capability 当 activation 的叙事、死字段心智、deploy/manifest 误等同。
+
+**不新建** catalog.json / activation.json / 新 Registry framework。
+
+---
+
+# 25. Derived Registry Model
+
+| Derived Registry | 公式 | 今日实现 |
+|------------------|------|----------|
+| `ALL_VENUES` | Catalog.ids | `ALL_PLATFORMS` ← manifest |
+| `ACTIVE_BROWSER_COLLECTORS` | collect∧adapter.collector | `buildCollectorFactories()` |
+| `BETTABLE_VENUES` | bet∧（运行时再∧provider） | `betPlatformIds` + `getProvider` |
+| `VPS_OWNED_VENUES` | collectionMode=vps_http_ws | `isVpsOwnedPlatformCollect` |
+| `BROWSER_SAVE_VENUES` | collect∧¬vps | `browserSaveMatchPlatformIds` |
+| `UI_VENUES` | ALL_VENUES（排序） | 同 ALL + sort |
+| `EXTENSION_VENUES` | **FEATURE SET**（≠ ALL） | chrome `PLATFORMS` — **应保持投影，但对账** |
+| `DEPLOYED_VPS_PROCESSES` | ops | ecosystem — **不对等于** collect |
+
+### shared/platforms.ts 等分类
+
+| 列表 | 角色 |
+|------|------|
+| manifest ids | **SOURCE Catalog** |
+| api-contract PlatformId | **TYPE MIRROR**（须 ⊆/≈ Catalog；手维或生成） |
+| shared/platforms.ts | **BOUNDARY PROJECTION**（adapter chunk 常量；应 = Catalog ids） |
+| meta.ALL_PLATFORMS | **DERIVED** from manifest |
+| client-core ALL_PLATFORMS | **LEGACY COPY（已漂）** → 应改为 re-export/生成 |
+| chrome PLATFORMS | **FEATURE-SPECIFIC PROJECTION**（扩展探测集；**不必=ALL**，但 ID 必须合法 ⊆ Catalog） |
+| check-collect-platforms.js | **LEGACY COPY** |
+
+**正确目标不是「处处同一完整列表」，而是：**
+
+- Global ID 单一 Catalog  
+- Feature sets 显式投影且 ⊆ Catalog  
+- 禁止 silently stale supersets/subsets without tests  
+
+---
+
+# 26. New Venue Change Surface
+
+理想 `NEW_VENUE` 接入：
+
+### 必改
+
+1. **Catalog**：manifest 增 id（+dir/sort/icon；collect/bet；若 VPS 则 collectionMode）  
+2. **Type**：api-contract `PlatformId`  
+3. **CODE**：`client/venue-adapter/{dir}/` + `adapters.ts` 注册  
+4. **常量投影**：`shared/platforms.ts`（或未来生成）
+
+### 条件修改
+
+| 条件 | 改什么 |
+|------|--------|
+| Browser/plugin Save 馆 | collect true；实现 collector |
+| 下注 | bet true；provider |
+| VPS discovery | `server/collectors/*` + ecosystem + deploy 策略 |
+| 需扩展代发 | chrome-extension **该站** handlers + 可选列入 EXTENSION set |
+| 合场规则 | identity/catalog 按需 |
+| 代理白名单 | HTTP_RELAY 等按需 |
+
+### 自动生成 / 对账（目标态）
+
+- `ALL_PLATFORMS` / icons CSS / exports  
+- CI：PlatformId ≡ manifest ids ≡ shared/platforms  
+- CI：collect:true ⇒ collector；bet:true ⇒ provider  
+- CI：chrome ids ⊆ Catalog  
+
+### 不应该手改
+
+- `runtime/collectors.ts` / `providers.ts`（已 registry 驱动）  
+- `api/match.ts` / `store.js` 硬编码馆名（用 isVpsOwned*）  
+- 为“整齐”把未启用馆的 collector 从 adapter 删掉  
+- 假设改 manifest.collect 会启停 VPS PM2  
+
+---
+
+# 27. AI Coding Source-of-Truth Rules
+
+1. **Venue 是否存在？** → Catalog（manifest id） / ALL_PLATFORMS  
+2. **有没有实现？** → 只看 CODE（adapter / collectors / extension）  
+3. **产品开没开 browser collect/bet？** → manifest.collect / bet  
+4. **谁写 platform_*？** → collectionMode（vps_http_ws）  
+5. **用户是否 Save？** → CollectConfig（且非 VPS）  
+6. **VPS 进程在不在？** → deploy/PM2，不是 implementation 字段  
+7. **pluginOnly / implementation / saveMatchIntervalMs** → 勿当运行时权威  
+8. **改一处列表必须跑对账**；禁止手维第四份 ALL_PLATFORMS  
+9. **Capability ≠ Activation**；禁止“有 collector 就改 collect:true”的自动整理  
+10. **Hybrid 合法**：VPS ownership + browser collector + provider 可并存  
+
+---
+
+# 28. Migration Preconditions
+
+在任何重构前必须满足：
+
+1. [ ] 书面确认 SABA/IMT `collect:false` 为有意 Activation（非事故）  
+2. [ ] 修复/替换 client-core 过期 ALL_PLATFORMS（真重复）  
+3. [ ] chrome / scripts：定义为投影并加 ⊆ Catalog 测试  
+4. [ ] 纠正 adapters.ts DEV warn 本体论（允许未启用实现）  
+5. [ ] 文档冻结：collect/bet=Activation；collectionMode=Policy；implementation/pluginOnly=retire candidates  
+6. [ ] PredictFun：文档写清 Product vs Deploy activation（无需改 manifest）  
+7. [ ] `/api/platforms` 仓外消费者确认后再动 Desc/implementation/streamMeta  
+8. [ ] **禁止**将 manifest 改为启用子集  
+9. [ ] **禁止**未迁移 ownership 前重命名/拆分 collectionMode  
+10. [ ] 拆 catalog/activation 文件 **非前置条件**；语义清晰 + 去旁路重复才是  
+
+### Phase 2 一句话结论
+
+> **manifest 作为 Catalog（含 paused）是合理且必要的；`collect`/`bet` 应保留为 Product Activation，与 Adapter Implementation 是不同事实；`collectionMode`（尤其 vps）是 Runtime Policy；deploy 是第三层 Deployment Activation。真重复在多份 Venue ID 列表与死字段心智，不在 collect↔collector 配对。**
+
+---
+
+*End of Phase 2.*
