@@ -9,6 +9,7 @@ import AdminLayout from "@/components/admin/AdminLayout.vue";
 import FootballOrderList from "@/components/football/FootballOrderList.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
+import { compareAdminAccountKeys } from "@/shared/adminAccountSort";
 import { footballOrderSettledProfit } from "@/runtime/podSportOrders";
 import { useUserStore } from "@/stores/userStore";
 
@@ -139,6 +140,7 @@ const userColumns = computed(() => {
       profit: sumProfit(userOrders),
     });
   }
+  cols.sort((a, b) => a.userName.localeCompare(b.userName, "zh-CN"));
   return cols;
 });
 
@@ -151,15 +153,24 @@ const accountColumns = computed(() => {
     byAccount.set(key, list);
   }
   return [...byAccount.entries()]
-    .map(([key, list]) => ({
-      key,
-      title: playerLabel(list[0]!),
-      userName: list[0]?.userName || "",
-      orders: list,
-      stake: sumStake(list),
-      profit: sumProfit(list),
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));
+    .map(([key, list]) => {
+      const first = list[0]!;
+      return {
+        key,
+        title: playerLabel(first),
+        userName: list[0]?.userName || "",
+        orders: list,
+        stake: sumStake(list),
+        profit: sumProfit(list),
+        sortKey: {
+          userName: String(first.userName || ""),
+          provider: String(first.venue || "OB"),
+          playerName: String(first.accountName || ""),
+          playerId: Number(first.playerId) || 0,
+        },
+      };
+    })
+    .sort((a, b) => compareAdminAccountKeys(a.sortKey, b.sortKey));
 });
 
 const hasContent = computed(() =>

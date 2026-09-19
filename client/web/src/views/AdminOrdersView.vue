@@ -10,6 +10,7 @@ import AdminOrderLinkLines from "@/components/admin/AdminOrderLinkLines.vue";
 import AdminUserOrdersColumn from "@/components/admin/AdminUserOrdersColumn.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { adminAccountStubFromOrder, adminOrderDisplayProvider, countAdminPrimaryOrders } from "@/shared/adminOrderDisplay";
+import { compareAdminAccountKeys } from "@/shared/adminAccountSort";
 import { sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { todayKey } from "@/shared/dateKey";
 import { useUserStore } from "@/stores/userStore";
@@ -213,12 +214,7 @@ const accountColumns = computed<AccountColumn[]>(() => {
     }
   }
 
-  return [...byAccount.values()].sort(
-    (a, b) =>
-      a.provider.localeCompare(b.provider)
-      || a.playerName.localeCompare(b.playerName, "zh-CN")
-      || a.playerId - b.playerId,
-  );
+  return [...byAccount.values()].sort(compareAdminAccountKeys);
 });
 
 const hasContent = computed(() =>
