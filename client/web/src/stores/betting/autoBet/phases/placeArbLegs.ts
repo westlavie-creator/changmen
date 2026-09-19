@@ -13,6 +13,7 @@ import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
 import {
+  canRelockInstantQuote,
   isMixedPendingConfirmArbPair,
   mixedInstantIsLegA,
 } from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
@@ -152,6 +153,15 @@ async function relockMixedInstantIfNeeded(
   const instantAccount = instantIsA ? accountA : accountB;
   if (!instantAccount)
     return { legA, legB, blocked: false };
+  const instant = instantIsA ? legA : legB;
+  if (!canRelockInstantQuote(instant.type)) {
+    // OB/TF：再预检就是往下单端点重复提交同一注单，沿用预检冻价 POST；赔率是否还在由场馆裁决
+    if (hasPlaceQuote(instant))
+      return { legA, legB, blocked: false };
+    const reason = `${instant.type} ${instant.target}: 预检冻价缺失，取消下单`;
+    trace?.event("预检", reason);
+    return { legA, legB, blocked: true, reason };
+  }
   const relocked = await relockInstantAtDetectionOdds(
     accountStore,
     instantIsA ? legA : legB,
@@ -208,6 +218,7 @@ export async function placeArbLegs(
     // 双腿：先确认 CLOB 仍可成交，再锁即时馆；两张单都就绪后同时 POST。
     // 若先 relock 再等 /book，会把刚冻的 RAY 价再等死（9/15 的 501）。
     // 若等雷 HTTP 200 再打 PM，对冲腿被人为拖在后面。
+    // OB/TF 不重锁（canRelockInstantQuote）：重锁等于重复提交，会把两腿一起挡掉。
     if (betBothLegs && accountA && accountB) {
       const pending = mixedInstantIsLegA(legA, legB) ? legB : legA;
       const foBlock = mixedPendingAskAboveDetection(pending);

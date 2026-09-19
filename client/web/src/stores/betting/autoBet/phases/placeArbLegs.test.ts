@@ -186,6 +186,83 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("api_failed");
   });
 
+  it("混合对 OB 腿：只复检 PM，OB 沿用冻价直接 POST", async () => {
+    const obLeg = leg("OB", "Home");
+    obLeg.data = { "b[0]": "mch=m1&mkt=b1&oid=i1&odd=1.900&a=100&bt=1" };
+    const pmLeg = leg("Polymarket", "Away");
+    pmLeg.data = { ok: true };
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) =>
+      new BetResult(option.type, true));
+
+    const out = await placeArbLegs(params, checked({
+      legA: obLeg,
+      legB: pmLeg,
+      accountA: account("OB"),
+      accountB: account("Polymarket"),
+    }));
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect((checkBetting.mock.calls[0]![1] as BetOption).type).toBe("Polymarket");
+    const posted = betting.mock.calls.map(call => (call[1] as BetOption).type).sort();
+    expect(posted).toEqual(["OB", "Polymarket"]);
+    expect((betting.mock.calls.find(c => (c[1] as BetOption).type === "OB")![1] as BetOption).data)
+      .toEqual({ "b[0]": "mch=m1&mkt=b1&oid=i1&odd=1.900&a=100&bt=1" });
+    expect(out.placeOutcomeA).toBe("filled_pending_settle");
+    expect(out.placeOutcomeB).toBe("filled_pending_settle");
+  });
+
+  it("混合对 OB 腿：PM 复检失败仍两侧都不 POST", async () => {
+    const obLeg = leg("OB", "Home");
+    const pmLeg = leg("Polymarket", "Away");
+    checkBetting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      option.data = null;
+      option.checkError = "盘口价高于检测价";
+      return option;
+    });
+
+    const out = await placeArbLegs(params, checked({
+      legA: obLeg,
+      legB: pmLeg,
+      accountA: account("OB"),
+      accountB: account("Polymarket"),
+    }));
+
+    expect(checkBetting).toHaveBeenCalledTimes(1);
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+  });
+
+  it("混合对 OB 腿：冻价缺失时不 POST，也不补一次探测单", async () => {
+    const obLeg = leg("OB", "Home");
+    obLeg.data = null;
+    const pmLeg = leg("Polymarket", "Away");
+    pmLeg.data = { ok: true };
+
+    const out = await placeArbLegs(params, checked({
+      legA: obLeg,
+      legB: pmLeg,
+      accountA: account("OB"),
+      accountB: account("Polymarket"),
+    }));
+
+    const obChecks = checkBetting.mock.calls.filter(c => (c[1] as BetOption).type === "OB");
+    expect(obChecks).toHaveLength(0);
+    expect(betting).not.toHaveBeenCalled();
+    expect(out.placeOutcomeA).toBe("not_attempted");
+    expect(out.placeOutcomeB).toBe("not_attempted");
+    expect(syncActiveBetPlaceResults).toHaveBeenCalledWith(
+      10,
+      undefined,
+      undefined,
+      true,
+      true,
+      "not_attempted",
+      "not_attempted",
+      expect.stringContaining("预检冻价缺失"),
+    );
+  });
+
   it("混合对：fo 卖一高于检测上限则两侧都不 POST", async () => {
     const pmLeg = leg("Polymarket", "Home");
     pmLeg.itemId = "token-1";

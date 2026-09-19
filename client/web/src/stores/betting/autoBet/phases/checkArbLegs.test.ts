@@ -103,6 +103,18 @@ describe("checkArbLegs", () => {
     expect(out!.legB.data).toEqual({ ok: true });
   });
 
+  it("混合对 OB 腿：探测型 checkBet 的冻价保留，不作废等重锁", async () => {
+    const legA = leg("OB", 100, 1.9);
+    const legB = leg("Polymarket", 22, 3.125);
+
+    const out = await checkArbLegs(params, ready(legA, legB));
+
+    expect(out).not.toBeNull();
+    expect(checkBetting).toHaveBeenCalledTimes(2);
+    expect(out!.legA.data).toEqual({ ok: true });
+    expect(out!.legB.data).toEqual({ ok: true });
+  });
+
   it("混合对：双侧预检都完成后才返回，PM 拉簿未结束不下单", async () => {
     let pmResolved = false;
     checkBetting.mockImplementation(async (_acc, option: BetOption) => {

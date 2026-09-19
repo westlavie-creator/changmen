@@ -22,7 +22,7 @@ import {
   syncActiveBetPrecheckResults,
 } from "@/stores/betting/activeBetRunSync";
 import {
-  isInstantFreezeVenueProvider,
+  canRelockInstantQuote,
   isMixedPendingConfirmArbPair,
 } from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
 
@@ -203,11 +203,12 @@ export async function checkArbLegs(
     [accountA?.provider, accountB?.provider].filter(Boolean) as string[],
   );
 
-  // 混合对：第一次即时馆 data 只证明当时可下，不能拿去 POST
+  // 混合对：第一次即时馆 data 只证明当时可下，不能拿去 POST。
+  // OB/TF 例外：它们的 checkBet 是真实下单端点探测单，作废后重锁 = 重复提交，只能沿用冻价。
   if (isMixedPendingConfirmArbPair(legA.type, legB.type)) {
-    if (isInstantFreezeVenueProvider(legA.type))
+    if (canRelockInstantQuote(legA.type))
       legA.data = null;
-    if (isInstantFreezeVenueProvider(legB.type))
+    if (canRelockInstantQuote(legB.type))
       legB.data = null;
   }
 

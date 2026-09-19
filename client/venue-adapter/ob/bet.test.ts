@@ -127,6 +127,39 @@ describe("obProvider.checkBet", () => {
     expect(out.checkError).toBe("ok");
   });
 
+  it("再预检就是同一注单重复提交：场馆判重复则无冻价可下", async () => {
+    const sent: string[] = [];
+    accountPostForm.mockImplementation(async (_acc, _path, body: Record<string, string>) => {
+      const line = String(body["b[0]"]);
+      const duplicated = sent.includes(line);
+      sent.push(line);
+      return duplicated
+        ? { status: "false", data: "请勿重复提交" }
+        : { status: "false", data: "Minimum stake 10" };
+    });
+
+    const option = makeOption();
+    const first = await obProvider.checkBet!(account, option);
+    expect(first.data).toBeDefined();
+
+    option.data = null;
+    const second = await obProvider.checkBet!(account, option);
+
+    expect(sent).toEqual([sent[0], sent[0]]);
+    expect(second.data).toBeNull();
+    expect(second.checkError).toBe("请勿重复提交");
+  });
+
+  it("补单（loseOrder）不打探测单，直接写冻价", async () => {
+    const option = makeOption();
+    option.loseOrder = true;
+
+    const out = await obProvider.checkBet!(account, option);
+
+    expect(accountPostForm).not.toHaveBeenCalled();
+    expect(out.data).toBeDefined();
+  });
+
   it("Minimum 后继续写 data 且不递归预检", async () => {
     accountPostForm.mockResolvedValue({ status: "false", data: "Minimum stake" });
     const option = makeOption();
