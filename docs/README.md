@@ -28,6 +28,8 @@
 | [TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md) | 客户端 / 服务端目录边界 |
 | [PATH_REGISTRY.md](./PATH_REGISTRY.md) | **路径单点登记**（`CHANGMEN_LAYOUT`、消费方索引） |
 | [../PRODUCTION_DEPLOYMENT.md](../PRODUCTION_DEPLOYMENT.md) | 生产拓扑、环境变量、PM2 |
+| [ARCHITECTURE_TRUTH_AUDIT.md](./ARCHITECTURE_TRUTH_AUDIT.md) | **架构真相审计**（2026-09-19）：Truth 清单 / 状态与运行时 ownership 矩阵 / 冲突登记（F-01..F-15）/ 最小 Index → `../.ai/architecture/index.json` |
+| [AI_DEVELOPMENT_BENCHMARK.md](./AI_DEVELOPMENT_BENCHMARK.md) | **AI 开发对照实验**（Phase 3）：Baseline vs Truth-aware ×6 任务 / Safety Probe / Resolver-Truth failure log → `ai-benchmark/` |
 | [../deploy/ecosystem.config.cjs](../deploy/ecosystem.config.cjs) | `changmen-esport` + `changmen-pm-sports` 进程清单 |
 
 ## 应用

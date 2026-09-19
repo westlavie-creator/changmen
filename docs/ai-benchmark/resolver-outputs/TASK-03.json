@@ -1,0 +1,574 @@
+{
+  "query": "modify platform registry",
+  "status": "ok",
+  "statusNote": "matches derived deterministically from .ai/architecture/index.json only",
+  "results": {
+    "capabilities": {},
+    "modules": {
+      "@changmen/platform-probes": {
+        "dir": "devtools/platform-probes",
+        "version": null,
+        "private": true,
+        "changmenDeps": [
+          "@changmen/db",
+          "@changmen/storage",
+          "@changmen/shared"
+        ],
+        "status": "verified",
+        "derivation": "generated-from-package.json",
+        "source": "package.json (workspaces)",
+        "evidence": [
+          "devtools/platform-probes/package.json",
+          "package.json (workspaces)"
+        ]
+      }
+    },
+    "resources": {
+      "platform_matches": {
+        "kind": "table",
+        "persistence": "RDS platform_matches",
+        "multiInstanceAllowed": false,
+        "doc": "docs/DATA_STORAGE.md:9",
+        "operations": [
+          {
+            "operation": "browser-ingest-write",
+            "target": "rows where platform=<browser-collected>",
+            "ownershipScope": "operation",
+            "writerCardinality": "multiple",
+            "writers": [
+              {
+                "target": "esport-api/store.js saveMatches → sb.writePlatformMatches",
+                "runtime": "changmen-esport",
+                "status": "verified",
+                "evidence": [
+                  "server/backend/core/esport-api/router.ts:557",
+                  "server/backend/core/esport-api/store.js:204,264",
+                  "server/db/rds/platform_collector_store.js:683,713"
+                ]
+              }
+            ],
+            "memoryFirst": "是：内存先写 + _writeRds fire-and-forget，队列满 drop（server/db/rds/common.js:71-103）",
+            "guard": "浏览器写路径对 VPS 馆被 isVpsOwnedPlatformCollect 拦截（warn+return，store.js:208）",
+            "note": "与 collector-write 按 platform 前缀分区共存（刻意多写者）"
+          },
+          {
+            "operation": "collector-write",
+            "target": "rows where platform=<vps-owned>",
+            "ownershipScope": "operation",
+            "writerCardinality": "multiple",
+            "writers": [
+              {
+                "target": "polymarket-esports loop",
+                "runtime": "changmen-polymarket-collector",
+                "status": "verified",
+                "evidence": [
+                  "server/collectors/polymarket-esports/loop.js:66-69"
+                ]
+              },
+              {
+                "target": "predictfun-collector loop",
+                "runtime": "changmen-predictfun-collector",
+                "status": "verified-runtime-paused",
+                "evidence": [
+                  "server/collectors/predictfun-collector/loop.js:118,127,129"
+                ]
+              },
+              {
+                "target": "sxbet-collector loop",
+                "runtime": "changmen-sxbet-collector",
+                "status": "verified-runtime-paused",
+                "evidence": [
+                  "server/collectors/sxbet-collector/loop.js:74,84,85"
+                ]
+              }
+            ],
+            "memoryFirst": "否（Async 直写）"
+          },
+          {
+            "operation": "prune-orphan-archive",
+            "target": "orphan rows → platform_matches_history",
+            "ownershipScope": "operation",
+            "writerCardinality": "single",
+            "writers": [
+              {
+                "target": "prunePolymarketPlatformMatches",
+                "runtime": "changmen-esport",
+                "status": "verified",
+                "evidence": [
+                  "server/db/rds/platform_collector_store.js:740,115-120"
+                ]
+              }
+            ]
+          }
+        ],
+        "status": "verified",
+        "derivation": "audit-code-review-2026-09-19"
+      },
+      "platform_bets": {
+        "kind": "table",
+        "persistence": "RDS platform_bets",
+        "multiInstanceAllowed": false,
+        "doc": "docs/DATA_STORAGE.md:10",
+        "operations": [
+          {
+            "operation": "browser-ingest-write",
+            "target": "rows per match (full replace)",
+            "ownershipScope": "operation",
+            "writerCardinality": "multiple",
+            "writers": [
+              {
+                "target": "esport-api/store.js saveBets → sb.replacePlatformBetsForMatch",
+                "runtime": "changmen-esport",
+                "status": "verified",
+                "evidence": [
+                  "server/backend/core/esport-api/router.ts:567",
+                  "server/backend/core/esport-api/store.js:313,337"
+                ]
+              }
+            ],
+            "memoryFirst": "是（同 platform_matches）",
+            "note": "sticky 平台（PB/OB/RAY）空快照不清（platform_collector_store.js:15,38）"
+          },
+          {
+            "operation": "collector-write",
+            "target": "rows where platform=<vps-owned>",
+            "ownershipScope": "operation",
+            "writerCardinality": "multiple",
+            "writers": [
+              {
+                "target": "polymarket-esports loop",
+                "runtime": "changmen-polymarket-collector",
+                "status": "verified",
+                "evidence": [
+                  "server/collectors/polymarket-esports/loop.js:66-69"
+                ]
+              },
+              {
+                "target": "predictfun-collector loop",
+                "runtime": "changmen-predictfun-collector",
+                "status": "verified-runtime-paused",
+                "evidence": [
+                  "server/collectors/predictfun-collector/loop.js:118,127,129"
+                ]
+              },
+              {
+                "target": "sxbet-collector loop",
+                "runtime": "changmen-sxbet-collector",
+                "status": "verified-runtime-paused",
+                "evidence": [
+                  "server/collectors/sxbet-collector/loop.js:74,84,85"
+                ]
+              }
+            ],
+            "memoryFirst": "否（Async 直写）"
+          }
+        ],
+        "status": "verified",
+        "derivation": "audit-code-review-2026-09-19"
+      }
+    },
+    "runtimes": {
+      "changmen-esport": {
+        "entry": "scripts/start-db.mjs",
+        "portEnv": {
+          "key": "PM_MARKET_HUB_PORT",
+          "value": "3457"
+        },
+        "maxMemoryRestart": "2048M",
+        "hosts": [
+          "ingest-api",
+          "match-merge",
+          "distribution",
+          "bet-execution",
+          "account-ledger",
+          "ws-relay",
+          "control-plane"
+        ],
+        "defaultDeployed": true,
+        "pausedByDeployScript": false,
+        "singleInstanceFrozen": true,
+        "status": "verified",
+        "derivation": "generated-from-ecosystem + audit-code-review",
+        "source": "deploy/ecosystem.config.cjs + deploy/scripts/deploy-server-remote.sh",
+        "evidence": [
+          "deploy/ecosystem.config.cjs",
+          "deploy/scripts/deploy-server-remote.sh"
+        ]
+      },
+      "changmen-polymarket-collector": {
+        "entry": "index.js",
+        "portEnv": null,
+        "maxMemoryRestart": null,
+        "hosts": [
+          "discovery-collectors"
+        ],
+        "defaultDeployed": true,
+        "pausedByDeployScript": false,
+        "singleInstanceFrozen": false,
+        "status": "verified",
+        "derivation": "generated-from-ecosystem + audit-code-review",
+        "source": "deploy/ecosystem.config.cjs + deploy/scripts/deploy-server-remote.sh",
+        "evidence": [
+          "deploy/ecosystem.config.cjs",
+          "deploy/scripts/deploy-server-remote.sh"
+        ]
+      },
+      "changmen-predictfun-collector": {
+        "entry": "index.js",
+        "portEnv": null,
+        "maxMemoryRestart": null,
+        "hosts": [
+          "discovery-collectors"
+        ],
+        "defaultDeployed": false,
+        "pausedByDeployScript": true,
+        "singleInstanceFrozen": false,
+        "status": "verified",
+        "derivation": "generated-from-ecosystem + audit-code-review",
+        "source": "deploy/ecosystem.config.cjs + deploy/scripts/deploy-server-remote.sh",
+        "evidence": [
+          "deploy/ecosystem.config.cjs",
+          "deploy/scripts/deploy-server-remote.sh"
+        ]
+      },
+      "changmen-sxbet-collector": {
+        "entry": "index.js",
+        "portEnv": null,
+        "maxMemoryRestart": null,
+        "hosts": [
+          "discovery-collectors"
+        ],
+        "defaultDeployed": false,
+        "pausedByDeployScript": true,
+        "singleInstanceFrozen": false,
+        "status": "verified",
+        "derivation": "generated-from-ecosystem + audit-code-review",
+        "source": "deploy/ecosystem.config.cjs + deploy/scripts/deploy-server-remote.sh",
+        "evidence": [
+          "deploy/ecosystem.config.cjs",
+          "deploy/scripts/deploy-server-remote.sh"
+        ]
+      }
+    },
+    "contracts": {},
+    "rules": {
+      "team_boundaries": {
+        "enforcement": "scripts/check-team-boundaries.mjs（6 组 RULES :20-95）",
+        "chain": "根 npm test 第 1 环",
+        "appliesTo": "all-modules",
+        "doc": "docs/TEAM_BOUNDARIES.md",
+        "status": "verified",
+        "derivation": "generated"
+      }
+    },
+    "sources": {
+      "pathRegistryDoc": {
+        "path": "docs/PATH_REGISTRY.md",
+        "manages": "CHANGMEN_LAYOUT 的手工文档镜像",
+        "canonical": false,
+        "machineReadable": false,
+        "verification": "无（双登记无同步脚本）",
+        "status": "verified-derivative-manual",
+        "derivation": "generated"
+      },
+      "platformManifest": {
+        "path": "client/venue-adapter/registry/manifest.json",
+        "manages": "平台能力开关（17 平台）",
+        "canonical": true,
+        "machineReadable": true,
+        "verification": "DEV 自检 console.warn（非 CI）+ meta.browserSave.test.ts；drift 见 drift.platformRegistry",
+        "consumers": [
+          "adapters.ts",
+          "meta.ts",
+          "feeds.js",
+          "backend registry/feeds.js",
+          "gen-platform-icons-css.mjs"
+        ],
+        "status": "verified",
+        "derivation": "generated"
+      }
+    },
+    "lines": {},
+    "conflicts": {},
+    "drift": {
+      "canonical": {
+        "path": "client/venue-adapter/registry/manifest.json",
+        "count": 17,
+        "ids": [
+          "Azuro",
+          "Dex",
+          "HG",
+          "IA",
+          "IM",
+          "IMT",
+          "Limitless",
+          "OB",
+          "PB",
+          "Polymarket",
+          "PredictFun",
+          "RAY",
+          "SABA",
+          "SXBet",
+          "Stake",
+          "TF",
+          "XBet"
+        ]
+      },
+      "derived": [
+        {
+          "path": "client/venue-adapter/registry/adapters.ts",
+          "extract": "regex platform adapter imports",
+          "ids": [
+            "azuro",
+            "dex",
+            "hg",
+            "ia",
+            "im",
+            "imt",
+            "limitless",
+            "ob",
+            "pb",
+            "polymarket",
+            "predictfun",
+            "ray",
+            "saba",
+            "stake",
+            "sxbet",
+            "tf",
+            "xbet"
+          ],
+          "status": "PASS",
+          "missing": [],
+          "extra": []
+        },
+        {
+          "path": "client/venue-adapter/shared/platforms.ts",
+          "extract": "regex PLATFORMS object keys",
+          "ids": [
+            "Azuro",
+            "Dex",
+            "HG",
+            "IA",
+            "IM",
+            "IMT",
+            "Limitless",
+            "OB",
+            "PB",
+            "Polymarket",
+            "PredictFun",
+            "RAY",
+            "SABA",
+            "SXBet",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "status": "PASS",
+          "missing": [],
+          "extra": []
+        },
+        {
+          "path": "packages/api-contract/src/schemas.ts",
+          "extract": "regex zod enum members",
+          "ids": [
+            "Azuro",
+            "Dex",
+            "HG",
+            "IA",
+            "IM",
+            "IMT",
+            "Limitless",
+            "OB",
+            "PB",
+            "Polymarket",
+            "PredictFun",
+            "RAY",
+            "SABA",
+            "SXBet",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "status": "PASS",
+          "missing": [],
+          "extra": []
+        },
+        {
+          "path": "packages/client-core/src/types/platforms.ts",
+          "extract": "regex exported const members",
+          "ids": [
+            "Dex",
+            "HG",
+            "IA",
+            "IM",
+            "IMT",
+            "OB",
+            "PB",
+            "Polymarket",
+            "RAY",
+            "SABA",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "status": "DRIFT",
+          "missing": [
+            "Azuro",
+            "Limitless",
+            "PredictFun",
+            "SXBet"
+          ],
+          "extra": []
+        },
+        {
+          "path": "chrome-extension/src/content/platforms.js",
+          "extract": "regex enum members",
+          "ids": [
+            "Dex",
+            "HG",
+            "HGA",
+            "IA",
+            "IM",
+            "IMT",
+            "OB",
+            "PB",
+            "Polymarket",
+            "RAY",
+            "SABA",
+            "Stake",
+            "TF"
+          ],
+          "status": "DRIFT",
+          "missing": [
+            "Azuro",
+            "Limitless",
+            "PredictFun",
+            "SXBet",
+            "XBet"
+          ],
+          "extra": [
+            "HGA"
+          ]
+        },
+        {
+          "path": "server/backend/scripts/check-collect-platforms.js",
+          "extract": "regex ALL_PLATFORMS members",
+          "ids": [
+            "HG",
+            "IA",
+            "IM",
+            "IMT",
+            "OB",
+            "PB",
+            "RAY",
+            "SABA",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "status": "DRIFT",
+          "missing": [
+            "Azuro",
+            "Dex",
+            "Limitless",
+            "Polymarket",
+            "PredictFun",
+            "SXBet"
+          ],
+          "extra": []
+        },
+        {
+          "path": "server/backend/platforms.example.json",
+          "extract": "json keys (seed subset)",
+          "comparison": "subset",
+          "ids": [
+            "HG",
+            "IA",
+            "IM",
+            "IMT",
+            "OB",
+            "PB",
+            "RAY",
+            "SABA",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "note": "seed 文件，允许为 canonical 子集",
+          "status": "PASS",
+          "missing": [
+            "Azuro",
+            "Dex",
+            "Limitless",
+            "Polymarket",
+            "PredictFun",
+            "SXBet"
+          ],
+          "extra": []
+        },
+        {
+          "path": "packages/shared/catalog/sport_catalog.json collect.platforms",
+          "extract": "json per-sport union (semantic subset)",
+          "comparison": "subset",
+          "ids": [
+            "IA",
+            "OB",
+            "PB",
+            "Polymarket",
+            "PredictFun",
+            "RAY"
+          ],
+          "note": "per-sport 语义子集，仅校验 ⊆ canonical",
+          "status": "PASS",
+          "missing": [
+            "Azuro",
+            "Dex",
+            "HG",
+            "IM",
+            "IMT",
+            "Limitless",
+            "SABA",
+            "SXBet",
+            "Stake",
+            "TF",
+            "XBet"
+          ],
+          "extra": []
+        }
+      ],
+      "status": "derived"
+    }
+  },
+  "relations": [
+    {
+      "from": "resource:platform_matches",
+      "to": "runtime:changmen-esport",
+      "type": "writer-runtime(verified)",
+      "status": "derived"
+    },
+    {
+      "from": "resource:platform_matches",
+      "to": "runtime:changmen-polymarket-collector",
+      "type": "writer-runtime(verified)",
+      "status": "derived"
+    },
+    {
+      "from": "resource:platform_matches",
+      "to": "runtime:changmen-predictfun-collector",
+      "type": "writer-runtime(verified-runtime-paused)",
+      "status": "derived"
+    },
+    {
+      "from": "resource:platform_matches",
+      "to": "runtime:changmen-sxbet-collector",
+      "type": "writer-runtime(verified-runtime-paused)",
+      "status": "derived"
+    }
+  ],
+  "truthSummary": {
+    "verified": 10,
+    "conflicted": 0
+  },
+  "humanDecisionsRequired": [],
+  "notFound": []
+}
