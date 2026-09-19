@@ -155,7 +155,7 @@ export function getGetMatchsOutboundWarnStats(): GetMatchsWarnStats {
   return { ..._getMatchsWarn, lastIssues: [..._getMatchsWarn.lastIssues] };
 }
 
- * @internal
+/** @internal 测试用 */
 export function __resetGetMatchsOutboundWarnStatsForTests(): void {
   _getMatchsWarn.checks = 0;
   _getMatchsWarn.issueEvents = 0;
