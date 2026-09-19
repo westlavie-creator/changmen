@@ -1441,4 +1441,414 @@ manifest (Catalog ∪ Product Activation ∪ Runtime Policy ∪ dead UI fields)
 
 ---
 
-*End of Phase 2.*
+# Phase 3 — Final Venue Source-of-Truth Contract
+
+> **Date**: 2026-09-19 (third pass)  
+> **Scope**: READ → TRACE → FINAL DESIGN. No production code, no new files, no field deletion, no refactor.  
+> **Goal**: One contract Cursor/Codex can obey when touching Venues.
+
+---
+
+# 29. Final Venue Source-of-Truth Contract
+
+## 29.1 Phase 2 model — freeze check
+
+| # | Claim | Phase 3 re-check | Status |
+|---|-------|------------------|--------|
+| 1 | Adapter / collectors / extension = Implementation SoT | Unchanged; `PLATFORM_ADAPTERS` + `server/collectors/*` + chrome content | **FROZEN** |
+| 2 | manifest.collect / bet = Product Activation (not capability) | Still only gate `buildCollectorFactories` / `getProvider`; SABA/IMT prove dual-fact | **FROZEN** |
+| 3 | collectionMode (esp. vps_http_ws) = Runtime ownership | Still sole Save* ownership authority FE+BE | **FROZEN** |
+| 4 | CollectConfig = User Save policy | Still gates Save after ownership; does not start collectors | **FROZEN** |
+| 5 | deploy/PM2 = Deployment Activation | PredictFun/SXBet still deleted by deploy script independently of manifest | **FROZEN** |
+| 6 | ALL_PLATFORMS etc. should be Derived Views | Web path already derives from manifest; client-core/chrome/scripts are **not** yet derived — they are copies/projections to fix later | **FROZEN as target**; copies remain debt |
+
+No claim overturned. **Do not reopen.**
+
+## 29.2 Master contract table
+
+| Fact | PRIMARY SOURCE | Derived / Mirror / Projection (not SoT) |
+|------|----------------|-----------------------------------------|
+| Venue ID string | **manifest.json `id`** (Catalog) | api-contract `PlatformId` (TYPE MIRROR); shared/platforms keys (BOUNDARY); chrome keys (FEATURE) |
+| Venue existence (incl. paused) | **manifest row exists** | `ALL_PLATFORMS` / `PLATFORM_REGISTRY` |
+| Directory | **manifest.dir** | `paths.js` / `platformDir()` |
+| Sort | **manifest.sort** | order of `ALL_PLATFORMS` |
+| Label / labelZh | **manifest** | `listPlatforms()` |
+| Icon | **manifest.icon** | `icons.ts`; `gen-platform-icons-css.mjs` output |
+| Implementation (code exists) | **Adapter / VPS pkg / chrome code** | — |
+| Collector implementation | **`adapter.collector`** (and/or VPS collector package) | — |
+| Provider implementation | **`adapter.provider`** | — |
+| Collect activation (product) | **manifest.collect** | `collectPlatformIds()`, `ACTIVE` browser collector set |
+| Bet activation (product) | **manifest.bet** | `betPlatformIds()`, `supportedBetProviders()` |
+| Collection topology / ownership | **manifest.collectionMode** | `isVpsOwnedPlatformCollect`, `browserSaveMatchPlatformIds` |
+| VPS ownership | **collectionMode === `vps_http_ws`** | same gates |
+| Browser Save ownership | **DERIVE**: collect ∧ ¬vps | `browserSaveMatchPlatformIds` |
+| User Save activation | **CollectConfig** (per user) | CollectConfigPanel (UI of user config ∩ browser-save set) |
+| Deployment activation | **deploy / ecosystem / PM2** | — |
+| Platform wire type | **api-contract `PlatformId`** | zod `schemas.ts` enum (must match Catalog ids) |
+| UI platform list | **DERIVE** Catalog | `ALL_PLATFORMS` from registry |
+| Bet platform list | **DERIVE** bet activation | `betPlatformIds()` |
+| Extension platform list | **chrome-extension `platforms.js`** as FEATURE projection | must remain ⊆/related to Catalog; **≠ ALL** |
+| Runtime collector map | **DERIVE** collect ∧ adapter.collector | `buildCollectorFactories()` |
+| Runtime provider resolve | **DERIVE** bet ∧ adapter.provider | `getProvider()` |
+
+**ONE FACT → ONE PRIMARY SOURCE.** Everything else is DERIVE / TYPE MIRROR / BOUNDARY PROJECTION / FEATURE PROJECTION / LEGACY COPY.
+
+---
+
+# 30. Venue ID Authority Graph
+
+```
+                    ┌──────────────────────────────────────┐
+                    │ PRIMARY VENUE CATALOG                │
+                    │ client/venue-adapter/registry/       │
+                    │   manifest.json  (id[+sort,…])       │
+                    └──────────────────┬───────────────────┘
+                                       │
+          ┌────────────────────────────┼────────────────────────────┐
+          ↓                            ↓                            ↓
+┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
+│ TYPE MIRROR         │    │ RUNTIME DERIVATION  │    │ UI / PRODUCT META   │
+│ api-contract        │    │ meta.ts:            │    │ (same manifest)     │
+│   PlatformId        │    │  ALL_PLATFORMS      │    │ sort, label, icon,  │
+│   zod enum          │    │  collect*/bet*      │    │ collect, bet,       │
+│ EXTERNAL BOUNDARY   │    │  isVpsOwned*        │    │ collectionMode      │
+│ CONTRACT            │    │  browserSave*       │    │                     │
+└──────────┬──────────┘    └─────────────────────┘    └─────────────────────┘
+           │
+           │ satisfies / typed by
+           ↓
+┌─────────────────────┐
+│ BOUNDARY PROJECTION │
+│ shared/platforms.ts │  ← avoids venue chunk → registry cycle
+│ PLATFORMS.OB = "OB" │
+└─────────────────────┘
+
+┌─────────────────────┐
+│ LEGACY COPY (debt)  │
+│ client-core         │  ← CANNOT import venue-adapter
+│   ALL_PLATFORMS     │     (venue-adapter depends on client-core)
+│ STALE vs Catalog    │
+└─────────────────────┘
+
+┌─────────────────────┐
+│ FEATURE PROJECTION  │
+│ chrome-extension    │  ← A8 probe set + changmen extras
+│   platforms.js      │     includes HGA (not in Catalog);
+│ NOT ALL_VENUES      │     omits Limitless/PF/SXBet/Azuro/XBet
+└─────────────────────┘
+
+┌─────────────────────┐
+│ LEGACY / OPS COPY   │
+│ check-collect-      │  ← hardcoded allowlist; should read
+│   platforms.js      │     Catalog or stay explicit ops subset
+└─────────────────────┘
+```
+
+### Package boundary (why dual hand-maintain exists)
+
+```
+api-contract  (zero deps — HTTP boundary)
+     ↑
+client-core   (models; uses PlatformId + local ALL_PLATFORMS)
+     ↑
+venue-adapter (depends on client-core + api-contract; owns manifest)
+```
+
+Therefore:
+
+- **client-core must not import `@changmen/venue-adapter/registry`** (cycle).  
+- **api-contract must not depend on venue-adapter** (boundary purity).  
+- Catalog primary remains **manifest**; `PlatformId` is a **required TYPE MIRROR** kept in sync by humans + CI (or root codegen that writes into api-contract without a runtime import).
+
+---
+
+# 31. Manifest Final Role
+
+## 31.1 Sufficient model (no new files)
+
+```
+manifest entry ≈ {
+  id, dir, sort,          // Catalog
+  label, labelZh, icon,   // UI metadata
+  collect, bet,           // Product Activation
+  collectionMode,         // Runtime Policy (hard: vps_http_ws)
+  /* optional / weak / retire-candidate fields */
+}
+
+adapter ≈ {
+  id,
+  collector?,
+  provider?
+}
+```
+
+**Implementation → Adapter (and VPS/chrome CODE).**  
+**Runtime topology → collectionMode.**  
+**User Save → CollectConfig.**  
+**Deploy → PM2.**
+
+## 31.2 Facts that still fit
+
+All live product facts needed by ALL_PLATFORMS, CollectConfig keys, Save gates, betting gates, UI lists fit this split **without** catalog.json / activation.json.
+
+## 31.3 Residual issues (not solved by splitting files)
+
+| Issue | Nature |
+|-------|--------|
+| Stale client-core / chrome / scripts lists | Copy discipline / CI — not “manifest too fat” |
+| Dead fields (pluginOnly, implementation, saveMatchIntervalMs) | Retire candidates — splitting files does not fix |
+| PlatformId ↔ manifest dual edit | Package boundary — need CI or codegen, not a second JSON |
+| DEV warn treats collect=false∧collector as bad | Wrong assertion ontology |
+
+**No fact fails to belong.** Therefore: **do not add catalog.json / activation.json.**
+
+---
+
+# 32. Platform List Derivation Strategy
+
+## 32.1 Concepts (not files)
+
+| Concept | Definition |
+|---------|------------|
+| **ALL_VENUES** | Catalog ids (manifest), sorted by `sort` |
+| **ACTIVE_VENUES** (product) | Not a single flag — use **ACTIVE_COLLECT** / **ACTIVE_BET** |
+| **ACTIVE_COLLECT** | `collect === true` |
+| **ACTIVE_BET** | `bet === true` |
+| **FEATURE_VENUES** | Per-feature projection (extension, credit-plate, value-bet soft list, …) |
+
+## 32.2 How today’s sets should derive
+
+| Set | Source | Derive rule |
+|-----|--------|-------------|
+| `ALL_PLATFORMS` | Catalog | `manifest.map(id)` sorted |
+| Active browser collectors | Activation ∩ CODE | `collect ∧ adapter.collector` → factories |
+| Bet platforms (product) | Activation | `bet === true` |
+| Bet platforms (runtime usable) | Activation ∩ CODE | `bet ∧ adapter.provider` → `getProvider` |
+| Browser Save platforms | Activation ∩ Policy | `collect ∧ mode ≠ vps_http_ws` |
+| VPS-owned platforms | Policy | `mode === vps_http_ws` |
+| Extension platforms | FEATURE | chrome `platforms.js` (manual projection ⊆/A8) |
+| UI platform list | Catalog | = ALL_VENUES |
+| User CollectConfig keys | Catalog | init Map for each ALL_VENUES; UI toggles only Browser Save set |
+
+**What manifest “directly provides”:** Catalog rows + collect/bet + collectionMode + UI meta.  
+**What must never be hand-edited as SoT:** derived arrays in web (`ALL_PLATFORMS` from registry is already correct); do not invent a second ALL in feature code.
+
+---
+
+# 33. New Venue Change Surface
+
+## 33.1 Shared MUST CHANGE (all kinds)
+
+| Touch | Role |
+|-------|------|
+| `registry/manifest.json` | Catalog + Product Activation + Policy + UI meta |
+| `packages/api-contract` `PlatformId` (+ zod) | TYPE MIRROR |
+| `shared/platforms.ts` | BOUNDARY PROJECTION |
+| `registry/adapters.ts` | register `PlatformAdapter` |
+| `client/venue-adapter/{dir}/` | Implementation |
+
+## 33.2 By venue kind
+
+### A. Browser Venue
+
+| Class | Items |
+|-------|-------|
+| **MUST** | manifest (collect/bet/mode≠vps); adapter collect+provider as needed; PlatformId; shared/platforms; adapters.ts |
+| **CONDITIONAL** | platform_sync / HTTP relay / identity catalog / probes |
+| **AUTO DERIVED** | ALL_PLATFORMS, browserSave list, icons CSS (if icon), factories if collect |
+| **SHOULD NOT** | runtime/collectors.ts hand-register; hardcode id in match.ts/store.js; chrome unless plugin needed; client-core ALL (fix via sync/CI, don’t “add only there”) |
+
+### B. Plugin Venue
+
+| Class | Items |
+|-------|--------|
+| **MUST** | same as Browser + chrome-extension handlers for that site |
+| **CONDITIONAL** | add id to chrome `platforms.js` **FEATURE set** (not “all venues”) |
+| **AUTO DERIVED** | same |
+| **SHOULD NOT** | set `vps_http_ws` unless discovery is VPS-owned; treat pluginOnly as runtime switch |
+
+### C. VPS Venue
+
+| Class | Items |
+|-------|--------|
+| **MUST** | manifest `collectionMode: vps_http_ws`; `server/collectors/*`; deploy ecosystem + deploy policy; adapter at least for quote/order as product needs; PlatformId; shared/platforms; adapters.ts |
+| **CONDITIONAL** | market-hub / ws_forward; collect true if browser quote loop needed |
+| **AUTO DERIVED** | isVpsOwned*; browserSave excludes id |
+| **SHOULD NOT** | enable Browser Save paths; hardcode venue name in Save gates |
+
+### D. Hybrid (PM/PF pattern)
+
+| Class | Items |
+|-------|--------|
+| **MUST** | VPS checklist **plus** browser collector (Index→WS→fo) **plus** provider if betting; collect true typically; vps_http_ws |
+| **CONDITIONAL** | chrome if plugin transport for some calls; deploy may pause VPS discovery independently |
+| **AUTO DERIVED** | Hybrid gates (Save blocked; collector still starts) |
+| **SHOULD NOT** | assume pluginOnly means “no VPS”; assume collect true means “PM2 up” |
+
+## 33.3 client-core
+
+| Class | Guidance |
+|-------|----------|
+| **SHOULD NOT** treat as Catalog SoT | Fix by CI sync or moving ordered id array to api-contract later |
+| **MUST NOT** import venue-adapter | Cycle |
+
+---
+
+# 34. Generated vs Manual Data
+
+| Path | Worth generating? | Why |
+|------|-------------------|-----|
+| manifest → `ALL_PLATFORMS` (registry) | **Already derived in code** | Keep |
+| manifest → icons CSS | **Already generated** (`gen-platform-icons-css.mjs`) | Keep |
+| manifest → PlatformId / zod | **Optional later**; default **manual + CI** | api-contract zero-deps boundary; codegen OK only as root script writing files marked DO NOT EDIT |
+| manifest → shared/platforms.ts | **Optional**; prefer **manual + CI** first | Small object; generation helps AI less than CI fail |
+| manifest → client-core ALL | **Do not generate into client-core from venue-adapter import**; either CI assert vs manifest, or hoist ordered ids into api-contract | Cycle / layering |
+| manifest → chrome platforms | **Do not auto = ALL** | FEATURE set; A8 order + HGA |
+| adapter → capability sets | **Runtime derive only** (factories) | No file |
+| collectionMode → VPS set | **Runtime derive** (`isVpsOwned*`) | No file |
+| collect/bet → active sets | **Runtime derive** | No file |
+
+### AI Coding rule for generation
+
+Only introduce a generated file if:
+
+1. Source is obvious (manifest)  
+2. File header: DO NOT EDIT  
+3. Documented npm script  
+4. CI `--check`  
+
+Otherwise: **manual mirror + CI assertion** beats half-baked codegen.
+
+**Recommended next implementation (future, not this phase):** one CI test: `manifest.ids ≡ PlatformId enum ≡ shared/platforms keys ≡ registry ALL_PLATFORMS`; client-core array ≡ same set (order may follow manifest sort); chrome ids (except documented A8-only like HGA) ⊆ Catalog.
+
+---
+
+# 35. AI Venue Change Rules
+
+**AI VENUE CHANGE RULES** (binding for Cursor/Codex):
+
+1. **Missing venue in UI / sort / CollectConfig keys** → edit **manifest** (Catalog). Do **not** patch a local `ALL_PLATFORMS` copy as the fix.  
+2. **Enable/disable browser collector registration** → edit **manifest.collect**. Do **not** delete/add `adapter.collector` to “turn off/on” product activation.  
+3. **Enable/disable betting path** → edit **manifest.bet**. Do **not** remove `provider` solely to disable.  
+4. **Change who writes `platform_*`** → edit **manifest.collectionMode** (`vps_http_ws` vs not). Do **not** hardcode venue names in `match.ts` / `store.js`.  
+5. **User cannot Save / Save toggles** → **CollectConfig** / CollectConfigPanel. Do **not** change manifest for one user’s preference.  
+6. **VPS process up/down** → **deploy / PM2**. Do **not** infer from `implementation` or assume `collect:true` means daemon runs.  
+7. **`adapter.collector` present + `collect:false`** → **ALLOWED** (Implementation ≠ Activation). Do **not** “fix consistency” by flipping collect or deleting collector without product intent.  
+8. **`collect:true` without collector** (or `bet:true` without provider) → **INVALID ACTIVATION** — add implementation or turn flag off.  
+9. **Chrome platforms.js** → FEATURE projection; add only if extension must detect/proxy that site. Do **not** require parity with ALL_VENUES.  
+10. **PlatformId** → when adding Catalog id, update TYPE MIRROR in api-contract in the **same change**. Do not leave zod/DTO stale.  
+11. **shared/platforms.ts** → update BOUNDARY PROJECTION in the **same change** as Catalog id.  
+12. **Do not hand-edit** `runtime/collectors.ts` / `providers.ts` venue maps — they re-export registry.  
+13. **Do not treat** `pluginOnly` / `implementation` / `saveMatchIntervalMs` as runtime authorities.  
+14. **Hybrid venues** may combine VPS ownership + browser collector + provider; that is normal.
+
+### First place to look
+
+| Intent | Go here first |
+|--------|----------------|
+| Venue exists? | manifest |
+| What can it do in code? | adapter / server/collectors / chrome |
+| Product enabled collect/bet? | manifest.collect / bet |
+| Where does collection write? | collectionMode |
+| User Save? | CollectConfig |
+| Process running? | deploy |
+| Type error on provider string? | api-contract PlatformId |
+
+### Absolute do-not-touch-as-SoT
+
+- client-core `ALL_PLATFORMS` (legacy copy)  
+- Ad-hoc script platform arrays (unless intentional ops allowlist)  
+- Derived helpers’ return values edited by changing call sites instead of sources  
+
+---
+
+# 36. DEV / CI Assertion Semantics
+
+## 36.1 Current `adapters.ts` DEV block (as of audit)
+
+| Check | Today | Correct semantics |
+|-------|-------|-------------------|
+| `collector && !collect` | `console.warn`「未在 manifest 声明采集」 | **ALLOWED** — should **not** warn as drift; optional info-level “inactive implementation” |
+| `collect && !collector` | `console.warn` | **INVALID ACTIVATION** → should be **error** (DEV/CI) |
+| `bet && !provider` | `console.warn` | **INVALID ACTIVATION** → should be **error** |
+| `bet && provider` omitted when bet false | (no check) | **ALLOWED** — keep silent |
+| `adapter` not in manifest | `console.warn` | **ERROR** — every adapter id must be in Catalog |
+| (missing) Catalog id without adapter | — | Optional: warn for non-paused stubs; empty paused adapters are OK |
+
+## 36.2 Recorded change list (do not implement now)
+
+1. Reclassify `collector && !collect` from warn-as-drift → allow / downgrade.  
+2. Promote `collect && !collector` and `bet && !provider` to failing CI test.  
+3. Add CI: Catalog ids ≡ PlatformId ≡ shared/platforms.  
+4. Add CI: client-core ALL_PLATFORMS set-equality with Catalog (fix staleness).  
+5. Add CI: chrome ids except documented exceptions (e.g. HGA) ⊆ Catalog.  
+6. Do **not** add CI that requires collect↔collector equality both ways.
+
+---
+
+# 37. Final Minimal Architecture
+
+```
+                 manifest.json
+                      │
+         ┌────────────┼────────────┐
+         ↓            ↓            ↓
+      Catalog   Product Act.   UI metadata
+      (ids…)    collect/bet    sort/icon/…
+         │            │
+         └──────┬─────┘
+                ↓
+         Derived Registry
+         (ALL_*, factories, gates)
+                ↑
+                │ filtered by
+           Adapter CODE
+           (collector?/provider?)
+                │
+         Implementation SoT
+
+         collectionMode ──→ Runtime Ownership (platform_*)
+         CollectConfig  ──→ User Save Policy
+         deploy / PM2   ──→ Deployment Activation
+
+         api-contract PlatformId ──→ TYPE MIRROR (boundary)
+         shared/platforms        ──→ BOUNDARY PROJECTION
+         chrome platforms.js     ──→ FEATURE PROJECTION
+```
+
+**Principle:** ONE FACT → ONE SOURCE; elsewhere DERIVE / MIRROR / PROJECTION.
+
+---
+
+# 38. Decision: Split Manifest or Not
+
+## Decision
+
+### **A. Do not split manifest.**
+
+manifest continues to hold:
+
+- Venue Catalog (including paused)  
+- Product Activation (`collect` / `bet`)  
+- UI metadata  
+- Runtime policy field (`collectionMode`)
+
+## Why not B (Catalog / Activation files)?
+
+- No consumer conflict requires two files.  
+- ALL_PLATFORMS, CollectConfig, ownership gates already work from one JSON.  
+- Split would multiply AI touchpoints and sync failures without removing PlatformId dual-edit.  
+- Real pain is **stale copies + wrong DEV ontology**, not file cohesion.
+
+## Why not “Catalog = adapters only”?
+
+- Paused empty adapters / sort / icon / activation flags still need a Catalog row.  
+- Adapter registry is Implementation index, not product existence index.
+
+## Final one-liner for AI
+
+> **Venue Source of Truth = `manifest.json` for existence/activation/ownership/UI meta; Adapter (and VPS/chrome code) for implementation; CollectConfig for user Save; deploy for processes; everything named `ALL_*` / `*PlatformIds()` is derived or a typed/feature mirror — never a second Catalog.**
+
+---
+
+*End of Phase 3. Audit complete — stop.*
