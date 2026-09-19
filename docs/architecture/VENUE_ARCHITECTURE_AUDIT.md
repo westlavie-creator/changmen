@@ -306,7 +306,7 @@ http_routes.js → feeds.listPlatforms() → 返回 id/dir/label/collectionMode/
 4. **无** `implementation === "paused"` 运行时判断（全仓代码搜索确认）  
 5. paused 馆用「空 adapter」或 `collect/bet:false` 实际停用  
 6. deploy 脚本另停 VPS 进程  
-7. 改 paused ** alone 不改变行为**  
+7. 改 paused **alone 不改变行为**  
 8–10. 不可自动等于「无代码」——Azuro/Dex 反例  
 11. 若保留，必须定义为 Activation 标签并接线，或删除改用 collect/bet/adapter  
 12. Activation 标注（当前未接线）
@@ -1852,3 +1852,57 @@ manifest continues to hold:
 ---
 
 *End of Phase 3. Audit complete — stop.*
+
+---
+
+# Phase 4 — Implementation Guardrails (landed)
+
+> Governance only: DEV/CI ontology + catalog consistency. No business-behavior change.
+
+# 39. Implementation Guardrails
+
+## RULES (AI / humans)
+
+1. **新增 Venue**：先改 `manifest.json`（Catalog）。  
+2. **实现能力**：改 Adapter / `server/collectors` / chrome（Implementation）。  
+3. **启用 Browser collection**：改 `manifest.collect`（Product Activation）。  
+4. **启用 betting**：改 `manifest.bet`。  
+5. **改变 VPS ownership**：改 `collectionMode`（`vps_http_ws`）。  
+6. **用户 Save**：CollectConfig / user policy — 勿改 manifest。  
+7. **VPS daemon**：deploy / PM2 — 勿用 `collect`/`implementation` 推断进程。  
+8. **勿直接改** `ALL_PLATFORMS` 作为修 UI 的手段；registry 的是 Derived；client-core 的是 Legacy Copy（须对齐 Catalog，CI 锁定）。  
+9. **勿因** `adapter.collector` 存在就设 `collect=true`。  
+10. **勿因** `adapter.provider` 存在就设 `bet=true`。  
+11. **勿改 PlatformId「修 UI」**；PlatformId 是 TYPE MIRROR，与 Catalog 同 PR 更新。  
+12. **列表不一致**：先找 SoT（manifest），再修 mirror/projection。
+
+## Validation entrypoints
+
+| Check | Command / location |
+|-------|--------------------|
+| Catalog ≡ PlatformId ≡ shared ≡ client-core | `npm run check:venue-catalog` |
+| Activation ↔ Implementation ontology | `validateVenueTruth` + `venueTruth.test.ts` (via web vitest) |
+| DEV invalid activation | `adapters.ts` → `console.error` on errors only |
+| VPS ≠ Browser Save | existing `meta.browserSave.test.ts` + venueTruth tests |
+
+## New Venue Change Surface (MUST / CONDITIONAL / DERIVED / NOT)
+
+| 类型 | Adapter | manifest | PlatformId | shared/platforms | Extension | VPS collectors | deploy |
+|------|---------|----------|------------|------------------|-----------|----------------|--------|
+| Browser | MUST | MUST (collect/bet/mode≠vps) | MUST | MUST | NOT unless plugin | NOT | NOT |
+| Plugin | MUST | MUST | MUST | MUST | CONDITIONAL (feature set) | NOT | NOT |
+| VPS | MUST (quote/order as needed) | MUST (`vps_http_ws`) | MUST | MUST | CONDITIONAL | MUST | MUST (process policy) |
+| Hybrid | MUST (browser collector+provider) | MUST (collect often true + vps) | MUST | MUST | CONDITIONAL | MUST | CONDITIONAL (discovery may pause ≠ product) |
+
+**DERIVED (do not hand-author as SoT):** `ALL_PLATFORMS` (registry), `collectPlatformIds`, `betPlatformIds`, `browserSaveMatchPlatformIds`, `buildCollectorFactories`, icons CSS.
+
+## What this phase deliberately did NOT do
+
+- No catalog.json / activation.json  
+- No field deletion (`pluginOnly`, `implementation`, …)  
+- No collectionMode / Save* / betting / PM2 behavior changes  
+- No client-core → venue-adapter dependency  
+
+---
+
+*End of Phase 4 guardrails.*
