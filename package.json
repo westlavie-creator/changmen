@@ -1,8 +1,8 @@
 {
   "name": "changmen",
   "private": true,
-  "description": "A8 esports aggregator — frontend replica + local backend",
   "packageManager": "npm@11.16.0",
+  "description": "A8 esports aggregator — frontend replica + local backend",
   "engines": {
     "node": ">=24"
   },
@@ -38,7 +38,8 @@
     "app:dev": "npm run dev --prefix client/web",
     "app:build": "turbo run build --filter=@changmen/web --force",
     "check:boundaries": "node scripts/check-team-boundaries.mjs",
-    "check:venue-adapter": "npm run check:exports --workspace=@changmen/venue-adapter && npm run check:internal-imports --workspace=@changmen/venue-adapter && npm run check:web-imports --workspace=@changmen/venue-adapter && npm run check:esport-freeze --workspace=@changmen/venue-adapter",
+    "check:venue-adapter": "npm run check:venue-catalog && npm run check:exports --workspace=@changmen/venue-adapter && npm run check:internal-imports --workspace=@changmen/venue-adapter && npm run check:web-imports --workspace=@changmen/venue-adapter && npm run check:esport-freeze --workspace=@changmen/venue-adapter",
+    "check:venue-catalog": "node scripts/check-venue-catalog-consistency.mjs",
     "check:client-core": "npm run check:exports --workspace=@changmen/client-core && npm run check:internal-imports --workspace=@changmen/client-core && npm run check:consumer-imports --workspace=@changmen/client-core",
     "test:api-contract": "node packages/api-contract/urls.test.mjs",
     "test": "npm run check:boundaries && npm run check:venue-adapter && npm run check:client-core && npm run test:api-contract && npm run test:catalog-smoke && turbo run test",
@@ -70,12 +71,12 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
     "eslint": "^10.5.0",
     "turbo": "^2.9.18"
-  },
-  "dependencies": {
-    "zod": "^4.4.3"
   }
 }

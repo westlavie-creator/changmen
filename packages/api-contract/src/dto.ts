@@ -20,6 +20,8 @@ export type PlatformId
     | "SXBet"
     | "Azuro"
     | "PredictFun";
+// TYPE MIRROR of Catalog ids in client/venue-adapter/registry/manifest.json
+// (API boundary — do not import venue-adapter). CI: npm run check:venue-catalog
 
 export interface LoginInfo {
   token: string;
