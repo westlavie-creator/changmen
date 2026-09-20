@@ -162,6 +162,8 @@ const pmHubClientRows = computed(() => {
   );
 });
 
+const pmSubmitStatusText = computed(() => topReasonText(pmExecutionMetrics.value.execution.submitStatuses));
+
 function isFullHealthData(v: unknown): v is HealthData {
   if (!v || typeof v !== "object")
     return false;
@@ -298,6 +300,19 @@ function msText(ms: number | null): string {
 
 function rateText(value: number | null): string {
   return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value * 100)}%` : "—";
+}
+
+function numberText(value: number | null, digits = 2): string {
+  if (typeof value !== "number" || !Number.isFinite(value))
+    return "—";
+  return value.toLocaleString("zh-CN", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function priceText(value: number | null): string {
+  return numberText(value, 4);
 }
 
 function kindLatencyText(row: PmExecutionKindSummary | undefined): string {
@@ -779,6 +794,25 @@ onUnmounted(() => {
               sign {{ kindLatencyText(pmExecutionMetrics.byKind.sign) }}
               · cache {{ rateText(pmExecutionMetrics.sign.cacheHitRate) }}
               · submit {{ kindLatencyText(pmExecutionMetrics.byKind.submit) }}
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>执行价格</span>
+            <span class="health-sub">
+              样本 {{ pmExecutionMetrics.execution.observed }}
+              · 检测cap p50 {{ priceText(pmExecutionMetrics.execution.detectionMaxPriceP50) }}
+              · book p50 {{ priceText(pmExecutionMetrics.execution.bookPriceP50) }}
+              · fill p50 {{ priceText(pmExecutionMetrics.execution.fillPriceP50) }}
+              · limit p50 {{ priceText(pmExecutionMetrics.execution.limitPriceP50) }}
+            </span>
+          </div>
+          <div class="health-row health-row--sub">
+            <span>可成交深度</span>
+            <span class="health-sub">
+              预算 p50 {{ numberText(pmExecutionMetrics.execution.apiBetMoneyP50) }}
+              · cap内深度 p50 {{ numberText(pmExecutionMetrics.execution.depthAvailableAtCapP50) }}
+              · 需求 p50 {{ numberText(pmExecutionMetrics.execution.depthNeedUsdcP50) }}
+              · submit {{ pmSubmitStatusText }}
             </span>
           </div>
           <div class="health-row health-row--sub">
