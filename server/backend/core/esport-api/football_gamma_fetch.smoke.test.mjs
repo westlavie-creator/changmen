@@ -41,6 +41,7 @@ function restore() {
 }
 
 const now = Date.now();
+const keysetUrls = [];
 const EVENTS = [
   ev(1, "Arsenal vs Chelsea", "epl", now + 3600e3, "Premier League"),
   ev(2, "Seoul vs Busan", "kor", now + 3600e3, "K-league"), // 白名单外 → unknown_fb
@@ -51,6 +52,7 @@ const EVENTS = [
 globalThis.fetch = async (url) => {
   const u = String(url);
   if (u.includes("/events/keyset")) {
+    keysetUrls.push(u);
     assert.ok(u.includes("tag_id=100350"), "keyset 必须带 tag_id=100350");
     assert.ok(!u.includes("series_id"), "tag 拉取不得带 series_id 白名单");
     return { ok: true, json: async () => EVENTS };
@@ -71,6 +73,13 @@ try {
   const leagueByTitle = new Map(rows.map(r => [r.Title, r.League]));
   assert.equal(leagueByTitle.get("Arsenal vs Chelsea"), "Premier League");
   assert.equal(leagueByTitle.get("Seoul vs Busan"), "K-league");
+  assert.equal(FOOTBALL_OPTS.preferUpcoming, true, "PM 足球应先拉未来窗口，避免早盘被滚球分页挡住");
+  assert.equal(FOOTBALL_OPTS.pastMs, 0, "PM 足球只拉 now→future，不再补已开赛窗口");
+  assert.ok(FOOTBALL_OPTS.liveBudgetMs >= 10_000, "PM 足球冷拉预算应覆盖多页足球 tag 拉取");
+  assert.equal(keysetUrls.length, 1, "PM 足球过去窗口为 0 时不应请求 past→now");
+  const firstUrl = new URL(keysetUrls[0]);
+  const firstMin = Date.parse(firstUrl.searchParams.get("start_time_min") || "");
+  assert.ok(firstMin >= now - 1_000, "首个 keyset 请求应从 now 开始拉未来赛事");
   console.log("football_gamma_fetch.smoke: ok", { n: rows.length, games: [...byTitle.values()] });
 }
 finally {

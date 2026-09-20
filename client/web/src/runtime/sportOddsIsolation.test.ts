@@ -559,6 +559,9 @@ describe("sport / esport UI isolation", () => {
     expect(footballStore).toMatch(/fetchObFootballAsClientMatchDtos/);
     expect(footballStore).toMatch(/getFootballMatchs/);
     expect(footballStore).toMatch(/combineFootballListSources/);
+    expect(footballStore).toMatch(/pollMs:\s*8_000/);
+    expect(footballStore).toMatch(/minFetchGapMs:\s*3_000/);
+    expect(fetchSrc).toMatch(/CACHE_TTL_MS\s*=\s*10_000/);
     expect(footballStore).not.toMatch(/podObMissSearch|hotSelect3/);
     expect(footballStore).not.toMatch(/updateSportObSession/);
     expect(footballStore).not.toMatch(/getSportObSession/);

@@ -40,7 +40,7 @@ import {
   resolveObSportHttpGateway,
 } from "@/runtime/obSportTrial";
 
-const CACHE_TTL_MS = 120_000;
+const CACHE_TTL_MS = 10_000;
 const ODDS_BATCH = 12;
 const BATCH_GAP_MS = 400;
 const RATE_LIMIT_SLEEP_MS = 2_000;

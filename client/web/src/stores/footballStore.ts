@@ -28,4 +28,6 @@ async function fetchFootballCombined(userName: string) {
 export const useFootballStore = createSportListStore({
   id: "football",
   fetchList: fetchFootballCombined,
+  pollMs: 8_000,
+  minFetchGapMs: 3_000,
 });

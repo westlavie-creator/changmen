@@ -11,7 +11,6 @@ import {
 import {
   FOOTBALL_LEAGUE_CODES,
   FOOTBALL_LIST_FUTURE_MS,
-  FOOTBALL_LIST_PAST_MS,
   FOOTBALL_PM_SPORT_ALIASES,
   UNKNOWN_FOOTBALL_GAME,
   footballPmSportFetchKeys,
@@ -32,8 +31,10 @@ export const FOOTBALL_OPTS = {
   idBase: 800_000_000,
   cacheKey: "soccer6",
   logTag: "footballGamma",
-  pastMs: FOOTBALL_LIST_PAST_MS,
+  pastMs: 0,
   futureMs: FOOTBALL_LIST_FUTURE_MS,
+  preferUpcoming: true,
+  liveBudgetMs: Number(process.env.FOOTBALL_GAMMA_LIVE_BUDGET_MS) || 12_000,
 };
 
 /** @returns {Promise<object[]>} ClientMatchDto[] */

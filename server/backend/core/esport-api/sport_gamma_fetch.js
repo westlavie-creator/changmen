@@ -71,6 +71,8 @@ function persistSportRows(cacheKey, rows, logTag) {
  * @property {boolean} [lineMarkets] 若 true，挂接 spreads/totals（足球 More Markets）
  * @property {number} [pastMs] 开赛后保留窗，默认 24h（足球传 4h）
  * @property {number} [futureMs] 未开赛保留窗，默认 7 天（足球传 6h）
+ * @property {boolean} [preferUpcoming] 若 true，先拉 now→future，再补 past→now，避免早盘被历史分页挡住
+ * @property {number} [liveBudgetMs] 单项冷拉取预算；默认 SPORT_GAMMA_LIVE_BUDGET_MS 或 5s
  */
 
 function parseJsonArray(value) {
@@ -188,12 +190,18 @@ async function fetchBatchBuyPrices(assetIds, signal) {
   if (!assetIds.length)
     return {};
   const body = assetIds.map(token_id => ({ token_id, side: "SELL" }));
-  const response = await fetch(`${CLOB_BASE}/prices`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    ...(signal ? { signal } : {}),
-  });
+  let response;
+  try {
+    response = await fetch(`${CLOB_BASE}/prices`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    });
+  }
+  catch {
+    return {};
+  }
   if (!response.ok)
     return {};
   const data = await response.json();
@@ -277,7 +285,7 @@ function resolveListWindow(options) {
   const pastMs = Number(options?.pastMs);
   const futureMs = Number(options?.futureMs);
   return {
-    pastMs: Number.isFinite(pastMs) && pastMs > 0 ? pastMs : PAST_MS,
+    pastMs: Number.isFinite(pastMs) && pastMs >= 0 ? pastMs : PAST_MS,
     futureMs: Number.isFinite(futureMs) && futureMs > 0 ? futureMs : FUTURE_MS,
   };
 }
@@ -320,7 +328,8 @@ export async function fetchSportAsClientMatchDtos(options) {
 
   let live = _inflight.get(cacheKey);
   if (!live) {
-    const signal = abortAfter(LIVE_BUDGET_MS);
+    const optionBudgetMs = Number(options.liveBudgetMs);
+    const signal = abortAfter(Number.isFinite(optionBudgetMs) && optionBudgetMs > 0 ? optionBudgetMs : LIVE_BUDGET_MS);
     const args = {
       sportKeys,
       tagIds,
@@ -333,6 +342,7 @@ export async function fetchSportAsClientMatchDtos(options) {
       lineMarkets,
       pastMs,
       futureMs,
+      preferUpcoming: Boolean(options.preferUpcoming),
       signal,
     };
     live = (async () => {
@@ -368,10 +378,10 @@ export async function fetchSportAsClientMatchDtos(options) {
 }
 
 /**
- * @param {{ sportKeys: string[], tagIds?: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number }} opts
+ * @param {{ sportKeys: string[], tagIds?: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number, preferUpcoming?: boolean, signal?: AbortSignal }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, tagIds = [], gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs, signal } = opts;
+  const { sportKeys, tagIds = [], gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs, preferUpcoming, signal } = opts;
 
   let seriesIds = [];
   if (!tagIds.length) {
@@ -386,84 +396,110 @@ async function fetchSportRowsFromGamma(opts) {
   const now = Date.now();
   /** @type {object[]} */
   const collected = [];
-  let cursor = "";
+  const seenRawIds = new Set();
+  const ranges = preferUpcoming
+    ? [
+        { min: now, max: now + futureMs },
+        ...(pastMs > 0 ? [{ min: now - pastMs, max: now }] : []),
+      ]
+    : [{ min: now - pastMs, max: now + futureMs }];
 
-  for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
-    const params = new URLSearchParams({
-      closed: "false",
-      limit: String(KEYSET_PAGE_LIMIT),
-      order: "startTime",
-      ascending: "true",
-      start_time_min: new Date(now - pastMs).toISOString(),
-      start_time_max: new Date(now + futureMs).toISOString(),
-    });
-    for (const id of tagIds)
-      params.append("tag_id", id);
-    for (const id of seriesIds)
-      params.append("series_id", id);
-    if (cursor)
-      params.set("after_cursor", cursor);
+  rangeLoop:
+  for (const range of ranges) {
+    let cursor = "";
+    for (let page = 0; page < MAX_KEYSET_PAGES; page += 1) {
+      const params = new URLSearchParams({
+        closed: "false",
+        limit: String(KEYSET_PAGE_LIMIT),
+        order: "startTime",
+        ascending: "true",
+        start_time_min: new Date(range.min).toISOString(),
+        start_time_max: new Date(range.max).toISOString(),
+      });
+      for (const id of tagIds)
+        params.append("tag_id", id);
+      for (const id of seriesIds)
+        params.append("series_id", id);
+      if (cursor)
+        params.set("after_cursor", cursor);
 
-    const data = await gammaGet(`/events/keyset?${params.toString()}`, signal);
-    for (const raw of unwrapEvents(data)) {
-      const title = String(raw.title ?? "").trim();
-      if (!title)
-        continue;
-      const sibling = isFootballSiblingEventTitle(title);
-      if (!sibling && /\b(halftime|half[\s-]?time|1st half|2nd half|second half|map\s*\d|period\s*\d)\b/i.test(title))
-        continue;
+      let data;
+      try {
+        data = await gammaGet(`/events/keyset?${params.toString()}`, signal);
+      }
+      catch (err) {
+        if (signal?.aborted && collected.length) {
+          console.warn(`[${logTag}] gamma stopped after partial rows`, err?.message || err);
+          break rangeLoop;
+        }
+        throw err;
+      }
+      for (const raw of unwrapEvents(data)) {
+        const rawKey = String(raw.id ?? raw.slug ?? raw.title ?? "");
+        if (rawKey && seenRawIds.has(rawKey))
+          continue;
+        if (rawKey)
+          seenRawIds.add(rawKey);
 
-      const openMarkets = (raw.markets ?? []).filter(isOpenMarket);
-      /** @type {object[]} */
-      const typed = [];
-      for (const market of openMarkets) {
-        const t = marketTypeOf(market);
-        if (t !== MARKET_MONEYLINE && !(lineMarkets && (t === MARKET_SPREADS || t === MARKET_TOTALS)))
+        const title = String(raw.title ?? "").trim();
+        if (!title)
           continue;
-        const outcomes = parseJsonArray(market.outcomes);
-        const prices = parseJsonArray(market.outcomePrices ?? market.outcome_prices);
-        const tokenIds = parseJsonArray(market.clobTokenIds ?? market.clob_token_ids);
-        if (outcomes.length < 2)
+        const sibling = isFootballSiblingEventTitle(title);
+        if (!sibling && /\b(halftime|half[\s-]?time|1st half|2nd half|second half|map\s*\d|period\s*\d)\b/i.test(title))
           continue;
-        // moneyline 可无无 CLOB token（靠 outcomePrices）；spreads/totals 至少要有双边 outcome
-        if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && tokenIds.length < 2 && prices.length < 2)
+
+        const openMarkets = (raw.markets ?? []).filter(isOpenMarket);
+        /** @type {object[]} */
+        const typed = [];
+        for (const market of openMarkets) {
+          const t = marketTypeOf(market);
+          if (t !== MARKET_MONEYLINE && !(lineMarkets && (t === MARKET_SPREADS || t === MARKET_TOTALS)))
+            continue;
+          const outcomes = parseJsonArray(market.outcomes);
+          const prices = parseJsonArray(market.outcomePrices ?? market.outcome_prices);
+          const tokenIds = parseJsonArray(market.clobTokenIds ?? market.clob_token_ids);
+          if (outcomes.length < 2)
+            continue;
+          // moneyline 可无无 CLOB token（靠 outcomePrices）；spreads/totals 至少要有双边 outcome
+          if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && tokenIds.length < 2 && prices.length < 2)
+            continue;
+          const line = t === MARKET_MONEYLINE
+            ? null
+            : parseMarketLine(market.line ?? market.spread ?? market.groupItemTitle ?? market.question);
+          if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && line == null)
+            continue;
+          typed.push({
+            marketCode: t,
+            line,
+            outcomes,
+            prices,
+            tokenIds,
+            question: String(market.question || market.groupItemTitle || ""),
+            groupItemTitle: String(market.groupItemTitle || ""),
+          });
+        }
+        if (!typed.length)
           continue;
-        const line = t === MARKET_MONEYLINE
-          ? null
-          : parseMarketLine(market.line ?? market.spread ?? market.groupItemTitle ?? market.question);
-        if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && line == null)
+
+        const startTimeMs = startTimeMsOf(raw);
+        if (!sportStartInWindow(startTimeMs, pastMs, futureMs, now))
           continue;
-        typed.push({
-          marketCode: t,
-          line,
-          outcomes,
-          prices,
-          tokenIds,
-          question: String(market.question || market.groupItemTitle || ""),
-          groupItemTitle: String(market.groupItemTitle || ""),
+
+        collected.push({
+          id: String(raw.id ?? raw.slug ?? title),
+          title,
+          base: baseFootballEventTitle(title),
+          startTimeMs,
+          game: resolveEventGameCode(raw, gameCode, leagueGameCodes, leagueAliases),
+          markets: typed,
+          sibling,
+          league: leagueNameOf(raw),
         });
       }
-      if (!typed.length)
-        continue;
-
-      const startTimeMs = startTimeMsOf(raw);
-      if (!sportStartInWindow(startTimeMs, pastMs, futureMs, now))
-        continue;
-
-      collected.push({
-        id: String(raw.id ?? raw.slug ?? title),
-        title,
-        base: baseFootballEventTitle(title),
-        startTimeMs,
-        game: resolveEventGameCode(raw, gameCode, leagueGameCodes, leagueAliases),
-        markets: typed,
-        sibling,
-        league: leagueNameOf(raw),
-      });
+      cursor = nextCursor(data);
+      if (!cursor)
+        break;
     }
-    cursor = nextCursor(data);
-    if (!cursor)
-      break;
   }
 
   /** @type {Map<string, object>} */
