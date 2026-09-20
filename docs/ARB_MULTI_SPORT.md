@@ -33,7 +33,7 @@
 |----|------|
 | 正式入口 | `/` 纯电竞 HomeView + 顶栏「体育」链到 `/sports`；`/sports/{football,basketball,baseball,tennis}` + 独立 `Client_Get*Matchs` |
 | 隔离 | 新运动 **不写** 电竞 `client_matches` |
-| 独立站 | 已弃用（`devtools/archive/baseball-web-b1`）；不再新建 `{sport}/web` 平行站 |
+| 独立站 | 已弃用；历史归档副本已从仓库移除，不再新建 `{sport}/web` 平行站 |
 | 不做（本期） | matcher profile、跨站匹配、按运动套利管线 |
 | **Tab ≠ 套利** | Tab 只换列表板；`matchStore.startMainLoop` 与 sportTab **无关**，切到棒球/足球时电竞套利仍可跑 |
 | **检测分开** | 棒球/足球套利检测环（未来）**禁止**塞进 `mainBetLoop`；**只共用投注账号**，订单 / 采集 / 参数配置 / 侧栏统计不共用 |

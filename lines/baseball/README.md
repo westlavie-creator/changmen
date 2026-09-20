@@ -15,7 +15,7 @@
 
 **不写**电竞 `client_matches` / matcher；**不进** `matchStore` 套利主循环。
 
-独立站 `baseball/web`（端口 3458）已归档，见 `devtools/archive/baseball-web-b1/`。
+独立站 `baseball/web`（端口 3458）已下线；历史归档副本已从仓库移除。
 
 ## 后续
 

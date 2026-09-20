@@ -97,7 +97,7 @@ Canonical 方案见 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md)。**正式入口 
 - Store：`baseballStore`（不进 `matchStore`）
 - manifest：`lines/baseball/line.json` → `web: client/web`，`api: server/backend`
 - **不** 写电竞 `client_matches` / matcher
-- 历史独立站：`devtools/archive/baseball-web-b1/`（已下线）
+- 历史独立站已下线；归档副本已从仓库移除。
 
 ### 阶段 B2 — 采集 + 第二平台
 
