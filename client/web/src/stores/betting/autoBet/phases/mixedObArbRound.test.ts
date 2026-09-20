@@ -201,7 +201,7 @@ describe("混合对 OB + PM 一轮下单（真实 OB 适配器）", () => {
     expect(pmPosts).toBe(1);
   });
 
-  it("PM 临下单复检失败时 OB 不提交真实注单", async () => {
+  it("A8 模式：首次预检齐后直接 POST，不做 PM 临下单复检", async () => {
     const obLeg = leg("OB", 100, 1.9, "Home");
     const pmLeg = leg("Polymarket", 22, 3.1, "Away");
     const ob = obAccount();
@@ -209,21 +209,14 @@ describe("混合对 OB + PM 一轮下单（真实 OB 适配器）", () => {
     const checked = await checkArbLegs(params, ready(obLeg, pmLeg, ob, pm));
     expect(checked).not.toBeNull();
 
-    const spy = vi.spyOn(accountStoreStub, "checkBetting").mockImplementation(
-      async (account: PlatformAccount, option: BetOption) => {
-        if (account.provider === "OB")
-          return obProvider.checkBet!(account, option);
-        option.data = null;
-        option.checkError = "盘口价高于检测价";
-        return option;
-      },
-    );
+    const spy = vi.spyOn(accountStoreStub, "checkBetting");
     const placed = await placeArbLegs(params, checked!);
     spy.mockRestore();
 
-    expect(realBets()).toHaveLength(0);
-    expect(placed.placeOutcomeA).toBe("not_attempted");
-    expect(placed.placeOutcomeB).toBe("not_attempted");
+    expect(spy).not.toHaveBeenCalled();
+    expect(realBets()).toHaveLength(1);
+    expect(placed.placeOutcomeA).toBe("filled_pending_settle");
+    expect(placed.placeOutcomeB).toBe("filled_pending_settle");
   });
 
   it("PM 腿预检未过时 OB 连探测单都不该白打第二次", async () => {

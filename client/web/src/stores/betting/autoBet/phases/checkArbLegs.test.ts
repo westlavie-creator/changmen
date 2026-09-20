@@ -99,11 +99,11 @@ describe("checkArbLegs", () => {
     expect(out!.implied).toBe(1.05);
     expect(out!.scanOddsA).toBe(1.36);
     expect(out!.scanOddsB).toBe(3.125);
-    expect(out!.legA.data).toBeNull();
+    expect(out!.legA.data).toEqual({ ok: true });
     expect(out!.legB.data).toEqual({ ok: true });
   });
 
-  it("混合对 OB 腿：探测型 checkBet 的冻价保留，不作废等重锁", async () => {
+  it("混合对 OB 腿：探测型 checkBet 的冻价保留，按 A8 模式直接用于下单", async () => {
     const legA = leg("OB", 100, 1.9);
     const legB = leg("Polymarket", 22, 3.125);
 
@@ -134,7 +134,7 @@ describe("checkArbLegs", () => {
 
     expect(out).not.toBeNull();
     expect(pmResolved).toBe(true);
-    expect(out!.legA.data).toBeNull();
+    expect(out!.legA.data).toEqual({ ok: true });
     expect(out!.legB.data).toEqual({ ok: true });
   });
 
