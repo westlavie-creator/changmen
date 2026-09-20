@@ -51,6 +51,7 @@ import {
   isPbWsShadowUiAllowed,
 } from "@changmen/venue-adapter/pb";
 import { ElMessage } from "element-plus";
+import { startPmMaintenanceFeed, usePmMaintenance } from "@/services/pmMaintenanceRealtime";
 
 const props = withDefaults(defineProps<{
   /** esport：显示 PM-M；sports：显示 PM-S / OB-S（体育独立推送） */
@@ -61,6 +62,7 @@ const props = withDefaults(defineProps<{
 
 const SPORTS_VENUE_WS_IDS = new Set(["pm-sport-market", "ob-sport", "cm-hub"]);
 const { statuses } = useDirectRealtimeStatus();
+const pmOfficial = usePmMaintenance();
 
 const venueWsStatuses = ref<VenueWsStatusEntry[]>(listVenueWsStatuses());
 const obSourceMode = ref<ObMqttSourceMode>(getObMqttSourceMode());
@@ -116,11 +118,65 @@ const venueWsSecondRow = computed(() =>
     return true;
   }),
 );
+const PM_STATUS_PAGE_URL = "https://status.polymarket.com";
+
+const pmOfficialState = computed(() => pmOfficial.state.value);
+const pmOfficialDetail = computed(() => pmOfficial.detail.value);
+const pmOfficialDotClass = computed(() => {
+  switch (pmOfficialState.value) {
+    case "operational": return "ok-official";
+    case "maintenance": return "pm-maint";
+    case "incident": return "page";
+    default: return "idle";
+  }
+});
+const pmOfficialText = computed(() => {
+  switch (pmOfficialState.value) {
+    case "operational": return "PM 官网";
+    case "maintenance": return "PM 维护中";
+    case "incident": return "PM 官网异常";
+    default: return "PM 官网 · 未知";
+  }
+});
+
+function pmOfficialTooltip(): string {
+  const lines = ["Polymarket 官网状态（status.polymarket.com 官方状态页）"];
+  switch (pmOfficialState.value) {
+    case "operational":
+      lines.push("正常运行");
+      break;
+    case "maintenance":
+      lines.push("⚠ 维护中：赔率可能停止更新，注意套利误判");
+      break;
+    case "incident":
+      lines.push("⚠ 异常/事故：部分组件不可用");
+      break;
+    default:
+      lines.push("未知：尚未收到服务端检测数据");
+  }
+  const detail = pmOfficialDetail.value;
+  if (detail?.pageStatus)
+    lines.push(`页面状态：${detail.pageStatus}`);
+  if (detail?.affected?.length)
+    lines.push(...detail.affected.map(a => `· ${a}`));
+  if (detail?.error)
+    lines.push(`检测错误：${detail.error}`);
+  if (detail?.checkedAt)
+    lines.push(`检测于：${formatAgo(detail.checkedAt)}`);
+  lines.push("点击打开官方状态页");
+  return lines.join("\n");
+}
+
+function openPmStatusPage(): void {
+  window.open(PM_STATUS_PAGE_URL, "_blank", "noopener,noreferrer");
+}
+
 const venueWsSports = computed(() =>
   venueWsStatuses.value.filter(entry => SPORTS_VENUE_WS_IDS.has(entry.id)),
 );
 
 onMounted(() => {
+  void startPmMaintenanceFeed();
   venueWsUnsub = subscribeVenueWsStatus(() => {
     venueWsStatuses.value = listVenueWsStatuses();
   });
@@ -411,9 +467,23 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
   <div
     class="direct-realtime-bar"
     :aria-label="workspace === 'sports'
-      ? '体育推送状态 PM-S OB-S HUB'
-      : '直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM'"
+      ? 'PM 官网维护检测；体育推送状态 PM-S OB-S HUB'
+      : 'PM 官网维护检测；直连推送状态 PB IA OB RAY HUB；第二行 PM PF DEX LM'"
   >
+    <div class="direct-realtime-row direct-realtime-row--pm-official">
+      <span
+        class="direct-realtime-item direct-realtime-item--clickable"
+        :title="pmOfficialTooltip()"
+        role="button"
+        tabindex="0"
+        @click="openPmStatusPage"
+        @keydown.enter.prevent="openPmStatusPage"
+        @keydown.space.prevent="openPmStatusPage"
+      >
+        <span class="direct-realtime-dot" :class="pmOfficialDotClass" />
+        {{ pmOfficialText }}
+      </span>
+    </div>
     <div v-if="workspace === 'sports'" class="direct-realtime-row">
       <span
         v-for="entry in venueWsSports"
@@ -506,6 +576,17 @@ function handleStatusClick(status: DirectRealtimeStatus): void {
   justify-content: flex-end;
   gap: 12px;
   width: 100%;
+}
+
+.direct-realtime-row--pm-official {
+  padding-bottom: 2px;
+  border-bottom: 1px solid #ffffff14;
+}
+
+.direct-realtime-dot.pm-maint {
+  background-color: #f56c6c;
+  box-shadow: 0 0 8px #f56c6ccc;
+  animation: ws-pulse 1.5s infinite;
 }
 
 .direct-realtime-row--venue-ws {

@@ -1,8 +1,12 @@
+import type { Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 import { reportVenueWsStatus } from "../venueWsStatus";
-import { io, type Socket } from "socket.io-client";
 
 /** 与 server/realtime-hub/channels.js PM_SPORT_CHANNEL 一致 */
 export const PM_SPORT_CHANNEL = "Polymarket:PmSport";
+
+/** 与 server/realtime-hub/channels.js PM_MAINTENANCE_CHANNEL 一致 */
+export const PM_MAINTENANCE_CHANNEL = "Polymarket:Maintenance";
 
 type ChannelHandler = (message: unknown) => void;
 

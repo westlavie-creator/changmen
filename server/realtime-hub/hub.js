@@ -1,13 +1,17 @@
 import { Server } from "socket.io";
 import { REALTIME_SOCKET_PATH } from "./channels.js";
-import { attachPubSubHandlers, emitPubSubMessage } from "./pubsub.js";
+import { startPmMaintenanceWatcher } from "./pm_maintenance.js";
 import { broadcastPmSportUpdate } from "./pm_sport_broadcast.js";
+import { attachPubSubHandlers, emitPubSubMessage } from "./pubsub.js";
 
 /** @type {import("socket.io").Server | null} */
 let io = null;
 
 /** @type {((channel: string, message: unknown) => void) | null} */
 let emitChannel = null;
+
+/** @type {(() => void) | null} */
+let stopPmMaintenanceWatcher = null;
 
 function requireToken(socket) {
   const token
@@ -36,6 +40,10 @@ export function attachChangmenRealtimeHub(httpServer) {
       return;
     emitPubSubMessage(io, channel, message);
   };
+
+  stopPmMaintenanceWatcher = startPmMaintenanceWatcher({
+    emit: (channel, message) => emitChannel?.(channel, message),
+  });
 
   io.on("connection", (socket) => {
     if (!requireToken(socket)) {
@@ -70,6 +78,8 @@ export async function pushPmSportToBrowsers(clientMatchId, pmSport) {
 }
 
 export function closeChangmenRealtimeHub() {
+  stopPmMaintenanceWatcher?.();
+  stopPmMaintenanceWatcher = null;
   io?.close();
   io = null;
   emitChannel = null;
