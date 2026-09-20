@@ -5,6 +5,7 @@
  */
 import { computed, ref } from "vue";
 import { confirmPlaceObSportBoardBet } from "@/runtime/obSportBoardPlace";
+import { confirmPlacePmSportBoardBet } from "@/runtime/pmSportBoardPlace";
 import { resolveFootballCellOdds } from "@/runtime/footballMarketRows";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 
@@ -16,6 +17,8 @@ const props = withDefaults(defineProps<{
   label?: string;
   side?: string;
   mid?: string;
+  venueMid?: string;
+  betId?: string;
   marketCode?: string;
   line?: number | null;
   home?: string;
@@ -48,9 +51,8 @@ const locked = computed(() => !(display.value.odds > 0));
 
 const canPlace = computed(() => {
   const venue = String(props.venue || "OB").trim().toUpperCase() || "OB";
-  return venue === "OB"
+  return (venue === "OB" || venue === "POLYMARKET")
     && !!String(props.oddId || "").trim()
-    && !!String(props.mid || "").trim()
     && !locked.value;
 });
 
@@ -61,16 +63,24 @@ async function onDblClick(ev: MouseEvent) {
     return;
   busy.value = true;
   try {
-    await confirmPlaceObSportBoardBet({
+    const venue = String(props.venue || "OB").trim();
+    const venueKey = venue.toUpperCase();
+    const input = {
       oid: String(props.oddId || "").trim(),
       mid: String(props.mid || "").trim(),
+      venueMid: String(props.venueMid || "").trim(),
+      betId: String(props.betId || "").trim(),
       odds: Number(display.value.odds) || 0,
       boardSide: String(props.side || "").trim(),
       marketCode: String(props.marketCode || "").trim(),
       line: props.line,
       home: String(props.home || "").trim(),
       away: String(props.away || "").trim(),
-    });
+    };
+    if (venueKey === "POLYMARKET")
+      await confirmPlacePmSportBoardBet(input);
+    else
+      await confirmPlaceObSportBoardBet(input);
   }
   finally {
     busy.value = false;

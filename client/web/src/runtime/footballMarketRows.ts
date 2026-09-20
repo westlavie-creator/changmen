@@ -72,6 +72,8 @@ function selectionFromItem(
     Side: side,
     Odds: itemOdds(item, oddsSide, live),
     Source: itemSource(item, oddsSide, live),
+    BetID: item.betId,
+    MatchID: item.matchId,
   };
   if (oid)
     row.OddID = oid;

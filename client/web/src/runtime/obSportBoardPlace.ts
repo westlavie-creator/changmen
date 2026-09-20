@@ -1,12 +1,11 @@
 /**
- * 足球板双击赔率 → 用 POD 跟单金额/账号走 yewu13 单关。
+ * 足球板双击赔率 → 手动输入金额，用 POD 跟单账号走 yewu13 单关。
  * 不进电竞 mainBetLoop / fo。
  */
 import { ElMessage, ElMessageBox } from "element-plus";
 import { pickObSportBetAccounts } from "@/runtime/obSportBetAccount";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
-import { formatPodStake } from "@/runtime/podBetTicket";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
@@ -23,7 +22,7 @@ export type ObSportBoardPlaceInput = {
 
 let placing = false;
 
-function sideLabel(side: string | undefined): string {
+export function sportBoardSideLabel(side: string | undefined): string {
   const s = String(side || "").trim().toLowerCase();
   if (s === "over")
     return "大";
@@ -38,7 +37,7 @@ function sideLabel(side: string | undefined): string {
   return String(side || "").trim();
 }
 
-function marketLabel(marketCode: string | undefined, line: number | null | undefined): string {
+export function sportBoardMarketLabel(marketCode: string | undefined, line: number | null | undefined): string {
   const raw = String(marketCode || "").trim().toLowerCase();
   const ht = raw.startsWith("ht_") || raw.endsWith("_ht");
   const code = raw.replace(/^ht_/, "").replace(/_ht$/, "");
@@ -54,12 +53,42 @@ function marketLabel(marketCode: string | undefined, line: number | null | undef
 }
 
 export function formatObSportBoardPlaceTitle(input: ObSportBoardPlaceInput): string {
-  const side = sideLabel(input.boardSide);
-  const market = marketLabel(input.marketCode, input.line);
+  const side = sportBoardSideLabel(input.boardSide);
+  const market = sportBoardMarketLabel(input.marketCode, input.line);
   const odds = Number(input.odds) > 0 ? Number(input.odds) : 0;
   const teams = [input.home, input.away].filter(Boolean).join(" vs ");
   const head = [teams, market, side].filter(Boolean).join(" · ");
   return odds > 0 ? `${head} @ ${odds}` : head;
+}
+
+export async function promptSportBoardStake(input: {
+  title: string;
+  defaultStake?: number;
+  accountCount?: number;
+  venue?: string;
+}): Promise<number | null> {
+  const defaultStake = Number(input.defaultStake) > 0 ? Number(input.defaultStake) : 0;
+  const accountHint = Number(input.accountCount) > 1 ? `\n${input.accountCount} 个号各一注` : "";
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `${input.title}${accountHint}\n请输入本次下注金额（RMB）`,
+      input.venue ? `${input.venue} 手动下单` : "手动下单",
+      {
+        type: "warning",
+        confirmButtonText: "下单",
+        cancelButtonText: "取消",
+        inputValue: defaultStake > 0 ? String(Math.round(defaultStake)) : "",
+        inputType: "number",
+        inputValidator: val => (Number(val) > 0 ? true : "请输入有效金额"),
+        customClass: "manual-bet-prompt-box",
+      },
+    );
+    const stake = Number(value);
+    return stake > 0 ? stake : null;
+  }
+  catch {
+    return null;
+  }
 }
 
 export async function placeObSportBoardBet(
@@ -76,10 +105,6 @@ export async function placeObSportBoardBet(
     return { ok: false, message: "锁盘或无赔率" };
 
   const settings = readPodBetSettings();
-  const stake = Number(settings.stake) || 0;
-  if (!(stake > 0))
-    return { ok: false, message: "先在 POD 跟单里设下注金额" };
-
   const accounts = pickObSportBetAccounts(useAccountStore().accounts, settings.followAccountIds);
   if (!accounts.length)
     return { ok: false, message: "请选择跟单账号（需体育 token）" };
@@ -88,28 +113,21 @@ export async function placeObSportBoardBet(
     return { ok: false, message: "下单中" };
 
   const title = formatObSportBoardPlaceTitle(input);
-  const accountHint = accounts.length > 1 ? `，${accounts.length} 个号各一注` : "";
-  try {
-    await ElMessageBox.confirm(
-      `${title}\n金额 ${formatPodStake(stake)}${accountHint}`,
-      "手动下单",
-      {
-        type: "warning",
-        confirmButtonText: "下单",
-        cancelButtonText: "取消",
-      },
-    );
-  }
-  catch {
+  const stake = await promptSportBoardStake({
+    title,
+    defaultStake: Number(settings.obStake) > 0 ? settings.obStake : settings.stake,
+    accountCount: accounts.length,
+    venue: "OB",
+  });
+  if (!(stake && stake > 0))
     return { ok: false, message: "已取消" };
-  }
 
   placing = true;
   const orders = useFootballOrderStore();
   const okNotes: string[] = [];
   const failNotes: string[] = [];
-  const side = sideLabel(input.boardSide);
-  const market = marketLabel(input.marketCode, input.line);
+  const side = sportBoardSideLabel(input.boardSide);
+  const market = sportBoardMarketLabel(input.marketCode, input.line);
   const at = Date.now();
   try {
     for (const account of accounts) {

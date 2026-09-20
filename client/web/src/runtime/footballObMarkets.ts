@@ -8,6 +8,8 @@ export type FootballSelection = {
   Odds?: number;
   Side?: string;
   OddID?: string;
+  BetID?: string;
+  MatchID?: string;
   Source?: FootballOddsSource;
 };
 

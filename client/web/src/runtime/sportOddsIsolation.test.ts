@@ -487,6 +487,9 @@ describe("sport / esport UI isolation", () => {
     expect(cell).toMatch(/data-odd-id/);
     expect(cell).toMatch(/dblclick/);
     expect(cell).toMatch(/confirmPlaceObSportBoardBet|obSportBoardPlace/);
+    expect(cell).toMatch(/confirmPlacePmSportBoardBet|pmSportBoardPlace/);
+    expect(section).toMatch(/:bet-id=/);
+    expect(section).toMatch(/:venue-mid=/);
     expect(cell).not.toMatch(/podBoardFocus|requestPodBoardFocus/);
     expect(cell).not.toMatch(/useOddsStore/);
     expect(cell).not.toMatch(/from\s+["']@\/stores\/oddsStore["']/);

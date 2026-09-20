@@ -136,6 +136,18 @@ function isOpenMarket(market) {
   return true;
 }
 
+function conditionIdOf(market) {
+  return String(
+    market.conditionId
+    ?? market.condition_id
+    ?? market.conditionID
+    ?? market.clobConditionId
+    ?? market.clob_condition_id
+    ?? market.id
+    ?? "",
+  ).trim();
+}
+
 function unwrapEvents(data) {
   if (Array.isArray(data))
     return data;
@@ -469,6 +481,7 @@ async function fetchSportRowsFromGamma(opts) {
           if ((t === MARKET_SPREADS || t === MARKET_TOTALS) && line == null)
             continue;
           typed.push({
+            conditionId: conditionIdOf(market),
             marketCode: t,
             line,
             outcomes,
@@ -584,6 +597,7 @@ async function fetchSportRowsFromGamma(opts) {
         homeToken: oriented.homeToken,
         awayToken: oriented.awayToken,
         sourceMatchId: ev.mainId,
+        sourceBetId: moneyline.conditionId,
       }));
     }
 
@@ -599,7 +613,7 @@ async function fetchSportRowsFromGamma(opts) {
         const oriented = orientBinaryOutcomes(m, home, away, livePrices, "team");
         spreadsByLine.set(homeRel, { m, oriented, homeRel });
       }
-      for (const { oriented, homeRel } of spreadsByLine.values()) {
+      for (const { m, oriented, homeRel } of spreadsByLine.values()) {
         betSeq += 1;
         bets.push(buildSportBetRow({
           matchId,
@@ -613,6 +627,7 @@ async function fetchSportRowsFromGamma(opts) {
           homeToken: oriented.homeToken,
           awayToken: oriented.awayToken,
           sourceMatchId: ev.mainId,
+          sourceBetId: m.conditionId,
         }));
       }
 
@@ -625,9 +640,9 @@ async function fetchSportRowsFromGamma(opts) {
         if (!Number.isFinite(line) || totalsByLine.has(line))
           continue;
         const oriented = orientBinaryOutcomes(m, "Over", "Under", livePrices, "ou");
-        totalsByLine.set(line, { oriented, line });
+        totalsByLine.set(line, { m, oriented, line });
       }
-      for (const { oriented, line } of totalsByLine.values()) {
+      for (const { m, oriented, line } of totalsByLine.values()) {
         betSeq += 1;
         bets.push(buildSportBetRow({
           matchId,
@@ -641,6 +656,7 @@ async function fetchSportRowsFromGamma(opts) {
           homeToken: oriented.homeToken,
           awayToken: oriented.awayToken,
           sourceMatchId: ev.mainId,
+          sourceBetId: m.conditionId,
         }));
       }
     }
@@ -756,7 +772,7 @@ function buildSportBetRow(p) {
     Sources: {
       Polymarket: {
         Type: "Polymarket",
-        BetID: p.homeToken || String(p.sourceMatchId),
+        BetID: p.sourceBetId || String(p.sourceMatchId),
         HomeID: p.homeToken || `${p.sourceMatchId}-home`,
         AwayID: p.awayToken || `${p.sourceMatchId}-away`,
         HomeOdds: p.homeOdds,

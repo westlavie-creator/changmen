@@ -139,7 +139,11 @@ describe("viewBetsToMarketRows", () => {
     const rows = viewBetsToMarketRows(match);
     const ml = rows.find(r => r.MarketCode === "moneyline");
     expect(ml?.Venues?.map(v => v.venue)).toEqual(["Polymarket", "OB"]);
-    expect(ml?.Venues?.[0]?.Selections?.find(s => s.Side === "home")?.Odds).toBe(1.8);
+    const pmHome = ml?.Venues?.[0]?.Selections?.find(s => s.Side === "home");
+    expect(pmHome?.Odds).toBe(1.8);
+    expect(pmHome?.OddID).toBe("ph");
+    expect(pmHome?.BetID).toBe("p");
+    expect(pmHome?.MatchID).toBe(String(raw.Matchs?.Polymarket || ""));
     expect(ml?.Venues?.[1]?.Selections?.find(s => s.Side === "home")?.Odds).toBe(2.1);
   });
 
