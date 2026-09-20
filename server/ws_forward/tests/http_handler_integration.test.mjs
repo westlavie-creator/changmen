@@ -62,7 +62,7 @@ function onceMessage(ws) {
   });
 }
 
-/** @type {{ server: import("node:http").Server; forwardPort: number; obUpstream: WebSocketServer; obUpstreamPort: number }} */
+/** @type {{ server: import("node:http").Server; forwardPort: number; obUpstream: WebSocketServer; obUpstreamPort: number; rayUpstream: WebSocketServer; prevRayUpstream: string | undefined }} */
 const ctx = await (async () => {
   const obUpstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
   const obUpstreamPort = await listenWs(obUpstream);
@@ -72,6 +72,23 @@ const ctx = await (async () => {
     });
   });
 
+  const rayUpstream = new WebSocketServer({ host: "127.0.0.1", port: 0 });
+  const rayUpstreamPort = await listenWs(rayUpstream);
+  rayUpstream.on("connection", (ws) => {
+    ws.on("message", (data) => {
+      const packet = JSON.parse(String(data));
+      if (packet?.event === "#handshake" && typeof packet.cid === "number") {
+        ws.send(JSON.stringify({
+          rid: packet.cid,
+          data: { id: "test-ray", pingTimeout: 20_000, isAuthenticated: false },
+        }));
+      }
+    });
+  });
+
+  const prevRayUpstream = process.env.RAY_WS_FORWARD_UPSTREAM;
+  process.env.RAY_WS_FORWARD_UPSTREAM = `ws://127.0.0.1:${rayUpstreamPort}`;
+
   const serveStatic = (_req, res) => {
     res.writeHead(404);
     res.end("static");
@@ -79,12 +96,18 @@ const ctx = await (async () => {
   const server = http.createServer(createHttpHandler({ port: 0, serveStatic }));
   attachWsForward(server, { platforms: ["IA", "OB", "RAY"] });
   const forwardPort = await listenHttp(server);
-  return { server, forwardPort, obUpstream, obUpstreamPort };
+  return { server, forwardPort, obUpstream, obUpstreamPort, rayUpstream, prevRayUpstream };
 })();
 
 afterAll(async () => {
   await new Promise((resolve) => ctx.obUpstream.close(() => resolve()));
+  await new Promise((resolve) => ctx.rayUpstream.close(() => resolve()));
   await new Promise((resolve) => ctx.server.close(() => resolve()));
+  if (ctx.prevRayUpstream === undefined) {
+    delete process.env.RAY_WS_FORWARD_UPSTREAM;
+  } else {
+    process.env.RAY_WS_FORWARD_UPSTREAM = ctx.prevRayUpstream;
+  }
   closeWsForward();
 });
 

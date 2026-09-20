@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NODE = process.execPath;
-const VITEST = path.join(ROOT, "node_modules", ".bin", "vitest");
+const VITEST = path.join(ROOT, "node_modules", "vitest", "vitest.mjs");
 
 /** node --experimental-strip-types <ts> */
 function ts(label, file) {
@@ -23,8 +23,12 @@ function ts(label, file) {
 function mjs(label, file) {
   return { label, cmd: NODE, args: [file] };
 }
+/** vitest <args...> */
+function vitest(label, args) {
+  return { label, cmd: NODE, args: [VITEST, ...args], shown: ["vitest", ...args] };
+}
 
-/** @type {{ label: string, cmd: string, args: string[] }[]} */
+/** @type {{ label: string, cmd: string, args: string[], shown?: string[] }[]} */
 const STEPS = [
   ts("shared/catalog: market", "packages/shared/catalog/market_catalog_smoke.test.ts"),
   ts("shared/catalog: game", "packages/shared/catalog/game_catalog_smoke.test.ts"),
@@ -46,11 +50,11 @@ const STEPS = [
   mjs("db: football_orders", "server/db/football_orders.smoke.test.mjs"),
   mjs("football: order dto", "server/backend/core/football/football_order.test.mjs"),
   mjs("football: month report", "server/backend/core/football/football_month_report.test.mjs"),
-  {
-    label: "db: order_link_filter + order_changmen_bet (vitest)",
-    cmd: VITEST,
-    args: ["run", "server/db/order_link_filter.test.mjs", "server/db/order_changmen_bet.test.mjs"],
-  },
+  vitest("db: order_link_filter + order_changmen_bet (vitest)", [
+    "run",
+    "server/db/order_link_filter.test.mjs",
+    "server/db/order_changmen_bet.test.mjs",
+  ]),
 ];
 
 for (let i = 0; i < STEPS.length; i++) {
@@ -60,9 +64,9 @@ for (let i = 0; i < STEPS.length; i++) {
   const res = spawnSync(step.cmd, step.args, { cwd: ROOT, stdio: "inherit" });
   const code = res.status ?? (res.error ? 1 : 0);
   if (code !== 0) {
-    const shown = step.cmd === VITEST ? "vitest" : "node";
+    const shown = step.shown ?? ["node", ...step.args];
     console.error(`\n[FAIL] catalog-smoke 失败于 [${n}] ${step.label} (exit ${code})`);
-    console.error(`       重跑单步: ${shown} ${step.args.join(" ")}`);
+    console.error(`       重跑单步: ${shown.join(" ")}`);
     process.exit(code);
   }
 }

@@ -10,12 +10,14 @@ export const rayForwardDefinition = {
   transport: "raw-ws",
   browserPath: "/esport/ws-forward/RAY",
   resolveUpstream(request) {
+    const upstreamUrl = String(process.env.RAY_WS_FORWARD_UPSTREAM || "").trim()
+      || RAY_OFFICIAL_WS_URL;
     const auth =
       request.headers.authorization ||
       request.headers.Authorization ||
       RAY_DEFAULT_AUTH;
     return {
-      url: RAY_OFFICIAL_WS_URL,
+      url: upstreamUrl,
       headers: {
         Origin: RAY_OFFICIAL_ORIGIN,
         Referer: `${RAY_OFFICIAL_ORIGIN}/`,

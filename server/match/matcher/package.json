@@ -24,7 +24,7 @@
     "compose": "node compose/loop.js",
     "compose:once": "node scripts/once.mjs",
     "compose:diff": "node scripts/diff.mjs",
-    "test": "npm run test --prefix ../identity && node scripts/check-no-merge-import.mjs && vitest run",
+    "test": "npm run test --prefix ../identity && node scripts/check-no-merge-import.mjs && vitest run --no-file-parallelism",
     "check:no-merge-import": "node scripts/check-no-merge-import.mjs"
   },
   "dependencies": {

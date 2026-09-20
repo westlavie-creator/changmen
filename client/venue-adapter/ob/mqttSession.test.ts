@@ -4,6 +4,7 @@ import {
   OB_A8_MQTT_USERNAME,
 } from "./mqttConfig";
 import { fetchObDemoMqttConfig, getObChangmenMqttConfig } from "./mqttSession";
+import { changmenHttpBaseToWs, changmenDevBackendOrigin } from "../shared/changmenWsBase";
 
 vi.mock("@changmen/client-core/shared/http", () => ({
   directGet: vi.fn(),
@@ -13,13 +14,14 @@ import { directGet } from "@changmen/client-core/shared/http";
 
 describe("getObChangmenMqttConfig", () => {
   test("builds ws-forward url with encoded upstream mqtt wss", () => {
+    const base = changmenHttpBaseToWs(changmenDevBackendOrigin());
     expect(
       getObChangmenMqttConfig("wss://pro-dj-aws-mqtt.example:8084/mqtt", {
         clientId: "mqttjs_dj53795844534217162",
         memberId: "53795844534217162",
       }),
     ).toEqual({
-      url: "ws://127.0.0.1:3560/esport/ws-forward/OB?u=wss%3A%2F%2Fpro-dj-aws-mqtt.example%3A8084%2Fmqtt",
+      url: `${base}/esport/ws-forward/OB?u=wss%3A%2F%2Fpro-dj-aws-mqtt.example%3A8084%2Fmqtt`,
       username: OB_A8_MQTT_USERNAME,
       password: OB_A8_MQTT_PASSWORD,
       clientId: "mqttjs_dj53795844534217162",

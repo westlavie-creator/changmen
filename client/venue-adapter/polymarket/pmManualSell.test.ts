@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Currency, getExchange } from "@changmen/shared/currency";
 import { calculateSellMarketLimitPrice, buildSellAndBuyPatchOrders } from "./pmManualSell";
 import { stripPolymarketSellOrders } from "./pmLogicalPosition";
 
@@ -114,7 +115,7 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
   });
 
   it("ignores 0.99 price-win paper money so sell PnL is not doubled", () => {
-    // 58.5833×0.6 cost ≈35.15；卖出 58.58×0.999 ≈58.52；PnL≈23.38 USDC → ~159 CNY
+    // 58.5833×0.6 cost ≈35.15；卖出 58.58×0.999 ≈58.52；PnL≈23.38 USDC → CNY
     const [buy] = buildSellAndBuyPatchOrders({
       buy: {
         provider: "Polymarket",
@@ -145,8 +146,9 @@ describe("buildSellAndBuyPatchOrders dust close", () => {
     expect(buy.pmSellState).toBe("closed");
     expect(buy.status).toBe("none");
     // 应为单份卖出盈亏，而非 159+159=318
-    expect(buy.money).toBe(159);
-    expect(buy.money).not.toBe(318);
+    const expectedSellPnl = Math.round((58.5214 - 35.15) * getExchange(Currency.USDT));
+    expect(buy.money).toBe(expectedSellPnl);
+    expect(buy.money).not.toBe(expectedSellPnl * 2);
   });
 });
 

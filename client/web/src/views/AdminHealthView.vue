@@ -7,14 +7,12 @@ import { getApiBase } from "@/config/apiBase";
 import { useUserStore } from "@/stores/userStore";
 import {
   getPmExecutionMetricsSummary,
+  getPmMarketClientMetricsSnapshot,
   type PmExecutionMetricsSummary,
   type PmExecutionMetricKind,
   type PmExecutionKindSummary,
-} from "@changmen/venue-adapter/polymarket/pmExecutionMetrics";
-import {
-  getPmMarketClientMetricsSnapshot,
   type PmMarketClientMetricsSnapshot,
-} from "@changmen/venue-adapter/polymarket/pmMarketClientMetrics";
+} from "@changmen/venue-adapter/polymarket";
 
 const router = useRouter();
 const user = useUserStore();
