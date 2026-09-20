@@ -41,9 +41,13 @@ describe("podBetSettings", () => {
     expect(row.stake).toBe(0);
     expect(row.obStake).toBe(0);
     expect(row.pmStake).toBe(0);
+    expect(row.obDailyOrderLimit).toBe(0);
+    expect(row.pmDailyOrderLimit).toBe(0);
     expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).stake).toBe(100);
     expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).obStake).toBe(50);
     expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).pmStake).toBe(200);
+    expect(parsePodBetSettings({ obDailyOrderLimit: 3, pmDailyOrderLimit: 4 }).obDailyOrderLimit).toBe(3);
+    expect(parsePodBetSettings({ obDailyOrderLimit: 3, pmDailyOrderLimit: 4 }).pmDailyOrderLimit).toBe(4);
     expect(row.autoPlace).toBe(false);
     expect(row.followAccountId).toBe(0);
     expect(row.followAccountIds).toEqual([]);

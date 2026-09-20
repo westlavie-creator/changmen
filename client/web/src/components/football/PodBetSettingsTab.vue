@@ -74,6 +74,8 @@ function applyExternal() {
     if (curVenues.length !== venues.length || curVenues.some((id, i) => id !== venues[i]))
       form.followVenues = venues.slice();
     form.maxDailyLoss = next.maxDailyLoss;
+    form.obDailyOrderLimit = next.obDailyOrderLimit;
+    form.pmDailyOrderLimit = next.pmDailyOrderLimit;
     form.followAccountId = next.followAccountId;
     const cur = form.followAccountIds;
     const ids = next.followAccountIds;
@@ -111,236 +113,395 @@ onUnmounted(() => {
 
 <template>
   <div class="pod-bet-settings">
-    <p class="pod-bet-settings__hint">
-      跟单门槛只存在本机，不写账号配置。过线且对上足球板的场和盘，才会出现在「POD 跟单」浮窗并一直留下，降赔列表本身不筛。
-      对 OB 时仍要同一场、默认同档。EV / 副盘 / 同场闸门在下面「AutoYabo 决策」。
-      每条会标<strong>已下 / 未下</strong>；下单用下面选的跟单账号（可多选，每个号各下一注）。
-      自动只打<strong>已确认</strong>的场，猜测场可手点。板上没有这场才热搜一次。
-      自动是<strong>条件一齐就立刻下</strong>（对场确认 + 实时价 + EV），不是等满某个秒数再下。
-      「冷票保护」只在降赔过久仍未就绪时放弃自动；列表仍留。AutoYabo 无此旋钮（它只盯最新一行）。改完即时写入本机。
-    </p>
     <el-form label-position="left" label-width="132px" class="pod-bet-settings__form" size="small">
-      <el-form-item label="启用筛选">
-        <el-switch v-model="form.enabled" inline-prompt active-text="开" inactive-text="关" />
-      </el-form-item>
-      <el-form-item label="自动下注">
-        <el-switch v-model="form.autoPlace" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-        <span class="pod-bet-settings__note">默认关；按已勾选场馆自动下过线且<strong>已确认</strong>的场，OB 优先</span>
-      </el-form-item>
-      <el-form-item label="跟单场馆">
-        <el-checkbox-group v-model="form.followVenues">
-          <el-checkbox label="OB">
-            OB
-          </el-checkbox>
-          <el-checkbox label="Polymarket">
-            PM
-          </el-checkbox>
-        </el-checkbox-group>
-      </el-form-item>
-      <el-form-item label="OB跟单账号">
-        <PodFollowAccountPicker
-          v-model="form.followAccountIds"
-          :accounts="followAccounts"
-          variant="settings"
-          :disabled="!form.followVenues.includes('OB')"
-        />
-      </el-form-item>
-      <el-form-item label="PM跟单账号">
-        <PodFollowAccountPicker
-          v-model="form.pmFollowAccountIds"
-          :accounts="pmFollowAccounts"
-          variant="settings"
-          venue="Polymarket"
-        />
-        <span class="pod-bet-settings__note">PM 必须显式选账号；上方 PM 开关控制下PM和PM自动</span>
-      </el-form-item>
-      <el-form-item label="当日亏损帽">
-        <el-input-number
-          v-model="form.maxDailyLoss"
-          :min="0"
-          :max="1000000"
-          :step="50"
-          :precision="0"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">元</span>
-        <span class="pod-bet-settings__note">0 = 不限；只挡自动</span>
-      </el-form-item>
-      <el-form-item label="默认金额">
-        <el-input-number
-          v-model="form.stake"
-          :min="0"
-          :max="1000000"
-          :step="10"
-          :precision="0"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">元</span>
-        <button
-          v-for="n in POD_FOLLOW_STAKE_PRESETS"
-          :key="n"
-          type="button"
-          class="pod-bet-settings__chip"
-          :class="{ 'is-on': form.stake === n }"
-          @click="form.stake = n"
-        >
-          {{ n }}
-        </button>
-        <span class="pod-bet-settings__note">OB/PM 未单独设置时沿用</span>
-      </el-form-item>
-      <el-form-item label="OB下注金额">
-        <el-input-number
-          v-model="form.obStake"
-          :min="0"
-          :max="1000000"
-          :step="10"
-          :precision="0"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">元</span>
-        <button
-          v-for="n in POD_FOLLOW_STAKE_PRESETS"
-          :key="n"
-          type="button"
-          class="pod-bet-settings__chip"
-          :class="{ 'is-on': form.obStake === n }"
-          @click="form.obStake = n"
-        >
-          {{ n }}
-        </button>
-        <span class="pod-bet-settings__note">0 = 沿用默认金额</span>
-      </el-form-item>
-      <el-form-item label="PM下注金额">
-        <el-input-number
-          v-model="form.pmStake"
-          :min="0"
-          :max="1000000"
-          :step="10"
-          :precision="0"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">元</span>
-        <button
-          v-for="n in POD_FOLLOW_STAKE_PRESETS"
-          :key="n"
-          type="button"
-          class="pod-bet-settings__chip"
-          :class="{ 'is-on': form.pmStake === n }"
-          @click="form.pmStake = n"
-        >
-          {{ n }}
-        </button>
-        <span class="pod-bet-settings__note">0 = 沿用默认金额</span>
-      </el-form-item>
-      <el-form-item label="只跟早盘">
-        <el-switch v-model="form.prematchOnly" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-        <span class="pod-bet-settings__note">滚球默认丢掉</span>
-      </el-form-item>
-      <el-form-item label="只要足球">
-        <el-switch v-model="form.footballOnly" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-      </el-form-item>
-      <el-form-item label="含半场">
-        <el-switch v-model="form.includeHt" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-        <span class="pod-bet-settings__note">默认只全场</span>
-      </el-form-item>
-      <el-form-item label="玩法">
-        <el-checkbox v-model="form.moneyline" :disabled="!form.enabled">
-          独赢
-        </el-checkbox>
-        <el-checkbox v-model="form.totals" :disabled="!form.enabled">
-          大小
-        </el-checkbox>
-        <el-checkbox v-model="form.spreads" :disabled="!form.enabled">
-          让球
-        </el-checkbox>
-      </el-form-item>
-      <el-form-item label="最小降幅">
-        <el-input-number
-          v-model="form.minDropPct"
-          :disabled="!form.enabled"
-          :min="0"
-          :max="80"
-          :step="1"
-          :precision="1"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">%</span>
-      </el-form-item>
-      <el-form-item label="OB 边">
-        <el-input-number
-          v-model="form.minObEdgePct"
-          :disabled="!form.enabled"
-          :min="0"
-          :max="40"
-          :step="0.5"
-          :precision="1"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">% 高于 NVP</span>
-        <span class="pod-bet-settings__note">大小 / 独赢</span>
-      </el-form-item>
-      <PodYaboSettings :form="form" />
-      <el-form-item label="赔率带">
-        <el-input-number
-          v-model="form.minOdds"
-          :disabled="!form.enabled"
-          :min="1.01"
-          :max="20"
-          :step="0.05"
-          :precision="2"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">至</span>
-        <el-input-number
-          v-model="form.maxOdds"
-          :disabled="!form.enabled"
-          :min="1.05"
-          :max="50"
-          :step="0.05"
-          :precision="2"
-          controls-position="right"
-        />
-      </el-form-item>
-      <el-form-item label="冷票保护">
-        <el-input-number
-          v-model="form.maxAgeSec"
-          :disabled="!form.enabled"
-          :min="0"
-          :max="600"
-          :step="5"
-          controls-position="right"
-        />
-        <span class="pod-bet-settings__unit">秒内须就绪</span>
-        <span class="pod-bet-settings__note">默认 45；就绪立刻下。0 = 不限。过期只挡自动</span>
-      </el-form-item>
+      <section class="pod-bet-settings__section is-top">
+        <div class="pod-bet-settings__section-head">
+          <h3>运行</h3>
+          <p>改完即时写入本机；自动只打已确认的场。</p>
+        </div>
+        <div class="pod-bet-settings__grid is-two">
+          <el-form-item label="启用筛选">
+            <el-switch v-model="form.enabled" inline-prompt active-text="开" inactive-text="关" />
+          </el-form-item>
+          <el-form-item label="自动下注">
+            <el-switch v-model="form.autoPlace" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="pod-bet-settings__section">
+        <div class="pod-bet-settings__section-head">
+          <h3>场馆与账号</h3>
+          <p>选中的场馆都会执行；每个选中账号各下一注。</p>
+        </div>
+        <el-form-item label="跟单场馆">
+          <el-checkbox-group v-model="form.followVenues">
+            <el-checkbox label="OB">
+              OB
+            </el-checkbox>
+            <el-checkbox label="Polymarket">
+              PM
+            </el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+        <div class="pod-bet-settings__venue-grid">
+          <div class="pod-bet-settings__venue">
+            <div class="pod-bet-settings__venue-head">
+              <span>OB</span>
+              <small>未选账号时沿用 OB 旧规则</small>
+            </div>
+            <PodFollowAccountPicker
+              v-model="form.followAccountIds"
+              :accounts="followAccounts"
+              variant="settings"
+              :disabled="!form.followVenues.includes('OB')"
+            />
+          </div>
+          <div class="pod-bet-settings__venue">
+            <div class="pod-bet-settings__venue-head">
+              <span>PM</span>
+              <small>必须显式选择账号</small>
+            </div>
+            <PodFollowAccountPicker
+              v-model="form.pmFollowAccountIds"
+              :accounts="pmFollowAccounts"
+              variant="settings"
+              venue="Polymarket"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="pod-bet-settings__section">
+        <div class="pod-bet-settings__section-head">
+          <h3>金额与风控</h3>
+          <p>OB/PM 单独金额为 0 时沿用默认金额。</p>
+        </div>
+        <div class="pod-bet-settings__grid">
+          <el-form-item label="默认金额">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.stake"
+                :min="0"
+                :max="1000000"
+                :step="10"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">元</span>
+              <button
+                v-for="n in POD_FOLLOW_STAKE_PRESETS"
+                :key="`default-${n}`"
+                type="button"
+                class="pod-bet-settings__chip"
+                :class="{ 'is-on': form.stake === n }"
+                @click="form.stake = n"
+              >
+                {{ n }}
+              </button>
+            </div>
+          </el-form-item>
+          <el-form-item label="OB金额">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.obStake"
+                :min="0"
+                :max="1000000"
+                :step="10"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">元</span>
+              <button
+                v-for="n in POD_FOLLOW_STAKE_PRESETS"
+                :key="`ob-${n}`"
+                type="button"
+                class="pod-bet-settings__chip"
+                :class="{ 'is-on': form.obStake === n }"
+                @click="form.obStake = n"
+              >
+                {{ n }}
+              </button>
+            </div>
+          </el-form-item>
+          <el-form-item label="PM金额">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.pmStake"
+                :min="0"
+                :max="1000000"
+                :step="10"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">元</span>
+              <button
+                v-for="n in POD_FOLLOW_STAKE_PRESETS"
+                :key="`pm-${n}`"
+                type="button"
+                class="pod-bet-settings__chip"
+                :class="{ 'is-on': form.pmStake === n }"
+                @click="form.pmStake = n"
+              >
+                {{ n }}
+              </button>
+            </div>
+          </el-form-item>
+          <el-form-item label="当日亏损帽">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.maxDailyLoss"
+                :min="0"
+                :max="1000000"
+                :step="50"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">元</span>
+              <span class="pod-bet-settings__note">0 = 不限；只挡自动</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="OB每日单数">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.obDailyOrderLimit"
+                :min="0"
+                :max="10000"
+                :step="1"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">单</span>
+              <span class="pod-bet-settings__note">0 = 不限</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="PM每日单数">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.pmDailyOrderLimit"
+                :min="0"
+                :max="10000"
+                :step="1"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">单</span>
+              <span class="pod-bet-settings__note">0 = 不限</span>
+            </div>
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="pod-bet-settings__section">
+        <div class="pod-bet-settings__section-head">
+          <h3>筛选范围</h3>
+          <p>只影响进入 POD 跟单浮窗的机会。</p>
+        </div>
+        <div class="pod-bet-settings__grid is-two">
+          <el-form-item label="只跟早盘">
+            <el-switch v-model="form.prematchOnly" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
+          </el-form-item>
+          <el-form-item label="只要足球">
+            <el-switch v-model="form.footballOnly" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
+          </el-form-item>
+          <el-form-item label="含半场">
+            <el-switch v-model="form.includeHt" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
+          </el-form-item>
+          <el-form-item label="玩法">
+            <el-checkbox v-model="form.moneyline" :disabled="!form.enabled">
+              独赢
+            </el-checkbox>
+            <el-checkbox v-model="form.totals" :disabled="!form.enabled">
+              大小
+            </el-checkbox>
+            <el-checkbox v-model="form.spreads" :disabled="!form.enabled">
+              让球
+            </el-checkbox>
+          </el-form-item>
+        </div>
+      </section>
+
+      <section class="pod-bet-settings__section">
+        <div class="pod-bet-settings__section-head">
+          <h3>价格门槛</h3>
+          <p>EV / 副盘 / 同场闸门在 AutoYabo 决策里控制。</p>
+        </div>
+        <div class="pod-bet-settings__grid">
+          <el-form-item label="最小降幅">
+            <el-input-number
+              v-model="form.minDropPct"
+              :disabled="!form.enabled"
+              :min="0"
+              :max="80"
+              :step="1"
+              :precision="1"
+              controls-position="right"
+            />
+            <span class="pod-bet-settings__unit">%</span>
+          </el-form-item>
+          <el-form-item label="OB 边">
+            <el-input-number
+              v-model="form.minObEdgePct"
+              :disabled="!form.enabled"
+              :min="0"
+              :max="40"
+              :step="0.5"
+              :precision="1"
+              controls-position="right"
+            />
+            <span class="pod-bet-settings__unit">% 高于 NVP</span>
+          </el-form-item>
+          <el-form-item label="赔率带">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.minOdds"
+                :disabled="!form.enabled"
+                :min="1.01"
+                :max="20"
+                :step="0.05"
+                :precision="2"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">至</span>
+              <el-input-number
+                v-model="form.maxOdds"
+                :disabled="!form.enabled"
+                :min="1.05"
+                :max="50"
+                :step="0.05"
+                :precision="2"
+                controls-position="right"
+              />
+            </div>
+          </el-form-item>
+          <el-form-item label="冷票保护">
+            <div class="pod-bet-settings__inline">
+              <el-input-number
+                v-model="form.maxAgeSec"
+                :disabled="!form.enabled"
+                :min="0"
+                :max="600"
+                :step="5"
+                controls-position="right"
+              />
+              <span class="pod-bet-settings__unit">秒</span>
+              <span class="pod-bet-settings__note">0 = 不限；只挡自动</span>
+            </div>
+          </el-form-item>
+        </div>
+        <div class="pod-bet-settings__yabo">
+          <PodYaboSettings :form="form" />
+        </div>
+      </section>
     </el-form>
   </div>
 </template>
 
 <style scoped>
-.pod-bet-settings__hint {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.5;
-}
-.pod-bet-settings__hint strong {
+.pod-bet-settings {
   color: #0f172a;
 }
+
 .pod-bet-settings__form :deep(.el-form-item) {
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
+
 .pod-bet-settings__form :deep(.el-input-number) {
   width: 120px;
 }
+
+.pod-bet-settings__section {
+  padding: 14px 0 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.pod-bet-settings__section.is-top {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.pod-bet-settings__section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pod-bet-settings__section-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pod-bet-settings__section-head p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.pod-bet-settings__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 18px;
+}
+
+.pod-bet-settings__grid.is-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pod-bet-settings__inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pod-bet-settings__venue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pod-bet-settings__venue {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.pod-bet-settings__venue-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pod-bet-settings__venue-head span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pod-bet-settings__venue-head small {
+  min-width: 0;
+  color: #64748b;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pod-bet-settings__unit,
 .pod-bet-settings__note {
-  margin-left: 8px;
   font-size: 12px;
   color: #64748b;
 }
+
 .pod-bet-settings__chip {
-  margin-left: 6px;
   padding: 2px 8px;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
@@ -354,5 +515,23 @@ onUnmounted(() => {
   color: #92400e;
   border-color: #f59e0b;
   background: #fffbeb;
+}
+
+.pod-bet-settings__yabo {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+@media (max-width: 760px) {
+  .pod-bet-settings__grid.is-two,
+  .pod-bet-settings__venue-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pod-bet-settings__section-head {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
 </style>

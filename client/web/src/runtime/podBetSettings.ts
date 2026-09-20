@@ -55,6 +55,10 @@ export type PodBetSettings = {
   followAccountId: number;
   /** 自动当日亏损上限（已结算亏损 + 未结算注码）；0 = 不设 */
   maxDailyLoss: number;
+  /** OB 每日跟单订单数上限；0 = 不限 */
+  obDailyOrderLimit: number;
+  /** Polymarket 每日跟单订单数上限；0 = 不限 */
+  pmDailyOrderLimit: number;
 };
 
 export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
@@ -82,6 +86,8 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   pmFollowAccountIds: [],
   followAccountId: 0,
   maxDailyLoss: 0,
+  obDailyOrderLimit: 0,
+  pmDailyOrderLimit: 0,
 };
 
 function asRecord(raw: unknown): Record<string, unknown> | null {
@@ -181,6 +187,8 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     pmFollowAccountIds,
     followAccountId: followAccountIds[0] || 0,
     maxDailyLoss: clampNum(row.maxDailyLoss, d.maxDailyLoss, 0, 1_000_000),
+    obDailyOrderLimit: Math.round(clampNum(row.obDailyOrderLimit, d.obDailyOrderLimit, 0, 10_000)),
+    pmDailyOrderLimit: Math.round(clampNum(row.pmDailyOrderLimit, d.pmDailyOrderLimit, 0, 10_000)),
   };
 }
 

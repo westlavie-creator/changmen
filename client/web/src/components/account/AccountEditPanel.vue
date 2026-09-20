@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AccountEditFormState } from "@/components/account/accountEditFormState";
 import type { PlatformId } from "@/types/esport";
-import { computed, ref, watch } from "vue";
+import { computed, ref, useSlots, watch } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
@@ -42,6 +42,7 @@ const emit = defineEmits<{
 
 // eslint-disable-next-line prefer-const -- defineModel ref is not reassigned, but Vue compiler requires `let`
 let form = defineModel<AccountEditFormState>("form", { required: true });
+const slots = useSlots();
 
 const providerRows = computed(() => {
   const known = new Set(ALL_PLATFORMS);
@@ -53,6 +54,8 @@ const providerRows = computed(() => {
 });
 
 const gameShow = ref(props.gameExpanded ?? false);
+const hasTokenSlot = computed(() => Boolean(slots.token));
+const useObTokenTabs = computed(() => form.value.provider === "OB" && hasTokenSlot.value);
 
 watch(
   () => props.gameExpanded,
@@ -553,24 +556,24 @@ function unlockRate() {
           {{ PREDICT_FUN_OFFICIAL_REFERRAL_URL }}
         </a>
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'PredictFun'" label="网关：">
+      <el-form-item v-if="form.provider !== 'PredictFun' && !useObTokenTabs" label="网关：">
         <el-input v-model="form.gateway" :disabled="fieldDisabled()" />
       </el-form-item>
       <slot name="token" />
-      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Token：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun' && !useObTokenTabs" label="Token：">
         <el-input v-model="form.token" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Referer：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun' && !useObTokenTabs" label="Referer：">
         <el-input v-model="form.referer" :disabled="fieldDisabled()" />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="UserAgent:">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun' && !useObTokenTabs" label="UserAgent:">
         <el-input
           v-model="form.userAgent"
           placeholder="请求访问的浏览器标识，不知道可留空"
           :disabled="fieldDisabled()"
         />
       </el-form-item>
-      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun'" label="Cookie：">
+      <el-form-item v-if="form.provider !== 'Polymarket' && form.provider !== 'PredictFun' && !useObTokenTabs" label="Cookie：">
         <el-input v-model="form.cookie" :disabled="fieldDisabled()" />
       </el-form-item>
     </template>

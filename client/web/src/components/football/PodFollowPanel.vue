@@ -317,6 +317,45 @@ function hasVenueOrder(id: string, venue: "OB" | "Polymarket"): boolean {
   });
 }
 
+function venueOrderCountToday(venue: "OB" | "Polymarket"): number {
+  const seen = new Set<string>();
+  for (const row of footballOrders.todayRows) {
+    if (String(row.venue || "OB").trim() !== venue)
+      continue;
+    const key = String(row.orderId || row.id || `${row.playerId || ""}:${row.at || ""}`).trim();
+    if (key)
+      seen.add(key);
+  }
+  return seen.size;
+}
+
+function venueDailyOrderLimit(venue: "OB" | "Polymarket"): number {
+  return venue === "OB"
+    ? Math.round(Number(betSettings.value.obDailyOrderLimit) || 0)
+    : Math.round(Number(betSettings.value.pmDailyOrderLimit) || 0);
+}
+
+function venueSelectedAccountCount(venue: "OB" | "Polymarket"): number {
+  if (venue === "OB") {
+    const ids = betSettings.value.followAccountIds;
+    return ids.length ? ids.length : (followAccounts.value.length ? 1 : 0);
+  }
+  return listPmFollowAccounts(accounts.accounts, betSettings.value.pmFollowAccountIds).length;
+}
+
+function venueDailyOrderBlock(venue: "OB" | "Polymarket"): string | null {
+  const limit = venueDailyOrderLimit(venue);
+  if (!(limit > 0))
+    return null;
+  const current = venueOrderCountToday(venue);
+  const next = venueSelectedAccountCount(venue);
+  if (current >= limit)
+    return `${venue === "OB" ? "OB" : "PM"} 今日单数已满`;
+  if (next > 0 && current + next > limit)
+    return `${venue === "OB" ? "OB" : "PM"} 今日剩余 ${Math.max(0, limit - current)} 单`;
+  return null;
+}
+
 function isVenuePlaced(id: string, venue: "OB" | "Polymarket"): boolean {
   const key = venuePlaceKey(venue, id);
   if (placed.value[key] || hasVenueOrder(id, venue))
@@ -331,12 +370,18 @@ function isPlaced(id: string): boolean {
 function placeBlock(ticket: (typeof tickets.value)[number]): string | null {
   if (isVenuePlaced(ticket.id, "OB"))
     return "已下过";
+  const dailyBlock = venueDailyOrderBlock("OB");
+  if (dailyBlock)
+    return dailyBlock;
   return podFollowPlaceBlock(ticketPlacePayload(ticket));
 }
 
 function pmPlaceBlock(ticket: (typeof tickets.value)[number]): string | null {
   if (isVenuePlaced(ticket.id, "Polymarket"))
     return "已下过";
+  const dailyBlock = venueDailyOrderBlock("Polymarket");
+  if (dailyBlock)
+    return dailyBlock;
   return podPmFollowPlaceBlock(pmTicketPlacePayload(ticket));
 }
 
@@ -455,7 +500,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
   if (placingId.value)
     return;
   const payload = ticketPlacePayload(ticket, auto);
-  const block = podFollowPlaceBlock(payload);
+  const block = venueDailyOrderBlock("OB") || podFollowPlaceBlock(payload);
   if (block) {
     if (!auto)
       ElMessage.warning(block);
@@ -496,7 +541,7 @@ async function placePmTicket(ticket: (typeof tickets.value)[number], auto = fals
   if (placingPmId.value)
     return;
   const payload = pmTicketPlacePayload(ticket, auto);
-  const block = podPmFollowPlaceBlock(payload);
+  const block = venueDailyOrderBlock("Polymarket") || podPmFollowPlaceBlock(payload);
   if (block) {
     if (!auto)
       ElMessage.warning(block);
