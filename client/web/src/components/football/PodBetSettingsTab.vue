@@ -66,6 +66,8 @@ function applyExternal() {
     form.maxOdds = next.maxOdds;
     form.maxAgeSec = next.maxAgeSec;
     form.stake = next.stake;
+    form.obStake = next.obStake;
+    form.pmStake = next.pmStake;
     form.autoPlace = next.autoPlace;
     const curVenues = form.followVenues;
     const venues = next.followVenues;
@@ -164,7 +166,7 @@ onUnmounted(() => {
         <span class="pod-bet-settings__unit">元</span>
         <span class="pod-bet-settings__note">0 = 不限；只挡自动</span>
       </el-form-item>
-      <el-form-item label="下注金额">
+      <el-form-item label="默认金额">
         <el-input-number
           v-model="form.stake"
           :min="0"
@@ -184,6 +186,51 @@ onUnmounted(() => {
         >
           {{ n }}
         </button>
+        <span class="pod-bet-settings__note">OB/PM 未单独设置时沿用</span>
+      </el-form-item>
+      <el-form-item label="OB下注金额">
+        <el-input-number
+          v-model="form.obStake"
+          :min="0"
+          :max="1000000"
+          :step="10"
+          :precision="0"
+          controls-position="right"
+        />
+        <span class="pod-bet-settings__unit">元</span>
+        <button
+          v-for="n in POD_FOLLOW_STAKE_PRESETS"
+          :key="n"
+          type="button"
+          class="pod-bet-settings__chip"
+          :class="{ 'is-on': form.obStake === n }"
+          @click="form.obStake = n"
+        >
+          {{ n }}
+        </button>
+        <span class="pod-bet-settings__note">0 = 沿用默认金额</span>
+      </el-form-item>
+      <el-form-item label="PM下注金额">
+        <el-input-number
+          v-model="form.pmStake"
+          :min="0"
+          :max="1000000"
+          :step="10"
+          :precision="0"
+          controls-position="right"
+        />
+        <span class="pod-bet-settings__unit">元</span>
+        <button
+          v-for="n in POD_FOLLOW_STAKE_PRESETS"
+          :key="n"
+          type="button"
+          class="pod-bet-settings__chip"
+          :class="{ 'is-on': form.pmStake === n }"
+          @click="form.pmStake = n"
+        >
+          {{ n }}
+        </button>
+        <span class="pod-bet-settings__note">0 = 沿用默认金额</span>
       </el-form-item>
       <el-form-item label="只跟早盘">
         <el-switch v-model="form.prematchOnly" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />

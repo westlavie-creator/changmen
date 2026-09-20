@@ -39,6 +39,11 @@ describe("podBetSettings", () => {
     const row = parsePodBetSettings({ enabled: true, minDropPct: 999, stake: -1 });
     expect(row.minDropPct).toBe(80);
     expect(row.stake).toBe(0);
+    expect(row.obStake).toBe(0);
+    expect(row.pmStake).toBe(0);
+    expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).stake).toBe(100);
+    expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).obStake).toBe(50);
+    expect(parsePodBetSettings({ stake: 100, obStake: 50, pmStake: 200 }).pmStake).toBe(200);
     expect(row.autoPlace).toBe(false);
     expect(row.followAccountId).toBe(0);
     expect(row.followAccountIds).toEqual([]);

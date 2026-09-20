@@ -244,11 +244,25 @@ function jumpToTicket(ticket: (typeof tickets.value)[number]) {
   requestPodBoardFocus(buildPodBoardFocus(hit.fixture, ticket.marketMatch));
 }
 
+function followStakeFor(venue: "OB" | "Polymarket"): number {
+  const venueStake = venue === "OB" ? betSettings.value.obStake : betSettings.value.pmStake;
+  return Number(venueStake) > 0 ? Number(venueStake) : Number(betSettings.value.stake) || 0;
+}
+
+function formatEnabledVenueStakes(): string {
+  const parts: string[] = [];
+  if (followObEnabled.value)
+    parts.push(`OB ${formatPodStake(followStakeFor("OB"))}`);
+  if (followPmEnabled.value)
+    parts.push(`PM ${formatPodStake(followStakeFor("Polymarket"))}`);
+  return parts.join(" · ") || formatPodStake(Number(betSettings.value.stake) || 0);
+}
+
 function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false): PodFollowPlaceTicket {
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
-    stake: ticket.stake,
+    stake: followStakeFor("OB"),
     fixtureStatus: ticket.fixtureMatch.status,
     fixtureBasis: ticket.fixtureMatch.basis,
     obMid: String(hit?.fixture.obMid || "").trim(),
@@ -266,7 +280,7 @@ function pmTicketPlacePayload(ticket: (typeof tickets.value)[number], auto = fal
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
-    stake: ticket.stake,
+    stake: followStakeFor("Polymarket"),
     fixtureStatus: ticket.fixtureMatch.status,
     fixtureBasis: ticket.fixtureMatch.basis,
     pmMatchId: String(hit?.fixture.pmMid || hit?.fixture.id || "").trim(),
@@ -627,6 +641,16 @@ const stakeModel = computed({
   set: (v: number | undefined) => persistStake(v),
 });
 
+const obStakeModel = computed({
+  get: () => betSettings.value.obStake,
+  set: (v: number | undefined) => persistVenueStake("OB", v),
+});
+
+const pmStakeModel = computed({
+  get: () => betSettings.value.pmStake,
+  set: (v: number | undefined) => persistVenueStake("Polymarket", v),
+});
+
 const autoModel = computed({
   get: () => betSettings.value.autoPlace,
   set: (v: boolean) => persistAuto(v),
@@ -804,6 +828,14 @@ function persistStake(raw: number | null | undefined) {
   });
 }
 
+function persistVenueStake(venue: "OB" | "Polymarket", raw: number | null | undefined) {
+  const stake = Number(raw) || 0;
+  betSettings.value = writePodBetSettings({
+    ...betSettings.value,
+    ...(venue === "OB" ? { obStake: stake } : { pmStake: stake }),
+  });
+}
+
 function persistAuto(raw: boolean) {
   betSettings.value = writePodBetSettings({
     ...betSettings.value,
@@ -975,7 +1007,7 @@ onUnmounted(() => {
       <span class="pod-follow-panel__stake-unit">元</span>
       <button
         v-for="n in stakePresets"
-        :key="n"
+        :key="`default-${n}`"
         type="button"
         class="pod-follow-panel__chip"
         :class="{ 'is-on': betSettings.stake === n }"
@@ -983,6 +1015,52 @@ onUnmounted(() => {
       >
         {{ n }}
       </button>
+      <template v-if="followObEnabled">
+        <span class="pod-follow-panel__stake-lab">OB</span>
+        <el-input-number
+          v-model="obStakeModel"
+          :min="0"
+          :max="1000000"
+          :step="10"
+          :precision="0"
+          size="small"
+          controls-position="right"
+        />
+        <span class="pod-follow-panel__stake-unit">元</span>
+        <button
+          v-for="n in stakePresets"
+          :key="`ob-${n}`"
+          type="button"
+          class="pod-follow-panel__chip"
+          :class="{ 'is-on': betSettings.obStake === n }"
+          @click="persistVenueStake('OB', n)"
+        >
+          {{ n }}
+        </button>
+      </template>
+      <template v-if="followPmEnabled">
+        <span class="pod-follow-panel__stake-lab">PM</span>
+        <el-input-number
+          v-model="pmStakeModel"
+          :min="0"
+          :max="1000000"
+          :step="10"
+          :precision="0"
+          size="small"
+          controls-position="right"
+        />
+        <span class="pod-follow-panel__stake-unit">元</span>
+        <button
+          v-for="n in stakePresets"
+          :key="`pm-${n}`"
+          type="button"
+          class="pod-follow-panel__chip"
+          :class="{ 'is-on': betSettings.pmStake === n }"
+          @click="persistVenueStake('Polymarket', n)"
+        >
+          {{ n }}
+        </button>
+      </template>
       <span class="pod-follow-panel__stake-lab">自动下注</span>
       <el-switch
         v-model="autoModel"
@@ -1115,7 +1193,7 @@ onUnmounted(() => {
                   >{{ row.pending.detail }}</span>
                 </div>
                 <span v-if="!row.pending.placed" class="pod-follow-row__foot-meta">
-                  {{ formatPodStake(row.live.stake) }}
+                  {{ formatEnabledVenueStakes() }}
                   · {{ formatPodKickoff(row.live.starts, nowTick) }}
                 </span>
                 <button
@@ -1192,7 +1270,7 @@ onUnmounted(() => {
                   >{{ row.pending.detail }}</span>
                 </div>
                 <span v-if="!row.pending.placed" class="pod-follow-row__foot-meta">
-                  {{ formatPodStake(row.log.stake) }}
+                  {{ formatEnabledVenueStakes() }}
                 </span>
               </div>
               <div v-if="row.pending.receipt" class="pod-follow-row__receipt">

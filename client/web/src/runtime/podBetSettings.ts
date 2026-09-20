@@ -36,6 +36,10 @@ export type PodBetSettings = {
   maxAgeSec: number;
   /** 计划跟单下注金额（元）；0 = 未设 */
   stake: number;
+  /** OB 跟单下注金额；0 = 沿用 stake */
+  obStake: number;
+  /** Polymarket 跟单下注金额；0 = 沿用 stake */
+  pmStake: number;
   /** 过线且对上 OB 后自动下单。默认关 */
   autoPlace: boolean;
   /** 跟单目标场馆；默认只 OB，PM 手动开启。 */
@@ -70,6 +74,8 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   // 我们列表常驻，需要「降赔后多久内必须就绪」的冷票保护——不是等满再下。
   maxAgeSec: 45,
   stake: 0,
+  obStake: 0,
+  pmStake: 0,
   autoPlace: false,
   followVenues: ["OB"],
   followAccountIds: [],
@@ -145,6 +151,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const yabo = parsePodYaboSettings(row);
   const followAccountIds = parseFollowAccountIds(row.followAccountIds, row.followAccountId);
   const pmFollowAccountIds = parseFollowAccountIds(row.pmFollowAccountIds, 0);
+  const stake = clampNum(row.stake, d.stake, 0, 1_000_000);
   return {
     enabled: bool(row.enabled, d.enabled),
     prematchOnly: bool(row.prematchOnly, d.prematchOnly),
@@ -165,7 +172,9 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
         return d.maxAgeSec;
       return n;
     })(),
-    stake: clampNum(row.stake, d.stake, 0, 1_000_000),
+    stake,
+    obStake: clampNum(row.obStake, d.obStake, 0, 1_000_000),
+    pmStake: clampNum(row.pmStake, d.pmStake, 0, 1_000_000),
     autoPlace: bool(row.autoPlace, d.autoPlace),
     followVenues: parseFollowVenues(row.followVenues),
     followAccountIds,
