@@ -92,6 +92,28 @@ describe("rayProvider.checkBet", () => {
     const order = (out.data as { order: Array<{ order_detail: { odds: number } }> }).order[0];
     expect(order.order_detail.odds).toBe(1.88);
   });
+
+  it("下单 payload 只保留官网提交字段，不携带预检快照字段", async () => {
+    accountGet.mockResolvedValue(oddsResponse(1.88));
+    const out = await rayProvider.checkBet!(account, makeOption(1.88));
+    expect(out.data).toEqual({
+      total_stake: "100",
+      order: [
+        {
+          title: "独赢\n主队",
+          order_type: 0,
+          stake: "100",
+          order_detail: {
+            odds_id: "oid-1",
+            odds: 1.88,
+            title: "独赢\n主队",
+            match_name: "A vs B",
+            match_stage: "全场",
+          },
+        },
+      ],
+    });
+  });
 });
 
 describe("rayProvider.getOrders", () => {

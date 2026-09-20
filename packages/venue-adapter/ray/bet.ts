@@ -134,45 +134,22 @@ function applyRayLockAndLimit(
 function buildRayOrderData(
   option: BetOption,
   row: RayOddsRow,
-  res: RayOddsGetRes,
 ): Record<string, unknown> {
   const title = `${row.group_name}\n${row.name}`;
   return {
     total_stake: String(Math.round(option.betMoney)),
-    total_bet_bonus: (Math.round(option.betMoney) * option.odds).toFixed(2),
     order: [
       {
-        number: 1,
-        oddsId: option.itemId,
         title,
         order_type: 0,
         stake: String(Math.round(option.betMoney)),
         order_detail: {
-          odds_group_id: row.odds_group_id,
-          value: row.value,
-          win: row.win,
-          status: 1,
-          bet_limit: row.bet_limit,
-          last_update: row.last_update,
-          match_stage: row.match_stage,
-          match_name: row.match_name,
-          group_name: row.group_name,
-          group_short_name: row.group_short_name,
-          id: row.id,
           odds_id: row.odds_id,
-          team_id: row.team_id,
-          name: row.name,
-          match_id: row.match_id,
           odds: option.odds,
-          tag: row.tag,
-          enable_parlay: row.enable_parlay,
-          game_id: row.game_id,
-          start_time: row.start_time,
           title,
-          isLive: new Date(res.result!.start_time!).getTime() < Date.now(),
+          match_name: row.match_name,
+          match_stage: row.match_stage,
         },
-        betMin: row.bet_limit?.[0],
-        betMax: row.bet_limit?.[1],
       },
     ],
   };
@@ -232,7 +209,7 @@ export const rayProvider: PlatformProvider = {
     option.updateOdds(liveOdds);
     if (option.odds > liveOdds + 0.01) return option;
     option.odds = liveOdds;
-    option.data = buildRayOrderData(option, row, res);
+    option.data = buildRayOrderData(option, row);
     return option;
   },
 
