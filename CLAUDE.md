@@ -17,7 +17,7 @@ A8 参考在仓库根 `A8/`（gitignore，不进 GitHub）：前端 bundle **`A8
 
 **团队边界**：客户端 / 服务端目录与 `npm run check:boundaries` 见 [docs/TEAM_BOUNDARIES.md](./docs/TEAM_BOUNDARIES.md)。
 
-**`packages/venue-adapter` 是双端共享包**（浏览器 + Node）：浏览器端消费各平台 adapter；Node 端被 `server/backend`、`server/match/resolver` 依赖（`registry` / `loader` / `shared` / `contract` / `backend`）。`client/` 前缀是历史遗留，不表示纯客户端代码；迁入 `packages/` 已评估、决议暂缓（见 TEAM_BOUNDARIES.md）。
+**`packages/venue-adapter` 是双端共享包**（浏览器 + Node）：浏览器端消费各平台 adapter；Node 端被 `server/backend`、`server/match/resolver` 依赖（`registry` / `loader` / `shared` / `contract` / `backend`）。原在 `client/` 下，2026-09-20 已迁入 `packages/`（见 TEAM_BOUNDARIES.md）。
 
 **Commands run from this repository root** (`client/`、`server/` 等即应用根)。Windows `BAT\` 在**本机**放在仓库旁或仓库内（已 gitignore），见 [LOCAL_DEV.md](./LOCAL_DEV.md)。
 

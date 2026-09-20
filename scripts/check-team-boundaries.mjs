@@ -58,9 +58,9 @@ const RULES = [
     roots: ["server/backend"],
     // venue-adapter 是双端共享包：server 仅消费其 Node 侧基础设施目录
     // （registry/loader/shared/contract/backend/scripts/_template 放行，平台根目录 ts 仍禁止）。
-    // `client/` 前缀为历史遗留；迁入 packages/ 已评估、决议暂缓，见 docs/TEAM_BOUNDARIES.md。
+    // 原在 client/ 下，2026-09-20 已迁入 packages/，见 docs/TEAM_BOUNDARIES.md。
     forbid: [
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
+      // 禁 venue-adapter 平台目录（父路径无关），基础设施目录放行
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /(?:^|[/\\])client[/\\]web[/\\]src(?:[/\\]|$)/,
       /(?:^|[/\\])server[/\\]match(?:[/\\]|$)/,
@@ -75,7 +75,7 @@ const RULES = [
     roots: ["devtools/platform-probes"],
     forbid: [
       /@changmen\/venue-adapter\b/,
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\]/,
+      /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\]/,
     ],
   },
   {
@@ -83,7 +83,6 @@ const RULES = [
     roots: ["server/match"],
     forbid: [
       /(?:^|[/\\])client[/\\]web(?:[/\\]|$)/,
-      /(?:^|[/\\])client[/\\]venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /venue-adapter[/\\](?!registry|loader|shared|contract|backend|scripts|_template)[^/\\]+[/\\](?!shared(?:[/\\]|$))/,
       /match-(?:engine|identity)[/\\]merge/,
       /merge[/\\]match_merge/,
