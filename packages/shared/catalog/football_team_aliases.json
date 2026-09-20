@@ -1,5 +1,5 @@
 {
-  "_comment": "足球 display/alias → canonical key（已过 baseNormSportTeamName）。仅 sport N3 使用；不进电竞 team_aliases。",
+  "_comment": "足球 display/alias → canonical key（已过 normFootballTeamName：小写+去重音+去撇号）。单一来源：server sport_team_plugin 与 client 足球合场共用；确认新别名沉淀到这里，禁止各端私建。",
   "曼城": "manchester city",
   "曼彻斯特城": "manchester city",
   "manchester city": "manchester city",
@@ -206,5 +206,21 @@
   "qingdao hainiu": "qingdao hainiu",
   "天津津门": "tianjin jinmen tiger",
   "重庆铜梁龙": "chongqing tonglianglong",
-  "chongqing tonglianglong": "chongqing tonglianglong"
+  "chongqing tonglianglong": "chongqing tonglianglong",
+
+  "美洲": "club america",
+  "墨西哥美洲": "club america",
+  "club america": "club america",
+  "club américa": "club america",
+  "cf america": "club america",
+  "america": "club america",
+  "芝华士": "guadalajara",
+  "瓜达拉哈拉": "guadalajara",
+  "chivas": "guadalajara",
+  "chivas guadalajara": "guadalajara",
+  "chivas de guadalajara": "guadalajara",
+  "guadalajara": "guadalajara",
+  "guadalajara chivas": "guadalajara",
+  "cd guadalajara": "guadalajara",
+  "cd guadalajara chivas": "guadalajara"
 }

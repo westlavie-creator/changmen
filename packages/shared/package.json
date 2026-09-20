@@ -12,6 +12,8 @@
     "./catalog/venue_games.json": "./catalog/venue_games.json",
     "./catalog/sport_catalog": "./catalog/sport_catalog.ts",
     "./catalog/sport_catalog.json": "./catalog/sport_catalog.json",
+    "./catalog/football_team_key": "./catalog/football_team_key.ts",
+    "./catalog/football_team_aliases.json": "./catalog/football_team_aliases.json",
     "./catalog/market_catalog": "./catalog/market_catalog.ts",
     "./catalog/market_catalog.json": "./catalog/market_catalog.json",
     "./catalog/market_catalog.browser": "./catalog/market_catalog.browser.ts",

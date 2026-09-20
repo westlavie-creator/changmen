@@ -1,9 +1,12 @@
 /**
- * Sport N3 队名解析（只读本包 JSON；可选以后叠加 sport_canonical_teams）。
+ * Sport N3 队名解析（MLB 读本包 JSON；足球走 @changmen/shared 单一来源）。
  * 禁止 import 电竞 team_db / fetchAllCanonicalTeams。
  */
 import mlbAliasesRaw from "./sport_mlb_aliases.json" with { type: "json" };
-import footballAliasesRaw from "./sport_football_aliases.json" with { type: "json" };
+import {
+  normFootballTeamName,
+  resolveFootballTeamKey,
+} from "@changmen/shared/catalog/football_team_key";
 
 const FOOTBALL_GAMES = new Set([
   "soccer",
@@ -35,8 +38,6 @@ const FOOTBALL_GAMES = new Set([
 
 /** @type {Map<string, string>|null} */
 let mlbMap = null;
-/** @type {Map<string, string>|null} */
-let footballMap = null;
 
 function loadMlbMap() {
   if (mlbMap)
@@ -53,26 +54,11 @@ function loadMlbMap() {
   return mlbMap;
 }
 
-function loadFootballMap() {
-  if (footballMap)
-    return footballMap;
-  footballMap = new Map();
-  for (const [k, v] of Object.entries(footballAliasesRaw)) {
-    if (k.startsWith("_"))
-      continue;
-    const key = String(k).trim().toLowerCase();
-    const val = String(v).trim().toLowerCase();
-    if (key && val)
-      footballMap.set(key, val);
-  }
-  return footballMap;
-}
-
 function isFootballGame(gameCode) {
   return FOOTBALL_GAMES.has(String(gameCode || "").toLowerCase());
 }
 
-/** 与 sport 合并对齐：去撇号后再折叠空白，避免 A's → "a s"。 */
+/** MLB 归一（保持原状）：去撇号后再折叠空白，避免 A's → "a s"。 */
 export function baseNormSportTeamName(name) {
   return String(name || "")
     .toLowerCase()
@@ -89,20 +75,20 @@ export function baseNormSportTeamName(name) {
  * @returns {string} 用于配对的 canonical key
  */
 export function resolveSportTeamKey(name, gameCode = "mlb") {
-  const n = baseNormSportTeamName(name);
-  if (!n)
-    return "";
   const game = String(gameCode || "mlb").toLowerCase();
   if (game === "mlb") {
-    const map = loadMlbMap();
-    return map.get(n) || n;
+    const n = baseNormSportTeamName(name);
+    if (!n)
+      return "";
+    return loadMlbMap().get(n) || n;
   }
-  if (isFootballGame(game)) {
-    const map = loadFootballMap();
-    return map.get(n) || n;
-  }
+  if (isFootballGame(game))
+    return resolveFootballTeamKey(name);
+  const n = baseNormSportTeamName(name);
   return n;
 }
+
+export { normFootballTeamName };
 
 /**
  * @param {string} home

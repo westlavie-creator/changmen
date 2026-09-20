@@ -153,3 +153,132 @@ describe("mergeFootballClientLists", () => {
     )).rejects.toThrow("timeout of 15000ms exceeded");
   });
 });
+
+describe("mergeFootballClientLists identity key", () => {
+  const T = 1_700_000_000_000;
+
+  function pmRow(partial: Partial<ClientMatchDto>): ClientMatchDto {
+    return {
+      ID: 1,
+      Title: "CF América vs CD Guadalajara",
+      Game: "mex",
+      GameID: 0,
+      StartTime: T,
+      Matchs: { Polymarket: "pm-mx" },
+      Bets: [{
+        ID: 11,
+        MatchID: 1,
+        Map: 0,
+        Name: "全场胜负",
+        MarketCode: "moneyline",
+        Line: null,
+        HomeName: "CF América",
+        AwayName: "CD Guadalajara",
+        HomeID: 1,
+        AwayID: 2,
+        Sources: { Polymarket: { Type: "Polymarket", BetID: "p", HomeID: "h", AwayID: "a", HomeOdds: 2.1, AwayOdds: 3.2, Status: "Normal" } },
+      }] as unknown as ClientMatchDto["Bets"],
+      ...partial,
+    } as ClientMatchDto;
+  }
+
+  function obRow(partial: Partial<ClientMatchDto>): ClientMatchDto {
+    return {
+      ID: 820000001,
+      Title: "Club America vs CD Guadalajara Chivas",
+      Game: "Mexico Liga MX",
+      GameID: 0,
+      StartTime: T,
+      Matchs: { OB: "mid-mx" },
+      Bets: [{
+        ID: 21,
+        MatchID: 820000001,
+        Map: 0,
+        Name: "全场胜负",
+        MarketCode: "moneyline",
+        Line: null,
+        HomeName: "Club America",
+        AwayName: "CD Guadalajara Chivas",
+        HomeID: 1,
+        AwayID: 2,
+        Sources: { OB: { Type: "OB", BetID: "o", HomeID: "oh", AwayID: "oa", HomeOdds: 2.0, AwayOdds: 3.4, Status: "Normal" } },
+      }] as unknown as ClientMatchDto["Bets"],
+      ...partial,
+    } as ClientMatchDto;
+  }
+
+  it("merges Liga MX same match across renamed teams (certain)", () => {
+    const merged = mergeFootballClientLists([pmRow({})], [obRow({})]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].Matchs).toMatchObject({ Polymarket: "pm-mx", OB: "mid-mx" });
+    expect(merged[0].Bets?.[0]?.Sources?.OB?.Type).toBe("OB");
+    expect(merged[0].MergeGuess).toBeFalsy();
+  });
+
+  it("flags token-subset merges as guess", () => {
+    const pm = pmRow({ Title: "Alpha United vs Beta", Game: "uef", Matchs: { Polymarket: "pm-a" } });
+    const ob = obRow({ Title: "Alpha vs Beta", Game: "uef", Matchs: { OB: "mid-a" } });
+    const merged = mergeFootballClientLists([pm], [ob]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].MergeGuess).toBe(true);
+  });
+
+  it("clears the guess flag when an exact row later confirms the merge", () => {
+    const pm = pmRow({ Title: "Alpha United vs Beta", Game: "uef", Matchs: { Polymarket: "pm-a" } });
+    const obGuess = obRow({ Title: "Alpha vs Beta", Game: "uef", Matchs: { OB: "mid-g" } });
+    const obExact = obRow({
+      ID: 820000002,
+      Title: "Alpha United vs Beta",
+      Game: "uef",
+      Matchs: { OB: "mid-e" },
+      Bets: [],
+    });
+    const merged = mergeFootballClientLists([pm], [obGuess, obExact]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].MergeGuess).toBeFalsy();
+    expect(merged[0].Matchs).toMatchObject({ Polymarket: "pm-a", OB: "mid-e" });
+  });
+
+  it("reorients flipped OB books before overlaying spreads", () => {
+    const pm = pmRow({
+      Bets: [{
+        ID: 11, MatchID: 1, Map: 0, Name: "让球 -0.5", MarketCode: "spreads", Line: -0.5,
+        HomeName: "CF América", AwayName: "CD Guadalajara", HomeID: 1, AwayID: 2,
+        Sources: { Polymarket: { Type: "Polymarket", BetID: "p", HomeID: "h", AwayID: "a", HomeOdds: 2.0, AwayOdds: 1.8, Status: "Normal" } },
+      }] as unknown as ClientMatchDto["Bets"],
+    });
+    const ob = obRow({
+      Title: "CD Guadalajara Chivas vs Club America",
+      Bets: [{
+        ID: 21, MatchID: 820000001, Map: 0, Name: "让球 -0.5", MarketCode: "spreads", Line: 0.5,
+        HomeName: "CD Guadalajara Chivas", AwayName: "Club America", HomeID: 1, AwayID: 2,
+        Sources: { OB: { Type: "OB", BetID: "o", HomeID: "oh", AwayID: "oa", HomeOdds: 1.9, AwayOdds: 2.1, Status: "Normal" } },
+      }] as unknown as ClientMatchDto["Bets"],
+    });
+    const merged = mergeFootballClientLists([pm], [ob]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].Bets).toHaveLength(1);
+    expect(merged[0].Bets?.[0]?.Line).toBe(-0.5);
+    expect(merged[0].Bets?.[0]?.Sources?.OB?.HomeOdds).toBe(2.1);
+    expect(merged[0].Bets?.[0]?.Sources?.OB?.AwayOdds).toBe(1.9);
+  });
+
+  it("keeps matches in different kickoff hours separate", () => {
+    const merged = mergeFootballClientLists([pmRow({})], [obRow({ StartTime: T + 3_600_000 })]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("keeps matches in different real leagues separate", () => {
+    const pm = pmRow({ Title: "Arsenal vs Chelsea", Game: "epl", Matchs: { Polymarket: "pm-e" } });
+    const ob = obRow({ Title: "Arsenal vs Chelsea", Game: "lal", Matchs: { OB: "mid-l" } });
+    expect(mergeFootballClientLists([pm], [ob])).toHaveLength(2);
+  });
+
+  it("falls back to the legacy title key for placeholder OB rows", () => {
+    const a = obRow({ Title: "Mexico Liga MX 88392921", Matchs: { OB: "m1" } });
+    const b = obRow({ Title: "Mexico Liga MX 88392921", Matchs: { OB: "m2" } });
+    const merged = mergeFootballClientLists([], [a, b]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].Matchs).toMatchObject({ OB: "m2" });
+  });
+});

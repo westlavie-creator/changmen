@@ -1,5 +1,13 @@
 import type { ClientMatchDto } from "@/types/esport";
 import { pickBetterFootballGame } from "@/runtime/footballLeague";
+import {
+  footballLeagueMatch,
+  footballRowIdentity,
+  pairMatchTier,
+  reorientFootballRow,
+  type FootballRowIdentity,
+  type PairMatchTier,
+} from "@/runtime/footballMatchKey";
 
 function junkTitle(title: string): boolean {
   const parts = String(title || "").split(/\s+vs\.?\s+/i);
@@ -11,10 +19,8 @@ function junkTitle(title: string): boolean {
     && /^(大|小|大球|小球|over|under|o\/u)$/i.test(away);
 }
 
-function pairKey(m: ClientMatchDto): string {
-  const title = String(m.Title || "").toLowerCase().replace(/\s+/g, " ").trim();
-  const hour = Math.floor((Number(m.StartTime) || 0) / 3_600_000);
-  return `${hour}|${title}`;
+function legacyTitle(row: ClientMatchDto): string {
+  return String(row.Title || "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function cloneMatch(m: ClientMatchDto): ClientMatchDto {
@@ -64,7 +70,10 @@ function overlayMatch(hit: ClientMatchDto, row: ClientMatchDto) {
 /**
  * VPS 的 PM/PF 列表 + 本机 OB 列表（浏览器 overlay）。
  * 定案：ARB_MULTI_SPORT §3c — 不写 RDS / client_matches / sport_merge / 电竞 matcher。
- * 过渡键：标题+小时（猜测合场，只读）。目标键：联赛码 + 队名归一 + 时间窗 + 朝向；合不上并列。
+ * 键 = 联赛码（unknown_fb 通配）+ 归一队名对（共享别名表，填充词剔除）
+ *     + 开赛小时桶 + 主客朝向（flip 先行重定向再 overlay）。
+ * 配对分层：canonical 全等 = 确定；token 子集 = 猜测（打 MergeGuess，禁入未来 N4）。
+ * 队名不可识别（OB 占位标题）退回旧「小时|标题」键；合不上并列。
  */
 export function mergeFootballClientLists(
   pmPf: ClientMatchDto[],
@@ -74,21 +83,50 @@ export function mergeFootballClientLists(
     ...(Array.isArray(pmPf) ? pmPf : []),
     ...(Array.isArray(ob) ? ob : []),
   ].filter(m => !junkTitle(String(m.Title || "")));
-  const index = new Map<string, ClientMatchDto>();
+  /** @type {Map<number, Array<{ row: ClientMatchDto; id: FootballRowIdentity | null; guess: boolean }>>} */
+  const byHour = new Map();
   const out: ClientMatchDto[] = [];
   for (const row of rows) {
-    const key = pairKey(row);
-    const hit = index.get(key);
+    const id = footballRowIdentity(row);
+    const hour = id ? id.hour : Math.floor((Number(row.StartTime) || 0) / 3_600_000);
+    const cands = byHour.get(hour) || [];
+    let hit: { row: ClientMatchDto; id: FootballRowIdentity | null; guess: boolean } | null = null;
+    let tier: "exact" | "guess" | null = null;
+    let flip = false;
+    for (const cand of cands) {
+      let m: PairMatchTier = null;
+      if (id && cand.id) {
+        if (footballLeagueMatch(cand.id.leagueKey, id.leagueKey))
+          m = pairMatchTier(cand.id, id);
+      }
+      else if (!id && !cand.id && legacyTitle(cand.row) === legacyTitle(row)) {
+        m = { tier: "exact", flip: false };
+      }
+      if (!m)
+        continue;
+      if (!hit || (tier === "guess" && m.tier === "exact")) {
+        hit = cand;
+        tier = m.tier;
+        flip = m.flip;
+        if (tier === "exact" && !flip)
+          break;
+      }
+    }
     if (!hit) {
       const copy = cloneMatch(row);
+      const entry = { row: copy, id, guess: false };
+      if (!byHour.has(hour))
+        byHour.set(hour, []);
+      byHour.get(hour).push(entry);
       out.push(copy);
-      index.set(key, copy);
       continue;
     }
-    overlayMatch(hit, row);
-    if (!hasObSource(hit))
-      hit.Game = pickBetterFootballGame(hit.Game, row.Game);
-
+    const oriented = flip ? reorientFootballRow(row) : row;
+    overlayMatch(hit.row, oriented);
+    if (!hasObSource(hit.row))
+      hit.row.Game = pickBetterFootballGame(hit.row.Game, oriented.Game);
+    hit.guess = tier === "exact" ? false : tier === "guess" ? true : hit.guess;
+    hit.row.MergeGuess = hit.guess ? true : undefined;
   }
   out.sort((a, b) => {
     const ta = Number(a.StartTime) || 0;

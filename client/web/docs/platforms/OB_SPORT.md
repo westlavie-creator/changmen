@@ -292,4 +292,4 @@ VPS  Client_GetFootballMatchs   →  PM∥PF 已合场 DTO（sport_merge）
 | 共享别名表 + 时间窗 + 朝向（目标算法） | 原文标题相等当作身份 |
 | 合不上并列；猜测打标 | 猜测场进 N4 / 写 `fo` |
 
-过渡实现：`client/web/src/runtime/footballClientList.ts` 的 `标题|小时` 键。
+实现（2026-09-20 起）：`client/web/src/runtime/footballMatchKey.ts`（身份键 + 翻转重定向）+ `mergeFootballClientLists`（overlay）。键 = 联赛码（`unknown_fb` 通配，真实码硬隔离）+ 归一队名对 + 开赛小时桶 + 主客朝向；归一走 `@changmen/shared/catalog/football_team_key`（与 server `sport_team_plugin` 共用 `football_team_aliases.json`；去重音 / 去填充词）。配对分层：canonical 全等 = 确定；token 子集 = 猜测 → DTO 打 `MergeGuess`（禁入 N4）；OB 占位标题（无队名）退回「小时|标题」旧键。

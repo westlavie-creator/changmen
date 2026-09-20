@@ -236,7 +236,7 @@ OB 试玩 token / 盘口 / `yewuws2` 不出本机，服务端看不到这场馆�
 | **映射沉淀** | 确认过的别名进共享表（catalog / sport team maps），禁止每个浏览器各猜各的 |
 | **电竞** | `GetMatchs` / matcher / `fo` / `mainBetLoop` **零改动** |
 
-现状（过渡）：`mergeFootballClientLists` 仍用 `标题|小时`，属于猜测合场，只读展示可用；替换目标算法前不得当身份用。
+现状（2026-09-20 起）：目标键已落地于 `client/web/src/runtime/footballMatchKey.ts` + `mergeFootballClientLists`。键 = 联赛码（`unknown_fb` 通配，真实码硬隔离）+ 归一队名对（`@changmen/shared/catalog/football_team_key` 单一别名表：去重音 NFKD / 去撇号 / 去填充词 fc·cf·cd·sc·ac·fk·club）+ 开赛小时桶 + 主客朝向（flip 先行重定向：交换队名与赔率、让球线取反，totals 不动）。配对分层：canonical 全等 = **确定**；token 子集 = **猜测**（DTO 打 `MergeGuess`，未来 N4 闸门，见 api-contract `ClientMatchDto.MergeGuess`）；队名不可识别（OB 占位标题）退回「小时|标题」旧键。映射沉淀：`packages/shared/catalog/football_team_aliases.json`，server `sport_team_plugin`（PM∥PF 合场）已切同表，禁止各端私建。
 
 协议细节：[OB_SPORT.md §9](../client/web/docs/platforms/OB_SPORT.md#9-本机合场)。电竞身份不变量仍以 [MATCH_IDENTITY_MODEL.md](./MATCH_IDENTITY_MODEL.md) 为准；本例外不放松电竞 I1–I5。
 
@@ -256,7 +256,7 @@ OB 试玩 token / 盘口 / `yewuws2` 不出本机，服务端看不到这场馆�
 |------|------|----------|
 | **N3 moneyline 合并** | **已做**（请求路径 + `sport_*`；非独立 PM2 matcher） | 禁写电竞 `client_matches`；禁 import 电竞 `team_db`；仅双场馆对替换 API |
 | **N3 足球让球/大小** | **已做**（只读；PF 供给以中超为主） | 不改 `GetMatchs` / fo / `mainBetLoop` |
-| **N3.6 足球 OB 本机 overlay** | **已冻结**（浏览器合场；目标算法未替换） | 不写 `client_matches` / `sport_merge`；猜测不得进 N4 |
+| **N3.6 足球 OB 本机 overlay** | **已做**（浏览器目标键合场：联赛码 + 归一队名 + 小时桶 + 朝向；猜测打 `MergeGuess`） | 不写 `client_matches` / `sport_merge`；猜测不得进 N4 |
 | **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop`；棒球主盘 moneyline，足球主盘 **让球+大小球**（胜负不作套利主盘） |
 | **Sport Team UI / PF 下注** | **未开** | — |
 
