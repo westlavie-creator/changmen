@@ -5,7 +5,7 @@
 import { BetOption } from "@changmen/client-core/models/betOption";
 import type { BetSide } from "@changmen/client-core/models/match";
 import { ElMessage } from "element-plus";
-import { listPmFollowAccounts } from "@/runtime/podPmFollowPlace";
+import { ensurePmFootballAccountsHaveVaultKeys, listPmFollowAccounts } from "@/runtime/podPmFollowPlace";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
 import {
   promptSportBoardStake,
@@ -80,6 +80,10 @@ export async function placePmSportBoardBet(
   const accountIds = selectedPmAccountIds(settings.pmFollowAccountIds);
   if (!accountIds.length)
     return { ok: false, message: "请先在 POD 跟单 tab 选择 PM 账号" };
+
+  const vaultBlock = await ensurePmFootballAccountsHaveVaultKeys();
+  if (vaultBlock)
+    return { ok: false, message: vaultBlock };
 
   const accountStore = useAccountStore();
   const accounts = listPmFollowAccounts(accountStore.accounts, accountIds);

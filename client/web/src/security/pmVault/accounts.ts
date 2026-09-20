@@ -7,6 +7,7 @@ import {
   extractPrivateKeyFromToken,
   isVaultKeyProvider,
   mergePrivateKeyIntoToken,
+  parseTokenObject,
   toPersistTokenForProvider,
 } from "./tokenStrip";
 import {
@@ -14,6 +15,25 @@ import {
   isPmVaultUnlocked,
   putPrivateKeyInVault,
 } from "./session";
+
+function normalizeWalletAddress(raw: unknown): string {
+  const s = String(raw ?? "").trim().toLowerCase();
+  return /^0x[0-9a-f]{40}$/.test(s) ? s : "";
+}
+
+function tokenWalletAddress(raw: string | undefined | null): string {
+  const obj = parseTokenObject(raw);
+  if (!obj)
+    return "";
+  return normalizeWalletAddress(
+    obj.walletAddress
+      ?? obj.address
+      ?? obj.predictAccount
+      ?? obj.predict_account
+      ?? obj.funder
+      ?? obj.funderAddress,
+  );
+}
 
 export function mergeVaultKeysIntoAccounts(
   accounts: PlatformAccount[],
@@ -31,7 +51,7 @@ export function mergeVaultKeysIntoAccounts(
   for (const acc of accounts) {
     if (!isVaultKeyProvider(acc.provider) || !acc.accountId)
       continue;
-    const fromVault = getCachedPrivateKey(acc.accountId);
+    const fromVault = getCachedPrivateKey(acc.accountId, tokenWalletAddress(acc.token));
     const fromToken = extractPrivateKeyFromToken(acc.token);
     if (fromVault) {
       acc.token = mergePrivateKeyIntoToken(acc.token, fromVault, acc.provider);

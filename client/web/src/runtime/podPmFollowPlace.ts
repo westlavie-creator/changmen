@@ -8,8 +8,16 @@ import type { PodFixtureMatchBasis } from "@/runtime/podFixtureMatch";
 import type { PodMarketMatch, PodObQuoteCompare } from "@/runtime/podMarketMatch";
 import { evaluatePodOutcomeGate, podOutcomeGateEntryFrom, type PodOutcomeGateEntry } from "@/runtime/podYabo/gate";
 import { podYaboDailyLossBlocked } from "@/runtime/podYabo/loss";
+import { useUserStore } from "@/stores/userStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
+import {
+  ensurePmVaultUnlocked,
+  hasVault,
+  mergeVaultKeysIntoAccounts,
+  migrateTokenPrivateKeysToVault,
+  normalizePmVaultUserId,
+} from "@/security/pmVault";
 
 const PM = "Polymarket" as const;
 
@@ -134,10 +142,32 @@ function pickPmAccounts(ticket: PodPmFollowPlaceTicket): PlatformAccount[] {
   return listPmFollowAccounts(store.accounts, normalizedAccountIds(ticket.accountIds));
 }
 
+export async function ensurePmFootballAccountsHaveVaultKeys(): Promise<string | null> {
+  const store = useAccountStore();
+  const user = useUserStore();
+  if (!user.userId && user.isLoggedIn)
+    await user.fetchUserInfo();
+  const uid = normalizePmVaultUserId(user.userId);
+  if (!uid || !(await hasVault(uid)))
+    return null;
+  const unlocked = await ensurePmVaultUnlocked(uid);
+  if (!unlocked)
+    return "请先解锁本机钱包";
+  mergeVaultKeysIntoAccounts(store.accounts, uid);
+  const migrated = await migrateTokenPrivateKeysToVault(store.accounts, uid);
+  if (migrated > 0)
+    void store.saveAccounts();
+  return null;
+}
+
 export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promise<{ ok: boolean; message: string }> {
   const block = podPmFollowPlaceBlock(ticket);
   if (block)
     return { ok: false, message: block };
+
+  const vaultBlock = await ensurePmFootballAccountsHaveVaultKeys();
+  if (vaultBlock)
+    return { ok: false, message: vaultBlock };
 
   const accounts = pickPmAccounts(ticket);
   if (!accounts.length)

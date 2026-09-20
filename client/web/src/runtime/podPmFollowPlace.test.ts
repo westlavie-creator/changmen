@@ -94,4 +94,10 @@ describe("podPmFollowPlace", () => {
     expect(source).toMatch(/checkBetting\(account, option\)/);
     expect(source).not.toMatch(/skipStakeResolve:\s*true/);
   });
+
+  it("does not skip PM vault sync before user id is ready", () => {
+    const source = readFileSync(join(process.cwd(), "src/runtime/podPmFollowPlace.ts"), "utf8");
+    expect(source).toMatch(/if \(!user\.userId && user\.isLoggedIn\)/);
+    expect(source).toMatch(/await user\.fetchUserInfo\(\)/);
+  });
 });

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { formatPmSportBoardPlaceTitle } from "@/runtime/pmSportBoardPlace";
 
 describe("pmSportBoardPlace", () => {
@@ -13,5 +15,14 @@ describe("pmSportBoardPlace", () => {
       home: "A",
       away: "B",
     })).toBe("A vs B · 全场让球 -0.5 · 客 @ 2.12");
+  });
+
+  it("syncs PM vault keys before board manual betting", () => {
+    const source = readFileSync(join(process.cwd(), "src/runtime/pmSportBoardPlace.ts"), "utf8");
+    expect(source).toMatch(/ensurePmFootballAccountsHaveVaultKeys/);
+    expect(source).toMatch(/const vaultBlock = await ensurePmFootballAccountsHaveVaultKeys\(\)/);
+    expect(source.indexOf("ensurePmFootballAccountsHaveVaultKeys")).toBeLessThan(
+      source.indexOf("listPmFollowAccounts"),
+    );
   });
 });

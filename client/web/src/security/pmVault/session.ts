@@ -61,6 +61,7 @@ interface SessionState {
   userId: string;
   kek: CryptoKey;
   plainByAccountId: Map<number, string>;
+  plainByWalletAddress: Map<string, string>;
   unlockedAt: number;
 }
 
@@ -119,23 +120,36 @@ export function lockPmVault(): void {
   notifyPmVaultSessionChanged();
 }
 
-export function getCachedPrivateKey(accountId: number): string | undefined {
-  return session?.plainByAccountId.get(Number(accountId));
+function normalizeVaultWalletAddress(walletAddress?: string): string {
+  const s = String(walletAddress || "").trim().toLowerCase();
+  return /^0x[0-9a-f]{40}$/.test(s) ? s : "";
 }
 
-async function loadAllKeysIntoSession(kek: CryptoKey, userId: string): Promise<Map<number, string>> {
-  const map = new Map<number, string>();
+export function getCachedPrivateKey(accountId: number, walletAddress?: string): string | undefined {
+  const byId = session?.plainByAccountId.get(Number(accountId));
+  if (byId)
+    return byId;
+  const wallet = normalizeVaultWalletAddress(walletAddress);
+  return wallet ? session?.plainByWalletAddress.get(wallet) : undefined;
+}
+
+async function loadAllKeysIntoSession(kek: CryptoKey, userId: string): Promise<Pick<SessionState, "plainByAccountId" | "plainByWalletAddress">> {
+  const byAccountId = new Map<number, string>();
+  const byWalletAddress = new Map<string, string>();
   const rows = await listVaultKeys(userId);
   for (const row of rows) {
     try {
       const pk = await decryptUtf8(kek, row.cipher);
-      map.set(Number(row.accountId), pk);
+      byAccountId.set(Number(row.accountId), pk);
+      const wallet = normalizeVaultWalletAddress(row.walletAddress);
+      if (wallet)
+        byWalletAddress.set(wallet, pk);
     }
     catch {
       /* skip corrupt entry */
     }
   }
-  return map;
+  return { plainByAccountId: byAccountId, plainByWalletAddress: byWalletAddress };
 }
 
 export async function setupPmVault(userId: string, password: string): Promise<void> {
@@ -172,6 +186,7 @@ export async function setupPmVault(userId: string, password: string): Promise<vo
     userId: uid,
     kek,
     plainByAccountId: new Map(),
+    plainByWalletAddress: new Map(),
     unlockedAt: now,
   };
   notifyPmVaultSessionChanged();
@@ -196,7 +211,8 @@ export async function unlockPmVault(userId: string, password: string): Promise<v
   session = {
     userId: uid,
     kek,
-    plainByAccountId: plain,
+    plainByAccountId: plain.plainByAccountId,
+    plainByWalletAddress: plain.plainByWalletAddress,
     unlockedAt: Date.now(),
   };
   notifyPmVaultSessionChanged();
@@ -234,10 +250,12 @@ export async function changePmVaultPassword(
   const keyRecords = [];
   for (const [accountId, pk] of entries) {
     const cipher = await encryptUtf8(kek, pk);
+    const existing = existingBefore.find(row => Number(row.accountId) === Number(accountId));
     keyRecords.push({
       id: vaultKeyId(uid, accountId),
       userId: uid,
       accountId,
+      walletAddress: existing?.walletAddress,
       cipher,
       updatedAt: now,
     });
@@ -263,6 +281,13 @@ export async function changePmVaultPassword(
     userId: uid,
     kek,
     plainByAccountId: new Map(entries),
+    plainByWalletAddress: new Map(existingBefore
+      .map((row) => {
+        const wallet = normalizeVaultWalletAddress(row.walletAddress);
+        const pk = entries.find(([accountId]) => Number(accountId) === Number(row.accountId))?.[1] || "";
+        return wallet && pk ? [wallet, pk] as const : null;
+      })
+      .filter((row): row is readonly [string, string] => Boolean(row))),
     unlockedAt: now,
   };
   notifyPmVaultSessionChanged();
@@ -293,6 +318,9 @@ export async function putPrivateKeyInVault(
     updatedAt: Date.now(),
   });
   session.plainByAccountId.set(id, pk);
+  const wallet = normalizeVaultWalletAddress(walletAddress);
+  if (wallet)
+    session.plainByWalletAddress.set(wallet, pk);
   notifyPmVaultSessionChanged();
 }
 

@@ -18,6 +18,7 @@ import { attachPredictFunDetectionQuote } from "@/domain/predictfun/attachDetect
 import { resolveVenueStakeFromPlanCny, type ResolveVenueStakeOpts } from "@changmen/venue-adapter/adaptation";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useMessageStore } from "@/stores/messageStore";
+import { useUserStore } from "@/stores/userStore";
 import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
@@ -35,6 +36,38 @@ export interface PlaceBetOpts {
    * 无 data 直接失败，避免 Parallel 时一边 check+bet、另一边还在拉簿。
    */
   requirePreparedQuote?: boolean;
+}
+
+async function ensureSharedVaultKeyForAccount(account: PlatformAccount | undefined): Promise<void> {
+  if (!account)
+    return;
+  const {
+    accountTokenHasPrivateKey,
+    ensurePmVaultUnlocked,
+    hasVault,
+    isVaultKeyProvider,
+    mergeVaultKeysIntoAccounts,
+    normalizePmVaultUserId,
+  } = await import("@/security/pmVault");
+  if (!isVaultKeyProvider(account.provider) || accountTokenHasPrivateKey(account.token))
+    return;
+
+  const user = useUserStore();
+  if (!user.userId && user.isLoggedIn)
+    await user.fetchUserInfo();
+  const uid = normalizePmVaultUserId(user.userId);
+  if (!uid || !(await hasVault(uid)))
+    return;
+  const unlocked = await ensurePmVaultUnlocked(uid);
+  if (!unlocked)
+    return;
+
+  const { useAccountStore } = await import("@/stores/accountStore");
+  const accountStore = useAccountStore();
+  mergeVaultKeysIntoAccounts(accountStore.accounts, uid);
+  const shared = account.accountId ? accountStore.findAccount(Number(account.accountId)) : undefined;
+  if (shared?.token && accountTokenHasPrivateKey(shared.token))
+    account.token = shared.token;
 }
 
 /**
@@ -112,6 +145,7 @@ export async function checkBetting(
     option.checkError = `场馆${option.type}没有可用账号`;
     return option;
   }
+  await ensureSharedVaultKeyForAccount(account);
   const provider = getProvider(account);
   if (!provider) {
     option.checkError = `场馆${option.type}不被支持`;
@@ -143,6 +177,7 @@ export async function placeBet(
 ) {
   if (!account)
     return new BetResult(option.type, false, "无可用账号");
+  await ensureSharedVaultKeyForAccount(account);
   const provider = getProvider(account);
   if (!provider)
     return new BetResult(option.type, false, "平台不支持");
