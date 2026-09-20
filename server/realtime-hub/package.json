@@ -11,8 +11,8 @@
     "test": "node --test hub.test.mjs pubsub.test.mjs pm_maintenance.test.mjs"
   },
   "dependencies": {
-    "@changmen/db": "*",
-    "@changmen/polymarket-sports": "*",
+    "@changmen/db": "file:../db",
+    "@changmen/polymarket-sports": "file:../collectors/polymarket-sports",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

@@ -21,11 +21,11 @@
     "scrape:pb:dry": "node scrapers/pb_scraper.mjs --dry-run"
   },
   "dependencies": {
-    "@changmen/db": "*",
-    "@changmen/storage": "*",
-    "@changmen/match-identity": "*",
-    "@changmen/venue-adapter": "*",
-    "@changmen/shared": "*",
+    "@changmen/db": "file:../../db",
+    "@changmen/storage": "file:../../storage",
+    "@changmen/match-identity": "file:../identity",
+    "@changmen/venue-adapter": "file:../../../client/venue-adapter",
+    "@changmen/shared": "file:../../../packages/shared",
     "axios": "^1.7.2"
   }
 }

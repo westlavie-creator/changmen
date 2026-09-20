@@ -14,8 +14,8 @@
     "test": "node --test parse_sport.test.mjs gamma_map.test.mjs"
   },
   "dependencies": {
-    "@changmen/db": "*",
-    "@changmen/storage": "*",
+    "@changmen/db": "file:../../db",
+    "@changmen/storage": "file:../../storage",
     "ws": "^8.21.0"
   }
 }

@@ -17,7 +17,7 @@
     "./providerKeys": "./src/providerKeys.ts"
   },
   "dependencies": {
-    "@changmen/api-contract": "*",
-    "@changmen/client-core": "*"
+    "@changmen/api-contract": "file:../api-contract",
+    "@changmen/client-core": "file:../client-core"
   }
 }

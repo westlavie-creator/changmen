@@ -8,9 +8,9 @@
     "scan:once": "node scripts/scan-once.mjs"
   },
   "dependencies": {
-    "@changmen/db": "*",
-    "@changmen/storage": "*",
-    "@changmen/shared": "*",
+    "@changmen/db": "file:../db",
+    "@changmen/storage": "file:../storage",
+    "@changmen/shared": "file:../../packages/shared",
     "dotenv": "^16.0.0"
   }
 }

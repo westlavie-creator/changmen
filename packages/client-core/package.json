@@ -38,8 +38,8 @@
     "./types/userConfig": "./src/types/userConfig.ts"
   },
   "dependencies": {
-    "@changmen/api-contract": "*",
-    "@changmen/shared": "*",
+    "@changmen/api-contract": "file:../api-contract",
+    "@changmen/shared": "file:../shared",
     "axios": "^1.13.6"
   }
 }

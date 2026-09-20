@@ -24,11 +24,11 @@
     "analyze:deps:check": "node scripts/analyze-module-deps.mjs --check"
   },
   "dependencies": {
-    "@changmen/api-contract": "*",
-    "@changmen/arb-core": "*",
-    "@changmen/client-core": "*",
-    "@changmen/shared": "*",
-    "@changmen/venue-adapter": "*",
+    "@changmen/api-contract": "file:../../packages/api-contract",
+    "@changmen/arb-core": "file:../../packages/arb-core",
+    "@changmen/client-core": "file:../../packages/client-core",
+    "@changmen/shared": "file:../../packages/shared",
+    "@changmen/venue-adapter": "file:../venue-adapter",
     "@noble/curves": "^1.4.2",
     "@polymarket/builder-relayer-client": "^0.0.10",
     "@polymarket/builder-signing-sdk": "^0.0.8",

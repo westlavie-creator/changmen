@@ -14,8 +14,8 @@
     "test": "node --test parse.test.mjs api.test.mjs loop.safety.test.mjs"
   },
   "dependencies": {
-    "@changmen/db": "*",
-    "@changmen/shared": "*",
-    "@changmen/storage": "*"
+    "@changmen/db": "file:../../db",
+    "@changmen/shared": "file:../../../packages/shared",
+    "@changmen/storage": "file:../../storage"
   }
 }

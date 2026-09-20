@@ -40,11 +40,11 @@
     "./stake": "./stake/index.ts"
   },
   "dependencies": {
-    "@changmen/api-contract": "*",
-    "@changmen/client-core": "*",
-    "@changmen/db": "*",
-    "@changmen/shared": "*",
-    "@changmen/storage": "*",
+    "@changmen/api-contract": "file:../../packages/api-contract",
+    "@changmen/client-core": "file:../../packages/client-core",
+    "@changmen/db": "file:../../server/db",
+    "@changmen/shared": "file:../../packages/shared",
+    "@changmen/storage": "file:../../server/storage",
     "@polymarket/client": "^0.2.0",
     "@polymarket/clob-client-v2": "^1.1.0",
     "@predictdotfun/sdk": "^1.3.8",
