@@ -24,6 +24,8 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 `client/venue-adapter` 内的 `loader/`、`registry/`、`scripts/` 属**适配器基础设施**（`reqS` / `backendRequire` 在 `loader/adapter_paths.mjs`）；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
 
+`client/venue-adapter` 整体是**双端共享包**（浏览器 + Node）：server 经 `registry` / `loader` 等基础设施目录反向依赖它，挂在 `client/` 下是历史遗留命名，不代表纯客户端代码。迁入 `packages/` 已评估，决议暂缓——触及面大（冻结清单 18/22 路径、~84 处字面路径引用），收益主要是叙事正确；若未来重开，与 `packages/shared` 补进 workspaces 一事合并为一个 workspace hygiene commit。
+
 `devtools/platform-probes/{platform}/shared/` 为**探针/CLI** 内部模块（如 RAY 的 CJS `save_bets.js`），与浏览器 `shared/` 分离，由探针包 `sync:backend-bundle` 打入 `server/backend/platform_node/`。
 
 服务端通过 `requirePlatform(..., "node")` 加载探针；**不得**引用各平台根目录下的采集/下注 ts（`client/venue-adapter/{platform}/shared/` 亦不在瘦包内）。

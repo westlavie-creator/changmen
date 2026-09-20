@@ -28,6 +28,7 @@ BAT\dev.bat              REM backend + Vite（见 LOCAL_DEV.md）
 3. **CollectConfig** 只控制是否上报，不停止连接与 `fo` 缓存。
 4. **合并真相源**：RDS `client_matches`（matcher 写入，UI 只读）。
 5. **产品线**：对称锚点 `lines/{code}/`；电竞实现仍在根目录，见 [lines/README.md](./lines/README.md)。
+6. **目录即拓扑**：`client/`=浏览器侧、`server/`=VPS 侧、`packages/`=双端共享。例外：`client/venue-adapter` 是双端共享包（被 server 依赖），`client/` 前缀是历史遗留。
 
 ## 文档索引
 
