@@ -180,6 +180,14 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       row: PodSportOrder,
       account?: { accountId?: number; playerName?: string } | null,
     ) {
+      return this.appendVenuePlaced(row, account, { venue: "OB", hydrateOb: true });
+    },
+    async appendVenuePlaced(
+      row: PodSportOrder,
+      account?: { accountId?: number; playerName?: string } | null,
+      opts: { venue?: string; hydrateOb?: boolean } = {},
+    ) {
+      const venue = String(opts.venue || row.venue || "OB").trim() || "OB";
       const picked = account || pickObSportBetAccount(
         useAccountStore().accounts,
         readPodBetSettings().followAccountIds[0] || readPodBetSettings().followAccountId,
@@ -196,12 +204,12 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         away,
         status: row.status || "None",
         profit: Number(row.profit) || 0,
-        venue: "OB",
+        venue,
         playerId,
         accountName: String(row.accountName || picked?.playerName || ""),
       };
       const orderId = String(dto.orderId || "").trim();
-      if (orderId) {
+      if (orderId && venue === "OB" && opts.hydrateOb !== false) {
         try {
           const [venue] = await waitObSportVenueOrderHydration({ orderId, playerId });
           if (venue) {
@@ -313,6 +321,8 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       const pending: { orderId: string; playerId: number }[] = [];
       // 全部当日单都从官网注单回填（赔率/盘口/盈亏），不只待结算
       for (const row of [...this.todayRows, ...this.rows]) {
+        if (String(row.venue || "OB").trim() !== "OB")
+          continue;
         const orderId = String(row.orderId || "").trim();
         if (!orderId || seen.has(orderId))
           continue;

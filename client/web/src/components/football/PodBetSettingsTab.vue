@@ -8,6 +8,7 @@ import {
   type PodBetSettings,
 } from "@/runtime/podBetSettings";
 import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
+import { listPmFollowAccounts } from "@/runtime/podPmFollowPlace";
 import { useAccountStore } from "@/stores/accountStore";
 import PodFollowAccountPicker from "@/components/football/PodFollowAccountPicker.vue";
 import PodYaboSettings from "@/components/football/PodYaboSettings.vue";
@@ -15,6 +16,7 @@ import PodYaboSettings from "@/components/football/PodYaboSettings.vue";
 const form = reactive<PodBetSettings>(readPodBetSettings());
 const accounts = useAccountStore();
 const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
+const pmFollowAccounts = computed(() => listPmFollowAccounts(accounts.accounts));
 
 /** write / apply 期间挡掉回声，避免深监听空转或互相覆盖 */
 let ready = false;
@@ -24,6 +26,8 @@ function snapshot(): PodBetSettings {
   return {
     ...form,
     followAccountIds: form.followAccountIds.slice(),
+    pmFollowAccountIds: form.pmFollowAccountIds.slice(),
+    followVenues: form.followVenues.slice(),
     followAccountId: form.followAccountIds[0] || 0,
   };
 }
@@ -63,12 +67,20 @@ function applyExternal() {
     form.maxAgeSec = next.maxAgeSec;
     form.stake = next.stake;
     form.autoPlace = next.autoPlace;
+    const curVenues = form.followVenues;
+    const venues = next.followVenues;
+    if (curVenues.length !== venues.length || curVenues.some((id, i) => id !== venues[i]))
+      form.followVenues = venues.slice();
     form.maxDailyLoss = next.maxDailyLoss;
     form.followAccountId = next.followAccountId;
     const cur = form.followAccountIds;
     const ids = next.followAccountIds;
     if (cur.length !== ids.length || cur.some((id, i) => id !== ids[i]))
       form.followAccountIds = ids.slice();
+    const curPm = form.pmFollowAccountIds;
+    const pmIds = next.pmFollowAccountIds;
+    if (curPm.length !== pmIds.length || curPm.some((id, i) => id !== pmIds[i]))
+      form.pmFollowAccountIds = pmIds.slice();
   }
   finally {
     gate = false;
@@ -111,14 +123,34 @@ onUnmounted(() => {
       </el-form-item>
       <el-form-item label="自动下注">
         <el-switch v-model="form.autoPlace" :disabled="!form.enabled" inline-prompt active-text="开" inactive-text="关" />
-        <span class="pod-bet-settings__note">默认关；开了才自动下过线且<strong>已确认</strong>的场</span>
+        <span class="pod-bet-settings__note">默认关；按已勾选场馆自动下过线且<strong>已确认</strong>的场，OB 优先</span>
       </el-form-item>
-      <el-form-item label="跟单账号">
+      <el-form-item label="跟单场馆">
+        <el-checkbox-group v-model="form.followVenues">
+          <el-checkbox label="OB">
+            OB
+          </el-checkbox>
+          <el-checkbox label="Polymarket">
+            PM
+          </el-checkbox>
+        </el-checkbox-group>
+      </el-form-item>
+      <el-form-item label="OB跟单账号">
         <PodFollowAccountPicker
           v-model="form.followAccountIds"
           :accounts="followAccounts"
           variant="settings"
+          :disabled="!form.followVenues.includes('OB')"
         />
+      </el-form-item>
+      <el-form-item label="PM跟单账号">
+        <PodFollowAccountPicker
+          v-model="form.pmFollowAccountIds"
+          :accounts="pmFollowAccounts"
+          variant="settings"
+          venue="Polymarket"
+        />
+        <span class="pod-bet-settings__note">PM 必须显式选账号；上方 PM 开关控制下PM和PM自动</span>
       </el-form-item>
       <el-form-item label="当日亏损帽">
         <el-input-number

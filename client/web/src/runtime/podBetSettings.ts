@@ -38,11 +38,15 @@ export type PodBetSettings = {
   stake: number;
   /** 过线且对上 OB 后自动下单。默认关 */
   autoPlace: boolean;
+  /** 跟单目标场馆；默认只 OB，PM 手动开启。 */
+  followVenues: Array<"OB" | "Polymarket">;
   /**
    * 跟单用的侧栏 OB 账号（可多选）。
    * 空 = 未暂停里第一个有体育 token 的（兼容旧 followAccountId=0）。
    */
   followAccountIds: number[];
+  /** 跟单用的 Polymarket 账号（可多选）。空 = 自动挑第一个可用 PM 账号。 */
+  pmFollowAccountIds: number[];
   /** @deprecated 读时等于 followAccountIds[0]||0；写仍会迁进 followAccountIds */
   followAccountId: number;
   /** 自动当日亏损上限（已结算亏损 + 未结算注码）；0 = 不设 */
@@ -67,7 +71,9 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   maxAgeSec: 45,
   stake: 0,
   autoPlace: false,
+  followVenues: ["OB"],
   followAccountIds: [],
+  pmFollowAccountIds: [],
   followAccountId: 0,
   maxDailyLoss: 0,
 };
@@ -110,6 +116,23 @@ export function parseFollowAccountIds(raw: unknown, legacyId: unknown = 0): numb
   return out;
 }
 
+export function parseFollowVenues(raw: unknown): Array<"OB" | "Polymarket"> {
+  const out: Array<"OB" | "Polymarket"> = [];
+  const push = (v: unknown) => {
+    const s = String(v || "").trim();
+    if ((s === "OB" || s === "Polymarket") && !out.includes(s))
+      out.push(s);
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw)
+      push(item);
+  }
+  else if (raw != null && raw !== "") {
+    push(raw);
+  }
+  return out.length ? out : ["OB"];
+}
+
 export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const row = asRecord(raw) || {};
   const d = POD_BET_SETTINGS_DEFAULTS;
@@ -121,6 +144,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
   const anyMarket = moneyline || totals || spreads;
   const yabo = parsePodYaboSettings(row);
   const followAccountIds = parseFollowAccountIds(row.followAccountIds, row.followAccountId);
+  const pmFollowAccountIds = parseFollowAccountIds(row.pmFollowAccountIds, 0);
   return {
     enabled: bool(row.enabled, d.enabled),
     prematchOnly: bool(row.prematchOnly, d.prematchOnly),
@@ -143,7 +167,9 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     })(),
     stake: clampNum(row.stake, d.stake, 0, 1_000_000),
     autoPlace: bool(row.autoPlace, d.autoPlace),
+    followVenues: parseFollowVenues(row.followVenues),
     followAccountIds,
+    pmFollowAccountIds,
     followAccountId: followAccountIds[0] || 0,
     maxDailyLoss: clampNum(row.maxDailyLoss, d.maxDailyLoss, 0, 1_000_000),
   };

@@ -33,8 +33,10 @@ import {
   type PodBoardFixture,
 } from "@/runtime/podFixtureMatch";
 import {
+  comparePodVenueQuote,
   formatPodMarketMatch,
   formatPodObQuote,
+  matchPodAlertToVenueMarket,
 } from "@/runtime/podMarketMatch";
 import {
   buildPodBoardFocus,
@@ -45,6 +47,13 @@ import {
   podFollowPlaceBlock,
   type PodFollowPlaceTicket,
 } from "@/runtime/podFollowPlace";
+import {
+  listPmFollowAccounts,
+  pickPodPmAutoTicket,
+  placePodPmFollowBet,
+  podPmFollowPlaceBlock,
+  type PodPmFollowPlaceTicket,
+} from "@/runtime/podPmFollowPlace";
 import {
   buildPodFollowLogRow,
   buildPodFollowPlaceSnap,
@@ -88,8 +97,8 @@ import { usePodAlertStore } from "@/stores/podAlertStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 
 const POS_KEY = "changmen:podFollowPanel";
-const DEFAULT_W = 400;
-const DEFAULT_H = 420;
+const DEFAULT_W = 430;
+const DEFAULT_H = 460;
 const MIN_W = 280;
 const MIN_H = 180;
 const HEADER_H = 40;
@@ -121,6 +130,7 @@ const AUTO_TICK_MS = 250;
 const IDLE_TICK_MS = 1_000;
 
 const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
+const pmFollowAccounts = computed(() => listPmFollowAccounts(accounts.accounts));
 
 const tickets = computed(() => {
   void sportOddsTick.value;
@@ -155,14 +165,24 @@ const tickets = computed(() => {
   return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
     const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
     const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
-    return {
-      ...scorePodYaboFollow(ticket, {
+    const scored = scorePodYaboFollow(ticket, {
         fixture: hit?.fixture,
         swapped: hit?.swapped === true,
         live,
         books: snapshot.value.books,
         settings: betSettings.value,
-      }),
+      });
+    const pmMarketMatch = hit
+      ? matchPodAlertToVenueMarket(ticket.alert, hit.fixture, "Polymarket", hit.swapped === true, live)
+      : matchPodAlertToVenueMarket(ticket.alert, null, "Polymarket", false, live);
+    const pmQuote = comparePodVenueQuote(pmMarketMatch, "Polymarket", scored.minObOdds, {
+      maxObOdds: scored.maxObOdds,
+      nvp: scored.nvp,
+    });
+    return {
+      ...scored,
+      pmMarketMatch,
+      pmQuote,
       fixtureMatch,
     };
   });
@@ -172,6 +192,8 @@ const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
 const liveById = computed(() => new Map(
   tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
 ));
+const followObEnabled = computed(() => betSettings.value.followVenues.includes("OB"));
+const followPmEnabled = computed(() => betSettings.value.followVenues.includes("Polymarket"));
 
 function refreshLog() {
   logRows.value = readPodFollowLog();
@@ -240,26 +262,84 @@ function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false
   };
 }
 
+function pmTicketPlacePayload(ticket: (typeof tickets.value)[number], auto = false): PodPmFollowPlaceTicket {
+  const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
+  return {
+    id: ticket.id,
+    stake: ticket.stake,
+    fixtureStatus: ticket.fixtureMatch.status,
+    fixtureBasis: ticket.fixtureMatch.basis,
+    pmMatchId: String(hit?.fixture.pmMid || hit?.fixture.id || "").trim(),
+    home: ticket.alert.home,
+    away: ticket.alert.away,
+    sideLabel: ticket.sideLabel,
+    marketLabel: ticket.marketLabel,
+    auto,
+    accountIds: betSettings.value.pmFollowAccountIds,
+    market: ticket.pmMarketMatch,
+    quote: ticket.pmQuote,
+  };
+}
+
 const placingId = ref("");
+const placingPmId = ref("");
 const placed = ref<Record<string, true>>({});
 const placeNote = ref<Record<string, string>>({});
 
+function venuePlaceKey(venue: "OB" | "Polymarket", id: string): string {
+  return `${venue}:${String(id || "").trim()}`;
+}
+
+function hasVenueOrder(id: string, venue: "OB" | "Polymarket"): boolean {
+  const want = String(id || "").trim();
+  if (!want)
+    return false;
+  const rows = [...footballOrders.todayRows, ...footballOrders.rows];
+  return rows.some((row) => {
+    if (String(row.venue || "OB").trim() !== venue)
+      return false;
+    const rowId = String(row.id || "").trim();
+    return rowId === want || rowId.startsWith(`${want}#`);
+  });
+}
+
+function isVenuePlaced(id: string, venue: "OB" | "Polymarket"): boolean {
+  const key = venuePlaceKey(venue, id);
+  if (placed.value[key] || hasVenueOrder(id, venue))
+    return true;
+  return venue === "OB" && logRows.value.some(row => row.id === id && row.placed);
+}
+
 function isPlaced(id: string): boolean {
-  return !!placed.value[id] || logRows.value.some(row => row.id === id && row.placed);
+  return isVenuePlaced(id, "OB") || isVenuePlaced(id, "Polymarket");
 }
 
 function placeBlock(ticket: (typeof tickets.value)[number]): string | null {
-  if (isPlaced(ticket.id))
+  if (isVenuePlaced(ticket.id, "OB"))
     return "已下过";
   return podFollowPlaceBlock(ticketPlacePayload(ticket));
 }
 
+function pmPlaceBlock(ticket: (typeof tickets.value)[number]): string | null {
+  if (isVenuePlaced(ticket.id, "Polymarket"))
+    return "已下过";
+  return podPmFollowPlaceBlock(pmTicketPlacePayload(ticket));
+}
+
 function placeLabel(ticket: (typeof tickets.value)[number]): string {
-  if (isPlaced(ticket.id))
+  if (isVenuePlaced(ticket.id, "OB"))
     return "已下";
   if (placingId.value === ticket.id)
     return "下单中";
   return "下单";
+}
+
+function pmPlaceLabel(ticket: (typeof tickets.value)[number]): string {
+  if (isVenuePlaced(ticket.id, "Polymarket"))
+    return "已下";
+  if (placingPmId.value === ticket.id)
+    return "PM中";
+  return "下PM";
 }
 
 function pendingCap() {
@@ -272,9 +352,20 @@ function pendingCap() {
 
 function pendingPlacedIds(): string[] {
   return [
-    ...Object.keys(placed.value),
-    ...Object.keys(autoAttempted.value),
+    ...Object.keys(placed.value).filter(key => key.startsWith("OB:")).map(key => key.slice(3)),
+    ...Object.keys(autoAttempted.value).filter(key => key.startsWith("OB:")).map(key => key.slice(3)),
     ...logRows.value.filter(row => row.placed).map(row => row.id),
+  ];
+}
+
+function pendingPmPlacedIds(): string[] {
+  return [
+    ...Object.keys(placed.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
+    ...Object.keys(autoAttempted.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
+    ...footballOrders.todayRows
+      .filter(row => String(row.venue || "").trim() === "Polymarket")
+      .map(row => String(row.id || "").split("#PM#")[0])
+      .filter(Boolean),
   ];
 }
 
@@ -294,16 +385,16 @@ function pendingStateFor(
 ): PodFollowPendingState {
   return resolvePodFollowPending({
     ticket: live ? ticketPlacePayload(live) : null,
-    placed: isPlaced(log.id),
+    placed: isVenuePlaced(log.id, "OB"),
     placing: placingId.value === log.id,
     autoPlace: betSettings.value.autoPlace,
     withinAge: live
       ? podAlertWithinFollowAge(live.alert, betSettings.value.maxAgeSec, nowTick.value)
       : false,
     maxAgeSec: betSettings.value.maxAgeSec,
-    autoAttempted: !!autoAttempted.value[log.id],
-    placeNote: placeNote.value[log.id] || log.placeNote,
-    placedAt: log.placedAt || (isPlaced(log.id) ? log.at : 0),
+    autoAttempted: !!autoAttempted.value[venuePlaceKey("OB", log.id)],
+    placeNote: placeNote.value[venuePlaceKey("OB", log.id)] || log.placeNote,
+    placedAt: log.placedAt || (isVenuePlaced(log.id, "OB") ? log.at : 0),
     home: live?.alert.home || log.home,
     away: live?.alert.away || log.away,
     sideLabel: live?.sideLabel || log.sideLabel,
@@ -318,6 +409,7 @@ function pendingStateFor(
 const displayRows = computed(() => {
   void nowTick.value;
   void placingId.value;
+  void placingPmId.value;
   void placed.value;
   void autoAttempted.value;
   void placeNote.value;
@@ -355,7 +447,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
       ElMessage.warning(block);
     return;
   }
-  if (isPlaced(ticket.id)) {
+  if (isVenuePlaced(ticket.id, "OB")) {
     if (!auto)
       ElMessage.info("已下过");
     return;
@@ -363,9 +455,10 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
   placingId.value = ticket.id;
   try {
     const result = await placePodFollowBet(payload);
-    placeNote.value = { ...placeNote.value, [ticket.id]: result.message };
+    const key = venuePlaceKey("OB", ticket.id);
+    placeNote.value = { ...placeNote.value, [key]: result.message };
     if (result.ok) {
-      placed.value = { ...placed.value, [ticket.id]: true };
+      placed.value = { ...placed.value, [key]: true };
       logRows.value = markPodFollowLogPlaced(
         ticket.id,
         result.message,
@@ -385,13 +478,53 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
   }
 }
 
+async function placePmTicket(ticket: (typeof tickets.value)[number], auto = false) {
+  if (placingPmId.value)
+    return;
+  const payload = pmTicketPlacePayload(ticket, auto);
+  const block = podPmFollowPlaceBlock(payload);
+  if (block) {
+    if (!auto)
+      ElMessage.warning(block);
+    return;
+  }
+  if (isVenuePlaced(ticket.id, "Polymarket")) {
+    if (!auto)
+      ElMessage.info("已下过");
+    return;
+  }
+  placingPmId.value = ticket.id;
+  try {
+    const result = await placePodPmFollowBet(payload);
+    const key = venuePlaceKey("Polymarket", ticket.id);
+    placeNote.value = { ...placeNote.value, [key]: result.message };
+    if (result.ok) {
+      placed.value = { ...placed.value, [key]: true };
+      ElMessage.success(result.message);
+      return;
+    }
+    if (auto)
+      ElMessage.warning(result.message);
+    else
+      ElMessage.error(result.message);
+  }
+  finally {
+    placingPmId.value = "";
+  }
+}
+
 function onPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) {
   ev.stopPropagation();
   void placeTicket(ticket, false);
 }
 
+function onPmPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) {
+  ev.stopPropagation();
+  void placePmTicket(ticket, false);
+}
+
 async function maybeAutoPlace() {
-  if (!betSettings.value.autoPlace || placingId.value)
+  if (!betSettings.value.autoPlace || placingId.value || placingPmId.value)
     return;
   const ageOk = tickets.value.filter(ticket =>
     podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value),
@@ -400,35 +533,54 @@ async function maybeAutoPlace() {
   const placedEntries = pendingPlacedEntries();
   const cap = pendingCap();
   // 暖一下预检价，给 EV/锁盘判断；真下单仍走 queryBetAmountPB
-  for (const ticket of ageOk.slice(0, 6)) {
-    const payload = ticketPlacePayload(ticket);
-    if (payload.fixtureBasis !== "confirmed")
-      continue;
-    if (podFollowPlaceBlock(payload))
-      continue;
-    const oid = String(payload.market.oid || "").trim();
-    const mid = String(payload.obMid || "").trim();
-    if (oid && mid)
-      void prefetchObSportOidQuote(oid, mid, {
-        marketCode: payload.market.marketCode,
-        boardSide: payload.market.boardSide || undefined,
-        odds: Number(payload.quote.quote) || Number(payload.market.quote) || 0,
-      });
+  if (followObEnabled.value) {
+    for (const ticket of ageOk.slice(0, 6)) {
+      const payload = ticketPlacePayload(ticket);
+      if (payload.fixtureBasis !== "confirmed")
+        continue;
+      if (podFollowPlaceBlock(payload))
+        continue;
+      const oid = String(payload.market.oid || "").trim();
+      const mid = String(payload.obMid || "").trim();
+      if (oid && mid)
+        void prefetchObSportOidQuote(oid, mid, {
+          marketCode: payload.market.marketCode,
+          boardSide: payload.market.boardSide || undefined,
+          odds: Number(payload.quote.quote) || Number(payload.market.quote) || 0,
+        });
+    }
   }
-  const next = pickPodYaboAutoTicket(
-    ageOk.map(row => ticketPlacePayload(row)),
-    skipped,
-    placedEntries,
+  if (followObEnabled.value) {
+    const next = pickPodYaboAutoTicket(
+      ageOk.map(row => ticketPlacePayload(row)),
+      skipped,
+      placedEntries,
+      cap,
+    );
+    if (next) {
+      const ui = tickets.value.find(row => row.id === next.id);
+      if (ui) {
+        // 先占坑再下：对齐 seenAlertKeys，避免管道慢时重复打同一票
+        autoAttempted.value = { ...autoAttempted.value, [venuePlaceKey("OB", next.id)]: true };
+        await placeTicket(ui, true);
+      }
+    }
+  }
+  if (!followPmEnabled.value)
+    return;
+  const pmNext = pickPodPmAutoTicket(
+    ageOk.map(row => pmTicketPlacePayload(row, true)),
+    pendingPmPlacedIds(),
+    [],
     cap,
   );
-  if (!next)
+  if (!pmNext)
     return;
-  const ui = tickets.value.find(row => row.id === next.id);
-  if (!ui)
+  const pmUi = tickets.value.find(row => row.id === pmNext.id);
+  if (!pmUi)
     return;
-  // 先占坑再下：对齐 seenAlertKeys，避免管道慢时重复打同一票
-  autoAttempted.value = { ...autoAttempted.value, [next.id]: true };
-  await placeTicket(ui, true);
+  autoAttempted.value = { ...autoAttempted.value, [venuePlaceKey("Polymarket", pmNext.id)]: true };
+  await placePmTicket(pmUi, true);
 }
 
 function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | undefined {
@@ -456,13 +608,18 @@ function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | unde
     marketCode: "",
     boardSide: null,
     boardLine: null,
-    placed: isPlaced(ticket.id),
+    placed: isVenuePlaced(ticket.id, "OB"),
     placedAt: 0,
-    placeNote: placeNote.value[ticket.id] || "",
+    placeNote: placeNote.value[venuePlaceKey("OB", ticket.id)] || "",
   });
   if (pending.placed || pending.detail === "可手点" || pending.detail === "待自动")
     return undefined;
   return formatPodFollowPending(pending);
+}
+
+function pmPlaceButtonTitle(ticket: (typeof tickets.value)[number]): string | undefined {
+  const block = pmPlaceBlock(ticket);
+  return block || undefined;
 }
 
 const stakeModel = computed({
@@ -680,9 +837,24 @@ function persistFollowAccounts(raw: number[] | null | undefined) {
   });
 }
 
+function persistPmFollowAccounts(raw: number[] | null | undefined) {
+  const ids = (Array.isArray(raw) ? raw : [])
+    .map(n => Math.round(Number(n) || 0))
+    .filter(n => n > 0);
+  betSettings.value = writePodBetSettings({
+    ...betSettings.value,
+    pmFollowAccountIds: ids,
+  });
+}
+
 const followAccountModel = computed({
   get: () => betSettings.value.followAccountIds.slice(),
   set: (v: number[]) => persistFollowAccounts(v),
+});
+
+const pmFollowAccountModel = computed({
+  get: () => betSettings.value.pmFollowAccountIds.slice(),
+  set: (v: number[]) => persistPmFollowAccounts(v),
 });
 
 async function refreshSportAmount() {
@@ -730,7 +902,9 @@ onMounted(() => {
   store.start();
   reloadBetSettings();
   refreshLog();
-  placed.value = Object.fromEntries(logRows.value.filter(row => row.placed).map(row => [row.id, true as const]));
+  placed.value = Object.fromEntries(logRows.value
+    .filter(row => row.placed)
+    .map(row => [venuePlaceKey("OB", row.id), true as const]));
   window.addEventListener("resize", onWindowResize);
   window.addEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
   stopMissSearch = subscribePodObMissSearch(() => {
@@ -822,13 +996,28 @@ onUnmounted(() => {
         余额 {{ sportAmount }}
       </span>
     </div>
-    <div v-show="!collapsed" class="pod-follow-panel__accounts" @pointerdown.stop>
-      <span class="pod-follow-panel__stake-lab">跟单账号</span>
-      <PodFollowAccountPicker
-        v-model="followAccountModel"
-        :accounts="followAccounts"
-        variant="panel"
-      />
+    <div
+      v-show="!collapsed && (followObEnabled || followPmEnabled)"
+      class="pod-follow-panel__accounts"
+      @pointerdown.stop
+    >
+      <div v-if="followObEnabled" class="pod-follow-panel__account-row">
+        <span class="pod-follow-panel__stake-lab">OB账号</span>
+        <PodFollowAccountPicker
+          v-model="followAccountModel"
+          :accounts="followAccounts"
+          variant="panel"
+        />
+      </div>
+      <div v-if="followPmEnabled" class="pod-follow-panel__account-row">
+        <span class="pod-follow-panel__stake-lab">PM账号</span>
+        <PodFollowAccountPicker
+          v-model="pmFollowAccountModel"
+          :accounts="pmFollowAccounts"
+          variant="panel"
+          venue="Polymarket"
+        />
+      </div>
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
@@ -854,7 +1043,7 @@ onUnmounted(() => {
             :class="{
               'is-fresh': row.live && isFreshPodAlert(row.live.alert.alertedAt, nowTick),
               'is-jumpable': row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid,
-              'is-placed': row.pending.placed,
+              'is-placed': isPlaced(row.log.id),
             }"
             :title="(row.live ? row.live.fixtureMatch.status === 'matched' : !!row.log.obMid) ? '点到板上这场' : undefined"
             @click="onDisplayClick(row)"
@@ -930,7 +1119,7 @@ onUnmounted(() => {
                   · {{ formatPodKickoff(row.live.starts, nowTick) }}
                 </span>
                 <button
-                  v-if="!row.pending.placed"
+                  v-if="!isVenuePlaced(row.live.id, 'OB') && followObEnabled"
                   type="button"
                   class="pod-follow-row__place"
                   :disabled="!!placeBlock(row.live) || placingId === row.live.id"
@@ -938,6 +1127,16 @@ onUnmounted(() => {
                   @click="onPlaceClick($event, row.live)"
                 >
                   {{ placeLabel(row.live) }}
+                </button>
+                <button
+                  v-if="!isVenuePlaced(row.live.id, 'Polymarket') && followPmEnabled"
+                  type="button"
+                  class="pod-follow-row__place"
+                  :disabled="!!pmPlaceBlock(row.live) || placingPmId === row.live.id"
+                  :title="pmPlaceButtonTitle(row.live)"
+                  @click="onPmPlaceClick($event, row.live)"
+                >
+                  {{ pmPlaceLabel(row.live) }}
                 </button>
               </div>
               <div v-if="row.pending.receipt" class="pod-follow-row__receipt">
@@ -1136,10 +1335,19 @@ onUnmounted(() => {
 }
 
 .pod-follow-panel__accounts {
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
 }
 
-.pod-follow-panel__accounts :deep(.pod-acct-picker) {
+.pod-follow-panel__account-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pod-follow-panel__account-row :deep(.pod-acct-picker) {
   flex: 1 1 180px;
   min-width: 0;
 }

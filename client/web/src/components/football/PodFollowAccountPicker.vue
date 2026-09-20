@@ -9,12 +9,18 @@ import { accountOrderDisplayName } from "@/shared/accountDisplayName";
 
 const props = withDefaults(defineProps<{
   modelValue: number[];
-  accounts: ObSportBetAccountLike[];
+  accounts: Array<ObSportBetAccountLike & {
+    provider?: string;
+    balance?: number;
+    getBalance?: () => number | undefined;
+  }>;
   /** panel = 深色浮窗；settings = 浅色设置页 */
   variant?: "panel" | "settings";
+  venue?: "OB" | "Polymarket";
   disabled?: boolean;
 }>(), {
   variant: "panel",
+  venue: "OB",
   disabled: false,
 });
 
@@ -29,13 +35,19 @@ type Chip = {
 };
 
 const chips = computed<Chip[]>(() =>
-  listObSportFollowAccounts(props.accounts).map(row => {
+  (props.venue === "Polymarket"
+    ? props.accounts.filter(row => String(row.provider || "") === "Polymarket")
+    : listObSportFollowAccounts(props.accounts)
+  ).map(row => {
     const id = Math.round(Number(row.accountId) || 0);
     const name = accountOrderDisplayName(row) || String(id);
+    const balance = props.venue === "Polymarket"
+      ? (typeof row.getBalance === "function" ? row.getBalance() : row.balance)
+      : readObSportDisplayBalance(row as ObSportBetAccountLike & { sportBalance?: number });
     return {
       id,
       name,
-      balance: readObSportDisplayBalance(row as ObSportBetAccountLike & { sportBalance?: number }),
+      balance,
     };
   }).filter(row => row.id > 0),
 );
@@ -91,7 +103,7 @@ function formatBal(n: number | undefined): string {
     :class="[`is-${variant}`, { 'is-disabled': disabled, 'is-empty': !chips.length }]"
   >
     <template v-if="!chips.length">
-      <span class="pod-acct-picker__empty">没有可用的 OB 体育账号</span>
+      <span class="pod-acct-picker__empty">没有可用的 {{ venue === "Polymarket" ? "PM" : "OB 体育" }}账号</span>
     </template>
     <template v-else>
       <div class="pod-acct-picker__chips">
@@ -111,7 +123,9 @@ function formatBal(n: number | undefined): string {
         </button>
       </div>
       <div class="pod-acct-picker__meta">
-        <span v-if="selectedCount === 0" class="pod-acct-picker__hint">未选 = 默认第一个</span>
+        <span v-if="selectedCount === 0" class="pod-acct-picker__hint">
+          {{ venue === "Polymarket" ? "必须选择账号" : "未选 = 默认第一个" }}
+        </span>
         <span v-else class="pod-acct-picker__hint">已选 {{ selectedCount }} 个，各下一注</span>
         <button
           v-if="selectedCount > 0 && selectedCount < chips.length"

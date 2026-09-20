@@ -22,6 +22,7 @@ export type PodMarketMatch = {
   boardLine: number | null;
   boardSide: PodMarketSide | null;
   marketCode: string;
+  venue: string;
   ob: boolean;
   quote: number;
   swapped: boolean;
@@ -58,6 +59,7 @@ function emptyMatch(status: PodMarketMatchStatus = "none"): PodMarketMatch {
     boardLine: null,
     boardSide: null,
     marketCode: "",
+    venue: "",
     ob: false,
     quote: 0,
     swapped: false,
@@ -138,22 +140,23 @@ function fallbackQuote(row: PodBoardMarket, side: PodMarketSide, swapped: boolea
   return Number(swapped ? row.quoteHome : row.quoteAway) || 0;
 }
 
-function liveKnown(live: PodLiveOddsReader | undefined, id: string): boolean {
+function liveKnown(live: PodLiveOddsReader | undefined, venue: string, id: string): boolean {
   if (!live || !id)
     return false;
   if (live.has)
-    return live.has("OB", id);
-  return (live.get("OB", id) || 0) > 0;
+    return live.has(venue, id);
+  return (live.get(venue, id) || 0) > 0;
 }
 
 function liveQuote(
   oid: string,
   fallback: number,
+  venue: string,
   live?: PodLiveOddsReader,
 ): { quote: number; locked: boolean; fromLive: boolean } {
-  if (!oid || !live || !liveKnown(live, oid))
+  if (!oid || !live || !liveKnown(live, venue, oid))
     return { quote: fallback, locked: false, fromLive: false };
-  const n = Number(live.get("OB", oid)) || 0;
+  const n = Number(live.get(venue, oid)) || 0;
   if (!(n > 0))
     return { quote: 0, locked: true, fromLive: true };
   return { quote: n, locked: false, fromLive: true };
@@ -189,7 +192,8 @@ function finish(
   extra: { nvp?: number; loose?: boolean } = {},
 ): PodMarketMatch {
   const oid = oidForSide(hit, side, swapped);
-  const resolved = liveQuote(oid, fallbackQuote(hit, side, swapped), live);
+  const venue = String(hit.venue || (hit.ob ? "OB" : "")).trim();
+  const resolved = liveQuote(oid, fallbackQuote(hit, side, swapped), venue || "OB", live);
   return {
     status: "matched",
     basis: "guess",
@@ -198,6 +202,7 @@ function finish(
     boardLine,
     boardSide: boardSideFor(side, swapped),
     marketCode: hit.marketCode,
+    venue,
     ob: Boolean(hit.ob),
     quote: resolved.quote,
     swapped,
@@ -213,9 +218,12 @@ function pickRows(
   fixture: Pick<PodBoardFixture, "markets"> | null | undefined,
   code: string,
   pred: (row: PodBoardMarket) => boolean,
+  venue?: string,
 ): PodBoardMarket[] {
+  const wantVenue = String(venue || "").trim();
   const rows = (fixture?.markets || []).filter(row => (
     String(row.marketCode || "").toLowerCase() === code && pred(row)
+    && (!wantVenue || String(row.venue || (row.ob ? "OB" : "")).trim() === wantVenue)
   ));
   rows.sort((a, b) => Number(b.ob) - Number(a.ob) || a.id - b.id);
   return rows;
@@ -232,6 +240,7 @@ function noneWith(
     side,
     line,
     marketCode: code,
+    venue: "",
     swapped,
   };
 }
@@ -241,6 +250,7 @@ function matchTotals(
   fixture: Pick<PodBoardFixture, "markets"> | null | undefined,
   half: boolean,
   live?: PodLiveOddsReader,
+  venue?: string,
 ): PodMarketMatch {
   const code = boardCode("totals", half);
   if (looksNonGoal(alert))
@@ -253,7 +263,7 @@ function matchTotals(
     return emptyMatch("none");
   const rows = pickRows(fixture, code, row => (
     !looksNonGoal(alert, row.name) && sameLine(rowLine(row, live), points)
-  ));
+  ), venue);
   if (rows.length)
     return finish(rows[0], side, points, false, live);
   return noneWith(side, points, code);
@@ -265,6 +275,7 @@ function matchMoneyline(
   half: boolean,
   swapped: boolean,
   live?: PodLiveOddsReader,
+  venue?: string,
 ): PodMarketMatch {
   const code = boardCode("moneyline", half);
   const side = mlSide(alert.outcome);
@@ -272,7 +283,7 @@ function matchMoneyline(
     return emptyMatch("none");
   if (!isEvenLine(alert.points))
     return emptyMatch("none");
-  const rows = pickRows(fixture, code, row => isEvenLine(row.line));
+  const rows = pickRows(fixture, code, row => isEvenLine(row.line), venue);
   if (!rows.length)
     return noneWith(side, 0, code, swapped);
   return finish(rows[0], side, rows[0].line, swapped, live);
@@ -294,6 +305,7 @@ function matchSpreads(
   half: boolean,
   swapped: boolean,
   live?: PodLiveOddsReader,
+  venue?: string,
 ): PodMarketMatch {
   const code = boardCode("spreads", half);
   if (looksNonGoal(alert))
@@ -307,7 +319,7 @@ function matchSpreads(
   const want = podSpreadToBoardHomeLine(side, points, swapped);
   const rows = pickRows(fixture, code, row => (
     !looksNonGoal(alert, row.name) && sameLine(rowLine(row, live), want)
-  ));
+  ), venue);
   if (rows.length)
     return finish(rows[0], side, points, swapped, live, want);
   return noneWith(side, points, code, swapped);
@@ -347,18 +359,50 @@ export function matchPodAlertToMarket(
   return emptyMatch("skipped");
 }
 
+/** 与 matchPodAlertToMarket 相同，但只对指定场馆盘口。OB 现有入口不走这里。 */
+export function matchPodAlertToVenueMarket(
+  alert: Pick<PodDropAlert, "lineType" | "market" | "outcome" | "points" | "period" | "league">,
+  fixture: Pick<PodBoardFixture, "markets"> | null | undefined,
+  venue: string,
+  swapped = false,
+  live?: PodLiveOddsReader,
+): PodMarketMatch {
+  const kind = podAlertLineKind(alert);
+  const period = Number(alert.period) || 0;
+  if (period !== 0 && period !== 1)
+    return emptyMatch("skipped");
+  const half = period === 1;
+  if (kind === "totals")
+    return matchTotals(alert, fixture, half, live, venue);
+  if (kind === "moneyline")
+    return matchMoneyline(alert, fixture, half, swapped, live, venue);
+  if (kind === "spreads")
+    return matchSpreads(alert, fixture, half, swapped, live, venue);
+  return emptyMatch("skipped");
+}
+
 export function comparePodObQuote(
   match: PodMarketMatch,
   minObOdds: number,
   opts: { maxObOdds?: number; nvp?: number } = {},
 ): PodObQuoteCompare {
-  const min = Number(minObOdds);
+  return comparePodVenueQuote(match, "OB", minObOdds, opts);
+}
+
+export function comparePodVenueQuote(
+  match: PodMarketMatch,
+  venue: string,
+  minOdds: number,
+  opts: { maxObOdds?: number; nvp?: number } = {},
+): PodObQuoteCompare {
+  const min = Number(minOdds);
   const max = Number(opts.maxObOdds) || 0;
   const quote = Number(match.quote) || 0;
   const evPercent = podEvPercent(quote, Number(opts.nvp) || 0);
   const base = { quote, minObOdds: min, maxObOdds: max, evPercent };
-  if (match.status !== "matched" || !match.ob)
-    return { status: "none", ...base, quote: match.ob ? quote : 0 };
+  const matchedVenue = String(match.venue || (match.ob ? "OB" : "")).trim();
+  if (match.status !== "matched" || matchedVenue !== String(venue || "").trim())
+    return { status: "none", ...base, quote: matchedVenue ? quote : 0 };
   if (match.locked)
     return { status: "locked", ...base, quote: 0, evPercent: 0 };
   if (!(quote > 1) || !(min > 1))

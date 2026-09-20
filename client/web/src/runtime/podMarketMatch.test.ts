@@ -3,10 +3,12 @@ import type { PodDropAlert } from "@/runtime/podAlerts";
 import type { PodBoardFixture } from "@/runtime/podFixtureMatch";
 import {
   comparePodObQuote,
+  comparePodVenueQuote,
   formatPodMarketMatch,
   formatPodObQuote,
   matchPodAlertToFtTotals,
   matchPodAlertToMarket,
+  matchPodAlertToVenueMarket,
   podSpreadToBoardHomeLine,
 } from "@/runtime/podMarketMatch";
 
@@ -320,6 +322,57 @@ describe("podMarketMatch", () => {
     const locked = matchPodAlertToFtTotals(alert(), board, live);
     expect(locked.locked).toBe(true);
     expect(formatPodObQuote(comparePodObQuote(locked, 1.85))).toBe("OB 锁盘");
+  });
+
+  it("matches PM only through the venue-specific helper and keeps OB default behavior", () => {
+    const board = fixture({
+      markets: [
+        {
+          id: 1,
+          marketCode: "totals",
+          line: 2.5,
+          name: "全场大小 2.5",
+          venue: "Polymarket",
+          ob: false,
+          quoteHome: 1.91,
+          quoteAway: 1.87,
+          quoteDraw: 0,
+          oidHome: "pm-over",
+          oidAway: "pm-under",
+        },
+        {
+          id: 2,
+          marketCode: "totals",
+          line: 2.5,
+          name: "全场大小 2.5",
+          venue: "OB",
+          ob: true,
+          quoteHome: 1.82,
+          quoteAway: 1.98,
+          quoteDraw: 0,
+          oidHome: "ob-over",
+          oidAway: "ob-under",
+        },
+      ],
+    });
+    const odds = new Map<string, number>([["pm-over", 1.96], ["ob-over", 1.83]]);
+    const live = {
+      get: (_p: string, id: string) => odds.get(id) || 0,
+      has: (_p: string, id: string) => odds.has(id),
+    };
+    const ob = matchPodAlertToMarket(alert(), board, false, live);
+    expect(ob.venue).toBe("OB");
+    expect(ob.oid).toBe("ob-over");
+    expect(ob.quote).toBe(1.83);
+    expect(comparePodObQuote(ob, 1.8).status).toBe("ok");
+
+    const pm = matchPodAlertToVenueMarket(alert(), board, "Polymarket", false, live);
+    expect(pm.venue).toBe("Polymarket");
+    expect(pm.ob).toBe(false);
+    expect(pm.oid).toBe("pm-over");
+    expect(pm.quote).toBe(1.96);
+    expect(comparePodObQuote(pm, 1.9).status).toBe("none");
+    expect(comparePodVenueQuote(pm, "Polymarket", 1.9).status).toBe("ok");
   });
 
   it("does not match totals/spreads after the live line moves, but still uses HTTP for even ML", () => {

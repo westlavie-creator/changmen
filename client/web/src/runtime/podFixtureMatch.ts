@@ -26,6 +26,8 @@ export type PodBoardMarket = {
   marketCode: string;
   line: number | null;
   name: string;
+  /** 盘口来源；旧 OB 跟单仍只看 ob=true。 */
+  venue?: string;
   ob: boolean;
   quoteHome: number;
   quoteAway: number;
@@ -42,6 +44,7 @@ export type PodBoardFixture = {
   game: string;
   startAt: number;
   obMid: string;
+  pmMid?: string;
   homeName: string;
   awayName: string;
   homeEn?: string;
@@ -216,21 +219,42 @@ function marketsFromBets(bets: Array<{
   const out: PodBoardMarket[] = [];
   for (const bet of bets || []) {
     const items = bet.items || [];
-    const quote = items.find(item => String(item.type || "") === "OB") || items[0];
-    const rec = quote as Record<string, unknown> | undefined;
-    out.push({
-      id: Number(bet.id) || 0,
-      marketCode: String(bet.marketCode || "").toLowerCase(),
-      line: asLine(bet.line),
-      name: String(bet.name || "").trim(),
-      ob: items.some(item => String(item.type || "") === "OB"),
-      quoteHome: Number(quote?.fallbackHomeOdds) || 0,
-      quoteAway: Number(quote?.fallbackAwayOdds) || 0,
-      quoteDraw: Number(quote?.fallbackDrawOdds) || 0,
-      oidHome: itemOid(rec, "home"),
-      oidAway: itemOid(rec, "away"),
-      oidDraw: itemOid(rec, "draw"),
-    });
+    if (!items.length) {
+      out.push({
+        id: Number(bet.id) || 0,
+        marketCode: String(bet.marketCode || "").toLowerCase(),
+        line: asLine(bet.line),
+        name: String(bet.name || "").trim(),
+        ob: false,
+        quoteHome: 0,
+        quoteAway: 0,
+        quoteDraw: 0,
+        oidHome: "",
+        oidAway: "",
+        oidDraw: "",
+      });
+      continue;
+    }
+    for (const quote of items) {
+      const venue = String(quote?.type || "").trim();
+      if (!venue)
+        continue;
+      const rec = quote as Record<string, unknown> | undefined;
+      out.push({
+        id: Number(bet.id) || 0,
+        marketCode: String(bet.marketCode || "").toLowerCase(),
+        line: asLine(bet.line),
+        name: String(bet.name || "").trim(),
+        ...(venue !== "OB" ? { venue } : {}),
+        ob: venue === "OB",
+        quoteHome: Number(quote?.fallbackHomeOdds) || 0,
+        quoteAway: Number(quote?.fallbackAwayOdds) || 0,
+        quoteDraw: Number(quote?.fallbackDrawOdds) || 0,
+        oidHome: itemOid(rec, "home"),
+        oidAway: itemOid(rec, "away"),
+        oidDraw: itemOid(rec, "draw"),
+      });
+    }
   }
   return out;
 }
@@ -285,6 +309,9 @@ export function fixtureFromViewMatch(row: {
     game: String(row.game || "").trim(),
     startAt: Number(row.startAt) || 0,
     obMid: String(row.providers?.OB || "").trim(),
+    ...(String(row.providers?.Polymarket || "").trim()
+      ? { pmMid: String(row.providers?.Polymarket || "").trim() }
+      : {}),
     homeName: home,
     awayName: away,
     markets: marketsFromBets(row.bets),
