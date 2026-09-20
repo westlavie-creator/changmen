@@ -15,11 +15,21 @@ export const PLATFORMS = Object.freeze({
   Dex: "Dex",
   /** [changmen 扩展] A8 插件无 */
   Polymarket: "Polymarket",
+  /** [changmen 扩展] A8 插件无 */
+  Limitless: "Limitless",
+  /** [changmen 扩展] A8 插件无 */
+  SXBet: "SXBet",
+  /** [changmen 扩展] A8 插件无 */
+  Azuro: "Azuro",
+  /** [changmen 扩展] A8 插件无 */
+  PredictFun: "PredictFun",
+  /** [changmen 扩展] A8 插件无 */
+  XBet: "XBet",
 });
 
 /**
  * 采集图标探测名单。
  * A8：对枚举全量 `Object.values(o)` 做 Check（含 IM/TF/HGA/HG），任意 frame，无 top 限制。
- * Dex/Polymarket 为 changmen 扩展，排在 A8 馆之后。
+ * Dex/Polymarket/Limitless/SXBet/Azuro/PredictFun/XBet 为 changmen 扩展，排在 A8 馆之后。
  */
 export const PLATFORM_LIST = Object.values(PLATFORMS);

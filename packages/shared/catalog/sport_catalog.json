@@ -14,8 +14,14 @@
       "apiSportFilter": "esport",
       "pm2Apps": [
         "changmen-esport",
+        "changmen-pm-market-hub",
+        "changmen-pm-sport-market-hub",
         "changmen-pm-sports",
-        "changmen-predictfun-collector"
+        "changmen-polymarket-collector",
+        "changmen-predictfun-market-hub",
+        "changmen-predictfun-collector",
+        "changmen-sxbet-market-hub",
+        "changmen-sxbet-collector"
       ],
       "collect": {
         "mode": "both",

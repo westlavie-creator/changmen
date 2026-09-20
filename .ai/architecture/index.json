@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "generatedAt": "2026-09-19T12:14:31.567Z",
+  "generatedAt": "2026-09-20T04:12:38.316Z",
   "generatedBy": ".ai/architecture/build-index.mjs",
   "note": "Architecture Index（索引，非百科）：每个条目只指向真实 source/evidence，不复制内容。派生数据：每次构建重新生成，禁止人工手改 index.json。",
   "meta": {
@@ -155,7 +155,7 @@
   "modules": {
     "@changmen/chrome-extension": {
       "dir": "chrome-extension",
-      "version": "1.2.0",
+      "version": "1.3.59",
       "private": true,
       "changmenDeps": [],
       "status": "verified",
@@ -263,6 +263,19 @@
       "source": "package.json (workspaces)",
       "evidence": [
         "packages/client-core/package.json",
+        "package.json (workspaces)"
+      ]
+    },
+    "@changmen/shared": {
+      "dir": "packages/shared",
+      "version": "1.0.0",
+      "private": true,
+      "changmenDeps": [],
+      "status": "verified",
+      "derivation": "generated-from-package.json",
+      "source": "package.json (workspaces)",
+      "evidence": [
+        "packages/shared/package.json",
         "package.json (workspaces)"
       ]
     },
@@ -485,19 +498,6 @@
         "server/ws_forward/package.json",
         "package.json (workspaces)"
       ]
-    },
-    "@changmen/shared": {
-      "dir": "packages/shared",
-      "version": "1.0.0",
-      "private": true,
-      "changmenDeps": [],
-      "status": "verified-not-in-workspaces-glob",
-      "derivation": "generated-from-package.json",
-      "source": "package.json (absent from root workspaces array — see conflict F-09)",
-      "evidence": [
-        "packages/shared/package.json",
-        "package.json (workspaces)"
-      ]
     }
   },
   "capabilities": {
@@ -562,10 +562,15 @@
         "docs/DATA_STORAGE.md:80",
         "server/realtime-hub/channels.js:1,3,6"
       ],
-      "status": "verified",
+      "status": "stale",
       "derivation": "audit-code-review-2026-09-19",
-      "evidenceStatus": "current",
-      "nonFileEvidence": []
+      "evidenceStatus": "reaudit-required",
+      "mismatchedEvidence": [
+        "server/realtime-hub/channels.js"
+      ],
+      "nonFileEvidence": [],
+      "priorStatus": "verified",
+      "statusNote": "evidence changed since last verification; re-audit required"
     },
     "bet-execution": {
       "label": "下注执行（Pm_*/Pf_* actions + 5 个 HTTP 代理端点）",
@@ -1975,8 +1980,14 @@
       "linePath": "lines/esport",
       "pm2Apps": [
         "changmen-esport",
+        "changmen-pm-market-hub",
+        "changmen-pm-sport-market-hub",
         "changmen-pm-sports",
-        "changmen-predictfun-collector"
+        "changmen-polymarket-collector",
+        "changmen-predictfun-market-hub",
+        "changmen-predictfun-collector",
+        "changmen-sxbet-market-hub",
+        "changmen-sxbet-collector"
       ],
       "actions": [],
       "registeredInLinesReadme": true,
@@ -2683,84 +2694,83 @@
           "path": "packages/client-core/src/types/platforms.ts",
           "extract": "regex exported const members",
           "ids": [
+            "Azuro",
             "Dex",
             "HG",
             "IA",
             "IM",
             "IMT",
+            "Limitless",
             "OB",
             "PB",
             "Polymarket",
+            "PredictFun",
             "RAY",
             "SABA",
+            "SXBet",
             "Stake",
             "TF",
             "XBet"
           ],
-          "status": "DRIFT",
-          "missing": [
-            "Azuro",
-            "Limitless",
-            "PredictFun",
-            "SXBet"
-          ],
+          "status": "PASS",
+          "missing": [],
           "extra": []
         },
         {
           "path": "chrome-extension/src/content/platforms.js",
           "extract": "regex enum members",
+          "allowedExtra": [
+            "HGA"
+          ],
           "ids": [
+            "Azuro",
             "Dex",
             "HG",
             "HGA",
             "IA",
             "IM",
             "IMT",
+            "Limitless",
             "OB",
             "PB",
             "Polymarket",
+            "PredictFun",
             "RAY",
             "SABA",
-            "Stake",
-            "TF"
-          ],
-          "status": "DRIFT",
-          "missing": [
-            "Azuro",
-            "Limitless",
-            "PredictFun",
             "SXBet",
+            "Stake",
+            "TF",
             "XBet"
           ],
-          "extra": [
-            "HGA"
-          ]
+          "note": "HGA 为 Chrome content 层 A8 兼容 provider，非 venue-adapter canonical 平台",
+          "status": "PASS",
+          "missing": [],
+          "extra": []
         },
         {
           "path": "server/backend/scripts/check-collect-platforms.js",
           "extract": "regex ALL_PLATFORMS members",
           "ids": [
+            "Azuro",
+            "Dex",
             "HG",
             "IA",
             "IM",
             "IMT",
+            "Limitless",
             "OB",
             "PB",
+            "Polymarket",
+            "PredictFun",
             "RAY",
             "SABA",
+            "SXBet",
             "Stake",
             "TF",
             "XBet"
           ],
-          "status": "DRIFT",
-          "missing": [
-            "Azuro",
-            "Dex",
-            "Limitless",
-            "Polymarket",
-            "PredictFun",
-            "SXBet"
-          ],
+          "status": "PASS",
+          "missing": [],
           "extra": []
         },
         {
@@ -2844,36 +2854,34 @@
           "path": "lines/esport/line.json pm2Apps",
           "ids": [
             "changmen-esport",
-            "changmen-pm-sports",
-            "changmen-predictfun-collector"
-          ],
-          "status": "DRIFT",
-          "missing": [
             "changmen-pm-market-hub",
             "changmen-pm-sport-market-hub",
+            "changmen-pm-sports",
             "changmen-polymarket-collector",
+            "changmen-predictfun-collector",
             "changmen-predictfun-market-hub",
             "changmen-sxbet-collector",
             "changmen-sxbet-market-hub"
           ],
+          "status": "PASS",
+          "missing": [],
           "extra": []
         },
         {
           "path": "packages/shared/catalog/sport_catalog.json pm2Apps",
           "ids": [
             "changmen-esport",
-            "changmen-pm-sports",
-            "changmen-predictfun-collector"
-          ],
-          "status": "DRIFT",
-          "missing": [
             "changmen-pm-market-hub",
             "changmen-pm-sport-market-hub",
+            "changmen-pm-sports",
             "changmen-polymarket-collector",
+            "changmen-predictfun-collector",
             "changmen-predictfun-market-hub",
             "changmen-sxbet-collector",
             "changmen-sxbet-market-hub"
           ],
+          "status": "PASS",
+          "missing": [],
           "extra": [],
           "note": "sport_catalog 按运动登记，语义子集/超集需人工判断"
         }

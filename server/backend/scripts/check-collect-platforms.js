@@ -34,6 +34,12 @@ const ALL_PLATFORMS = [
   "IMT",
   "HG",
   "Stake",
+  "Dex",
+  "Polymarket",
+  "Limitless",
+  "SXBet",
+  "Azuro",
+  "PredictFun",
 ];
 
 /** ??gamebet_frontend collectors ????????*/
@@ -49,6 +55,12 @@ const SPEC = {
   IM: { needsGateway: true, needsToken: false, note: "A8 Socket ?? IM + ??" },
   XBet: { needsGateway: true, needsToken: false, note: "A8 Socket ?? XBet + ??" },
   HG: { needsGateway: false, needsToken: false, note: "????????" },
+  Dex: { needsGateway: false, needsToken: false, note: "plugin_http paused" },
+  Polymarket: { needsGateway: false, needsToken: false, note: "VPS collector + MarketIndex" },
+  Limitless: { needsGateway: false, needsToken: false, note: "plugin_http_ws" },
+  SXBet: { needsGateway: false, needsToken: false, note: "paused VPS collector + market hub" },
+  Azuro: { needsGateway: false, needsToken: false, note: "paused HTTP/WS collector" },
+  PredictFun: { needsGateway: false, needsToken: false, note: "VPS collector + market hub" },
 };
 
 const PLATFORMS_FILE = path.join(ESPORT_DATA_DIR, "platforms.json");

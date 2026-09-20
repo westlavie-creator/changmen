@@ -15,4 +15,8 @@ export const ALL_PLATFORMS: PlatformId[] = [
   "Stake",
   "Dex",
   "Polymarket",
+  "Limitless",
+  "SXBet",
+  "Azuro",
+  "PredictFun",
 ];

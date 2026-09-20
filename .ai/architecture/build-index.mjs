@@ -133,8 +133,9 @@ function derivedPlatformCopies() {
     }),
     tryParse({ path: "packages/client-core/src/types/platforms.ts", extract: "regex exported const members" }, () =>
       [...readText("packages/client-core/src/types/platforms.ts").matchAll(/^\s+"(\w+)",?$/gm)].map((m) => m[1])),
-    tryParse({ path: "chrome-extension/src/content/platforms.js", extract: "regex enum members" }, () =>
-      [...readText("chrome-extension/src/content/platforms.js").matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1])),
+    { ...tryParse({ path: "chrome-extension/src/content/platforms.js", extract: "regex enum members", allowedExtra: ["HGA"] }, () =>
+        [...readText("chrome-extension/src/content/platforms.js").matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1])),
+      note: "HGA 为 Chrome content 层 A8 兼容 provider，非 venue-adapter canonical 平台" },
     tryParse({ path: "server/backend/scripts/check-collect-platforms.js", extract: "regex ALL_PLATFORMS members" }, () => {
       const txt = readText("server/backend/scripts/check-collect-platforms.js");
       const seg = txt.match(/ALL_PLATFORMS\s*=\s*\[([\s\S]*?)\]/);
@@ -154,7 +155,8 @@ function compareCopy(canonicalIds, copy) {
   const c = new Set(canonicalIds.map((x) => x.toLowerCase()));
   const mine = new Set(copy.ids.map((x) => x.toLowerCase()));
   const missing = canonicalIds.filter((x) => !mine.has(x.toLowerCase()));
-  const extra = copy.ids.filter((x) => !c.has(x.toLowerCase()));
+  const allowedExtra = new Set((copy.allowedExtra || []).map((x) => x.toLowerCase()));
+  const extra = copy.ids.filter((x) => !c.has(x.toLowerCase()) && !allowedExtra.has(x.toLowerCase()));
   const isSubsetMode = copy.comparison === "subset";
   // subset mode: a derived copy is allowed to know FEWER platforms, never MORE (extra = drift)
   const ok = isSubsetMode ? extra.length === 0 : missing.length === 0 && extra.length === 0;
