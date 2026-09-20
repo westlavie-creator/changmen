@@ -21,7 +21,6 @@ import {
   FOOTBALL_FALLBACK_GAMES,
   FOOTBALL_LEAGUE_CODES,
   FOOTBALL_LIST_FUTURE_MS,
-  FOOTBALL_LIST_PAST_MS,
   MARKET_MONEYLINE,
   MARKET_SPREADS,
   MARKET_TOTALS,
@@ -52,6 +51,7 @@ const ORDERBOOK_CONCURRENCY = 8;
 const DIRECT_TIMEOUT_MS = Number(process.env.SPORT_PF_DIRECT_TIMEOUT_MS) || 4_000;
 /** 冷拉取总预算（无过期磁盘时才等待） */
 const LIVE_BUDGET_MS = Number(process.env.SPORT_PF_LIVE_BUDGET_MS) || 8_000;
+export const PREDICT_FUN_FOOTBALL_PAST_MS = 0;
 
 /** 官方 /v1/tags（联调快照）；失败时仍靠 name 过滤 */
 const TAG_MLB = "142";
@@ -786,7 +786,7 @@ export async function fetchPredictFunSportAsClientMatchDtos(options) {
   const logTag = String(options.logTag || `sportPf:${cacheKey}`);
   const pastMs = Number(options.pastMs);
   const futureMs = Number(options.futureMs);
-  const winPast = Number.isFinite(pastMs) && pastMs > 0 ? pastMs : PAST_MS;
+  const winPast = Number.isFinite(pastMs) && pastMs >= 0 ? pastMs : PAST_MS;
   const winFuture = Number.isFinite(futureMs) && futureMs > 0 ? futureMs : FUTURE_MS;
   const crop = (rows) => cropSportMatchListWindow(rows, winPast, winFuture);
 
@@ -1067,7 +1067,7 @@ export async function fetchPredictFunFootballAsClientMatchDtos() {
     cacheKey: "soccer_pf6",
     idBase: 810_000_000,
     logTag: "footballPredictFun",
-    pastMs: FOOTBALL_LIST_PAST_MS,
+    pastMs: PREDICT_FUN_FOOTBALL_PAST_MS,
     futureMs: FOOTBALL_LIST_FUTURE_MS,
   });
 }

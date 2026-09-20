@@ -7,10 +7,13 @@ import {
   isPredictSportMoneylineCategory,
   mapPredictSportTag,
   outcomeProb,
+  PREDICT_FUN_FOOTBALL_PAST_MS,
   readPredictTopPrice,
   resolveBaseballLeagueGame,
   resolveSportGameCodeFromCategory,
 } from "./sport_predictfun_fetch.js";
+
+assert.equal(PREDICT_FUN_FOOTBALL_PAST_MS, 0, "PF 足球只拉 now→future，不补已开赛窗口");
 
 assert.equal(mapPredictSportTag("MLB"), "mlb");
 assert.equal(mapPredictSportTag("Baseball"), "mlb");
