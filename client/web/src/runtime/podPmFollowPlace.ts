@@ -15,6 +15,7 @@ const PM = "Polymarket" as const;
 
 export type PodPmFollowPlaceTicket = {
   id: string;
+  /** 用户计划下注金额，统一按 RMB/CNY 口径；checkBetting 会换成 PM 场馆 USDC。 */
   stake: number;
   fixtureStatus: string;
   fixtureBasis?: PodFixtureMatchBasis;
@@ -151,7 +152,7 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
   const accountStore = useAccountStore();
   const okNotes: string[] = [];
   const failNotes: string[] = [];
-  const stake = Number(ticket.stake);
+  const planStakeCny = Number(ticket.stake);
   const odds = Number(ticket.quote.quote) || Number(ticket.market.quote) || 0;
   const matchId = String(ticket.pmMatchId || ticket.id || "").trim();
   const betId = `${ticket.market.marketCode || "pod"}:${ticket.market.boardLine ?? ""}`;
@@ -159,7 +160,7 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
   for (const account of accounts) {
     const accountId = Number(account.accountId) || 0;
     const label = String(account.playerName || accountId || "PM账号").trim() || "PM账号";
-    const option = new BetOption(PM, matchId, betId, tokenId, stake, side, odds);
+    const option = new BetOption(PM, matchId, betId, tokenId, planStakeCny, side, odds);
     const checked = await accountStore.checkBetting(account, option);
     if (!checked.data) {
       failNotes.push(`${label}:${checked.checkError || "预检失败"}`);
@@ -180,7 +181,7 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
       sideLabel: String(ticket.sideLabel || "").trim(),
       marketLabel: String(ticket.marketLabel || "").trim(),
       odds,
-      stake,
+      stake: planStakeCny,
       oid: tokenId,
       obMid: matchId,
       auto: ticket.auto === true,
