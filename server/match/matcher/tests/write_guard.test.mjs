@@ -23,6 +23,14 @@ function resolveLiveOtherPid() {
 
 const liveOtherPid = resolveLiveOtherPid();
 
+function resolveDeadPid() {
+  for (let pid = process.pid + 10_000; pid < process.pid + 20_000; pid += 137) {
+    if (!isPidAlive(pid))
+      return pid;
+  }
+  return 999_999_999;
+}
+
 function clearHbFiles() {
   delete process.env.MATCH_COMPOSER_FORCE_WRITE;
   delete process.env.MATCH_COMPOSER_ALLOW_MULTI;
@@ -73,7 +81,7 @@ describe("write_guard", () => {
       mode: "composer",
       wrote: true,
       lastRun: Date.now(),
-      pid: process.pid + 12345,
+      pid: resolveDeadPid(),
     }));
     assert.equal(assertComposerMayWrite({ skipMatcherHeartbeat: true }).ok, true);
     assert.equal(fs.existsSync(COMPOSER_HEARTBEAT_PATH), false);

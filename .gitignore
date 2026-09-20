@@ -1,8 +1,6 @@
 # Local-only reference / tooling (not in git)
 A8/
 BAT/
-pingtai_offical/
-obpro/
 yabao/
 .claude/
 .gstack/
@@ -17,6 +15,7 @@ dist/
 .turbo/
 deploy-server.env
 deploy-server.local.bat
+scripts/deploy/*.bat
 sh/deploy-server.local.sh
 .vite/
 **/.vite/
@@ -57,13 +56,9 @@ server/backend/public/extensions/*.zip
 
 # Gamebet extension signing key
 chrome-extension/key.pem
-client/chrome-extension/key.pem
-gamebet_chromeplug/key.pem
 
 # Chrome extension reverse-engineering scratch (local analysis only)
 chrome-extension/scripts/_extracted/
-client/chrome-extension/scripts/_extracted/
-gamebet_chromeplug/scripts/_extracted/
 
 # Team name resolver runtime cache
 server/match/resolver/cache/*.json
