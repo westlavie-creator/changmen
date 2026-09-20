@@ -18,6 +18,10 @@ import {
   formatPodStake,
   listPodFollowTickets,
 } from "@/runtime/podBetTicket";
+import { recordFootballFollowAttempt } from "@/runtime/footballFollowAttempt";
+import { compareFootballFollowShadow } from "@/runtime/footballFollowShadowCompare";
+import { readFootballFollowV2Settings, type FootballFollowV2Settings } from "@/runtime/footballFollowV2Settings";
+import { getFootballQuote } from "@/runtime/footballQuote";
 import {
   formatPodEv,
   pickPodYaboAutoTicket,
@@ -30,6 +34,8 @@ import {
   matchPodAlertToFixtures,
   type PodBoardFixture,
 } from "@/runtime/podFixtureMatch";
+import { resolveFootballFollowDecision } from "@/runtime/footballFollowDecision";
+import { buildFootballFollowSelectionShadow } from "@/runtime/footballFollowSelectionKey";
 import {
   comparePodVenueQuote,
   formatPodMarketMatch,
@@ -111,6 +117,7 @@ const { matchs } = storeToRefs(football);
 const { tick: sportOddsTick } = storeToRefs(sportOdds);
 const { lineTick } = storeToRefs(obLive);
 const betSettings = ref<PodBetSettings>(readPodBetSettings());
+const followV2 = ref<FootballFollowV2Settings>(readFootballFollowV2Settings());
 const nowTick = ref(Date.now());
 const missTick = ref(0);
 const prefetchTick = ref(0);
@@ -172,8 +179,56 @@ const tickets = computed(() => {
       maxObOdds: scored.maxObOdds,
       nvp: scored.nvp,
     });
+    const selectionShadow = buildFootballFollowSelectionShadow({
+      fixtureMatch,
+      fixture: hit?.fixture,
+      market: scored.marketMatch,
+    });
+    const decisionShadow = resolveFootballFollowDecision({
+      ticket: scored,
+      fixtureMatch,
+      marketMatch: scored.marketMatch,
+      quote: scored.obQuote,
+      selectionShadow,
+    });
+    const quoteShadow = getFootballQuote({
+      key: selectionShadow.key,
+      fallbackOdds: Number(scored.marketMatch.quote) || 0,
+      reader: {
+        hasLive: (platform, id) => sportOdds.has(platform, id),
+        getLive: (platform, id) => sportOdds.get(platform, id),
+        getPrefetch: id => peekPrefetchedObOdds(id),
+        getLine: id => obLive.getLine(id),
+      },
+    });
+    const legacyBlock = podFollowPlaceBlock({
+      id: scored.id,
+      stake: followStakeFor("OB"),
+      fixtureStatus: fixtureMatch.status,
+      fixtureBasis: fixtureMatch.basis,
+      obMid: String(hit?.fixture.obMid || "").trim(),
+      home: scored.alert.home,
+      away: scored.alert.away,
+      sideLabel: scored.sideLabel,
+      marketLabel: scored.marketLabel,
+      market: scored.marketMatch,
+      quote: scored.obQuote,
+    });
+    const shadowCompare = compareFootballFollowShadow({
+      marketMatch: scored.marketMatch,
+      obQuote: scored.obQuote,
+      selectionShadow,
+      quoteShadow,
+      decisionShadow,
+      legacyBlock,
+    });
     return {
       ...scored,
+      selectionShadow,
+      decisionShadow,
+      quoteShadow,
+      legacyBlock,
+      shadowCompare,
       pmMarketMatch,
       pmQuote,
       fixtureMatch,
@@ -184,6 +239,107 @@ const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
 const liveById = computed(() => new Map(
   tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
 ));
+
+function decisionFixtureLabel(ticket: (typeof tickets.value)[number]): string {
+  const f = ticket.decisionShadow.fixture;
+  if (f.status !== "matched")
+    return f.status === "pending" ? "场:待确认" : "场:未对";
+  return f.confidence === "exact" ? "场:确" : "场:猜";
+}
+
+function decisionMarketLabel(ticket: (typeof tickets.value)[number]): string {
+  const m = ticket.decisionShadow.market;
+  if (m.status === "matched")
+    return "盘:已对";
+  if (m.status === "skipped")
+    return "盘:跳过";
+  return "盘:未对";
+}
+
+function decisionQuoteLabel(ticket: (typeof tickets.value)[number]): string {
+  const q = ticket.decisionShadow.quote;
+  if (q.status === "ok")
+    return "价:够";
+  if (q.status === "locked")
+    return "价:锁";
+  if (q.status === "below_min")
+    return "价:不足";
+  if (q.status === "spike")
+    return "价:异常";
+  return "价:缺";
+}
+
+function quoteShadowLabel(ticket: (typeof tickets.value)[number]): string {
+  const q = ticket.quoteShadow;
+  const src = q.source === "live"
+    ? "live"
+    : q.source === "prefetch"
+      ? "pre"
+      : q.source === "http"
+        ? "http"
+        : "miss";
+  if (q.locked)
+    return `${src}:锁`;
+  return q.odds > 0 ? `${src}:${formatPodPrice(q.odds)}` : src;
+}
+
+function decisionAutoLabel(ticket: (typeof tickets.value)[number]): string {
+  if (ticket.decisionShadow.action.canAutoPlace)
+    return "自动:可";
+  if (ticket.decisionShadow.action.canManualPlace)
+    return "自动:否";
+  return `阻断:${ticket.decisionShadow.action.blockReason || "未知"}`;
+}
+
+function decisionShadowText(ticket: (typeof tickets.value)[number]): string {
+  return [
+    decisionFixtureLabel(ticket),
+    decisionMarketLabel(ticket),
+    decisionQuoteLabel(ticket),
+    quoteShadowLabel(ticket),
+    decisionAutoLabel(ticket),
+    gateCompareLabel(ticket),
+    shadowCompareLabel(ticket),
+  ].join(" · ");
+}
+
+function gateCompareLabel(ticket: (typeof tickets.value)[number]): string {
+  const legacy = String(ticket.legacyBlock || "").trim();
+  const shadow = String(ticket.decisionShadow.action.blockReason || "").trim();
+  return legacy === shadow ? "门:同" : "门:差";
+}
+
+function shadowCompareLabel(ticket: (typeof tickets.value)[number]): string {
+  return ticket.shadowCompare.ok ? "影:同" : `影:${ticket.shadowCompare.reasons.length}`;
+}
+
+function decisionShadowTone(ticket: (typeof tickets.value)[number]): string {
+  if (ticket.decisionShadow.action.canAutoPlace)
+    return "ok";
+  if (ticket.decisionShadow.action.canManualPlace)
+    return "wait";
+  return "block";
+}
+
+function decisionShadowTitle(ticket: (typeof tickets.value)[number]): string {
+  const key = ticket.selectionShadow.key;
+  const base = [
+    `fixture=${ticket.decisionShadow.fixture.reason}`,
+    `market=${ticket.decisionShadow.market.reason}`,
+    `quote=${ticket.decisionShadow.quote.reason}`,
+    `selection=${ticket.selectionShadow.reason}`,
+    `quoteShadow=${ticket.quoteShadow.source}:${ticket.quoteShadow.locked ? "locked" : ticket.quoteShadow.odds}:${ticket.quoteShadow.line ?? ""}`,
+    `legacyBlock=${ticket.legacyBlock || "ok"}`,
+    `shadowCompare=${ticket.shadowCompare.summary}`,
+  ];
+  if (key) {
+    base.push(
+      `key=${key.matchKey}|${key.period}|${key.marketCode}|${key.line ?? ""}|${key.side}|${key.oddId}|${key.confidence}`,
+    );
+  }
+  return base.join(" ");
+}
+
 const followObEnabled = computed(() => betSettings.value.followVenues.includes("OB"));
 const followPmEnabled = computed(() => betSettings.value.followVenues.includes("Polymarket"));
 
@@ -499,14 +655,17 @@ function onDisplayClick(row: { live?: (typeof tickets.value)[number]; log: PodFo
 async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean) {
   if (placingId.value)
     return;
+  recordObAttempt(ticket, auto ? "auto_attempt" : "manual_click");
   const payload = ticketPlacePayload(ticket, auto);
   const block = venueDailyOrderBlock("OB") || podFollowPlaceBlock(payload);
   if (block) {
+    recordObAttempt(ticket, "blocked", { reason: block });
     if (!auto)
       ElMessage.warning(block);
     return;
   }
   if (isVenuePlaced(ticket.id, "OB")) {
+    recordObAttempt(ticket, "blocked", { reason: "已下过" });
     if (!auto)
       ElMessage.info("已下过");
     return;
@@ -517,6 +676,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
     const key = venuePlaceKey("OB", ticket.id);
     placeNote.value = { ...placeNote.value, [key]: result.message };
     if (result.ok) {
+      recordObAttempt(ticket, "placed", { message: result.message });
       placed.value = { ...placed.value, [key]: true };
       logRows.value = markPodFollowLogPlaced(
         ticket.id,
@@ -527,6 +687,7 @@ async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean
       ElMessage.success(result.message);
       return;
     }
+    recordObAttempt(ticket, "failed", { message: result.message });
     if (auto)
       ElMessage.warning(result.message);
     else
@@ -679,6 +840,26 @@ function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | unde
 function pmPlaceButtonTitle(ticket: (typeof tickets.value)[number]): string | undefined {
   const block = pmPlaceBlock(ticket);
   return block || undefined;
+}
+
+function recordObAttempt(
+  ticket: (typeof tickets.value)[number],
+  status: "manual_click" | "auto_attempt" | "blocked" | "placed" | "failed",
+  opts: { reason?: string; message?: string } = {},
+) {
+  const shadowMessage = ticket.shadowCompare.ok ? "" : `shadow:${ticket.shadowCompare.summary}`;
+  const message = [opts.message, shadowMessage].filter(Boolean).join(" | ");
+  recordFootballFollowAttempt({
+    ticketId: ticket.id,
+    venue: "OB",
+    status,
+    reason: opts.reason,
+    message,
+    auto: status === "auto_attempt",
+    odds: Number(ticket.obQuote.quote) || Number(ticket.marketMatch.quote) || 0,
+    stake: followStakeFor("OB"),
+    selection: ticket.selectionShadow.key,
+  });
 }
 
 const collapsed = ref(false);
@@ -872,6 +1053,7 @@ async function refreshSportAmount() {
 function reloadBetSettings() {
   const prevAuto = betSettings.value.autoPlace;
   betSettings.value = readPodBetSettings();
+  followV2.value = readFootballFollowV2Settings();
   if (prevAuto !== betSettings.value.autoPlace)
     restartAutoTick();
 }
@@ -1050,6 +1232,14 @@ onUnmounted(() => {
                   · ≥{{ formatPodPrice(row.live.minObOdds) }}
                   <template v-if="row.live.maxObOdds">· ≤{{ formatPodPrice(row.live.maxObOdds) }}</template>
                 </template>
+              </div>
+              <div
+                v-if="followV2.showDiagnostics"
+                class="pod-follow-row__diag"
+                :class="`is-${decisionShadowTone(row.live)}`"
+                :title="decisionShadowTitle(row.live)"
+              >
+                诊断 {{ decisionShadowText(row.live) }}
               </div>
               <div class="pod-follow-row__foot">
                 <div
@@ -1383,6 +1573,28 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pod-follow-row__diag {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #94a3b8;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pod-follow-row__diag.is-ok {
+  color: #86efac;
+}
+
+.pod-follow-row__diag.is-wait {
+  color: #7dd3fc;
+}
+
+.pod-follow-row__diag.is-block {
+  color: #fb923c;
 }
 
 .pod-follow-row__fixture.is-matched,
