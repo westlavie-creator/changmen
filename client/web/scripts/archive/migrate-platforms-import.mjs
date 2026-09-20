@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../venue-adapter");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../../packages/venue-adapter");
 const skip = new Set(["node_modules", "dist", "registry"]);
 const re = /import \{ PLATFORMS \} from ["']@venue\/registry["'];?/g;
 const next = 'import { PLATFORMS } from "@venue/shared/platforms";';

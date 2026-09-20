@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const VENUE_ROOT = path.resolve(__dirname, "../../venue-adapter");
+const VENUE_ROOT = path.resolve(__dirname, "../../../../packages/venue-adapter");
 
 const REPLACEMENTS = [
   [/@\/types\/collect/g, "@changmen/client-core/types/collect"],

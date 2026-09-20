@@ -1,5 +1,5 @@
 /**
- * 从 venue-adapter/registry/manifest.json 生成平台角标 CSS。
+ * 从 packages/venue-adapter/registry/manifest.json 生成平台角标 CSS。
  * predev / prebuild 门禁：manifest.icon 必须对应 public/assets/venue/ 下真实文件。
  *
  * 用法：node scripts/gen-platform-icons-css.mjs
@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import manifest from "../../venue-adapter/registry/manifest.json" with { type: "json" };
+import manifest from "../../../packages/venue-adapter/registry/manifest.json" with { type: "json" };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.join(__dirname, "..");

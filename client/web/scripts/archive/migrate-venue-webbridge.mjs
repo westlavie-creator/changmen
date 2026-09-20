@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const root = path.resolve(import.meta.dirname, "../../venue-adapter");
+const root = path.resolve(import.meta.dirname, "../../../../packages/venue-adapter");
 const bridge = "@venue/shared/webBridge";
 const fromStores = [
   "@/stores/oddsStore",

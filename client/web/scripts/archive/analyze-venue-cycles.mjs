@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(__dirname, "../../venue-adapter");
+const root = path.resolve(__dirname, "../../../../packages/venue-adapter");
 const exts = [".ts", ".tsx", ".js", ".mjs"];
 const skip = new Set(["node_modules", "dist"]);
 
