@@ -776,4 +776,27 @@ assert.deepEqual(
   ["spreads:0.25", "totals:9.25"],
 );
 
+// League（PM 原生联赛名）随合场保留；无 League 不输出该字段
+const leagueRows = [{
+  ID: 900,
+  Title: "Seoul vs Busan",
+  Game: "unknown_fb",
+  League: "K-league",
+  StartTime: t,
+  Matchs: { Polymarket: "pm-k" },
+  Bets: [{
+    Map: 0, MarketCode: "moneyline", Line: null, HomeName: "Seoul", AwayName: "Busan",
+    Sources: {
+      Polymarket: {
+        Type: "Polymarket", BetID: "k", HomeID: "1", AwayID: "2",
+        HomeOdds: 1.9, AwayOdds: 2.0, Status: "Normal",
+      },
+    },
+  }],
+}];
+const leagueMerged = mergeSportClientMatchDtoList("football", leagueRows);
+assert.equal(leagueMerged.dtos.length, 1);
+assert.equal(leagueMerged.dtos[0].League, "K-league");
+assert.equal("League" in collapsedAhOu.dtos[0], false);
+
 console.log("sport_merge.smoke: ok");

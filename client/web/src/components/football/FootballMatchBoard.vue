@@ -81,7 +81,7 @@ const leagueTabs = computed(() => {
 const visibleMatchs = computed(() => {
   const want = leagueFilter.value;
   const rows = want
-    ? displayedMatchs.value.filter(m => footballLeagueKey(m.game) === want)
+    ? displayedMatchs.value.filter(m => footballLeagueKey(m.game, m.league) === want)
     : displayedMatchs.value;
   const t = podBoardFocus.value;
   if (!t)

@@ -51,9 +51,9 @@ export function matchMatchesSearch(match: ViewMatch, query: string): boolean {
     return true;
   if (String(match.game || "").toLowerCase().includes(q))
     return true;
-  if (footballLeagueLabel(match.game).toLowerCase().includes(q))
+  if (footballLeagueLabel(match.game, match.league).toLowerCase().includes(q))
     return true;
-  if (footballLeagueLabel(footballLeagueKey(match.game)).toLowerCase().includes(q))
+  if (footballLeagueLabel(footballLeagueKey(match.game, match.league), match.league).toLowerCase().includes(q))
     return true;
   return match.bets.some(
     b => String(b.homeName || "").toLowerCase().includes(q)

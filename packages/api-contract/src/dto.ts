@@ -250,6 +250,8 @@ export interface ClientMatchDto {
   Matchs: Record<string, string | number>;
   Bets: BetRowDto[];
   PmSport?: PmSportSnapshot;
+  /** [changmen 扩展] 体育只读盘：场馆原生联赛名（Gamma series 标题，如 "K-league"）；Game 未识别联赛时前端用它分组显示 */
+  League?: string;
 }
 
 export interface PageResult<T> {

@@ -60,6 +60,7 @@ function persistSportRows(cacheKey, rows, logTag) {
 /**
  * @typedef {object} SportGammaOptions
  * @property {string|string[]} sportKey Gamma /sports 的 sport 字段（可多联赛，如 epl+lal）
+ * @property {string[]} [tagIds] Gamma 父 tag（足球 100350=Soccer）；设置后按 tag 全量拉取，不走 sportKey/series 白名单
  * @property {string} gameCode ClientMatchDto.Game（如 mlb、soccer）
  * @property {string[]} [defaultSeriesIds] /sports 失败时的 fallback series_id
  * @property {number} [idBase] stableMatchId 基数，与电竞/其他运动错开
@@ -110,6 +111,17 @@ function startTimeMsOf(event) {
 
 function marketTypeOf(market) {
   return String(market.sportsMarketType ?? market.sports_market_type ?? "").toLowerCase();
+}
+
+/** Gamma event 的原生联赛名（series[0].title，如 "K-league"）；无则空串 */
+function leagueNameOf(raw) {
+  const series = Array.isArray(raw?.series) ? raw.series : [];
+  for (const row of series) {
+    const title = String(row?.title ?? row?.name ?? "").trim();
+    if (title)
+      return title;
+  }
+  return "";
 }
 
 function isOpenMarket(market) {
@@ -279,6 +291,8 @@ export async function fetchSportAsClientMatchDtos(options) {
     ? options.sportKey
     : [options.sportKey]
   ).map(k => String(k || "").toLowerCase()).filter(Boolean);
+  const tagIds = (Array.isArray(options.tagIds) ? options.tagIds : [])
+    .map(String).filter(Boolean);
   const gameCode = String(options.gameCode || sportKeys[0] || "sport");
   const defaultSeriesIds = (options.defaultSeriesIds || []).map(String).filter(Boolean);
   const idBase = Number(options.idBase) || 900_000_000;
@@ -309,6 +323,7 @@ export async function fetchSportAsClientMatchDtos(options) {
     const signal = abortAfter(LIVE_BUDGET_MS);
     const args = {
       sportKeys,
+      tagIds,
       gameCode,
       defaultSeriesIds,
       idBase,
@@ -353,16 +368,19 @@ export async function fetchSportAsClientMatchDtos(options) {
 }
 
 /**
- * @param {{ sportKeys: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number }} opts
+ * @param {{ sportKeys: string[], tagIds?: string[], gameCode: string, defaultSeriesIds: string[], idBase: number, logTag: string, leagueGameCodes?: string[], leagueAliases?: Record<string, string>, lineMarkets?: boolean, pastMs: number, futureMs: number }} opts
  */
 async function fetchSportRowsFromGamma(opts) {
-  const { sportKeys, gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs, signal } = opts;
+  const { sportKeys, tagIds = [], gameCode, defaultSeriesIds, idBase, logTag, leagueGameCodes, leagueAliases, lineMarkets, pastMs, futureMs, signal } = opts;
 
-  const seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag, signal);
-  if (!seriesIds.length) {
-    throw new Error(
-      `[${logTag}] 无可用 Gamma series（sportKey=${sportKeys.join(",") || "?"}；请检查 /sports 或 defaultSeriesIds）`,
-    );
+  let seriesIds = [];
+  if (!tagIds.length) {
+    seriesIds = await fetchSeriesIds(sportKeys, defaultSeriesIds, logTag, signal);
+    if (!seriesIds.length) {
+      throw new Error(
+        `[${logTag}] 无可用 Gamma series（sportKey=${sportKeys.join(",") || "?"}；请检查 /sports 或 defaultSeriesIds）`,
+      );
+    }
   }
 
   const now = Date.now();
@@ -379,6 +397,8 @@ async function fetchSportRowsFromGamma(opts) {
       start_time_min: new Date(now - pastMs).toISOString(),
       start_time_max: new Date(now + futureMs).toISOString(),
     });
+    for (const id of tagIds)
+      params.append("tag_id", id);
     for (const id of seriesIds)
       params.append("series_id", id);
     if (cursor)
@@ -438,6 +458,7 @@ async function fetchSportRowsFromGamma(opts) {
         game: resolveEventGameCode(raw, gameCode, leagueGameCodes, leagueAliases),
         markets: typed,
         sibling,
+        league: leagueNameOf(raw),
       });
     }
     cursor = nextCursor(data);
@@ -457,10 +478,13 @@ async function fetchSportRowsFromGamma(opts) {
         startTimeMs: ev.startTimeMs,
         mainId: null,
         mainTitle: ev.base,
+        league: ev.league || "",
         markets: /** @type {object[]} */ ([]),
       });
     }
     const g = groups.get(key);
+    if (!g.league && ev.league)
+      g.league = ev.league;
     if (!ev.sibling && ev.markets.some(m => m.marketCode === MARKET_MONEYLINE)) {
       g.mainId = ev.id;
       g.mainTitle = ev.base;
@@ -594,6 +618,7 @@ async function fetchSportRowsFromGamma(opts) {
       Game: ev.game || gameCode,
       GameID: 0,
       StartTime: ev.startTimeMs,
+      ...(ev.league ? { League: ev.league } : {}),
       Matchs: {
         Polymarket: ev.mainId,
       },

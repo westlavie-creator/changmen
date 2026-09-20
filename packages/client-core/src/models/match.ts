@@ -168,6 +168,8 @@ export class ViewMatch {
   providers: Record<string, string | number>;
   bets: ViewBet[];
   pmSport?: PmSportSnapshot;
+  /** [changmen 扩展] 场馆原生联赛名；Game 未识别时供前端分组显示 */
+  league?: string;
 
   constructor(dto: ClientMatchDto) {
     this.id = dto.ID;
@@ -181,6 +183,7 @@ export class ViewMatch {
     this.liveRound = dto.Round ?? 0;
     this.liveRoundStart = dto.RoundStart ?? 0;
     this.pmSport = dto.PmSport;
+    this.league = dto.League;
     this.bets = (dto.Bets ?? [])
       .map(b => new ViewBet(b, this.providers, this.liveRound, this.liveRoundStart))
       .sort((a, b) => a.round - b.round);

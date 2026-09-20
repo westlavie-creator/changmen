@@ -26,7 +26,7 @@ const { byMid } = storeToRefs(obLive);
 const clockLabel = ref("");
 let clockTimer: ReturnType<typeof setInterval> | null = null;
 
-const leagueTag = computed(() => footballLeagueTag(props.match.game));
+const leagueTag = computed(() => footballLeagueTag(props.match.game, props.match.league));
 const obMid = computed(() => String(props.match.providers?.OB || "").trim());
 
 const boardTitle = computed(() => String(props.match.title || "").trim());

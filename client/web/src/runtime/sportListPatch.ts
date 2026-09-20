@@ -23,6 +23,7 @@ function applyViewMatchPatch(old: ViewMatch, fresh: ViewMatch) {
   old.providers = fresh.providers;
   old.bets = fresh.bets;
   old.pmSport = fresh.pmSport;
+  old.league = fresh.league;
 }
 
 /**

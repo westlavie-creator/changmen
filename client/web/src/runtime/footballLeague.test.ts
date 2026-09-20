@@ -40,6 +40,35 @@ describe("footballLeague", () => {
     expect(footballLeagueLabel("unknown_fb")).toBe("未分类");
   });
 
+  it("uses the native league name when Game is unknown_fb but League is present", () => {
+    expect(footballLeagueKey("unknown_fb", "K-league")).toBe("league:韩K联");
+    expect(footballLeagueLabel("unknown_fb", "K-league")).toBe("韩K联");
+    expect(footballLeagueTag("unknown_fb", "K-league")).toBe("韩K联");
+    expect(footballLeagueKey("epl", "K-league")).toBe("epl");
+    expect(footballLeagueLabel("epl", "K-league")).toBe("英超");
+    expect(footballLeagueTag("epl", "K-league")).toBe("英超");
+    // 映射表未收录：保留 PM 原文（含去尾部年份归一化后仍不命中）
+    expect(footballLeagueLabel("unknown_fb", "Zambian Super League")).toBe("Zambian Super League");
+    // 命中映射且标题带年份后缀
+    expect(footballLeagueLabel("unknown_fb", "Norwegian Eliteserien 2026")).toBe("挪超");
+    // 无 League 时退回原行为
+    expect(footballLeagueKey("unknown_fb")).toBe("unknown_fb");
+    expect(footballLeagueLabel("unknown_fb")).toBe("未分类");
+  });
+
+  it("groups unknown_fb matches by mapped league name", () => {
+    const a = match(1, "A vs B", "unknown_fb");
+    a.league = "K-league";
+    const b = match(2, "C vs D", "unknown_fb");
+    b.league = "K League 2";
+    const c = match(3, "E vs F", "unknown_fb");
+    c.league = "USL Championship";
+    const d = match(4, "G vs H", "unknown_fb");
+    const groups = groupFootballMatchesByLeague([a, b, c, d]);
+    expect(groups.map(g => g.league)).toEqual(["韩K2", "韩K联", "美冠USL", "未分类"]);
+    expect(groups.find(g => g.key === "league:韩K联")?.matches).toHaveLength(1);
+  });
+
   it("prefers a catalog league when merging venues", () => {
     expect(pickBetterFootballGame("unknown_fb", "epl")).toBe("epl");
     expect(pickBetterFootballGame("epl", "希腊U19联赛")).toBe("epl");

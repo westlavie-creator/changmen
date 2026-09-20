@@ -179,7 +179,7 @@ POST /esport/Client_GetBaseballMatchs
 | 做 | 不做 |
 |----|------|
 | `Client_GetFootballMatchs` | 改 GetMatchs / matcher |
-| Gamma 联赛 series + Predict.fun → 合并 DTO | 套利 / 下单 / 进 `mainBetLoop` |
+| Gamma soccer 父 tag `100350`（全量足球，与 PM 官网同口径；未知联赛 `Game=unknown_fb`，原生联赛名经 DTO `League` 透传，前端按映射表显示中文名、未收录保留原文）+ Predict.fun → 合并 DTO | 套利 / 下单 / 进 `mainBetLoop` |
 | 胜负 + 让球/大小（全量线） | 伪造 PF 未上架的盘 |
 | HomeView「足球」Tab；联赛中文名 | 独立 `football/web` |
 

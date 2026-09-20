@@ -32,6 +32,9 @@ function hasObSource(m: ClientMatchDto): boolean {
 function overlayMatch(hit: ClientMatchDto, row: ClientMatchDto) {
   const fromOb = hasObSource(row);
   hit.Matchs = { ...(hit.Matchs || {}), ...(row.Matchs || {}) };
+  const league = String(row.League || "").trim();
+  if (league)
+    hit.League = league;
   if (fromOb) {
     const title = String(row.Title || "").trim();
     if (title)

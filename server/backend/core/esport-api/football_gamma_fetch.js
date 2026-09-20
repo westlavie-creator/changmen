@@ -1,6 +1,7 @@
 /**
  * Soccer via Polymarket Gamma（足球只读列表；共用 sport_gamma_fetch）。
- * PM 无单一 soccer key，按联赛 sport 码聚合 series；Game=changmen 联赛码。
+ * 按 Gamma 父 tag 100350（Soccer）全量拉取，与 PM 官网足球页同口径；
+ * 已知联赛挂 changmen 联赛码，其余挂 unknown_fb（前端显示「未分类」）。
  * 解析失败 → unknown_fb（不再默认 uef）。
  */
 import {
@@ -16,41 +17,18 @@ import {
   footballPmSportFetchKeys,
 } from "./sport_football_markets.js";
 
-/** 与联赛表对应的 series 兜底（/sports 失败时；与 Gamma /sports sport→series 对齐） */
-const FOOTBALL_DEFAULT_SERIES = [
-  "10188", // epl
-  "10193", // lal
-  "10194", // bun
-  "10195", // fl1
-  "10203", // sea
-  "10204", // ucl
-  "10209", // uel
-  "10437", // uecl (PM col)
-  "10189", // mls
-  "10286", // ere
-  "10330", // por
-  "10243", // uef
-  "10238", // fif
-  "10290", // mex
-  "10359", // bra
-  "10285", // arg
-  "10671", // copa
-  "10360", // jap
-  "10241", // afc
-  "10240", // caf
-  "10439", // chi
-  "11880", // chi2
-];
+/** Gamma 父 tag：Soccer（与 PM 官网足球页同一口径） */
+const FOOTBALL_GAMMA_TAG_IDS = ["100350"];
 
 const FOOTBALL_GAME_CODES = FOOTBALL_LEAGUE_CODES.filter(c => c !== UNKNOWN_FOOTBALL_GAME);
 
-const FOOTBALL_OPTS = {
+export const FOOTBALL_OPTS = {
   sportKey: footballPmSportFetchKeys(),
+  tagIds: FOOTBALL_GAMMA_TAG_IDS,
   gameCode: UNKNOWN_FOOTBALL_GAME,
   leagueGameCodes: FOOTBALL_GAME_CODES,
   leagueAliases: FOOTBALL_PM_SPORT_ALIASES,
   lineMarkets: true,
-  defaultSeriesIds: FOOTBALL_DEFAULT_SERIES,
   idBase: 800_000_000,
   cacheKey: "soccer6",
   logTag: "footballGamma",

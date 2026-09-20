@@ -86,6 +86,7 @@ assert.equal(resolveFootballLeagueFromText("欧协资"), "uecl");
 assert.equal(resolveFootballLeagueFromText("欧协联"), "uecl");
 assert.equal(resolveFootballLeagueFromText("col"), "uecl");
 assert.equal(resolveFootballLeagueFromText("UEFA Conference League"), "uecl");
+assert.equal(resolveFootballLeagueFromText("copaam"), "copa");
 // 裸 uefa 不再落入欧足联宽桶
 assert.equal(resolveFootballLeagueFromText("uefa friendly"), null);
 assert.equal(resolveFootballLeagueFromText("uef"), "uef");
@@ -95,6 +96,13 @@ assert.equal(mapObFootballTournamentToGame("180"), "epl");
 assert.equal(mapObFootballTournamentToGame("262"), "uel");
 assert.equal(mapObFootballTournamentToGame("8120"), "uecl");
 assert.equal(mapObFootballTournamentToGame("999999"), null);
+
+const { footballPmSportFetchKeys, mapPmFootballSportToGame } = await import("./sport_football_markets.js");
+assert.equal(mapPmFootballSportToGame("copaam"), "copa"); // PM 美洲杯短码 → changmen copa
+assert.equal(mapPmFootballSportToGame("col"), "uecl");
+assert.equal(mapPmFootballSportToGame("copa"), "copa"); // changmen 联赛码原样通过
+assert.ok(footballPmSportFetchKeys().includes("copaam"));
+assert.ok(footballPmSportFetchKeys().includes("col"));
 
 const obMap = await import("../../../../packages/shared/catalog/football_ob_league_map.json", {
   with: { type: "json" },

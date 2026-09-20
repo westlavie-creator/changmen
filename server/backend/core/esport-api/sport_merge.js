@@ -221,6 +221,7 @@ function extractLegs(list) {
           matchTitle: String(m.Title || ""),
           startTime: m.StartTime != null ? Number(m.StartTime) : 0,
           game: m.Game != null ? String(m.Game) : null,
+          league: String(m.League || ""),
           marketCode,
           line,
           betName: String(bet.Name || ""),
@@ -459,6 +460,7 @@ export function mergeSportClientMatchDtoList(sport, list) {
       .filter(n => n > 0)
       .sort((a, b) => a - b)[0] || Number(anchor.startTime) || 0;
     const title = `${anchor.home} vs ${anchor.away}`;
+    const league = groupLegs.map(l => l.league).find(Boolean) || "";
 
     dtos.push({
       ID: id,
@@ -466,6 +468,7 @@ export function mergeSportClientMatchDtoList(sport, list) {
       Game: game,
       GameID: 0,
       StartTime: startTime,
+      ...(league ? { League: league } : {}),
       Matchs: matchs,
       Bets: finalBets,
     });

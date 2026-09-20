@@ -60,9 +60,11 @@ export const FOOTBALL_FALLBACK_GAMES = new Set();
 /**
  * Polymarket /sports 短码 → changmen Game（与 catalog.platforms.Polymarket 对齐）。
  * Gamma 拉取仍要带上左侧 key（如 col）。
+ * copaam = 美洲杯（PM 无 copa 短码；copa 是 changmen 联赛码）。
  */
 export const FOOTBALL_PM_SPORT_ALIASES = {
   col: "uecl",
+  copaam: "copa",
 };
 
 /**
