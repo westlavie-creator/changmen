@@ -84,6 +84,13 @@ describe("pmExecutionMetrics", () => {
       bookAgeMs: 100,
       signWarm: true,
       orderClientCacheHit: false,
+      detectionMaxPrice: 0.42,
+      bookPrice: 0.4,
+      fillPrice: 0.41,
+      limitPrice: 0.42,
+      apiBetMoney: 12,
+      depthAvailableAtCap: 100,
+      depthNeedUsdc: 12,
     });
     recordPmExecutionMetric({
       kind: "sign",
@@ -95,6 +102,14 @@ describe("pmExecutionMetrics", () => {
       reuseRejectReason: "expired",
       signWarm: true,
       orderClientCacheHit: true,
+      detectionMaxPrice: 0.5,
+      bookPrice: 0.49,
+      fillPrice: 0.5,
+      limitPrice: 0.5,
+      apiBetMoney: 20,
+      depthAvailableAtCap: 40,
+      depthNeedUsdc: 20,
+      submitStatus: "matched",
     });
     recordPmQuoteToFoMetric({
       tokenId: "tok-3",
@@ -136,6 +151,17 @@ describe("pmExecutionMetrics", () => {
       cacheHit: 1,
       warmRate: 1,
       cacheHitRate: 0.5,
+    });
+    expect(summary.execution).toMatchObject({
+      observed: 2,
+      detectionMaxPriceP50: 0.42,
+      bookPriceP50: 0.4,
+      fillPriceP50: 0.41,
+      limitPriceP50: 0.42,
+      apiBetMoneyP50: 12,
+      depthAvailableAtCapP50: 40,
+      depthNeedUsdcP50: 12,
+      submitStatuses: { matched: 1 },
     });
     expect(summary.quoteToFo).toMatchObject({
       total: 1,

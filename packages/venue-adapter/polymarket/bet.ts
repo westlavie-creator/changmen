@@ -354,6 +354,13 @@ function availableUsdc(asks: PolymarketOrderOptions["asks"]): number {
   return asks.reduce((sum, level) => sum + level.price * level.size, 0);
 }
 
+function availableUsdcAtPrice(
+  asks: PolymarketOrderOptions["asks"],
+  maxPrice: number,
+): number {
+  return availableUsdc(asks.filter(level => level.price <= maxPrice + 1e-9));
+}
+
 /** [changmen 扩展] 开：1× 成交价 P 及更优须 ≥ 本金×倍数。关：原 1×。 */
 function assertPmFokDepthAtFillPrice(
   bookAsks: PolymarketOrderOptions["asks"],
@@ -406,7 +413,14 @@ async function resolvePolymarketExecutableBuy(
   detectionOdds: number,
   apiBetMoney: number,
   maxPrice: number,
-): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions; bookFetchedAt: number }> {
+): Promise<{
+  price: number;
+  bookOdds: number;
+  orderOptions: PolymarketOrderOptions;
+  bookFetchedAt: number;
+  depthAvailableAtCap: number;
+  depthNeedUsdc?: number;
+}> {
   if (!maxPrice || maxPrice <= 0 || maxPrice >= 1)
     throw new Error(`无效检测价 ${maxPrice}（赔率 ${detectionOdds}）`);
   const orderOptions = await fetchOrderOptions(gateway, tokenId);
@@ -429,6 +443,8 @@ async function resolvePolymarketExecutableBuy(
     bookOdds: truncateOddsTo3(1 / price),
     orderOptions,
     bookFetchedAt: Date.now(),
+    depthAvailableAtCap: availableUsdcAtPrice(orderOptions.asks, maxPrice),
+    depthNeedUsdc: pmFokDepthBufferNeedUsdc(apiBetMoney) ?? apiBetMoney,
   };
 }
 
@@ -567,13 +583,22 @@ async function resolvePolymarketExecutableBuyForBet(
   detectionOdds: number,
   apiBetMoney: number,
   option: BetOption,
-): Promise<{ price: number; bookOdds: number; orderOptions: PolymarketOrderOptions }> {
+): Promise<{
+  price: number;
+  bookOdds: number;
+  orderOptions: PolymarketOrderOptions;
+  fillPrice: number;
+  depthAvailableAtCap: number;
+  depthNeedUsdc?: number;
+}> {
   const maxPrice = resolvePolymarketDetectionMaxPrice(option, detectionOdds);
   const reused = reusedPolymarketBuyCheck(option, tokenId, detectionOdds, apiBetMoney, maxPrice);
   const resolved = reused
     ? {
         bookOdds: reused.odds,
         orderOptions: reused.orderOptions,
+        depthAvailableAtCap: availableUsdcAtPrice(reused.orderOptions.asks, maxPrice),
+        depthNeedUsdc: pmFokDepthBufferNeedUsdc(apiBetMoney) ?? apiBetMoney,
       }
     : await resolvePolymarketExecutableBuy(gateway, tokenId, detectionOdds, apiBetMoney, maxPrice);
   const fillPrice = calculateBuyMarketLimitPrice(
@@ -598,6 +623,9 @@ async function resolvePolymarketExecutableBuyForBet(
     price,
     bookOdds: resolved.bookOdds,
     orderOptions: resolved.orderOptions,
+    fillPrice,
+    depthAvailableAtCap: resolved.depthAvailableAtCap,
+    depthNeedUsdc: resolved.depthNeedUsdc,
   };
 }
 
@@ -706,6 +734,17 @@ export const polymarketProvider: PlatformProvider = {
       if (guardSettled.status === "fulfilled" && guardSettled.value) {
         option.checkError = guardSettled.value;
         option.data = null;
+        recordPmExecutionMetric({
+          kind: "check",
+          tokenId,
+          accountId: Number(account.accountId) || undefined,
+          ms: Date.now() - checkStartedAt,
+          success: false,
+          error: guardSettled.value,
+          detectionOdds,
+          detectionMaxPrice: maxPrice,
+          apiBetMoney,
+        });
         return option;
       }
       if (guardSettled.status === "rejected")
@@ -713,7 +752,7 @@ export const polymarketProvider: PlatformProvider = {
       if (buySettled.status === "rejected")
         throw buySettled.reason;
 
-      const { price, bookOdds, orderOptions, bookFetchedAt } = buySettled.value;
+      const { price, bookOdds, orderOptions, bookFetchedAt, depthAvailableAtCap, depthNeedUsdc } = buySettled.value;
       option.odds = bookOdds;
       option.newOdds = bookOdds;
       option.data = {
@@ -730,6 +769,22 @@ export const polymarketProvider: PlatformProvider = {
         orderOptions,
         depthMultiplier: pmFokDepthReuseMultiplier(),
       } satisfies PolymarketBuyCheckData;
+      recordPmExecutionMetric({
+        kind: "check",
+        tokenId,
+        accountId: Number(account.accountId) || undefined,
+        ms: Date.now() - checkStartedAt,
+        success: true,
+        detectionOdds,
+        detectionMaxPrice: maxPrice,
+        bookPrice: price,
+        fillPrice: price,
+        apiBetMoney,
+        depthAvailableAtCap,
+        depthNeedUsdc,
+        tickSize: Number(orderOptions.tickSize),
+        minOrderSize: orderOptions.minOrderSize,
+      });
       warmupPolymarketClobSdk();
     }
     catch (err) {
@@ -744,14 +799,19 @@ export const polymarketProvider: PlatformProvider = {
       option.checkError = err instanceof Error ? err.message : String(err);
       option.data = null;
     }
-    recordPmExecutionMetric({
-      kind: "check",
-      tokenId,
-      accountId: Number(account.accountId) || undefined,
-      ms: Date.now() - checkStartedAt,
-      success: Boolean(option.data),
-      error: option.data ? undefined : option.checkError,
-    });
+    if (!option.data) {
+      recordPmExecutionMetric({
+        kind: "check",
+        tokenId,
+        accountId: Number(account.accountId) || undefined,
+        ms: Date.now() - checkStartedAt,
+        success: false,
+        error: option.checkError,
+        detectionOdds,
+        detectionMaxPrice: maxPrice,
+        apiBetMoney,
+      });
+    }
     return option;
   },
 
@@ -840,7 +900,7 @@ export const polymarketProvider: PlatformProvider = {
     }
 
     try {
-      const { price, bookOdds, orderOptions } = await resolvePolymarketExecutableBuyForBet(
+      const { price, bookOdds, orderOptions, fillPrice, depthAvailableAtCap, depthNeedUsdc } = await resolvePolymarketExecutableBuyForBet(
         gateway,
         tokenId,
         detectionOdds,
@@ -848,6 +908,22 @@ export const polymarketProvider: PlatformProvider = {
         option,
       );
       option.newOdds = bookOdds;
+      const executionPriceMetrics = {
+        detectionOdds,
+        detectionMaxPrice: maxPrice,
+        bookPrice: price,
+        fillPrice,
+        limitPrice: price,
+        tickSize: Number(orderOptions.tickSize),
+        apiBetMoney,
+        depthAvailableAtCap,
+        depthNeedUsdc,
+        minOrderSize: orderOptions.minOrderSize,
+      };
+      const executionSubmitFields = {
+        ...executionReadiness,
+        ...executionPriceMetrics,
+      };
       const orderBody = await measurePmExecution("sign", executionReadiness, () =>
         createPolymarketOrderBody(
           gateway,
@@ -860,17 +936,18 @@ export const polymarketProvider: PlatformProvider = {
           orderOptions,
         ),
       );
-      const result = await measurePmExecution("submit", executionReadiness, () =>
+      const result = await measurePmExecution("submit", executionSubmitFields, () =>
         pmSubmitOrder<PolymarketOrderResponse>(account, orderBody),
       );
 
       if (isPolymarketTradingDisabledError(result)) {
         recordPmExecutionMetric({
-          ...executionReadiness,
+          ...executionSubmitFields,
           kind: "betting",
           ms: Date.now() - beginTime,
           success: false,
           error: POLYMARKET_TRADING_DISABLED_MESSAGE,
+          submitStatus: "trading_disabled",
         });
         return new BetResult("Polymarket", false, POLYMARKET_TRADING_DISABLED_MESSAGE);
       }
@@ -900,11 +977,12 @@ export const polymarketProvider: PlatformProvider = {
         failed.beginTime = beginTime;
         failed.tip = { pmPosted: true };
         recordPmExecutionMetric({
-          ...executionReadiness,
+          ...executionSubmitFields,
           kind: "betting",
           ms: Date.now() - beginTime,
           success: false,
           error: polymarketOrderFailureMessage(result, fallback),
+          submitStatus: String(result?.status ?? "unfilled").trim().toLowerCase() || "unfilled",
         });
         return failed;
       }
@@ -947,10 +1025,11 @@ export const polymarketProvider: PlatformProvider = {
         startPolymarketSettlementJob(account, bet.orderId, { poll, conditionId });
       }
       recordPmExecutionMetric({
-        ...executionReadiness,
+        ...executionSubmitFields,
         kind: "betting",
         ms: Date.now() - beginTime,
         success: true,
+        submitStatus: String(result.status ?? "").trim().toLowerCase() || (pending ? "delayed" : "matched"),
       });
       return bet;
     } catch (err) {

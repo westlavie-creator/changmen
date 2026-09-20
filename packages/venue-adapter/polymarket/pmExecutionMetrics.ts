@@ -32,6 +32,17 @@ export interface PmExecutionMetricEntry {
   reuseRejectReason?: string;
   signWarm?: boolean;
   orderClientCacheHit?: boolean;
+  detectionOdds?: number;
+  detectionMaxPrice?: number;
+  bookPrice?: number;
+  fillPrice?: number;
+  limitPrice?: number;
+  tickSize?: number;
+  apiBetMoney?: number;
+  depthAvailableAtCap?: number;
+  depthNeedUsdc?: number;
+  minOrderSize?: number;
+  submitStatus?: string;
 }
 
 export interface PmExecutionKindSummary {
@@ -68,6 +79,17 @@ export interface PmExecutionMetricsSummary {
     ageP90Ms: number | null;
     ageP95Ms: number | null;
     rejectReasons: Record<string, number>;
+  };
+  execution: {
+    observed: number;
+    detectionMaxPriceP50: number | null;
+    bookPriceP50: number | null;
+    fillPriceP50: number | null;
+    limitPriceP50: number | null;
+    apiBetMoneyP50: number | null;
+    depthAvailableAtCapP50: number | null;
+    depthNeedUsdcP50: number | null;
+    submitStatuses: Record<string, number>;
   };
   sign: {
     observed: number;
@@ -237,6 +259,17 @@ export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
     warmRate: null as number | null,
     cacheHitRate: null as number | null,
   };
+  const execution = {
+    observed: 0,
+    detectionMaxPriceP50: null as number | null,
+    bookPriceP50: null as number | null,
+    fillPriceP50: null as number | null,
+    limitPriceP50: null as number | null,
+    apiBetMoneyP50: null as number | null,
+    depthAvailableAtCapP50: null as number | null,
+    depthNeedUsdcP50: null as number | null,
+    submitStatuses: {} as Record<string, number>,
+  };
   const quoteToFo = {
     total: 0,
     success: 0,
@@ -246,6 +279,13 @@ export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
     rejectReasons: {} as Record<string, number>,
   };
   const bookAgeMs: number[] = [];
+  const detectionMaxPrices: number[] = [];
+  const bookPrices: number[] = [];
+  const fillPrices: number[] = [];
+  const limitPrices: number[] = [];
+  const apiBetMoneys: number[] = [];
+  const depthAvailableAtCaps: number[] = [];
+  const depthNeedUsdcs: number[] = [];
 
   for (const row of snapshot) {
     const kindSummary = byKind[row.kind];
@@ -291,6 +331,34 @@ export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
         sign.cacheHit += 1;
     }
 
+    if (
+      row.detectionMaxPrice !== undefined ||
+      row.bookPrice !== undefined ||
+      row.fillPrice !== undefined ||
+      row.limitPrice !== undefined ||
+      row.apiBetMoney !== undefined ||
+      row.depthAvailableAtCap !== undefined
+    ) {
+      execution.observed += 1;
+      if (typeof row.detectionMaxPrice === "number" && Number.isFinite(row.detectionMaxPrice))
+        detectionMaxPrices.push(row.detectionMaxPrice);
+      if (typeof row.bookPrice === "number" && Number.isFinite(row.bookPrice))
+        bookPrices.push(row.bookPrice);
+      if (typeof row.fillPrice === "number" && Number.isFinite(row.fillPrice))
+        fillPrices.push(row.fillPrice);
+      if (typeof row.limitPrice === "number" && Number.isFinite(row.limitPrice))
+        limitPrices.push(row.limitPrice);
+      if (typeof row.apiBetMoney === "number" && Number.isFinite(row.apiBetMoney))
+        apiBetMoneys.push(row.apiBetMoney);
+      if (typeof row.depthAvailableAtCap === "number" && Number.isFinite(row.depthAvailableAtCap))
+        depthAvailableAtCaps.push(row.depthAvailableAtCap);
+      if (typeof row.depthNeedUsdc === "number" && Number.isFinite(row.depthNeedUsdc))
+        depthNeedUsdcs.push(row.depthNeedUsdc);
+    }
+
+    if (row.submitStatus)
+      increment(execution.submitStatuses, row.submitStatus);
+
     if (row.kind === "quote_to_fo") {
       quoteToFo.total += 1;
       if (row.success)
@@ -319,6 +387,13 @@ export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
   bookReuse.ageP95Ms = percentile(bookAgeMs, 95);
   sign.warmRate = rate(sign.warm, sign.observed);
   sign.cacheHitRate = rate(sign.cacheHit, sign.observed);
+  execution.detectionMaxPriceP50 = percentile(detectionMaxPrices, 50);
+  execution.bookPriceP50 = percentile(bookPrices, 50);
+  execution.fillPriceP50 = percentile(fillPrices, 50);
+  execution.limitPriceP50 = percentile(limitPrices, 50);
+  execution.apiBetMoneyP50 = percentile(apiBetMoneys, 50);
+  execution.depthAvailableAtCapP50 = percentile(depthAvailableAtCaps, 50);
+  execution.depthNeedUsdcP50 = percentile(depthNeedUsdcs, 50);
   quoteToFo.successRate = rate(quoteToFo.success, quoteToFo.total);
 
   return {
@@ -328,6 +403,7 @@ export function getPmExecutionMetricsSummary(): PmExecutionMetricsSummary {
     byKind,
     book,
     bookReuse,
+    execution,
     sign,
     quoteToFo,
     recentErrors: snapshot
