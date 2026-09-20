@@ -28,7 +28,7 @@ A8 参考在仓库根 `A8/`（gitignore，不进 GitHub）：前端 bundle **`A8
 ### Install
 
 ```bat
-npm install                            # workspaces：shared、backend、matcher、web、chrome-extension、packages
+npm install                            # workspaces：backend、matcher、web、chrome-extension、packages 等（以根 package.json 为准）
 BAT\setup-dev-env.bat                  # 首次：从 .env.example 复制 server/backend/.env
 ```
 
@@ -65,6 +65,8 @@ npm run test:frontend       # typecheck:frontend && vitest
 ```
 
 `vitest` 不做完整 TS 检查；**只有 `typecheck:frontend` / `app:build` 会跑 `vue-tsc -b`**。改完前端代码后至少跑其一，否则 deploy 才报错。`BAT\push-git.bat` 在 commit 前会自动跑 `typecheck:frontend`。
+
+`npm run check:venue-adapter` 的第 4 环会执行 `client/venue-adapter/scripts/check-esport-freeze.mjs`，默认拒绝改动 `client/venue-adapter/esport-freeze.json` 中登记的冻结路径；确需触碰时先确认范围，再用 `ALLOW_ESPORT_TOUCH=1` 或包内 `check:esport-freeze:allow` 做显式放行。
 
 Frontend-only（在 `client/web/`）：
 
@@ -160,13 +162,13 @@ Auth: 自签 JWT（`users` + `profiles`）。凭证在 `server/backend/.env`（`
 
 | Data | Store | Notes |
 |------|-------|-------|
-| 账号（ACCOUNT） | RDS `profiles.accounts` jsonb | `[changmen 实现]` 存 Client_SaveData 的 JSON 数组；非 A8 服务端结构。内存缓存见 `db/store.js` |
+| 账号（ACCOUNT） | RDS `players` 表 | `[changmen 实现]` `players` 是唯一真相；`profiles.accounts` jsonb 已弃写，仅作历史 backfill 来源。内存缓存见 `db/store.js` |
 | 订单 | RDS `orders` 表 | 无数据库时返回空，功能不可用 |
 | 用户设置（CollectConfig / USERCONFIG 等） | `db/store.js` 内存 + RDS `profiles` 异步写 | 重启后从 RDS 重载 |
-| esport 数据（赛事/赔率/平台凭证等） | 本地 JSON（`storage/legacy/esport/*.json`） | 不依赖云库 |
-| 平台采集凭证 | `platforms.json`（esport 数据目录） | 不依赖云库 |
+| 采集热缓存（赛事/赔率/计时） | 进程内 `_matches` / `_bets` / `_timers` + RDS `platform_*` / `live_timers` | 热缓存可重建；生产比赛列表以 `client_matches` 为准 |
+| 平台采集凭证 | `platforms.json`（默认 `server/backend/storage/platforms.json`，可由 env 覆盖） | 不依赖云库 |
 
-Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `CHANGMEN_STORAGE_DIR`（兼容 `GAMEBET_STORAGE_DIR`）.
+Storage path resolved in `core/shared/storage_paths.js`. Override via `ESPORT_DATA_DIR` or `CHANGMEN_STORAGE_DIR`（兼容 `GAMEBET_STORAGE_DIR`）；生产实际路径以部署环境变量为准。
 
 ### Frontend (`client/web/src/`)
 
@@ -265,7 +267,7 @@ All A8 parity tracking lives under `client/web/docs/`:
 
 - `[A8 可证实]`：`index.js` 通过 `Client_GetData` / `Client_SaveData` key=`ACCOUNT` 读写 **JSON 数组**（含 `accountId`、gateway、token 等字段）。
 - **A8 服务端如何落库**：黑盒，不可见。
-- `[changmen 实现]`：用 RDS `profiles.accounts` **jsonb** 持久化上述 JSON 数组；`players` 表存 playerId 元数据与 `owner_user_id`。这是 changmen 自有设计，只为满足 **Client_* 线协议**，不是 A8 后端复刻。
+- `[changmen 实现]`：用 RDS `players` 表持久化账号，`account_data jsonb` 保存 gateway/token/限额等线协议字段；`profiles.accounts` jsonb 已弃写，仅作历史迁移来源。后端对外仍组装/接收 A8 形状的 JSON 数组，这是 changmen 自有设计，只为满足 **Client_* 线协议**，不是 A8 后端复刻。
 
 ### Adding a new platform
 

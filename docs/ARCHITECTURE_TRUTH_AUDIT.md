@@ -5,6 +5,8 @@
 - 产物：`docs/ARCHITECTURE_TRUTH_AUDIT.md`（本文件）+ `.ai/architecture/index.json` + `.ai/architecture/build-index.mjs`
 - 性质：**审计报告**。除上述三个新建文件与 `docs/README.md` 索引行外，未改动任何代码、配置、文档。
 
+> 2026-09-20 后续裁决：`CLAUDE.md` 已修正 F-01 的账号存储模型、F-12 中 `CLAUDE.md` 侧的 legacy storage 路径表述，并补充 F-15 的 `esport-freeze` 闸门说明。本报告其余冲突记录仍保留为 2026-09-19 审计快照，未在本次统一重扫。
+
 ## 0. 范围、方法与证据优先级
 
 **方法**：五路并行取证（文档源盘点 / State Ownership 代码验证 / Registry 盘点 / Runtime+Boundary+Check 盘点 / Workspace 清单与依赖图），全部结论要求 file:line 级证据；关键数字（action 数、freeze 路径数、workspaces 解析、PM2 默认启动集）由脚本机械复算。

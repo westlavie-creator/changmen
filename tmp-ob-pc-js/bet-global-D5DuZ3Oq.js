@@ -1,1 +1,0 @@
-import{u as t,M as e,o as a,r as s,a as n}from"./match-list-tpl-BX2-H_wn.js";import{r,a as i,g as f}from"./index-DTttu31N.js";const l=()=>{f()},b=()=>{const o=[t(e.EMIT_CLICK_MENU,(_={})=>{_.flat_property_endpoint&&r()}).off,t(e.EMIT_LANG_CHANGE,l).off,t(e.EMIT_ODDS_BET_TYPE_CHANGE,()=>{i()}).off];a(()=>{s()}),n(()=>{o.map(_=>_())})};export{b};

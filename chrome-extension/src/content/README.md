@@ -1,6 +1,6 @@
 # Content Script（可读实现）
 
-已由 `scripts/build.mjs` 通过 esbuild 打包为根目录 `content.js`，替代 A8 legacy bundle。
+已由 `scripts/build.mjs` 通过 esbuild 打包为 `dist/content.js`，替代 A8 legacy bundle。
 
 ## 模块
 

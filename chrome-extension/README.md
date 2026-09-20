@@ -18,10 +18,11 @@ mogfpjihgoghabicofkbcmcidlcoofee
 
 1. Chrome 打开 `chrome://extensions/`
 2. 开启「开发者模式」
-3. 「加载已解压的扩展程序」→ 选择本目录 `changmen/chrome-extension`
-4. 确认扩展 ID 为 `mogfpjihgoghabicofkbcmcidlcoofee`
-5. 启动 changmen 前端（`client/web`），PB / Stake / v4 等会经扩展代发 HTTP
-6. Stake：在同一 Chrome 配置文件中打开 `stake.com`，扩展会自动 `setTab`
+3. 执行 `npm run build`
+4. 「加载已解压的扩展程序」→ 选择本目录 `changmen/chrome-extension`
+5. 确认扩展 ID 为 `mogfpjihgoghabicofkbcmcidlcoofee`
+6. 启动 changmen 前端（`client/web`），PB / Stake / v4 等会经扩展代发 HTTP
+7. Stake：在同一 Chrome 配置文件中打开 `stake.com`，扩展会自动 `setTab`
 
 ## 功能（与 A8 一致）
 
@@ -36,19 +37,18 @@ mogfpjihgoghabicofkbcmcidlcoofee
 | **Stake tabId** | 打开 `stake.com` 后自动 `setTab`，供采集/下注使用 |
 | **Polymarket 凭证采集** | 登录 `polymarket.com` 后按需读取 storage 中可见的 API 凭证片段、钱包/资金地址，右上角图标复制到 changmen 账号 |
 
-当前版本 **1.2.3**：content / background 均已可读化打包，协议对齐 A8 2.0.149（本地对照 `A8/A8插件/`）；使用 `storage.local`（无 sync）。
+当前版本 **1.3.59**：content / background 均已可读化打包，协议对齐 A8 2.0.149（本地对照 `A8/A8插件/`）；使用 `storage.local`（无 sync）。
 
 ## 目录结构
 
 ```
 chrome-extension/
   manifest.json       # MV3，含固定公钥 key
-  background.js         # esbuild 打包（源文件 src/background/）
-  content.js            # esbuild 打包的可读 content（源文件 src/content/）
+  dist/                 # esbuild 输出；gitignore，不手改
   src/background/       # background + ModifyHeader（DNR）
   src/content/          # content 可读实现（见 src/content/README.md）
-  vendor/               # socket.io 等第三方 bundle（Stake 桥接用）
-  scripts/build.mjs     # 同步 src → 根目录 + version.json
+  src/content/page-hooks/ # manifest world:MAIN 注入脚本
+  scripts/build.mjs     # 打包 src → dist/ + dist/version.json
   assets/               # 图标与 content 样式
   sidepanel.html        # Side Panel 观测面板（点击图标打开）
   popup.html / popup.js # 面板逻辑（sidepanel 复用 popup.js）
@@ -58,7 +58,7 @@ chrome-extension/
 
 ```bash
 cd changmen/chrome-extension
-npm run build               # 打包 background.js、content.js、version.json
+npm run build               # 打包 dist/background.js、dist/content.js、dist/version.json
 npm run pack                # build + 生成 dist/gamebet-chromeplug-v*.zip（发给朋友）
 npm run icons               # 重新生成占位图标
 ```
@@ -69,7 +69,7 @@ Windows：在仓库根目录执行 `npm run chromeplug:pack`，或双击 `BAT\de
 
 前端启动时会调用 `initGamebetExtension()`（`pluginBridge.ts`），将扩展版本写入 `localStorage.extensionVersion`，侧边栏 `ExtensionsBadge` 会显示该版本。
 
-修改 `src/content/` 或 `src/background/` 后执行 `npm run build`。不再依赖 minified A8 bundle。
+修改 `src/content/` 或 `src/background/` 后执行 `npm run build`。`dist/` 是生成物，不进 git；不再依赖 minified A8 bundle。
 
 ## 与 A8 官方插件区别
 

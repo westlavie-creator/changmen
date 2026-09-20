@@ -80,6 +80,11 @@ TJ01.JSON
 a8-capture-report-*.json
 arch-scan-report-*.json
 *.7z
+tmp-ob-pc-js/
+.smoke/
+devtools/tmp-*.mjs
+devtools/tmp-*.json
+devtools/archive/baseball-web-b1/
 
 # Repo-root scratch JSON / probes (local only)
 /_tmp-*.json

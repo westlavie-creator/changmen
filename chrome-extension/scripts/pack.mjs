@@ -14,29 +14,19 @@ const distRoot = path.join(changmenRoot, "dist");
 
 /**
  * 扩展运行时需要的文件（不含 node_modules / src / scripts）。
- * dex-intercept.js 由 manifest content_scripts 引用，漏打会导致 Chrome 拒绝加载。
+ * manifest content_scripts / service worker 引用的路径会自动补入，漏打会导致 Chrome 拒绝加载。
  */
 const RUNTIME_FILES = [
   "manifest.json",
-  "background.js",
-  "content.js",
-  "content.js.LICENSE.txt",
   "popup.html",
   "popup.js",
   "sidepanel.html",
-  "pb-ws-hook.js",
-  "pb-ws-content.js",
-  "dex-intercept.js",
-  "ob-sport-ws-hook.js",
-  "ob-sport-ws-page.js",
-  "pod-alerts-hook.js",
-  "pod-alerts-page.js",
   "ob-sport-ws-offscreen.html",
   "ob-sport-ws-offscreen.js",
-  "version.json",
+  "dist/version.json",
   "extension-id.json",
 ];
-const RUNTIME_DIRS = ["assets", "vendor"];
+const RUNTIME_DIRS = ["assets"];
 /** 源图，不进发行包 */
 const ASSET_SKIP = new Set(["jiraiya-icon-source.png", "konoha-public.svg"]);
 
@@ -76,6 +66,16 @@ function collectManifestPaths(manifest) {
   return files;
 }
 
+function copyRuntimeFile(rel, outDir) {
+  const src = path.join(plugRoot, rel);
+  if (!fs.existsSync(src)) {
+    throw new Error(`缺少文件 ${rel}，无法打包`);
+  }
+  const dest = path.join(outDir, rel);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(src, dest);
+}
+
 function stage(version) {
   const folderName = `gamebet-chromeplug-v${version}`;
   const outDir = path.join(distRoot, folderName);
@@ -86,11 +86,7 @@ function stage(version) {
   fs.mkdirSync(outDir, { recursive: true });
 
   for (const name of RUNTIME_FILES) {
-    const src = path.join(plugRoot, name);
-    if (!fs.existsSync(src)) {
-      throw new Error(`缺少文件 ${name}，无法打包`);
-    }
-    fs.copyFileSync(src, path.join(outDir, name));
+    copyRuntimeFile(name, outDir);
   }
   for (const name of RUNTIME_DIRS) {
     const src = path.join(plugRoot, name);
@@ -101,6 +97,10 @@ function stage(version) {
       recursive: true,
       filter: (p) => !ASSET_SKIP.has(path.basename(p)),
     });
+  }
+
+  for (const rel of collectManifestPaths(readManifest())) {
+    copyRuntimeFile(rel, outDir);
   }
 
   const missing = [];

@@ -29,7 +29,7 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/background.js"
   },
   "externally_connectable": {
     "matches": [
@@ -43,8 +43,8 @@
         "<all_urls>"
       ],
       "js": [
-        "vendor/socket.io.bundle.js",
-        "content.js"
+        "dist/vendor/socket.io.bundle.js",
+        "dist/content.js"
       ],
       "css": [
         "assets/content.css"
@@ -57,7 +57,7 @@
         "<all_urls>"
       ],
       "js": [
-        "pb-ws-content.js"
+        "dist/pb-ws-content.js"
       ],
       "run_at": "document_start",
       "all_frames": true,
@@ -69,7 +69,7 @@
         "*://*.dexsport.app/*"
       ],
       "js": [
-        "dex-intercept.js"
+        "src/content/page-hooks/dex-intercept.js"
       ],
       "world": "MAIN",
       "run_at": "document_start"
@@ -79,7 +79,7 @@
         "<all_urls>"
       ],
       "js": [
-        "pb-ws-hook.js"
+        "src/content/page-hooks/pb-ws-hook.js"
       ],
       "world": "MAIN",
       "run_at": "document_start",
@@ -92,7 +92,7 @@
         "*://*.dbsporxxxw1box.com/*"
       ],
       "js": [
-        "ob-sport-ws-page.js"
+        "dist/ob-sport-ws-page.js"
       ],
       "run_at": "document_start",
       "all_frames": true
@@ -103,7 +103,7 @@
         "*://*.dbsporxxxw1box.com/*"
       ],
       "js": [
-        "ob-sport-ws-hook.js"
+        "src/content/page-hooks/ob-sport-ws-hook.js"
       ],
       "world": "MAIN",
       "run_at": "document_start",
@@ -114,7 +114,7 @@
         "*://*.pinnacleoddsdropper.com/*"
       ],
       "js": [
-        "pod-alerts-hook.js"
+        "src/content/pod-alerts-hook.js"
       ],
       "world": "MAIN",
       "run_at": "document_start"
@@ -124,7 +124,7 @@
         "*://*.pinnacleoddsdropper.com/*"
       ],
       "js": [
-        "pod-alerts-page.js"
+        "dist/pod-alerts-page.js"
       ],
       "run_at": "document_idle"
     }
