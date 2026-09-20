@@ -9,10 +9,8 @@ import {
 } from "@/runtime/podAlerts";
 import {
   POD_BET_SETTINGS_UPDATED,
-  POD_FOLLOW_STAKE_PRESETS,
   podAlertWithinFollowAge,
   readPodBetSettings,
-  writePodBetSettings,
   type PodBetSettings,
 } from "@/runtime/podBetSettings";
 import {
@@ -48,7 +46,6 @@ import {
   type PodFollowPlaceTicket,
 } from "@/runtime/podFollowPlace";
 import {
-  listPmFollowAccounts,
   pickPodPmAutoTicket,
   placePodPmFollowBet,
   podPmFollowPlaceBlock,
@@ -88,7 +85,6 @@ import {
 } from "@/runtime/podMarketPrefetch";
 import { fetchObSportAmount } from "@/runtime/obSportAmount";
 import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
-import PodFollowAccountPicker from "@/components/football/PodFollowAccountPicker.vue";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useFootballStore } from "@/stores/footballStore";
@@ -128,9 +124,6 @@ let stopPrefetch: (() => void) | null = null;
 /** AutoYabo 50ms；Vue 侧 250ms 兼顾反应与开销 */
 const AUTO_TICK_MS = 250;
 const IDLE_TICK_MS = 1_000;
-
-const followAccounts = computed(() => listObSportFollowAccounts(accounts.accounts));
-const pmFollowAccounts = computed(() => listPmFollowAccounts(accounts.accounts));
 
 const tickets = computed(() => {
   void sportOddsTick.value;
@@ -187,7 +180,6 @@ const tickets = computed(() => {
     };
   });
 });
-const stakePresets = POD_FOLLOW_STAKE_PRESETS;
 const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
 const liveById = computed(() => new Map(
   tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
@@ -257,6 +249,14 @@ function formatEnabledVenueStakes(): string {
     parts.push(`PM ${formatPodStake(followStakeFor("Polymarket"))}`);
   return parts.join(" · ") || formatPodStake(Number(betSettings.value.stake) || 0);
 }
+
+const followSummary = computed(() => {
+  const parts = [formatEnabledVenueStakes()];
+  parts.push(`自动${betSettings.value.autoPlace ? "开" : "关"}`);
+  if (sportAmount.value > 0 && venueSelectedAccountCount("OB") <= 1)
+    parts.push(`余额 ${sportAmount.value}`);
+  return parts.join(" · ");
+});
 
 function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false): PodFollowPlaceTicket {
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
@@ -338,9 +338,9 @@ function venueDailyOrderLimit(venue: "OB" | "Polymarket"): number {
 function venueSelectedAccountCount(venue: "OB" | "Polymarket"): number {
   if (venue === "OB") {
     const ids = betSettings.value.followAccountIds;
-    return ids.length ? ids.length : (followAccounts.value.length ? 1 : 0);
+    return ids.length ? ids.length : (listObSportFollowAccounts(accounts.accounts).length ? 1 : 0);
   }
-  return listPmFollowAccounts(accounts.accounts, betSettings.value.pmFollowAccountIds).length;
+  return betSettings.value.pmFollowAccountIds.length;
 }
 
 function venueDailyOrderBlock(venue: "OB" | "Polymarket"): string | null {
@@ -681,26 +681,6 @@ function pmPlaceButtonTitle(ticket: (typeof tickets.value)[number]): string | un
   return block || undefined;
 }
 
-const stakeModel = computed({
-  get: () => betSettings.value.stake,
-  set: (v: number | undefined) => persistStake(v),
-});
-
-const obStakeModel = computed({
-  get: () => betSettings.value.obStake,
-  set: (v: number | undefined) => persistVenueStake("OB", v),
-});
-
-const pmStakeModel = computed({
-  get: () => betSettings.value.pmStake,
-  set: (v: number | undefined) => persistVenueStake("Polymarket", v),
-});
-
-const autoModel = computed({
-  get: () => betSettings.value.autoPlace,
-  set: (v: boolean) => persistAuto(v),
-});
-
 const collapsed = ref(false);
 const left = ref(0);
 const top = ref(72);
@@ -866,29 +846,6 @@ function onWindowResize() {
   clampPos(left.value, top.value);
 }
 
-function persistStake(raw: number | null | undefined) {
-  betSettings.value = writePodBetSettings({
-    ...betSettings.value,
-    stake: Number(raw) || 0,
-  });
-}
-
-function persistVenueStake(venue: "OB" | "Polymarket", raw: number | null | undefined) {
-  const stake = Number(raw) || 0;
-  betSettings.value = writePodBetSettings({
-    ...betSettings.value,
-    ...(venue === "OB" ? { obStake: stake } : { pmStake: stake }),
-  });
-}
-
-function persistAuto(raw: boolean) {
-  betSettings.value = writePodBetSettings({
-    ...betSettings.value,
-    autoPlace: raw === true,
-  });
-  restartAutoTick();
-}
-
 function restartAutoTick() {
   if (nowTimer) {
     clearInterval(nowTimer);
@@ -902,37 +859,6 @@ function restartAutoTick() {
   if (betSettings.value.autoPlace)
     void maybeAutoPlace();
 }
-
-function persistFollowAccounts(raw: number[] | null | undefined) {
-  const ids = (Array.isArray(raw) ? raw : [])
-    .map(n => Math.round(Number(n) || 0))
-    .filter(n => n > 0);
-  betSettings.value = writePodBetSettings({
-    ...betSettings.value,
-    followAccountIds: ids,
-    followAccountId: ids[0] || 0,
-  });
-}
-
-function persistPmFollowAccounts(raw: number[] | null | undefined) {
-  const ids = (Array.isArray(raw) ? raw : [])
-    .map(n => Math.round(Number(n) || 0))
-    .filter(n => n > 0);
-  betSettings.value = writePodBetSettings({
-    ...betSettings.value,
-    pmFollowAccountIds: ids,
-  });
-}
-
-const followAccountModel = computed({
-  get: () => betSettings.value.followAccountIds.slice(),
-  set: (v: number[]) => persistFollowAccounts(v),
-});
-
-const pmFollowAccountModel = computed({
-  get: () => betSettings.value.pmFollowAccountIds.slice(),
-  set: (v: number[]) => persistPmFollowAccounts(v),
-});
 
 async function refreshSportAmount() {
   try {
@@ -1038,109 +964,9 @@ onUnmounted(() => {
         {{ collapsed ? "展开" : "收起" }}
       </button>
     </div>
-    <div v-show="!collapsed" class="pod-follow-panel__stake" @pointerdown.stop>
-      <span class="pod-follow-panel__stake-lab">下注金额</span>
-      <el-input-number
-        v-model="stakeModel"
-        :min="0"
-        :max="1000000"
-        :step="10"
-        :precision="0"
-        size="small"
-        controls-position="right"
-      />
-      <span class="pod-follow-panel__stake-unit">元</span>
-      <button
-        v-for="n in stakePresets"
-        :key="`default-${n}`"
-        type="button"
-        class="pod-follow-panel__chip"
-        :class="{ 'is-on': betSettings.stake === n }"
-        @click="persistStake(n)"
-      >
-        {{ n }}
-      </button>
-      <template v-if="followObEnabled">
-        <span class="pod-follow-panel__stake-lab">OB</span>
-        <el-input-number
-          v-model="obStakeModel"
-          :min="0"
-          :max="1000000"
-          :step="10"
-          :precision="0"
-          size="small"
-          controls-position="right"
-        />
-        <span class="pod-follow-panel__stake-unit">元</span>
-        <button
-          v-for="n in stakePresets"
-          :key="`ob-${n}`"
-          type="button"
-          class="pod-follow-panel__chip"
-          :class="{ 'is-on': betSettings.obStake === n }"
-          @click="persistVenueStake('OB', n)"
-        >
-          {{ n }}
-        </button>
-      </template>
-      <template v-if="followPmEnabled">
-        <span class="pod-follow-panel__stake-lab">PM</span>
-        <el-input-number
-          v-model="pmStakeModel"
-          :min="0"
-          :max="1000000"
-          :step="10"
-          :precision="0"
-          size="small"
-          controls-position="right"
-        />
-        <span class="pod-follow-panel__stake-unit">元</span>
-        <button
-          v-for="n in stakePresets"
-          :key="`pm-${n}`"
-          type="button"
-          class="pod-follow-panel__chip"
-          :class="{ 'is-on': betSettings.pmStake === n }"
-          @click="persistVenueStake('Polymarket', n)"
-        >
-          {{ n }}
-        </button>
-      </template>
-      <span class="pod-follow-panel__stake-lab">自动下注</span>
-      <el-switch
-        v-model="autoModel"
-        size="small"
-        inline-prompt
-        active-text="开"
-        inactive-text="关"
-        :disabled="!betSettings.enabled"
-      />
-      <span v-if="sportAmount > 0 && followAccountModel.length <= 1" class="pod-follow-panel__stake-unit">
-        余额 {{ sportAmount }}
-      </span>
-    </div>
-    <div
-      v-show="!collapsed && (followObEnabled || followPmEnabled)"
-      class="pod-follow-panel__accounts"
-      @pointerdown.stop
-    >
-      <div v-if="followObEnabled" class="pod-follow-panel__account-row">
-        <span class="pod-follow-panel__stake-lab">OB账号</span>
-        <PodFollowAccountPicker
-          v-model="followAccountModel"
-          :accounts="followAccounts"
-          variant="panel"
-        />
-      </div>
-      <div v-if="followPmEnabled" class="pod-follow-panel__account-row">
-        <span class="pod-follow-panel__stake-lab">PM账号</span>
-        <PodFollowAccountPicker
-          v-model="pmFollowAccountModel"
-          :accounts="pmFollowAccounts"
-          variant="panel"
-          venue="Polymarket"
-        />
-      </div>
+    <div v-show="!collapsed" class="pod-follow-panel__summary" @pointerdown.stop>
+      <span class="pod-follow-panel__summary-label">配置</span>
+      <span class="pod-follow-panel__summary-text">{{ followSummary }}</span>
     </div>
     <div v-show="!collapsed" class="pod-follow-panel__body">
       <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
@@ -1439,10 +1265,9 @@ onUnmounted(() => {
   color: #fff;
 }
 
-.pod-follow-panel__stake,
-.pod-follow-panel__accounts {
+.pod-follow-panel__summary {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   flex: 0 0 auto;
@@ -1453,55 +1278,17 @@ onUnmounted(() => {
   color: #cbd5e1;
 }
 
-.pod-follow-panel__stake {
-  align-items: center;
-}
-
-.pod-follow-panel__accounts {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 5px;
-}
-
-.pod-follow-panel__account-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.pod-follow-panel__account-row :deep(.pod-acct-picker) {
-  flex: 1 1 180px;
-  min-width: 0;
-}
-
-.pod-follow-panel__stake-lab {
+.pod-follow-panel__summary-label {
   flex-shrink: 0;
   font-weight: 600;
 }
 
-.pod-follow-panel__stake-unit {
+.pod-follow-panel__summary-text {
   color: #94a3b8;
-}
-
-.pod-follow-panel__stake :deep(.el-input-number) {
-  width: 112px;
-}
-
-.pod-follow-panel__chip {
-  padding: 2px 7px;
-  border: 1px solid #ffffff2e;
-  border-radius: 999px;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.pod-follow-panel__chip.is-on,
-.pod-follow-panel__chip:hover {
-  color: #fde68a;
-  border-color: #f59e0b99;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pod-follow-panel__body {

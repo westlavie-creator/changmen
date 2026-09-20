@@ -189,8 +189,8 @@ describe("sport / esport UI isolation", () => {
     const dropPanel = readFileSync(join(root, "components/football/PodAlertPanel.vue"), "utf8");
     expect(dropPanel).not.toMatch(/filterPodAlertsForBet|podBetSettings|PodFollowPanel|podFixtureMatch|matchPodAlertToFixtures|obSportEnglishNames|podMarketMatch|podBoardFocus|podFollowPlace|obSportPlaceBet|placePodFollowBet|podFollowLog|podSportOrders|FootballOrderView|podOutcomeGate|podBook|podYabo|podObMissSearch|podMarketPrefetch/);
     const followPanel = readFileSync(join(root, "components/football/PodFollowPanel.vue"), "utf8");
-    expect(followPanel).toMatch(/下注金额/);
-    expect(followPanel).toMatch(/writePodBetSettings/);
+    expect(followPanel).toMatch(/followSummary/);
+    expect(followPanel).not.toMatch(/writePodBetSettings/);
     expect(followPanel).toMatch(/matchPodAlertToFixtures/);
     expect(followPanel).toMatch(/formatPodFixtureMatch/);
     expect(followPanel).toMatch(/peekObEnglishNames/);
@@ -200,7 +200,7 @@ describe("sport / esport UI isolation", () => {
     expect(followPanel).toMatch(/searchPodObMissFixture/);
     expect(followPanel).toMatch(/prefetchObSportOidQuote/);
     expect(followPanel).toMatch(/followAccountIds/);
-    expect(followPanel).toMatch(/PodFollowAccountPicker/);
+    expect(followPanel).not.toMatch(/PodFollowAccountPicker/);
     expect(followPanel).toMatch(/fetchObSportAmount/);
     expect(followPanel).toMatch(/formatPodMarketMatch/);
     expect(followPanel).toMatch(/formatPodObQuote/);
