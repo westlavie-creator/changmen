@@ -1,10 +1,16 @@
 import type { PlatformAccount } from "@changmen/client-core/models/platformAccount";
 import { accountHttpRequest, type AccountHttpOptions } from "@changmen/client-core/shared/platformHttp";
 
+export function normalizeRayAuthorization(token: string | undefined): string {
+  const raw = String(token || "").trim();
+  if (!raw) return "";
+  return raw.startsWith("Bearer ") ? raw : `Bearer ${raw}`;
+}
+
 /** [A8 可证实] RAY `kw`：仅 authorization + Content-Type */
 function rayHeaders(account: PlatformAccount): Record<string, string> {
   return {
-    "authorization": account.token || "",
+    "authorization": normalizeRayAuthorization(account.token),
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
   };
 }
