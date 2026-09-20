@@ -17,7 +17,7 @@ A8 参考在仓库根 `A8/`（gitignore，不进 GitHub）：前端 bundle **`A8
 
 **团队边界**：客户端 / 服务端目录与 `npm run check:boundaries` 见 [docs/TEAM_BOUNDARIES.md](./docs/TEAM_BOUNDARIES.md)。
 
-**`client/venue-adapter` 是双端共享包**（浏览器 + Node）：浏览器端消费各平台 adapter；Node 端被 `server/backend`、`server/match/resolver` 依赖（`registry` / `loader` / `shared` / `contract` / `backend`）。`client/` 前缀是历史遗留，不表示纯客户端代码；迁入 `packages/` 已评估、决议暂缓（见 TEAM_BOUNDARIES.md）。
+**`packages/venue-adapter` 是双端共享包**（浏览器 + Node）：浏览器端消费各平台 adapter；Node 端被 `server/backend`、`server/match/resolver` 依赖（`registry` / `loader` / `shared` / `contract` / `backend`）。`client/` 前缀是历史遗留，不表示纯客户端代码；迁入 `packages/` 已评估、决议暂缓（见 TEAM_BOUNDARIES.md）。
 
 **Commands run from this repository root** (`client/`、`server/` 等即应用根)。Windows `BAT\` 在**本机**放在仓库旁或仓库内（已 gitignore），见 [LOCAL_DEV.md](./LOCAL_DEV.md)。
 
@@ -68,7 +68,7 @@ npm run test:frontend       # typecheck:frontend && vitest
 
 `vitest` 不做完整 TS 检查；**只有 `typecheck:frontend` / `app:build` 会跑 `vue-tsc -b`**。改完前端代码后至少跑其一，否则 deploy 才报错。`BAT\push-git.bat` 在 commit 前会自动跑 `typecheck:frontend`。
 
-`npm run check:venue-adapter` 的第 4 环会执行 `client/venue-adapter/scripts/check-esport-freeze.mjs`，默认拒绝改动 `client/venue-adapter/esport-freeze.json` 中登记的冻结路径；确需触碰时先确认范围，再用 `ALLOW_ESPORT_TOUCH=1` 或包内 `check:esport-freeze:allow` 做显式放行。
+`npm run check:venue-adapter` 的第 4 环会执行 `packages/venue-adapter/scripts/check-esport-freeze.mjs`，默认拒绝改动 `packages/venue-adapter/esport-freeze.json` 中登记的冻结路径；确需触碰时先确认范围，再用 `ALLOW_ESPORT_TOUCH=1` 或包内 `check:esport-freeze:allow` 做显式放行。
 
 Frontend-only（在 `client/web/`）：
 
@@ -127,7 +127,7 @@ changmen/
 
 | 目录 | 可 require |
 |------|------------|
-| `server/backend` | `packages/shared/*`、`client/venue-adapter`（`adapter_paths` / `reqS`） |
+| `server/backend` | `packages/shared/*`、`packages/venue-adapter`（`adapter_paths` / `reqS`） |
 | `server/match/matcher` | `@changmen/match-identity`、`packages/shared/*`、`@changmen/team-resolver` |
 | `server/match/identity` | `packages/shared/*`（**仅此一项**，勿加 db / express / venue-adapter） |
 
@@ -141,9 +141,9 @@ changmen/
 |---|---|---|
 | 入口 | `server.js`、`http_routes.js`、`proxy/` | HTTP server + HTTP 代理 |
 | Core | `core/` | 业务逻辑：路由/store/账号/DB/shared utils |
-| Platform | `client/venue-adapter/`（`@changmen/venue-adapter`） | 各场馆 collect/bet + registry（canonical） |
+| Platform | `packages/venue-adapter/`（`@changmen/venue-adapter`） | 各场馆 collect/bet + registry（canonical） |
 
-后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `client/venue-adapter/README.md`。
+后端经 `core/shared/adapter_paths.js` 的 `requirePlatform` 加载平台模块。详见 `packages/venue-adapter/README.md`。
 
 **入口：** `node server.js` — HTTP server、HTTP 代理、esport-api
 
@@ -180,12 +180,12 @@ See `ARCHITECTURE.md` in the same directory for the canonical reference. Summary
 |-----------|------|
 | `api/` | All `Client_*` HTTP calls to the backend (`client.ts` wraps token + `post()`) |
 | `runtime/` | `collectors.ts` + `providers.ts` — wired at app startup; registers all adapters |
-| `@changmen/venue-adapter/*` | workspace 包 → `client/venue-adapter/`（canonical 采集/下注源码） |
-| `client/venue-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
+| `@changmen/venue-adapter/*` | workspace 包 → `packages/venue-adapter/`（canonical 采集/下注源码） |
+| `packages/venue-adapter/registry/adapters.ts` | `PLATFORM_ADAPTERS` + `buildCollectorFactories()` |
 | `stores/` | 10 Pinia stores; `matchStore` owns the polling loop; `oddsStore` is the real-time odds cache (`fo`) |
 | `shared/http.ts` | `directGet` / `directPostJson` — Axios for collect HTTP (bypasses backend proxy) |
 | `shared/platformHttp.ts` | Axios for betting account HTTP (supports relay, optional SOCKS proxy) |
-| `client/venue-adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
+| `packages/venue-adapter/shared/` | 采集横切：`collectSession`、`collectNotify`、`socket/`（A8 频道 IM/XBet/Stake） |
 
 `@` alias maps to `src/`.
 

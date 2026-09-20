@@ -79,7 +79,7 @@
     "@changmen/shared": "file:../../packages/shared",
     "@changmen/storage": "file:../storage",
     "@changmen/team-resolver": "file:../match/resolver",
-    "@changmen/venue-adapter": "file:../../client/venue-adapter",
+    "@changmen/venue-adapter": "file:../../packages/venue-adapter",
     "@changmen/ws-forward": "file:../ws_forward",
     "@polymarket/builder-relayer-client": "^0.0.10",
     "@polymarket/builder-signing-sdk": "^0.0.8",

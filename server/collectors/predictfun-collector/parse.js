@@ -1,7 +1,7 @@
 /**
  * PredictFun 电竞 discovery 解析（**唯一权威**）。
  * VPS collector：categories → orderbook → platform_* + MarketIndex。
- * 浏览器不跑本文件；`client/venue-adapter/predictfun/parse.ts` **只**保留报价工具
+ * 浏览器不跑本文件；`packages/venue-adapter/predictfun/parse.ts` **只**保留报价工具
  * （complement / Yes book→token），禁止再镜像 `buildPredictMappedMarket`。
  *
  * 官方电竞现形态：

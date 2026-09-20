@@ -112,10 +112,10 @@ PM `checkBet`：`GET /book` 与 Gamma 并行（官方 Place Orders 第一步即 
 ## 相关代码
 
 - 编排入口：`client/web/src/domain/betting/resolveVenueLegOutcome.ts`
-- PM outcome：`client/venue-adapter/polymarket/legOutcome.ts`
-- PF outcome：`client/venue-adapter/predictfun/legOutcome.ts`
+- PM outcome：`packages/venue-adapter/polymarket/legOutcome.ts`
+- PF outcome：`packages/venue-adapter/predictfun/legOutcome.ts`
 - fill 判定：`isPolymarketBetResultFillConfirmed`（`orderStatus.ts`）
 - 门控：`isPendingConfirmVenueProvider`（`packages/shared/account_multiply.ts`）
-- A8 outcome：`client/venue-adapter/adaptation/a8LegOutcome.ts`
+- A8 outcome：`packages/venue-adapter/adaptation/a8LegOutcome.ts`
 - 套利 settle：`settleBothArbLegs` → `settleArbLeg`
 - place 腿态：`ArbLegPlaceOutcome`（`accepted_pending_confirm` = PF 挂单待确认）

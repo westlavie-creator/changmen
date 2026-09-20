@@ -27,7 +27,7 @@ resolvePbCollectAccount()  // bv：PB + balance!==undefined，不用 platforms.j
 | 拒单 | GET my-bets → `_Q` / sessionStorage |
 | 订单 | POST wager-filter OPEN + SETTLED |
 
-请求头：`buildPbAuthHeaders`（见下「会话类型」；实现 `client/venue-adapter/pb/auth.ts`）。
+请求头：`buildPbAuthHeaders`（见下「会话类型」；实现 `packages/venue-adapter/pb/auth.ts`）。
 
 ## 会话类型（从 token 判定）
 
@@ -71,7 +71,7 @@ resolvePbCollectAccount()  // bv：PB + balance!==undefined，不用 platforms.j
 - **采集**：必须 PB 账号且已 `updateBalance` 成功（`balance !== undefined`）
 - **下注**：剪贴板 `ACCOUNT` 各账号 gateway/token（会话类型见上「从 token 判定」）
 - **HTTP**：Chrome 安装 `chrome-extension` 时走扩展代发；**Electron / 无扩展** 时走同源 `/esport/http-relay`（见 `transport.ts`）
-- **实现**：`client/venue-adapter/pb/auth.ts`（`buildPbAuthHeaders` / `detectPbSessionMode`）；扩展 `chrome-extension/src/content/pb-credential.js`
+- **实现**：`packages/venue-adapter/pb/auth.ts`（`buildPbAuthHeaders` / `detectPbSessionMode`）；扩展 `chrome-extension/src/content/pb-credential.js`
 
 对照表：[`A8_PB_LOGIC_PARITY.md`](./A8_PB_LOGIC_PARITY.md)  
 WebSocket（旁路）：[`PB_WS.md`](./PB_WS.md)  

@@ -54,10 +54,10 @@
 | source | truth type | canonical? | machine-readable? | verified? | consumers |
 |---|---|---|---|---|---|
 | `server/storage/paths.js`（CHANGMEN_LAYOUT） | registry（布局/路径） | ✅ 源 | ✅ JS 常量 | ✅ `paths_smoke.test.mjs`（经 catalog-smoke 链） | check-team-boundaries、venue-adapter loader、`client/web/vite.config.ts:18,217`、platform-probes、backend storage_paths |
-| `client/venue-adapter/registry/manifest.json` | registry（17 平台能力开关） | ✅ 源 | ✅ JSON | ⚠️ 部分（DEV 自检 warn 非 CI + `meta.browserSave.test.ts`） | adapters.ts / meta.ts / feeds.js / backend `registry/feeds.js` / icon 生成 |
+| `packages/venue-adapter/registry/manifest.json` | registry（17 平台能力开关） | ✅ 源 | ✅ JSON | ⚠️ 部分（DEV 自检 warn 非 CI + `meta.browserSave.test.ts`） | adapters.ts / meta.ts / feeds.js / backend `registry/feeds.js` / icon 生成 |
 | `packages/shared/catalog/*.json` | registry（sport/game/market catalog） | ✅ 源 | ✅ JSON | ✅ 3 个 smoke test，在 `npm test` 链 | 60+ 文件（backend/matcher/venue-adapter/web/probes） |
 | `packages/api-contract/src/actions.ts` | registry + contract（104 actions） | ✅ 源 | ✅ TS | ✅ `urls.test.mjs` + `action_registry.test.mjs` | 前端 `api/client.ts`、后端 `action_registry.ts:8`、router |
-| `client/venue-adapter/esport-freeze.json` | registry（22 条冻结路径） | ✅ 源 | ✅ JSON | ✅ `check-esport-freeze.mjs`（git gate） | check:venue-adapter 第 4 环；**文档零记载** |
+| `packages/venue-adapter/esport-freeze.json` | registry（22 条冻结路径） | ✅ 源 | ✅ JSON | ✅ `check-esport-freeze.mjs`（git gate） | check:venue-adapter 第 4 环；**文档零记载** |
 | `deploy/ecosystem.config.cjs` | registry（9 个 PM2 app） | ✅ 源（进程级） | ✅ CJS | ❌ 无自动校验 | PM2、`deploy/scripts/*.sh`；**Node 代码不读** |
 | 根 `package.json` workspaces | registry（18 条 glob → 21 包） | ✅ 源 | ✅ JSON | ✅ npm/turbo 解析 | npm、turbo |
 | 各 workspace `package.json` | registry（包名/依赖） | ✅ 源 | ✅ JSON | ⚠️ 无 drift 校验 | npm、turbo、所有包 |
@@ -158,7 +158,7 @@ capability 是从 runtime/代码取证**派生**出的归组（非仓库现有�
 | WS 推送 | realtime-hub（内嵌 esport） | client/web Socket.IO | 频道 `Polymarket:PmSport`；path `/esport/realtime/socket.io`；握手必带 token；内部广播入口 `POST /esport/internal/broadcast/pm-sport` 仅 loopback（403 otherwise） | `channels.js:1,3,6`、`http_routes.js:365`、`internal_http.js:11-17` |
 | WS 转发 | ws_forward | client/web、chrome-extension | 浏览器前缀 `/esport/ws-forward/*`（`index.js:22`）；内嵌默认 IA/OB/RAY/PM-USER（`server.js:72`）；PM-MARKET/PREDICTFUN-MARKET 由独立 hub 承载（`index.js:51-63`） | `ws_forward/index.js`、`server.js:85` |
 | HTTP 代理端点 ×5 | `changmen-esport` | client/web | `/esport/http-relay`、`/esport/pb/proxy`、`/esport/ob/proxy`、`/esport/ray/proxy`、`/esport/ia/proxy`（按序尝试） | `http_routes.js:374-382`、`proxy/README.md` |
-| Adapter 加载 ABI（**事实上的契约，未版本化**） | `client/venue-adapter/loader/adapter_paths.mjs` | `server/backend`（requirePlatform）、`server/match/resolver`（scrapers） | 解析顺序：①`GAMEBET_ADAPTER_ROOT` ②monorepo `client/venue-adapter` ③瘦包 `server/backend/platform_adapter`（gitignored 派生物）；node 模式 → `devtools/platform-probes`（瘦包 `platform_node`） | `adapter_paths.mjs`、`ARCHITECTURE.md:113-117`、`TEAM_BOUNDARIES.md:25-29,97` |
+| Adapter 加载 ABI（**事实上的契约，未版本化**） | `packages/venue-adapter/loader/adapter_paths.mjs` | `server/backend`（requirePlatform）、`server/match/resolver`（scrapers） | 解析顺序：①`GAMEBET_ADAPTER_ROOT` ②monorepo `packages/venue-adapter` ③瘦包 `server/backend/platform_adapter`（gitignored 派生物）；node 模式 → `devtools/platform-probes`（瘦包 `platform_node`） | `adapter_paths.mjs`、`ARCHITECTURE.md:113-117`、`TEAM_BOUNDARIES.md:25-29,97` |
 | 团队边界核心契约面（10 action） | — | — | `CORE_INTEGRATION_ACTIONS`：SaveMatch/SaveBet/SaveLiveTimer/SaveScore + GetMatchs×5 + GetData，注释自称「团队边界文档中的核心契约面」 | `actions.ts:115-126` |
 | DB 表读/写矩阵 | — | — | **仅文档化**（DATA_STORAGE:7-22），无机器可读 registry | §11 M-04 |
 
@@ -176,7 +176,7 @@ capability 是从 runtime/代码取证**派生**出的归组（非仓库现有�
 | server-backend | venue-adapter 平台私有目录（仅可 `registry|loader|shared|contract|backend|scripts|_template` + 平台内 shared）；`client/web/src`；`server/match` | allowFiles：`scripts/test-packaged-adapter-layout.js`、`core/shared/adapter_paths.test.mjs` |
 | platform-probes | `@changmen/venue-adapter`、venue-adapter 平台私有目录 | infra 目录 |
 | server-match | `client/web`、venue-adapter 平台私有、`match-(engine|identity)/merge`、`merge/match_merge` | infra 目录 |
-| 全局 | legacy 目录存在即违规：`server/platform-node`、`server/platform-probes`、`client/venue-adapter/node` | — |
+| 全局 | legacy 目录存在即违规：`server/platform-node`、`server/platform-probes`、`packages/venue-adapter/node` | — |
 
 ### 7.2 检查链全貌（事实）
 
@@ -247,7 +247,7 @@ capability 是从 runtime/代码取证**派生**出的归组（非仓库现有�
 | F-10 | paths.js 所属包 | `paths.js`/`load_env.js` 实际在 `@changmen/storage`（`server/storage/`，其 package.json exports 含两文件） | ARCHITECTURE.md:102「数据层与路径解析见 `@changmen/db`（paths.js、load_env.js）」 | 代码 | true |
 | F-11 | 子包清单陈旧 | matcher 顶层无 `archive/`（实际 compose/docs/lib/link/ops/scripts/tests/ui）；collectors 有 4 包（文档多处只列 2）；packages/ 实际 4 个（文档树列 3，漏 arb-core） | ARCHITECTURE.md:16,34-37,152；server/README.md:48-50 | 代码 | true |
 | F-12 | 存储路径表述 | 默认 `server/backend/storage`（`paths.js:44-49`）；代码中无 `legacy` 路径段 | CLAUDE.md:166 `storage/legacy/esport/*.json`；DATA_STORAGE:30 `storage/platforms.json`（相对根表述）；生产实际值依赖 VPS env 覆盖（`ESPORT_DATA_DIR` 等） | 代码 + env；⚠️ 生产 env 实际值为 **UNKNOWN**（未读取 VPS `.env`，本审计不越界） | true |
-| F-13 | CODEOWNERS 模板 | `.github/CODEOWNERS` 不存在；模板路径 `/changmen/client/chrome-extension/`、`/changmen/client/platform-adapter/` 均非真实路径（真实：`chrome-extension/`、`client/venue-adapter/`） | TEAM_BOUNDARIES:121-125 指示复制模板到 `.github/CODEOWNERS` | 代码（目录真实布局） | true |
+| F-13 | CODEOWNERS 模板 | `.github/CODEOWNERS` 不存在；模板路径 `/changmen/client/chrome-extension/`、`/changmen/client/platform-adapter/` 均非真实路径（真实：`chrome-extension/`、`packages/venue-adapter/`） | TEAM_BOUNDARIES:121-125 指示复制模板到 `.github/CODEOWNERS` | 代码（目录真实布局） | true |
 | F-14 | 采集 CLI 转发 | backend `package.json:18-38` 有 17 条 `ob:*/ray:*/pb:*` 转发 scripts 指向 platform-probes | server/README.md:69-79 命令表未列该组 | 代码 | true（补文档或删脚本，二选一决策） |
 | F-15 | esport-freeze 闸门 | `check-esport-freeze.mjs` + `esport-freeze.json`（22 路径）在 `check:venue-adapter` 链上运行，默认拒绝、需 `ALLOW_ESPORT_TOUCH=1` | **所有已读文档零记载**（TEAM_BOUNDARIES/CATALOG/SPORTS_PRODUCT_LINES/CLAUDE 均无） | 代码 | true（补文档） |
 
@@ -413,7 +413,7 @@ index.json 已示范：modules/runtimes/lines/contracts/sources 全机械派生�
 
 ```text
 PLATFORM_REGISTRY
-  canonical: client/venue-adapter/registry/manifest.json (17 platforms)
+  canonical: packages/venue-adapter/registry/manifest.json (17 platforms)
   PASS  registry/adapters.ts / shared/platforms.ts / api-contract/schemas.ts
   DRIFT client-core/types/platforms.ts            missing=[Azuro,Limitless,PredictFun,SXBet]
   DRIFT chrome-extension/src/content/platforms.js missing=[Azuro,Limitless,PredictFun,SXBet,XBet] extra=[HGA]

@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const adapterRoot = dirname(fileURLToPath(import.meta.url));
-const webRoot = join(adapterRoot, "../web/src");
+const repoRoot = join(adapterRoot, "../..");
+const webRoot = join(repoRoot, "client/web/src");
 
 describe("esport/sport odds path isolation (source contracts)", () => {
   test("sportLiveOdds does not write fo", () => {
@@ -41,13 +42,13 @@ describe("esport/sport odds path isolation (source contracts)", () => {
     expect(existsSync(manifestPath)).toBe(true);
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     expect(manifest.allowEnv).toBe("ALLOW_ESPORT_TOUCH");
-    expect(manifest.paths).toContain("client/venue-adapter/polymarket/collect.ts");
-    expect(manifest.paths).toContain("client/venue-adapter/predictfun/collect.ts");
+    expect(manifest.paths).toContain("packages/venue-adapter/polymarket/collect.ts");
+    expect(manifest.paths).toContain("packages/venue-adapter/predictfun/collect.ts");
     expect(manifest.paths).toContain("client/web/src/stores/oddsStore.ts");
     expect(manifest.paths).toContain("client/web/src/stores/match/mainBetLoop.ts");
-    expect(manifest.paths).toContain("client/venue-adapter/polymarket/bet.ts");
+    expect(manifest.paths).toContain("packages/venue-adapter/polymarket/bet.ts");
     // hub / sport 不在冻结清单
-    expect(manifest.paths).not.toContain("client/venue-adapter/polymarket/marketQuoteHub.ts");
-    expect(manifest.paths).not.toContain("client/venue-adapter/polymarket/sportQuoteHub.ts");
+    expect(manifest.paths).not.toContain("packages/venue-adapter/polymarket/marketQuoteHub.ts");
+    expect(manifest.paths).not.toContain("packages/venue-adapter/polymarket/sportQuoteHub.ts");
   });
 });

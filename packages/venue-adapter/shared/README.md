@@ -1,6 +1,6 @@
 # shared（跨平台）
 
-**位置**：`client/venue-adapter/shared/`（canonical）
+**位置**：`packages/venue-adapter/shared/`（canonical）
 
 | 模块 | 用途 |
 |------|------|
@@ -17,8 +17,8 @@
 
 | 目录 | 范围 | 示例 |
 |------|------|------|
-| **`client/venue-adapter/shared/`** | 跨平台 | A8 socket、采集通知 |
-| **`client/venue-adapter/{platform}/shared/`** | 单平台，**仅浏览器** | `ob/shared/save_bets.ts`、`ray/shared/match_stage.ts` |
+| **`packages/venue-adapter/shared/`** | 跨平台 | A8 socket、采集通知 |
+| **`packages/venue-adapter/{platform}/shared/`** | 单平台，**仅浏览器** | `ob/shared/save_bets.ts`、`ray/shared/match_stage.ts` |
 | **`devtools/platform-probes/{platform}/shared/`** | 单平台，**仅探针/CLI** | `ray/shared/save_bets.js`（CJS，与浏览器 `.ts` 逻辑对齐） |
 
 浏览器与探针若需相同业务逻辑，各自维护一份（TS 为生产 canonical；探针 CJS 供 `core.js`/CLI）。不要从探针 `import @changmen/venue-adapter`。

@@ -1,6 +1,6 @@
 ﻿# 共享采集工具
 
-源码在 **`client/venue-adapter/shared/`**（Vite `@venue/shared/...`），不在 `client/web/src/`。
+源码在 **`packages/venue-adapter/shared/`**（Vite `@venue/shared/...`），不在 `client/web/src/`。
 
 ## collectSession.ts
 

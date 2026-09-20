@@ -23,8 +23,8 @@
       "@changmen/arb-core/*": ["../../packages/arb-core/src/*"],
       "@changmen/client-core/*": ["../../packages/client-core/src/*"],
       "@changmen/shared/*": ["../../packages/shared/*"],
-      "@changmen/venue-adapter": ["../../client/venue-adapter/registry/index.ts"],
-      "@changmen/venue-adapter/*": ["../../client/venue-adapter/*"],
+      "@changmen/venue-adapter": ["../../packages/venue-adapter/registry/index.ts"],
+      "@changmen/venue-adapter/*": ["../../packages/venue-adapter/*"],
       "mqtt": ["../../node_modules/mqtt"],
       "socket.io-client": ["../../node_modules/socket.io-client"],
       "socketcluster-client": ["../../node_modules/socketcluster-client"]
@@ -38,7 +38,7 @@
     "../../packages/shared/catalog/game_catalog.browser.ts"
   ],
   "exclude": [
-    "../../client/venue-adapter/**/*.test.ts",
-    "../../client/venue-adapter/**/scripts/**"
+    "../../packages/venue-adapter/**/*.test.ts",
+    "../../packages/venue-adapter/**/scripts/**"
   ]
 }

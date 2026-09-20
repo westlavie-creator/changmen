@@ -46,7 +46,7 @@
 | `server/match/matcher` | [README.md](../server/match/matcher/README.md) |
 | `server/realtime-hub` | [README.md](../server/realtime-hub/README.md) |
 | `chrome-extension` | [README.md](../chrome-extension/README.md) · `npm run chromeplug:pack` |
-| `client/venue-adapter` | [README.md](../client/venue-adapter/README.md) |
+| `packages/venue-adapter` | [README.md](../packages/venue-adapter/README.md) |
 | `packages/` | [README.md](../packages/README.md) — `shared` · `api-contract` · `client-core` |
 
 ## 客户端 / Parity

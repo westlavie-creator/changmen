@@ -17,7 +17,7 @@ const CHECK = process.argv.includes("--check");
 
 const SCAN_ROOTS = [
   { label: "client/web/src", dir: path.resolve(PKG_ROOT, "../../client/web/src") },
-  { label: "client/venue-adapter", dir: path.resolve(PKG_ROOT, "../../client/venue-adapter") },
+  { label: "packages/venue-adapter", dir: path.resolve(PKG_ROOT, "../../packages/venue-adapter") },
 ];
 
 const IMPORT_RES = [

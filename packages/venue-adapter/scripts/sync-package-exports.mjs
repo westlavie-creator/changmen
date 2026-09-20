@@ -1,24 +1,25 @@
 #!/usr/bin/env node
 /**
  * 从 monorepo 内 @changmen/venue-adapter/* 引用生成 package.json exports 白名单。
- * 扫描：client/web/src、client/venue-adapter（含 vi.mock / dynamic import）。
+ * 扫描：client/web/src、packages/venue-adapter（含 vi.mock / dynamic import）。
  *
  * 用法：
- *   node client/venue-adapter/scripts/sync-package-exports.mjs          # 写回 package.json
- *   node client/venue-adapter/scripts/sync-package-exports.mjs --check  # 仅校验，有漂移 exit 1
+ *   node packages/venue-adapter/scripts/sync-package-exports.mjs          # 写回 package.json
+ *   node packages/venue-adapter/scripts/sync-package-exports.mjs --check  # 仅校验，有漂移 exit 1
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, "../../..");
 const ADAPTER_ROOT = path.resolve(__dirname, "..");
 const PKG_JSON = path.join(ADAPTER_ROOT, "package.json");
 const PKG = "@changmen/venue-adapter";
 const CHECK = process.argv.includes("--check");
 
 const SCAN_ROOTS = [
-  path.resolve(ADAPTER_ROOT, "../web/src"),
+  path.join(REPO_ROOT, "client", "web", "src"),
   ADAPTER_ROOT,
 ];
 

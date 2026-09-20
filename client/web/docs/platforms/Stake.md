@@ -27,4 +27,4 @@
 
 账号 token：插件浮动图标 `GetConfig()` 读 `session` cookie，`data = btoa(JSON)`，粘贴到账号编辑「快速填充」。
 
-详见 `client/venue-adapter/stake/README.md`。
+详见 `packages/venue-adapter/stake/README.md`。

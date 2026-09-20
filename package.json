@@ -13,7 +13,7 @@
     "packages/api-contract",
     "client/web",
     "chrome-extension",
-    "client/venue-adapter",
+    "packages/venue-adapter",
     "server/backend",
     "server/match/*",
     "server/db",

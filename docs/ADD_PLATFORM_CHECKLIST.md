@@ -1,6 +1,6 @@
 # 新增平台 Checklist（三类）
 
-先选类型，再按对应清单做。**权威开关**在 [`client/venue-adapter/registry/manifest.json`](../client/venue-adapter/registry/manifest.json) 的 `collectionMode`（勿再硬编码馆名）。
+先选类型，再按对应清单做。**权威开关**在 [`packages/venue-adapter/registry/manifest.json`](../packages/venue-adapter/registry/manifest.json) 的 `collectionMode`（勿再硬编码馆名）。
 
 | 类型 | `collectionMode`（示例） | 谁写 `platform_*` | 典型馆 |
 |------|--------------------------|-------------------|--------|
@@ -10,7 +10,7 @@
 
 辅助判定：
 
-- `isVpsOwnedPlatformCollect(id)` / `browserSaveMatchPlatformIds()` — [`registry/meta.ts`](../client/venue-adapter/registry/meta.ts)（前端）与 [`registry/feeds.js`](../client/venue-adapter/registry/feeds.js)（后端）
+- `isVpsOwnedPlatformCollect(id)` / `browserSaveMatchPlatformIds()` — [`registry/meta.ts`](../packages/venue-adapter/registry/meta.ts)（前端）与 [`registry/feeds.js`](../packages/venue-adapter/registry/feeds.js)（后端）
 - `pluginOnly: true` — UI/采集偏扩展；**不等于** VPS 写库（PM/PF 同时 `pluginOnly` + `vps_http_ws`）
 
 合场唯一写路径已冻结为 esport 内嵌 composer；新馆只要进 `platform_*`，不必改 matcher writer。
@@ -41,7 +41,7 @@
 
 | # | 触点 | 说明 |
 |---|------|------|
-| A1 | `client/venue-adapter/{dir}/` | `collect.ts` + `bet.ts` + `index.ts`（`PlatformAdapter`） |
+| A1 | `packages/venue-adapter/{dir}/` | `collect.ts` + `bet.ts` + `index.ts`（`PlatformAdapter`） |
 | A2 | `manifest.json` | `collect: true`，`collectionMode` ≠ `vps_http_ws` |
 | A3 | 可选 `devtools/platform-probes/{dir}/` | Node 探针 / 会话；经 `requirePlatform`；**非**主链路必需 |
 | A4 | `platform_sync.js` | **仅当**要有 trial/env 默认凭证写入 `platforms.json` 时加 `syncXxx*` 并挂 `ensurePlatformCredentials` |
@@ -106,7 +106,7 @@
 
 ## 相关文档
 
-- 适配器包：[client/venue-adapter/README.md](../client/venue-adapter/README.md)
+- 适配器包：[packages/venue-adapter/README.md](../packages/venue-adapter/README.md)
 - 采集 daemon：[server/collectors/README.md](../server/collectors/README.md)
 - 团队边界：[docs/TEAM_BOUNDARIES.md](./TEAM_BOUNDARIES.md)
 - 前端结构：[client/web/src/ARCHITECTURE.md](../client/web/src/ARCHITECTURE.md)

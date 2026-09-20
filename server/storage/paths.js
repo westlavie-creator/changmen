@@ -11,7 +11,7 @@ export const CHANGMEN_ROOT = CHANGMEN_ROOT_FROM_PKG;
  * 物理搬家时优先只改此处与 docs/PATH_REGISTRY.md；消费方应 import 本模块而非硬编码字符串。
  */
 export const CHANGMEN_LAYOUT = {
-  venueAdapter: "client/venue-adapter",
+  venueAdapter: "packages/venue-adapter",
   clientWeb: "client/web",
   clientChromeExtension: "chrome-extension",
   platformProbes: "devtools/platform-probes",

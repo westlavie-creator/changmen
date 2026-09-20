@@ -33,7 +33,7 @@ POST {gateway}/mobilesitev2/api/Event/getAllLiveEventsDelta
 ```powershell
 $env:IMT_GATEWAY = "https://your-imt-host"
 $env:IMT_TOKEN = "base64-json-token"
-cd changmen/client/venue-adapter
+cd changmen/packages/venue-adapter
 npm run imt:events
 ```
 

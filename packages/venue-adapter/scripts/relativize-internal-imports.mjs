@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * 将 client/venue-adapter 包内 @changmen/venue-adapter/* 自引用改为相对路径。
+ * 将 packages/venue-adapter 包内 @changmen/venue-adapter/* 自引用改为相对路径。
  * 不修改 client/web、scripts、README。
  *
  * 用法：
- *   node client/venue-adapter/scripts/relativize-internal-imports.mjs
- *   node client/venue-adapter/scripts/relativize-internal-imports.mjs --check
+ *   node packages/venue-adapter/scripts/relativize-internal-imports.mjs
+ *   node packages/venue-adapter/scripts/relativize-internal-imports.mjs --check
  */
 import fs from "node:fs";
 import path from "node:path";

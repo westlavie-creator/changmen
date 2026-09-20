@@ -1,7 +1,7 @@
 /**
  * SXBet 电竞 discovery 解析（**唯一权威**）。
  * VPS collector：markets/active + odds/best → platform_* + MarketIndex。
- * 浏览器不跑本文件；`client/venue-adapter/sxbet/parse.ts` **只**保留报价/下单工具，
+ * 浏览器不跑本文件；`packages/venue-adapter/sxbet/parse.ts` **只**保留报价/下单工具，
  * 禁止再镜像 `buildSxMappedMarket`。
  */
 

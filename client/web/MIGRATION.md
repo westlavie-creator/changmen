@@ -65,7 +65,7 @@ npm run test:v4    # 平博 v4（backend 3456�?npm run build
 | `qZe` / `SQ` | `hgProvider` / `hg/followLoop.ts` | 皇冠跟单 |
 | 自动投注循环 | `src/stores/bettingStore.ts` | WinRate、anyOdds、补单阈值等 |
 | `Gi` | `src/stores/messageStore.ts` | 推�?Telegram |
-| `NMe` �?`PQ` | `client/venue-adapter/*/*/` | 各平台采�?|
+| `NMe` �?`PQ` | `packages/venue-adapter/*/*/` | 各平台采�?|
 | `SQ` | `hg/index.ts` + `hg/followLoop.ts` | HG 余额轮询 + 跟单（非 saveMatch�?|
 | `LoginView` | `src/views/LoginView.vue` | |
 | `HomeView` | `src/views/HomeView.vue` | |

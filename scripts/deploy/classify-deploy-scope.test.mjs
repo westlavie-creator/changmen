@@ -15,7 +15,7 @@ describe("classifyDeployScope", () => {
   });
 
   it("full when shared adapter / packages change", () => {
-    assert.equal(classifyDeployScope(["client/venue-adapter/ob/index.ts"]), "full");
+    assert.equal(classifyDeployScope(["packages/venue-adapter/ob/index.ts"]), "full");
     assert.equal(classifyDeployScope(["packages/shared/foo.js"]), "full");
   });
 

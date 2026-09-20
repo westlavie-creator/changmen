@@ -61,7 +61,7 @@ OB 离线验收（`app/` 目录）：`npm run test:ob`（GetMatchs 形态 + obPr
 
 ---
 
-## 平台与采集（`client/venue-adapter/`）
+## 平台与采集（`packages/venue-adapter/`）
 
 | 文档 | 用途 |
 |------|------|

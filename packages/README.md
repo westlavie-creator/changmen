@@ -13,7 +13,7 @@
 
 ## 依赖方向
 
-- `client/web`、`client/venue-adapter` → `arb-core`、`client-core`、`api-contract`、`shared`
+- `client/web`、`packages/venue-adapter` → `arb-core`、`client-core`、`api-contract`、`shared`
 - `server/backend`、`server/match/matcher` → `shared`、`api-contract`（不经 `client-core`）
 - `packages/*` **不** import `client/*` 或 `server/*`
 

@@ -3,7 +3,7 @@
  * 电竞业务冻结闸门：diff 命中 esport-freeze.json 路径且未 ALLOW_ESPORT_TOUCH=1 → 失败。
  *
  * 用法：
- *   node client/venue-adapter/scripts/check-esport-freeze.mjs
+ *   node packages/venue-adapter/scripts/check-esport-freeze.mjs
  *   ESPORT_FREEZE_BASE=origin/main node ...
  *   ALLOW_ESPORT_TOUCH=1 node ...   # 显式解冻（仍应跑 quote-hub-contracts）
  *
@@ -109,7 +109,7 @@ function main() {
   for (const h of hits)
     console.error(`  - ${h}`);
   console.error("");
-  console.error("体育/N3.5 迭代不应改这些文件。冻结清单: client/venue-adapter/esport-freeze.json");
+  console.error("体育/N3.5 迭代不应改这些文件。冻结清单: packages/venue-adapter/esport-freeze.json");
   console.error(`解冻: ${allowEnv}=1 或 --allow（并说明原因；改 hub/collect 后请跑 test:quote-hub-contracts）`);
 
   if (unlocked) {

@@ -83,7 +83,7 @@ matchStore.runMainLoopTick()
 | 启动采集 | `web/src/runtime/collectors.ts` |
 | 注册 provider | `web/src/runtime/providers.ts` |
 
-Vite 别名：`@changmen/venue-adapter` → `client/venue-adapter`。
+Vite 别名：`@changmen/venue-adapter` → `packages/venue-adapter`。
 
 ---
 

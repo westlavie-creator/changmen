@@ -23,7 +23,7 @@ Windows：`BAT\setup-dev-env.bat`（首次）→ `BAT\dev.bat` 或 `BAT\backend.
 | 项目共识 / 命令 | [readme.md](../../readme.md) · [CLAUDE.md](../../CLAUDE.md) |
 | 游戏 / 玩法 catalog | [docs/CATALOG.md](../../docs/CATALOG.md) |
 | HTTP / WS 代理 | [proxy/README.md](./proxy/README.md) |
-| 平台适配器 | [client/venue-adapter/README.md](../../client/venue-adapter/README.md) |
+| 平台适配器 | [packages/venue-adapter/README.md](../../packages/venue-adapter/README.md) |
 | 新控制台 / v4 | [client/web/docs/CREDIT_PLATE.md](../../client/web/docs/CREDIT_PLATE.md) |
 | 运维脚本 | [scripts/README.md](../../scripts/README.md) |
 | 本机 JSON（storage/） | [STORAGE.md](./STORAGE.md) |
@@ -42,4 +42,4 @@ storage.example/     # 空模板
 public/              # 静态资源（URL 仍为 /esport2/*，见 public/README.md）
 ```
 
-平台 canonical 实现位于 `client/venue-adapter/`，由 `core/shared/adapter_paths.js` 加载。
+平台 canonical 实现位于 `packages/venue-adapter/`，由 `core/shared/adapter_paths.js` 加载。

@@ -49,7 +49,7 @@ export function resetAdapterRootForTests() {
 /**
  * platform-adapter 根目录。
  * - 显式：`CHANGMEN_ADAPTER_ROOT`（瘦包 / 测试；兼容 `GAMEBET_ADAPTER_ROOT`）
- * - 开发：`changmen/client/venue-adapter`（workspace 包）
+ * - 开发：`changmen/packages/venue-adapter`（workspace 包）
  * - 可选拷贝：`server/backend/platform_adapter`（`npm run sync:platform-adapter`）
  */
 export function getAdapterRoot() {

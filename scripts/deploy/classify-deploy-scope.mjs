@@ -43,7 +43,7 @@ export function classifyDeployScope(paths) {
     }
 
     if (
-      p.startsWith("client/venue-adapter/")
+      p.startsWith("packages/venue-adapter/")
       || p.startsWith("client/platform-adapter/")
       || p.startsWith("packages/")
     ) {

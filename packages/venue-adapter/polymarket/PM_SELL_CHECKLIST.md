@@ -164,7 +164,7 @@ pmSellState = open（未更新）
 ## 5. 相关文件索引
 
 ```
-client/venue-adapter/polymarket/
+packages/venue-adapter/polymarket/
   pmManualSell.ts          # 手动卖（主路径）
   orders.ts                # reconcile / Gamma 闸 / sell 映射
   pmLogicalPosition.ts
@@ -182,5 +182,5 @@ server/backend/scripts/ops/diagnostics/audit-order-sidebar-health.mjs
 server/backend/scripts/ops/incidents/scan-fix-pm-sell-pnl-double.mjs
 
 docs/ACCOUNT_BACKEND.md         # 买卖依附 + 盈亏口径摘要
-client/venue-adapter/predictfun/README.md   # PF 卖出契约
+packages/venue-adapter/predictfun/README.md   # PF 卖出契约
 ```

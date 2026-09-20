@@ -1,13 +1,13 @@
 # @changmen/client-core
 
-`client/web` 与 `client/venue-adapter`、Chrome 插件共用的 **客户端 TS 层**：领域模型、DTO、HTTP/平台工具。
+`client/web` 与 `packages/venue-adapter`、Chrome 插件共用的 **客户端 TS 层**：领域模型、DTO、HTTP/平台工具。
 
 ## 使用方
 
 | 包 | 典型 import |
 |----|-------------|
 | `client/web` | `@changmen/client-core/shared/platformHttp`、`bridge/clientApi` |
-| `client/venue-adapter` | `shared/http`、`models/platformAccount` |
+| `packages/venue-adapter` | `shared/http`、`models/platformAccount` |
 | `chrome-extension` | `chrome-plugin/bridge` |
 
 ## 目录

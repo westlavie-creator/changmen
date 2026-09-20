@@ -272,7 +272,7 @@
         "derivation": "generated"
       },
       "platformManifest": {
-        "path": "client/venue-adapter/registry/manifest.json",
+        "path": "packages/venue-adapter/registry/manifest.json",
         "manages": "平台能力开关（17 平台）",
         "canonical": true,
         "machineReadable": true,
@@ -292,7 +292,7 @@
     "conflicts": {},
     "drift": {
       "canonical": {
-        "path": "client/venue-adapter/registry/manifest.json",
+        "path": "packages/venue-adapter/registry/manifest.json",
         "count": 17,
         "ids": [
           "Azuro",
@@ -316,7 +316,7 @@
       },
       "derived": [
         {
-          "path": "client/venue-adapter/registry/adapters.ts",
+          "path": "packages/venue-adapter/registry/adapters.ts",
           "extract": "regex platform adapter imports",
           "ids": [
             "azuro",
@@ -342,7 +342,7 @@
           "extra": []
         },
         {
-          "path": "client/venue-adapter/shared/platforms.ts",
+          "path": "packages/venue-adapter/shared/platforms.ts",
           "extract": "regex PLATFORMS object keys",
           "ids": [
             "Azuro",

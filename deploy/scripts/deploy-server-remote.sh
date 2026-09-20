@@ -125,7 +125,7 @@ classify() {
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
       ;;
-    packages/shared/*|packages/api-contract/*|client/platform-adapter/*|client/venue-adapter/*)
+    packages/shared/*|packages/api-contract/*|client/platform-adapter/*|packages/venue-adapter/*)
       DO_INSTALL_ROOT=1
       DO_INSTALL_FRONTEND=1
       DO_APP_BUILD=1

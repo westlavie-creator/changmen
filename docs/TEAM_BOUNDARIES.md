@@ -2,7 +2,7 @@
 
 changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check-team-boundaries` 让**客户端团队**与**服务端团队**可各自维护，减少跨团队改坏对方代码。
 
-**目录层级**（详见 [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md)）：**平台层**（`packages/`、`client/venue-adapter/`、`server/backend/`…共用）→ **能力层**（`server/match/identity`、`ws_forward`、`value-bet`…可复用引擎）→ **产品线层**（`lines/{code}/` 仅 manifest + `line.json`，电竞代码仍在根目录）。整理目录时改 manifest/文档即可，不必为产品线复制平台包。
+**目录层级**（详见 [SPORTS_PRODUCT_LINES.md](./SPORTS_PRODUCT_LINES.md)）：**平台层**（`packages/`、`packages/venue-adapter/`、`server/backend/`…共用）→ **能力层**（`server/match/identity`、`ws_forward`、`value-bet`…可复用引擎）→ **产品线层**（`lines/{code}/` 仅 manifest + `line.json`，电竞代码仍在根目录）。整理目录时改 manifest/文档即可，不必为产品线复制平台包。
 
 完整两仓 / 契约包路线见本文末尾「后续阶段」。
 
@@ -10,7 +10,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 团队 | 拥有目录 | 职责 |
 |------|----------|------|
-| **客户端** | `client/web/`、`chrome-extension/`、`client/venue-adapter/` | UI、采集、下注、插件、各平台适配源码 |
+| **客户端** | `client/web/`、`chrome-extension/`、`packages/venue-adapter/` | UI、采集、下注、插件、各平台适配源码 |
 | **服务端（核心）** | `server/backend/`、`server/match/`（identity / resolver / matcher）、`server/db/`、`server/storage/` | API、合并、RDS、本机 JSON 路径、代理/余额、运维脚本 |
 | **服务端（库，backend 挂载）** | `server/ws_forward/`、`server/realtime-hub/` | WebSocket 转发、Changmen Socket.IO 推送（由 backend 进程加载，非独立主链路进程） |
 | **服务端（扩展守护进程）** | `server/collectors/`、`server/value-bet/` | VPS 采集 daemon；详见 [collectors/README.md](../server/collectors/README.md) |
@@ -20,15 +20,15 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 服务端包索引：[server/README.md](../server/README.md)。
 
-已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`client/venue-adapter/node/`、`client/venue-adapter/{platform}/backend/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/` 与 `server/backend/platform_adapter/`。
+已移除的遗留目录（勿再创建）：`server/platform-node`、`server/platform-probes`、`packages/venue-adapter/node/`、`packages/venue-adapter/{platform}/backend/`。探针源码仅在 `devtools/platform-probes/`；瘦包同步产物为 `server/backend/platform_node/` 与 `server/backend/platform_adapter/`。
 
-`client/venue-adapter` 内的 `loader/`、`registry/`、`scripts/` 属**适配器基础设施**（`reqS` / `backendRequire` 在 `loader/adapter_paths.mjs`）；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
+`packages/venue-adapter` 内的 `loader/`、`registry/`、`scripts/` 属**适配器基础设施**（`reqS` / `backendRequire` 在 `loader/adapter_paths.mjs`）；各平台 `{platform}/shared/` 为**浏览器采集**内部模块（collect / markets / parse 共用），**不同步**到瘦包。
 
-`client/venue-adapter` 整体是**双端共享包**（浏览器 + Node）：server 经 `registry` / `loader` 等基础设施目录反向依赖它，挂在 `client/` 下是历史遗留命名，不代表纯客户端代码。迁入 `packages/` 已评估，决议暂缓——触及面大（冻结清单 18/22 路径、~84 处字面路径引用），收益主要是叙事正确；若未来重开，与 `packages/shared` 补进 workspaces 一事合并为一个 workspace hygiene commit。
+`packages/venue-adapter` 整体是**双端共享包**（浏览器 + Node）：server 经 `registry` / `loader` 等基础设施目录反向依赖它，挂在 `client/` 下是历史遗留命名，不代表纯客户端代码。迁入 `packages/` 已评估，决议暂缓——触及面大（冻结清单 18/22 路径、~84 处字面路径引用），收益主要是叙事正确；若未来重开，与 `packages/shared` 补进 workspaces 一事合并为一个 workspace hygiene commit。
 
 `devtools/platform-probes/{platform}/shared/` 为**探针/CLI** 内部模块（如 RAY 的 CJS `save_bets.js`），与浏览器 `shared/` 分离，由探针包 `sync:backend-bundle` 打入 `server/backend/platform_node/`。
 
-服务端通过 `requirePlatform(..., "node")` 加载探针；**不得**引用各平台根目录下的采集/下注 ts（`client/venue-adapter/{platform}/shared/` 亦不在瘦包内）。
+服务端通过 `requirePlatform(..., "node")` 加载探针；**不得**引用各平台根目录下的采集/下注 ts（`packages/venue-adapter/{platform}/shared/` 亦不在瘦包内）。
 
 ## 新增平台（摘录）
 
@@ -84,7 +84,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 `client/web/scripts/`：允许 `@changmen/match-identity` 做离线 parity 测试；仍禁止 `@changmen/db` 与直接引用 backend。
 
-### 各平台 `client/venue-adapter/{platform}/`（根目录 ts，不含 `shared/`、`scripts/`）
+### 各平台 `packages/venue-adapter/{platform}/`（根目录 ts，不含 `shared/`、`scripts/`）
 
 | 允许 | 禁止 |
 |------|------|
@@ -95,7 +95,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 
 | 允许 | 禁止 |
 |------|------|
-| `@changmen/db`、`@changmen/match-identity`、`@changmen/shared`、`@changmen/storage` | `client/venue-adapter/*/`（平台根目录 ts 与 `shared/`） |
+| `@changmen/db`、`@changmen/match-identity`、`@changmen/shared`、`@changmen/storage` | `packages/venue-adapter/*/`（平台根目录 ts 与 `shared/`） |
 | `@changmen/venue-adapter/loader`、`registry`、`requirePlatform` → **node** | `client/web/src/**` |
 | `@changmen/platform-probes`、`@changmen/polymarket-sports`、`@changmen/realtime-hub`、`@changmen/ws-forward`（backend 依赖） | |
 | `server/value-bet` 仅依赖 `@changmen/db` + `@changmen/shared` + `@changmen/storage` | |
@@ -107,7 +107,7 @@ changmen 仍为 **一个 monorepo**，通过目录归属、CODEOWNERS 与 `check
 | 允许 | 禁止 |
 |------|------|
 | `@changmen/shared`、`@changmen/db` | `@changmen/venue-adapter`（含各平台 `shared/`） |
-| 同平台 `shared/`、`core.js`、CLI 脚本 | `client/web`、`client/venue-adapter/{platform}/` 根目录 ts |
+| 同平台 `shared/`、`core.js`、CLI 脚本 | `client/web`、`packages/venue-adapter/{platform}/` 根目录 ts |
 
 ## 本地校验
 

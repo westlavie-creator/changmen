@@ -2,7 +2,7 @@
 
 浏览器主实现与文档见：
 
-- `client/venue-adapter/ia/`
+- `packages/venue-adapter/ia/`
 - `client/web/docs/platforms/IA.md`
 
 ## 数据流

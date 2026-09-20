@@ -40,10 +40,10 @@
     "./stake": "./stake/index.ts"
   },
   "dependencies": {
-    "@changmen/api-contract": "file:../../packages/api-contract",
-    "@changmen/client-core": "file:../../packages/client-core",
+    "@changmen/api-contract": "file:../api-contract",
+    "@changmen/client-core": "file:../client-core",
     "@changmen/db": "file:../../server/db",
-    "@changmen/shared": "file:../../packages/shared",
+    "@changmen/shared": "file:../shared",
     "@changmen/storage": "file:../../server/storage",
     "@polymarket/client": "^0.2.0",
     "@polymarket/clob-client-v2": "^1.1.0",

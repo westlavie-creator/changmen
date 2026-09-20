@@ -2,7 +2,7 @@
 
 VPS 守护进程：Polymarket **Sports API WebSocket** → RDS `client_matches.pm_sport` 列。
 
-**不替代**浏览器 CLOB 赔率采集（`client/venue-adapter/polymarket/`）与 `saveMatch` / `saveBets` 上报。
+**不替代**浏览器 CLOB 赔率采集（`packages/venue-adapter/polymarket/`）与 `saveMatch` / `saveBets` 上报。
 
 ## 运行
 

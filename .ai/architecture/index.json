@@ -85,7 +85,7 @@
       "derivation": "generated"
     },
     "platformManifest": {
-      "path": "client/venue-adapter/registry/manifest.json",
+      "path": "packages/venue-adapter/registry/manifest.json",
       "manages": "平台能力开关（17 平台）",
       "canonical": true,
       "machineReadable": true,
@@ -119,7 +119,7 @@
       "derivation": "generated"
     },
     "esportFreeze": {
-      "path": "client/venue-adapter/esport-freeze.json",
+      "path": "packages/venue-adapter/esport-freeze.json",
       "manages": "电竞业务冻结面（22 条路径）",
       "canonical": true,
       "machineReadable": true,
@@ -167,7 +167,7 @@
       ]
     },
     "@changmen/venue-adapter": {
-      "dir": "client/venue-adapter",
+      "dir": "packages/venue-adapter",
       "version": null,
       "private": true,
       "changmenDeps": [
@@ -181,7 +181,7 @@
       "derivation": "generated-from-package.json",
       "source": "package.json (workspaces)",
       "evidence": [
-        "client/venue-adapter/package.json",
+        "packages/venue-adapter/package.json",
         "package.json (workspaces)"
       ]
     },
@@ -1716,14 +1716,14 @@
       "derivation": "generated"
     },
     "adapter_loader_abi": {
-      "provider": "client/venue-adapter/loader/adapter_paths.mjs",
+      "provider": "packages/venue-adapter/loader/adapter_paths.mjs",
       "consumer": [
         "server/backend（requirePlatform）",
         "server/match/resolver（scrapers）"
       ],
-      "definition": "解析顺序 GAMEBET_ADAPTER_ROOT → client/venue-adapter → server/backend/platform_adapter（瘦包，gitignored 派生物）；node 模式 → devtools/platform-probes（瘦包 platform_node）",
+      "definition": "解析顺序 GAMEBET_ADAPTER_ROOT → packages/venue-adapter → server/backend/platform_adapter（瘦包，gitignored 派生物）；node 模式 → devtools/platform-probes（瘦包 platform_node）",
       "evidence": [
-        "client/venue-adapter/loader/adapter_paths.mjs",
+        "packages/venue-adapter/loader/adapter_paths.mjs",
         "docs/ARCHITECTURE.md:113-117",
         "docs/TEAM_BOUNDARIES.md:25-29,97"
       ],
@@ -2044,14 +2044,14 @@
       "derivation": "generated"
     },
     "venue_adapter_imports": {
-      "enforcement": "client/venue-adapter/scripts/{sync-package-exports,relativize-internal-imports,list-web-venue-imports}.mjs --check",
+      "enforcement": "packages/venue-adapter/scripts/{sync-package-exports,relativize-internal-imports,list-web-venue-imports}.mjs --check",
       "chain": "check:venue-adapter 第 1–3 环",
       "appliesTo": "@changmen/venue-adapter, @changmen/web",
       "status": "verified",
       "derivation": "generated"
     },
     "esport_freeze_gate": {
-      "enforcement": "client/venue-adapter/scripts/check-esport-freeze.mjs（git-diff gate，消费 esport-freeze.json 22 路径，ALLOW_ESPORT_TOUCH=1 旁路）",
+      "enforcement": "packages/venue-adapter/scripts/check-esport-freeze.mjs（git-diff gate，消费 esport-freeze.json 22 路径，ALLOW_ESPORT_TOUCH=1 旁路）",
       "chain": "check:venue-adapter 第 4 环",
       "appliesTo": "polymarket, predictfun, client-core bridge, web odds/match stores",
       "documented": false,
@@ -2529,8 +2529,8 @@
           "layer": "code",
           "says": "check-esport-freeze.mjs + esport-freeze.json（22 路径）在 check:venue-adapter 链运行，默认拒绝",
           "evidence": [
-            "client/venue-adapter/scripts/check-esport-freeze.mjs",
-            "client/venue-adapter/esport-freeze.json"
+            "packages/venue-adapter/scripts/check-esport-freeze.mjs",
+            "packages/venue-adapter/esport-freeze.json"
           ]
         },
         {
@@ -2589,7 +2589,7 @@
   "drift": {
     "platformRegistry": {
       "canonical": {
-        "path": "client/venue-adapter/registry/manifest.json",
+        "path": "packages/venue-adapter/registry/manifest.json",
         "count": 17,
         "ids": [
           "Azuro",
@@ -2613,7 +2613,7 @@
       },
       "derived": [
         {
-          "path": "client/venue-adapter/registry/adapters.ts",
+          "path": "packages/venue-adapter/registry/adapters.ts",
           "extract": "regex platform adapter imports",
           "ids": [
             "azuro",
@@ -2639,7 +2639,7 @@
           "extra": []
         },
         {
-          "path": "client/venue-adapter/shared/platforms.ts",
+          "path": "packages/venue-adapter/shared/platforms.ts",
           "extract": "regex PLATFORMS object keys",
           "ids": [
             "Azuro",

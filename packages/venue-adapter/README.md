@@ -9,7 +9,7 @@
 ## 目录
 
 ```
-client/venue-adapter/
+packages/venue-adapter/
 ├── registry/ manifest.json、adapters.ts
 ├── loader/   adapter_paths（requirePlatform、reqS）
 ├── shared/   跨平台采集工具（collectSession、socket/…）

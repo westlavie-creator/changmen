@@ -93,5 +93,5 @@ Windows 一键：`BAT\dev.bat`（backend + Vite，内嵌 matchMerge）。生产 
 | 合并规则 / 新平台入 client_matches | `server/match/identity` + `server/match/matcher` |
 | 表结构 / 查询 | `server/db` + `backend/db/migrations/` |
 | 本地 platforms.json / 路径 | `@changmen/storage` |
-| 浏览器采集 | **`client/venue-adapter`**（不在 server 内实现采集） |
+| 浏览器采集 | **`packages/venue-adapter`**（不在 server 内实现采集） |
 | PM 体育实时比分 | `polymarket-sports` + `realtime-hub` + 前端 `pmSportRealtime` |

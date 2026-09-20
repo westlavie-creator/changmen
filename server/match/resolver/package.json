@@ -24,7 +24,7 @@
     "@changmen/db": "file:../../db",
     "@changmen/storage": "file:../../storage",
     "@changmen/match-identity": "file:../identity",
-    "@changmen/venue-adapter": "file:../../../client/venue-adapter",
+    "@changmen/venue-adapter": "file:../../../packages/venue-adapter",
     "@changmen/shared": "file:../../../packages/shared",
     "axios": "^1.7.2"
   }

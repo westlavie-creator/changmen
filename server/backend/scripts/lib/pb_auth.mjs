@@ -1,4 +1,4 @@
-/** PB auth headers — 从 client/venue-adapter/pb/auth.ts 复制，供 Node 脚本直连 PB API */
+/** PB auth headers — 从 packages/venue-adapter/pb/auth.ts 复制，供 Node 脚本直连 PB API */
 
 /** @typedef {{ kind: 'suffixed', suffix: string } | { kind: 'plain' }} PbSessionMode */
 

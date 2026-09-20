@@ -106,7 +106,7 @@ function collectEntryEvidence(entry) {
 // ---------------------------------------------------------------- drift check
 // canonical platform registry → derived copies. Compare sets; never auto-fix.
 function platformSetFromManifest() {
-  const manifest = readJson("client/venue-adapter/registry/manifest.json");
+  const manifest = readJson("packages/venue-adapter/registry/manifest.json");
   return manifest.map((p) => p.id ?? p.dir).filter(Boolean).sort();
 }
 function tryParse(desc, fn) {
@@ -121,11 +121,11 @@ function tryParse(desc, fn) {
 function derivedPlatformCopies() {
   const cap = new Set(["shared", "contract", "_template", "registry", "loader", "scripts", "adaptation"]);
   return [
-    tryParse({ path: "client/venue-adapter/registry/adapters.ts", extract: "regex platform adapter imports" }, () =>
-      [...readText("client/venue-adapter/registry/adapters.ts").matchAll(/from\s+"\.\.\/([a-z0-9_-]+)(?:\/|")/gi)]
+    tryParse({ path: "packages/venue-adapter/registry/adapters.ts", extract: "regex platform adapter imports" }, () =>
+      [...readText("packages/venue-adapter/registry/adapters.ts").matchAll(/from\s+"\.\.\/([a-z0-9_-]+)(?:\/|")/gi)]
         .map((m) => m[1]).filter((d) => !cap.has(d))),
-    tryParse({ path: "client/venue-adapter/shared/platforms.ts", extract: "regex PLATFORMS object keys" }, () =>
-      [...readText("client/venue-adapter/shared/platforms.ts").matchAll(/^\s{2}(\w+):\s*[{"]/gm)].map((m) => m[1])),
+    tryParse({ path: "packages/venue-adapter/shared/platforms.ts", extract: "regex PLATFORMS object keys" }, () =>
+      [...readText("packages/venue-adapter/shared/platforms.ts").matchAll(/^\s{2}(\w+):\s*[{"]/gm)].map((m) => m[1])),
     tryParse({ path: "packages/api-contract/src/schemas.ts", extract: "regex zod enum members" }, () => {
       const seg = readText("packages/api-contract/src/schemas.ts").match(/z\.enum\(\[([\s\S]*?)\]\)/);
       if (!seg) throw new Error("z.enum block not found");
@@ -165,7 +165,7 @@ function compareCopy(canonicalIds, copy) {
 export function computeDrift() {
   const canonical = platformSetFromManifest();
   const platformRegistry = {
-    canonical: { path: "client/venue-adapter/registry/manifest.json", count: canonical.length, ids: canonical },
+    canonical: { path: "packages/venue-adapter/registry/manifest.json", count: canonical.length, ids: canonical },
     derived: derivedPlatformCopies().map((c) => compareCopy(canonical, c)),
     status: "derived", // whole block is derived data, recomputed every build
   };
@@ -809,7 +809,7 @@ const conflicts = {
     { layer: "docs", says: "server/README.md:69-79 命令表未列", evidence: ["server/README.md"] },
   ], "code", null),
   "F-15": C("F-15", "esport-freeze 闸门存在但零文档记载", [
-    { layer: "code", says: "check-esport-freeze.mjs + esport-freeze.json（22 路径）在 check:venue-adapter 链运行，默认拒绝", evidence: ["client/venue-adapter/scripts/check-esport-freeze.mjs", "client/venue-adapter/esport-freeze.json"] },
+    { layer: "code", says: "check-esport-freeze.mjs + esport-freeze.json（22 路径）在 check:venue-adapter 链运行，默认拒绝", evidence: ["packages/venue-adapter/scripts/check-esport-freeze.mjs", "packages/venue-adapter/esport-freeze.json"] },
     { layer: "docs", says: "所有已读文档零记载", evidence: ["docs/（无）"] },
   ], "code", null),
 };
@@ -827,18 +827,18 @@ const esportActions = actionArrayOf("ESPORT_ACTIONS");
 const coreActions = actionArrayOf("CORE_INTEGRATION_ACTIONS");
 const urlsMjs = readText("packages/api-contract/urls.mjs");
 const prefixMatch = urlsMjs.match(/ESPORT_PATH_PREFIX\s*=\s*"([^"]+)"/);
-const manifest = readJson("client/venue-adapter/registry/manifest.json");
-const freezeJson = readJson("client/venue-adapter/esport-freeze.json");
+const manifest = readJson("packages/venue-adapter/registry/manifest.json");
+const freezeJson = readJson("packages/venue-adapter/esport-freeze.json");
 
 const sources = {
   workspaces: { path: "package.json (workspaces)", manages: "workspace 成员清单", canonical: true, machineReadable: true, verification: "npm/turbo 解析（已知缺口 F-09）", status: "verified", derivation: "generated" },
   pm2Manifest: { path: "deploy/ecosystem.config.cjs", manages: "PM2 进程清单（9 app）", canonical: true, machineReadable: true, verification: "无自动校验；deploy bash 消费", consumers: ["PM2", "deploy/scripts/deploy-server-remote.sh"], status: "verified", derivation: "generated" },
   layout: { path: "server/storage/paths.js (CHANGMEN_LAYOUT)", manages: "monorepo 目录布局与 storage 路径", canonical: true, machineReadable: true, verification: "server/storage/paths_smoke.test.mjs（经 scripts/catalog-smoke.mjs）", consumers: ["check-team-boundaries.mjs", "venue-adapter loader", "vite.config.ts", "platform-probes"], conflicts: ["F-04"], status: "verified", derivation: "generated" },
   pathRegistryDoc: { path: "docs/PATH_REGISTRY.md", manages: "CHANGMEN_LAYOUT 的手工文档镜像", canonical: false, machineReadable: false, verification: "无（双登记无同步脚本）", status: "verified-derivative-manual", derivation: "generated" },
-  platformManifest: { path: "client/venue-adapter/registry/manifest.json", manages: `平台能力开关（${manifest.length} 平台）`, canonical: true, machineReadable: true, verification: "DEV 自检 console.warn（非 CI）+ meta.browserSave.test.ts；drift 见 drift.platformRegistry", consumers: ["adapters.ts", "meta.ts", "feeds.js", "backend registry/feeds.js", "gen-platform-icons-css.mjs"], status: "verified", derivation: "generated" },
+  platformManifest: { path: "packages/venue-adapter/registry/manifest.json", manages: `平台能力开关（${manifest.length} 平台）`, canonical: true, machineReadable: true, verification: "DEV 自检 console.warn（非 CI）+ meta.browserSave.test.ts；drift 见 drift.platformRegistry", consumers: ["adapters.ts", "meta.ts", "feeds.js", "backend registry/feeds.js", "gen-platform-icons-css.mjs"], status: "verified", derivation: "generated" },
   catalog: { path: "packages/shared/catalog/*.json", manages: "sport/game/market catalog", canonical: true, machineReadable: true, verification: "market/game/sport_catalog_smoke.test.ts（npm test 链）", status: "verified", derivation: "generated" },
   apiContract: { path: "packages/api-contract/src/actions.ts", manages: `HTTP action 契约（ESPORT_ACTIONS ${esportActions.length}；CORE_INTEGRATION_ACTIONS ${coreActions.length} 为子集）`, canonical: true, machineReadable: true, verification: "urls.test.mjs + action_registry.test.mjs", status: "verified", derivation: "generated" },
-  esportFreeze: { path: "client/venue-adapter/esport-freeze.json", manages: `电竞业务冻结面（${freezeJson.paths.length} 条路径）`, canonical: true, machineReadable: true, verification: "check-esport-freeze.mjs（git-diff gate，ALLOW_ESPORT_TOUCH=1 旁路）", conflicts: ["F-15"], status: "verified-undocumented-in-docs", derivation: "generated" },
+  esportFreeze: { path: "packages/venue-adapter/esport-freeze.json", manages: `电竞业务冻结面（${freezeJson.paths.length} 条路径）`, canonical: true, machineReadable: true, verification: "check-esport-freeze.mjs（git-diff gate，ALLOW_ESPORT_TOUCH=1 旁路）", conflicts: ["F-15"], status: "verified-undocumented-in-docs", derivation: "generated" },
   linesManifest: { path: "lines/*/line.json", manages: "产品线锚点 manifest（5 条，basketball 未进 README — F-08）", canonical: "partial（机器可读但零运行时代码消费）", machineReadable: true, verification: "无自动校验", conflicts: ["F-08"], status: "verified", derivation: "generated" },
   ecosystemDocCopies: { path: "lines/esport/line.json pm2Apps + sport_catalog.json pm2Apps", manages: "PM2 进程名的手工镜像副本", canonical: false, machineReadable: true, verification: "无（drift 见 drift.pm2Registry）", status: "verified-duplicate-risk", derivation: "generated" },
 };
@@ -874,10 +874,10 @@ const contracts = {
     status: "verified", derivation: "generated",
   },
   adapter_loader_abi: {
-    provider: "client/venue-adapter/loader/adapter_paths.mjs",
+    provider: "packages/venue-adapter/loader/adapter_paths.mjs",
     consumer: ["server/backend（requirePlatform）", "server/match/resolver（scrapers）"],
-    definition: "解析顺序 GAMEBET_ADAPTER_ROOT → client/venue-adapter → server/backend/platform_adapter（瘦包，gitignored 派生物）；node 模式 → devtools/platform-probes（瘦包 platform_node）",
-    evidence: ["client/venue-adapter/loader/adapter_paths.mjs", "docs/ARCHITECTURE.md:113-117", "docs/TEAM_BOUNDARIES.md:25-29,97"],
+    definition: "解析顺序 GAMEBET_ADAPTER_ROOT → packages/venue-adapter → server/backend/platform_adapter（瘦包，gitignored 派生物）；node 模式 → devtools/platform-probes（瘦包 platform_node）",
+    evidence: ["packages/venue-adapter/loader/adapter_paths.mjs", "docs/ARCHITECTURE.md:113-117", "docs/TEAM_BOUNDARIES.md:25-29,97"],
     versioned: false,
     status: "verified-unversioned", derivation: "generated",
   },
@@ -916,13 +916,13 @@ const rules = {
     status: "verified", derivation: "generated",
   },
   venue_adapter_imports: {
-    enforcement: "client/venue-adapter/scripts/{sync-package-exports,relativize-internal-imports,list-web-venue-imports}.mjs --check",
+    enforcement: "packages/venue-adapter/scripts/{sync-package-exports,relativize-internal-imports,list-web-venue-imports}.mjs --check",
     chain: "check:venue-adapter 第 1–3 环",
     appliesTo: "@changmen/venue-adapter, @changmen/web",
     status: "verified", derivation: "generated",
   },
   esport_freeze_gate: {
-    enforcement: `client/venue-adapter/scripts/check-esport-freeze.mjs（git-diff gate，消费 esport-freeze.json ${freezeJson.paths.length} 路径，ALLOW_ESPORT_TOUCH=1 旁路）`,
+    enforcement: `packages/venue-adapter/scripts/check-esport-freeze.mjs（git-diff gate，消费 esport-freeze.json ${freezeJson.paths.length} 路径，ALLOW_ESPORT_TOUCH=1 旁路）`,
     chain: "check:venue-adapter 第 4 环",
     appliesTo: "polymarket, predictfun, client-core bridge, web odds/match stores",
     documented: false,

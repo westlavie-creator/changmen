@@ -1,7 +1,7 @@
 /**
  * Polymarket 电竞 discovery 解析（**唯一权威**）。
  * VPS collector：Gamma → platform_* + MarketIndex。
- * 浏览器不跑本文件；`client/venue-adapter/polymarket/parse.ts` **只**保留报价/订单工具，
+ * 浏览器不跑本文件；`packages/venue-adapter/polymarket/parse.ts` **只**保留报价/订单工具，
  * 禁止再镜像 `buildPolymarketMappedMarket`。
  */
 

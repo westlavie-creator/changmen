@@ -94,7 +94,7 @@ const RULES = [
 const FORBIDDEN_LEGACY_DIRS = [
   "server/platform-node",
   "server/platform-probes",
-  "client/venue-adapter/node",
+  "packages/venue-adapter/node",
 ];
 
 const ADAPTER_INFRA_DIRS = new Set([

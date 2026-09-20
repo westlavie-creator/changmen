@@ -24,7 +24,7 @@ function cssEscapePlatformId(id) {
 const lines = [
   "/**",
   " * AUTO-GENERATED — 勿手改。",
-  " * 源：client/venue-adapter/registry/manifest.json（icon 字段）",
+  " * 源：packages/venue-adapter/registry/manifest.json（icon 字段）",
   " * 命令：node client/web/scripts/gen-platform-icons-css.mjs",
   " */",
   "",

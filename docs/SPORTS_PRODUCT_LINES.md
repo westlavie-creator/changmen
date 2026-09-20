@@ -17,7 +17,7 @@ changmen（平台 monorepo）
 │
 ├── 平台层（仓库根，所有业务线共享）
 │   ├── packages/              shared · api-contract · client-core
-│   ├── client/venue-adapter/  各平台采集/下注（按 platform 分）
+│   ├── packages/venue-adapter/  各平台采集/下注（按 platform 分）
 │   ├── chrome-extension/
 │   ├── server/backend/        HTTP /esport/*（名称历史遗留，实际为全平台 API）
 │   ├── server/db/
@@ -78,7 +78,7 @@ changmen（平台 monorepo）
 | 组件 | 路径 |
 |------|------|
 | 前端 | `client/web/` |
-| 场馆 adapter | `client/venue-adapter/` |
+| 场馆 adapter | `packages/venue-adapter/` |
 | API + 代理 | `server/backend/` |
 | 合并 | `server/match/matcher/`、`server/match/identity/` |
 | PM Sports WS | `server/collectors/polymarket-sports/` |
@@ -102,7 +102,7 @@ Canonical 方案见 [ARB_MULTI_SPORT.md](./ARB_MULTI_SPORT.md)。**正式入口 
 ### 阶段 B2 — 采集 + 第二平台
 
 - `packages/shared/catalog` 注册 `mlb` game（`sport: baseball`）
-- `client/venue-adapter` 扩展 PM MLB + 第二平台（如 PB）
+- `packages/venue-adapter` 扩展 PM MLB + 第二平台（如 PB）
 - Save* → 棒球分表（**不进**电竞 `client_matches`）
 - matcher **`matcherProfile: baseball`**（无 Map/Bo，见 CATALOG）
 
@@ -135,7 +135,7 @@ server/collectors/
 | 项 | 规则 |
 |----|------|
 | 写入 | `platform_matches` / `platform_bets`，或 `client_matches.pm_sport`（仅 PM 赛程快照） |
-| parse | A8 馆：canonical 在 `client/venue-adapter/{platform}/parse.ts`。PM/PF：**discovery 权威在** `server/collectors/*/parse.js`；浏览器 adapter 只留报价工具，禁止再镜像 `build*MappedMarket` |
+| parse | A8 馆：canonical 在 `packages/venue-adapter/{platform}/parse.ts`。PM/PF：**discovery 权威在** `server/collectors/*/parse.js`；浏览器 adapter 只留报价工具，禁止再镜像 `build*MappedMarket` |
 | PM2 | 在 `deploy/ecosystem.config.cjs` 按运动分组注释 |
 | 测试 | 各 collector 包内 `node --test` |
 

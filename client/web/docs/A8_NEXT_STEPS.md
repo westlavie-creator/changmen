@@ -109,7 +109,7 @@ changmen：`http://localhost:5274/`（Win dev）或 `5174`；联调/生产：bac
 ## 阶段 E — 平台与信用盘
 
 - [x] 平博 v4 `game/play/Login` E2E（`npm run test:v4`，见 `CREDIT_PLATE.md`）
-- [ ] HG 真实赔率采集（**含 saveMatch**）；已做：启用 HG 开关时 60s 刷余额，见 `client/venue-adapter/hg/collect.ts`
+- [ ] HG 真实赔率采集（**含 saveMatch**）；已做：启用 HG 开关时 60s 刷余额，见 `packages/venue-adapter/hg/collect.ts`
 - [x] Stake 插件下单（`stakeProvider` + tabId GraphQL；实时赔率走扩展 `stake-odds` 端口）
 
 ---

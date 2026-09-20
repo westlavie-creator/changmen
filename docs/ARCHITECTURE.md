@@ -77,20 +77,20 @@ changmen/
 ## 依赖方向
 
 ```
-client/web ──@changmen/venue-adapter──► client/venue-adapter
+client/web ──@changmen/venue-adapter──► packages/venue-adapter
 client/web ──HTTP───────► server/backend
 client/web ──@changmen/api-contract──► HTTP 路径与 DTO
 server/backend ──@changmen/api-contract──► EsportAction
 chrome-extension ─（代理/凭证）─► 各平台源站
 
-client/venue-adapter ──采集上报──► server/backend (API_SaveMatch/SaveBet)
+packages/venue-adapter ──采集上报──► server/backend (API_SaveMatch/SaveBet)
 server/backend ──读写────► server/db (@changmen/db)
 server/match/matcher ──matchMerge──► 包内 compose/（合场算法）
 server/match/matcher ──共享工具──► @changmen/match-identity (teams / ids / time windows)
 server/match/matcher ──队名────► @changmen/team-resolver（workspace 依赖，可选）
 server/match/resolver ──requirePlatform──► @changmen/venue-adapter/loader
 
-server/backend ──requirePlatform──► client/venue-adapter（monorepo 默认）
+server/backend ──requirePlatform──► packages/venue-adapter（monorepo 默认）
 server/backend ──可选拷贝──► server/backend/platform_adapter（瘦包 / GAMEBET_ADAPTER_ROOT）
 ```
 
@@ -102,18 +102,18 @@ server/backend ──可选拷贝──► server/backend/platform_adapter（瘦
 数据层与路径解析见 `@changmen/db`（`paths.js`、`load_env.js`）。  
 npm workspace 成员；通过 `@changmen/shared` 包名引用。
 
-### `client/venue-adapter` (`@changmen/venue-adapter`)
+### `packages/venue-adapter` (`@changmen/venue-adapter`)
 
-各平台采集与下注的 canonical 源码。前端通过 `@changmen/venue-adapter`（Vite alias → `client/venue-adapter`）。
+各平台采集与下注的 canonical 源码。前端通过 `@changmen/venue-adapter`（Vite alias → `packages/venue-adapter`）。
 
-**目录语义**：`{platform}/` 为浏览器采集（`collect.ts` / `bet.ts`）；Node 探针与会话模块在 `@changmen/platform-probes`（`devtools/platform-probes/{platform}/`），经 `requirePlatform(id, "node", …)` 加载。详见 [venue-adapter/README.md](../client/venue-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
+**目录语义**：`{platform}/` 为浏览器采集（`collect.ts` / `bet.ts`）；Node 探针与会话模块在 `@changmen/platform-probes`（`devtools/platform-probes/{platform}/`），经 `requirePlatform(id, "node", …)` 加载。详见 [venue-adapter/README.md](../packages/venue-adapter/README.md) 与 [platform-probes/README.md](../devtools/platform-probes/README.md)。
 
 各平台 CLI 采集脚本定义在本包 `package.json`；`server/backend` 通过 `npm run <script> --workspace=@changmen/venue-adapter` 转发。
 
 **服务端解析顺序**（`loader/adapter_paths.mjs`）：
 
 1. `GAMEBET_ADAPTER_ROOT`（瘦包显式指定）
-2. `client/venue-adapter`（**标准 monorepo**，无需拷贝）
+2. `packages/venue-adapter`（**标准 monorepo**，无需拷贝）
 3. `server/backend/platform_adapter`（`npm run sync:platform-adapter` 生成，已 gitignore）
 
 ## `server/match` — 赛事匹配模块

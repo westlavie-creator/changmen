@@ -309,7 +309,7 @@ PF 仍可暂共用电竞侧 hub（后续再拆）；PM 已完全隔离。
 **生命周期契约测（合并闸门，改 hub/collect/ws 前必绿）**：
 
 ```bat
-cd client\venue-adapter
+cd packages\venue-adapter
 npm run test:quote-hub-contracts
 ```
 
@@ -327,7 +327,7 @@ PM 体育与电竞 **分 hub**；为避免体育 PR 再「顺手动电竞」：
 
 | 面 | 规则 |
 |----|------|
-| **冻结** | 清单 [`client/venue-adapter/esport-freeze.json`](../client/venue-adapter/esport-freeze.json)：PM/PF `collect`、fo/`oddsStore`/`mainBetLoop`、PM 下注结算栈等 |
+| **冻结** | 清单 [`packages/venue-adapter/esport-freeze.json`](../packages/venue-adapter/esport-freeze.json)：PM/PF `collect`、fo/`oddsStore`/`mainBetLoop`、PM 下注结算栈等 |
 | **可改** | `marketQuoteHub` / `sportQuoteHub` / `ws*`、`sportLiveOdds`、`sportOddsStore`、`SportMatchBoard*` |
 | **闸门** | `npm run check:esport-freeze --workspace=@changmen/venue-adapter`（已挂 `check:venue-adapter`） |
 | **解冻** | `ALLOW_ESPORT_TOUCH=1` 或 `npm run check:esport-freeze:allow`；改 hub/collect 后仍须绿 `test:quote-hub-contracts` |

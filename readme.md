@@ -28,7 +28,7 @@ BAT\dev.bat              REM backend + Vite（见 LOCAL_DEV.md）
 3. **CollectConfig** 只控制是否上报，不停止连接与 `fo` 缓存。
 4. **合并真相源**：RDS `client_matches`（matcher 写入，UI 只读）。
 5. **产品线**：对称锚点 `lines/{code}/`；电竞实现仍在根目录，见 [lines/README.md](./lines/README.md)。
-6. **目录即拓扑**：`client/`=浏览器侧、`server/`=VPS 侧、`packages/`=双端共享。例外：`client/venue-adapter` 是双端共享包（被 server 依赖），`client/` 前缀是历史遗留。
+6. **目录即拓扑**：`client/`=浏览器侧、`server/`=VPS 侧、`packages/`=双端共享。例外：`packages/venue-adapter` 是双端共享包（被 server 依赖），`client/` 前缀是历史遗留。
 
 ## 文档索引
 
@@ -48,7 +48,7 @@ BAT\dev.bat              REM backend + Vite（见 LOCAL_DEV.md）
 | 文档 | 内容 |
 |------|------|
 | [client/web/README.md](./client/web/README.md) | 控制台 |
-| [client/venue-adapter/README.md](./client/venue-adapter/README.md) | 各平台采集/下注 |
+| [packages/venue-adapter/README.md](./packages/venue-adapter/README.md) | 各平台采集/下注 |
 | [client/web/docs/README.md](./client/web/docs/README.md) | A8 parity 文档集 |
 
 ## 仓库结构（摘要）

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Find import cycles and cross-platform edges in client/venue-adapter.
+ * Find import cycles and cross-platform edges in packages/venue-adapter.
  */
 import fs from "node:fs";
 import path from "node:path";

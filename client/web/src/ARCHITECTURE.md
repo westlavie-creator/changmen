@@ -10,8 +10,8 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │ ① 本系统 API     api/ + types/       →  server/backend /esport、/v4.0 │
 │ ② 比赛列表       matcher → client_matches（浏览器 saveMatch 上报）   │
-│ ③ 赔率上报       client/venue-adapter/{平台}/collect.ts → SaveBet（+ fo）        │
-│ ④ 平台下注       client/venue-adapter/{平台}/bet.ts  →  场馆 gateway + 账号 token │
+│ ③ 赔率上报       packages/venue-adapter/{平台}/collect.ts → SaveBet（+ fo）        │
+│ ④ 平台下注       packages/venue-adapter/{平台}/bet.ts  →  场馆 gateway + 账号 token │
 │ ⑤ UI 编排        stores/ + views/ + components/                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -25,18 +25,18 @@
 | `@changmen/client-core/models` | `ViewMatch`、`BetOption`、`LoseOrder` 等领域类 |
 | `@changmen/client-core/types` | `esport` DTO re-export、`order` 补单记录类型 |
 | `domain/` | **下注编排胶水**（部分纯逻辑在 `@changmen/arb-core`） | `domain/betting` |
-| `client/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
+| `packages/venue-adapter/` | **平台清单、能力与平台实现**（`@changmen/venue-adapter`） | `registry/adapters.ts`, `ob/collect.ts`, `ob/bet.ts` |
 | `shared/` | **Web 横切工具**（与采集/下注无关；HTTP/模型见 `@changmen/client-core`） | `betTiming`, `a8MatchTime` |
 | `runtime/` | **运行时入口注册** | `runtime/collectors.ts`, `runtime/providers.ts`, `runtime/appSession.ts` |
-| `client/venue-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
-| `client/venue-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
-| `client/venue-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
+| `packages/venue-adapter/{id}/collect.ts` | **赔率上报链路** | `start*Collector` |
+| `packages/venue-adapter/shared/` | **仅采集专用** | `collectSession`, `collectNotify`, `socket/` |
+| `packages/venue-adapter/{id}/bet.ts` | **下注** | `obProvider` 等 |
 | `stores/` | Pinia 状态与编排 | `matchStore`, `accountStore`, `bettingStore` |
-| `client/venue-adapter/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
+| `packages/venue-adapter/hg/follow.ts` | HG 跟单循环 | `startHgFollowLoop` |
 
 **原则**：`bet.ts` 不依赖 `collect.ts`；二者都可用 `src/shared/`，但 `bet.ts` 不应依赖 `venue-adapter/shared/`（采集专用）。
 
-### 平台能力矩阵（`client/venue-adapter/registry/adapters.ts`）
+### 平台能力矩阵（`packages/venue-adapter/registry/adapters.ts`）
 
 | 平台 | 采集 | 下注 | 备注 |
 |------|------|------|------|
@@ -45,9 +45,9 @@
 | Stake | ✓ | ✓* | *`pluginOnly`：需 Chrome 扩展 + stake.com tab；`stakeProvider` 已实现 GraphQL 下单 |
 | Polymarket | ✓ | ✓ | **[changmen 扩展]** A8 无此场馆；采集开赛窗过去 6h（见下） |
 
-`PLATFORMS` 从 `@changmen/venue-adapter/shared`（`shared/platforms.ts`）导出；`ALL_PLATFORMS` 从 `@changmen/venue-adapter/registry`（`registry/meta.ts` + `manifest.json`）。新增平台时改 `client/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
+`PLATFORMS` 从 `@changmen/venue-adapter/shared`（`shared/platforms.ts`）导出；`ALL_PLATFORMS` 从 `@changmen/venue-adapter/registry`（`registry/meta.ts` + `manifest.json`）。新增平台时改 `packages/venue-adapter/registry/`，并在 `runtime/collectors.ts` / `providers.ts` 经 registry 自动注册。
 
-账号鉴权（与采集解耦）：`client/venue-adapter/pb/auth.ts`、`client/venue-adapter/tf/auth.ts` ← `@changmen/client-core/shared/platformHttp` 与采集侧共同使用。
+账号鉴权（与采集解耦）：`packages/venue-adapter/pb/auth.ts`、`packages/venue-adapter/tf/auth.ts` ← `@changmen/client-core/shared/platformHttp` 与采集侧共同使用。
 
 ---
 
@@ -56,7 +56,7 @@
 ### 比赛列表（后端入库，Changmen 主路径）
 
 ```
-浏览器 saveMatch / saveBet（`client/venue-adapter` / `@changmen/venue-adapter` 采集）
+浏览器 saveMatch / saveBet（`packages/venue-adapter` / `@changmen/venue-adapter` 采集）
          ──► API_SaveMatch / API_SaveBet
          ──► matcher → client_matches
          ──► Client_GetMatchs

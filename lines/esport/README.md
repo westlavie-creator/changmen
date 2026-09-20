@@ -7,7 +7,7 @@
 | 组件 | `line.json` 键 | 实际路径 |
 |------|----------------|----------|
 | 控制台 | `web` | `client/web/` |
-| 场馆 adapter | `venueAdapter` | `client/venue-adapter/` |
+| 场馆 adapter | `venueAdapter` | `packages/venue-adapter/` |
 | API + 代理 + ws-forward 挂载 | `api` | `server/backend/` |
 | 合并调度 | `matcher` | `server/match/matcher/` |
 | 合并算法 | `matchIdentity` | `server/match/identity/` |

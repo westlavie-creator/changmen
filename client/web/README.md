@@ -26,7 +26,7 @@ Chrome 扩展见 [`chrome-extension/`](../../chrome-extension/)。
 | `MIGRATION.md` | 脱离 bundle 阶段表 |
 | `docs/README.md` | 文档索引 |
 
-平台采集源码在 **`client/venue-adapter/`**（npm `@changmen/venue-adapter`），不在 `src/` 下。
+平台采集源码在 **`packages/venue-adapter/`**（npm `@changmen/venue-adapter`），不在 `src/` 下。
 
 ## 常用命令
 

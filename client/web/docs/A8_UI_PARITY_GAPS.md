@@ -102,7 +102,7 @@
 | `rate 9999` 单边 / linkId | A8 �?| 🔶 扩展 | `domain/betting/singleLegRate.ts`；比�?9999 = 单边模式；负 linkId �?`gb{ts}` |
 | `Pr.tip` 补单/拒单 | �?| 已对�?| `a8Notify.a8Tip`（含 `<countdown>`�?|
 | HG 采集 | `SQ` | 部分 | 无电竞赔率流；启用开关时 60s �?HG 账号余额；跟单见 `hgFollowLoop` |
-| Stake 下单 | 插件 GraphQL | **已对�?* | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（�?`client/venue-adapter/stake/README.md`�?|
+| Stake 下单 | 插件 GraphQL | **已对�?* | `stakeProvider` 完整实现；`pluginOnly` 需 Chrome 扩展 + stake.com 标签页（�?`packages/venue-adapter/stake/README.md`�?|
 
 ---
 

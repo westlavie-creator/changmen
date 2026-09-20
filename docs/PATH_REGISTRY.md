@@ -32,7 +32,7 @@
 
 | 键 | 默认相对路径 | 用途 |
 |----|--------------|------|
-| `venueAdapter` | `client/venue-adapter` | 浏览器采集/下注 canonical |
+| `venueAdapter` | `packages/venue-adapter` | 浏览器采集/下注 canonical |
 | `clientWeb` | `client/web` | 电竞 Vue 控制台 |
 | `clientChromeExtension` | `chrome-extension` | MV3 插件 |
 | `platformProbes` | `devtools/platform-probes` | Node 探针 CLI |
@@ -52,8 +52,8 @@
 
 | 消费方 | 用法 |
 |--------|------|
-| `client/venue-adapter/loader/adapter_paths.mjs` | `getAdapterRoot()` 优先 `VENUE_ADAPTER_ROOT` |
-| `client/venue-adapter/registry/paths.js` | 开发态 `ADAPTER_ROOT`；探针 `PLATFORM_PROBES_ROOT` |
+| `packages/venue-adapter/loader/adapter_paths.mjs` | `getAdapterRoot()` 优先 `VENUE_ADAPTER_ROOT` |
+| `packages/venue-adapter/registry/paths.js` | 开发态 `ADAPTER_ROOT`；探针 `PLATFORM_PROBES_ROOT` |
 | `client/web/vite.config.ts` | `@changmen/venue-adapter` alias、`venueChunkName` |
 | `scripts/check-team-boundaries.mjs` | 发现各平台浏览器根目录 |
 | `@changmen/venue-adapter/package.json` | `exports["./*"]` 浏览器子路径（I2a） |
@@ -68,18 +68,18 @@
 
 | 文件 | 写法 |
 |------|------|
-| `client/web/tsconfig.app.json` | `@changmen/venue-adapter/*` → `client/venue-adapter/*` |
+| `client/web/tsconfig.app.json` | `@changmen/venue-adapter/*` → `packages/venue-adapter/*` |
 | `client/web/vite.config.ts` | `@changmen/venue-adapter` → `VENUE_ADAPTER_ROOT` |
-| 根 `package.json` workspaces | `"client/venue-adapter"` |
+| 根 `package.json` workspaces | `"packages/venue-adapter"` |
 | `lines/esport/line.json` | `components.venueAdapter` |
 
 `client/web` 消费 venue-adapter 时优先 **平台/域 barrel**（`polymarket`、`shared`、`adaptation`、`contract`、`registry`）；深路径清单见 `list:web-imports`；`--check` 校验仅允许 barrel + 文档化 mock 深路径。
 
 `package.json` `exports` 由 `sync-package-exports.mjs` 扫描 web 消费方生成（19 项）；`npm run check:venue-adapter` 防漂移。
 
-`client/venue-adapter` **包内**统一相对路径（I3f）；`exports` 仅保留 web 消费子路径。
+`packages/venue-adapter` **包内**统一相对路径（I3f）；`exports` 仅保留 web 消费子路径。
 
-`@changmen/client-core` **exports** 由 `packages/client-core/scripts/sync-package-exports.mjs` 扫描 `client/web/src` + `client/venue-adapter` 生成（21 项）；`npm run check:client-core` = exports + 包内相对路径 + 消费方清单校验。
+`@changmen/client-core` **exports** 由 `packages/client-core/scripts/sync-package-exports.mjs` 扫描 `client/web/src` + `packages/venue-adapter` 生成（21 项）；`npm run check:client-core` = exports + 包内相对路径 + 消费方清单校验。
 
 ---
 
@@ -87,8 +87,8 @@
 
 以下仅作说明，**不参与**构建解析；挪目录后批量替换即可：
 
-- `docs/*`、`readme.md`、`server/**/README.md` 中的 `client/venue-adapter` 文字
-- collector `parse_*.js` 头部注释「与 client/venue-adapter/… 对齐」
+- `docs/*`、`readme.md`、`server/**/README.md` 中的 `packages/venue-adapter` 文字
+- collector `parse_*.js` 头部注释「与 packages/venue-adapter/… 对齐」
 - 本地 A8 对照（gitignore，见 [LOCAL_DEV.md](../LOCAL_DEV.md)）：`A8/index0706.js`、`A8/A8插件/`。不要写已不存在的 `A8/A8frontendscipts/2.0.1/` 或仓库旁 `../A8/`
 
 ---

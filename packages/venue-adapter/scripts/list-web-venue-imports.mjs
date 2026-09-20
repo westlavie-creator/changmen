@@ -3,15 +3,16 @@
  * 扫描 client/web 内 @changmen/venue-adapter/* 引用，供 package.json exports 与 PATH_REGISTRY 核对。
  *
  * 用法：
- *   node client/venue-adapter/scripts/list-web-venue-imports.mjs
- *   node client/venue-adapter/scripts/list-web-venue-imports.mjs --check
+ *   node packages/venue-adapter/scripts/list-web-venue-imports.mjs
+ *   node packages/venue-adapter/scripts/list-web-venue-imports.mjs --check
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WEB_SRC = path.resolve(__dirname, "../../web/src");
+const REPO_ROOT = path.resolve(__dirname, "../../..");
+const WEB_SRC = path.join(REPO_ROOT, "client", "web", "src");
 const PKG = "@changmen/venue-adapter";
 const CHECK = process.argv.includes("--check");
 
