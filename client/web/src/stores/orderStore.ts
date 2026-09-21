@@ -31,6 +31,10 @@ function isSportsOrder(row: OrderRow): boolean {
   return String(row.Domain ?? "").trim() === "sports";
 }
 
+type FetchOrdersOptions = {
+  sideEffects?: boolean;
+};
+
 export { isLinkedArbOrderGroup as isLinkedArbGroup };
 
 /** 对齐 A8 `Io.getOrders` / `orders` / `orderDate` */
@@ -90,10 +94,11 @@ export const useOrderStore = defineStore("order", {
 
   actions: {
     /** [A8 可证实] `Io.getOrders` / `E()`：`groupBy(Link)` + `updateTodayProfit` */
-    async fetchOrders(date?: string) {
+    async fetchOrders(date?: string, options: FetchOrdersOptions = {}) {
       const userStore = useUserStore();
       if (!userStore.userId)
         return false;
+      const sideEffects = options.sideEffects !== false;
       const accountStore = useAccountStore();
       if (!accountStore.accounts.length && accountStore.loaded) {
         /* 允许空账号时仍拉订单 */
@@ -108,16 +113,18 @@ export const useOrderStore = defineStore("order", {
         // 后端已按 Link 开弓日取数并过滤；前端再滤一次防脏数据
         const list = filterOrdersBelongingToDate(page.list ?? [], this.orderDate);
         this.orders = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink(list));
-        this.updateTodayProfit(list);
-        const reportBase = list.filter(r => !isSportsOrder(r));
-        const reportRows = reportBase
-          .filter(r => orderBelongsToDateKey(r, this.orderDate, reportBase))
-          .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, reportBase) }));
-        useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
-        // 恢复「平仓中」会话：跑完 CLOB 终态（已平仓 / 可再卖）
-        void import("@/stores/account/pmManualSell")
-          .then(m => m.resumePmManualSellClosings())
-          .catch(() => {});
+        if (sideEffects) {
+          this.updateTodayProfit(list);
+          const reportBase = list.filter(r => !isSportsOrder(r));
+          const reportRows = reportBase
+            .filter(r => orderBelongsToDateKey(r, this.orderDate, reportBase))
+            .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, reportBase) }));
+          useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
+          // 恢复「平仓中」会话：跑完 CLOB 终态（已平仓 / 可再卖）
+          void import("@/stores/account/pmManualSell")
+            .then(m => m.resumePmManualSellClosings())
+            .catch(() => {});
+        }
         return true;
       }
       finally {

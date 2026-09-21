@@ -379,9 +379,11 @@ describe("sport / esport UI isolation", () => {
     expect(footballOrderStore).not.toMatch(/from ["']@\/stores\/orderStore|useOrderStore|"Client_SaveOrder"|"Client_GetOrderList"/);
     const footballOrders = readFileSync(join(root, "components/football/FootballOrderView.vue"), "utf8");
     expect(footballOrders).toMatch(/useFootballOrderStore/);
+    expect(footballOrders).toMatch(/useOrderStore/);
+    expect(footballOrders).toMatch(/isUnifiedFootballOrderRow/);
     expect(footballOrders).toMatch(/OrderDateNav/);
     expect(footballOrders).toMatch(/FootballOrderList/);
-    expect(footballOrders).not.toMatch(/from ["']@\/components\/order\/OrderList|useOrderStore|LoseOrderView|Client_GetOrderList|hydrateFromCache|readPodSportOrders/);
+    expect(footballOrders).not.toMatch(/from ["']@\/components\/order\/OrderList|LoseOrderView|Client_GetOrderList|hydrateFromCache|readPodSportOrders/);
     const footballOrderList = readFileSync(join(root, "components/football/FootballOrderList.vue"), "utf8");
     expect(footballOrderList).toMatch(/class="orders"/);
     expect(footballOrderList).toMatch(/class="orderlink"/);
@@ -423,6 +425,7 @@ describe("sport / esport UI isolation", () => {
     expect(sidebar).toMatch(/OrderView/);
     expect(sidebar).toMatch(/FootballOrderView/);
     expect(sidebar).toMatch(/workspace === 'sports'/);
+    expect(sidebar).toMatch(/<template v-else>/);
     const session = readFileSync(join(root, "runtime/sportsSession.ts"), "utf8");
     expect(session).toMatch(/includeEsportOrderList:\s*false/);
     expect(session).toMatch(/includeVenueOrders:\s*false/);
