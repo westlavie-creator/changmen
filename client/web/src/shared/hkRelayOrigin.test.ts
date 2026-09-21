@@ -13,12 +13,12 @@ describe("resolveHkRelayHttpOrigin", () => {
   });
 
   it("生产浏览器用同源，忽略 localStorage PROXY", () => {
-    vi.stubGlobal("window", { location: { origin: "http://47.82.100.166" } });
+    vi.stubGlobal("window", { location: { origin: "http://192.0.2.10" } });
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => (key === "PROXY" ? "http://47.57.10.202" : null),
     });
     vi.stubEnv("DEV", false);
-    expect(resolveHkRelayHttpOrigin()).toBe("http://47.82.100.166");
+    expect(resolveHkRelayHttpOrigin()).toBe("http://192.0.2.10");
   });
 
   it("dev 浏览器用同源", () => {
@@ -48,13 +48,13 @@ describe("resolveHkRelayHttpOrigin", () => {
     expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
   });
 
-  it("生产主站：忽略已下线的 ws2 下发值，回到 ws", () => {
+  it("生产主站：忽略非白名单下发的 origin，回到 ws", () => {
     vi.stubGlobal("window", { location: { origin: "https://changmen.fun", hostname: "changmen.fun" } });
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => (key === "app:userName" ? "gb11" : null),
     });
     vi.stubEnv("DEV", false);
-    setAssignedMarketHubOrigin("https://ws2.changmen.fun");
+    setAssignedMarketHubOrigin("https://hub.other.example");
     expect(resolveMarketHubHttpOrigin()).toBe("https://ws.changmen.fun");
   });
 

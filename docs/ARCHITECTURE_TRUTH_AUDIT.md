@@ -125,7 +125,6 @@
 - 独立 composer WRITE 循环 `server/match/matcher/compose/loop.js`（`composer:start`）：**默认拒绝**——`assertComposerMayWrite`（`write_guard.js:42-50`）仅 `MATCH_COMPOSER_FORCE_WRITE=1` 放行；PM2 名 `changmen-matcher` 在 deploy 时被 delete/stop（`deploy-server-remote.sh:336`）。与「唯一合场写路径＝esport 内嵌」一致。
 - `pull-vps-market-indexes.mjs --watch`：由 esport spawn，默认仅 PORT=3700（本机 dev）启用（`server.js:188-190`）。
 - matcher 独立 UI `matcher:ui`（:4567）：生产 `/matcher/` 由 esport 进程托管 + http_bridge（`server.js:51-57`）；独立 server 仅 dev。
-- `deploy/ecosystem.hub-166.cjs`：166 机 hub-only 变体（注释明示勿启 esport/collector）。
 
 **Runtime Ownership 尚未机器化**（详见 §11 M-01..M-03）：runtime→capability 映射、capability→state 归属、默认启动集/暂停集目前分别只存在于散文、代码与 bash 脚本中——本审计的 index.json 是首次机器化（§13）。
 
@@ -202,7 +201,7 @@ capability 是从 runtime/代码取证**派生**出的归组（非仓库现有�
 | `packages/api-contract/src/actions.ts`（+`actions.js`/`schemas.js` 手工 twin） | HTTP action 契约 | ✅ 源 | ✅ | ✅ urls.test | 前后端 | ✅ 直接 | 源；twin 无生成脚本 |
 | `lines/*/line.json` ×5 | 产品线锚点 | ⚠️ 零代码消费 | ✅ | ❌ | 仅文档 | ✅ 直接 | 源（但当前是「文档性 manifest」） |
 | `sport_catalog.json` 的 `linePath`/`pm2Apps` | line 事实的第二份登记 | ❌ | ✅ | ❌ | catalog 消费者顺带可见 | ✅ 作为副本登记 | line.json 的手工镜像（无同步） |
-| `deploy/ecosystem.config.cjs`（+`ecosystem.hub-166.cjs` 变体） | PM2 进程清单（9 app） | ✅ 源（进程级） | ✅ | ❌ | PM2、deploy bash | ✅ 直接 | 源 |
+| `deploy/ecosystem.config.cjs` | PM2 进程清单（9 app） | ✅ 源（进程级） | ✅ | ❌ | PM2、deploy bash | ✅ 直接 | 源 |
 | `lines/esport/line.json pm2Apps` | PM2 名的第二份登记 | ❌ | ✅ | ❌ | 无 | ✅ 作为副本登记 | 手工镜像（§9 R-2） |
 | `esport-freeze.json`（22 路径） | 电竞冻结面 | ✅ 源 | ✅ | ✅ git gate | check:venue-adapter | ✅ 直接 | 源；**无文档** |
 | sync 脚本派生物：`platform_adapter/`、`platform_node/`（gitignored）、两包 exports 块、`platform-icons.generated.css`（committed） | 构建/部署派生 | — | — | 部分（--check） | runtime | ✅ 作为派生登记 | 生成链 §9 R-7 |

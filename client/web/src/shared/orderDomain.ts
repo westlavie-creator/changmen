@@ -25,3 +25,8 @@ export function isFootballOrderRow(row: OrderRow): boolean {
 
   return FOOTBALL_LEGACY_RE.test(text) && FOOTBALL_TOTALS_RE.test(text);
 }
+
+export function isUnifiedFootballOrderRow(row: OrderRow): boolean {
+  const type = String(row.Type ?? "").trim().toUpperCase();
+  return type !== "OB" && isFootballOrderRow(row);
+}

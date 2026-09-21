@@ -111,6 +111,7 @@
     },
     {
       "matches": [
+        "*://pinnacleoddsdropper.com/*",
         "*://*.pinnacleoddsdropper.com/*"
       ],
       "js": [
@@ -121,6 +122,7 @@
     },
     {
       "matches": [
+        "*://pinnacleoddsdropper.com/*",
         "*://*.pinnacleoddsdropper.com/*"
       ],
       "js": [

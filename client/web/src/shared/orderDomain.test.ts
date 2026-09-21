@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFootballOrderRow } from "@/shared/orderDomain";
+import { isFootballOrderRow, isUnifiedFootballOrderRow } from "@/shared/orderDomain";
 
 describe("isFootballOrderRow", () => {
   it("recognizes explicit football domain metadata", () => {
@@ -26,5 +26,18 @@ describe("isFootballOrderRow", () => {
       Bet: "Winner",
       Item: "NS Esports Academy",
     })).toBe(false);
+  });
+
+  it("keeps OB football outside unified football orders", () => {
+    expect(isUnifiedFootballOrderRow({
+      Type: "OB",
+      Domain: "sports",
+      Sport: "football",
+    })).toBe(false);
+    expect(isUnifiedFootballOrderRow({
+      Type: "Polymarket",
+      Domain: "sports",
+      Sport: "football",
+    })).toBe(true);
   });
 });

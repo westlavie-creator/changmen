@@ -16,14 +16,14 @@ import { lastLoginFieldsFromProfile } from "./user_login_meta.js";
 vi.mock("@changmen/db", () => ({
   fetchOrdersAdminPage: vi.fn(async () => ({
     rows: [
-      { id: 1, user_id: "u1", order_id: "o1", link: 0, create_at: 1, raw: {} },
-      { id: 2, user_id: "u1", order_id: "o2", link: 0, create_at: 2, raw: {} },
+      { id: 1, user_id: "u1", order_id: "o1", link: 0, create_at: new Date(2026, 5, 13, 1).getTime(), raw: {} },
+      { id: 2, user_id: "u1", order_id: "o2", link: 0, create_at: new Date(2026, 5, 13, 2).getTime(), raw: {} },
       {
         id: 3,
         user_id: "u1",
         player_id: 146,
         order_id: "0xpmbuy",
-        link: 1784392132946,
+        link: new Date(2026, 5, 13, 3).getTime(),
         provider: "Polymarket",
         match: "Counter-Strike: Heroic vs K27 - Map 4 Winner",
         bet: "地图4",
@@ -32,7 +32,7 @@ vi.mock("@changmen/db", () => ({
         bet_money: 0,
         money: 0,
         status: "None",
-        create_at: 3,
+        create_at: new Date(2026, 5, 13, 3).getTime(),
         raw: {
           pmSide: "buy",
           pmSellState: "closed",

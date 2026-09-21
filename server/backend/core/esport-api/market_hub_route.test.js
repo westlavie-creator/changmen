@@ -45,11 +45,11 @@ describe("market_hub_route", () => {
       primaryOrigin: "https://evil.example",
     })).toThrow(/非法/);
     expect(() => mod.saveMarketHubRouteConfig({
-      secondaryOrigin: "https://ws2.changmen.fun",
+      secondaryOrigin: "https://hub-secondary.example",
     })).toThrow(/非法/);
     expect(mod.normalizeMarketHubOrigin("http://ws.changmen.fun")).toBeNull();
     expect(mod.normalizeMarketHubOrigin("https://ws.changmen.fun/")).toBe("https://ws.changmen.fun");
-    expect(mod.normalizeMarketHubOrigin("https://ws2.changmen.fun")).toBeNull();
+    expect(mod.normalizeMarketHubOrigin("https://hub-secondary.example")).toBeNull();
   });
 
   it("file overrides env", async () => {

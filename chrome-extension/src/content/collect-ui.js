@@ -26,6 +26,131 @@ function applyFloatPosition(el, { top, right, left, width, height }) {
   el.style.setProperty("z-index", "2147483646", "important");
 }
 
+function applyStyles(el, styles) {
+  for (const [key, value] of Object.entries(styles)) {
+    el.style.setProperty(key, value, "important");
+  }
+}
+
+function stylePanel(panel) {
+  applyStyles(panel, {
+    "box-sizing": "border-box",
+    "display": "block",
+    "padding": "12px",
+    "border-radius": "12px",
+    "color": "#fff",
+    "background-color": "rgba(0, 0, 0, 0.72)",
+    "border": "1px solid rgba(255, 255, 255, 0.45)",
+    "overflow": "hidden",
+    "max-width": "calc(100vw - 40px)",
+    "font-family": "Arial, Helvetica, sans-serif",
+    "font-size": "14px",
+    "line-height": "1.4",
+    "box-shadow": "0 10px 30px rgba(0, 0, 0, 0.35)",
+  });
+}
+
+function createPanelRow(labelText, name) {
+  const row = document.createElement("div");
+  row.className = "gamebet-collect-panel-item";
+  applyStyles(row, {
+    "box-sizing": "border-box",
+    "display": "flex",
+    "align-items": "center",
+    "gap": "10px",
+    "padding": "10px 0",
+    "width": "100%",
+    "height": "auto",
+  });
+
+  const label = document.createElement("label");
+  label.textContent = `${labelText}:`;
+  applyStyles(label, {
+    "box-sizing": "border-box",
+    "display": "block",
+    "width": "80px",
+    "min-width": "80px",
+    "text-align": "left",
+    "color": "#fff",
+    "font-size": "14px",
+    "font-weight": "400",
+  });
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.readOnly = true;
+  input.name = name;
+  applyStyles(input, {
+    "box-sizing": "border-box",
+    "display": "block",
+    "flex": "1 1 auto",
+    "width": "0",
+    "min-width": "0",
+    "height": "36px",
+    "min-height": "36px",
+    "max-height": "36px",
+    "margin": "0",
+    "padding": "8px",
+    "border": "1px solid rgba(255, 255, 255, 0.5)",
+    "border-radius": "6px",
+    "background-color": "rgba(0, 0, 0, 0.5)",
+    "color": "#fff",
+    "font-size": "14px",
+    "line-height": "20px",
+    "font-family": "Arial, Helvetica, sans-serif",
+    "cursor": "default",
+    "outline": "none",
+    "appearance": "none",
+    "-webkit-appearance": "none",
+  });
+
+  row.append(label, input);
+  return row;
+}
+
+function createPanelHint(text) {
+  const hint = document.createElement("div");
+  hint.className = "gamebet-collect-panel-hint";
+  hint.textContent = text;
+  applyStyles(hint, {
+    "box-sizing": "border-box",
+    "padding": "8px 10px",
+    "margin": "0 0 6px",
+    "border-radius": "8px",
+    "background-color": "rgba(27, 154, 247, 0.18)",
+    "color": "#d9efff",
+    "font-size": "13px",
+  });
+  return hint;
+}
+
+function createPanelConfirm() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "gamebet-collect-panel-confirm";
+  button.textContent = "确定";
+  applyStyles(button, {
+    "box-sizing": "border-box",
+    "display": "block",
+    "width": "100%",
+    "height": "42px",
+    "margin": "8px 0 0",
+    "padding": "0 12px",
+    "border": "1px solid #1b9af7",
+    "border-radius": "999px",
+    "background-color": "#1b9af7",
+    "color": "#fff",
+    "font-size": "15px",
+    "font-family": "Arial, Helvetica, sans-serif",
+    "line-height": "40px",
+    "text-align": "center",
+    "cursor": "pointer",
+    "appearance": "none",
+    "-webkit-appearance": "none",
+  });
+  return button;
+}
+
 function clampIconPos(left, top) {
   return {
     left: clamp(left, 0, Math.max(0, window.innerWidth - ICON_SIZE_PX)),
@@ -181,12 +306,14 @@ export async function mountCollectIcon(provider) {
     panel.classList.add("gamebet-collect-panel");
     panel.dataset.gamebetPlugin = "collect-panel";
     placePanelNearIcon(panel, icon);
+    stylePanel(panel);
     panel.style.setProperty("z-index", "2147483647", "important");
     document.body.appendChild(panel);
 
     let config;
     try {
       panel.classList.add("loading");
+      panel.textContent = "加载中...";
       config = await provider.GetConfig();
       if (!config) {
         alert("没有检测到登录信息");
@@ -203,24 +330,19 @@ export async function mountCollectIcon(provider) {
       }
     } finally {
       panel.classList.remove("loading");
+      panel.textContent = "";
     }
 
-    const row = (label, name) =>
-      `<div class="gamebet-collect-panel-item"><label>${label}:</label><input type="text" readonly name="${name}" /></div>`;
+    if (config.sessionId || config.kind === "sport")
+      panel.appendChild(createPanelHint("当前：体育（贴到足球采集会话，勿写入电竞）"));
 
-    const sportHint = config.sessionId || config.kind === "sport"
-      ? '<div class="gamebet-collect-panel-hint">当前：体育（贴到足球采集会话，勿写入电竞）</div>'
-      : "";
-
-    panel.innerHTML = [
-      sportHint,
-      row("网关", "gateway"),
-      row("token", "token"),
-      ...(config.sessionId ? [row("sessionId", "sessionId")] : []),
-      row("referer", "referer"),
-      row("数据", "data"),
-      '<div class="gamebet-collect-panel-confirm">确定</div>',
-    ].join("");
+    panel.appendChild(createPanelRow("网关", "gateway"));
+    panel.appendChild(createPanelRow("token", "token"));
+    if (config.sessionId)
+      panel.appendChild(createPanelRow("sessionId", "sessionId"));
+    panel.appendChild(createPanelRow("referer", "referer"));
+    panel.appendChild(createPanelRow("数据", "data"));
+    panel.appendChild(createPanelConfirm());
 
     panel.querySelectorAll("input[name]").forEach((input) => {
       const name = input.getAttribute("name");

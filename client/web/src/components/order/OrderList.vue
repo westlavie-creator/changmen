@@ -81,7 +81,7 @@ import {
 import { useOddsStore } from "@/stores/oddsStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 import { PLATFORMS } from "@changmen/venue-adapter/shared";
-import { isFootballOrderRow } from "@/shared/orderDomain";
+import { isUnifiedFootballOrderRow } from "@/shared/orderDomain";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
@@ -192,7 +192,7 @@ function showPfSellButton(row: OrderRow): boolean {
 }
 
 function isFootballPodOrder(row: OrderRow): boolean {
-  return isFootballOrderRow(row);
+  return isUnifiedFootballOrderRow(row);
 }
 
 const oddsStore = useOddsStore();

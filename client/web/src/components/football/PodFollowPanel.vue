@@ -27,6 +27,7 @@ import {
   pickPodYaboAutoTicket,
   scorePodYaboFollow,
 } from "@/runtime/podYabo";
+import type { PodOutcomeGateEntry } from "@/runtime/podYabo/gate";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
 import {
   fixtureFromViewMatch,
@@ -594,6 +595,68 @@ function pendingPlacedEntries() {
     }));
 }
 
+function inferPmMarketCode(label: unknown): string {
+  const s = String(label || "").toLowerCase();
+  if (/大小|total|over|under|o\/u/.test(s))
+    return "totals";
+  if (/让球|spread|handicap|ah/.test(s))
+    return "spreads";
+  if (/独赢|胜负|moneyline|winner|1x2/.test(s))
+    return "moneyline";
+  return "";
+}
+
+function inferPmBoardSide(label: unknown): PodOutcomeGateEntry["boardSide"] {
+  const s = String(label || "").toLowerCase();
+  if (/大|over/.test(s))
+    return "over";
+  if (/小|under/.test(s))
+    return "under";
+  if (/主|home/.test(s))
+    return "home";
+  if (/客|away/.test(s))
+    return "away";
+  if (/平|draw/.test(s))
+    return "draw";
+  return null;
+}
+
+function pmGateEntryFromPayload(payload: PodPmFollowPlaceTicket): PodOutcomeGateEntry | null {
+  const obMid = String(payload.pmMatchId || "").trim();
+  const marketCode = String(payload.market.marketCode || "").trim();
+  const boardSide = payload.market.boardSide ?? null;
+  if (!obMid || !marketCode || !boardSide)
+    return null;
+  return { obMid, marketCode, boardSide };
+}
+
+function pendingPmPlacedEntries(): PodOutcomeGateEntry[] {
+  const out: PodOutcomeGateEntry[] = [];
+  const push = (row: PodOutcomeGateEntry | null | undefined) => {
+    if (!row?.obMid || !row.marketCode || !row.boardSide)
+      return;
+    out.push(row);
+  };
+  const pmKeys = new Set([
+    ...Object.keys(placed.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
+    ...Object.keys(autoAttempted.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
+  ]);
+  for (const row of tickets.value) {
+    if (!pmKeys.has(row.id))
+      continue;
+    push(pmGateEntryFromPayload(pmTicketPlacePayload(row, true)));
+  }
+  for (const row of footballOrders.todayRows) {
+    if (String(row.venue || "").trim() !== "Polymarket")
+      continue;
+    const obMid = String(row.obMid || "").trim();
+    const marketCode = inferPmMarketCode(row.marketLabel);
+    const boardSide = inferPmBoardSide(row.sideLabel);
+    push({ obMid, marketCode, boardSide });
+  }
+  return out;
+}
+
 function pendingStateFor(
   live: (typeof tickets.value)[number] | undefined,
   log: PodFollowLogRow,
@@ -791,7 +854,7 @@ async function maybeAutoPlace() {
   const pmNext = pickPodPmAutoTicket(
     ageOk.map(row => pmTicketPlacePayload(row, true)),
     pendingPmPlacedIds(),
-    [],
+    pendingPmPlacedEntries(),
     cap,
   );
   if (!pmNext)

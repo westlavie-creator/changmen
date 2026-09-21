@@ -28,7 +28,19 @@ defineEmits<{ logout: []; viewOrders: []; openFootballSettings: [] }>();
       @view-orders="$emit('viewOrders')"
       @open-football-settings="$emit('openFootballSettings')"
     />
-    <FootballOrderView v-if="workspace === 'sports'" />
-    <OrderView v-else :embedded="embedded" :embedded-user-id="embeddedUserId" />
+    <template v-if="workspace === 'sports'">
+      <FootballOrderView />
+      <OrderView
+        :embedded="embedded"
+        :embedded-user-id="embeddedUserId"
+        :workspace="workspace"
+      />
+    </template>
+    <OrderView
+      v-else
+      :embedded="embedded"
+      :embedded-user-id="embeddedUserId"
+      :workspace="workspace"
+    />
   </div>
 </template>

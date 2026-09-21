@@ -421,7 +421,8 @@ describe("sport / esport UI isolation", () => {
     const sidebar = readFileSync(join(root, "components/layout/AppSidebar.vue"), "utf8");
     expect(sidebar).toMatch(/:workspace="workspace"/);
     expect(sidebar).toMatch(/OrderView/);
-    expect(sidebar).not.toMatch(/FootballOrderView|workspace === 'sports'/);
+    expect(sidebar).toMatch(/FootballOrderView/);
+    expect(sidebar).toMatch(/workspace === 'sports'/);
     const session = readFileSync(join(root, "runtime/sportsSession.ts"), "utf8");
     expect(session).toMatch(/includeEsportOrderList:\s*false/);
     expect(session).toMatch(/includeVenueOrders:\s*false/);

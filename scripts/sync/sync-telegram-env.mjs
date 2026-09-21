@@ -13,7 +13,7 @@ const changmen = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 function loadDeployConfig() {
   const cfg = {
     user: "root",
-    host: "47.57.10.202", // 202 生产机 (166 已移交 comagent)
+    host: "47.57.10.202", // 202 生产机
     repo: "/root/changmen",
     sshIdentity: "",
   };

@@ -50,6 +50,10 @@ const groups = computed(() => groupPodSportOrders(props.rows));
             {{ playerLabel(row) }}
           </div>
           <span
+            class="order__pm-tag order__pm-tag--football"
+            title="POD 足球跟单"
+          >足球</span>
+          <span
             class="order__pm-tag order__pm-tag--side"
             :class="row.auto ? 'order__pm-tag--buy' : 'order__pm-tag--sell'"
           >{{ row.auto ? "自动" : "手动" }}</span>
@@ -81,3 +85,11 @@ const groups = computed(() => groupPodSportOrders(props.rows));
     </fieldset>
   </div>
 </template>
+
+<style scoped>
+.order__pm-tag--football {
+  border-color: rgba(22, 119, 255, 0.36);
+  background: rgba(22, 119, 255, 0.1);
+  color: #1456a0;
+}
+</style>

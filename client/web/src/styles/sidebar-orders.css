@@ -377,6 +377,15 @@
   color: var(--cm-color-danger);
 }
 
+#app .el-aside .orders .order .order__pm-tag--football,
+.common-layout .el-aside .orders .order .order__pm-tag--football,
+.admin-orders-user-col .orders .order .order__pm-tag--football {
+  flex: 0 0 auto;
+  align-self: center;
+  font-weight: 600;
+  color: #1456a0;
+}
+
 /* 双写观察：仓位=买单绿；事件=橙；卖单回退=卖单红 */
 #app .el-aside .orders .order .order__pm-tag--pe,
 .common-layout .el-aside .orders .order .order__pm-tag--pe,
