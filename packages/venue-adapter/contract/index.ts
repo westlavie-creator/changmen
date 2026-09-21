@@ -143,6 +143,10 @@ export interface VenueOrder extends PolymarketVenueOrderExtras, PredictFunVenueO
   sport?: "football" | string;
   /** [changmen 扩展] 订单来源，如 football-pod / football-board。 */
   source?: string;
+  /** [changmen 扩展] POD 跟单票稳定 id，用于刷新后防重复。 */
+  podClientId?: string;
+  /** [changmen 扩展] POD 跟单时板上 PM 赛事 id，用于刷新后同场闸门。 */
+  podPmMatchId?: string;
   /**
    * [changmen 扩展] SaveOrder 直写最终套利 Link，缩短 create_at-1 占位窗口。
    * 对齐 docs/ARB_LINK_ID.md：Bind 仍为确认；有值时后端优先落库。

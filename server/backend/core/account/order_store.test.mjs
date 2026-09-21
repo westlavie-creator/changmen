@@ -758,6 +758,31 @@ describe("mergeOrderLogicalSave parallel branches (characterization)", () => {
 });
 
 describe("rowToOrder sell money zeroing", () => {
+  it("exposes PM POD football ids for client-side duplicate guards", async () => {
+    const { rowToOrder } = await import("./order_store.js");
+    const o = rowToOrder({
+      order_id: "0xpod",
+      provider: "Polymarket",
+      money: 0,
+      bet_money: 50,
+      create_at: 1,
+      link: 1,
+      raw: {
+        domain: "sports",
+        sport: "football",
+        source: "football-pod",
+        podClientId: "pod-1",
+        podPmMatchId: "pm-match-1",
+        pmSide: "buy",
+      },
+    });
+    expect(o.Domain).toBe("sports");
+    expect(o.Sport).toBe("football");
+    expect(o.Source).toBe("football-pod");
+    expect(o.PodClientId).toBe("pod-1");
+    expect(o.PodPmMatchId).toBe("pm-match-1");
+  });
+
   it("zeros Polymarket sell Money on read", async () => {
     const { rowToOrder } = await import("./order_store.js");
     const o = rowToOrder({

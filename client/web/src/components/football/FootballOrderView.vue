@@ -107,6 +107,7 @@ function unifiedOrderToFootballOrder(row: OrderRow): FootballOrderDto {
     stake: stakeOf(row),
     oid: String(row.PmTokenId || row.PfTokenId || ""),
     obMid: String(row.PmConditionId || row.PfMarketId || ""),
+    pmMatchId: String(row.PodPmMatchId || ""),
     auto: String(row.Source || "").toLowerCase().includes("auto"),
     status: normalizeFootballOrderStatus(row.Status || "None"),
     profit: Number(row.Money) || 0,

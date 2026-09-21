@@ -218,6 +218,7 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
       stake: planStakeCny,
       oid: tokenId,
       obMid: conditionId,
+      pmMatchId: matchId,
       auto: ticket.auto === true,
       status: result.pending ? "Pending" : "None",
       profit: 0,

@@ -23,11 +23,16 @@ let ready = false;
 let gate = false;
 
 function snapshot(): PodBetSettings {
+  const followVenues: PodBetSettings["followVenues"] = [];
+  if (form.followAccountIds.length)
+    followVenues.push("OB");
+  if (form.pmFollowAccountIds.length)
+    followVenues.push("Polymarket");
   return {
     ...form,
     followAccountIds: form.followAccountIds.slice(),
     pmFollowAccountIds: form.pmFollowAccountIds.slice(),
-    followVenues: form.followVenues.slice(),
+    followVenues,
     followAccountId: form.followAccountIds[0] || 0,
   };
 }
@@ -69,10 +74,6 @@ function applyExternal() {
     form.obStake = next.obStake;
     form.pmStake = next.pmStake;
     form.autoPlace = next.autoPlace;
-    const curVenues = form.followVenues;
-    const venues = next.followVenues;
-    if (curVenues.length !== venues.length || curVenues.some((id, i) => id !== venues[i]))
-      form.followVenues = venues.slice();
     form.maxDailyLoss = next.maxDailyLoss;
     form.obDailyOrderLimit = next.obDailyOrderLimit;
     form.pmDailyOrderLimit = next.pmDailyOrderLimit;
@@ -131,30 +132,19 @@ onUnmounted(() => {
 
       <section class="pod-bet-settings__section">
         <div class="pod-bet-settings__section-head">
-          <h3>场馆与账号</h3>
-          <p>选中的场馆都会执行；每个选中账号各下一注。</p>
+          <h3>账号</h3>
+          <p>选中的账号都会执行；每个账号各下一注。</p>
         </div>
-        <el-form-item label="跟单场馆">
-          <el-checkbox-group v-model="form.followVenues">
-            <el-checkbox label="OB">
-              OB
-            </el-checkbox>
-            <el-checkbox label="Polymarket">
-              PM
-            </el-checkbox>
-          </el-checkbox-group>
-        </el-form-item>
         <div class="pod-bet-settings__venue-grid">
           <div class="pod-bet-settings__venue">
             <div class="pod-bet-settings__venue-head">
               <span>OB</span>
-              <small>未选账号时沿用 OB 旧规则</small>
+              <small>选择账号后启用 OB</small>
             </div>
             <PodFollowAccountPicker
               v-model="form.followAccountIds"
               :accounts="followAccounts"
               variant="settings"
-              :disabled="!form.followVenues.includes('OB')"
             />
           </div>
           <div class="pod-bet-settings__venue">

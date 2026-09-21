@@ -21,6 +21,7 @@ export type PodSportOrder = {
   stake: number;
   oid: string;
   obMid: string;
+  pmMatchId?: string;
   auto: boolean;
   status: FootballOrderStatus;
   profit: number;
@@ -96,6 +97,7 @@ export function parsePodSportOrder(raw: unknown): PodSportOrder | null {
     stake: num(row.stake),
     oid: str(row.oid),
     obMid: str(row.obMid),
+    pmMatchId: str(row.pmMatchId) || undefined,
     auto: truthy(row.auto),
     status: normalizeFootballOrderStatus(row.status),
     profit: num(row.profit),

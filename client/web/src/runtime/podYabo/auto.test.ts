@@ -6,6 +6,7 @@ function ticket(over: Partial<PodFollowPlaceTicket> = {}): PodFollowPlaceTicket 
   return {
     id: "1",
     stake: 50,
+    accountIds: [1],
     fixtureStatus: "matched",
     fixtureBasis: "confirmed",
     obMid: "5652292",

@@ -21,6 +21,7 @@ export type PodFollowPlaceTicket = {
   sideLabel?: string;
   marketLabel?: string;
   auto?: boolean;
+  accountIds?: number[];
   market: Pick<PodMarketMatch, "status" | "ob" | "locked" | "oid" | "quote" | "marketCode" | "boardSide" | "boardLine" | "fromLive">;
   quote: PodObQuoteCompare;
 };
@@ -43,6 +44,8 @@ export function podFollowPlaceBlock(ticket: PodFollowPlaceTicket): string | null
   }
   if (!(Number(ticket.stake) > 0))
     return "注码未设";
+  if (!Array.isArray(ticket.accountIds) || !ticket.accountIds.some(id => Number(id) > 0))
+    return "请选择 OB 账号";
   if (!String(ticket.obMid || "").trim())
     return "无 OB mid";
   return null;
@@ -53,9 +56,12 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   if (block)
     return { ok: false, message: block };
   const settings = readPodBetSettings();
-  const accounts = pickObSportBetAccounts(useAccountStore().accounts, settings.followAccountIds);
+  const selectedIds = Array.isArray(ticket.accountIds) ? ticket.accountIds : settings.followAccountIds;
+  const accounts = selectedIds.length
+    ? pickObSportBetAccounts(useAccountStore().accounts, selectedIds)
+    : [];
   if (!accounts.length)
-    return { ok: false, message: "请选择跟单账号（需体育 token）" };
+    return { ok: false, message: "请选择 OB 账号（需体育 token）" };
 
   const orders = useFootballOrderStore();
   const okNotes: string[] = [];

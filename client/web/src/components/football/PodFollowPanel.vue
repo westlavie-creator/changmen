@@ -91,11 +91,12 @@ import {
   subscribePodMarketPrefetch,
 } from "@/runtime/podMarketPrefetch";
 import { fetchObSportAmount } from "@/runtime/obSportAmount";
-import { listObSportFollowAccounts } from "@/runtime/obSportBetAccount";
-import { useAccountStore } from "@/stores/accountStore";
+import { isUnifiedFootballOrderRow } from "@/shared/orderDomain";
+import type { OrderRow } from "@/types/order";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
+import { useOrderStore } from "@/stores/orderStore";
 import { usePodAlertStore } from "@/stores/podAlertStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 
@@ -111,8 +112,8 @@ const store = usePodAlertStore();
 const football = useFootballStore();
 const sportOdds = useSportOddsStore();
 const obLive = useObSportLiveStore();
-const accounts = useAccountStore();
 const footballOrders = useFootballOrderStore();
+const orderStore = useOrderStore();
 const { snapshot, portReady, alerts } = storeToRefs(store);
 const { matchs } = storeToRefs(football);
 const { tick: sportOddsTick } = storeToRefs(sportOdds);
@@ -341,8 +342,8 @@ function decisionShadowTitle(ticket: (typeof tickets.value)[number]): string {
   return base.join(" ");
 }
 
-const followObEnabled = computed(() => betSettings.value.followVenues.includes("OB"));
-const followPmEnabled = computed(() => betSettings.value.followVenues.includes("Polymarket"));
+const followObEnabled = computed(() => betSettings.value.followAccountIds.length > 0);
+const followPmEnabled = computed(() => betSettings.value.pmFollowAccountIds.length > 0);
 
 function refreshLog() {
   logRows.value = readPodFollowLog();
@@ -404,7 +405,7 @@ function formatEnabledVenueStakes(): string {
     parts.push(`OB ${formatPodStake(followStakeFor("OB"))}`);
   if (followPmEnabled.value)
     parts.push(`PM ${formatPodStake(followStakeFor("Polymarket"))}`);
-  return parts.join(" · ") || formatPodStake(Number(betSettings.value.stake) || 0);
+  return parts.join(" · ") || "未选账号";
 }
 
 const followSummary = computed(() => {
@@ -428,6 +429,7 @@ function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false
     sideLabel: ticket.sideLabel,
     marketLabel: ticket.marketLabel,
     auto,
+    accountIds: betSettings.value.followAccountIds,
     market: ticket.marketMatch,
     quote: ticket.obQuote,
   };
@@ -461,10 +463,73 @@ function venuePlaceKey(venue: "OB" | "Polymarket", id: string): string {
   return `${venue}:${String(id || "").trim()}`;
 }
 
+function orderCreateMs(row: OrderRow): number {
+  const n = Number(row.CreateAt) || 0;
+  return n > 0 && n < 10_000_000_000 ? n * 1000 : n;
+}
+
+function isTodayOrderRow(row: OrderRow): boolean {
+  const at = orderCreateMs(row);
+  if (!(at > 0))
+    return false;
+  const d = new Date(at);
+  const now = new Date(nowTick.value);
+  return d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+}
+
+function pmUnifiedFootballRows(opts: { todayOnly?: boolean } = {}): OrderRow[] {
+  const out: OrderRow[] = [];
+  for (const group of orderStore.orders.values()) {
+    for (const row of group) {
+      if (opts.todayOnly && !isTodayOrderRow(row))
+        continue;
+      if (
+        String(row.Type || "").trim() === "Polymarket"
+        && row.PmSide !== "sell"
+        && isUnifiedFootballOrderRow(row)
+        && String(row.Source || "").trim().startsWith("football-pod")
+      ) {
+        out.push(row);
+      }
+    }
+  }
+  return out;
+}
+
+function pmPodClientId(row: OrderRow): string {
+  return String(row.PodClientId || "").trim();
+}
+
+function isPmUnifiedPodPlaced(id: string): boolean {
+  const want = String(id || "").trim();
+  return !!want && pmUnifiedFootballRows().some(row => pmPodClientId(row) === want);
+}
+
+function pmUnifiedOrderKey(row: OrderRow): string {
+  return String(row.OrderID || `${row.PlayerID || ""}:${row.CreateAt || ""}`).trim();
+}
+
+function pmUnifiedPendingCap() {
+  let todayProfit = 0;
+  let openStake = 0;
+  for (const row of pmUnifiedFootballRows({ todayOnly: true })) {
+    const status = String(row.Status || "None").trim().toLowerCase();
+    if (!status || status === "none" || status === "pending")
+      openStake += Number(row.BetMoney) || 0;
+    else
+      todayProfit += Number(row.Money) || 0;
+  }
+  return { todayProfit, openStake };
+}
+
 function hasVenueOrder(id: string, venue: "OB" | "Polymarket"): boolean {
   const want = String(id || "").trim();
   if (!want)
     return false;
+  if (venue === "Polymarket")
+    return isPmUnifiedPodPlaced(want);
   const rows = [...footballOrders.todayRows, ...footballOrders.rows];
   return rows.some((row) => {
     if (String(row.venue || "OB").trim() !== venue)
@@ -475,6 +540,15 @@ function hasVenueOrder(id: string, venue: "OB" | "Polymarket"): boolean {
 }
 
 function venueOrderCountToday(venue: "OB" | "Polymarket"): number {
+  if (venue === "Polymarket") {
+    const seen = new Set<string>();
+    for (const row of pmUnifiedFootballRows({ todayOnly: true })) {
+      const key = pmUnifiedOrderKey(row);
+      if (key)
+        seen.add(key);
+    }
+    return seen.size;
+  }
   const seen = new Set<string>();
   for (const row of footballOrders.todayRows) {
     if (String(row.venue || "OB").trim() !== venue)
@@ -493,11 +567,9 @@ function venueDailyOrderLimit(venue: "OB" | "Polymarket"): number {
 }
 
 function venueSelectedAccountCount(venue: "OB" | "Polymarket"): number {
-  if (venue === "OB") {
-    const ids = betSettings.value.followAccountIds;
-    return ids.length ? ids.length : (listObSportFollowAccounts(accounts.accounts).length ? 1 : 0);
-  }
-  return betSettings.value.pmFollowAccountIds.length;
+  return venue === "OB"
+    ? betSettings.value.followAccountIds.length
+    : betSettings.value.pmFollowAccountIds.length;
 }
 
 function venueDailyOrderBlock(venue: "OB" | "Polymarket"): string | null {
@@ -559,9 +631,10 @@ function pmPlaceLabel(ticket: (typeof tickets.value)[number]): string {
 }
 
 function pendingCap() {
+  const pm = pmUnifiedPendingCap();
   return {
-    todayProfit: footballOrders.todayProfit,
-    openStake: footballOrders.todayOpenStake,
+    todayProfit: footballOrders.todayProfit + pm.todayProfit,
+    openStake: footballOrders.todayOpenStake + pm.openStake,
     maxDailyLoss: betSettings.value.maxDailyLoss,
   };
 }
@@ -578,9 +651,8 @@ function pendingPmPlacedIds(): string[] {
   return [
     ...Object.keys(placed.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
     ...Object.keys(autoAttempted.value).filter(key => key.startsWith("Polymarket:")).map(key => key.slice("Polymarket:".length)),
-    ...footballOrders.todayRows
-      .filter(row => String(row.venue || "").trim() === "Polymarket")
-      .map(row => String(row.id || "").split("#PM#")[0])
+    ...pmUnifiedFootballRows()
+      .map(row => pmPodClientId(row))
       .filter(Boolean),
   ];
 }
@@ -652,6 +724,12 @@ function pendingPmPlacedEntries(): PodOutcomeGateEntry[] {
     const obMid = String(row.obMid || "").trim();
     const marketCode = inferPmMarketCode(row.marketLabel);
     const boardSide = inferPmBoardSide(row.sideLabel);
+    push({ obMid, marketCode, boardSide });
+  }
+  for (const row of pmUnifiedFootballRows()) {
+    const obMid = String(row.PodPmMatchId || row.PmConditionId || "").trim();
+    const marketCode = inferPmMarketCode(row.Bet);
+    const boardSide = inferPmBoardSide(row.Item);
     push({ obMid, marketCode, boardSide });
   }
   return out;
@@ -1162,6 +1240,7 @@ onMounted(() => {
     prefetchTick.value += 1;
   });
   restartAutoTick();
+  void orderStore.fetchOrders(undefined, { sideEffects: false });
   void refreshSportAmount();
   amountTimer = setInterval(() => {
     void refreshSportAmount();

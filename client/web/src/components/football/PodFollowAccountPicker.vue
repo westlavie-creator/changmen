@@ -124,7 +124,7 @@ function formatBal(n: number | undefined): string {
       </div>
       <div class="pod-acct-picker__meta">
         <span v-if="selectedCount === 0" class="pod-acct-picker__hint">
-          {{ venue === "Polymarket" ? "必须选择账号" : "未选 = 默认第一个" }}
+          必须选择账号
         </span>
         <span v-else class="pod-acct-picker__hint">已选 {{ selectedCount }} 个，各下一注</span>
         <button

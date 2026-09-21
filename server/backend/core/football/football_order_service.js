@@ -66,6 +66,7 @@ function unifiedOrderToFootballOrder(row) {
     stake: Number(row.bet_money) || 0,
     oid: String(raw.podOid || raw.pmTokenId || ""),
     obMid: String(raw.podObMid || raw.pmConditionId || ""),
+    pmMatchId: String(raw.podPmMatchId || ""),
     auto: raw.podAuto === true,
     venue: String(row.provider || raw.podVenue || ""),
     playerId: Number(row.player_id) || 0,

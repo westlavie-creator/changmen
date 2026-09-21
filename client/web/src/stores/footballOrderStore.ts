@@ -70,6 +70,8 @@ function footballVenueOrderFromDto(row: FootballOrderDto, venue: string, source?
     domain: "sports",
     sport: "football",
     source: orderSource,
+    podClientId: String(row.id || "").split("#PM#")[0].trim() || undefined,
+    podPmMatchId: String(row.pmMatchId || "").trim() || undefined,
     ...(venue === "Polymarket" ? {
       pmTokenId: String(row.oid || "").trim() || undefined,
       pmConditionId: String(row.obMid || "").trim() || undefined,

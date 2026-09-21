@@ -83,6 +83,8 @@ export function rowToOrder(r) {
     Domain: raw.domain ? String(raw.domain) : undefined,
     Sport: raw.sport ? String(raw.sport) : undefined,
     Source: raw.source ? String(raw.source) : undefined,
+    PodClientId: raw.podClientId ? String(raw.podClientId) : undefined,
+    PodPmMatchId: raw.podPmMatchId ? String(raw.podPmMatchId) : undefined,
     Game: raw.game ? String(raw.game) : undefined,
     PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
     PmShares: parseNum(raw.pmShares, 0) || undefined,

@@ -279,6 +279,16 @@ export interface OrderRow {
   CreateAt?: number;
   PlayerID?: number;
   Player?: { Platform?: string; UserName?: string; Status?: string };
+  Domain?: "esport" | "sports" | string;
+  Sport?: "football" | string;
+  Source?: string;
+  PodClientId?: string;
+  PodPmMatchId?: string;
+  Game?: string;
+  PmTokenId?: string;
+  PmConditionId?: string;
+  PmSide?: "buy" | "sell";
+  PfSide?: "buy" | "sell";
 }
 
 export interface MoneyLogRow {

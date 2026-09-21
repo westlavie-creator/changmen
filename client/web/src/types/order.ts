@@ -30,6 +30,10 @@ export interface OrderRow {
   Sport?: "football" | string;
   /** [changmen 扩展] 订单来源，如 POD 跟单 */
   Source?: string;
+  /** [changmen 扩展] POD 跟单票稳定 id，用于刷新后防重复 */
+  PodClientId?: string;
+  /** [changmen 扩展] POD 跟单时板上 PM 赛事 id，用于刷新后同场闸门 */
+  PodPmMatchId?: string;
   /** [changmen 扩展] 原始订单游戏/运动码 */
   Game?: string;
   /** [changmen 扩展] Polymarket 持仓，来自 orders.raw */

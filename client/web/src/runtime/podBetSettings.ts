@@ -40,16 +40,15 @@ export type PodBetSettings = {
   obStake: number;
   /** Polymarket 跟单下注金额；0 = 沿用 stake */
   pmStake: number;
-  /** 过线且对上 OB 后自动下单。默认关 */
+  /** 过线且对上盘口后自动下单。默认关 */
   autoPlace: boolean;
-  /** 跟单目标场馆；默认只 OB，PM 手动开启。 */
+  /** @deprecated 场馆由已选账号决定；仅保留旧 localStorage 兼容。 */
   followVenues: Array<"OB" | "Polymarket">;
   /**
-   * 跟单用的侧栏 OB 账号（可多选）。
-   * 空 = 未暂停里第一个有体育 token 的（兼容旧 followAccountId=0）。
+   * 跟单用的 OB 账号（可多选）。空 = 未选择，不下单。
    */
   followAccountIds: number[];
-  /** 跟单用的 Polymarket 账号（可多选）。空 = 自动挑第一个可用 PM 账号。 */
+  /** 跟单用的 Polymarket 账号（可多选）。空 = 未选择，不下单。 */
   pmFollowAccountIds: number[];
   /** @deprecated 读时等于 followAccountIds[0]||0；写仍会迁进 followAccountIds */
   followAccountId: number;
@@ -81,7 +80,7 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   obStake: 0,
   pmStake: 0,
   autoPlace: false,
-  followVenues: ["OB"],
+  followVenues: [],
   followAccountIds: [],
   pmFollowAccountIds: [],
   followAccountId: 0,
@@ -142,7 +141,7 @@ export function parseFollowVenues(raw: unknown): Array<"OB" | "Polymarket"> {
   else if (raw != null && raw !== "") {
     push(raw);
   }
-  return out.length ? out : ["OB"];
+  return out;
 }
 
 export function parsePodBetSettings(raw: unknown): PodBetSettings {

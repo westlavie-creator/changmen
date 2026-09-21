@@ -132,7 +132,18 @@ describe("podPmFollowPlace", () => {
     const source = readFileSync(join(process.cwd(), "src/runtime/podPmFollowPlace.ts"), "utf8");
     expect(source).toMatch(/const conditionId = String\(ticket\.market\.betId/);
     expect(source).toMatch(/obMid: conditionId/);
+    expect(source).toMatch(/pmMatchId: matchId/);
     expect(source).not.toMatch(/obMid: matchId/);
+  });
+
+  it("persists POD identity fields through PM football orders", () => {
+    const storeSource = readFileSync(join(process.cwd(), "src/stores/footballOrderStore.ts"), "utf8");
+    const panelSource = readFileSync(join(process.cwd(), "src/components/football/PodFollowPanel.vue"), "utf8");
+    expect(storeSource).toMatch(/podClientId:/);
+    expect(storeSource).toMatch(/podPmMatchId:/);
+    expect(panelSource).toMatch(/pmUnifiedFootballRows/);
+    expect(panelSource).toMatch(/PodClientId/);
+    expect(panelSource).toMatch(/PodPmMatchId/);
   });
 
   it("does not skip PM vault sync before user id is ready", () => {
