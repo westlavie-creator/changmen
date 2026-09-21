@@ -226,9 +226,12 @@ export const {
   saveSportTeamMappingFireAndForget,
   upsertFootballOrder,
   patchFootballOrderStatus,
+  fetchFootballOrderByVenueOrderId,
   fetchFootballOrdersByUser,
+  fetchOpenFootballOrdersByUser,
   fetchFootballOrdersAdmin,
   fetchFootballOrdersForMonthAggregate,
+  deleteFootballOrdersByIds,
 } = impl;
 
 export const {

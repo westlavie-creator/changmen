@@ -12,6 +12,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   "Client_AdminSetUserRole",
   "Client_AdminDeleteUser",
   "Client_AdminDeleteOrders",
+  "Client_AdminDeleteFootballOrders",
   "Client_AdminUpsertTeam",
   "Client_AdminDeleteTeam",
   "Client_AdminPolymarketBuilder",

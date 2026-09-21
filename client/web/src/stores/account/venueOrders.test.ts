@@ -1,10 +1,12 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformAccount } from "@/models/platformAccount";
 import { applyUnsettledStats, syncVenueOrders } from "@/stores/account/venueOrders";
 
 const saveOrders = vi.hoisted(() => vi.fn(async () => undefined));
 const getOrders = vi.hoisted(() => vi.fn(async () => [] as VenueOrder[]));
+const footballLoad = vi.hoisted(() => vi.fn(async () => undefined));
+const footballSync = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/api/order", () => ({
   saveOrders,
@@ -12,6 +14,15 @@ vi.mock("@/api/order", () => ({
 
 vi.mock("@/runtime/providers", () => ({
   getProvider: () => ({ getOrders }),
+}));
+
+vi.mock("@/stores/footballOrderStore", () => ({
+  useFootballOrderStore: () => ({
+    loaded: true,
+    loading: false,
+    load: footballLoad,
+    syncVenueSettlement: footballSync,
+  }),
 }));
 
 function makeVenueOrder(
@@ -129,6 +140,47 @@ describe("syncVenueOrders PredictFun", () => {
     const orders = await syncVenueOrders(acc);
     expect(orders?.length).toBe(1);
     expect(acc.unsettle).toBe(1);
+    expect(saveOrders).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncVenueOrders sports workspace", () => {
+  const originalLocation = globalThis.location;
+
+  beforeEach(() => {
+    saveOrders.mockClear();
+    getOrders.mockReset();
+    footballLoad.mockClear();
+    footballSync.mockClear();
+    Object.defineProperty(globalThis, "location", {
+      value: { pathname: "/sports/football" },
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, "location", {
+      value: originalLocation,
+      configurable: true,
+    });
+  });
+
+  it("routes OB sport accounts through football settlement instead of esport getOrders", async () => {
+    const acc = new PlatformAccount({
+      accountId: 171,
+      playerName: "olago15",
+      provider: "OB",
+      sportOb: {
+        token: "abcdef0123456789abcdef0123456789abcdef01",
+        gateway: "https://api.example.com",
+        venueMemberId: "1009328104483790848",
+      },
+    });
+
+    const orders = await syncVenueOrders(acc);
+    expect(orders).toEqual([]);
+    expect(footballSync).toHaveBeenCalledTimes(1);
+    expect(getOrders).not.toHaveBeenCalled();
     expect(saveOrders).not.toHaveBeenCalled();
   });
 });

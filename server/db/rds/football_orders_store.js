@@ -228,6 +228,60 @@ export async function fetchFootballOrdersByUser(userId, opts = {}) {
 }
 
 /**
+ * @param {string} userId
+ * @param {{ limit?: number, sinceMs?: number }} [opts]
+ */
+export async function fetchOpenFootballOrdersByUser(userId, opts = {}) {
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  await ensureTable(pool);
+  const limit = Math.min(Math.max(Number(opts.limit) || 500, 1), 1000);
+  const sinceMs = Math.max(0, Number(opts.sinceMs) || 0);
+  const params = [userId];
+  const clauses = [
+    "o.user_id = $1::uuid",
+    "o.status IN ('None','Pending')",
+  ];
+  if (sinceMs > 0) {
+    params.push(sinceMs);
+    clauses.push(`o.placed_at >= $${params.length}`);
+  }
+  params.push(limit);
+  const { rows } = await pool.query(
+    `SELECT ${SELECT_COLS}
+     FROM football_orders o
+     LEFT JOIN profiles p ON p.id = o.user_id
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY o.placed_at DESC, o.id DESC
+     LIMIT $${params.length}`,
+    params,
+  );
+  return rows;
+}
+
+export async function fetchFootballOrderByVenueOrderId(userId, venueOrderId, venue = "OB") {
+  const pool = getPgPool();
+  if (!pool)
+    return null;
+  await ensureTable(pool);
+  const oid = String(venueOrderId || "").trim();
+  if (!oid)
+    return null;
+  const { rows } = await pool.query(
+    `SELECT ${SELECT_COLS}
+     FROM football_orders o
+     LEFT JOIN profiles p ON p.id = o.user_id
+     WHERE o.user_id = $1::uuid
+       AND o.venue = $2
+       AND o.venue_order_id = $3
+     LIMIT 1`,
+    [userId, String(venue || "OB").trim() || "OB", oid],
+  );
+  return rows[0] || null;
+}
+
+/**
  * @param {{ date?: string, userId?: string, limit?: number }} opts
  */
 export async function fetchFootballOrdersAdmin(opts = {}) {
@@ -261,6 +315,23 @@ export async function fetchFootballOrdersAdmin(opts = {}) {
     params,
   );
   return rows;
+}
+
+export async function deleteFootballOrdersByIds(ids) {
+  const pool = getPgPool();
+  if (!pool)
+    return 0;
+  await ensureTable(pool);
+  const clean = (Array.isArray(ids) ? ids : [ids])
+    .map(id => Number(id))
+    .filter(n => Number.isFinite(n) && n > 0);
+  if (!clean.length)
+    return 0;
+  const res = await pool.query(
+    "DELETE FROM football_orders WHERE id = ANY($1::bigint[])",
+    [clean],
+  );
+  return res.rowCount ?? 0;
 }
 
 /**

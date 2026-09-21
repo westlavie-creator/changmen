@@ -35,6 +35,9 @@ const groups = computed(() => groupPodSportOrders(props.rows));
     >
       <legend :class="group.legendClass">
         {{ group.legend }}
+        <span class="football-order-list__group-actions">
+          <slot name="group-actions" :group="group" :rows="group.rows" />
+        </span>
       </legend>
       <div
         v-for="row in group.rows"
@@ -81,6 +84,9 @@ const groups = computed(() => groupPodSportOrders(props.rows));
         <div class="time">
           买入时间：{{ formatOrderTime(row.at || 0) }}
         </div>
+        <div class="football-order-list__row-actions">
+          <slot name="row-actions" :row="row" />
+        </div>
       </div>
     </fieldset>
   </div>
@@ -91,5 +97,16 @@ const groups = computed(() => groupPodSportOrders(props.rows));
   border-color: rgba(22, 119, 255, 0.36);
   background: rgba(22, 119, 255, 0.1);
   color: #1456a0;
+}
+
+.football-order-list__group-actions {
+  margin-left: 6px;
+}
+
+.football-order-list__row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 20px;
 }
 </style>

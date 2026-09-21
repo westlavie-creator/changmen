@@ -6,6 +6,7 @@ import { useRouter } from "vue-router";
 import UserConfigDialog from "@/components/user/UserConfigDialog.vue";
 import UserDiagDialog from "@/components/user/UserDiagDialog.vue";
 import { delay as esportDelay } from "@/api/apiDelay";
+import { isFootballOrderPending } from "@/runtime/podSportOrders";
 import { countPrimaryOrderRows } from "@/shared/orderLink";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
@@ -35,17 +36,16 @@ const footballOrders = useFootballOrderStore();
 const { displayName, config } = storeToRefs(user);
 const { accounts, totalBalance } = storeToRefs(accountStore);
 const { dayProfit } = storeToRefs(orderStore);
-const { rows: footballRows, todayRows } = storeToRefs(footballOrders);
+const { rows: footballRows } = storeToRefs(footballOrders);
 
 const isSports = computed(() => props.workspace === "sports");
-const sportStats = computed(() => {
-  void footballRows.value;
-  void todayRows.value;
-  return {
-    count: footballOrders.count,
-    todayProfit: footballOrders.todayProfit,
-  };
-});
+const sportStats = computed(() => ({
+  count: footballRows.value.length,
+  profit: footballRows.value.reduce(
+    (sum, row) => sum + (isFootballOrderPending(row.status) ? 0 : Number(row.profit) || 0),
+    0,
+  ),
+}));
 
 const totalOrders = computed(() => {
   if (isSports.value)
@@ -57,7 +57,7 @@ const totalOrders = computed(() => {
 });
 
 const reportMid = computed(() =>
-  isSports.value ? sportStats.value.todayProfit : dayProfit.value,
+  isSports.value ? sportStats.value.profit : dayProfit.value,
 );
 
 const panelBalance = computed(() => {

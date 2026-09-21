@@ -177,7 +177,8 @@ describe("sport / esport UI isolation", () => {
     expect(panel).toMatch(/足球设置/);
     expect(panel).toMatch(/workspace/);
     expect(panel).toMatch(/当日盈亏/);
-    expect(panel).toMatch(/todayProfit/);
+    expect(panel).toMatch(/footballRows\.value/);
+    expect(panel).not.toMatch(/summarizeFootballOrderRows/);
     expect(panel).toMatch(/useFootballOrderStore/);
     expect(panel).not.toMatch(/summarizePodSportOrders/);
     expect(panel).not.toMatch(/hydrateFromCache|readPodSportOrders|localStorage\.(getItem|setItem)/);
@@ -379,11 +380,10 @@ describe("sport / esport UI isolation", () => {
     expect(footballOrderStore).not.toMatch(/from ["']@\/stores\/orderStore|useOrderStore|"Client_SaveOrder"|"Client_GetOrderList"/);
     const footballOrders = readFileSync(join(root, "components/football/FootballOrderView.vue"), "utf8");
     expect(footballOrders).toMatch(/useFootballOrderStore/);
-    expect(footballOrders).toMatch(/useOrderStore/);
-    expect(footballOrders).toMatch(/isUnifiedFootballOrderRow/);
     expect(footballOrders).toMatch(/OrderDateNav/);
     expect(footballOrders).toMatch(/FootballOrderList/);
-    expect(footballOrders).not.toMatch(/from ["']@\/components\/order\/OrderList|LoseOrderView|Client_GetOrderList|hydrateFromCache|readPodSportOrders/);
+    expect(footballOrders).toMatch(/isObVenue/);
+    expect(footballOrders).not.toMatch(/useOrderStore|isUnifiedFootballOrderRow|settlementRows|from ["']@\/components\/order\/OrderList|LoseOrderView|Client_GetOrderList|hydrateFromCache|readPodSportOrders/);
     const footballOrderList = readFileSync(join(root, "components/football/FootballOrderList.vue"), "utf8");
     expect(footballOrderList).toMatch(/class="orders"/);
     expect(footballOrderList).toMatch(/class="orderlink"/);
@@ -428,7 +428,7 @@ describe("sport / esport UI isolation", () => {
     expect(sidebar).toMatch(/<template v-else>/);
     const session = readFileSync(join(root, "runtime/sportsSession.ts"), "utf8");
     expect(session).toMatch(/includeEsportOrderList:\s*false/);
-    expect(session).toMatch(/includeVenueOrders:\s*false/);
+    expect(session).toMatch(/includeVenueOrders:\s*true/);
     expect(session).toMatch(/sportsOwnsBalanceLoop/);
     expect(session).toMatch(/sportsSessionGen/);
     expect(session).toMatch(/stopFootballOrderRuntime/);

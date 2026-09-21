@@ -33,15 +33,27 @@ export const OB_SPORT_GET_ORDER_LIST_PATH = "/yewurecord/order/betRecord/getOrde
 
 const WAIT_FOR_ORDER_ATTEMPTS = 6;
 const WAIT_FOR_ORDER_GAP_MS = 800;
+const ORDER_LIST_PAGE_SIZE = 100;
+const ORDER_LIST_MAX_PAGES = 3;
+
+type ObSportOrderListWindow = {
+  beginTime: string;
+  endTime: string;
+};
 
 /** [官网可证实] 未结 orderStatus=0；已结 orderStatus=1（注单页 weijiesuan/yijiesuan）。 */
-export function buildObSportOrderListBodies(userId: string): Record<string, unknown>[] {
+export function buildObSportOrderListBodies(
+  userId: string,
+  window?: ObSportOrderListWindow | null,
+): Record<string, unknown>[] {
   const uid = String(userId || "").trim();
   const base = {
     page: 1,
-    size: 50,
-    timeType: 1,
+    size: ORDER_LIST_PAGE_SIZE,
     orderBy: 1,
+    ...(window?.beginTime && window?.endTime
+      ? { beginTime: window.beginTime, endTime: window.endTime }
+      : { timeType: 1 }),
     ...(uid ? { userId: uid } : {}),
   };
   return [
@@ -53,6 +65,7 @@ export function buildObSportOrderListBodies(userId: string): Record<string, unkn
 export type ObSportPendingOrderRef = {
   orderId: string;
   playerId?: number;
+  at?: number;
 };
 
 function enrichSession(session: SportObSessionLocal | null): SportObSessionLocal | null {
@@ -128,23 +141,57 @@ function mergePatches(parts: ObSportOrderStatusPatch[][]): ObSportOrderStatusPat
   return [...map.values()];
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function formatLocalDateTime(ms: number, endOfDay = false): string {
+  const d = new Date(ms);
+  const h = endOfDay ? 23 : 0;
+  const m = endOfDay ? 59 : 0;
+  const s = endOfDay ? 59 : 0;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(h)}:${pad2(m)}:${pad2(s)}`;
+}
+
+function orderDayWindow(at: number): ObSportOrderListWindow | null {
+  const ms = Number(at) || 0;
+  if (!Number.isFinite(ms) || ms <= 0)
+    return null;
+  return {
+    beginTime: formatLocalDateTime(ms),
+    endTime: formatLocalDateTime(ms, true),
+  };
+}
+
+function windowKey(window: ObSportOrderListWindow | null): string {
+  return window ? `${window.beginTime}|${window.endTime}` : "default";
+}
+
 async function fetchListPatches(
   session: SportObSessionLocal,
   ids: string[],
+  window: ObSportOrderListWindow | null = null,
 ): Promise<ObSportOrderStatusPatch[]> {
   const parts: ObSportOrderStatusPatch[][] = [];
   const want = new Set(ids);
   const userId = String(session.sessionId || session.uid || "").trim();
   // 未结 + 已结都拉：未结通常无 outcome；已结才有输赢。不因未结命中提前 break。
-  for (const body of buildObSportOrderListBodies(userId)) {
-    try {
-      const listed = await postObSportPb(OB_SPORT_GET_ORDER_LIST_PATH, { ...body }, session);
-      const records = parseObSportBetRecordList(listed);
-      parts.push(want.size ? records.filter(row => want.has(row.orderId)) : records);
-    }
-    catch (err) {
-      if (import.meta.env?.DEV)
-        console.warn("[football] yewurecord getOrderListPB skipped", body.orderStatus, err);
+  for (const body of buildObSportOrderListBodies(userId, window)) {
+    for (let page = 1; page <= ORDER_LIST_MAX_PAGES; page++) {
+      try {
+        const listed = await postObSportPb(OB_SPORT_GET_ORDER_LIST_PATH, { ...body, page }, session);
+        const records = parseObSportBetRecordList(listed);
+        parts.push(want.size ? records.filter(row => want.has(row.orderId)) : records);
+        if (want.size && ids.every(id => mergePatches(parts).some(row => row.orderId === id)))
+          break;
+        if (records.length < ORDER_LIST_PAGE_SIZE)
+          break;
+      }
+      catch (err) {
+        if (import.meta.env?.DEV)
+          console.warn("[football] yewurecord getOrderListPB skipped", body.orderStatus, err);
+        break;
+      }
     }
   }
   return mergePatches(parts);
@@ -152,10 +199,25 @@ async function fetchListPatches(
 
 async function fetchPatchesWithSession(
   session: SportObSessionLocal,
-  ids: string[],
+  refs: ObSportPendingOrderRef[],
 ): Promise<ObSportOrderStatusPatch[]> {
+  const ids = [...new Set(refs.map(row => String(row.orderId || "").trim()).filter(Boolean))];
   // 已结盈亏以注单列表为准；queryOrderStatus 只补还没出现在列表里的拒单。
-  const fromList = await fetchListPatches(session, ids);
+  const byWindow = new Map<string, { ids: string[]; window: ObSportOrderListWindow | null }>();
+  for (const ref of refs) {
+    const orderId = String(ref.orderId || "").trim();
+    if (!orderId)
+      continue;
+    const window = orderDayWindow(Number(ref.at) || 0);
+    const key = windowKey(window);
+    const bucket = byWindow.get(key) ?? { ids: [], window };
+    if (!bucket.ids.includes(orderId))
+      bucket.ids.push(orderId);
+    byWindow.set(key, bucket);
+  }
+  const fromList = mergePatches(
+    await Promise.all([...byWindow.values()].map(row => fetchListPatches(session, row.ids, row.window))),
+  );
   const have = new Set(fromList.map(row => row.orderId));
   if (!ids.length)
     return fromList;
@@ -181,7 +243,7 @@ export async function fetchObSportOrderStatusPatches(orderIds: string[]): Promis
   const session = resolveDefaultRecordSession();
   if (!session)
     return [];
-  return fetchPatchesWithSession(session, ids);
+  return fetchPatchesWithSession(session, ids.map(orderId => ({ orderId })));
 }
 
 /**
@@ -222,29 +284,29 @@ export async function waitObSportVenueOrderHydration(opts: {
 export async function fetchObSportPendingOrderPatches(
   pending: ObSportPendingOrderRef[],
 ): Promise<ObSportOrderStatusPatch[]> {
-  const byAccount = new Map<number, string[]>();
+  const byAccount = new Map<number, ObSportPendingOrderRef[]>();
   for (const row of pending) {
     const orderId = String(row.orderId || "").trim();
     if (!orderId)
       continue;
     const pid = Math.round(Number(row.playerId) || 0);
     const list = byAccount.get(pid) ?? [];
-    if (!list.includes(orderId))
-      list.push(orderId);
+    if (!list.some(item => item.orderId === orderId))
+      list.push({ orderId, playerId: pid, at: Number(row.at) || 0 });
     byAccount.set(pid, list);
   }
   if (!byAccount.size)
     return [];
 
   const parts: ObSportOrderStatusPatch[][] = [];
-  for (const [playerId, ids] of byAccount) {
+  for (const [playerId, refs] of byAccount) {
     const session = resolveSessionForAccountId(playerId);
     if (!session) {
       if (import.meta.env?.DEV)
         console.warn("[football] settle skipped: no sportOb session", playerId || "default");
       continue;
     }
-    parts.push(await fetchPatchesWithSession(session, ids));
+    parts.push(await fetchPatchesWithSession(session, refs));
   }
   return mergePatches(parts);
 }

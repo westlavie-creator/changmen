@@ -16,6 +16,28 @@ function ok(info) {
   return { ok: true, info };
 }
 
+function parseIdList(raw) {
+  if (raw == null || raw === "")
+    return [];
+  if (Array.isArray(raw))
+    return raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed)
+      return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed))
+          return parsed;
+      }
+      catch { /* fall through */ }
+    }
+    return [trimmed];
+  }
+  return [raw];
+}
+
 function sumStake(list) {
   let n = 0;
   for (const row of list)
@@ -162,6 +184,27 @@ export async function listFootballOrders(user, body = {}) {
 }
 
 /**
+ * @param {{ id: string }} user
+ */
+export async function listOpenFootballOrders(user, body = {}) {
+  const userId = String(user?.id || "").trim();
+  if (!userId)
+    return fail("未登录");
+  const days = Math.min(Math.max(Number(body.days) || 7, 1), 30);
+  const sinceMs = Date.now() - days * 24 * 3600_000;
+  try {
+    const rows = await sb.fetchOpenFootballOrdersByUser(userId, {
+      sinceMs,
+      limit: 500,
+    });
+    return ok({ list: rows.map(publicFootballOrder).filter(Boolean).filter(isObFootballOrder) });
+  }
+  catch (err) {
+    return fail(err instanceof Error ? err.message : "查询失败");
+  }
+}
+
+/**
  * @param {Record<string, unknown>} body
  */
 export async function listAdminFootballOrders(body = {}) {
@@ -192,4 +235,12 @@ export async function listAdminFootballOrders(body = {}) {
     todayStake: sumStake(list),
     todayProfit: sumProfit(list),
   };
+}
+
+export async function deleteAdminFootballOrders(body = {}) {
+  const ids = parseIdList(body.orderIds ?? body.ids ?? body.id);
+  const deleted = await sb.deleteFootballOrdersByIds(ids);
+  if (!deleted)
+    throw new Error("删除失败或足球订单不存在");
+  return { deleted };
 }

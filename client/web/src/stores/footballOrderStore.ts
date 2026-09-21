@@ -1,6 +1,12 @@
 import { defineStore } from "pinia";
 import type { VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
-import { getFootballOrders, saveObFootballOrder, type FootballOrderDto } from "@/api/footballOrder";
+import {
+  getFootballOrders,
+  getOpenFootballOrders,
+  patchFootballOrderStatus,
+  saveObFootballOrder,
+  type FootballOrderDto,
+} from "@/api/footballOrder";
 import { saveOrders } from "@/api/order";
 import { fetchObSportPendingOrderPatches, waitObSportVenueOrderHydration } from "@/runtime/obSportBetRecord";
 import { pickObSportBetAccount } from "@/runtime/obSportBetAccount";
@@ -110,6 +116,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
   state: () => ({
     rows: [] as FootballOrderDto[],
     todayRows: [] as FootballOrderDto[],
+    settlementRows: [] as FootballOrderDto[],
     loaded: false,
     loading: false,
     persistError: "",
@@ -203,9 +210,11 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         const nextDate = date || this.orderDate || todayKey();
         this.orderDate = nextDate;
         const today = todayKey();
-        const [server, todayServer] = await Promise.all([
+        const [server, todayServer, openServer] = await Promise.all([
           getFootballOrders({ date: nextDate }),
           nextDate === today ? Promise.resolve(null) : getFootballOrders({ date: today }),
+          // 兼容前端先于后端发布：旧后端不认识该增强 action 时，当天订单仍须正常显示。
+          getOpenFootballOrders({ days: 7 }).catch(() => [] as FootballOrderDto[]),
         ]);
         if (seq !== loadSeq)
           return;
@@ -213,8 +222,10 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         this.todayRows = todayServer == null
           ? this.rows
           : parsePodSportOrders(todayServer) as FootballOrderDto[];
+        this.settlementRows = parsePodSportOrders(openServer) as FootballOrderDto[];
         this.loaded = true;
         this.persistError = "";
+        this.syncVenueSettlementSoon(100);
       }
       catch (err) {
         if (seq !== loadSeq)
@@ -326,7 +337,8 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         if (!orderId)
           continue;
         const row = this.rows.find(item => item.orderId === orderId)
-          || this.todayRows.find(item => item.orderId === orderId);
+          || this.todayRows.find(item => item.orderId === orderId)
+          || this.settlementRows.find(item => item.orderId === orderId);
         const nextStatus = patch.status || row?.status || "None";
         const nextProfit = patch.status && !isFootballOrderPending(patch.status)
           ? Number(patch.profit) || 0
@@ -379,13 +391,23 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         )
           continue;
         try {
-          const saved = await saveObFootballOrder(merged);
+          const saved = row
+            ? await saveObFootballOrder(merged)
+            : await patchFootballOrderStatus({
+                orderId,
+                status: merged.status,
+                profit: Number(merged.profit) || 0,
+                venue: "OB",
+              });
           if (!saved || typeof saved !== "object")
             continue;
           const next = asDto({ ...merged, ...saved, id: saved.id || merged.id || orderId });
           if (!next.id)
             continue;
           this.mergeLocal(next);
+          this.settlementRows = isFootballOrderPending(next.status)
+            ? mergePodSportOrder(this.settlementRows, next) as FootballOrderDto[]
+            : this.settlementRows.filter(item => String(item.orderId || "") !== orderId);
           this.persistError = "";
         }
         catch (err) {
@@ -397,16 +419,18 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       if (syncing)
         return;
       const seen = new Set<string>();
-      const pending: { orderId: string; playerId: number }[] = [];
-      // 全部当日单都从官网注单回填（赔率/盘口/盈亏），不只待结算
-      for (const row of [...this.todayRows, ...this.rows]) {
+      const pending: { orderId: string; playerId: number; at: number }[] = [];
+      // 对齐电竞：持续扫未结算单；足球额外带最近历史未结，避免旧单停在 None。
+      for (const row of [...this.todayRows, ...this.rows, ...this.settlementRows]) {
         if (String(row.venue || "OB").trim() !== "OB")
+          continue;
+        if (!isFootballOrderPending(row.status))
           continue;
         const orderId = String(row.orderId || "").trim();
         if (!orderId || seen.has(orderId))
           continue;
         seen.add(orderId);
-        pending.push({ orderId, playerId: Number(row.playerId) || 0 });
+        pending.push({ orderId, playerId: Number(row.playerId) || 0, at: Number(row.at) || 0 });
       }
       if (!pending.length)
         return;

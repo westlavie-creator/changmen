@@ -97,4 +97,33 @@ describe("obSportBetRecord", () => {
       expect.anything(),
     );
   });
+
+  it("queries dated order-list windows for historical pending orders", async () => {
+    const {
+      fetchObSportPendingOrderPatches,
+    } = await import("@/runtime/obSportBetRecord");
+
+    postObSportPb.mockResolvedValue({
+      code: "0000000",
+      data: { records: [{ orderNo: "ord-old", profitAmount: -100, outcome: 3 }] },
+    });
+
+    const patches = await fetchObSportPendingOrderPatches([
+      { orderId: "ord-old", playerId: 15, at: new Date(2026, 8, 17, 20, 30, 0).getTime() },
+    ]);
+
+    expect(patches).toEqual([{ orderId: "ord-old", status: "Lose", profit: -100 }]);
+    expect(postObSportPb).toHaveBeenCalledWith(
+      "/yewurecord/order/betRecord/getOrderListPB",
+      expect.objectContaining({
+        orderStatus: 0,
+        selected: 0,
+        beginTime: "2026-09-17 00:00:00",
+        endTime: "2026-09-17 23:59:59",
+      }),
+      expect.anything(),
+    );
+    const firstBody = postObSportPb.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(firstBody.timeType).toBeUndefined();
+  });
 });

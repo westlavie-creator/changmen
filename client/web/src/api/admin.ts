@@ -683,6 +683,9 @@ export async function getAdminOrderLogs(body: {
   userId: string;
   linkId?: number;
   orderId?: string;
+  domain?: string;
+  sport?: string;
+  venue?: string;
   paddingMs?: number;
 }) {
   return unwrap(await post<AdminOrderLogLookup>("Client_AdminOrderLogs", body));

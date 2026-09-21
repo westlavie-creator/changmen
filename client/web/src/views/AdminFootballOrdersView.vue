@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { AdminUserRow } from "@/types/admin";
+import type { AdminOrderRow } from "@/types/admin";
 import type { FootballOrderDto } from "@/api/footballOrder";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getAdminUsers } from "@/api/admin";
-import { getAdminFootballOrders } from "@/api/footballOrder";
+import { deleteAdminOrders, getAdminUsers } from "@/api/admin";
+import { deleteAdminFootballOrders, getAdminFootballOrders } from "@/api/footballOrder";
 import AdminLayout from "@/components/admin/AdminLayout.vue";
+import AdminOrderLogsDialog from "@/components/admin/AdminOrderLogsDialog.vue";
 import FootballOrderList from "@/components/football/FootballOrderList.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { todayKey } from "@/shared/dateKey";
@@ -31,6 +34,7 @@ const profitLabel = computed(() => date.value === todayKey() ? "当日盈亏" : 
 const users = ref<AdminUserRow[]>([]);
 const pageReady = ref(false);
 const hScrollRef = ref<HTMLElement | null>(null);
+const logsDialogRef = ref<InstanceType<typeof AdminOrderLogsDialog> | null>(null);
 const hScrollDragging = ref(false);
 let loadSeq = 0;
 let dragStartX = 0;
@@ -93,6 +97,34 @@ function playerLabel(row: FootballOrderDto) {
     return `${venue} / ${name}`;
   const pid = Number(row.playerId) || 0;
   return pid ? `${venue} / #${pid}` : venue;
+}
+
+function isObFootballRow(row: FootballOrderDto) {
+  return String(row.venue || "OB").trim().toUpperCase() === "OB";
+}
+
+function toAdminOrderRow(row: FootballOrderDto): AdminOrderRow {
+  return {
+    id: Number(row.rdsId) || 0,
+    userId: String(row.userId || ""),
+    playerId: Number(row.playerId) || 0,
+    orderId: String(row.orderId || row.id || ""),
+    linkId: 0,
+    provider: String(row.venue || "OB"),
+    match: [row.home, row.away].map(v => String(v || "").trim()).filter(Boolean).join(" vs "),
+    bet: String(row.marketLabel || ""),
+    item: String(row.sideLabel || ""),
+    odds: Number(row.odds) || 0,
+    betMoney: Number(row.stake) || 0,
+    money: Number(row.profit) || 0,
+    status: String(row.status || "None"),
+    createAt: Number(row.at) || 0,
+    domain: "sports",
+    sport: "football",
+    source: isObFootballRow(row) ? "football_orders" : "orders",
+    playerName: String(row.accountName || ""),
+    platformName: String(row.venue || "OB"),
+  };
 }
 
 const userFilterOptions = computed(() =>
@@ -238,6 +270,48 @@ async function refresh() {
   await Promise.all([loadUsers(), loadOrders()]);
 }
 
+function openLogs(rows: FootballOrderDto[]) {
+  const mapped = rows.map(toAdminOrderRow).filter(row => row.userId && row.orderId);
+  if (!mapped.length) {
+    ElMessage.warning("这笔订单缺少诊断所需信息");
+    return;
+  }
+  logsDialogRef.value?.open(mapped);
+}
+
+async function onDeleteOrders(rows: FootballOrderDto[]) {
+  const list = rows.filter(row => Number(row.rdsId) > 0);
+  if (!list.length)
+    return;
+  const label = list.length > 1
+    ? `这 ${list.length} 笔足球订单`
+    : `足球订单 ${list[0]?.orderId || list[0]?.rdsId}`;
+  try {
+    await ElMessageBox.confirm(`确认删除 ${label}？此操作不可恢复。`, "删除足球订单", {
+      type: "warning",
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+    });
+  }
+  catch {
+    return;
+  }
+  try {
+    const obIds = list.filter(isObFootballRow).map(row => Number(row.rdsId));
+    const unifiedIds = list.filter(row => !isObFootballRow(row)).map(row => Number(row.rdsId));
+    let deleted = 0;
+    if (obIds.length)
+      deleted += Number((await deleteAdminFootballOrders(obIds)).deleted) || 0;
+    if (unifiedIds.length)
+      deleted += Number((await deleteAdminOrders(unifiedIds)).deleted) || 0;
+    ElMessage.success(`已删除 ${deleted} 笔足球订单`);
+    await loadOrders();
+  }
+  catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : "删除失败");
+  }
+}
+
 watch(date, () => {
   if (!pageReady.value)
     return;
@@ -357,7 +431,30 @@ onMounted(async () => {
                 暂无订单
               </div>
               <div v-else class="admin-orders-user-col__list">
-                <FootballOrderList :rows="col.orders" :player-label="playerLabel" />
+                <FootballOrderList :rows="col.orders" :player-label="playerLabel">
+                  <template #row-actions="{ row }">
+                    <el-button link type="primary" size="small" @click="openLogs([row])">
+                      诊断
+                    </el-button>
+                    <el-button link type="danger" size="small" @click="onDeleteOrders([row])">
+                      删除
+                    </el-button>
+                  </template>
+                  <template #group-actions="{ rows }">
+                    <el-button link type="primary" size="small" @click="openLogs(rows)">
+                      诊断
+                    </el-button>
+                    <el-button
+                      v-if="rows.length > 1"
+                      link
+                      type="danger"
+                      size="small"
+                      @click="onDeleteOrders(rows)"
+                    >
+                      删除组
+                    </el-button>
+                  </template>
+                </FootballOrderList>
               </div>
             </div>
           </div>
@@ -385,7 +482,30 @@ onMounted(async () => {
                 </div>
               </header>
               <div class="admin-orders-account-col__list">
-                <FootballOrderList :rows="col.orders" :player-label="playerLabel" />
+                <FootballOrderList :rows="col.orders" :player-label="playerLabel">
+                  <template #row-actions="{ row }">
+                    <el-button link type="primary" size="small" @click="openLogs([row])">
+                      诊断
+                    </el-button>
+                    <el-button link type="danger" size="small" @click="onDeleteOrders([row])">
+                      删除
+                    </el-button>
+                  </template>
+                  <template #group-actions="{ rows }">
+                    <el-button link type="primary" size="small" @click="openLogs(rows)">
+                      诊断
+                    </el-button>
+                    <el-button
+                      v-if="rows.length > 1"
+                      link
+                      type="danger"
+                      size="small"
+                      @click="onDeleteOrders(rows)"
+                    >
+                      删除组
+                    </el-button>
+                  </template>
+                </FootballOrderList>
               </div>
             </div>
           </div>
@@ -416,5 +536,6 @@ onMounted(async () => {
         </span>
       </div>
     </section>
+    <AdminOrderLogsDialog ref="logsDialogRef" />
   </AdminLayout>
 </template>

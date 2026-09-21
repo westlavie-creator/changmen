@@ -388,7 +388,10 @@ async function open(rows: AdminOrderRow[]) {
     data.value = await getAdminOrderLogs({
       userId: head.userId,
       linkId: head.linkId || undefined,
-      orderId: rows.length === 1 && !head.linkId ? head.orderId : undefined,
+      orderId: !head.linkId ? head.orderId : undefined,
+      domain: head.domain,
+      sport: head.sport,
+      venue: head.provider,
     });
   }
   catch (e) {

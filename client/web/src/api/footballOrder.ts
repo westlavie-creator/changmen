@@ -56,6 +56,13 @@ export async function getFootballOrders(body: { date?: string } = {}): Promise<F
   return Array.isArray(info?.list) ? info.list : [];
 }
 
+export async function getOpenFootballOrders(body: { days?: number } = {}): Promise<FootballOrderDto[]> {
+  const info = await unwrap(await post<{ list?: FootballOrderDto[] }>("Client_GetOpenFootballOrders", {
+    days: body.days || 7,
+  }));
+  return Array.isArray(info?.list) ? info.list : [];
+}
+
 export type AdminFootballOrderPage = {
   date: string;
   list: FootballOrderDto[];
@@ -72,6 +79,12 @@ export async function getAdminFootballOrders(body: {
     date: body.date || "",
     userId: body.userId || "",
   }));
+}
+
+export async function deleteAdminFootballOrders(orderIds: number[]) {
+  return unwrap(
+    await post<{ deleted: number }>("Client_AdminDeleteFootballOrders", { orderIds }),
+  );
 }
 
 export type FootballMonthReportRow = {

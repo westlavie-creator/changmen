@@ -1,36 +1,21 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
-import type { FootballOrderDto } from "@/api/footballOrder";
 import FootballOrderList from "@/components/football/FootballOrderList.vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import { wait } from "@changmen/client-core/shared/wait";
 import { todayKey } from "@/shared/dateKey";
-import { resolveOrderItemLabel } from "@/shared/orderItemDisplay";
-import { isUnifiedFootballOrderRow } from "@/shared/orderDomain";
-import { normalizeFootballOrderStatus } from "@/runtime/podSportOrders";
-import { pmOrderOriginalStakeDisplayCny } from "@/shared/pmOrderDisplay";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
-import { useOrderStore } from "@/stores/orderStore";
-import type { OrderRow } from "@/types/order";
 
 const store = useFootballOrderStore();
-const orderStore = useOrderStore();
-const { orderDate, loading: obLoading, rows }
-  = storeToRefs(store);
-const { loading: unifiedLoading } = storeToRefs(orderStore);
+const { orderDate, loading, rows } = storeToRefs(store);
 const filterAccountId = ref(0);
 
 const viewLoading = ref(false);
-const loading = computed(() => obLoading.value || unifiedLoading.value);
 
 onMounted(() => {
-  if (!store.rows.length || !orderStore.orders.size) {
-    void Promise.all([
-      store.load(),
-      loadOrders(),
-    ]);
-  }
+  if (!store.rows.length)
+    void store.load();
 });
 
 async function reload(date?: string) {
@@ -38,10 +23,7 @@ async function reload(date?: string) {
   viewLoading.value = true;
   try {
     const nextDate = date || orderDate.value;
-    await Promise.all([
-      store.load(nextDate),
-      loadOrders(nextDate),
-    ]);
+    await store.load(nextDate);
     await store.syncVenueSettlement();
   }
   finally {
@@ -54,7 +36,7 @@ const showFilteredEmpty = computed(
   () =>
     filterAccountId.value !== 0
     && filteredRows.value.length === 0
-    && combinedRows.value.length > 0,
+    && obFootballRows.value.length > 0,
 );
 
 function onDateChange(value: string) {
@@ -62,95 +44,23 @@ function onDateChange(value: string) {
     void reload(value);
 }
 
-async function loadOrders(date?: string) {
-  await orderStore.fetchOrders(date || orderDate.value, { sideEffects: false });
-}
-
 function isObVenue(venue: unknown): boolean {
   return String(venue || "OB").trim().toUpperCase() === "OB";
 }
 
-function splitMatch(match: unknown): { home: string; away: string; market: string } {
-  const text = String(match || "").trim();
-  const [title, ...marketParts] = text.split(/\s*:\s*/);
-  const market = marketParts.join(": ").trim();
-  const parts = title.split(/\s+vs\.?\s+/i);
-  if (parts.length >= 2)
-    return { home: parts[0].trim(), away: parts.slice(1).join(" vs ").trim(), market };
-  return { home: title.trim(), away: "", market };
-}
-
-function cleanMarketLabel(row: OrderRow, parsedMarket: string): string {
-  const bet = String(row.Bet || "").trim();
-  if (bet && bet !== "买单" && bet !== "卖单")
-    return bet;
-  return parsedMarket;
-}
-
-function stakeOf(row: OrderRow): number {
-  if (String(row.Type || "") === "Polymarket")
-    return pmOrderOriginalStakeDisplayCny(row);
-  return Number(row.BetMoney) || 0;
-}
-
-function unifiedOrderToFootballOrder(row: OrderRow): FootballOrderDto {
-  const { home, away, market } = splitMatch(row.Match);
-  return {
-    id: String(row.OrderID || row.Link || `${row.Type || "order"}-${row.CreateAt || Date.now()}`),
-    orderId: String(row.OrderID || ""),
-    at: Number(row.CreateAt) || 0,
-    home,
-    away,
-    sideLabel: resolveOrderItemLabel(row.Item, row.Match),
-    marketLabel: cleanMarketLabel(row, market),
-    odds: Number(row.Odds) || 0,
-    stake: stakeOf(row),
-    oid: String(row.PmTokenId || row.PfTokenId || ""),
-    obMid: String(row.PmConditionId || row.PfMarketId || ""),
-    pmMatchId: String(row.PodPmMatchId || ""),
-    auto: String(row.Source || "").toLowerCase().includes("auto"),
-    status: normalizeFootballOrderStatus(row.Status || "None"),
-    profit: Number(row.Money) || 0,
-    venue: String(row.Type || ""),
-    playerId: Number(row.PlayerID) || 0,
-    accountName: String(row.Player?.UserName || ""),
-  };
-}
-
-const unifiedFootballRows = computed(() => {
-  const out: FootballOrderDto[] = [];
-  for (const group of orderStore.orders.values()) {
-    for (const row of group) {
-      if (isUnifiedFootballOrderRow(row) && row.PmSide !== "sell" && row.PfSide !== "sell")
-        out.push(unifiedOrderToFootballOrder(row));
-    }
-  }
-  return out;
+const obFootballRows = computed(() => {
+  return rows.value
+    .filter(row => isObVenue(row.venue))
+    .sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
 });
-
-const combinedRows = computed(() =>
-  [...rows.value.filter(row => isObVenue(row.venue)), ...unifiedFootballRows.value]
-    .sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0)),
-);
 
 const filteredRows = computed(() => {
   if (!filterAccountId.value)
-    return combinedRows.value;
-  return combinedRows.value.filter(row => Number(row.playerId) === filterAccountId.value);
+    return obFootballRows.value;
+  return obFootballRows.value.filter(row => Number(row.playerId) === filterAccountId.value);
 });
 
-const accountOptions = computed(() => {
-  const seen = new Set<number>();
-  const opts: { value: number; label: string }[] = [];
-  for (const opt of [...store.accountOptions, ...orderStore.accountOptions]) {
-    const value = Number(opt.value) || 0;
-    if (seen.has(value))
-      continue;
-    seen.add(value);
-    opts.push({ value, label: opt.label });
-  }
-  return opts;
-});
+const accountOptions = computed(() => store.accountOptions);
 </script>
 
 <template>

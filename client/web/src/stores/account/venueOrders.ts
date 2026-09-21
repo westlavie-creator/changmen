@@ -7,6 +7,7 @@ import { Currency, getExchange } from "@changmen/shared/currency";
 import { truncateShareUsdtAmount } from "@/shared/pfOrderDisplay";
 import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
+import { sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 
 /** PM 下单后等 CLOB trades 索引：最多尝试次数 / 间隔 */
 const WAIT_FOR_ORDER_ATTEMPTS_DEFAULT = 5;
@@ -99,6 +100,29 @@ function stampPendingBindLink(orders: VenueOrder[], opts?: SyncVenueOrdersOpts):
     orders[0].link = linkId;
 }
 
+function isSportsWorkspacePath(pathname = globalThis.location?.pathname): boolean {
+  return String(pathname || "").startsWith("/sports");
+}
+
+async function syncSportsWorkspaceOrders(account: PlatformAccount): Promise<VenueOrder[] | undefined | null> {
+  const providerId = String(account.provider ?? "").trim().toLowerCase();
+  if (providerId === "ob") {
+    if (!sportObSessionFromAccount(account))
+      return undefined;
+    const { useFootballOrderStore } = await import("@/stores/footballOrderStore");
+    const footballOrders = useFootballOrderStore();
+    if (!footballOrders.loaded && !footballOrders.loading)
+      await footballOrders.load();
+    await footballOrders.syncVenueSettlement();
+    return [];
+  }
+
+  // 体育页只允许体育/预测类账号沿用通用拉单；其他电竞馆避免写入电竞订单。
+  if (providerId !== "polymarket" && providerId !== "predictfun")
+    return undefined;
+  return null;
+}
+
 /**
  * 对齐 A8 `uv.updateOrders` + `Vt.saveOrders`（全场馆统一 provider.getOrders）。
  * [changmen 扩展] PredictFun：只拉单更新本地统计，不 Client_SaveOrder（RDS 仅 Pf_* 写）。
@@ -108,6 +132,12 @@ export async function syncVenueOrders(
   account: PlatformAccount,
   opts?: SyncVenueOrdersOpts,
 ): Promise<VenueOrder[] | undefined> {
+  if (isSportsWorkspacePath()) {
+    const handled = await syncSportsWorkspaceOrders(account);
+    if (handled !== null)
+      return handled;
+  }
+
   const provider = getProvider(account);
   if (!provider?.getOrders)
     return undefined;

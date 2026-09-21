@@ -1,11 +1,12 @@
 /**
  * 足球订单 Client_*。禁止进入电竞账号订单分发。
  */
-import { listFootballOrders, saveFootballOrder } from "../football/football_order_service.js";
+import { listFootballOrders, listOpenFootballOrders, saveFootballOrder } from "../football/football_order_service.js";
 
 const FOOTBALL_ORDER_ACTIONS = new Set([
   "Client_SaveFootballOrder",
   "Client_GetFootballOrders",
+  "Client_GetOpenFootballOrders",
 ]);
 
 function ok(info, msg = "ok") {
@@ -32,6 +33,10 @@ export async function handleFootballOrderAction(action, body, ctx) {
     }
     if (action === "Client_GetFootballOrders") {
       const listed = await listFootballOrders(ctx.user, body);
+      return listed.ok ? ok(listed.info) : fail(listed.msg);
+    }
+    if (action === "Client_GetOpenFootballOrders") {
+      const listed = await listOpenFootballOrders(ctx.user, body);
       return listed.ok ? ok(listed.info) : fail(listed.msg);
     }
     return fail(`未知足球订单 action: ${action}`);

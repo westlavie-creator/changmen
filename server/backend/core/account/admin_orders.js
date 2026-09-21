@@ -308,6 +308,9 @@ export async function listAdminOrderLogs(body = {}, caller = null) {
     userId,
     link: linkRaw ?? undefined,
     orderId: orderId ? String(orderId) : undefined,
+    domain: body.domain,
+    sport: body.sport,
+    venue: body.venue,
     paddingMs: body.paddingMs,
     logLimit: body.logLimit,
   });

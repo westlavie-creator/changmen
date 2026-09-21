@@ -73,7 +73,7 @@ export async function mountSportsSession(): Promise<void> {
       const balanceRefresh = await import("@/stores/account/balanceRefresh");
       await balanceRefresh.refreshAllFromVenues(accountStore, true, {
         includeEsportOrderList: false,
-        includeVenueOrders: false,
+        includeVenueOrders: true,
       });
     }
     catch (err) {

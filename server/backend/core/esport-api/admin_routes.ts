@@ -78,6 +78,15 @@ export async function handleAdminAction(
         return fail((err as Error).message || "查询失败");
       }
     }
+    case "Client_AdminDeleteFootballOrders": {
+      try {
+        const { deleteAdminFootballOrders } = await import("../football/football_order_service.js");
+        return ok(await deleteAdminFootballOrders(body));
+      }
+      catch (err) {
+        return fail((err as Error).message || "操作失败");
+      }
+    }
     case "Client_AdminFootballMonthReport": {
       const scoped = await getAdminMonthReportScope(ctx.user, {
         userId: body.userId ?? body.user_id,

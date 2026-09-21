@@ -3,6 +3,7 @@
  */
 import {
   fetchOrderByOrderId,
+  fetchFootballOrderByVenueOrderId,
   fetchOrdersByLink,
   fetchUserById,
   fetchUserByName,
@@ -826,6 +827,31 @@ function normalizeOrderRow(row) {
   };
 }
 
+function footballOrderToLogOrderRow(row) {
+  if (!row)
+    return null;
+  return {
+    order_id: row.venue_order_id,
+    link: 0,
+    provider: row.venue || "OB",
+    player_id: row.player_id,
+    match: [row.home, row.away].filter(Boolean).join(" vs "),
+    bet: row.market_label,
+    item: row.side_label,
+    odds: row.odds,
+    bet_money: row.stake,
+    money: row.profit,
+    status: row.status,
+    create_at: row.placed_at,
+    raw: {
+      domain: "sports",
+      sport: "football",
+      source: "football_orders",
+      podClientId: row.client_id,
+    },
+  };
+}
+
 async function resolveLookupUser(opts) {
   const userId = String(opts?.userId || "").trim();
   if (userId)
@@ -903,7 +929,15 @@ export async function lookupOrderLogs(opts) {
     }
   }
   else if (opts?.orderId) {
-    const row = await fetchOrderByOrderId(user.id, opts.orderId);
+    let row = await fetchOrderByOrderId(user.id, opts.orderId);
+    if (!row && String(opts?.domain || "").toLowerCase() === "sports" && String(opts?.sport || "").toLowerCase() === "football") {
+      const football = await fetchFootballOrderByVenueOrderId(
+        user.id,
+        opts.orderId,
+        opts.venue || "OB",
+      );
+      row = footballOrderToLogOrderRow(football);
+    }
     if (!row) {
       return {
         ok: false,
