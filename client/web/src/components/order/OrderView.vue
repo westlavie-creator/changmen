@@ -12,7 +12,7 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import type { OrderRow } from "@/types/order";
-import { isUnifiedFootballOrderRow } from "@/shared/orderDomain";
+import { isFootballOrderRow, isUnifiedFootballOrderRow } from "@/shared/orderDomain";
 
 type OrderDomainFilter = "esport" | "football";
 
@@ -55,7 +55,7 @@ function isFootballOrder(row: OrderRow): boolean {
 function matchesDomainFilter(row: OrderRow): boolean {
   return domainFilter.value === "football"
     ? isFootballOrder(row)
-    : !isFootballOrder(row);
+    : !isFootballOrderRow(row);
 }
 
 const domainFilteredOrders = computed(() => {

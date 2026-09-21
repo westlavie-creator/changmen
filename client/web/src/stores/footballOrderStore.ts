@@ -185,6 +185,8 @@ export const useFootballOrderStore = defineStore("footballOrders", {
     },
     mergeLocal(row: FootballOrderDto) {
       const next = asDto(row);
+      if (!isObFootballVenue(next.venue))
+        return;
       if (dateOf(next) === this.orderDate)
         this.rows = mergePodSportOrder(this.rows, next) as FootballOrderDto[];
       if (dateOf(next) === todayKey())
@@ -312,7 +314,6 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       catch (err) {
         this.persistError = err instanceof Error ? err.message : String(err);
       }
-      this.mergeLocal(dto);
       return dto;
     },
     async applyVenueStatus(patches: ObSportOrderStatusPatch[]) {
