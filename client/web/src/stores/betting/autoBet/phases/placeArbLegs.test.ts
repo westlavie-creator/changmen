@@ -13,10 +13,12 @@ import { createDefaultUserConfig } from "@/types/userConfig";
 const betting = vi.hoisted(() => vi.fn());
 const checkBetting = vi.hoisted(() => vi.fn());
 const retryFailedLeg = vi.hoisted(() => vi.fn());
+const enqueueMakeUpOrder = vi.hoisted(() => vi.fn());
 const syncActiveBetPlaceResults = vi.hoisted(() => vi.fn());
 const syncActiveBetPhase = vi.hoisted(() => vi.fn());
 const syncActiveBetLeg = vi.hoisted(() => vi.fn());
 const getOddsEntry = vi.hoisted(() => vi.fn());
+const loseStore = vi.hoisted(() => ({ orders: new Map() }));
 
 vi.mock("@/stores/accountStore", () => ({
   useAccountStore: () => ({ betting, checkBetting }),
@@ -28,6 +30,14 @@ vi.mock("@/stores/oddsStore", () => ({
 
 vi.mock("@/stores/betting/autoBet/retryFailedLeg", () => ({
   retryFailedLeg,
+}));
+
+vi.mock("@/stores/betting/autoBet/makeUp", () => ({
+  enqueueMakeUpOrder,
+}));
+
+vi.mock("@/stores/loseOrderStore", () => ({
+  useLoseOrderStore: () => loseStore,
 }));
 
 vi.mock("@/stores/betting/activeBetRunSync", () => ({
@@ -77,16 +87,16 @@ const params: ArbBetAttemptParams = {
 
 describe("shouldPlaceLegsInParallel", () => {
   it("A8↔A8 Parallel 仍并发", () => {
-    expect(shouldPlaceLegsInParallel("Parallel", "OB", "RAY")).toBe(true);
+    expect(shouldPlaceLegsInParallel("Parallel")).toBe(true);
   });
 
-  it("混合对 Parallel 配置仍走 mixedDual 并发（不经 A8 Parallel 分支）", () => {
-    expect(shouldPlaceLegsInParallel("Parallel", "Polymarket", "RAY")).toBe(false);
-    expect(shouldPlaceLegsInParallel("Parallel", "RAY", "PredictFun")).toBe(false);
+  it("混合对 Parallel 配置仍按 A8 Parallel 并发", () => {
+    expect(shouldPlaceLegsInParallel("Parallel")).toBe(true);
+    expect(shouldPlaceLegsInParallel("Parallel")).toBe(true);
   });
 
   it("非 Parallel 一律顺序", () => {
-    expect(shouldPlaceLegsInParallel("Serial", "OB", "RAY")).toBe(false);
+    expect(shouldPlaceLegsInParallel("Serial")).toBe(false);
   });
 });
 
@@ -94,6 +104,7 @@ describe("placeArbLegs two-leg report contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     retryFailedLeg.mockResolvedValue(null);
+    enqueueMakeUpOrder.mockResolvedValue(true);
     getOddsEntry.mockReturnValue(undefined);
     betting.mockImplementation(async (_acc: unknown, option: BetOption) =>
       new BetResult(option.type, true));
@@ -153,7 +164,11 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
 
-  it("混合对预检齐后两边同时 POST：不做 PM 复检/RAY 重检", async () => {
+  it("混合对 Parallel 预检齐后两边同时 POST：不做 PM 复检/RAY 重检", async () => {
+    const parallelParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Parallel" } as never,
+    };
     const pmLeg = leg("Polymarket", "Home");
     pmLeg.data = { ok: true };
     const rayLeg = leg("RAY", "Away");
@@ -162,7 +177,7 @@ describe("placeArbLegs two-leg report contract", () => {
       return new BetResult(option.type, false);
     });
 
-    const out = await placeArbLegs(params, checked({
+    const out = await placeArbLegs(parallelParams, checked({
       legA: pmLeg,
       legB: rayLeg,
       accountA: account("Polymarket"),
@@ -281,7 +296,11 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("filled_pending_settle");
   });
 
-  it("混合对：没有 fo 时仍两边 POST", async () => {
+  it("混合对 Parallel：没有 fo 时仍两边 POST", async () => {
+    const parallelParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Parallel" } as never,
+    };
     const pmLeg = leg("Polymarket", "Home");
     pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
     const rayLeg = leg("RAY", "Away");
@@ -290,7 +309,7 @@ describe("placeArbLegs two-leg report contract", () => {
       return new BetResult(option.type, false);
     });
 
-    const out = await placeArbLegs(params, checked({
+    const out = await placeArbLegs(parallelParams, checked({
       legA: pmLeg,
       legB: rayLeg,
       accountA: account("Polymarket"),
@@ -304,7 +323,11 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("api_failed");
   });
 
-  it("混合对：fo 在上限内仍两边 POST", async () => {
+  it("混合对 Parallel：fo 在上限内仍两边 POST", async () => {
+    const parallelParams = {
+      ...params,
+      config: { ...createDefaultUserConfig(), betSorting: "Parallel" } as never,
+    };
     const pmLeg = leg("Polymarket", "Home");
     pmLeg.odds = 5;
     pmLeg.data = { detectionOdds: 5, detectionMaxPrice: 0.2, detectionClobPrice: 0.2 };
@@ -314,7 +337,7 @@ describe("placeArbLegs two-leg report contract", () => {
       return new BetResult(option.type, false);
     });
 
-    await placeArbLegs(params, checked({
+    await placeArbLegs(parallelParams, checked({
       legA: pmLeg,
       legB: rayLeg,
       accountA: account("Polymarket"),
@@ -467,7 +490,7 @@ describe("placeArbLegs two-leg report contract", () => {
     expect(out.placeOutcomeB).toBe("not_attempted");
   });
 
-  it("混合对预检齐后并发 POST（不看 Parallel）", async () => {
+  it("混合对 Serial 按 A8 顺序 POST：第一腿失败则不打第二腿", async () => {
     const serialParams = {
       ...params,
       config: { ...createDefaultUserConfig(), betSorting: "Serial" } as never,
@@ -493,12 +516,51 @@ describe("placeArbLegs two-leg report contract", () => {
       accountB: account("RAY"),
     }));
 
-    expect(maxConcurrent).toBe(2);
+    expect(maxConcurrent).toBe(1);
     const posted = betting.mock.calls.map(call => (call[1] as BetOption).type).sort();
-    expect(posted).toEqual(["Polymarket", "RAY"]);
+    expect(posted).toEqual(["Polymarket"]);
+    expect(retryFailedLeg).not.toHaveBeenCalled();
+  });
+
+  it("PM delayed 已受理但 RAY 失败且即时补腿未成：立即入 LoseOrder 补单队列", async () => {
+    const pmLeg = leg("Polymarket", "Home");
+    pmLeg.betMoney = 39.54;
+    pmLeg.odds = 2.3256;
+    pmLeg.data = { ok: true };
+    const rayLeg = leg("RAY", "Away");
+    rayLeg.betMoney = 395;
+    rayLeg.odds = 1.55;
+    rayLeg.data = { ok: true };
+    betting.mockImplementation(async (_acc: unknown, option: BetOption) => {
+      if (option.type === "Polymarket") {
+        return Object.assign(new BetResult("Polymarket", true), {
+          pending: true,
+          orderId: "0xpm",
+        });
+      }
+      return new BetResult(option.type, false, "赔率下降");
+    });
+    retryFailedLeg.mockResolvedValueOnce(null);
+
+    const out = await placeArbLegs(params, checked({
+      legA: pmLeg,
+      legB: rayLeg,
+      accountA: account("Polymarket"),
+      accountB: account("RAY"),
+    }));
+
+    expect(out.placeOutcomeA).toBe("accepted_pending_confirm");
+    expect(out.placeOutcomeB).toBe("api_failed");
     expect(retryFailedLeg).toHaveBeenCalledTimes(1);
-    expect(retryFailedLeg.mock.calls[0]![2].type).toBe("RAY");
-    expect(retryFailedLeg.mock.calls[0]![3].type).toBe("Polymarket");
+    expect(enqueueMakeUpOrder).toHaveBeenCalledWith(expect.objectContaining({
+      loseStore,
+      linkId: 1_700_000_000_000,
+      accountId: 2,
+      target: "Away",
+      betOdds: 2.3256,
+      failedLegOdds: 1.55,
+      failedPlatformLabel: "RAY",
+    }));
   });
 
   it("Custom + OB/RAY：仍顺序下单", async () => {

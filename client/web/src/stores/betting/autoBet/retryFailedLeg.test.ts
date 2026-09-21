@@ -88,22 +88,31 @@ describe("retryFailedLeg stake (A8 anyOdds + PM CNY)", () => {
 });
 
 describe("retryFailedLeg PM settlement defer", () => {
+  beforeEach(() => {
+    getAccount.mockReset();
+    checkBetting.mockReset();
+    betting.mockReset();
+    extensionPrefs.makeupOddsBand = { enabled: false, upper: 1.02, lower: 0.96 };
+  });
+
   it("sets deferPostAcceptSettlement on Polymarket retry leg", async () => {
     const pmAccount = new PlatformAccount({
       accountId: 1,
       provider: "Polymarket",
       playerName: "pm",
+      currency: "USDT",
     });
     const match = { id: 1, title: "A vs B" } as never;
     const bet = {
       id: 100,
-      items: [makeItem("Polymarket", 2.5)],
+      items: [makeItem("Polymarket", 2.63)],
     } as never;
     const successLeg = new BetOption("RAY" as never, "m1", "b1", "i1", 98, "Home", 1.695);
     const failedLeg = new BetOption("OB" as never, "m2", "b2", "a1", 70, "Away", 4.0);
 
     getAccount.mockReturnValue(pmAccount);
     checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.betMoney = 9.4;
       opt.data = { ok: true };
       return opt;
     });
@@ -128,6 +137,100 @@ describe("retryFailedLeg PM settlement defer", () => {
       10,
       undefined,
     );
+  });
+
+  it("blocks a retry leg that would make the posted pair lose money", async () => {
+    const rayAccount = new PlatformAccount({
+      accountId: 3,
+      provider: "RAY",
+      playerName: "ray",
+    });
+    const match = { id: 1, title: "A vs B" } as never;
+    const bet = {
+      id: 101,
+      items: [makeItem("RAY", 1.7)],
+    } as never;
+    const successLeg = new BetOption(
+      "Polymarket" as never,
+      "m1",
+      "b1",
+      "pm1",
+      264.91,
+      "Home",
+      2.3256,
+    );
+    const failedLeg = new BetOption("OB" as never, "m2", "b2", "a1", 395, "Away", 1.94);
+
+    getAccount.mockReturnValue(rayAccount);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.odds = 1.55;
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue(new BetResult("RAY", true));
+
+    const trace = { event: vi.fn() };
+    const out = await retryFailedLeg(
+      match,
+      bet,
+      successLeg,
+      failedLeg,
+      new PlatformAccount({ accountId: 2, provider: "Polymarket", playerName: "pm" }),
+      { anyOdds: true, anyOddsProfit: 0.97, makeProfit: 1.01, noSameBet: false, makeUp: true } as never,
+      10,
+      trace as never,
+    );
+
+    expect(out).toBeNull();
+    expect(checkBetting).toHaveBeenCalledOnce();
+    expect(betting).not.toHaveBeenCalled();
+    expect(trace.event).toHaveBeenCalledWith(
+      "重试",
+      expect.stringContaining("组合收益"),
+    );
+  });
+
+  it("honors anyOddsProfit below 1 for controlled loss-cover retry", async () => {
+    const rayAccount = new PlatformAccount({
+      accountId: 3,
+      provider: "RAY",
+      playerName: "ray",
+    });
+    const match = { id: 1, title: "A vs B" } as never;
+    const bet = {
+      id: 102,
+      items: [makeItem("RAY", 1.55)],
+    } as never;
+    const successLeg = new BetOption(
+      "Polymarket" as never,
+      "m1",
+      "b1",
+      "pm1",
+      264.91,
+      "Home",
+      2.3256,
+    );
+    const failedLeg = new BetOption("OB" as never, "m2", "b2", "a1", 395, "Away", 1.94);
+
+    getAccount.mockReturnValue(rayAccount);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue(new BetResult("RAY", true));
+
+    const out = await retryFailedLeg(
+      match,
+      bet,
+      successLeg,
+      failedLeg,
+      new PlatformAccount({ accountId: 2, provider: "Polymarket", playerName: "pm" }),
+      { anyOdds: true, anyOddsProfit: 0.9, makeProfit: 1.01, noSameBet: false, makeUp: true } as never,
+      10,
+    );
+
+    expect(out?.result.success).toBe(true);
+    expect(betting).toHaveBeenCalledOnce();
   });
 });
 
@@ -166,7 +269,7 @@ describe("retryFailedLeg makeupOddsBand", () => {
     expect(betting).not.toHaveBeenCalled();
   });
 
-  it("falls back to makeProfit when the hedge formula cannot be solved", async () => {
+  it("blocks retry when the hedge formula cannot meet makeProfit", async () => {
     const acc = new PlatformAccount({ accountId: 1, provider: "OB", playerName: "ob1" });
     getAccount.mockReturnValue(acc);
     checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
@@ -190,8 +293,8 @@ describe("retryFailedLeg makeupOddsBand", () => {
       10,
     );
 
-    expect(out?.result.success).toBe(true);
-    expect(betting).toHaveBeenCalledTimes(1);
+    expect(out).toBeNull();
+    expect(betting).not.toHaveBeenCalled();
   });
 
   it("does not use the band on immediate retry when makeUp is off", async () => {

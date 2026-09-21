@@ -9,6 +9,12 @@ describe("resolveArbLegPlaceOutcome", () => {
     expect(resolveArbLegPlaceOutcome(true, new BetResult("PredictFun", true))).toBe(
       "accepted_pending_confirm",
     );
+    expect(
+      resolveArbLegPlaceOutcome(
+        true,
+        Object.assign(new BetResult("Polymarket", true), { pending: true, orderId: "0xpm" }),
+      ),
+    ).toBe("accepted_pending_confirm");
     expect(resolveArbLegPlaceOutcome(true, new BetResult("OB", false))).toBe("api_failed");
     expect(resolveArbLegPlaceOutcome(true, undefined)).toBe("api_failed");
   });

@@ -4,7 +4,7 @@ import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbExecutionTrace } from "@/stores/betting/autoBet/arbExecutionTrace";
 import type { PlatformId } from "@/types/esport";
 import type { UserConfig } from "@/types/userConfig";
-import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
+import { hedgeStakeCnyFromLeg, legStakeCny } from "@/domain/polymarket/pmArbStake";
 import { isSingleLegRateAtOdds } from "@/domain/betting/singleLegRate";
 import { BetOption, opponentSide } from "@changmen/client-core/models/betOption";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
@@ -127,6 +127,32 @@ export async function retryFailedLeg(
     retryLeg = await accountStore.checkBetting(pickedAccount, retryLeg);
     if (!retryLeg.data)
       continue;
+
+    const guardedOdds = Number(retryLeg.odds) || pickedItem.getOdds(failedLeg.target);
+    const successStakeCny = legStakeCny(
+      successLeg.betMoney,
+      successLeg.type,
+      successAccount,
+    );
+    const retryStakeCny = legStakeCny(
+      retryLeg.betMoney,
+      retryLeg.type,
+      pickedAccount,
+    );
+    const totalStakeCny = successStakeCny + retryStakeCny;
+    const minPayoutCny = Math.min(
+      successStakeCny * successLeg.odds,
+      retryStakeCny * guardedOdds,
+    );
+    const guardedProfit = totalStakeCny > 0 ? minPayoutCny / totalStakeCny : 0;
+    const minGuardProfit = Number(profitThreshold) || 0;
+    if (!Number.isFinite(guardedProfit) || guardedProfit < minGuardProfit) {
+      trace?.event(
+        "重试",
+        `拦截 ${pickedAccount.provider}@${guardedOdds}，组合收益 ${guardedProfit.toFixed(4)} < ${minGuardProfit}`,
+      );
+      continue;
+    }
 
     const result = await accountStore.betting(
       pickedAccount,

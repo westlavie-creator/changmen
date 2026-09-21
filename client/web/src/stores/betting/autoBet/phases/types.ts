@@ -64,6 +64,9 @@ export function resolveArbLegPlaceOutcome(
     return "not_attempted";
   if (!result?.success)
     return "api_failed";
+  // pending：POST 已被场馆受理，但仍须后续确认；PM delayed 与 PF/RAY 类待确认同一编排语义
+  if (result.pending)
+    return "accepted_pending_confirm";
   // PF：API 成功 = 挂单受理，不是成交
   if (String(result.provider ?? "").trim().toLowerCase() === "predictfun")
     return "accepted_pending_confirm";

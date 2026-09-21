@@ -12,29 +12,20 @@ import { formatBetResult } from "@/shared/arbBetTraceFormat";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { useAccountStore } from "@/stores/accountStore";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
-import {
-  isMixedPendingConfirmArbPair,
-} from "@/stores/betting/autoBet/phases/mixedPendingConfirmPair";
+import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
+import { legStakeCny } from "@/domain/polymarket/pmArbStake";
+import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import {
   syncActiveBetLeg,
   syncActiveBetPhase,
   syncActiveBetPlaceResults,
 } from "@/stores/betting/activeBetRunSync";
 
-/**
- * 仅用户选 Parallel 且非混合对时走 A8 并发 POST。
- * 混合对的并发在 mixedDual（预检齐后再 Promise.all），不经本函数。
- */
+/** [A8 可证实] 仅用户选 Parallel 时走并发 POST；不按场馆类型另开编排分支。 */
 export function shouldPlaceLegsInParallel(
   betSorting: string | undefined,
-  legAType?: unknown,
-  legBType?: unknown,
 ): boolean {
-  if (betSorting !== "Parallel")
-    return false;
-  if (legAType != null && legBType != null && isMixedPendingConfirmArbPair(legAType, legBType))
-    return false;
-  return true;
+  return betSorting === "Parallel";
 }
 
 function buildPlaced(
@@ -74,7 +65,7 @@ export async function placeArbLegs(
   params: ArbBetAttemptParams,
   checked: ArbBetChecked,
 ): Promise<ArbBetPlaced> {
-  const { match, bet, config, trace } = params;
+  const { match, bet, config, trace, setMessage } = params;
   const accountStore = useAccountStore();
   let { legA, legB, accountA, accountB, betBothLegs, waitSec, linkId } = checked;
   const placeOpts = { linkId, requirePreparedQuote: true };
@@ -96,7 +87,6 @@ export async function placeArbLegs(
   if (accountB)
     syncActiveBetLeg(bet.id, "B", "placing");
 
-  const mixedPair = isMixedPendingConfirmArbPair(legA.type, legB.type);
   let mixedBlocked = false;
   let mixedBlockReason = "";
   if (betBothLegs && accountA && accountB && (!hasPlaceQuote(legA) || !hasPlaceQuote(legB))) {
@@ -105,20 +95,7 @@ export async function placeArbLegs(
     mixedBlocked = true;
   }
 
-  const mixedDual = Boolean(mixedPair && betBothLegs && accountA && accountB && !mixedBlocked);
-
-  if (mixedDual) {
-    trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
-    attemptedA = true;
-    attemptedB = true;
-    const pair = await Promise.all([
-      accountStore.betting(accountA!, legA, waitSec, placeOpts),
-      accountStore.betting(accountB!, legB, waitSec, placeOpts),
-    ]);
-    resultA = pair[0];
-    resultB = pair[1];
-  }
-  else if (!mixedBlocked && !betBothLegs) {
+  if (!mixedBlocked && !betBothLegs) {
     if (accountA) {
       trace?.event("下单", `开始 ${legA.type} ${legA.target}`);
       attemptedA = true;
@@ -130,7 +107,7 @@ export async function placeArbLegs(
       resultB = await accountStore.betting(accountB!, legB, waitSec, placeOpts);
     }
   }
-  else if (!mixedBlocked && shouldPlaceLegsInParallel(config.betSorting, legA.type, legB.type)) {
+  else if (!mixedBlocked && shouldPlaceLegsInParallel(config.betSorting)) {
     trace?.event("下单", `并行 ${legA.type} + ${legB.type}`);
     attemptedA = true;
     attemptedB = true;
@@ -207,6 +184,24 @@ export async function placeArbLegs(
     }
     else {
       trace?.event("重试", "换腿未成功");
+      if (accountA) {
+        const enqueued = await enqueueMakeUpOrder({
+          loseStore: useLoseOrderStore(),
+          match,
+          bet,
+          config,
+          setMessage,
+          linkId,
+          accountId: accountA.accountId,
+          target: legB.target,
+          betMoney: legStakeCny(legA.betMoney, legA.type, accountA),
+          betOdds: legA.odds,
+          failedLegOdds: legB.odds,
+          failedPlatformLabel: legB.type,
+        });
+        if (enqueued)
+          trace?.event("补单", `${legB.type} 已加入补单队列`);
+      }
     }
   }
 
