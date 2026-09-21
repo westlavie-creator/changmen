@@ -20,6 +20,7 @@ function ticket(over: Partial<PodPmFollowPlaceTicket> = {}): PodPmFollowPlaceTic
       venue: "Polymarket",
       locked: false,
       oid: "pm-token-over",
+      betId: "pm-condition",
       quote: 1.95,
       marketCode: "totals",
       boardSide: "over",
@@ -35,16 +36,22 @@ describe("podPmFollowPlace", () => {
   it("blocks tickets that are not PM-ready without touching OB rules", () => {
     expect(podPmFollowPlaceBlock(ticket({ fixtureStatus: "none" }))).toBe("场未对上");
     expect(podPmFollowPlaceBlock(ticket({
-      market: { status: "none", venue: "Polymarket", locked: false, oid: "x", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
+      market: { status: "none", venue: "Polymarket", locked: false, oid: "x", betId: "cond", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
     }))).toBe("盘未对上");
     expect(podPmFollowPlaceBlock(ticket({
-      market: { status: "matched", venue: "OB", locked: false, oid: "x", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
+      market: { status: "matched", venue: "OB", locked: false, oid: "x", betId: "cond", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
     }))).toBe("无 PM 盘");
     expect(podPmFollowPlaceBlock(ticket({
-      market: { status: "matched", venue: "Polymarket", locked: false, oid: "", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
+      market: { status: "matched", venue: "Polymarket", locked: false, oid: "", betId: "cond", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
     }))).toBe("无 PM token");
     expect(podPmFollowPlaceBlock(ticket({
-      market: { status: "matched", venue: "Polymarket", locked: false, oid: "draw-token", quote: 3.2, marketCode: "moneyline", boardSide: "draw", boardLine: null, fromLive: true },
+      market: { status: "matched", venue: "Polymarket", locked: false, oid: "pm-token-over", betId: "", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
+    }))).toBe("无 PM condition_id");
+    expect(podPmFollowPlaceBlock(ticket({
+      market: { status: "matched", venue: "Polymarket", locked: false, oid: "same", betId: "same", quote: 1.9, marketCode: "totals", boardSide: "over", boardLine: 2.5, fromLive: true },
+    }))).toBe("PM condition_id 异常");
+    expect(podPmFollowPlaceBlock(ticket({
+      market: { status: "matched", venue: "Polymarket", locked: false, oid: "draw-token", betId: "draw-cond", quote: 3.2, marketCode: "moneyline", boardSide: "draw", boardLine: null, fromLive: true },
     }))).toBe("PM 暂不支持平局");
     expect(podPmFollowPlaceBlock(ticket({ quote: { status: "short", quote: 1.8, minObOdds: 1.9, maxObOdds: 2.18, evPercent: -2 } }))).toBe("PM 价不够");
     expect(podPmFollowPlaceBlock(ticket({ quote: { status: "spike", quote: 2.4, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 30 } }))).toBe("EV 异常");
@@ -64,6 +71,31 @@ describe("podPmFollowPlace", () => {
     expect(pickPodPmAutoTicket([blocked, ready], [])?.id).toBe("a");
     expect(pickPodPmAutoTicket([ready, high], [])?.id).toBe("high");
     expect(pickPodPmAutoTicket([ready], ["a"])).toBeNull();
+    expect(podPmAutoSkipReason(ready, [], [{
+      obMid: "pm-match",
+      marketCode: "totals",
+      boardSide: "over",
+    }])).toBe("同向拦截加仓(over)");
+    expect(podPmAutoSkipReason(ticket({
+      id: "under",
+      accountIds: [7],
+      market: {
+        status: "matched",
+        venue: "Polymarket",
+        locked: false,
+        oid: "pm-token-under",
+        betId: "pm-condition",
+        quote: 1.95,
+        marketCode: "totals",
+        boardSide: "under",
+        boardLine: 2.5,
+        fromLive: true,
+      },
+    }), [], [{
+      obMid: "pm-match",
+      marketCode: "totals",
+      boardSide: "over",
+    }])).toBe("拦截反向对冲(over ↔ under)");
     expect(podPmAutoSkipReason(ticket({ id: "guess", fixtureBasis: "guess", accountIds: [7] }))).toBe("身份未确认");
     expect(podPmAutoSkipReason(ticket({
       id: "http",
@@ -73,6 +105,7 @@ describe("podPmFollowPlace", () => {
         venue: "Polymarket",
         locked: false,
         oid: "pm-token-over",
+        betId: "pm-condition",
         quote: 1.95,
         marketCode: "totals",
         boardSide: "over",
@@ -93,6 +126,13 @@ describe("podPmFollowPlace", () => {
     expect(source).toMatch(/planStakeCny/);
     expect(source).toMatch(/checkBetting\(account, option\)/);
     expect(source).not.toMatch(/skipStakeResolve:\s*true/);
+  });
+
+  it("stores the PM condition id on the football order marker", () => {
+    const source = readFileSync(join(process.cwd(), "src/runtime/podPmFollowPlace.ts"), "utf8");
+    expect(source).toMatch(/const conditionId = String\(ticket\.market\.betId/);
+    expect(source).toMatch(/obMid: conditionId/);
+    expect(source).not.toMatch(/obMid: matchId/);
   });
 
   it("does not skip PM vault sync before user id is ready", () => {

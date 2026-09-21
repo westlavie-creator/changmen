@@ -145,7 +145,7 @@ export async function placePmSportBoardBet(
         venue: PM,
         playerId: accountId,
         accountName: label,
-      }, account, { venue: PM, hydrateOb: false });
+      }, account, { venue: PM, hydrateOb: false, source: "football-board" });
       okNotes.push(orderId ? `${label}:${orderId}` : label);
     }
   }

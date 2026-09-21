@@ -13,7 +13,7 @@ export type FootballOrderDto = PodSportOrder & {
   userName?: string;
 };
 
-export async function saveFootballOrder(order: FootballOrderDto): Promise<FootballOrderDto> {
+export async function saveObFootballOrder(order: FootballOrderDto): Promise<FootballOrderDto> {
   return unwrap(await post<FootballOrderDto>("Client_SaveFootballOrder", {
     clientId: order.id,
     venueOrderId: order.orderId,

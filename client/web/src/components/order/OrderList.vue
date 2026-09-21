@@ -81,6 +81,7 @@ import {
 import { useOddsStore } from "@/stores/oddsStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 import { PLATFORMS } from "@changmen/venue-adapter/shared";
+import { isFootballOrderRow } from "@/shared/orderDomain";
 
 export type OrderListEntry = readonly [number, OrderRow[]];
 
@@ -188,6 +189,10 @@ function showPmSellButton(row: OrderRow): boolean {
 
 function showPfSellButton(row: OrderRow): boolean {
   return props.allowPfSell && canManualSellPfBuy(row);
+}
+
+function isFootballPodOrder(row: OrderRow): boolean {
+  return isFootballOrderRow(row);
 }
 
 const oddsStore = useOddsStore();
@@ -722,6 +727,11 @@ function badgeTitle(row: OrderRow): string {
             <div class="player">
               {{ playerLabel(block.row) }}
             </div>
+            <span
+              v-if="isFootballPodOrder(block.row)"
+              class="order__pm-tag order__pm-tag--football"
+              title="POD 足球跟单"
+            >足球</span>
             <span
               v-if="pmOrderSideTagText(block.row) || pfOrderSideTagText(block.row)"
               class="order__pm-tag order__pm-tag--side"

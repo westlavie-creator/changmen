@@ -28,6 +28,8 @@ export type PodMarketMatch = {
   swapped: boolean;
   locked: boolean;
   oid: string;
+  /** PM condition_id / SourceBetID；PM delayed 订阅与结算必须用真实值。 */
+  betId: string;
   /** sportOddsStore 已有这条 oid（含锁 0）。自动下单要等这个，避免用列表 HTTP 快照抬 EV。 */
   fromLive: boolean;
   /** 副盘该档自己的 NVP；0 = 仍用警报 NVP。由 podYabo 写入。 */
@@ -65,6 +67,7 @@ function emptyMatch(status: PodMarketMatchStatus = "none"): PodMarketMatch {
     swapped: false,
     locked: false,
     oid: "",
+    betId: "",
     fromLive: false,
     nvp: 0,
     loose: false,
@@ -126,6 +129,18 @@ function oidForSide(row: PodBoardMarket, side: PodMarketSide, swapped: boolean):
   if (side === "home")
     return String((swapped ? row.oidAway : row.oidHome) || "").trim();
   return String((swapped ? row.oidHome : row.oidAway) || "").trim();
+}
+
+function betIdForSide(row: PodBoardMarket, side: PodMarketSide, swapped: boolean): string {
+  if (side === "over")
+    return String(row.betIdHome || "").trim();
+  if (side === "under")
+    return String(row.betIdAway || "").trim();
+  if (side === "draw")
+    return String(row.betIdDraw || row.betIdHome || "").trim();
+  if (side === "home")
+    return String((swapped ? row.betIdAway : row.betIdHome) || "").trim();
+  return String((swapped ? row.betIdHome : row.betIdAway) || "").trim();
 }
 
 function fallbackQuote(row: PodBoardMarket, side: PodMarketSide, swapped: boolean): number {
@@ -192,6 +207,7 @@ function finish(
   extra: { nvp?: number; loose?: boolean } = {},
 ): PodMarketMatch {
   const oid = oidForSide(hit, side, swapped);
+  const betId = betIdForSide(hit, side, swapped);
   const venue = String(hit.venue || (hit.ob ? "OB" : "")).trim();
   const resolved = liveQuote(oid, fallbackQuote(hit, side, swapped), venue || "OB", live);
   return {
@@ -208,6 +224,7 @@ function finish(
     swapped,
     locked: resolved.locked,
     oid,
+    betId,
     fromLive: resolved.fromLive,
     nvp: Number(extra.nvp) > 1 ? Number(extra.nvp) : 0,
     loose: extra.loose === true,

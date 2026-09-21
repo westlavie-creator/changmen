@@ -137,6 +137,12 @@ export interface VenueOrder extends PolymarketVenueOrderExtras, PredictFunVenueO
   match: string;
   bet: string;
   item: string;
+  /** [changmen 扩展] 订单业务域；非电竞运动订单写 orders 时必须带 sports。 */
+  domain?: "esport" | "sports" | string;
+  /** [changmen 扩展] 体育运动类型。 */
+  sport?: "football" | string;
+  /** [changmen 扩展] 订单来源，如 football-pod / football-board。 */
+  source?: string;
   /**
    * [changmen 扩展] SaveOrder 直写最终套利 Link，缩短 create_at-1 占位窗口。
    * 对齐 docs/ARB_LINK_ID.md：Bind 仍为确认；有值时后端优先落库。

@@ -34,7 +34,7 @@ export type PodPmFollowPlaceTicket = {
   marketLabel?: string;
   auto?: boolean;
   accountIds?: number[];
-  market: Pick<PodMarketMatch, "status" | "venue" | "locked" | "oid" | "quote" | "marketCode" | "boardSide" | "boardLine" | "fromLive">;
+  market: Pick<PodMarketMatch, "status" | "venue" | "locked" | "oid" | "betId" | "quote" | "marketCode" | "boardSide" | "boardLine" | "fromLive">;
   quote: PodObQuoteCompare;
 };
 
@@ -75,6 +75,10 @@ export function podPmFollowPlaceBlock(ticket: PodPmFollowPlaceTicket): string | 
     return "无 PM 盘";
   if (!String(ticket.market.oid || "").trim())
     return "无 PM token";
+  if (!String(ticket.market.betId || "").trim())
+    return "无 PM condition_id";
+  if (String(ticket.market.betId || "").trim() === String(ticket.market.oid || "").trim())
+    return "PM condition_id 异常";
   if (ticket.market.locked)
     return "PM 锁盘";
   if (!pmSideFromBoardSide(ticket.market.boardSide))
@@ -175,7 +179,8 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
 
   const side = pmSideFromBoardSide(ticket.market.boardSide);
   const tokenId = String(ticket.market.oid || "").trim();
-  if (!side || !tokenId)
+  const conditionId = String(ticket.market.betId || "").trim();
+  if (!side || !tokenId || !conditionId)
     return { ok: false, message: "PM 盘口不完整" };
 
   const orders = useFootballOrderStore();
@@ -185,12 +190,11 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
   const planStakeCny = Number(ticket.stake);
   const odds = Number(ticket.quote.quote) || Number(ticket.market.quote) || 0;
   const matchId = String(ticket.pmMatchId || ticket.id || "").trim();
-  const betId = `${ticket.market.marketCode || "pod"}:${ticket.market.boardLine ?? ""}`;
 
   for (const account of accounts) {
     const accountId = Number(account.accountId) || 0;
     const label = String(account.playerName || accountId || "PM账号").trim() || "PM账号";
-    const option = new BetOption(PM, matchId, betId, tokenId, planStakeCny, side, odds);
+    const option = new BetOption(PM, matchId, conditionId, tokenId, planStakeCny, side, odds);
     const checked = await accountStore.checkBetting(account, option);
     if (!checked.data) {
       failNotes.push(`${label}:${checked.checkError || "预检失败"}`);
@@ -213,14 +217,14 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
       odds,
       stake: planStakeCny,
       oid: tokenId,
-      obMid: matchId,
+      obMid: conditionId,
       auto: ticket.auto === true,
       status: result.pending ? "Pending" : "None",
       profit: 0,
       venue: PM,
       playerId: accountId,
       accountName: label,
-    }, account, { venue: PM, hydrateOb: false });
+    }, account, { venue: PM, hydrateOb: false, source: ticket.auto === true ? "football-pod-auto" : "football-pod" });
     okNotes.push(orderId ? `${label}:${orderId}` : label);
   }
 

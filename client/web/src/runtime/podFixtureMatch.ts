@@ -36,6 +36,10 @@ export type PodBoardMarket = {
   oidHome?: string;
   oidAway?: string;
   oidDraw?: string;
+  /** PM condition_id / OB market id；按 selection 保留，PM 下单确认必须用。 */
+  betIdHome?: string;
+  betIdAway?: string;
+  betIdDraw?: string;
 };
 
 export type PodBoardFixture = {
@@ -199,6 +203,10 @@ function itemOid(item: Record<string, unknown> | undefined, side: "home" | "away
   return String(item.drawSubscribeId || "").trim();
 }
 
+function itemBetId(item: Record<string, unknown> | undefined): string {
+  return String(item?.betId || item?.BetID || "").trim();
+}
+
 function marketsFromBets(bets: Array<{
   id?: number;
   name?: string;
@@ -232,6 +240,9 @@ function marketsFromBets(bets: Array<{
         oidHome: "",
         oidAway: "",
         oidDraw: "",
+        betIdHome: "",
+        betIdAway: "",
+        betIdDraw: "",
       });
       continue;
     }
@@ -253,6 +264,9 @@ function marketsFromBets(bets: Array<{
         oidHome: itemOid(rec, "home"),
         oidAway: itemOid(rec, "away"),
         oidDraw: itemOid(rec, "draw"),
+        betIdHome: itemBetId(rec),
+        betIdAway: itemBetId(rec),
+        betIdDraw: itemBetId(rec),
       });
     }
   }
@@ -274,6 +288,7 @@ export function fixtureFromViewMatch(row: {
     line?: number | null;
     items?: Array<{
       type?: string;
+      betId?: string;
       fallbackHomeOdds?: number;
       fallbackAwayOdds?: number;
       fallbackDrawOdds?: number;

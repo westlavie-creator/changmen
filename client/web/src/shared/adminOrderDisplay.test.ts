@@ -145,6 +145,21 @@ describe("adminOrderDisplay", () => {
     expect(pmOrderStakeDisplayCny(row)).toBe(Math.round(57.66 * 0.5 * 6.7));
   });
 
+  it("keeps sports markers when admin orders are rendered through OrderList", () => {
+    const row = adminOrderToOrderRow(order({
+      provider: "Polymarket",
+      game: "football",
+      domain: "sports",
+      sport: "football",
+      source: "football-board",
+    }));
+
+    expect(row.Game).toBe("football");
+    expect(row.Domain).toBe("sports");
+    expect(row.Sport).toBe("football");
+    expect(row.Source).toBe("football-board");
+  });
+
   it("uses venueAccountName in player label", () => {
     expect(adminPlayerLabel(
       adminOrderToOrderRow(order({ playerId: 101 }), [account({ accountId: 101 })]),

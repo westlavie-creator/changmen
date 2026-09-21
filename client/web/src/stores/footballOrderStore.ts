@@ -1,5 +1,7 @@
 import { defineStore } from "pinia";
-import { getFootballOrders, saveFootballOrder, type FootballOrderDto } from "@/api/footballOrder";
+import type { VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contract";
+import { getFootballOrders, saveObFootballOrder, type FootballOrderDto } from "@/api/footballOrder";
+import { saveOrders } from "@/api/order";
 import { fetchObSportPendingOrderPatches, waitObSportVenueOrderHydration } from "@/runtime/obSportBetRecord";
 import { pickObSportBetAccount } from "@/runtime/obSportBetAccount";
 import { isPlaceholderTeam, type ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
@@ -24,9 +26,70 @@ function dateOf(row: Pick<FootballOrderDto, "at">): string {
   return todayKey(at > 0 ? new Date(at) : new Date());
 }
 
+function normalizeVenueKey(venue: unknown): string {
+  return String(venue || "OB").trim() || "OB";
+}
+
+function isObFootballVenue(venue: unknown): boolean {
+  return normalizeVenueKey(venue).toUpperCase() === "OB";
+}
+
+function toVenueOrderStatus(status: unknown): VenueOrderStatus {
+  const s = String(status || "").trim().toLowerCase();
+  if (s === "win")
+    return "win";
+  if (s === "lose")
+    return "lose";
+  if (s === "reject" || s === "rejected")
+    return "reject";
+  if (s === "return" || s === "void")
+    return "return";
+  if (s === "pending")
+    return "pending";
+  return "none";
+}
+
+function footballVenueOrderFromDto(row: FootballOrderDto, venue: string, source?: string): VenueOrder {
+  const title = [row.home, row.away].map(v => String(v || "").trim()).filter(Boolean).join(" vs ");
+  const stake = Number(row.stake) || 0;
+  const odds = Number(row.odds) || 0;
+  const orderSource = String(source || "").trim() || (row.auto ? "football-pod-auto" : "football-pod");
+  return {
+    provider: venue as VenueOrder["provider"],
+    orderId: String(row.orderId || row.id || `${venue}-${Number(row.at) || Date.now()}`),
+    odds,
+    createAt: Number(row.at) || Date.now(),
+    betMoney: stake,
+    reward: stake > 0 && odds > 0 ? Math.round(stake * odds * 10000) / 10000 : 0,
+    money: Number(row.profit) || 0,
+    status: toVenueOrderStatus(row.status),
+    game: "football",
+    match: title || "足球",
+    bet: String(row.marketLabel || "").trim(),
+    item: String(row.sideLabel || "").trim(),
+    domain: "sports",
+    sport: "football",
+    source: orderSource,
+    ...(venue === "Polymarket" ? {
+      pmTokenId: String(row.oid || "").trim() || undefined,
+      pmConditionId: String(row.obMid || "").trim() || undefined,
+      pmOrigin: "changmen" as const,
+      pmSide: "buy" as const,
+    } : {}),
+  };
+}
+
 let loadSeq = 0;
 let syncing = false;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+type FootballOrderAccount = {
+  accountId?: number;
+  playerName?: string;
+  provider?: string;
+};
+
+type SaveOrderAccount = Parameters<typeof saveOrders>[0];
 
 export function stopFootballOrderRuntime() {
   if (settleTimer) {
@@ -38,7 +101,7 @@ export function stopFootballOrderRuntime() {
 
 /**
  * 足球订单：对齐电竞 orderStore（Pinia 内存 + 按日 RDS），不写 localStorage。
- * 禁止 useOrderStore / Client_SaveOrder / Client_GetOrderList。
+ * OB 足球写 football_orders；非 OB 足球按 orders 兼容存储，但必须带 domain=sports/sport=football。
  * 禁止写 PlatformAccount.today / unsettle / orderCount / winBalance（电竞账号条字段）。
  */
 export const useFootballOrderStore = defineStore("footballOrders", {
@@ -161,7 +224,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
     },
     async persist(row: FootballOrderDto) {
       try {
-        const saved = await saveFootballOrder(row);
+        const saved = await saveObFootballOrder(row);
         if (!saved || typeof saved !== "object")
           throw new Error("保存未返回订单");
         const next = asDto({ ...row, ...saved, id: saved.id || row.id });
@@ -178,22 +241,20 @@ export const useFootballOrderStore = defineStore("footballOrders", {
     },
     async appendPlaced(
       row: PodSportOrder,
-      account?: { accountId?: number; playerName?: string } | null,
+      account?: FootballOrderAccount | null,
     ) {
       return this.appendVenuePlaced(row, account, { venue: "OB", hydrateOb: true });
     },
     async appendVenuePlaced(
       row: PodSportOrder,
-      account?: { accountId?: number; playerName?: string } | null,
-      opts: { venue?: string; hydrateOb?: boolean } = {},
+      account?: FootballOrderAccount | null,
+      opts: { venue?: string; hydrateOb?: boolean; source?: string } = {},
     ) {
-      const venue = String(opts.venue || row.venue || "OB").trim() || "OB";
+      const venue = normalizeVenueKey(opts.venue || row.venue || "OB");
       const picked = account || pickObSportBetAccount(
         useAccountStore().accounts,
         readPodBetSettings().followAccountIds[0] || readPodBetSettings().followAccountId,
-      ) as
-        | { accountId?: number; playerName?: string }
-        | null;
+      ) as FootballOrderAccount | null;
       const playerId = Number(row.playerId) || Number(picked?.accountId) || 0;
       // 对齐电竞：本地只作占位；队名/赔率等以官网注单为准，占位队名不落库
       const home = isPlaceholderTeam(row.home) ? "" : String(row.home || "").trim();
@@ -209,7 +270,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         accountName: String(row.accountName || picked?.playerName || ""),
       };
       const orderId = String(dto.orderId || "").trim();
-      if (orderId && venue === "OB" && opts.hydrateOb !== false) {
+      if (orderId && isObFootballVenue(venue) && opts.hydrateOb !== false) {
         try {
           const [venue] = await waitObSportVenueOrderHydration({ orderId, playerId });
           if (venue) {
@@ -235,9 +296,24 @@ export const useFootballOrderStore = defineStore("footballOrders", {
             console.warn("[football] wait venue order skipped", err);
         }
       }
-      const saved = await this.persist(dto);
-      this.syncVenueSettlementSoon();
-      return saved;
+      if (isObFootballVenue(venue)) {
+        const saved = await this.persist(dto);
+        this.syncVenueSettlementSoon();
+        return saved;
+      }
+
+      try {
+        if (picked) {
+          const saveAccount = picked as SaveOrderAccount;
+          await saveOrders(saveAccount, [footballVenueOrderFromDto(dto, venue, opts.source)]);
+        }
+        this.persistError = "";
+      }
+      catch (err) {
+        this.persistError = err instanceof Error ? err.message : String(err);
+      }
+      this.mergeLocal(dto);
+      return dto;
     },
     async applyVenueStatus(patches: ObSportOrderStatusPatch[]) {
       if (!patches.length)
@@ -300,7 +376,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         )
           continue;
         try {
-          const saved = await saveFootballOrder(merged);
+          const saved = await saveObFootballOrder(merged);
           if (!saved || typeof saved !== "object")
             continue;
           const next = asDto({ ...merged, ...saved, id: saved.id || merged.id || orderId });

@@ -339,6 +339,8 @@ describe("podMarketMatch", () => {
           quoteDraw: 0,
           oidHome: "pm-over",
           oidAway: "pm-under",
+          betIdHome: "pm-cond-ou",
+          betIdAway: "pm-cond-ou",
         },
         {
           id: 2,
@@ -370,6 +372,7 @@ describe("podMarketMatch", () => {
     expect(pm.venue).toBe("Polymarket");
     expect(pm.ob).toBe(false);
     expect(pm.oid).toBe("pm-over");
+    expect(pm.betId).toBe("pm-cond-ou");
     expect(pm.quote).toBe(1.96);
     expect(comparePodObQuote(pm, 1.9).status).toBe("none");
     expect(comparePodVenueQuote(pm, "Polymarket", 1.9).status).toBe("ok");

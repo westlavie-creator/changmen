@@ -278,16 +278,25 @@ function stringToHashNumber(value) {
   return hash;
 }
 
+function isSportsOrderRow(row) {
+  const raw = row?.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+    ? row.raw
+    : {};
+  return String(raw.domain || "").trim().toLowerCase() === "sports";
+}
+
 /** 排行榜：按登录用户聚合当日 orders（非按 player_id / 平台账号）；管理员不参与 */
 export async function listUserProfitRank(dateKey = toDateKey(Date.now())) {
   const [dayOrders, profiles] = await Promise.all([
     sb.fetchOrdersForProfitAggregate(dateKey),
     sb.fetchProfiles(),
   ]);
+  const esportDayOrders = (dayOrders || []).filter(o => !isSportsOrderRow(o));
   const userIds = [...new Set(
-    (dayOrders || []).map(o => String(o.user_id || "").trim()).filter(Boolean),
+    esportDayOrders.map(o => String(o.user_id || "").trim()).filter(Boolean),
   )];
-  const orders = await enrichOrdersBelongingToDate(dayOrders || [], dateKey, { userIds });
+  const orders = (await enrichOrdersBelongingToDate(esportDayOrders, dateKey, { userIds }))
+    .filter(o => !isSportsOrderRow(o));
   const adminIds = new Set(
     (profiles || []).filter(p => isAdminUser(p)).map(p => String(p.id)),
   );

@@ -80,6 +80,10 @@ export function rowToOrder(r) {
       UserName: "",
       Status: r.status || "None",
     },
+    Domain: raw.domain ? String(raw.domain) : undefined,
+    Sport: raw.sport ? String(raw.sport) : undefined,
+    Source: raw.source ? String(raw.source) : undefined,
+    Game: raw.game ? String(raw.game) : undefined,
     PmTokenId: raw.pmTokenId ? String(raw.pmTokenId) : undefined,
     PmShares: parseNum(raw.pmShares, 0) || undefined,
     PmFillPrice: (() => {

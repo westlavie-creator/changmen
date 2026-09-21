@@ -943,6 +943,8 @@ export async function fetchOrdersAdminStats(dateKey) {
       if (String(o.status || "") === "Reject")
         continue;
       const raw = o.raw && typeof o.raw === "object" ? o.raw : {};
+      if (String(raw.domain || "").trim().toLowerCase() === "sports")
+        continue;
       const provider = String(o.provider || "").trim();
       const isPf = provider === "PredictFun";
       const isSell = (provider === "Polymarket" && String(raw.pmSide || "").toLowerCase() === "sell")

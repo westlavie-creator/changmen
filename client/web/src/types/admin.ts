@@ -137,6 +137,14 @@ export interface AdminOrderRow {
   money: number;
   status: string;
   createAt: number;
+  /** [changmen 扩展] 订单业务域；sports/football 表示足球订单存放在 orders。 */
+  domain?: string;
+  /** [changmen 扩展] 体育运动类型。 */
+  sport?: string;
+  /** [changmen 扩展] 订单来源。 */
+  source?: string;
+  /** [changmen 扩展] 原始游戏/运动码。 */
+  game?: string;
   /** 历史订单回填：players.player_name（含已删账号） */
   playerName?: string;
   /** 历史订单回填：players.platform_name */

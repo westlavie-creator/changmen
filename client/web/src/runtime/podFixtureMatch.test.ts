@@ -115,6 +115,9 @@ describe("podFixtureMatch", () => {
       oidHome: "",
       oidAway: "",
       oidDraw: "",
+      betIdHome: "",
+      betIdAway: "",
+      betIdDraw: "",
     }]);
   });
 
@@ -139,6 +142,7 @@ describe("podFixtureMatch", () => {
           fallbackDrawOdds: 0,
           homeSubscribeId: "oid-h",
           awaySubscribeId: "oid-a",
+          betId: "cond-91",
         }],
       }],
     });
@@ -154,6 +158,9 @@ describe("podFixtureMatch", () => {
       oidHome: "oid-h",
       oidAway: "oid-a",
       oidDraw: "",
+      betIdHome: "cond-91",
+      betIdAway: "cond-91",
+      betIdDraw: "cond-91",
     }]);
   });
 

@@ -24,6 +24,14 @@ export interface OrderRow {
   Player?: OrderPlayerInfo;
   /** [changmen 扩展] 对应 player 已 soft-delete；展示用（对齐管理端 playerDeleted） */
   PlayerDeleted?: boolean;
+  /** [changmen 扩展] 订单业务域；旧订单为空时按电竞处理 */
+  Domain?: "esport" | "sports" | string;
+  /** [changmen 扩展] 体育订单运动类型 */
+  Sport?: "football" | string;
+  /** [changmen 扩展] 订单来源，如 POD 跟单 */
+  Source?: string;
+  /** [changmen 扩展] 原始订单游戏/运动码 */
+  Game?: string;
   /** [changmen 扩展] Polymarket 持仓，来自 orders.raw */
   PmTokenId?: string;
   PmShares?: number;

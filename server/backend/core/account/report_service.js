@@ -47,6 +47,13 @@ function finalizeRow(row) {
   return row;
 }
 
+function isSportsOrderRow(row) {
+  const raw = row?.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+    ? row.raw
+    : {};
+  return String(raw.domain || "").trim().toLowerCase() === "sports";
+}
+
 /** 月报：orders + money_logs；userId 单用户；userIds 团队/可见集（[] = 无成员，非全站） */
 export async function getMonthReport(month, userId, userIds) {
   const { month: m, year, mon, days } = monthBounds(month);
@@ -62,7 +69,9 @@ export async function getMonthReport(month, userId, userIds) {
   const monthOrders = emptyScope
     ? []
     : await sb.fetchOrdersForMonthAggregate(m, uid || undefined, userIds);
-  const merged = await mergePredictionBuySellSiblings(monthOrders || []);
+  const merged = (await mergePredictionBuySellSiblings(
+    (monthOrders || []).filter(o => !isSportsOrderRow(o)),
+  )).filter(o => !isSportsOrderRow(o));
   forEachBookedProfitGroup(dedupeOrdersByUserOrderId(merged), (group, homeKey) => {
     const row = byDate.get(homeKey);
     if (!row)

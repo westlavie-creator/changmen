@@ -27,6 +27,10 @@ function todayKey() {
   return toOrderDateKeyLocal(Date.now());
 }
 
+function isSportsOrder(row: OrderRow): boolean {
+  return String(row.Domain ?? "").trim() === "sports";
+}
+
 export { isLinkedArbOrderGroup as isLinkedArbGroup };
 
 /** 对齐 A8 `Io.getOrders` / `orders` / `orderDate` */
@@ -105,9 +109,10 @@ export const useOrderStore = defineStore("order", {
         const list = filterOrdersBelongingToDate(page.list ?? [], this.orderDate);
         this.orders = dropOrphanPolymarketSellGroups(groupOrdersByEffectiveLink(list));
         this.updateTodayProfit(list);
-        const reportRows = list
-          .filter(r => orderBelongsToDateKey(r, this.orderDate, list))
-          .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, list) }));
+        const reportBase = list.filter(r => !isSportsOrder(r));
+        const reportRows = reportBase
+          .filter(r => orderBelongsToDateKey(r, this.orderDate, reportBase))
+          .map(r => ({ ...r, Money: polymarketMoneyForAggregate(r, reportBase) }));
         useMessageStore().orderReportMessage(accountStore.accounts, reportRows);
         // 恢复「平仓中」会话：跑完 CLOB 终态（已平仓 / 可再卖）
         void import("@/stores/account/pmManualSell")
@@ -124,7 +129,8 @@ export const useOrderStore = defineStore("order", {
       const accountStore = useAccountStore();
       const today = this.orderDate;
       /** 展示已按 Link 开弓日过滤；盈亏与列表同一天 */
-      const inDay = list.filter(r => orderBelongsToDateKey(r, today, list));
+      const esportList = list.filter(r => !isSportsOrder(r));
+      const inDay = esportList.filter(r => orderBelongsToDateKey(r, today, esportList));
       const moneyOf = (r: OrderRow) => polymarketMoneyForAggregate(r, inDay);
       const byPlayer = new Map<number, OrderRow[]>();
       for (const row of inDay) {

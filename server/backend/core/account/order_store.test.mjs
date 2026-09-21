@@ -96,6 +96,30 @@ describe("listUserProfitRank", () => {
     expect(rows[0].Money).toBe(100);
   });
 
+  it("excludes sports-marked orders from the esport profit rank", async () => {
+    const sb = await import("@changmen/db");
+    vi.mocked(sb.fetchProfiles).mockResolvedValue([
+      { id: "u1", user_name: "alice", is_admin: false, role: "user" },
+    ]);
+    vi.mocked(sb.fetchOrdersForProfitAggregate).mockResolvedValue([
+      { user_id: "u1", provider: "OB", status: "Win", money: 100, bet_money: 500 },
+      {
+        user_id: "u1",
+        provider: "Polymarket",
+        status: "Win",
+        money: 999,
+        bet_money: 9000,
+        raw: { domain: "sports", sport: "football" },
+      },
+    ]);
+
+    const rows = await listUserProfitRank("2026-09-21");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].Money).toBe(100);
+    expect(rows[0].BetMoney).toBe(500);
+  });
+
   it("scales PredictFun USDT money/bet_money to CNY (matches frontend today P&L)", async () => {
     const sb = await import("@changmen/db");
     vi.mocked(sb.fetchProfiles).mockResolvedValue([

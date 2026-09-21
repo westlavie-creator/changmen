@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import LoseOrderView from "@/components/order/LoseOrderView.vue";
 import OrderList from "@/components/order/OrderList.vue";
@@ -11,13 +11,18 @@ import { wait } from "@changmen/client-core/shared/wait";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
+import type { OrderRow } from "@/types/order";
+import { isFootballOrderRow } from "@/shared/orderDomain";
+
+type OrderDomainFilter = "esport" | "football";
 
 const props = withDefaults(
   defineProps<{
     embedded?: boolean;
     embeddedUserId?: string;
+    workspace?: "esport" | "sports";
   }>(),
-  { embedded: false },
+  { embedded: false, workspace: "esport" },
 );
 
 const orderStore = useOrderStore();
@@ -27,13 +32,54 @@ const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrd
   = storeToRefs(orderStore);
 const { orders: loseOrders, cancelledOrders } = storeToRefs(loseStore);
 const { config } = storeToRefs(userStore);
+const domainFilter = ref<OrderDomainFilter>(
+  props.workspace === "sports" ? "football" : "esport",
+);
+
+const domainFilterOptions = [
+  { label: "电竞", value: "esport" },
+  { label: "足球", value: "football" },
+] as const;
+
+watch(
+  () => props.workspace,
+  workspace => {
+    domainFilter.value = workspace === "sports" ? "football" : "esport";
+  },
+);
+
+function isFootballOrder(row: OrderRow): boolean {
+  return isFootballOrderRow(row);
+}
+
+function matchesDomainFilter(row: OrderRow): boolean {
+  return domainFilter.value === "football"
+    ? isFootballOrder(row)
+    : !isFootballOrder(row);
+}
+
+const domainFilteredOrders = computed(() => {
+  const out = new Map<number, OrderRow[]>();
+  for (const [link, rows] of filteredOrders.value) {
+    const next = rows.filter(matchesDomainFilter);
+    if (next.length)
+      out.set(link, next);
+  }
+  return out;
+});
 
 const mergedOrderEntries = computed(() => {
+  const activeLoseOrders = domainFilter.value === "esport"
+    ? loseOrders.value
+    : new Map();
+  const activeCancelledOrders = domainFilter.value === "esport"
+    ? cancelledOrders.value
+    : new Map();
   const merged = mergePendingMakeupIntoOrderGroups(
-    filteredOrders.value,
-    loseOrders.value,
+    domainFilteredOrders.value,
+    activeLoseOrders,
     config.value.makeProfit,
-    cancelledOrders.value,
+    activeCancelledOrders,
     userStore.extensionPrefs.makeupOddsBand,
   );
   return orderLinkMapEntries(merged);
@@ -72,6 +118,15 @@ const showFilteredEmpty = computed(
   () =>
     filterAccountId.value !== 0
     && mergedOrderEntries.value.length === 0
+    && domainFilteredOrders.value.size > 0,
+);
+
+const showDomainEmpty = computed(
+  () =>
+    !loading.value
+    && !viewLoading.value
+    && mergedOrderEntries.value.length === 0
+    && domainFilteredOrders.value.size === 0
     && orders.value.size > 0,
 );
 
@@ -122,6 +177,13 @@ async function onLinkRebindDone() {
         :value="opt.value"
       />
     </el-select>
+    <el-segmented
+      v-model="domainFilter"
+      class="order-domain-filter"
+      size="small"
+      :options="domainFilterOptions"
+      :disabled="loading || viewLoading"
+    />
     <el-button
       class="am-icon-refresh order-date-bar__refresh"
       size="small"
@@ -133,10 +195,13 @@ async function onLinkRebindDone() {
   <p v-if="showFilteredEmpty" class="order-filter-empty">
     当前账号筛选下无订单，请选「全部」或点刷新
   </p>
+  <p v-else-if="showDomainEmpty" class="order-filter-empty">
+    当前筛选下无订单
+  </p>
 
-  <LoseOrderView v-if="!embedded" />
+  <LoseOrderView v-if="!embedded && domainFilter === 'esport'" />
 
-  <OrderMakeupStatusBar />
+  <OrderMakeupStatusBar v-if="domainFilter === 'esport'" />
 
   <OrderList
     :order-entries="mergedOrderEntries"
@@ -206,5 +271,19 @@ async function onLinkRebindDone() {
 
 .order-account-filter :deep(.el-select__suffix) {
   margin-left: 0;
+}
+
+.order-domain-filter {
+  flex: 0 0 auto;
+  --el-segmented-item-selected-color: var(--el-color-primary);
+}
+
+.order-domain-filter :deep(.el-segmented__item) {
+  padding: 0 5px;
+}
+
+.order-domain-filter :deep(.el-segmented__item-label) {
+  font-size: 11px;
+  line-height: 20px;
 }
 </style>
