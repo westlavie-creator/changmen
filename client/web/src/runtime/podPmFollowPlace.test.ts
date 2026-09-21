@@ -55,7 +55,7 @@ describe("podPmFollowPlace", () => {
     }))).toBe("PM 暂不支持平局");
     expect(podPmFollowPlaceBlock(ticket({ quote: { status: "short", quote: 1.8, minObOdds: 1.9, maxObOdds: 2.18, evPercent: -2 } }))).toBe("PM 价不够");
     expect(podPmFollowPlaceBlock(ticket({ quote: { status: "spike", quote: 2.4, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 30 } }))).toBe("EV 异常");
-    expect(podPmFollowPlaceBlock(ticket({ stake: 0 }))).toBe("注码未设");
+    expect(podPmFollowPlaceBlock(ticket({ stake: 0 }))).toBe("PM金额未设");
     expect(podPmFollowPlaceBlock(ticket())).toBe("请选择 PM 账号");
     expect(podPmFollowPlaceBlock(ticket({ accountIds: [7] }))).toBeNull();
   });

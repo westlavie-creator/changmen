@@ -1,5 +1,5 @@
 /**
- * POD 跟单票：门槛过线后给人看「买哪边、最低 OB、注码」。下单在跟单面板，自动默认关。
+ * POD 跟单票：门槛过线后给人看「买哪边、最低 OB」。下单金额由 OB/PM 各自设置决定。
  */
 import {
   formatPodOutcome,
@@ -76,7 +76,7 @@ export function buildPodBetTicket(
     pinPrevious: alert.previous,
     minObOdds: minObOddsForAlert(alert, settings),
     maxObOdds: maxObOddsForAlert(alert, settings),
-    stake: settings.stake,
+    stake: 0,
     dropPct: alert.dropPct,
     starts: alert.starts,
   };

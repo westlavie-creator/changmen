@@ -115,7 +115,7 @@ export async function placeObSportBoardBet(
   const title = formatObSportBoardPlaceTitle(input);
   const stake = await promptSportBoardStake({
     title,
-    defaultStake: Number(settings.obStake) > 0 ? settings.obStake : settings.stake,
+    defaultStake: Number(settings.obStake) || 0,
     accountCount: accounts.length,
     venue: "OB",
   });

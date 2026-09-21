@@ -97,7 +97,7 @@ describe("podFollowPending", () => {
       autoPlace: false,
       withinAge: true,
       maxAgeSec: 30,
-    }).detail).toBe("注码未设");
+    }).detail).toBe("OB金额未设");
     expect(resolvePodFollowPending({
       ticket: ticket(),
       placed: false,

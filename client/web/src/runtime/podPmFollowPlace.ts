@@ -89,7 +89,7 @@ export function podPmFollowPlaceBlock(ticket: PodPmFollowPlaceTicket): string | 
     return "PM 价不够";
   }
   if (!(Number(ticket.stake) > 0))
-    return "注码未设";
+    return "PM金额未设";
   if (!normalizedAccountIds(ticket.accountIds).length)
     return "请选择 PM 账号";
   return null;

@@ -395,8 +395,7 @@ function jumpToTicket(ticket: (typeof tickets.value)[number]) {
 }
 
 function followStakeFor(venue: "OB" | "Polymarket"): number {
-  const venueStake = venue === "OB" ? betSettings.value.obStake : betSettings.value.pmStake;
-  return Number(venueStake) > 0 ? Number(venueStake) : Number(betSettings.value.stake) || 0;
+  return Number(venue === "OB" ? betSettings.value.obStake : betSettings.value.pmStake) || 0;
 }
 
 function formatEnabledVenueStakes(): string {

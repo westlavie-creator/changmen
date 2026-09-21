@@ -44,7 +44,7 @@ describe("podFollowPlace", () => {
     }))).toBe("无 OB 盘");
     expect(podFollowPlaceBlock(ticket({ quote: { status: "short", quote: 1.8, minObOdds: 1.9, maxObOdds: 2.18, evPercent: -2 } }))).toBe("OB 价不够");
     expect(podFollowPlaceBlock(ticket({ quote: { status: "spike", quote: 2.4, minObOdds: 1.9, maxObOdds: 2.18, evPercent: 30 } }))).toBe("EV 异常");
-    expect(podFollowPlaceBlock(ticket({ stake: 0 }))).toBe("注码未设");
+    expect(podFollowPlaceBlock(ticket({ stake: 0 }))).toBe("OB金额未设");
     expect(podFollowPlaceBlock(ticket({ accountIds: [] }))).toBe("请选择 OB 账号");
     expect(podFollowPlaceBlock(ticket())).toBeNull();
   });

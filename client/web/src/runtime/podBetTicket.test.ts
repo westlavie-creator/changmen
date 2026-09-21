@@ -37,7 +37,7 @@ function alert(over: Partial<PodDropAlert> = {}): PodDropAlert {
 
 describe("podBetTicket", () => {
   it("builds a follow ticket with min OB from NVP and edge", () => {
-    const s = { ...POD_BET_SETTINGS_DEFAULTS, enabled: true, stake: 80 };
+    const s = { ...POD_BET_SETTINGS_DEFAULTS, enabled: true, obStake: 80 };
     const now = 1_960_000;
     const ticket = buildPodBetTicket(alert(), s, now);
     expect(ticket).not.toBeNull();
@@ -47,7 +47,7 @@ describe("podBetTicket", () => {
     expect(ticket!.minObOdds).toBe(1.924);
     expect(ticket!.maxObOdds).toBe(2.183);
     expect(formatPodEv(5.4)).toBe("EV +5.4%");
-    expect(formatPodStake(ticket!.stake)).toBe("¥80");
+    expect(formatPodStake(ticket!.stake)).toBe("注码未设");
     expect(formatPodKickoff(ticket!.starts, now)).toBe("40秒后开");
     expect(formatPodKickoff(now + 30_000, now)).toBe("30秒后开");
     expect(formatPodKickoff(now + 120_000, now)).toBe("2分钟后开");

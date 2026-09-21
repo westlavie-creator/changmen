@@ -165,32 +165,9 @@ onUnmounted(() => {
       <section class="pod-bet-settings__section">
         <div class="pod-bet-settings__section-head">
           <h3>金额与风控</h3>
-          <p>所有金额统一填人民币；PM 下单前自动换算成 USDC。OB/PM 单独金额为 0 时沿用默认金额。</p>
+          <p>所有金额统一填人民币；PM 下单前自动换算成 USDC。选了账号后，对应金额必须大于 0。</p>
         </div>
         <div class="pod-bet-settings__grid">
-          <el-form-item label="默认金额">
-            <div class="pod-bet-settings__inline">
-              <el-input-number
-                v-model="form.stake"
-                :min="0"
-                :max="1000000"
-                :step="10"
-                :precision="0"
-                controls-position="right"
-              />
-              <span class="pod-bet-settings__unit">元</span>
-              <button
-                v-for="n in POD_FOLLOW_STAKE_PRESETS"
-                :key="`default-${n}`"
-                type="button"
-                class="pod-bet-settings__chip"
-                :class="{ 'is-on': form.stake === n }"
-                @click="form.stake = n"
-              >
-                {{ n }}
-              </button>
-            </div>
-          </el-form-item>
           <el-form-item label="OB金额">
             <div class="pod-bet-settings__inline">
               <el-input-number

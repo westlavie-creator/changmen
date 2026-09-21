@@ -96,7 +96,7 @@ export async function placePmSportBoardBet(
   const title = formatPmSportBoardPlaceTitle(input);
   const stake = await promptSportBoardStake({
     title,
-    defaultStake: Number(settings.pmStake) > 0 ? settings.pmStake : settings.stake,
+    defaultStake: Number(settings.pmStake) || 0,
     accountCount: accounts.length,
     venue: PM,
   });

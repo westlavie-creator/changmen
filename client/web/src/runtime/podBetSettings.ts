@@ -34,11 +34,11 @@ export type PodBetSettings = {
   maxOdds: number;
   /** 警报过期秒数 */
   maxAgeSec: number;
-  /** 计划跟单下注金额（元）；0 = 未设 */
+  /** @deprecated 旧版默认金额；不再参与 OB/PM 跟单下单。 */
   stake: number;
-  /** OB 跟单下注金额；0 = 沿用 stake */
+  /** OB 跟单下注金额；0 = 未设，不下单 */
   obStake: number;
-  /** Polymarket 跟单下注金额；0 = 沿用 stake */
+  /** Polymarket 跟单下注金额；0 = 未设，不下单 */
   pmStake: number;
   /** 过线且对上盘口后自动下单。默认关 */
   autoPlace: boolean;

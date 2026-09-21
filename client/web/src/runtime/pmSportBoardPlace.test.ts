@@ -25,4 +25,10 @@ describe("pmSportBoardPlace", () => {
       source.indexOf("listPmFollowAccounts"),
     );
   });
+
+  it("does not fall back to the deprecated default POD stake", () => {
+    const source = readFileSync(join(process.cwd(), "src/runtime/pmSportBoardPlace.ts"), "utf8");
+    expect(source).toMatch(/defaultStake:\s*Number\(settings\.pmStake\) \|\| 0/);
+    expect(source).not.toMatch(/defaultStake:[\s\S]{0,80}settings\.stake/);
+  });
 });

@@ -43,7 +43,7 @@ export function podFollowPlaceBlock(ticket: PodFollowPlaceTicket): string | null
     return "OB 价不够";
   }
   if (!(Number(ticket.stake) > 0))
-    return "注码未设";
+    return "OB金额未设";
   if (!Array.isArray(ticket.accountIds) || !ticket.accountIds.some(id => Number(id) > 0))
     return "请选择 OB 账号";
   if (!String(ticket.obMid || "").trim())
