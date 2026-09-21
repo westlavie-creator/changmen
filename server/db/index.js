@@ -135,6 +135,7 @@ export const {
   fetchProfilesAdmin,
   fetchOrdersAdminStats,
   fetchOrdersAdminPage,
+  fetchUnifiedFootballOrdersAdmin,
   deleteOrdersByIds,
   deletePolymarketSellOrders,
   fetchOrdersAdminAll,

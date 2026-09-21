@@ -95,6 +95,28 @@ describe("orders_store read SQL", () => {
     expect(sql).not.toMatch(/changmen_bet/i);
   });
 
+  it("fetchUnifiedFootballOrdersAdmin reads only non-OB sports football orders", async () => {
+    queryMock.mockResolvedValue({ rows: [] });
+    await import("./orders_store.js").then(m =>
+      m.fetchUnifiedFootballOrdersAdmin({
+        dateKey: "2026-09-21",
+        userId: "550e8400-e29b-41d4-a716-446655440000",
+        limit: 50,
+      }),
+    );
+    const [sql, params] = queryMock.mock.calls[0];
+    expect(sql).toMatch(/raw->>'domain'/);
+    expect(sql).toMatch(/raw->>'sport'/);
+    expect(sql).toMatch(/raw->>'game'/);
+    expect(sql).toMatch(/<> 'OB'/);
+    expect(params).toEqual([
+      expect.any(Number),
+      expect.any(Number),
+      "550e8400-e29b-41d4-a716-446655440000",
+      50,
+    ]);
+  });
+
   it("fetchOrdersByPlayerAll returns all orders (saveOrder internal)", async () => {
     queryMock.mockResolvedValue({ rows: [] });
     await fetchOrdersByPlayerAll(7, "user-1");

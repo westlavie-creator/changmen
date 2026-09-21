@@ -59,6 +59,7 @@ export {
   fetchOrdersAdminAll,
   fetchOrdersAdminPage,
   fetchOrdersAdminStats,
+  fetchUnifiedFootballOrdersAdmin,
   fetchOrdersByDate,
   fetchOrdersByDatePage,
   fetchOrdersByLink,

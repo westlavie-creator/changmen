@@ -1,5 +1,5 @@
 /**
- * 足球订单 DTO。独立于电竞 orders / Link / 结算。
+ * 足球订单 DTO。OB 足球独立于电竞 orders；非 OB 足球可由统一 orders 映射为本 DTO。
  */
 
 const STATUSES = new Set(["None", "Pending", "Win", "Lose", "Reject", "Return"]);

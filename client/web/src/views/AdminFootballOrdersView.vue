@@ -181,8 +181,8 @@ const hasContent = computed(() =>
 
 const subtitle = computed(() =>
   groupMode.value === "account"
-    ? "按操盘账号分列 · POD 跟单独立于电竞"
-    : "每位用户一列 · POD 跟单独立于电竞",
+    ? "按操盘账号分列 · OB 独立，其他场馆来自统一订单"
+    : "每位用户一列 · OB 独立，其他场馆来自统一订单",
 );
 
 function syncQuery() {
@@ -395,7 +395,7 @@ onMounted(async () => {
           v-if="!loading && !loadError && !filteredOrders.length && (groupMode === 'account' || !users.length)"
           class="admin-order-groups__empty"
         >
-          {{ date }} 暂无足球订单。可切换日期查看；数据在 RDS football_orders，不进电竞订单。
+          {{ date }} 暂无足球订单。可切换日期查看；OB 读 football_orders，其他场馆读统一 orders。
         </p>
       </div>
 

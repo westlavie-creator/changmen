@@ -1018,6 +1018,40 @@ export async function fetchOrdersAdminPage({
   }
 }
 
+/** 管理端足球订单：统一 orders 内的非 OB 体育足球订单。OB 足球仍走 football_orders。 */
+export async function fetchUnifiedFootballOrdersAdmin({ dateKey, userId, limit = 2000 } = {}) {
+  const { dayStart, dayEnd } = localDayBounds(dateKey);
+  const pool = getPgPool();
+  if (!pool)
+    return [];
+  try {
+    const params = [dayStart, dayEnd];
+    let where = `${sqlOrderBelongsToRange(1, 2)}
+      AND LOWER(COALESCE(raw->>'domain', '')) = 'sports'
+      AND LOWER(COALESCE(raw->>'sport', raw->>'game', '')) = 'football'
+      AND UPPER(COALESCE(provider, '')) <> 'OB'`;
+    if (userId) {
+      params.push(String(userId));
+      where += ` AND user_id = $${params.length}::uuid`;
+    }
+    params.push(Math.min(Math.max(Number(limit) || 2000, 1), 5000));
+    const { rows } = await pool.query(
+      `SELECT o.*, p.user_name
+       FROM orders o
+       LEFT JOIN profiles p ON p.id = o.user_id
+       WHERE ${where}
+       ORDER BY o.create_at DESC, o.id DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+    return rows || [];
+  }
+  catch (err) {
+    console.warn("[rds] fetchUnifiedFootballOrdersAdmin:", err.message);
+    return [];
+  }
+}
+
 /** 管理端：按主键 id 删除订单 */
 export async function deleteOrdersByIds(ids) {
   if (!Array.isArray(ids) || !ids.length)
