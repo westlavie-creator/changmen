@@ -56,6 +56,106 @@ export function sanitizeSettingForAdmin(raw) {
   return { ...raw };
 }
 
+const ADMIN_CONFIG_PREFERENCE_KEYS = [
+  "Follow",
+  "PROXY",
+  "GoogleCode",
+  "Wallet",
+  "Message",
+  "Extensions",
+];
+
+const SENSITIVE_CONFIG_KEY_RE = /token|cookie|secret|private|privy|password|authorization|credential|session|jwt|api[_-]?key/i;
+
+function clonePlain(value) {
+  if (value == null)
+    return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function parseAdminConfigValue(value) {
+  if (typeof value !== "string")
+    return { value: clonePlain(value), parsed: false };
+  const trimmed = value.trim();
+  if (!trimmed)
+    return { value, parsed: false };
+  try {
+    return { value: JSON.parse(trimmed), parsed: true };
+  }
+  catch (err) {
+    return {
+      value,
+      parsed: false,
+      parseError: err?.message || "JSON parse failed",
+    };
+  }
+}
+
+function maskSensitiveString(value) {
+  const text = String(value ?? "");
+  if (!text)
+    return "";
+  if (text.length <= 6)
+    return "***";
+  return `${text.slice(0, 3)}***${text.slice(-3)}`;
+}
+
+export function redactAdminConfigValue(value) {
+  if (Array.isArray(value))
+    return value.map(item => redactAdminConfigValue(item));
+  if (!value || typeof value !== "object")
+    return value;
+  const out = {};
+  for (const [key, raw] of Object.entries(value)) {
+    if (SENSITIVE_CONFIG_KEY_RE.test(key)) {
+      out[key] = raw == null || raw === ""
+        ? raw
+        : { masked: true, hasValue: true, value: maskSensitiveString(raw) };
+      continue;
+    }
+    out[key] = redactAdminConfigValue(raw);
+  }
+  return out;
+}
+
+function parsePreferencesForAdmin(preferences) {
+  const prefs = preferences && typeof preferences === "object" && !Array.isArray(preferences)
+    ? preferences
+    : {};
+  const out = {};
+  const parseErrors = {};
+  for (const key of ADMIN_CONFIG_PREFERENCE_KEYS) {
+    if (!(key in prefs))
+      continue;
+    const parsed = parseAdminConfigValue(prefs[key]);
+    out[key] = redactAdminConfigValue(parsed.value);
+    if (parsed.parseError)
+      parseErrors[key] = parsed.parseError;
+  }
+  const extra = {};
+  for (const [key, val] of Object.entries(prefs)) {
+    if (ADMIN_CONFIG_PREFERENCE_KEYS.includes(key) || PROFILE_META_PREFERENCE_KEYS.has(key))
+      continue;
+    const parsed = parseAdminConfigValue(val);
+    extra[key] = redactAdminConfigValue(parsed.value);
+    if (parsed.parseError)
+      parseErrors[key] = parsed.parseError;
+  }
+  return { preferences: out, extra, parseErrors };
+}
+
+function redactRawPreferencesForAdmin(preferences) {
+  const prefs = preferences && typeof preferences === "object" && !Array.isArray(preferences)
+    ? preferences
+    : {};
+  const out = {};
+  for (const [key, value] of Object.entries(prefs)) {
+    const parsed = parseAdminConfigValue(value);
+    out[key] = redactAdminConfigValue(parsed.value);
+  }
+  return out;
+}
+
 /** 合并 profiles 三列配置，兼容已迁移库与仍含 setting 的旧行 */
 export function profileSettingForAdmin(row) {
   if (!row || typeof row !== "object")
@@ -173,6 +273,65 @@ function mapAdminUserRow(p, profitByUser = new Map()) {
     todayMoney: Number(stats?.Money ?? 0) || 0,
     todayCount: Number(stats?.Count ?? 0) || 0,
     todayBetMoney: Number(stats?.BetMoney ?? 0) || 0,
+  };
+}
+
+export async function getAdminUserConfigDetail(userId, caller = null) {
+  const id = String(userId || "").trim();
+  if (!id)
+    throw new Error("用户 ID 无效");
+
+  const allProfiles = await sb.fetchProfilesAdmin();
+  const visibleIds = resolveVisibleUserIds(caller, allProfiles);
+  if (visibleIds && !visibleIds.has(id))
+    throw new Error("无权查看该用户");
+
+  const profile = (allProfiles || []).find(p => String(p.id) === id);
+  if (!profile)
+    throw new Error("用户不存在");
+
+  await loadProfileById(id);
+  await loadAccountsForUser(id);
+
+  const bettingConfig = profile.betting_config && typeof profile.betting_config === "object" && !Array.isArray(profile.betting_config)
+    ? profile.betting_config
+    : {};
+  const collectConfig = profile.collect_config && typeof profile.collect_config === "object" && !Array.isArray(profile.collect_config)
+    ? profile.collect_config
+    : {};
+  const { preferences, extra, parseErrors } = parsePreferencesForAdmin(profile.preferences);
+  const accounts = store.getAccountsForUser(id)
+    .map(sanitizeAccountForAdmin)
+    .filter(Boolean)
+    .map(row => redactAdminConfigValue(row));
+  const presence = resolvePresenceState(id, profile);
+
+  return {
+    user: {
+      id,
+      userName: String(profile.user_name || ""),
+      role: profile.role || (profile.is_admin ? "admin" : "user"),
+      teamId: profile.team_id || null,
+      isAdmin: Boolean(profile.is_admin),
+      isOnline: presence.isOnline,
+      lastActiveAt: presence.lastActiveAt,
+      ...lastLoginFieldsFromProfile(profile),
+      createdAt: Number(profile.created_at) || 0,
+      updatedAt: Number(profile.updated_at) || 0,
+    },
+    configs: {
+      USERCONFIG: redactAdminConfigValue(clonePlain(bettingConfig) || {}),
+      CollectConfig: redactAdminConfigValue(clonePlain(collectConfig) || {}),
+      preferences,
+      extraPreferences: extra,
+      ACCOUNT: accounts,
+    },
+    parseErrors,
+    raw: {
+      betting_config: redactAdminConfigValue(clonePlain(bettingConfig) || {}),
+      collect_config: redactAdminConfigValue(clonePlain(collectConfig) || {}),
+      preferences: redactRawPreferencesForAdmin(profile.preferences),
+    },
   };
 }
 

@@ -96,6 +96,35 @@ export interface AdminAccountListRow extends AdminAccountDetail {
 
 export type AdminUserSetting = Record<string, unknown>;
 
+export interface AdminUserConfigDetail {
+  user: {
+    id: string;
+    userName: string;
+    role?: "admin" | "leader" | "user" | string;
+    teamId?: string | null;
+    isAdmin?: boolean;
+    isOnline?: number;
+    lastActiveAt?: number;
+    lastLoginIp?: string;
+    lastLoginAt?: number;
+    createdAt: number;
+    updatedAt: number;
+  };
+  configs: {
+    USERCONFIG: Record<string, unknown>;
+    CollectConfig: Record<string, unknown>;
+    preferences: Record<string, unknown>;
+    extraPreferences: Record<string, unknown>;
+    ACCOUNT: Array<Record<string, unknown>>;
+  };
+  parseErrors: Record<string, string>;
+  raw: {
+    betting_config: Record<string, unknown>;
+    collect_config: Record<string, unknown>;
+    preferences: Record<string, unknown>;
+  };
+}
+
 export interface AdminUserRow {
   id: string;
   userName: string;

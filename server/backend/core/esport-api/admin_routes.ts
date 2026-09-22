@@ -63,6 +63,19 @@ export async function handleAdminAction(
       const date = body.date ? String(body.date) : undefined;
       return ok(await adminService.listAdminUsers(date, ctx.user));
     }
+    case "Client_AdminUserConfigDetail": {
+      try {
+        return ok(
+          await adminService.getAdminUserConfigDetail(
+            (body.userId ?? body.id) as string,
+            ctx.user,
+          ),
+        );
+      }
+      catch (err) {
+        return fail((err as Error).message || "查询失败");
+      }
+    }
     case "Client_AdminOrders": {
       return ok(await adminService.listAdminOrders(body, ctx.user));
     }

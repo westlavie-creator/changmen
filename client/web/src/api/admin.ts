@@ -7,6 +7,7 @@ import type {
   AdminOrderMatrix,
   AdminOrderPage,
   AdminOrderRow,
+  AdminUserConfigDetail,
   AdminUserRow,
 } from "@/types/admin";
 import type { PlatformId } from "@/types/esport";
@@ -22,6 +23,12 @@ export async function getAdminDashboard(date?: string) {
 
 export async function getAdminUsers(date?: string) {
   return unwrap(await post<AdminUserRow[]>("Client_AdminUsers", date ? { date } : {}));
+}
+
+export async function getAdminUserConfigDetail(userId: string) {
+  return unwrap(
+    await post<AdminUserConfigDetail>("Client_AdminUserConfigDetail", { userId }),
+  );
 }
 
 export async function getAdminOrders(body: Record<string, unknown> = {}) {

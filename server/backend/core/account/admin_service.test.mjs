@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   deleteAdminOrders,
+  getAdminUserConfigDetail,
   listAdminOrders,
   parseAdminOrderIdList,
   parseFormBool,
@@ -58,6 +59,38 @@ vi.mock("@changmen/db", () => ({
         }
       : null
   )),
+  fetchProfilesAdmin: vi.fn(async () => [
+    {
+      id: "u1",
+      user_name: "alice",
+      is_admin: false,
+      role: "user",
+      team_id: "t1",
+      betting_config: { betting: true, betMoney: 200 },
+      collect_config: { collect: [["OB", true]], log: false },
+      preferences: {
+        Follow: "{\"users\":[\"bob\"]}",
+        PROXY: "[{\"proxyId\":1,\"password\":\"secret\"}]",
+        Message: "{\"telegramId\":\"123\"}",
+        lastLoginIp: "203.0.113.1",
+        lastLoginAt: 1700000000000,
+      },
+      created_at: 10,
+      updated_at: 20,
+    },
+    {
+      id: "u2",
+      user_name: "bob",
+      is_admin: false,
+      role: "user",
+      team_id: "t2",
+      betting_config: {},
+      collect_config: {},
+      preferences: {},
+      created_at: 10,
+      updated_at: 20,
+    },
+  ]),
   getPgPool: vi.fn(() => ({
     query: vi.fn(async (sql, params) => {
       const q = String(sql);
@@ -92,6 +125,7 @@ const mockProfileRow = vi.hoisted(() => ({
 
 vi.mock("../db/store.js", () => ({
   loadProfileById: vi.fn(async () => null),
+  loadAccountsForUser: vi.fn(async () => []),
   listProfileRows: vi.fn(() => [mockProfileRow]),
 }));
 
@@ -114,6 +148,14 @@ vi.mock("../esport-api/store.js", () => ({
 
 vi.mock("../auth/role_filter.js", () => ({
   getVisibleUserIds: vi.fn(async () => null),
+  resolveVisibleUserIds: vi.fn((caller) => {
+    if (caller?.role === "leader")
+      return new Set(["u1"]);
+    return null;
+  }),
+  filterProfiles: vi.fn((profiles, visibleIds) =>
+    visibleIds ? profiles.filter(p => visibleIds.has(String(p.id))) : profiles,
+  ),
 }));
 
 describe("listAdminOrders", () => {
@@ -220,6 +262,48 @@ describe("profileSettingForAdmin", () => {
     expect(profileSettingForAdmin({
       betting_config: { BetTarget: "true" },
     }).BetTarget).toBe(true);
+  });
+});
+
+describe("getAdminUserConfigDetail", () => {
+  it("returns grouped parsed configs and masks sensitive account fields", async () => {
+    mockGetAccountsForUser.mockReturnValueOnce([
+      {
+        accountId: 12,
+        provider: "OB",
+        playerName: "ob-main",
+        token: "secret-token",
+        cookie: "secret-cookie",
+        balance: 100,
+      },
+    ]);
+    const detail = await getAdminUserConfigDetail("u1", { id: "admin", role: "admin", isAdmin: true });
+    expect(detail.configs.USERCONFIG.betMoney).toBe(200);
+    expect(detail.configs.CollectConfig.collect).toEqual([["OB", true]]);
+    expect(detail.configs.preferences.Follow).toEqual({ users: ["bob"] });
+    expect(detail.configs.preferences.PROXY[0].password).toMatchObject({
+      masked: true,
+      hasValue: true,
+    });
+    expect(detail.configs.ACCOUNT[0].token).toMatchObject({
+      masked: true,
+      hasValue: true,
+    });
+    expect(detail.configs.ACCOUNT[0].cookie).toMatchObject({
+      masked: true,
+      hasValue: true,
+    });
+    expect(detail.raw.preferences.lastLoginIp).toBe("203.0.113.1");
+    expect(detail.raw.preferences.PROXY[0].password).toMatchObject({
+      masked: true,
+      hasValue: true,
+    });
+  });
+
+  it("rejects users outside leader visibility", async () => {
+    await expect(
+      getAdminUserConfigDetail("u2", { id: "leader", role: "leader", teamId: "t1" }),
+    ).rejects.toThrow("无权查看该用户");
   });
 });
 
