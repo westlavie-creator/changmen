@@ -33,6 +33,7 @@ const defaultPrefs = {
   arbAllowedPlatforms: null,
   singleLeg9999Precheck: true,
   singleLeg9999UseValueBetMoney: false,
+  singleLeg9999MaxPerMap: 1,
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
   arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
@@ -171,6 +172,12 @@ describe("extensionPrefs", () => {
       ...defaultPrefs,
       singleLeg9999UseValueBetMoney: true,
     });
+  });
+
+  it("reads and clamps singleLeg9999MaxPerMap", () => {
+    expect(normalizeExtensionPrefs({ singleLeg9999MaxPerMap: 3 }).singleLeg9999MaxPerMap).toBe(3);
+    expect(normalizeExtensionPrefs({ singleLeg9999MaxPerMap: 0 }).singleLeg9999MaxPerMap).toBe(1);
+    expect(normalizeExtensionPrefs({ singleLeg9999MaxPerMap: 99 }).singleLeg9999MaxPerMap).toBe(20);
   });
 
   it("ignores legacy pmAutoExitSell key (feature removed)", () => {

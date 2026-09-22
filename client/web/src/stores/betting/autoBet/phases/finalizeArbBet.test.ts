@@ -26,6 +26,7 @@ const {
   saveOrderBind,
   refreshBalance,
   bettingMessage,
+  recordSingleLeg9999MapFill,
 } = vi.hoisted(() => ({
   showRejectDetectionTip: vi.fn(),
   maxLegRejectWaitSec: vi.fn(() => 3),
@@ -35,6 +36,7 @@ const {
   saveOrderBind: vi.fn(),
   refreshBalance: vi.fn(),
   bettingMessage: vi.fn(),
+  recordSingleLeg9999MapFill: vi.fn(),
 }));
 
 vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
@@ -67,6 +69,10 @@ vi.mock("@/stores/userStore", () => ({
 
 vi.mock("@/extensions/arbBet/arbFailAutoSell", () => ({
   maybeArbFailAutoSellAfterFinalize: vi.fn(async () => false),
+}));
+
+vi.mock("@/extensions/arbBet/singleLeg9999MapCount", () => ({
+  recordSingleLeg9999MapFill,
 }));
 
 vi.mock("@/stores/betting/successMarkers", () => ({
@@ -117,6 +123,7 @@ function makeMatch(): ViewMatch {
 function makeBet(): ViewBet {
   const row = {
     id: 10,
+    round: 1,
     name: "[地图1] 获胜",
     items: [],
     getBetName: () => "[地图1] 获胜",
@@ -227,6 +234,7 @@ describe("finalizeArbBet makeup enqueue", () => {
     showRejectDetectionTip.mockResolvedValue(undefined);
     refreshBalance.mockResolvedValue(undefined);
     settleArbLeg.mockReset();
+    recordSingleLeg9999MapFill.mockReset();
   });
 
   it("双腿 API 成功且 B 腿拒单时入队补单", async () => {
@@ -302,6 +310,7 @@ describe("finalizeArbBet makeup enqueue", () => {
   it("9999 单边仍走拒单等待与拉单", async () => {
     const placed = makePlaced({
       betBothLegs: false,
+      singleLegByRate: true,
       accountB: undefined,
       resultB: undefined,
       placeOutcomeB: "not_attempted",
@@ -315,6 +324,48 @@ describe("finalizeArbBet makeup enqueue", () => {
 
     expect(showRejectDetectionTip).toHaveBeenCalled();
     expect(settleArbLeg).toHaveBeenCalledTimes(1);
+  });
+
+  it("9999 单边成功后记录同图次数", async () => {
+    const placed = makePlaced({
+      betBothLegs: false,
+      singleLegByRate: true,
+      accountB: undefined,
+      resultB: undefined,
+      placeOutcomeB: "not_attempted",
+    });
+    settleArbLeg.mockResolvedValueOnce(packLegSync({
+      orders: [venueOrder("ob-1", "none", 2)],
+      rejected: false,
+    }));
+
+    await finalizeArbBet(params, placed);
+
+    expect(recordSingleLeg9999MapFill).toHaveBeenCalledWith(1, 1);
+  });
+
+  it("does not record 9999 count for normal two-leg arbitrage or rejected single leg", async () => {
+    mockDualLegVenueSync(
+      { orders: [venueOrder("ob-1", "none", 2)], rejected: false },
+      { orders: [venueOrder("ray-1", "none", 3)], rejected: false },
+    );
+    await finalizeArbBet(params, makePlaced());
+    expect(recordSingleLeg9999MapFill).not.toHaveBeenCalled();
+
+    recordSingleLeg9999MapFill.mockReset();
+    const placed = makePlaced({
+      betBothLegs: false,
+      singleLegByRate: true,
+      accountB: undefined,
+      resultB: undefined,
+      placeOutcomeB: "not_attempted",
+    });
+    settleArbLeg.mockResolvedValueOnce(packLegSync({
+      orders: [venueOrder("ob-reject", "reject", 2)],
+      rejected: true,
+    }));
+    await finalizeArbBet(params, placed);
+    expect(recordSingleLeg9999MapFill).not.toHaveBeenCalled();
   });
 
   it("maxWait=0 时不弹拒单检测 tip（纯 PM / 无 A8 等待）", async () => {

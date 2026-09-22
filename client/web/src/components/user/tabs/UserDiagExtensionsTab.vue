@@ -39,6 +39,8 @@ else
   extensionPrefs.value.arbAllowedPlatforms = normalizeArbAllowedPlatforms(
     extensionPrefs.value.arbAllowedPlatforms,
   );
+if (extensionPrefs.value.singleLeg9999MaxPerMap == null)
+  extensionPrefs.value.singleLeg9999MaxPerMap = 1;
 
 const arbFailAutoSellTip = computed(() =>
   arbFailAutoSellAvailable
@@ -200,6 +202,29 @@ async function save() {
             active-text="开"
             inactive-text="关"
           />
+        </el-form-item>
+
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="同一比赛同一地图最多触发几笔 9999 单边真下单。默认 1 次；独立于 EV 自动下注次数。"
+            >
+              <span class="extensions-tab__tip-label">9999 同图次数</span>
+            </el-tooltip>
+          </template>
+          <el-input-number
+            v-model="extensionPrefs.singleLeg9999MaxPerMap"
+            class="extensions-tab__num"
+            :min="1"
+            :max="20"
+            :step="1"
+            :precision="0"
+            controls-position="right"
+          />
+          <span class="extensions-tab__unit">次</span>
         </el-form-item>
       </el-form>
 
@@ -516,6 +541,12 @@ async function save() {
 
 .extensions-tab__num {
   width: 120px;
+}
+
+.extensions-tab__unit {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .extensions-tab__save {

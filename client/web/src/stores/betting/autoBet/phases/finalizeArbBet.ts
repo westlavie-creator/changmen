@@ -10,13 +10,14 @@ import { settleBothArbLegs } from "@/stores/betting/autoBet/phases/settleBothArb
 import { syncArbFinalizeActiveBet } from "@/stores/betting/autoBet/phases/syncArbFinalizeUi";
 import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { useUserStore } from "@/stores/userStore";
+import { recordSingleLeg9999MapFill } from "@/extensions/arbBet/singleLeg9999MapCount";
 
 /** 套利收尾编排：settle → makeup → mark → notify（顺序对齐 A8 bundle） */
 export async function finalizeArbBet(
   params: ArbBetAttemptParams,
   placed: ArbBetPlaced,
 ): Promise<void> {
-  const { bet } = params;
+  const { match, bet } = params;
   const { linkId } = placed;
 
   const settle = await settleBothArbLegs(params, placed);
@@ -38,6 +39,12 @@ export async function finalizeArbBet(
 
   logArbFinalizeTraceEvents(params.trace, linkId, placed, settle, makeup, bet.id);
   markArbSuccessLegs(bet, placed, settle);
+  if (placed.singleLegByRate && (
+    (placed.resultA?.success && placed.accountA && !settle.rejectA)
+    || (placed.resultB?.success && placed.accountB && !settle.rejectB)
+  )) {
+    recordSingleLeg9999MapFill(match.id, bet.round);
+  }
   refreshOrderListAfterBind();
 
   const outcome = syncArbFinalizeActiveBet(bet.id, placed, settle, makeup);

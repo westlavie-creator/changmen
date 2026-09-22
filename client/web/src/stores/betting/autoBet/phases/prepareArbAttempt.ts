@@ -15,6 +15,7 @@ import {
   applyValueBetMoneyTo9999LiveLeg,
   resolve9999LiveSide,
 } from "@/extensions/arbBet/singleLeg9999Stake";
+import { getSingleLeg9999MapCount } from "@/extensions/arbBet/singleLeg9999MapCount";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
@@ -185,6 +186,12 @@ export async function prepareArbAttempt(
   if (singleLegByRate) {
     trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
     const prefs = userStore.extensionPrefs;
+    const maxPerMap = Number(prefs.singleLeg9999MaxPerMap) || 1;
+    const mapCount = getSingleLeg9999MapCount(match.id, bet.round);
+    if (mapCount >= maxPerMap) {
+      trace?.finish("skip", `9999 同图次数已满（${mapCount}/${maxPerMap}）`);
+      return null;
+    }
     const liveSide = resolve9999LiveSide(accountA, accountB);
     const stake = applyValueBetMoneyTo9999LiveLeg({
       singleLegByRate,

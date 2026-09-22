@@ -202,6 +202,11 @@ export interface ExtensionPrefs extends Record<string, unknown> {
    * 预检腿保持原套利计划额。默认关闭。
    */
   singleLeg9999UseValueBetMoney: boolean;
+  /**
+   * 9999 单边同一比赛同一地图（ViewBet.round，含全场 0）最多下几笔。
+   * 默认 1；独立于正 EV 同图次数。
+   */
+  singleLeg9999MaxPerMap: number;
   /** 利润达阈值时放大下注金额 */
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /** 套利失败敞口：自动卖掉已成交的 PM/PF 腿 */
@@ -348,6 +353,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     arbAllowedPlatforms: null,
     singleLeg9999Precheck: true,
     singleLeg9999UseValueBetMoney: false,
+    singleLeg9999MaxPerMap: 1,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     arbFailAutoSell: createDefaultArbFailAutoSell(),
     arbEarlyLockSell: createDefaultArbEarlyLockSell(),
@@ -477,6 +483,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     arbAllowedPlatforms: normalizeArbAllowedPlatforms(row.arbAllowedPlatforms),
     singleLeg9999Precheck: row.singleLeg9999Precheck !== false,
     singleLeg9999UseValueBetMoney: row.singleLeg9999UseValueBetMoney === true,
+    singleLeg9999MaxPerMap: normalizeValueBetCount(row.singleLeg9999MaxPerMap, 1),
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
     arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
