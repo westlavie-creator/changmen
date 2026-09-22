@@ -70,7 +70,7 @@ const accountOptions = computed(() => store.accountOptions);
         v-model="orderDate"
         class="date-nav--sidebar"
         placeholder="选择日期"
-        picker-width="100px"
+        picker-width="86px"
         :disabled="loading || viewLoading"
         @change="onDateChange"
       />
@@ -92,6 +92,8 @@ const accountOptions = computed(() => store.accountOptions);
         class="am-icon-refresh order-date-bar__refresh"
         size="small"
         :loading="loading || viewLoading"
+        title="刷新订单"
+        aria-label="刷新订单"
         @click="reload()"
       />
     </div>
@@ -130,15 +132,23 @@ const accountOptions = computed(() => store.accountOptions);
 }
 
 .order-date-bar {
-  justify-content: flex-start;
-  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  padding: 8px 8px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.order-date-bar :deep(.date-nav) {
+  flex: 0 0 auto;
 }
 
 .order-date-bar__refresh {
-  margin-left: auto;
-  flex: 0 0 auto;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  padding: 4px 0;
 }
 
 .order-filter-empty {
@@ -149,8 +159,9 @@ const accountOptions = computed(() => store.accountOptions);
 }
 
 .order-account-filter {
-  width: 56px;
-  flex: 0 0 auto;
+  width: 64px;
+  min-width: 64px;
+  flex: 0 0 64px;
 }
 
 .order-account-filter :deep(.el-select__wrapper) {
@@ -160,7 +171,6 @@ const accountOptions = computed(() => store.accountOptions);
 
 .order-account-filter :deep(.el-select__selected-item) {
   font-size: 11px;
-  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

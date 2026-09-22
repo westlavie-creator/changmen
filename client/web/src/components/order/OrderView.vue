@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import LoseOrderView from "@/components/order/LoseOrderView.vue";
 import OrderList from "@/components/order/OrderList.vue";
@@ -12,9 +12,7 @@ import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import type { OrderRow } from "@/types/order";
-import { isFootballOrderRow, isUnifiedFootballOrderRow } from "@/shared/orderDomain";
-
-type OrderDomainFilter = "esport" | "football";
+import { isFootballOrderRow } from "@/shared/orderDomain";
 
 const props = withDefaults(
   defineProps<{
@@ -32,36 +30,11 @@ const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrd
   = storeToRefs(orderStore);
 const { orders: loseOrders, cancelledOrders } = storeToRefs(loseStore);
 const { config } = storeToRefs(userStore);
-const domainFilter = ref<OrderDomainFilter>(
-  props.workspace === "sports" ? "football" : "esport",
-);
-
-const domainFilterOptions = [
-  { label: "电竞", value: "esport" },
-  { label: "足球", value: "football" },
-] as const;
-
-watch(
-  () => props.workspace,
-  workspace => {
-    domainFilter.value = workspace === "sports" ? "football" : "esport";
-  },
-);
-
-function isFootballOrder(row: OrderRow): boolean {
-  return isUnifiedFootballOrderRow(row);
-}
-
-function matchesDomainFilter(row: OrderRow): boolean {
-  return domainFilter.value === "football"
-    ? isFootballOrder(row)
-    : !isFootballOrderRow(row);
-}
 
 const domainFilteredOrders = computed(() => {
   const out = new Map<number, OrderRow[]>();
   for (const [link, rows] of filteredOrders.value) {
-    const next = rows.filter(matchesDomainFilter);
+    const next = rows.filter(row => !isFootballOrderRow(row));
     if (next.length)
       out.set(link, next);
   }
@@ -69,17 +42,11 @@ const domainFilteredOrders = computed(() => {
 });
 
 const mergedOrderEntries = computed(() => {
-  const activeLoseOrders = domainFilter.value === "esport"
-    ? loseOrders.value
-    : new Map();
-  const activeCancelledOrders = domainFilter.value === "esport"
-    ? cancelledOrders.value
-    : new Map();
   const merged = mergePendingMakeupIntoOrderGroups(
     domainFilteredOrders.value,
-    activeLoseOrders,
+    loseOrders.value,
     config.value.makeProfit,
-    activeCancelledOrders,
+    cancelledOrders.value,
     userStore.extensionPrefs.makeupOddsBand,
   );
   return orderLinkMapEntries(merged);
@@ -155,65 +122,60 @@ async function onLinkRebindDone() {
 <template>
   <div class="order-view-stack">
     <div class="date flex flex-middle order-date-bar">
-    <OrderDateNav
-      v-model="orderDate"
-      class="date-nav--sidebar"
-      placeholder="选择日期"
-      picker-width="100px"
-      :disabled="loading || viewLoading"
-      @change="onDateChange"
-    />
-    <el-select
-      v-model="filterAccountId"
-      class="order-account-filter"
-      placeholder="Select"
-      size="small"
-      :disabled="loading || viewLoading"
-    >
-      <el-option
-        v-for="opt in accountOptions"
-        :key="opt.value"
-        :label="opt.label"
-        :value="opt.value"
+      <OrderDateNav
+        v-model="orderDate"
+        class="date-nav--sidebar"
+        placeholder="选择日期"
+        picker-width="86px"
+        :disabled="loading || viewLoading"
+        @change="onDateChange"
       />
-    </el-select>
-    <el-segmented
-      v-model="domainFilter"
-      class="order-domain-filter"
-      size="small"
-      :options="domainFilterOptions"
-      :disabled="loading || viewLoading"
-    />
-    <el-button
-      class="am-icon-refresh order-date-bar__refresh"
-      size="small"
+      <el-select
+        v-model="filterAccountId"
+        class="order-account-filter"
+        placeholder="Select"
+        size="small"
+        :disabled="loading || viewLoading"
+      >
+        <el-option
+          v-for="opt in accountOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </el-select>
+      <el-button
+        class="am-icon-refresh order-date-bar__refresh"
+        size="small"
+        :loading="loading || viewLoading"
+        title="刷新订单"
+        aria-label="刷新订单"
+        @click="reload()"
+      />
+    </div>
+
+    <p v-if="showFilteredEmpty" class="order-filter-empty">
+      当前账号筛选下无订单，请选「全部」或点刷新
+    </p>
+    <p v-else-if="showDomainEmpty" class="order-filter-empty">
+      当前筛选下无订单
+    </p>
+
+    <LoseOrderView v-if="!embedded" />
+
+    <OrderMakeupStatusBar />
+
+    <OrderList
+      :order-entries="mergedOrderEntries"
       :loading="loading || viewLoading"
-      @click="reload()"
+      :player-label="playerLabel"
+      :platform-class="platformClass"
+      :allow-link-rebind="!embedded"
+      :allow-pm-sell="!embedded"
+      :allow-pf-sell="!embedded"
+      @cancel-makeup="onCancelMakeup"
+      @link-rebind-done="onLinkRebindDone"
     />
-  </div>
-
-  <p v-if="showFilteredEmpty" class="order-filter-empty">
-    当前账号筛选下无订单，请选「全部」或点刷新
-  </p>
-  <p v-else-if="showDomainEmpty" class="order-filter-empty">
-    当前筛选下无订单
-  </p>
-
-  <LoseOrderView v-if="!embedded && domainFilter === 'esport'" />
-
-  <OrderMakeupStatusBar v-if="domainFilter === 'esport'" />
-
-  <OrderList
-    :order-entries="mergedOrderEntries"
-    :loading="loading || viewLoading"
-    :player-label="playerLabel"
-    :platform-class="platformClass"
-    :allow-link-rebind="!embedded"
-    :allow-pm-sell="!embedded"
-    :allow-pf-sell="!embedded"
-    @cancel-makeup="onCancelMakeup"
-    @link-rebind-done="onLinkRebindDone"
-  />
   </div>
 </template>
 
@@ -232,15 +194,23 @@ async function onLinkRebindDone() {
 }
 
 .order-date-bar {
-  justify-content: flex-start;
-  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  padding: 8px 8px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.order-date-bar :deep(.date-nav) {
+  flex: 0 0 auto;
 }
 
 .order-date-bar__refresh {
-  margin-left: auto;
-  flex: 0 0 auto;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  padding: 4px 0;
 }
 
 .order-filter-empty {
@@ -252,8 +222,9 @@ async function onLinkRebindDone() {
 
 /** 侧栏账号筛选：触发器窄，下拉仍随选项文案展宽 */
 .order-account-filter {
-  width: 56px;
-  flex: 0 0 auto;
+  width: 64px;
+  min-width: 64px;
+  flex: 0 0 64px;
 }
 
 .order-account-filter :deep(.el-select__wrapper) {
@@ -263,7 +234,6 @@ async function onLinkRebindDone() {
 
 .order-account-filter :deep(.el-select__selected-item) {
   font-size: 11px;
-  letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -273,17 +243,4 @@ async function onLinkRebindDone() {
   margin-left: 0;
 }
 
-.order-domain-filter {
-  flex: 0 0 auto;
-  --el-segmented-item-selected-color: var(--el-color-primary);
-}
-
-.order-domain-filter :deep(.el-segmented__item) {
-  padding: 0 5px;
-}
-
-.order-domain-filter :deep(.el-segmented__item-label) {
-  font-size: 11px;
-  line-height: 20px;
-}
 </style>
