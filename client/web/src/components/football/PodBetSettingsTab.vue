@@ -67,6 +67,8 @@ function applyExternal() {
     form.spreadObEdgePct = next.spreadObEdgePct;
     form.maxObEdgePct = next.maxObEdgePct;
     form.lineMatch = next.lineMatch;
+    form.stakeRandomStep = next.stakeRandomStep;
+    form.stakeRandomLevels = next.stakeRandomLevels;
     form.minOdds = next.minOdds;
     form.maxOdds = next.maxOdds;
     form.maxAgeSec = next.maxAgeSec;
@@ -165,7 +167,7 @@ onUnmounted(() => {
       <section class="pod-bet-settings__section">
         <div class="pod-bet-settings__section-head">
           <h3>金额与风控</h3>
-          <p>所有金额统一填人民币；PM 下单前自动换算成 USDC。选了账号后，对应金额必须大于 0。</p>
+          <p>OB/PM 是执行场馆；所有金额统一填人民币，PM 下单前自动换算成 USDC。</p>
         </div>
         <div class="pod-bet-settings__grid">
           <el-form-item label="OB金额">
@@ -291,8 +293,8 @@ onUnmounted(() => {
 
       <section class="pod-bet-settings__section">
         <div class="pod-bet-settings__section-head">
-          <h3>价格门槛</h3>
-          <p>EV / 副盘 / 同场闸门在 AutoYabo 决策里控制。</p>
+          <h3>AutoYabo 策略</h3>
+          <p>POD/NVP 是策略基准；OB/PM 只作为交易场馆执行，现有下单路径不在这里改写。</p>
         </div>
         <div class="pod-bet-settings__grid">
           <el-form-item label="最小降幅">
@@ -307,7 +309,7 @@ onUnmounted(() => {
             />
             <span class="pod-bet-settings__unit">%</span>
           </el-form-item>
-          <el-form-item label="OB 边">
+          <el-form-item label="EV 阈值">
             <el-input-number
               v-model="form.minObEdgePct"
               :disabled="!form.enabled"

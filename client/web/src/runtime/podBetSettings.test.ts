@@ -65,6 +65,8 @@ describe("podBetSettings", () => {
     expect(row.maxObEdgePct).toBe(18);
     expect(row.spreadObEdgePct).toBe(8);
     expect(row.lineMatch).toBe("strict");
+    expect(row.stakeRandomStep).toBe(0);
+    expect(row.stakeRandomLevels).toBe(0);
     expect(POD_FOLLOW_STAKE_PRESETS).toEqual([50, 100, 200, 500]);
     const emptyMarkets = parsePodBetSettings({ moneyline: false, totals: false, spreads: false });
     expect(emptyMarkets.moneyline).toBe(true);
@@ -72,6 +74,8 @@ describe("podBetSettings", () => {
     expect(emptyMarkets.spreads).toBe(false);
     expect(parsePodBetSettings({ autoPlace: true }).autoPlace).toBe(true);
     expect(parsePodBetSettings({ lineMatch: "loose" }).lineMatch).toBe("loose");
+    expect(parsePodBetSettings({ stakeRandomStep: 15, stakeRandomLevels: 2 }).stakeRandomStep).toBe(15);
+    expect(parsePodBetSettings({ stakeRandomStep: 15, stakeRandomLevels: 2 }).stakeRandomLevels).toBe(2);
     expect(POD_BET_SETTINGS_DEFAULTS.maxAgeSec).toBe(45);
     // 撤回误默认 180；上一版 30 并入 45
     expect(parsePodBetSettings({ maxAgeSec: 180 }).maxAgeSec).toBe(45);

@@ -8,10 +8,10 @@ defineProps<{
 
 <template>
   <div class="pod-yabo-settings">
-    <p class="pod-yabo-settings__title">AutoYabo 决策</p>
+    <p class="pod-yabo-settings__title">AutoYabo 策略风控</p>
     <p class="pod-yabo-settings__hint">
-      独立模块 <code>runtime/podYabo</code>：EV 上下限、让球更高边、同场同向/反向闸门、自动等实时价、优先高 EV。
-      对齐 AutoYabo：新降赔<strong>就绪立刻打</strong>，见过不重打；冷票保护是我们列表常驻才加的，原文没有。「含副盘」须用该档 NVP。
+      策略层独立于 OB/PM：EV 上下限、让球更高边、同场同向/反向闸门、自动等实时价、优先高 EV。
+      对齐 AutoYabo：新降赔<strong>就绪立刻打</strong>，见过不重打；「含副盘」须用该档 NVP。
     </p>
     <el-form-item label="盘口">
       <el-switch
@@ -36,6 +36,29 @@ defineProps<{
       />
       <span class="pod-yabo-settings__unit">% 高于 NVP</span>
       <span class="pod-yabo-settings__note">默认比大小高</span>
+    </el-form-item>
+    <el-form-item label="随机注额">
+      <el-input-number
+        v-model="form.stakeRandomStep"
+        :disabled="!form.enabled"
+        :min="0"
+        :max="1000000"
+        :step="10"
+        :precision="0"
+        controls-position="right"
+      />
+      <span class="pod-yabo-settings__unit">步长</span>
+      <el-input-number
+        v-model="form.stakeRandomLevels"
+        :disabled="!form.enabled || !(form.stakeRandomStep > 0)"
+        :min="0"
+        :max="20"
+        :step="1"
+        :precision="0"
+        controls-position="right"
+      />
+      <span class="pod-yabo-settings__unit">层</span>
+      <span class="pod-yabo-settings__note">0 = 固定场馆金额；只影响自动</span>
     </el-form-item>
     <el-form-item label="EV 上限">
       <el-input-number

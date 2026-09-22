@@ -6,7 +6,7 @@
  * 时效模型对齐 PodAuto1：新降赔立刻打，不用长 maxAge 续冷票。
  */
 export type { PodYaboSettings, PodYaboLineMatch } from "./settings";
-export { POD_YABO_SETTINGS_DEFAULTS, parsePodYaboSettings } from "./settings";
+export { POD_YABO_SETTINGS_DEFAULTS, parsePodYaboSettings, resolvePodYaboStake } from "./settings";
 export {
   formatPodEv,
   maxObOddsForAlert,

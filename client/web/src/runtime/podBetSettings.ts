@@ -24,12 +24,14 @@ export type PodBetSettings = {
   spreads: boolean;
   /** 最小降幅 % */
   minDropPct: number;
-  /** 对 OB 时：实时/HTTP 报价须高于 NVP 的最小边 %。即 EV 下限。大小/独赢用这个。 */
+  /** AutoYabo EV 阈值：目标场馆报价须高于 NVP 的最小边 %。大小/独赢用这个。 */
   minObEdgePct: number;
-  /** AutoYabo：让球 EV 下限、EV 上限、副盘。见 podYabo/settings。 */
+  /** AutoYabo：让球 EV 下限、EV 上限、副盘、随机注额。见 podYabo/settings。 */
   spreadObEdgePct: number;
   maxObEdgePct: number;
   lineMatch: "strict" | "loose";
+  stakeRandomStep: number;
+  stakeRandomLevels: number;
   minOdds: number;
   maxOdds: number;
   /** 警报过期秒数 */

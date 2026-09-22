@@ -299,11 +299,12 @@ describe("sport / esport UI isolation", () => {
     expect(yaboSettings).toMatch(/maxObEdgePct:\s*18/);
     expect(yaboSettings).toMatch(/spreadObEdgePct:\s*8/);
     expect(yaboSettings).toMatch(/lineMatch:\s*"strict"/);
+    expect(yaboSettings).toMatch(/stakeRandomStep:\s*0/);
     const podBetTab = readFileSync(join(root, "components/football/PodBetSettingsTab.vue"), "utf8");
     expect(podBetTab).toMatch(/followAccountIds/);
     expect(podBetTab).toMatch(/PodFollowAccountPicker/);
     expect(podBetTab).toMatch(/PodYaboSettings/);
-    expect(podBetTab).toMatch(/AutoYabo 决策/);
+    expect(podBetTab).toMatch(/AutoYabo 策略/);
     const yaboTab = readFileSync(join(root, "components/football/PodYaboSettings.vue"), "utf8");
     expect(yaboTab).toMatch(/EV 上限/);
     expect(yaboTab).toMatch(/同场同向/);

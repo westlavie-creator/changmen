@@ -25,6 +25,7 @@ import { getFootballQuote } from "@/runtime/footballQuote";
 import {
   formatPodEv,
   pickPodYaboAutoTicket,
+  resolvePodYaboStake,
   scorePodYaboFollow,
 } from "@/runtime/podYabo";
 import type { PodOutcomeGateEntry } from "@/runtime/podYabo/gate";
@@ -398,6 +399,11 @@ function followStakeFor(venue: "OB" | "Polymarket"): number {
   return Number(venue === "OB" ? betSettings.value.obStake : betSettings.value.pmStake) || 0;
 }
 
+function strategyStakeFor(venue: "OB" | "Polymarket", auto: boolean): number {
+  const base = followStakeFor(venue);
+  return auto ? resolvePodYaboStake(base, betSettings.value) : base;
+}
+
 function formatEnabledVenueStakes(): string {
   const parts: string[] = [];
   if (followObEnabled.value)
@@ -419,7 +425,7 @@ function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
-    stake: followStakeFor("OB"),
+    stake: strategyStakeFor("OB", auto),
     fixtureStatus: ticket.fixtureMatch.status,
     fixtureBasis: ticket.fixtureMatch.basis,
     obMid: String(hit?.fixture.obMid || "").trim(),
@@ -438,7 +444,7 @@ function pmTicketPlacePayload(ticket: (typeof tickets.value)[number], auto = fal
   const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
-    stake: followStakeFor("Polymarket"),
+    stake: strategyStakeFor("Polymarket", auto),
     fixtureStatus: ticket.fixtureMatch.status,
     fixtureBasis: ticket.fixtureMatch.basis,
     pmMatchId: String(hit?.fixture.pmMid || hit?.fixture.id || "").trim(),
@@ -795,8 +801,8 @@ function onDisplayClick(row: { live?: (typeof tickets.value)[number]; log: PodFo
 async function placeTicket(ticket: (typeof tickets.value)[number], auto: boolean) {
   if (placingId.value)
     return;
-  recordObAttempt(ticket, auto ? "auto_attempt" : "manual_click");
   const payload = ticketPlacePayload(ticket, auto);
+  recordObAttempt(ticket, auto ? "auto_attempt" : "manual_click", { stake: payload.stake });
   const block = venueDailyOrderBlock("OB") || podFollowPlaceBlock(payload);
   if (block) {
     recordObAttempt(ticket, "blocked", { reason: block });
@@ -985,7 +991,7 @@ function pmPlaceButtonTitle(ticket: (typeof tickets.value)[number]): string | un
 function recordObAttempt(
   ticket: (typeof tickets.value)[number],
   status: "manual_click" | "auto_attempt" | "blocked" | "placed" | "failed",
-  opts: { reason?: string; message?: string } = {},
+  opts: { reason?: string; message?: string; stake?: number } = {},
 ) {
   const shadowMessage = ticket.shadowCompare.ok ? "" : `shadow:${ticket.shadowCompare.summary}`;
   const message = [opts.message, shadowMessage].filter(Boolean).join(" | ");
@@ -997,7 +1003,7 @@ function recordObAttempt(
     message,
     auto: status === "auto_attempt",
     odds: Number(ticket.obQuote.quote) || Number(ticket.marketMatch.quote) || 0,
-    stake: followStakeFor("OB"),
+    stake: Number(opts.stake) || followStakeFor("OB"),
     selection: ticket.selectionShadow.key,
   });
 }
