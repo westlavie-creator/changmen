@@ -11,6 +11,10 @@ import { checkArbLegs } from "@/stores/betting/autoBet/phases/checkArbLegs";
 import { finalizeArbBet } from "@/stores/betting/autoBet/phases/finalizeArbBet";
 import { placeArbLegs } from "@/stores/betting/autoBet/phases/placeArbLegs";
 import { prepareArbAttempt } from "@/stores/betting/autoBet/phases/prepareArbAttempt";
+import {
+  releaseSingleLeg9999MapFill,
+  releaseSingleLeg9999MapFillKeys,
+} from "@/extensions/arbBet/singleLeg9999MapCount";
 
 async function timed<T>(run: () => Promise<T>): Promise<{ value: T; ms: number }> {
   const startedAt = performance.now();
@@ -49,6 +53,11 @@ export async function executeArbBet(params: {
   phaseMsMap.check = checked.ms;
   const checkedValue = checked.value;
   if (!checkedValue) {
+    if (ready.singleLeg9999MapReserved) {
+      if (ready.singleLeg9999MapKeys?.length)
+        releaseSingleLeg9999MapFillKeys(ready.singleLeg9999MapKeys);
+      else releaseSingleLeg9999MapFill(params.match.id, params.bet.round);
+    }
     recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_check" });
     return;
   }

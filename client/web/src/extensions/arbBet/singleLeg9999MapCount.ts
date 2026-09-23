@@ -13,6 +13,23 @@ export function singleLeg9999MapKey(matchId: number, round: number): string {
   return `${matchId}:${round}`;
 }
 
+export function singleLeg9999SourceMarketKey(
+  provider: string,
+  matchId: string,
+  betId: string,
+): string | null {
+  const p = String(provider || "").trim();
+  const m = String(matchId || "").trim();
+  const b = String(betId || "").trim();
+  if (!p || !m || !b)
+    return null;
+  return `source:${p}:${m}:${b}`;
+}
+
+function uniqueKeys(keys: string[]): string[] {
+  return [...new Set(keys.map(k => String(k || "").trim()).filter(Boolean))];
+}
+
 function storage(): Storage | null {
   try {
     return localStorage;
@@ -80,6 +97,14 @@ export function getSingleLeg9999MapCount(matchId: number, round: number): number
   return counts.get(singleLeg9999MapKey(matchId, round)) ?? 0;
 }
 
+export function getSingleLeg9999MapCountForKeys(keys: string[]): number {
+  ensureLoaded();
+  let max = 0;
+  for (const key of uniqueKeys(keys))
+    max = Math.max(max, counts.get(key) ?? 0);
+  return max;
+}
+
 export function recordSingleLeg9999MapFill(matchId: number, round: number): number {
   ensureLoaded();
   const key = singleLeg9999MapKey(matchId, round);
@@ -87,6 +112,67 @@ export function recordSingleLeg9999MapFill(matchId: number, round: number): numb
   counts.set(key, next);
   writeStored();
   return next;
+}
+
+export function recordSingleLeg9999MapFillKeys(keys: string[]): number {
+  ensureLoaded();
+  let max = 0;
+  for (const key of uniqueKeys(keys)) {
+    const next = (counts.get(key) ?? 0) + 1;
+    counts.set(key, next);
+    max = Math.max(max, next);
+  }
+  writeStored();
+  return max;
+}
+
+export function reserveSingleLeg9999MapFill(matchId: number, round: number, maxPerMap: number): boolean {
+  ensureLoaded();
+  const key = singleLeg9999MapKey(matchId, round);
+  const current = counts.get(key) ?? 0;
+  if (current >= maxPerMap)
+    return false;
+  counts.set(key, current + 1);
+  writeStored();
+  return true;
+}
+
+export function reserveSingleLeg9999MapFillKeys(keys: string[], maxPerMap: number): boolean {
+  ensureLoaded();
+  const uniq = uniqueKeys(keys);
+  if (!uniq.length)
+    return false;
+  if (uniq.some(key => (counts.get(key) ?? 0) >= maxPerMap))
+    return false;
+  for (const key of uniq)
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  writeStored();
+  return true;
+}
+
+export function releaseSingleLeg9999MapFill(matchId: number, round: number): number {
+  ensureLoaded();
+  const key = singleLeg9999MapKey(matchId, round);
+  const next = Math.max(0, (counts.get(key) ?? 0) - 1);
+  if (next > 0)
+    counts.set(key, next);
+  else counts.delete(key);
+  writeStored();
+  return next;
+}
+
+export function releaseSingleLeg9999MapFillKeys(keys: string[]): number {
+  ensureLoaded();
+  let max = 0;
+  for (const key of uniqueKeys(keys)) {
+    const next = Math.max(0, (counts.get(key) ?? 0) - 1);
+    if (next > 0)
+      counts.set(key, next);
+    else counts.delete(key);
+    max = Math.max(max, next);
+  }
+  writeStored();
+  return max;
 }
 
 export function resetSingleLeg9999MapCountForTests(): void {

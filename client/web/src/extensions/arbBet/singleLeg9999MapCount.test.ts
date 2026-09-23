@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   getSingleLeg9999MapCount,
+  getSingleLeg9999MapCountForKeys,
   recordSingleLeg9999MapFill,
+  releaseSingleLeg9999MapFill,
+  reserveSingleLeg9999MapFillKeys,
+  reserveSingleLeg9999MapFill,
   resetSingleLeg9999MapCountForTests,
+  singleLeg9999MapKey,
+  singleLeg9999SourceMarketKey,
 } from "@/extensions/arbBet/singleLeg9999MapCount";
 
 describe("singleLeg9999MapCount", () => {
@@ -16,5 +22,30 @@ describe("singleLeg9999MapCount", () => {
     expect(recordSingleLeg9999MapFill(10, 1)).toBe(2);
     expect(getSingleLeg9999MapCount(10, 0)).toBe(0);
     expect(recordSingleLeg9999MapFill(10, 0)).toBe(1);
+  });
+
+  it("reserves a map slot before fill and releases failed attempts", () => {
+    expect(reserveSingleLeg9999MapFill(10, 1, 1)).toBe(true);
+    expect(getSingleLeg9999MapCount(10, 1)).toBe(1);
+    expect(reserveSingleLeg9999MapFill(10, 1, 1)).toBe(false);
+    expect(releaseSingleLeg9999MapFill(10, 1)).toBe(0);
+    expect(reserveSingleLeg9999MapFill(10, 1, 1)).toBe(true);
+  });
+
+  it("blocks the same venue source market even if frontend match id changes", () => {
+    const sourceKey = singleLeg9999SourceMarketKey("RAY", "38444239", "18280")!;
+    expect(reserveSingleLeg9999MapFillKeys([
+      singleLeg9999MapKey(10, 1),
+      sourceKey,
+    ], 1)).toBe(true);
+
+    expect(getSingleLeg9999MapCountForKeys([
+      singleLeg9999MapKey(99, 1),
+      sourceKey,
+    ])).toBe(1);
+    expect(reserveSingleLeg9999MapFillKeys([
+      singleLeg9999MapKey(99, 1),
+      sourceKey,
+    ], 1)).toBe(false);
   });
 });

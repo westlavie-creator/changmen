@@ -10,7 +10,12 @@ import { settleBothArbLegs } from "@/stores/betting/autoBet/phases/settleBothArb
 import { syncArbFinalizeActiveBet } from "@/stores/betting/autoBet/phases/syncArbFinalizeUi";
 import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { useUserStore } from "@/stores/userStore";
-import { recordSingleLeg9999MapFill } from "@/extensions/arbBet/singleLeg9999MapCount";
+import {
+  recordSingleLeg9999MapFill,
+  recordSingleLeg9999MapFillKeys,
+  releaseSingleLeg9999MapFill,
+  releaseSingleLeg9999MapFillKeys,
+} from "@/extensions/arbBet/singleLeg9999MapCount";
 
 /** 套利收尾编排：settle → makeup → mark → notify（顺序对齐 A8 bundle） */
 export async function finalizeArbBet(
@@ -39,11 +44,21 @@ export async function finalizeArbBet(
 
   logArbFinalizeTraceEvents(params.trace, linkId, placed, settle, makeup, bet.id);
   markArbSuccessLegs(bet, placed, settle);
-  if (placed.singleLegByRate && (
+  const singleLeg9999Filled = placed.singleLegByRate && (
     (placed.resultA?.success && placed.accountA && !settle.rejectA)
     || (placed.resultB?.success && placed.accountB && !settle.rejectB)
-  )) {
-    recordSingleLeg9999MapFill(match.id, bet.round);
+  );
+  if (singleLeg9999Filled) {
+    if (!placed.singleLeg9999MapReserved) {
+      if (placed.singleLeg9999MapKeys?.length)
+        recordSingleLeg9999MapFillKeys(placed.singleLeg9999MapKeys);
+      else recordSingleLeg9999MapFill(match.id, bet.round);
+    }
+  }
+  else if (placed.singleLeg9999MapReserved) {
+    if (placed.singleLeg9999MapKeys?.length)
+      releaseSingleLeg9999MapFillKeys(placed.singleLeg9999MapKeys);
+    else releaseSingleLeg9999MapFill(match.id, bet.round);
   }
   refreshOrderListAfterBind();
 

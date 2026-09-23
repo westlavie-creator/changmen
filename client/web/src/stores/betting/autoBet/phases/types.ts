@@ -18,6 +18,10 @@ export interface ArbBetReady {
   betBothLegs: boolean;
   /** 比例 9999 触发：本侧仅预检，对侧 live 腿真下单 */
   singleLegByRate: boolean;
+  /** 9999 同图额度已在 prepare 阶段占位；失败时需要释放 */
+  singleLeg9999MapReserved?: boolean;
+  /** 9999 同图计数 key：前端 match:round + 场馆源盘口 key */
+  singleLeg9999MapKeys?: string[];
   linkId: number;
   /** [changmen 扩展] 高利润加仓倍数；1 表示未触发 */
   stakeScale: number;

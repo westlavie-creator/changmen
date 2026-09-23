@@ -15,7 +15,13 @@ import {
   applyValueBetMoneyTo9999LiveLeg,
   resolve9999LiveSide,
 } from "@/extensions/arbBet/singleLeg9999Stake";
-import { getSingleLeg9999MapCount } from "@/extensions/arbBet/singleLeg9999MapCount";
+import {
+  getSingleLeg9999MapCountForKeys,
+  releaseSingleLeg9999MapFillKeys,
+  reserveSingleLeg9999MapFillKeys,
+  singleLeg9999MapKey,
+  singleLeg9999SourceMarketKey,
+} from "@/extensions/arbBet/singleLeg9999MapCount";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
 import { accountsFundingReady } from "@/stores/account/accountPicker";
@@ -183,13 +189,25 @@ export async function prepareArbAttempt(
     return null;
   }
 
+  let singleLeg9999MapReserved = false;
+  let singleLeg9999MapKeys: string[] | undefined;
   if (singleLegByRate) {
     trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
     const prefs = userStore.extensionPrefs;
     const maxPerMap = Number(prefs.singleLeg9999MaxPerMap) || 1;
-    const mapCount = getSingleLeg9999MapCount(match.id, bet.round);
+    singleLeg9999MapKeys = [
+      singleLeg9999MapKey(match.id, bet.round),
+      singleLeg9999SourceMarketKey(legA.type, legA.matchId, legA.betId),
+      singleLeg9999SourceMarketKey(legB.type, legB.matchId, legB.betId),
+    ].filter(Boolean) as string[];
+    const mapCount = getSingleLeg9999MapCountForKeys(singleLeg9999MapKeys);
     if (mapCount >= maxPerMap) {
       trace?.finish("skip", `9999 同图次数已满（${mapCount}/${maxPerMap}）`);
+      return null;
+    }
+    singleLeg9999MapReserved = reserveSingleLeg9999MapFillKeys(singleLeg9999MapKeys, maxPerMap);
+    if (!singleLeg9999MapReserved) {
+      trace?.finish("skip", `9999 同图次数已满（${maxPerMap}/${maxPerMap}）`);
       return null;
     }
     const liveSide = resolve9999LiveSide(accountA, accountB);
@@ -207,6 +225,7 @@ export async function prepareArbAttempt(
       const liveLeg = liveSide === "A" ? legA : legB;
       const bal = liveAcc?.getBalance();
       if (bal !== undefined && liveLeg && bal < liveLeg.betMoney) {
+        releaseSingleLeg9999MapFillKeys(singleLeg9999MapKeys);
         trace?.finish(
           "fail",
           `正EV金额余额不足（${Math.floor(bal)} < ${Math.ceil(liveLeg.betMoney)}）`,
@@ -256,6 +275,8 @@ export async function prepareArbAttempt(
     implied,
     betBothLegs,
     singleLegByRate,
+    singleLeg9999MapReserved,
+    singleLeg9999MapKeys,
     linkId,
     stakeScale,
   };
