@@ -503,6 +503,8 @@ function syncPolymarketWalletAddressFromPrivateKey() {
         polyApiCredsFingerprint.value = "";
       }
       polyWalletAddress.value = address;
+    }).catch(() => {
+      // 粘贴/输入时的自动推导只是 UI 便捷能力；失败必须留给保存/手动推导按钮提示，不能冒到全局触发刷新。
     });
   }
   catch {
