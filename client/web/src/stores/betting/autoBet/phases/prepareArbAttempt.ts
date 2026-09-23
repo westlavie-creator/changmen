@@ -17,10 +17,12 @@ import {
 } from "@/extensions/arbBet/singleLeg9999Stake";
 import {
   getSingleLeg9999MapCountForKeys,
+  hasSingleLeg9999OppositeSourceSide,
   releaseSingleLeg9999MapFillKeys,
   reserveSingleLeg9999MapFillKeys,
   singleLeg9999MapKey,
   singleLeg9999SourceMarketKey,
+  singleLeg9999SourceSideKey,
 } from "@/extensions/arbBet/singleLeg9999MapCount";
 import { formatLegAccount } from "@/shared/arbBetTraceFormat";
 import { buildArbProgressLegPair } from "@/shared/arbProgressLegMeta";
@@ -195,10 +197,21 @@ export async function prepareArbAttempt(
     trace?.event("模式", "比例 9999 单边（本侧仅预检不下单）");
     const prefs = userStore.extensionPrefs;
     const maxPerMap = Number(prefs.singleLeg9999MaxPerMap) || 1;
+    const liveSide = resolve9999LiveSide(accountA, accountB);
+    const liveLeg = liveSide === "A" ? legA : liveSide === "B" ? legB : undefined;
+    const liveSourceKey = liveLeg
+      ? singleLeg9999SourceMarketKey(liveLeg.type, liveLeg.matchId, liveLeg.betId)
+      : null;
+    const liveSideKey = singleLeg9999SourceSideKey(liveSourceKey, liveLeg?.target ?? "");
+    if (liveLeg && hasSingleLeg9999OppositeSourceSide(liveSourceKey, liveLeg.target)) {
+      trace?.finish("skip", "9999 同盘口已下过对侧");
+      return null;
+    }
     singleLeg9999MapKeys = [
       singleLeg9999MapKey(match.id, bet.round),
       singleLeg9999SourceMarketKey(legA.type, legA.matchId, legA.betId),
       singleLeg9999SourceMarketKey(legB.type, legB.matchId, legB.betId),
+      liveSideKey,
     ].filter(Boolean) as string[];
     const mapCount = getSingleLeg9999MapCountForKeys(singleLeg9999MapKeys);
     if (mapCount >= maxPerMap) {
@@ -210,7 +223,6 @@ export async function prepareArbAttempt(
       trace?.finish("skip", `9999 同图次数已满（${maxPerMap}/${maxPerMap}）`);
       return null;
     }
-    const liveSide = resolve9999LiveSide(accountA, accountB);
     const stake = applyValueBetMoneyTo9999LiveLeg({
       singleLegByRate,
       enabled: prefs.singleLeg9999UseValueBetMoney === true,
@@ -222,7 +234,6 @@ export async function prepareArbAttempt(
     if (stake != null) {
       trace?.event("注码", `9999 真下单腿改用正EV金额 ¥${stake}`);
       const liveAcc = liveSide === "A" ? accountA : accountB;
-      const liveLeg = liveSide === "A" ? legA : legB;
       const bal = liveAcc?.getBalance();
       if (bal !== undefined && liveLeg && bal < liveLeg.betMoney) {
         releaseSingleLeg9999MapFillKeys(singleLeg9999MapKeys);

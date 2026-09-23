@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   getSingleLeg9999MapCount,
   getSingleLeg9999MapCountForKeys,
+  hasSingleLeg9999OppositeSourceSide,
   recordSingleLeg9999MapFill,
   releaseSingleLeg9999MapFill,
   reserveSingleLeg9999MapFillKeys,
@@ -9,6 +10,7 @@ import {
   resetSingleLeg9999MapCountForTests,
   singleLeg9999MapKey,
   singleLeg9999SourceMarketKey,
+  singleLeg9999SourceSideKey,
 } from "@/extensions/arbBet/singleLeg9999MapCount";
 
 describe("singleLeg9999MapCount", () => {
@@ -47,5 +49,27 @@ describe("singleLeg9999MapCount", () => {
       singleLeg9999MapKey(99, 1),
       sourceKey,
     ], 1)).toBe(false);
+  });
+
+  it("allows repeated 9999 on the same side but exposes an opposite-side lock", () => {
+    const sourceKey = singleLeg9999SourceMarketKey("RAY", "38444239", "18280")!;
+    const homeKey = singleLeg9999SourceSideKey(sourceKey, "Home")!;
+    const awayKey = singleLeg9999SourceSideKey(sourceKey, "Away")!;
+
+    expect(reserveSingleLeg9999MapFillKeys([
+      singleLeg9999MapKey(10, 1),
+      sourceKey,
+      homeKey,
+    ], 3)).toBe(true);
+    expect(reserveSingleLeg9999MapFillKeys([
+      singleLeg9999MapKey(10, 1),
+      sourceKey,
+      homeKey,
+    ], 3)).toBe(true);
+
+    expect(getSingleLeg9999MapCountForKeys([homeKey])).toBe(2);
+    expect(getSingleLeg9999MapCountForKeys([awayKey])).toBe(0);
+    expect(hasSingleLeg9999OppositeSourceSide(sourceKey, "Away")).toBe(true);
+    expect(hasSingleLeg9999OppositeSourceSide(sourceKey, "Home")).toBe(false);
   });
 });

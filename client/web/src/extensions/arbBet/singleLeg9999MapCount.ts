@@ -26,6 +26,22 @@ export function singleLeg9999SourceMarketKey(
   return `source:${p}:${m}:${b}`;
 }
 
+export function singleLeg9999SourceSideKey(sourceMarketKey: string | null, side: string): string | null {
+  const k = String(sourceMarketKey || "").trim();
+  const s = String(side || "").trim();
+  if (!k || !s)
+    return null;
+  return `${k}:side:${s}`;
+}
+
+export function singleLeg9999OppositeSide(side: string): string {
+  if (side === "Home")
+    return "Away";
+  if (side === "Away")
+    return "Home";
+  return "";
+}
+
 function uniqueKeys(keys: string[]): string[] {
   return [...new Set(keys.map(k => String(k || "").trim()).filter(Boolean))];
 }
@@ -103,6 +119,11 @@ export function getSingleLeg9999MapCountForKeys(keys: string[]): number {
   for (const key of uniqueKeys(keys))
     max = Math.max(max, counts.get(key) ?? 0);
   return max;
+}
+
+export function hasSingleLeg9999OppositeSourceSide(sourceMarketKey: string | null, side: string): boolean {
+  const oppositeKey = singleLeg9999SourceSideKey(sourceMarketKey, singleLeg9999OppositeSide(side));
+  return Boolean(oppositeKey && getSingleLeg9999MapCountForKeys([oppositeKey]) > 0);
 }
 
 export function recordSingleLeg9999MapFill(matchId: number, round: number): number {
