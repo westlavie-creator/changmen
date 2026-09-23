@@ -1,6 +1,6 @@
 import type { ViewBet, ViewMatch } from "@/models/match";
 import type { ArbAttemptPhase } from "@/stores/betting/autoBet/arbAttemptMetrics";
-import type { ArbBetAttemptParams } from "@/stores/betting/autoBet/phases/types";
+import type { ArbBetAttemptParams, ArbBetReady } from "@/stores/betting/autoBet/phases/types";
 import type { UserConfig } from "@/types/userConfig";
 import { isMapMuteActive } from "@/extensions/mapBetMute";
 import { isPrematchFullMarketAllowed } from "@/extensions/prematchFullOnly";
@@ -22,6 +22,18 @@ async function timed<T>(run: () => Promise<T>): Promise<{ value: T; ms: number }
   return { value, ms: Math.round(performance.now() - startedAt) };
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function releaseSingleLeg9999Reservation(matchId: number, round: number, ready: ArbBetReady): void {
+  if (!ready.singleLeg9999MapReserved)
+    return;
+  if (ready.singleLeg9999MapKeys?.length)
+    releaseSingleLeg9999MapFillKeys(ready.singleLeg9999MapKeys);
+  else releaseSingleLeg9999MapFill(matchId, round);
+}
+
 /** 单场单 bet 行的自动套利执行（选号 → 预检 → 下单 → 拒单/绑单/补单/收尾） */
 export async function executeArbBet(params: {
   match: ViewMatch;
@@ -40,33 +52,50 @@ export async function executeArbBet(params: {
 
   const phaseMsMap: Partial<Record<ArbAttemptPhase, number>> = {};
   const base = { at: Date.now(), matchId: params.match.id, betId: params.bet.id };
+  let ready: ArbBetReady | null = null;
+  let phase: ArbAttemptPhase | "idle" = "idle";
+  let reservationReleased = false;
 
-  const prepared = await timed(() => prepareArbAttempt(attempt));
-  phaseMsMap.prepare = prepared.ms;
-  const ready = prepared.value;
-  if (!ready) {
-    recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_prepare" });
-    return;
-  }
-
-  const checked = await timed(() => checkArbLegs(attempt, ready));
-  phaseMsMap.check = checked.ms;
-  const checkedValue = checked.value;
-  if (!checkedValue) {
-    if (ready.singleLeg9999MapReserved) {
-      if (ready.singleLeg9999MapKeys?.length)
-        releaseSingleLeg9999MapFillKeys(ready.singleLeg9999MapKeys);
-      else releaseSingleLeg9999MapFill(params.match.id, params.bet.round);
+  try {
+    phase = "prepare";
+    const prepared = await timed(() => prepareArbAttempt(attempt));
+    phaseMsMap.prepare = prepared.ms;
+    ready = prepared.value;
+    if (!ready) {
+      recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_prepare" });
+      return;
     }
-    recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_check" });
-    return;
+    const readyValue = ready;
+
+    phase = "check";
+    const checked = await timed(() => checkArbLegs(attempt, readyValue));
+    phaseMsMap.check = checked.ms;
+    const checkedValue = checked.value;
+    if (!checkedValue) {
+      releaseSingleLeg9999Reservation(params.match.id, params.bet.round, readyValue);
+      reservationReleased = true;
+      recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "skip_check" });
+      return;
+    }
+
+    // 预检通过后：place 必回传两腿结果，编排层 finalize 必跑（场馆 settle 仍只处理 API 成功腿）
+    phase = "place";
+    const placed = await timed(() => placeArbLegs(attempt, checkedValue));
+    phaseMsMap.place = placed.ms;
+
+    phase = "finalize";
+    const finalized = await timed(() => finalizeArbBet(attempt, placed.value));
+    phaseMsMap.finalize = finalized.ms;
+    recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "complete" });
   }
-
-  // 预检通过后：place 必回传两腿结果，编排层 finalize 必跑（场馆 settle 仍只处理 API 成功腿）
-  const placed = await timed(() => placeArbLegs(attempt, checkedValue));
-  phaseMsMap.place = placed.ms;
-
-  const finalized = await timed(() => finalizeArbBet(attempt, placed.value));
-  phaseMsMap.finalize = finalized.ms;
-  recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "complete" });
+  catch (err) {
+    if (ready && !reservationReleased && phase === "check") {
+      releaseSingleLeg9999Reservation(params.match.id, params.bet.round, ready);
+      reservationReleased = true;
+    }
+    const msg = errorMessage(err);
+    params.setMessage(`自动下单异常：${msg}`);
+    attempt.trace?.finish("fail", msg);
+    recordArbAttemptMetric({ ...base, phaseMs: phaseMsMap, stop: "error" });
+  }
 }
