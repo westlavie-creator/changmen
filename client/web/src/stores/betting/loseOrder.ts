@@ -138,6 +138,8 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
 
       const option = new BetOption(match, bet, item, order.target, stake);
       option.loseOrder = true;
+      option.diagnosticLinkId = order.linkId;
+      option.diagnosticAttempt = "makeup";
 
       const checked = await accountStore.checkBetting(account, option);
       if (!checked.data)

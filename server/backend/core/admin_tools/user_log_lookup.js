@@ -88,6 +88,10 @@ function textMatches(a, b) {
 function orderLogMatchScore(order, log) {
   let score = 0;
   const reasons = [];
+  if (log.linkId && Number(log.linkId) === Number(order.link)) {
+    score += 120;
+    reasons.push("link_id");
+  }
   if (log.orderId && String(log.orderId) === String(order.orderId)) {
     score += 100;
     reasons.push("order_id");
@@ -151,10 +155,14 @@ function findBestOrderMatch(orders, log) {
 function isStrongLogOrderMatch(best, log) {
   if (!best)
     return false;
+  if (best.reasons.includes("link_id"))
+    return true;
   if (log.orderId && best.reasons.includes("order_id"))
     return true;
   if (log.kind === "check") {
-    return best.reasons.includes("比赛") && best.score >= 60;
+    return (best.reasons.includes("比赛") && best.score >= 60)
+      // 同一场馆的队名别名可能完全不同；同盘口且紧邻订单时仍属于本轮套利。
+      || (best.reasons.includes("盘口") && best.reasons.includes("时间"));
   }
   if (log.kind === "reject") {
     return best.reasons.includes("order_id")
@@ -198,9 +206,11 @@ export function filterRelevantLogs(orders, logs) {
       unrelated.push({ ...log, related: false, relationReason: "非下注诊断日志" });
       continue;
     }
-    const inferredOrderId = keep && best?.order && providerMatchesOrder(log, best.order)
+    // 补单入队描述的是“准备补哪一腿”，不是已存在的任一场馆订单。
+    // 即使 Link 精确命中，也必须作为独立步骤按 target 展示。
+    const inferredOrderId = log.kind !== "makeup_queue" && keep && best?.order && providerMatchesOrder(log, best.order)
       ? best.order.orderId
-      : previousCheck?.matchedOrderId ?? null;
+      : log.kind !== "makeup_queue" ? previousCheck?.matchedOrderId ?? null : null;
     const next = {
       ...log,
       related: keep,
@@ -233,6 +243,8 @@ export function classifyLogTitle(title) {
     return "bet";
   if (t.includes("拒单"))
     return "reject";
+  if (t.includes("补单入队"))
+    return "makeup_queue";
   return "other";
 }
 
@@ -245,6 +257,8 @@ export function extractLogProvider(title, parsed, kind) {
     return String(parsed.options.type);
   if (kind === "bet" && parsed?.result?.provider)
     return String(parsed.result.provider);
+  if (parsed?.provider)
+    return String(parsed.provider);
   return null;
 }
 
@@ -737,6 +751,10 @@ export function summarizeUserLog(row) {
     relationScore: 0,
     relationReason: "",
     matchedOrderId: null,
+    linkId: null,
+    attemptType: null,
+    failedLegOdds: null,
+    failedPlatformLabel: null,
     placedAt: null,
     observedAt: null,
     rejectDelayMs: null,
@@ -751,6 +769,8 @@ export function summarizeUserLog(row) {
 
   if (kind === "check" && parsed?.options) {
     const o = parsed.options;
+    out.linkId = Number(o.linkId) || null;
+    out.attemptType = o.attemptType || null;
     out.target = out.target || (o.target === "Home" || o.target === "Away" ? o.target : null);
     out.loseOrder = Boolean(o.loseOrder);
     out.match = o.match || null;
@@ -779,6 +799,8 @@ export function summarizeUserLog(row) {
   }
   else if (kind === "bet" && parsed?.result) {
     const r = parsed.result;
+    out.linkId = Number(r.link) || null;
+    out.attemptType = r.diagnosticAttempt || null;
     const req = parseObRequestLine(r.request);
     out.success = Boolean(r.success);
     out.message = r.message || null;
@@ -795,6 +817,8 @@ export function summarizeUserLog(row) {
     ].filter(Boolean).join(" · ");
   }
   else if (kind === "reject") {
+    out.linkId = Number(parsed?.linkId) || null;
+    out.attemptType = parsed?.attemptType || null;
     out.message = parsed?.rejectReason || title;
     out.target = parsed?.target === "Home" || parsed?.target === "Away"
       ? parsed.target
@@ -822,6 +846,23 @@ export function summarizeUserLog(row) {
       if (out.rejectReason)
         out.summary += ` · ${out.rejectReason}`;
     }
+  }
+  else if (kind === "makeup_queue") {
+    out.linkId = Number(parsed?.linkId) || null;
+    out.attemptType = "makeup_queue";
+    out.target = parsed?.target === "Home" || parsed?.target === "Away"
+      ? parsed.target
+      : null;
+    out.match = parsed?.match || null;
+    out.bet = parsed?.bet || null;
+    out.betMoney = Number(parsed?.betMoney) || null;
+    out.odds = Number(parsed?.odds) || null;
+    out.failedLegOdds = Number(parsed?.failedLegOdds) || null;
+    out.failedPlatformLabel = parsed?.failedPlatformLabel || null;
+    out.observedAt = Number(parsed?.observedAt) || out.createAt;
+    out.summary = `补单入队 · ${out.target || "未知方向"} · 锚腿 ${out.betMoney || "—"}@${out.odds || "—"}`;
+    if (out.failedPlatformLabel)
+      out.summary += ` · 失败腿 ${out.failedPlatformLabel}@${out.failedLegOdds || "—"}`;
   }
 
   return out;

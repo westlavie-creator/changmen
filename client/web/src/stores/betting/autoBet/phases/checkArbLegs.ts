@@ -99,6 +99,10 @@ export async function checkArbLegs(
   const checkStart = Date.now();
   const scanOddsA = Number(legA.odds) || 0;
   const scanOddsB = Number(legB.odds) || 0;
+  legA.diagnosticLinkId = ready.linkId;
+  legB.diagnosticLinkId = ready.linkId;
+  legA.diagnosticAttempt = "initial";
+  legB.diagnosticAttempt = "initial";
 
   const taskA = checkAccountA
     ? accountStore.checkBetting(checkAccountA, legA, {

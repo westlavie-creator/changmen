@@ -2,16 +2,16 @@
 /**
  * 按 Link 或 order_id 关联 user_logs（预检/下注诊断，不改前端）
  *
- *   node scripts/lookup-order-logs.mjs --user gb12 --link 1781802360547
- *   node scripts/lookup-order-logs.mjs --user gb12 --order 1679490229898760669
- *   node scripts/lookup-order-logs.mjs --user gb12 --link 1781802360547 --json
+ *   node scripts/ops/incidents/lookup-order-logs.mjs --user gb12 --link 1781802360547
+ *   node scripts/ops/incidents/lookup-order-logs.mjs --user gb12 --order 1679490229898760669
+ *   node scripts/ops/incidents/lookup-order-logs.mjs --user gb12 --link 1781802360547 --json
  */
 import { loadChangmenEnv } from "@changmen/storage/load_env.js";
 
 loadChangmenEnv();
 
 const { lookupOrderLogs, formatLookupReport } = await import(
-  "../core/admin_tools/user_log_lookup.js",
+  "../../../core/admin_tools/user_log_lookup.js",
 );
 
 function parseArgs(argv) {
@@ -38,8 +38,8 @@ const args = parseArgs(process.argv);
 
 if (args.help || !args.userName) {
   console.log(`用法:
-  node scripts/lookup-order-logs.mjs --user <登录名> --link <LinkID>
-  node scripts/lookup-order-logs.mjs --user <登录名> --order <order_id>
+  node scripts/ops/incidents/lookup-order-logs.mjs --user <登录名> --link <LinkID>
+  node scripts/ops/incidents/lookup-order-logs.mjs --user <登录名> --order <order_id>
 
 选项:
   --padding-ms <ms>  日志时间窗扩展（默认 180000）

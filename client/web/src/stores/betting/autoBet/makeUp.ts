@@ -7,6 +7,7 @@ import { a8Tip } from "@/shared/a8Notify";
 import { wait } from "@changmen/client-core/shared/wait";
 import { isMakeupOddsBandEnabled } from "@/extensions/arbBet/makeupOddsBand";
 import { useUserStore } from "@/stores/userStore";
+import { saveMakeUpQueueLog } from "@/services/bettingLog";
 
 /**
  * [A8 可证实] 对齐 bundle `B()`：入队前初赔 / 败腿赔率天花板。
@@ -108,6 +109,16 @@ export async function enqueueMakeUpOrder(params: {
       betCount: 1,
     }),
   );
+  saveMakeUpQueueLog({
+    linkId,
+    target,
+    match: match.title,
+    bet: bet.getBetName(),
+    anchorBetMoney: betMoney,
+    anchorOdds: betOdds,
+    failedLegOdds,
+    failedPlatformLabel,
+  });
   await wait(500);
   setMessage(`${failedPlatformLabel} 下单失败，已加入补单队列`);
   a8Tip("补单提醒", `${failedPlatformLabel} 下单失败，创建补单队列`, 3000);

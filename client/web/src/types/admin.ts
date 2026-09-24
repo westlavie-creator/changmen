@@ -274,6 +274,8 @@ export interface AdminOrderLogEntry {
   provider?: string | null;
   orderId?: string | null;
   matchedOrderId?: string | null;
+  linkId?: number | null;
+  attemptType?: "initial" | "retry" | "makeup" | "makeup_queue" | string | null;
   target?: "Home" | "Away" | string | null;
   accountLabel?: string | null;
   loseOrder?: boolean;
@@ -304,6 +306,8 @@ export interface AdminOrderLogEntry {
   settlement?: "filled" | "unfilled" | "timeout" | string | null;
   observedStatus?: string | null;
   rejectReason?: string | null;
+  failedLegOdds?: number | null;
+  failedPlatformLabel?: string | null;
   summary: string;
 }
 

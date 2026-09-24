@@ -215,6 +215,8 @@ export async function tryResumePendingVenueMakeUp(params: {
   const sideOdds = ref.getOdds(order.target);
   const checked = new BetOptionCtor(match, bet, ref, order.target, order.getBetMoney(sideOdds));
   checked.loseOrder = true;
+  checked.diagnosticLinkId = order.linkId;
+  checked.diagnosticAttempt = "makeup";
 
   const result = Object.assign(new BetResultCtor(account.provider, true), {
     orderId: pendingId,

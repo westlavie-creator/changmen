@@ -41,6 +41,8 @@ export function saveBetOptionLog(option: BetOption, account: PlatformAccount): v
       stakeExchange: option.stakeExchange,
       stakeRate: option.stakeRate,
       stakeCurrency: option.stakeCurrency,
+      linkId: option.diagnosticLinkId,
+      attemptType: option.diagnosticAttempt,
       betCount: option.betCount,
       config: option.config,
       loseOrder: option.loseOrder,
@@ -119,6 +121,7 @@ export function saveVenueSettlementLog(params: {
         stakeExchange: option.stakeExchange,
         stakeRate: option.stakeRate,
         stakeCurrency: option.stakeCurrency,
+        attemptType: option.diagnosticAttempt,
         loseOrder: option.loseOrder,
         placedAt,
         observedAt,
@@ -131,6 +134,37 @@ export function saveVenueSettlementLog(params: {
   }
   catch {
     /* 诊断日志不能影响下注、拒单判断或补单 */
+  }
+}
+
+/** [changmen 扩展] 补单只入队但尚未真正下单，也要在诊断中留下证据。 */
+export function saveMakeUpQueueLog(params: {
+  linkId: number;
+  target: string;
+  match: string;
+  bet: string;
+  anchorBetMoney: number;
+  anchorOdds: number;
+  failedLegOdds: number;
+  failedPlatformLabel: string;
+}): void {
+  try {
+    void saveUserLog("补单入队", {
+      diagnosticVersion: 2,
+      attemptType: "makeup_queue",
+      linkId: params.linkId,
+      target: params.target,
+      match: params.match,
+      bet: params.bet,
+      betMoney: params.anchorBetMoney,
+      odds: params.anchorOdds,
+      failedLegOdds: params.failedLegOdds,
+      failedPlatformLabel: params.failedPlatformLabel,
+      observedAt: Date.now(),
+    }).catch(() => {});
+  }
+  catch {
+    /* 诊断日志不能影响补单入队 */
   }
 }
 

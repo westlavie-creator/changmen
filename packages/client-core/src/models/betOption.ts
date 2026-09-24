@@ -33,6 +33,9 @@ export class BetOption {
   stakeExchange?: number;
   stakeRate?: number;
   stakeCurrency?: string;
+  /** [changmen 扩展] 诊断关联：本轮套利 Link 与执行阶段。 */
+  diagnosticLinkId?: number;
+  diagnosticAttempt?: "initial" | "retry" | "makeup";
   betCount = 0;
   config?: UserConfig;
   loseOrder = false;

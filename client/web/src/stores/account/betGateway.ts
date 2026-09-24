@@ -268,6 +268,8 @@ export async function placeBet(
     // POST 前抛错 / 页面过期：不落拒单（无 pmPosted）
   }
   finally {
+    result.link = Number(opts?.linkId || option.diagnosticLinkId) || 0;
+    result.diagnosticAttempt = option.diagnosticAttempt;
     loading.close();
     const notifyType = result.pending ? "warning" : result.success ? "success" : "error";
     const statusSuffix = result.pending ? "确认中" : "";

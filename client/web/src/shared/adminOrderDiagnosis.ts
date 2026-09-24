@@ -16,11 +16,15 @@ export interface AdminOrderExecutionStep {
   provider: string;
   accountLabel: string | null;
   isMakeUp: boolean;
+  isRetry: boolean;
+  isQueue: boolean;
+  attemptType: string;
   odds: number | null;
   betMoney: number | null;
   check: AdminOrderLogEntry | null;
   bet: AdminOrderLogEntry | null;
   reject: AdminOrderLogEntry | null;
+  queue: AdminOrderLogEntry | null;
   order: AdminOrderLogOrder | null;
   outcome: string;
   detail: string | null;
@@ -28,6 +32,16 @@ export interface AdminOrderExecutionStep {
   oddsLogic: string;
   stakeLogic: string;
   rejectLogic: string | null;
+}
+
+export interface AdminOrderOrchestrationStage {
+  key: string;
+  at: number;
+  title: string;
+  tone: AdminOrderDiagnosisTone;
+  decision: string;
+  action: string;
+  evidence: string[];
 }
 
 function fmt(n: number, digits = 3) {
@@ -176,11 +190,15 @@ export function buildAdminOrderExecutionSteps(
           provider: attempt.order.provider,
           accountLabel: null,
           isMakeUp: false,
+          isRetry: false,
+          isQueue: false,
+          attemptType: "initial",
           odds: attempt.order.odds || null,
           betMoney: attempt.order.betMoney || null,
           check: null,
           bet: null,
           reject: null,
+          queue: null,
           order: attempt.order,
           oddsLogic: "订单缺少对应预检日志，无法还原当时赔率来源",
           stakeLogic: "订单缺少对应预检日志，无法还原金额公式",
@@ -196,10 +214,21 @@ export function buildAdminOrderExecutionSteps(
         const check = segment.logs.find(log => log.kind === "check") ?? null;
         const bet = [...segment.logs].reverse().find(log => log.kind === "bet") ?? null;
         const reject = [...segment.logs].reverse().find(log => log.kind === "reject") ?? null;
-        const provider = String(segment.provider || check?.provider || bet?.provider || attempt.order?.provider || "未知");
-        const at = Number(check?.createAt || bet?.createAt || attempt.order?.createAt) || 0;
+        const queue = segment.logs.find(log => log.kind === "makeup_queue") ?? null;
+        const attemptType = String(
+          check?.attemptType || bet?.attemptType || reject?.attemptType || queue?.attemptType || "",
+        );
+        const isQueue = Boolean(queue || attemptType === "makeup_queue");
+        const isMakeUp = Boolean(!isQueue && (attemptType === "makeup" || segment.isMakeUp || check?.loseOrder));
+        const isRetry = Boolean(attemptType === "retry");
+        const provider = String(segment.provider || check?.provider || bet?.provider || attempt.order?.provider || (isQueue ? "系统" : "未知"));
+        const at = Number(check?.createAt || bet?.createAt || queue?.createAt || attempt.order?.createAt) || 0;
         const order = segmentMatchesOrder(provider, segment.logs, at, attempt.order) ? attempt.order : null;
-        const result = outcomeFor(check, bet, reject, order);
+        const result = isQueue
+          ? { outcome: "已加入补单队列（尚未下单）", detail: null, tone: "warning" as const }
+          : outcomeFor(check, bet, reject, order);
+        const odds = Number(check?.newOdds ?? check?.odds ?? queue?.failedLegOdds ?? order?.odds) || null;
+        const betMoney = Number(check?.betMoney ?? queue?.betMoney ?? order?.betMoney) || null;
         steps.push({
           key: `${attempt.key}:${segment.key}`,
           at,
@@ -207,16 +236,24 @@ export function buildAdminOrderExecutionSteps(
           sideLabel: leg.label,
           provider,
           accountLabel: segment.accountLabel || check?.accountLabel || bet?.accountLabel || null,
-          isMakeUp: Boolean(segment.isMakeUp || check?.loseOrder),
-          odds: Number(check?.newOdds ?? check?.odds ?? order?.odds) || null,
-          betMoney: Number(check?.betMoney ?? order?.betMoney) || null,
+          isMakeUp,
+          isRetry,
+          isQueue,
+          attemptType: attemptType || (isMakeUp ? "makeup" : isQueue ? "makeup_queue" : "initial"),
+          odds,
+          betMoney,
           check,
           bet,
           reject,
+          queue,
           order,
-          oddsLogic: segment.isMakeUp || check?.loseOrder
-            ? `补单赔率 ${Number(check?.newOdds ?? check?.odds ?? order?.odds) || "—"} 来自补单执行时的场馆实时盘口，不是由公式计算`
-            : `下单赔率 ${Number(check?.newOdds ?? check?.odds ?? order?.odds) || "—"} 来自本轮预检实时盘口`,
+          oddsLogic: isQueue
+            ? `失败腿最后赔率 ${queue?.failedLegOdds || "—"}；入队时尚未产生补单赔率`
+            : isMakeUp
+              ? `补单赔率 ${odds || "—"} 来自补单执行时的场馆实时盘口，不是由公式计算`
+              : isRetry
+                ? `重试赔率 ${odds || "—"} 来自失败后再次预检的实时盘口`
+                : `下单赔率 ${odds || "—"} 来自本轮预检实时盘口`,
           stakeLogic: "等待同组订单计算",
           rejectLogic: null,
           ...result,
@@ -227,7 +264,26 @@ export function buildAdminOrderExecutionSteps(
 
   steps.sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
 
-  const originals = steps.filter(step => !step.isMakeUp && step.odds && step.betMoney);
+  // 老日志没有 attemptType。若同一方向失败后紧接着再次预检，可安全还原为即时重试。
+  const previousBySide = new Map<string, AdminOrderExecutionStep>();
+  for (const step of steps) {
+    const previous = previousBySide.get(step.side);
+    const previousFailed = previous && (
+      previous.bet?.success === false
+      || Boolean(previous.check?.checkError)
+      || String(previous.order?.status || "").toLowerCase() === "reject"
+      || previous.reject?.settlement === "unfilled"
+    );
+    if (!step.isMakeUp && !step.isQueue && !step.isRetry && !step.order && step.check && previousFailed) {
+      step.isRetry = true;
+      step.attemptType = "retry";
+      step.oddsLogic = `重试赔率 ${step.odds || "—"} 来自失败后再次预检的实时盘口`;
+    }
+    if (!step.isQueue)
+      previousBySide.set(step.side, step);
+  }
+
+  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue && step.odds && step.betMoney);
   const initialBySide = new Map<string, AdminOrderExecutionStep>();
   for (const step of originals) {
     if (!initialBySide.has(step.side))
@@ -249,9 +305,9 @@ export function buildAdminOrderExecutionSteps(
     }
   }
 
-  for (const step of steps.filter(row => row.isMakeUp)) {
+  for (const step of steps.filter(row => row.isMakeUp || row.isRetry)) {
     const anchor = [...steps]
-      .filter(row => !row.isMakeUp
+      .filter(row => !row.isMakeUp && !row.isRetry && !row.isQueue
         && row.at < step.at
         && row.side !== step.side
         && row.bet?.success === true
@@ -261,11 +317,21 @@ export function buildAdminOrderExecutionSteps(
     if (anchor?.odds && anchor.betMoney && step.odds && step.betMoney) {
       const anchorCny = planStakeCny(anchor);
       const calculatedCny = (anchorCny * Number(anchor.odds)) / Number(step.odds);
-      step.stakeLogic = `补单金额 = 锚腿 ¥${fmt(anchorCny, 0)} × ${anchor.odds} ÷ 实时赔率 ${step.odds} = ¥${fmt(calculatedCny, 2)}；${stakeConversionText(step)}`;
+      const label = step.isRetry ? "即时重试金额" : "补单金额";
+      step.stakeLogic = `${label} = 锚腿 ¥${fmt(anchorCny, 0)} × ${anchor.odds} ÷ 实时赔率 ${step.odds} = ¥${fmt(calculatedCny, 2)}；${stakeConversionText(step)}`;
     }
     else {
-      step.stakeLogic = `补单提交 ${venueStakeText(step.provider, step.betMoney)}；缺少锚腿日志，无法完整还原公式`;
+      step.stakeLogic = `${step.isRetry ? "即时重试" : "补单"}提交 ${venueStakeText(step.provider, step.betMoney)}；缺少锚腿日志，无法完整还原公式`;
     }
+  }
+
+  for (const step of steps.filter(row => row.isQueue)) {
+    const queue = step.queue;
+    const anchorMoney = Number(queue?.betMoney ?? step.betMoney) || 0;
+    const anchorOdds = Number(queue?.odds) || 0;
+    step.stakeLogic = anchorMoney && anchorOdds
+      ? `入队锚腿 ¥${fmt(anchorMoney, 0)}@${anchorOdds}；真正执行时再按“锚腿金额 × 锚腿赔率 ÷ 补单实时赔率”计算`
+      : "已创建补单任务；真正执行时才按场馆实时赔率计算补单金额";
   }
 
   for (const step of steps) {
@@ -296,13 +362,15 @@ export function buildAdminOrderDiagnosisSummary(
   steps: AdminOrderExecutionStep[],
   totalProfit: number,
 ): { text: string; tone: AdminOrderDiagnosisTone } {
-  const originals = steps.filter(step => !step.isMakeUp);
+  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue);
   const apiFailures = originals.filter(step => step.bet?.success === false).length;
   const venueRejects = originals.filter(step =>
     String(step.order?.status || "").toLowerCase() === "reject"
     || step.reject?.settlement === "unfilled",
   ).length;
   const makeups = steps.filter(step => step.isMakeUp).length;
+  const retries = steps.filter(step => step.isRetry).length;
+  const queues = steps.filter(step => step.isQueue).length;
   const parts: string[] = [];
 
   if (apiFailures || venueRejects) {
@@ -315,6 +383,10 @@ export function buildAdminOrderDiagnosisSummary(
   else {
     parts.push("原始套利两腿未发现失败或拒单");
   }
+  if (retries)
+    parts.push(`即时重试 ${retries} 次`);
+  if (queues)
+    parts.push(`创建 ${queues} 个补单队列`);
   if (makeups)
     parts.push(`随后执行 ${makeups} 次补单`);
   const sign = totalProfit > 0 ? "+" : "";
@@ -328,4 +400,169 @@ export function buildAdminOrderDiagnosisSummary(
         ? "success"
         : "neutral",
   };
+}
+
+function stepEvidence(step: AdminOrderExecutionStep) {
+  const market = [step.sideLabel, step.provider, step.odds ? `@${step.odds}` : "", step.betMoney ? `金额 ${step.betMoney}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+  return `${market}：${step.outcome}${step.detail ? `（${step.detail}）` : ""}`;
+}
+
+/** 将场馆级日志重组成编排器的“判断 → 动作 → 结果”流程。 */
+export function buildAdminOrderOrchestrationStages(
+  steps: AdminOrderExecutionStep[],
+  totalProfit: number,
+): AdminOrderOrchestrationStage[] {
+  if (!steps.length)
+    return [];
+
+  const stages: AdminOrderOrchestrationStage[] = [];
+  const initial = steps.filter(step => !step.isRetry && !step.isQueue && !step.isMakeUp);
+  const retries = steps.filter(step => step.isRetry);
+  const queues = steps.filter(step => step.isQueue);
+  const makeups = steps.filter(step => step.isMakeUp);
+  const firstAt = Math.min(...steps.map(step => step.at).filter(Boolean));
+  const lastAt = Math.max(...steps.map(step => step.at).filter(Boolean));
+
+  if (initial.length) {
+    stages.push({
+      key: "plan",
+      at: firstAt,
+      title: "生成对冲方案",
+      tone: "neutral",
+      decision: initial.length >= 2
+        ? "识别到两条相反方向的套利腿，编排器生成同一 Link 的对冲方案。"
+        : "仅还原到一条初始腿，历史日志不足以完整重建双腿方案。",
+      action: "确定两腿方向、场馆、检测赔率和计划金额，随后进入双腿预检。",
+      evidence: initial.map(step => `${step.sideLabel} ${step.provider}：${step.oddsLogic}；${step.stakeLogic}`),
+    });
+  }
+
+  const checked = initial.filter(step => step.check);
+  if (checked.length) {
+    const failed = checked.filter(step => Boolean(step.check?.checkError));
+    const allCovered = initial.length >= 2 && checked.length >= 2;
+    stages.push({
+      key: "precheck",
+      at: Math.min(...checked.map(step => step.check?.createAt || step.at)),
+      title: "双腿预检",
+      tone: failed.length ? "danger" : allCovered ? "success" : "warning",
+      decision: failed.length
+        ? `${failed.length} 腿预检未通过，按编排规则不应继续首轮下单。`
+        : allCovered
+          ? "双腿预检均通过，编排器允许进入首轮下单。"
+          : "现有日志未覆盖完整双腿预检，无法确认放行条件是否全部满足。",
+      action: failed.length ? "停止首轮下单，保留失败原因。" : "复用预检锁定的盘口数据发起首轮下单。",
+      evidence: checked.map(step => `${step.sideLabel} ${step.provider}：${step.check?.checkError || `通过，${step.odds}@${step.betMoney}`}`),
+    });
+  }
+
+  const placed = initial.filter(step => step.bet);
+  if (placed.length) {
+    const accepted = placed.filter(step => step.bet?.success === true);
+    const failed = placed.filter(step => step.bet?.success === false);
+    const split = accepted.length > 0 && failed.length > 0;
+    stages.push({
+      key: "place",
+      at: Math.min(...placed.map(step => step.bet?.createAt || step.at)),
+      title: "首轮下单",
+      tone: split || failed.length ? "danger" : "success",
+      decision: split
+        ? "一腿接口已受理、另一腿下单失败，完整套利没有同时成立，产生单腿敞口。"
+        : failed.length
+          ? `${failed.length} 腿下单失败，编排器不会把本轮判定为完整套利。`
+          : "两腿接口均已受理，编排器继续等待场馆终态，尚不能仅凭接口成功认定成交。",
+      action: split ? "锁定成功腿作为锚腿，并对失败腿启动即时重试。" : "进入场馆终态确认。",
+      evidence: placed.map(stepEvidence),
+    });
+  }
+
+  const settled = initial.filter(step => step.order || step.reject);
+  if (settled.length) {
+    const rejected = settled.filter(step => String(step.order?.status || "").toLowerCase() === "reject" || step.reject?.settlement === "unfilled");
+    const filled = settled.filter(step => step.reject?.settlement === "filled" || (step.order && String(step.order.status || "").toLowerCase() !== "reject"));
+    const pending = settled.length - rejected.length - filled.length;
+    stages.push({
+      key: "settle",
+      at: Math.max(...settled.map(step => Math.max(
+        step.reject?.observedAt || step.reject?.createAt || 0,
+        step.bet?.createAt || 0,
+        step.order?.createAt || 0,
+        step.at,
+      ))),
+      title: "场馆终态确认",
+      tone: rejected.length ? "danger" : pending ? "warning" : "success",
+      decision: `终态检查得到：${filled.length} 腿确认有订单，${rejected.length} 腿确认拒单${pending ? `，${pending} 腿仍待确认` : ""}。`,
+      action: rejected.length ? "将确认拒单腿交给风险处置；仅以已成交腿作为补单锚腿。" : "记录场馆订单及确认耗时。",
+      evidence: settled.map(step => `${stepEvidence(step)}${step.rejectLogic ? `；${step.rejectLogic}` : ""}`),
+    });
+  }
+
+  if (retries.length) {
+    const succeeded = retries.filter(step => step.bet?.success === true && !step.rejectLogic).length;
+    stages.push({
+      key: "retry",
+      at: Math.min(...retries.map(step => step.at)),
+      title: "即时换腿重试",
+      tone: succeeded ? "success" : "danger",
+      decision: `首轮出现单腿敞口，编排器对失败方向执行 ${retries.length} 次即时重试。`,
+      action: succeeded ? "重试已受理，继续确认新订单终态。" : "即时重试仍未成交，转入补单判断。",
+      evidence: retries.map(step => `${stepEvidence(step)}；${step.stakeLogic}`),
+    });
+  }
+
+  if (queues.length) {
+    stages.push({
+      key: "queue",
+      at: Math.min(...queues.map(step => step.at)),
+      title: "补单决策与入队",
+      tone: "warning",
+      decision: `即时处置未消除敞口，编排器创建 ${queues.length} 个补单任务。`,
+      action: "此时只代表进入补单队列；实际赔率和金额要等补单执行时重新计算。",
+      evidence: queues.map(step => `${step.sideLabel}：${step.oddsLogic}；${step.stakeLogic}`),
+    });
+  }
+
+  if (makeups.length) {
+    const failures = makeups.filter(step => step.bet?.success === false || step.rejectLogic).length;
+    stages.push({
+      key: "makeup",
+      at: Math.min(...makeups.map(step => step.at)),
+      title: "补单执行",
+      tone: failures ? "danger" : "success",
+      decision: `补单消费者执行 ${makeups.length} 次场馆下单${failures ? `，其中 ${failures} 次未成功` : ""}。`,
+      action: "按锚腿敞口和补单时实时赔率重新计算金额，并再次检查场馆终态。",
+      evidence: makeups.map(step => `${stepEvidence(step)}；${step.stakeLogic}`),
+    });
+  }
+
+  const summary = buildAdminOrderDiagnosisSummary(steps, totalProfit);
+  stages.push({
+    key: "final",
+    at: lastAt,
+    title: "编排收尾",
+    tone: summary.tone,
+    decision: summary.text,
+    action: "以同一 Link 下所有已落库订单的最终盈亏作为本次编排结果。",
+    evidence: [`最终 Link 盈亏 ¥${totalProfit > 0 ? "+" : ""}${Math.floor(totalProfit).toLocaleString()}`],
+  });
+
+  const phaseOrder: Record<string, number> = {
+    plan: 0,
+    precheck: 1,
+    place: 2,
+    retry: 3,
+    settle: 4,
+    queue: 5,
+    makeup: 6,
+    final: 99,
+  };
+  return stages.sort((a, b) =>
+    a.key === "final"
+      ? 1
+      : b.key === "final"
+        ? -1
+        : a.at - b.at || (phaseOrder[a.key] ?? 50) - (phaseOrder[b.key] ?? 50),
+  );
 }

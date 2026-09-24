@@ -3,6 +3,7 @@ import type { AdminOrderLogLegSection } from "@/types/admin";
 import {
   buildAdminOrderDiagnosisSummary,
   buildAdminOrderExecutionSteps,
+  buildAdminOrderOrchestrationStages,
 } from "@/shared/adminOrderDiagnosis";
 
 describe("adminOrderDiagnosis", () => {
@@ -90,6 +91,17 @@ describe("adminOrderDiagnosis", () => {
       text: "原始套利未成立：1 腿下单失败，1 笔场馆拒单；随后执行 1 次补单；最终 Link 盈亏 ¥-313",
       tone: "danger",
     });
+    const stages = buildAdminOrderOrchestrationStages(steps, -313);
+    expect(stages.map(stage => stage.title)).toEqual([
+      "生成对冲方案",
+      "双腿预检",
+      "首轮下单",
+      "场馆终态确认",
+      "补单执行",
+      "编排收尾",
+    ]);
+    expect(stages.find(stage => stage.key === "place")?.decision).toContain("单腿敞口");
+    expect(stages.find(stage => stage.key === "makeup")?.action).toContain("实时赔率");
   });
 
   it("uses structured settlement logs for exact post-accept reject delay and reason", () => {
@@ -165,5 +177,109 @@ describe("adminOrderDiagnosis", () => {
     expect(steps[0].outcome).toBe("下单失败");
     expect(steps[1].order?.orderId).toBe("ob-makeup");
     expect(steps[1].outcome).toBe("接口受理 → 已结算：输");
+  });
+
+  it("labels a historical failed-leg recheck as immediate retry", () => {
+    const legs: AdminOrderLogLegSection[] = [
+      {
+        key: "home",
+        legIndex: 0,
+        side: "Home",
+        label: "主队",
+        provider: "Polymarket",
+        attempts: [{
+          key: "pm",
+          order: { orderId: "pm1", link: 1, provider: "Polymarket", playerId: 1, match: "m", bet: "b", item: "Phantom", odds: 2.702, betMoney: 20.9, money: -145, status: "Lose", createAt: 1_000 },
+          logs: [],
+          logSegments: [{
+            key: "pm",
+            provider: "Polymarket",
+            accountLabel: "PM / a",
+            isMakeUp: false,
+            logs: [
+              { createAt: 900, title: "", kind: "check", provider: "Polymarket", target: "Home", odds: 2.702, betMoney: 20.9, planBetMoney: 140, summary: "check" },
+              { createAt: 1_000, title: "", kind: "bet", provider: "Polymarket", success: true, summary: "ok" },
+              { createAt: 12_000, observedAt: 12_000, title: "", kind: "reject", provider: "Polymarket", settlement: "filled", summary: "filled" },
+            ],
+          }],
+        }],
+      },
+      {
+        key: "away",
+        legIndex: 1,
+        side: "Away",
+        label: "客队",
+        provider: "RAY",
+        attempts: [{
+          key: "ray",
+          order: null,
+          logs: [],
+          logSegments: [
+            {
+              key: "initial",
+              provider: "RAY",
+              accountLabel: "RAY / a",
+              isMakeUp: false,
+              logs: [
+                { createAt: 880, title: "", kind: "check", provider: "RAY", target: "Away", odds: 1.76, betMoney: 200, summary: "check" },
+                { createAt: 1_100, title: "", kind: "bet", provider: "RAY", success: false, message: "已封盘", summary: "fail" },
+              ],
+            },
+            {
+              key: "retry",
+              provider: "RAY",
+              accountLabel: "RAY / a",
+              isMakeUp: false,
+              logs: [
+                { createAt: 1_200, title: "", kind: "check", provider: "RAY", target: "Away", odds: 1.76, betMoney: 214, checkError: "已封盘", summary: "retry" },
+              ],
+            },
+          ],
+        }],
+      },
+    ];
+
+    const steps = buildAdminOrderExecutionSteps(legs);
+    const retry = steps.find(step => step.isRetry);
+    expect(retry?.outcome).toBe("预检失败");
+    expect(retry?.oddsLogic).toContain("再次预检");
+    expect(retry?.stakeLogic).toContain("140 × 2.702 ÷ 实时赔率 1.76");
+    expect(buildAdminOrderDiagnosisSummary(steps, -145).text).toContain("即时重试 1 次");
+    const stages = buildAdminOrderOrchestrationStages(steps, -145);
+    expect(stages.find(stage => stage.key === "retry")?.decision).toContain("失败方向");
+    expect(stages.find(stage => stage.key === "retry")?.action).toContain("补单判断");
+    expect(stages.findIndex(stage => stage.key === "retry")).toBeLessThan(
+      stages.findIndex(stage => stage.key === "settle"),
+    );
+  });
+
+  it("shows queue creation separately from an executed makeup", () => {
+    const legs: AdminOrderLogLegSection[] = [{
+      key: "away",
+      legIndex: 1,
+      side: "Away",
+      label: "客队",
+      provider: "系统",
+      attempts: [{
+        key: "queue",
+        order: null,
+        logs: [],
+        logSegments: [{
+          key: "queue",
+          provider: null,
+          accountLabel: null,
+          isMakeUp: false,
+          logs: [{ createAt: 2_000, title: "补单入队", kind: "makeup_queue", attemptType: "makeup_queue", target: "Away", betMoney: 140, odds: 2.702, failedLegOdds: 1.76, summary: "queue" }],
+        }],
+      }],
+    }];
+
+    const [queue] = buildAdminOrderExecutionSteps(legs);
+    expect(queue?.isQueue).toBe(true);
+    expect(queue?.isMakeUp).toBe(false);
+    expect(queue?.outcome).toContain("尚未下单");
+    expect(queue?.stakeLogic).toContain("真正执行时");
+    const stages = buildAdminOrderOrchestrationStages([queue!], 0);
+    expect(stages.find(stage => stage.key === "queue")?.action).toContain("只代表进入补单队列");
   });
 });

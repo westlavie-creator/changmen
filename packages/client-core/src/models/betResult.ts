@@ -13,6 +13,8 @@ export class BetResult {
   /** PM delayed / PF 挂单受理：已 API 成功但尚未最终成交 */
   pending = false;
   link = 0;
+  /** [changmen 扩展] 管理端诊断执行阶段。 */
+  diagnosticAttempt?: "initial" | "retry" | "makeup";
   beginTime: number;
   request?: unknown;
   response?: unknown;

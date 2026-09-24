@@ -13,6 +13,7 @@ import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
 import {
   buildAdminOrderDiagnosisSummary,
   buildAdminOrderExecutionSteps,
+  buildAdminOrderOrchestrationStages,
 } from "@/shared/adminOrderDiagnosis";
 import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { formatLinkId } from "@changmen/client-core/shared/format";
@@ -29,6 +30,7 @@ const kindLabel: Record<string, string> = {
   check: "预检",
   bet: "下注",
   reject: "拒单",
+  makeup_queue: "补单入队",
   other: "其他",
 };
 
@@ -317,6 +319,9 @@ const executionSteps = computed(() => buildAdminOrderExecutionSteps(legColumns.v
 const diagnosisSummary = computed(() =>
   buildAdminOrderDiagnosisSummary(executionSteps.value, totalProfit.value),
 );
+const orchestrationStages = computed(() =>
+  buildAdminOrderOrchestrationStages(executionSteps.value, totalProfit.value),
+);
 
 const platformLabels = computed(() => {
   const labels = new Set<string>();
@@ -516,60 +521,44 @@ defineExpose({ open });
               >
                 <header class="admin-order-diagnosis__head">
                   <div>
-                    <h5 class="admin-order-diagnosis__title">诊断结论</h5>
+                    <h5 class="admin-order-diagnosis__title">编排诊断</h5>
                     <p class="admin-order-diagnosis__summary">
                       {{ diagnosisSummary.text }}
                     </p>
                   </div>
                   <span class="admin-order-diagnosis__count">
-                    {{ executionSteps.length }} 个执行步骤
+                    {{ orchestrationStages.length }} 个编排阶段
                   </span>
                 </header>
 
                 <ol class="admin-order-execution">
                   <li
-                    v-for="(step, stepIdx) in executionSteps"
-                    :key="step.key"
+                    v-for="(stage, stageIdx) in orchestrationStages"
+                    :key="stage.key"
                     class="admin-order-execution__step"
-                    :class="`admin-order-execution__step--${step.tone}`"
+                    :class="`admin-order-execution__step--${stage.tone}`"
                   >
                     <div class="admin-order-execution__rail">
-                      <span class="admin-order-execution__index">{{ stepIdx + 1 }}</span>
+                      <span class="admin-order-execution__index">{{ stageIdx + 1 }}</span>
                     </div>
                     <div class="admin-order-execution__body">
                       <div class="admin-order-execution__main">
-                        <span class="admin-order-execution__time">{{ fmtClock(step.at) }}</span>
-                        <span class="admin-order-provider">{{ step.provider }}</span>
-                        <span class="admin-order-execution__side">{{ step.sideLabel }}</span>
-                        <span
-                          v-if="step.isMakeUp"
-                          class="admin-order-log-segment__tag"
-                        >补单</span>
-                        <strong class="admin-order-execution__outcome">{{ step.outcome }}</strong>
-                      </div>
-                      <div class="admin-order-execution__meta">
-                        <span v-if="step.odds">赔率 {{ step.odds }}</span>
-                        <span v-if="step.betMoney">金额 {{ step.betMoney }}</span>
-                        <span v-if="step.order">订单 #{{ step.order.orderId }}</span>
-                        <span v-else>未落库订单</span>
+                        <span class="admin-order-execution__time">{{ fmtClock(stage.at) }}</span>
+                        <strong class="admin-order-execution__outcome">{{ stage.title }}</strong>
                       </div>
                       <div class="admin-order-execution__logic">
                         <p>
-                          <span>赔率逻辑</span>
-                          {{ step.oddsLogic }}
+                          <span>编排判断</span>
+                          {{ stage.decision }}
                         </p>
                         <p>
-                          <span>{{ step.isMakeUp ? "补单计算" : "金额计算" }}</span>
-                          {{ step.stakeLogic }}
-                        </p>
-                        <p v-if="step.rejectLogic" class="admin-order-execution__logic-reject">
-                          <span>拒单判断</span>
-                          {{ step.rejectLogic }}
+                          <span>编排动作</span>
+                          {{ stage.action }}
                         </p>
                       </div>
-                      <p v-if="step.detail" class="admin-order-execution__detail">
-                        {{ step.detail }}
-                      </p>
+                      <ul class="admin-order-orchestration__evidence">
+                        <li v-for="item in stage.evidence" :key="item">{{ item }}</li>
+                      </ul>
                     </div>
                   </li>
                 </ol>

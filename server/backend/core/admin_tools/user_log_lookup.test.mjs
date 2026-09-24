@@ -250,6 +250,61 @@ describe("user_log_lookup", () => {
     expect(filtered.relevant.find(l => l.id === 3)?.matchedOrderId).toBe("ray-order");
   });
 
+  it("keeps the full 758786-style chain when venue team aliases differ", () => {
+    const link = 1_790_274_758_786;
+    const orders = [{
+      orderId: "pm-filled",
+      link,
+      provider: "Polymarket",
+      match: "Counter-Strike: Phantom vs Iberian Soul",
+      bet: "Map 1 Winner",
+      item: "Phantom",
+      createAt: 1_000,
+    }];
+    const logs = [
+      { id: 1, kind: "check", provider: "RAY", target: "Away", match: "Phantom Esports vs Gentle Mates", bet: "Map 1 Winner", createAt: 900, summary: "RAY 初始预检" },
+      { id: 2, kind: "check", provider: "Polymarket", target: "Home", match: "Phantom Esports vs Gentle Mates", bet: "Map 1 Winner", createAt: 950, summary: "PM 初始预检" },
+      { id: 3, kind: "bet", provider: "Polymarket", orderId: "pm-filled", success: true, createAt: 1_100, summary: "PM 成交" },
+      { id: 4, kind: "bet", provider: "RAY", success: false, createAt: 1_150, summary: "RAY 封盘" },
+      { id: 5, kind: "check", provider: "RAY", target: "Away", match: "Phantom Esports vs Gentle Mates", bet: "Map 1 Winner", checkError: "已封盘", createAt: 1_250, summary: "RAY 即时重试" },
+      { id: 6, kind: "reject", provider: "Polymarket", linkId: link, orderId: "pm-filled", settlement: "filled", createAt: 12_000, summary: "PM 最终成交" },
+    ];
+
+    const filtered = filterRelevantLogs(orders, logs);
+    expect(filtered.relevant.map(log => log.id)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(filtered.relevant.find(log => log.id === 1)?.matchedOrderId).toBeNull();
+    expect(filtered.relevant.find(log => log.id === 4)?.matchedOrderId).toBeNull();
+    expect(filtered.relevant.find(log => log.id === 3)?.matchedOrderId).toBe("pm-filled");
+  });
+
+  it("summarizes a makeup queue as an independent Link step", () => {
+    const link = 1_790_274_758_786;
+    const log = summarizeUserLog({
+      id: 7,
+      create_at: 2_000,
+      title: "补单入队",
+      data: JSON.stringify({
+        linkId: link,
+        attemptType: "makeup_queue",
+        target: "Away",
+        match: "Phantom Esports vs Gentle Mates",
+        bet: "Map 1 Winner",
+        betMoney: 140,
+        odds: 2.702,
+        failedLegOdds: 1.76,
+        failedPlatformLabel: "RAY",
+      }),
+    });
+    expect(log.kind).toBe("makeup_queue");
+    expect(log.linkId).toBe(link);
+    expect(log.failedLegOdds).toBe(1.76);
+
+    const filtered = filterRelevantLogs([
+      { orderId: "pm-filled", link, provider: "Polymarket", createAt: 1_000 },
+    ], [log]);
+    expect(filtered.relevant[0]?.matchedOrderId).toBeNull();
+  });
+
   it("buildPlatformSections groups orders and logs by provider", () => {
     const orders = [
       { orderId: "o1", provider: "OB", createAt: 100 },

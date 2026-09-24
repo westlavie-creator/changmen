@@ -1941,6 +1941,31 @@ html.admin-route #app > * {
 .admin-order-execution__logic .admin-order-execution__logic-reject > span {
   color: #f89898;
 }
+.admin-order-orchestration__evidence {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-order-orchestration__evidence li {
+  position: relative;
+  padding: 4px 7px 4px 17px;
+  border-radius: 5px;
+  color: var(--adm-text-muted);
+  background: rgba(7, 11, 20, 0.2);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.admin-order-orchestration__evidence li::before {
+  content: "依据";
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  color: var(--adm-text-dim, rgba(170, 184, 204, 0.58));
+  font-size: 8px;
+  writing-mode: vertical-rl;
+}
 .admin-order-log-overview__empty {
   margin: 0;
   font-size: 12px;
