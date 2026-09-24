@@ -1,7 +1,13 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { getApiBase } from "@/config/apiBase";
 import { skipCertGate } from "@/config/mtlsGate";
 
 type CertStatus = "unknown" | "present" | "absent";
+
+function clientCertStatusUrl(): string {
+  const apiBase = getApiBase();
+  return `${apiBase}/api/client-cert-status`;
+}
 
 /**
  * 探测本次页面是否经 mTLS（Caddy → /api/client-cert-status）。
@@ -23,9 +29,9 @@ export function useCertGate() {
     }
 
     try {
-      const res = await fetch("/api/client-cert-status", {
+      const res = await fetch(clientCertStatusUrl(), {
         method: "GET",
-        credentials: "same-origin",
+        credentials: "include",
         cache: "no-store",
       });
       if (res.ok) {

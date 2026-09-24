@@ -1,6 +1,6 @@
 # changmen — HTTP 装证引导 + HTTPS mTLS（仅域名，无 IP :443 兜底）
 # :80 无客户端证书；正式站：changmen.fun / www（页面+API 同源）+ api（API 双挂）+ ws
-# 域名入口：Let's Encrypt；页面站客户端证可选，登录/API 仍由后端证书绑定兜底
+# 域名入口：Let's Encrypt；页面站不启用客户端证书，登录/API 由 api 子域强制 mTLS
 #   /etc/caddy/certs/le/{fullchain.pem,privkey.pem}
 # LE SAN 须含：changmen.fun www.changmen.fun ws.changmen.fun api.changmen.fun
 #
@@ -28,16 +28,6 @@
 	reverse_proxy 127.0.0.1:3456 {
 		header_up X-Changmen-Client-Cert {http.request.tls.client.subject}
 		header_up X-Changmen-Client-Subject {http.request.tls.client.subject}
-	}
-}
-
-(changmen_optional_mtls_tls) {
-	client_auth {
-		mode verify_if_given
-		trust_pool file /etc/caddy/certs/ca.crt
-		verifier leaf {
-			folder /etc/caddy/certs/clients
-		}
 	}
 }
 
@@ -187,9 +177,7 @@
 
 # 公网域名：Let's Encrypt，浏览器认（页面站 — 步骤 1 不变）
 changmen.fun, www.changmen.fun {
-	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem {
-		import changmen_optional_mtls_tls
-	}
+	tls /etc/caddy/certs/le/fullchain.pem /etc/caddy/certs/le/privkey.pem
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
 	header Content-Security-Policy "upgrade-insecure-requests"
 	import changmen_https_site
