@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
 import {
+  calcMakeupPlanProfitRate,
+  checkMakeupProfitRateCandidate,
   filterMakeupOddsBandCandidates,
   isMakeupOddsBandEnabled,
   makeupDisplayOdds,
@@ -124,5 +126,65 @@ describe("makeupOddsBand", () => {
   it("display odds stay on typed odds for manual isCreateOrder", () => {
     const order = new LoseOrder({ betOdds: 1.88, isCreateOrder: true });
     expect(makeupDisplayOdds(order, 1.01, on)).toBe(1.88);
+  });
+
+  describe("profit-rate mode", () => {
+    const profitMode: MakeupOddsBandPrefs = {
+      enabled: true,
+      mode: "profitRate",
+      upper: 1.02,
+      lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    };
+    const context = {
+      filledStake: 100,
+      getMakeupStake: (_item: { odds: number }, odds: number) => Math.round(200 / odds),
+    };
+
+    it("calculates guaranteed profit over total stake", () => {
+      expect(calcMakeupPlanProfitRate(300, 1.87, 239, 2.35)).toBeCloseTo(22 / 539, 8);
+    });
+
+    it("skips when the best candidate is inside the configured range", () => {
+      const out = filterMakeupOddsBandCandidates(
+        [item(2.05), item(1.8)],
+        i => i.odds,
+        2,
+        profitMode,
+        context,
+      );
+      expect(out).toEqual([]);
+    });
+
+    it("keeps only candidates above the profit upper bound", () => {
+      const out = filterMakeupOddsBandCandidates(
+        [item(2.2, "OB"), item(2.05, "RAY"), item(1.8, "IA")],
+        i => i.odds,
+        2,
+        profitMode,
+        context,
+      );
+      expect(out?.map(i => i.type)).toEqual(["OB"]);
+    });
+
+    it("places from the best quote when even it is below the loss bound", () => {
+      const out = filterMakeupOddsBandCandidates(
+        [item(1.8, "OB"), item(1.7, "RAY")],
+        i => i.odds,
+        2,
+        profitMode,
+        context,
+      );
+      expect(out?.map(i => i.type)).toEqual(["OB", "RAY"]);
+    });
+
+    it("keeps exact profit and loss boundaries inside the no-bet range", () => {
+      expect(checkMakeupProfitRateCandidate(100, 2.08, 100, 2.08, profitMode)).toEqual({
+        allowed: false,
+        rate: 0.04,
+      });
+      expect(checkMakeupProfitRateCandidate(100, 1.94, 100, 1.94, profitMode)?.allowed).toBe(false);
+    });
   });
 });

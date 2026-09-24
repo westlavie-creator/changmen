@@ -1,5 +1,6 @@
 import type { ViewMatch } from "@/models/match";
 import type { PlatformId } from "@/types/esport";
+import type { MakeupOddsBandPrefs } from "@/types/extensionPrefs";
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetOption } from "@changmen/client-core/models/betOption";
@@ -28,7 +29,11 @@ const updateVenueOrders = vi.hoisted(() => vi.fn(async (_acc?: PlatformAccount) 
 const refreshBalance = vi.hoisted(() => vi.fn(async () => undefined));
 const settlePolymarketDelayedOrder = vi.hoisted(() => vi.fn());
 const activeBetRuns = vi.hoisted(() => new Map<number, { legs: { side: "A" | "B"; target: string; status: string }[] }>());
-const extensionPrefs = vi.hoisted(() => ({
+const extensionPrefs = vi.hoisted((): {
+  arbFailAutoSell: { enabled: boolean };
+  arbEarlyLockSell: { enabled: boolean };
+  makeupOddsBand: MakeupOddsBandPrefs;
+} => ({
   arbFailAutoSell: { enabled: false },
   arbEarlyLockSell: { enabled: false },
   makeupOddsBand: { enabled: false, upper: 1.02, lower: 0.96 },
@@ -785,6 +790,44 @@ describe("processLoseOrders makeupOddsBand", () => {
   it("falls back to makeProfit when the hedge formula cannot be solved", async () => {
     matchs.push(makeMatch(makeBet([makeItem("OB", 250)])));
     queueOrder({ betOdds: 1, target: "Home" });
+    stubAccount();
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(getAccount).toHaveBeenCalled();
+    expect(betting).toHaveBeenCalledTimes(1);
+  });
+
+  it("supports profit-rate mode without changing manual makeup behavior", async () => {
+    extensionPrefs.makeupOddsBand = {
+      enabled: true,
+      mode: "profitRate",
+      upper: 1.02,
+      lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    };
+    matchs.push(makeMatch(makeBet([makeItem("OB", 2.05)])));
+    queueOrder({ betMoney: 100, betOdds: 2, target: "Home" });
+    stubAccount();
+
+    await processLoseOrders({ setMessage: vi.fn() });
+
+    expect(getAccount).not.toHaveBeenCalled();
+    expect(betting).not.toHaveBeenCalled();
+  });
+
+  it("places in profit-rate mode below the configured loss bound", async () => {
+    extensionPrefs.makeupOddsBand = {
+      enabled: true,
+      mode: "profitRate",
+      upper: 1.02,
+      lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    };
+    matchs.push(makeMatch(makeBet([makeItem("OB", 1.8)])));
+    queueOrder({ betMoney: 100, betOdds: 2, target: "Home" });
     stubAccount();
 
     await processLoseOrders({ setMessage: vi.fn() });

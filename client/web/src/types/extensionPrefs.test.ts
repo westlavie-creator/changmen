@@ -40,7 +40,14 @@ const defaultPrefs = {
   pmArbPriceBuffer: { enabled: false, multiplier: 1.01 },
   pmFokDepthBuffer: { enabled: false, multiplier: 1.5 },
   pfArbPriceBuffer: { enabled: false, multiplier: 1.01 },
-  makeupOddsBand: { enabled: false, upper: 1.02, lower: 0.96 },
+  makeupOddsBand: {
+    enabled: false,
+    mode: "oddsFactor" as const,
+    upper: 1.02,
+    lower: 0.96,
+    upperProfitPct: 4,
+    lowerLossPct: 3,
+  },
   uiTheme: "default" as const,
 };
 
@@ -335,18 +342,35 @@ describe("extensionPrefs", () => {
     }).valueBetSoftPlatforms).toEqual(defaultPrefs.valueBetSoftPlatforms);
   });
 
-  it("defaults makeupOddsBand off at 1.02 / 0.96", () => {
+  it("defaults makeupOddsBand off in legacy odds-factor mode", () => {
     expect(createDefaultExtensionPrefs().makeupOddsBand).toEqual({
       enabled: false,
+      mode: "oddsFactor",
       upper: 1.02,
       lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
     });
     expect(normalizeExtensionPrefs({
       makeupOddsBand: { enabled: true, upper: 1.03, lower: 0.95 },
-    }).makeupOddsBand).toEqual({ enabled: true, upper: 1.03, lower: 0.95 });
+    }).makeupOddsBand).toEqual({
+      enabled: true,
+      mode: "oddsFactor",
+      upper: 1.03,
+      lower: 0.95,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    });
     expect(normalizeExtensionPrefs({
       makeupOddsBand: { enabled: true, upper: 0.9, lower: 1.1 },
-    }).makeupOddsBand).toEqual({ enabled: true, upper: 1.02, lower: 0.96 });
+    }).makeupOddsBand).toEqual({
+      enabled: true,
+      mode: "oddsFactor",
+      upper: 1.02,
+      lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    });
     expect(normalizeExtensionPrefs({
       makeupOddsBand: { enabled: true, upper: 1.02, lower: 0 },
     }).makeupOddsBand.lower).toBe(0);
@@ -356,6 +380,20 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({
       makeupOddsBand: { enabled: true, upper: 1.02, lower: null },
     }).makeupOddsBand.lower).toBe(0.96);
+    expect(normalizeExtensionPrefs({
+      makeupOddsBand: {
+        enabled: true,
+        mode: "profitRate",
+        upper: 1.02,
+        lower: 0.96,
+        upperProfitPct: 4.126,
+        lowerLossPct: 2.555,
+      },
+    }).makeupOddsBand).toMatchObject({
+      mode: "profitRate",
+      upperProfitPct: 4.13,
+      lowerLossPct: 2.56,
+    });
   });
 
   it("defaults arbAllowedPlatforms to null (unrestricted)", () => {

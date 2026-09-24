@@ -18,9 +18,12 @@ import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useUserStore } from "@/stores/userStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useMatchStore } from "@/stores/matchStore";
+import { legStakeCny } from "@/domain/polymarket/pmArbStake";
 import {
+  checkMakeupProfitRateCandidate,
   filterMakeupOddsBandCandidates,
   isMakeupOddsBandEnabled,
+  isMakeupProfitRateMode,
 } from "@/extensions/arbBet/makeupOddsBand";
 
 export interface LoseOrderTickContext {
@@ -102,6 +105,10 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
           item => item.getOdds(order.target),
           order.betOdds,
           bandPrefs,
+          {
+            filledStake: order.betMoney,
+            getMakeupStake: (_item, odds) => order.getBetMoney(odds),
+          },
         )
       : null;
     const candidates = banded ?? bet.items
@@ -135,6 +142,24 @@ export async function processLoseOrders(ctx: LoseOrderTickContext): Promise<void
       const checked = await accountStore.checkBetting(account, option);
       if (!checked.data)
         continue;
+
+      if (useBand && bandPrefs && isMakeupProfitRateMode(bandPrefs)) {
+        const checkedOdds = Number(checked.odds) || sideOdds;
+        const checkedStakeCny = legStakeCny(
+          checked.betMoney,
+          checked.type,
+          account,
+        );
+        const rateCheck = checkMakeupProfitRateCandidate(
+          order.betMoney,
+          order.betOdds,
+          checkedStakeCny,
+          checkedOdds,
+          bandPrefs,
+        );
+        if (!rateCheck?.allowed)
+          continue;
+      }
 
       const waitSec = makeUpBetToastSeconds(config, account.provider);
       const makeupSide = useActiveBetRunStore().runs.get(betId)?.legs

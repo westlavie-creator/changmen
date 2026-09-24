@@ -1,10 +1,11 @@
 /**
- * [changmen 扩展] 补单赔率上下沿。
+ * [changmen 扩展] 补单上下沿（赔率系数 / 总体利润率二选一）。
  * 默认关：补单消费 / anyOdds 重试仍走 config.makeProfit。
- * 开启后替代补单消费 / 拒单即时重试门槛（入队 B() 在开启时跳过；手动补单、PM 续查不碰）。
+ * 开启后按所选模式替代补单消费 / 拒单即时重试门槛（入队 B() 在开启时跳过；手动补单、PM 续查不碰）。
  *
- * 区间按「已成腿打平赔率 × 系数」，不是初赔/当前赔率，也不是 makeProfit 利润率公式。
+ * 赔率系数模式按「已成腿打平赔率 × 系数」，不是初赔/当前赔率。
  * 例：已成 2 → 打平 2，默认 [2×0.96, 2×1.02] = [1.92, 2.04] 内不补。
+ * 利润率模式按整数计划金额计算两侧较低返还对应的总体保底利润率。
  */
 import { toFixed } from "@changmen/client-core/shared/format";
 import { calcBreakEvenOdds } from "@/domain/betting/makeupStakeCalc";
@@ -28,6 +29,57 @@ export interface MakeupOddsBandBounds {
   upperOdds: number;
   /** null = 下沿关闭：不高于上沿一律不补 */
   lowerOdds: number | null;
+}
+
+export interface MakeupProfitRateContext<T> {
+  /** 已成交腿金额，与 getMakeupStake 返回值须为同一币种口径（当前为 Plan CNY） */
+  filledStake: number;
+  /** 当前候选赔率对应的计划补单金额 */
+  getMakeupStake: (item: T, odds: number) => number;
+}
+
+/** 补单后两侧按较低返还计算的总体保底利润率；0.04 = 4%。 */
+export function calcMakeupPlanProfitRate(
+  filledStake: number,
+  filledOdds: number,
+  makeupStake: number,
+  makeupOdds: number,
+): number | null {
+  const refStake = Number(filledStake);
+  const refOdds = Number(filledOdds);
+  const hedgeStake = Number(makeupStake);
+  const hedgeOdds = Number(makeupOdds);
+  if (!(refStake > 0) || !(refOdds > 1) || !(hedgeStake > 0) || !(hedgeOdds > 1))
+    return null;
+  const totalStake = refStake + hedgeStake;
+  const minPayout = Math.min(refStake * refOdds, hedgeStake * hedgeOdds);
+  const rate = (minPayout - totalStake) / totalStake;
+  return Number.isFinite(rate) ? rate : null;
+}
+
+export function isMakeupProfitRateMode(prefs: MakeupOddsBandPrefs | null | undefined): boolean {
+  return normalizeMakeupOddsBand(prefs).mode === "profitRate";
+}
+
+function isProfitRateOutsideBand(rate: number, prefs: MakeupOddsBandPrefs): boolean {
+  const normalized = normalizeMakeupOddsBand(prefs);
+  const upper = Number(normalized.upperProfitPct) / 100;
+  const lower = -Number(normalized.lowerLossPct) / 100;
+  return rate > upper || rate < lower;
+}
+
+/** 场馆校验更新赔率/金额后复检利润率模式；null 表示数据不足。 */
+export function checkMakeupProfitRateCandidate(
+  filledStake: number,
+  filledOdds: number,
+  makeupStake: number,
+  makeupOdds: number,
+  prefs: MakeupOddsBandPrefs,
+): { allowed: boolean; rate: number } | null {
+  const rate = calcMakeupPlanProfitRate(filledStake, filledOdds, makeupStake, makeupOdds);
+  if (rate == null)
+    return null;
+  return { allowed: isProfitRateOutsideBand(rate, prefs), rate };
 }
 
 export function resolveMakeupOddsBandBounds(
@@ -71,9 +123,38 @@ export function filterMakeupOddsBandCandidates<T>(
   getOdds: (item: T) => number,
   filledOdds: number,
   prefs: MakeupOddsBandPrefs,
+  profitContext?: MakeupProfitRateContext<T>,
 ): T[] | null {
   if (!sortedDesc.length)
     return [];
+  const normalized = normalizeMakeupOddsBand(prefs);
+  if (normalized.mode === "profitRate") {
+    if (!profitContext)
+      return null;
+    const getRate = (item: T): number | null => {
+      const odds = getOdds(item);
+      return calcMakeupPlanProfitRate(
+        profitContext.filledStake,
+        filledOdds,
+        profitContext.getMakeupStake(item, odds),
+        odds,
+      );
+    };
+    const bestRate = getRate(sortedDesc[0]);
+    if (bestRate == null)
+      return null;
+    const upper = Number(normalized.upperProfitPct) / 100;
+    const lower = -Number(normalized.lowerLossPct) / 100;
+    if (bestRate >= lower && bestRate <= upper)
+      return [];
+    if (bestRate > upper) {
+      return sortedDesc.filter((item) => {
+        const rate = getRate(item);
+        return rate != null && rate > upper;
+      });
+    }
+    return sortedDesc;
+  }
   const bounds = resolveMakeupOddsBandBounds(filledOdds, prefs);
   if (!bounds)
     return null;

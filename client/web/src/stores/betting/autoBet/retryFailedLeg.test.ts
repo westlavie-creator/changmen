@@ -4,11 +4,12 @@ import { BetResult } from "@changmen/client-core/models/betResult";
 import { PlatformAccount } from "@/models/platformAccount";
 import { hedgeStakeCnyFromLeg } from "@/domain/polymarket/pmArbStake";
 import { retryFailedLeg } from "@/stores/betting/autoBet/retryFailedLeg";
+import type { MakeupOddsBandPrefs } from "@/types/extensionPrefs";
 
 const getAccount = vi.fn();
 const checkBetting = vi.fn();
 const betting = vi.fn();
-const extensionPrefs = vi.hoisted(() => ({
+const extensionPrefs = vi.hoisted((): { makeupOddsBand: MakeupOddsBandPrefs } => ({
   makeupOddsBand: { enabled: false, upper: 1.02, lower: 0.96 },
 }));
 
@@ -317,5 +318,41 @@ describe("retryFailedLeg makeupOddsBand", () => {
     expect(out).toBeNull();
     expect(item.updateOdds).toHaveBeenCalledTimes(1);
     expect(betting).not.toHaveBeenCalled();
+  });
+
+  it("allows controlled-loss retry in profit-rate mode below the loss bound", async () => {
+    extensionPrefs.makeupOddsBand = {
+      enabled: true,
+      mode: "profitRate",
+      upper: 1.02,
+      lower: 0.96,
+      upperProfitPct: 4,
+      lowerLossPct: 3,
+    };
+    const acc = new PlatformAccount({ accountId: 1, provider: "OB", playerName: "ob1" });
+    getAccount.mockReturnValue(acc);
+    checkBetting.mockImplementation(async (_acc, opt: BetOption) => {
+      opt.data = { ok: true };
+      return opt;
+    });
+    betting.mockResolvedValue(new BetResult("OB", true));
+
+    const match = { id: 1, title: "A vs B" } as never;
+    const bet = { id: 100, items: [makeItem("OB", 1.8)] } as never;
+    const successLeg = new BetOption("RAY" as never, "m1", "b1", "i1", 100, "Home", 2);
+    const failedLeg = new BetOption("OB" as never, "m2", "b2", "a1", 100, "Away", 2);
+
+    const out = await retryFailedLeg(
+      match,
+      bet,
+      successLeg,
+      failedLeg,
+      new PlatformAccount({ accountId: 2, provider: "RAY", playerName: "ray" }),
+      { anyOdds: false, makeProfit: 1.01, noSameBet: false, makeUp: true } as never,
+      10,
+    );
+
+    expect(out?.result.success).toBe(true);
+    expect(betting).toHaveBeenCalledOnce();
   });
 });

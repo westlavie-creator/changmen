@@ -36,10 +36,12 @@ const dragIndex = ref(0);
 
 const bandPreview = computed(() => {
   const prefs = makeupOddsBand.value;
-  if (!prefs?.enabled)
+  if (!prefs?.enabled || normalizeMakeupOddsBand(prefs).mode !== "oddsFactor")
     return null;
   return previewMakeupOddsBand(2, normalizeMakeupOddsBand(prefs));
 });
+
+const normalizedBand = computed(() => normalizeMakeupOddsBand(makeupOddsBand.value));
 
 const openDate = computed({
   get() {
@@ -257,7 +259,7 @@ function setWaitTime(platform: string, v: string | number) {
           <template v-if="form.makeUp && makeupOddsBand">
             <el-form-item
               label="补单上下沿:"
-              title="关：现网补单利润与入队初赔/当前赔率。开：按打平赔率×系数，替代消费门槛与拒单即时重试。"
+              title="关：现网补单利润与入队初赔/当前赔率。开：按所选上下沿模式替代消费门槛与拒单即时重试。"
             >
               <el-switch
                 v-model="makeupOddsBand.enabled"
@@ -268,41 +270,87 @@ function setWaitTime(platform: string, v: string | number) {
               />
             </el-form-item>
             <template v-if="makeupOddsBand.enabled">
-              <el-form-item
-                label="打平上浮:"
-                title="打平赔率乘该系数。已成 2 → 打平 2，1.02 即高于 2.04 才补。"
-              >
-                <el-input-number
-                  v-model="makeupOddsBand.upper"
-                  :min="1.001"
-                  :max="1.5"
-                  :step="0.01"
-                  :precision="3"
-                  controls-position="right"
-                  :disabled="fieldDisabled()"
-                />
+              <el-form-item label="判断方式:">
+                <el-radio-group v-model="makeupOddsBand.mode" :disabled="fieldDisabled()" size="small">
+                  <el-radio-button value="oddsFactor">
+                    赔率系数
+                  </el-radio-button>
+                  <el-radio-button value="profitRate">
+                    总体利润率
+                  </el-radio-button>
+                </el-radio-group>
               </el-form-item>
-              <el-form-item
-                label="打平下浮:"
-                title="打平赔率乘该系数。0=亏损不补；0.96 即低于 1.92 才补。清空按 0.96。"
-              >
-                <el-input-number
-                  v-model="makeupOddsBand.lower"
-                  :min="0"
-                  :max="0.999"
-                  :step="0.01"
-                  :precision="3"
-                  controls-position="right"
-                  :disabled="fieldDisabled()"
-                />
-              </el-form-item>
-              <p v-if="bandPreview" class="config-section__hint">
-                已成 2 → 打平 {{ bandPreview.breakEvenOdds }}，
-                <template v-if="bandPreview.lowerOdds != null">
-                  低于 {{ bandPreview.lowerOdds }} 或
-                </template>
-                高于 {{ bandPreview.upperOdds }} 才补
-              </p>
+              <template v-if="normalizedBand.mode === 'oddsFactor'">
+                <el-form-item
+                  label="打平上浮:"
+                  title="打平赔率乘该系数。已成 2 → 打平 2，1.02 即高于 2.04 才补。"
+                >
+                  <el-input-number
+                    v-model="makeupOddsBand.upper"
+                    :min="1.001"
+                    :max="1.5"
+                    :step="0.01"
+                    :precision="3"
+                    controls-position="right"
+                    :disabled="fieldDisabled()"
+                  />
+                </el-form-item>
+                <el-form-item
+                  label="打平下浮:"
+                  title="打平赔率乘该系数。0=亏损不补；0.96 即低于 1.92 才补。清空按 0.96。"
+                >
+                  <el-input-number
+                    v-model="makeupOddsBand.lower"
+                    :min="0"
+                    :max="0.999"
+                    :step="0.01"
+                    :precision="3"
+                    controls-position="right"
+                    :disabled="fieldDisabled()"
+                  />
+                </el-form-item>
+                <p v-if="bandPreview" class="config-section__hint">
+                  已成 2 → 打平 {{ bandPreview.breakEvenOdds }}，
+                  <template v-if="bandPreview.lowerOdds != null">
+                    低于 {{ bandPreview.lowerOdds }} 或
+                  </template>
+                  高于 {{ bandPreview.upperOdds }} 才补
+                </p>
+              </template>
+              <template v-else>
+                <el-form-item
+                  label="盈利上沿(%):"
+                  title="补单后的总体保底利润率严格高于该值时补单。"
+                >
+                  <el-input-number
+                    v-model="makeupOddsBand.upperProfitPct"
+                    :min="0"
+                    :max="100"
+                    :step="0.5"
+                    :precision="2"
+                    controls-position="right"
+                    :disabled="fieldDisabled()"
+                  />
+                </el-form-item>
+                <el-form-item
+                  label="亏损下沿(%):"
+                  title="填写正数；总体保底利润率严格低于其负值时补单止损。"
+                >
+                  <el-input-number
+                    v-model="makeupOddsBand.lowerLossPct"
+                    :min="0"
+                    :max="100"
+                    :step="0.5"
+                    :precision="2"
+                    controls-position="right"
+                    :disabled="fieldDisabled()"
+                  />
+                </el-form-item>
+                <p class="config-section__hint">
+                  −{{ normalizedBand.lowerLossPct }}% ～ +{{ normalizedBand.upperProfitPct }}% 内不补；
+                  高于盈利上沿或低于亏损下沿才补。
+                </p>
+              </template>
             </template>
           </template>
           <template v-if="form.makeUp && makeupOddsBand?.enabled !== true">
@@ -380,7 +428,7 @@ function setWaitTime(platform: string, v: string | number) {
               </template>
             </div>
             <p v-if="form.anyOdds && makeupOddsBand?.enabled" class="config-section__hint">
-              上下沿开启时，拒单即时重试也按打平价×同一对系数。
+              上下沿开启时，拒单即时重试也使用相同判断方式。
             </p>
           </el-form-item>
         </div>

@@ -13,8 +13,10 @@ import { readUsedAccounts } from "@/stores/betting/successMarkers";
 import { useMatchStore } from "@/stores/matchStore";
 import { useUserStore } from "@/stores/userStore";
 import {
+  checkMakeupProfitRateCandidate,
   filterMakeupOddsBandCandidates,
   isMakeupOddsBandEnabled,
+  isMakeupProfitRateMode,
 } from "@/extensions/arbBet/makeupOddsBand";
 
 /**
@@ -41,6 +43,11 @@ export async function retryFailedLeg(
   const useBand = isMakeupOddsBandEnabled(bandPrefs) && config.makeUp !== false;
   const profitThreshold = config.anyOdds ? config.anyOddsProfit : config.makeProfit;
   const minOdds = 1 / (1 / profitThreshold - 1 / successLeg.odds);
+  const successStakeCny = legStakeCny(
+    successLeg.betMoney,
+    successLeg.type,
+    successAccount,
+  );
 
   const tried: PlatformId[] = [];
 
@@ -57,6 +64,16 @@ export async function retryFailedLeg(
           item => item.getOdds(failedLeg.target),
           successLeg.odds,
           bandPrefs,
+          {
+            filledStake: successStakeCny,
+            getMakeupStake: (_item, odds) => hedgeStakeCnyFromLeg(
+              successLeg.odds,
+              successLeg.betMoney,
+              successLeg.type,
+              odds,
+              successAccount,
+            ),
+          },
         )
       : null;
     const candidates = banded ?? bet.items
@@ -129,11 +146,6 @@ export async function retryFailedLeg(
       continue;
 
     const guardedOdds = Number(retryLeg.odds) || pickedItem.getOdds(failedLeg.target);
-    const successStakeCny = legStakeCny(
-      successLeg.betMoney,
-      successLeg.type,
-      successAccount,
-    );
     const retryStakeCny = legStakeCny(
       retryLeg.betMoney,
       retryLeg.type,
@@ -146,7 +158,23 @@ export async function retryFailedLeg(
     );
     const guardedProfit = totalStakeCny > 0 ? minPayoutCny / totalStakeCny : 0;
     const minGuardProfit = Number(profitThreshold) || 0;
-    if (!Number.isFinite(guardedProfit) || guardedProfit < minGuardProfit) {
+    if (useBand && bandPrefs && isMakeupProfitRateMode(bandPrefs)) {
+      const rateCheck = checkMakeupProfitRateCandidate(
+        successStakeCny,
+        successLeg.odds,
+        retryStakeCny,
+        guardedOdds,
+        bandPrefs,
+      );
+      if (!rateCheck?.allowed) {
+        trace?.event(
+          "重试",
+          `拦截 ${pickedAccount.provider}@${guardedOdds}，总体利润率 ${rateCheck ? `${(rateCheck.rate * 100).toFixed(2)}%` : "无法计算"} 位于不补区间`,
+        );
+        continue;
+      }
+    }
+    else if (!Number.isFinite(guardedProfit) || guardedProfit < minGuardProfit) {
       trace?.event(
         "重试",
         `拦截 ${pickedAccount.provider}@${guardedOdds}，组合收益 ${guardedProfit.toFixed(4)} < ${minGuardProfit}`,

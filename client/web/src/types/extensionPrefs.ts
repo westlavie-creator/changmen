@@ -109,27 +109,40 @@ export function createDefaultPfArbPriceBufferPrefs(): PfArbPriceBufferPrefs {
   return { enabled: false, multiplier: 1.01 };
 }
 
+export type MakeupOddsBandMode = "oddsFactor" | "profitRate";
+
 /**
- * [changmen 扩展] 补单消费赔率上下沿：打平赔率 × 系数。
+ * [changmen 扩展] 补单消费上下沿。
  * 默认关 = 现网 makeProfit 地板；开则替代补单消费 / anyOdds 重试门槛。
- * 例：已成 2 → 打平 2，默认不补 [2×0.96, 2×1.02]。
+ * `oddsFactor` 保留原「打平赔率 × 系数」行为；`profitRate` 按补单后总体保底利润率判断。
  */
 export interface MakeupOddsBandPrefs {
   enabled: boolean;
+  /** 缺省按旧版 oddsFactor，保证存量用户行为不变 */
+  mode?: MakeupOddsBandMode;
   /** 打平赔率上浮系数，默认 1.02，须 > 1 */
   upper: number;
   /** 打平赔率下浮系数，默认 0.96；0 = 关闭下沿（只留上沿） */
   lower: number;
+  /** 总体盈利率上沿（百分数，例如 4 = 4%） */
+  upperProfitPct?: number;
+  /** 总体亏损率下沿的绝对值（百分数，例如 3 = -3%） */
+  lowerLossPct?: number;
 }
 
 export const DEFAULT_MAKEUP_ODDS_BAND_UPPER = 1.02;
 export const DEFAULT_MAKEUP_ODDS_BAND_LOWER = 0.96;
+export const DEFAULT_MAKEUP_PROFIT_UPPER_PCT = 4;
+export const DEFAULT_MAKEUP_LOSS_LOWER_PCT = 3;
 
 export function createDefaultMakeupOddsBandPrefs(): MakeupOddsBandPrefs {
   return {
     enabled: false,
+    mode: "oddsFactor",
     upper: DEFAULT_MAKEUP_ODDS_BAND_UPPER,
     lower: DEFAULT_MAKEUP_ODDS_BAND_LOWER,
+    upperProfitPct: DEFAULT_MAKEUP_PROFIT_UPPER_PCT,
+    lowerLossPct: DEFAULT_MAKEUP_LOSS_LOWER_PCT,
   };
 }
 
@@ -220,7 +233,7 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   /** PF 套利：有 fo 时读打折档（展示/扫描/对冲/限价）；无 fo 不打折；默认关 = 裸限价 */
   pfArbPriceBuffer: PfArbPriceBufferPrefs;
   /**
-   * 补单打平价×系数上下沿。默认关；UI 在参数配置「补单配置」，存储仍走 Extensions。
+   * 补单上下沿（赔率系数 / 总体利润率）。默认关；UI 在参数配置「补单配置」，存储仍走 Extensions。
    */
   makeupOddsBand: MakeupOddsBandPrefs;
   /**
@@ -442,8 +455,11 @@ export function normalizeMakeupOddsBand(raw: unknown): MakeupOddsBandPrefs {
   const upper = Number(row.upper);
   const lowerMissing = row.lower == null || row.lower === "";
   const lower = Number(row.lower);
+  const upperProfitPct = Number(row.upperProfitPct);
+  const lowerLossPct = Number(row.lowerLossPct);
   return {
     enabled: row.enabled === true,
+    mode: row.mode === "profitRate" ? "profitRate" : "oddsFactor",
     upper: Number.isFinite(upper) && upper > 1 && upper <= 1.5
       ? Math.round(upper * 1000) / 1000
       : defaults.upper,
@@ -455,6 +471,12 @@ export function normalizeMakeupOddsBand(raw: unknown): MakeupOddsBandPrefs {
         : Number.isFinite(lower) && lower > 0 && lower < 1
           ? Math.round(Math.max(0.5, lower) * 1000) / 1000
           : defaults.lower,
+    upperProfitPct: Number.isFinite(upperProfitPct) && upperProfitPct >= 0 && upperProfitPct <= 100
+      ? Math.round(upperProfitPct * 100) / 100
+      : defaults.upperProfitPct,
+    lowerLossPct: Number.isFinite(lowerLossPct) && lowerLossPct >= 0 && lowerLossPct <= 100
+      ? Math.round(lowerLossPct * 100) / 100
+      : defaults.lowerLossPct,
   };
 }
 
