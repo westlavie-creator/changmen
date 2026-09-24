@@ -42,6 +42,18 @@ export interface AdminOrderOrchestrationStage {
   decision: string;
   action: string;
   evidence: string[];
+  homeNodes: AdminOrderOrchestrationNode[];
+  awayNodes: AdminOrderOrchestrationNode[];
+}
+
+export interface AdminOrderOrchestrationNode {
+  key: string;
+  at: number;
+  provider: string;
+  title: string;
+  summary: string;
+  detail: string | null;
+  tone: AdminOrderDiagnosisTone;
 }
 
 function fmt(n: number, digits = 3) {
@@ -409,6 +421,29 @@ function stepEvidence(step: AdminOrderExecutionStep) {
   return `${market}：${step.outcome}${step.detail ? `（${step.detail}）` : ""}`;
 }
 
+function stageNodes(
+  rows: AdminOrderExecutionStep[],
+  title: (step: AdminOrderExecutionStep) => string,
+  detail: (step: AdminOrderExecutionStep) => string | null,
+  tone: (step: AdminOrderExecutionStep) => AdminOrderDiagnosisTone = step => step.tone,
+) {
+  const toNode = (step: AdminOrderExecutionStep): AdminOrderOrchestrationNode => ({
+    key: step.key,
+    at: step.at,
+    provider: step.provider,
+    title: title(step),
+    summary: [step.odds ? `赔率 ${step.odds}` : "", step.betMoney ? `金额 ${step.betMoney}` : ""]
+      .filter(Boolean)
+      .join(" · ") || step.outcome,
+    detail: detail(step),
+    tone: tone(step),
+  });
+  return {
+    homeNodes: rows.filter(step => step.side !== "Away").map(toNode),
+    awayNodes: rows.filter(step => step.side === "Away").map(toNode),
+  };
+}
+
 /** 将场馆级日志重组成编排器的“判断 → 动作 → 结果”流程。 */
 export function buildAdminOrderOrchestrationStages(
   steps: AdminOrderExecutionStep[],
@@ -426,6 +461,7 @@ export function buildAdminOrderOrchestrationStages(
   const lastAt = Math.max(...steps.map(step => step.at).filter(Boolean));
 
   if (initial.length) {
+    const nodes = stageNodes(initial, () => "计划腿", step => step.stakeLogic, () => "neutral");
     stages.push({
       key: "plan",
       at: firstAt,
@@ -436,6 +472,7 @@ export function buildAdminOrderOrchestrationStages(
         : "仅还原到一条初始腿，历史日志不足以完整重建双腿方案。",
       action: "确定两腿方向、场馆、检测赔率和计划金额，随后进入双腿预检。",
       evidence: initial.map(step => `${step.sideLabel} ${step.provider}：${step.oddsLogic}；${step.stakeLogic}`),
+      ...nodes,
     });
   }
 
@@ -443,6 +480,12 @@ export function buildAdminOrderOrchestrationStages(
   if (checked.length) {
     const failed = checked.filter(step => Boolean(step.check?.checkError));
     const allCovered = initial.length >= 2 && checked.length >= 2;
+    const nodes = stageNodes(
+      checked,
+      step => step.check?.checkError ? "预检失败" : "预检通过",
+      step => step.check?.checkError || step.oddsLogic,
+      step => step.check?.checkError ? "danger" : "success",
+    );
     stages.push({
       key: "precheck",
       at: Math.min(...checked.map(step => step.check?.createAt || step.at)),
@@ -455,6 +498,7 @@ export function buildAdminOrderOrchestrationStages(
           : "现有日志未覆盖完整双腿预检，无法确认放行条件是否全部满足。",
       action: failed.length ? "停止首轮下单，保留失败原因。" : "复用预检锁定的盘口数据发起首轮下单。",
       evidence: checked.map(step => `${step.sideLabel} ${step.provider}：${step.check?.checkError || `通过，${step.odds}@${step.betMoney}`}`),
+      ...nodes,
     });
   }
 
@@ -463,6 +507,12 @@ export function buildAdminOrderOrchestrationStages(
     const accepted = placed.filter(step => step.bet?.success === true);
     const failed = placed.filter(step => step.bet?.success === false);
     const split = accepted.length > 0 && failed.length > 0;
+    const nodes = stageNodes(
+      placed,
+      step => step.bet?.success === true ? "接口受理" : "下单失败",
+      step => step.bet?.message || step.rejectLogic,
+      step => step.bet?.success === true ? "success" : "danger",
+    );
     stages.push({
       key: "place",
       at: Math.min(...placed.map(step => step.bet?.createAt || step.at)),
@@ -475,6 +525,7 @@ export function buildAdminOrderOrchestrationStages(
           : "两腿接口均已受理，编排器继续等待场馆终态，尚不能仅凭接口成功认定成交。",
       action: split ? "锁定成功腿作为锚腿，并对失败腿启动即时重试。" : "进入场馆终态确认。",
       evidence: placed.map(stepEvidence),
+      ...nodes,
     });
   }
 
@@ -483,6 +534,20 @@ export function buildAdminOrderOrchestrationStages(
     const rejected = settled.filter(step => String(step.order?.status || "").toLowerCase() === "reject" || step.reject?.settlement === "unfilled");
     const filled = settled.filter(step => step.reject?.settlement === "filled" || (step.order && String(step.order.status || "").toLowerCase() !== "reject"));
     const pending = settled.length - rejected.length - filled.length;
+    const nodes = stageNodes(
+      settled,
+      step => step.reject?.settlement === "filled"
+        ? "确认成交"
+        : step.reject?.settlement === "unfilled" || String(step.order?.status || "").toLowerCase() === "reject"
+          ? "确认拒单"
+          : "订单终态",
+      step => step.rejectLogic || step.outcome,
+      step => step.reject?.settlement === "unfilled" || String(step.order?.status || "").toLowerCase() === "reject"
+        ? "danger"
+        : step.reject?.settlement === "filled" || step.order
+          ? "success"
+          : "warning",
+    );
     stages.push({
       key: "settle",
       at: Math.max(...settled.map(step => Math.max(
@@ -496,11 +561,13 @@ export function buildAdminOrderOrchestrationStages(
       decision: `终态检查得到：${filled.length} 腿确认有订单，${rejected.length} 腿确认拒单${pending ? `，${pending} 腿仍待确认` : ""}。`,
       action: rejected.length ? "将确认拒单腿交给风险处置；仅以已成交腿作为补单锚腿。" : "记录场馆订单及确认耗时。",
       evidence: settled.map(step => `${stepEvidence(step)}${step.rejectLogic ? `；${step.rejectLogic}` : ""}`),
+      ...nodes,
     });
   }
 
   if (retries.length) {
     const succeeded = retries.filter(step => step.bet?.success === true && !step.rejectLogic).length;
+    const nodes = stageNodes(retries, () => "即时重试", step => `${step.outcome}；${step.stakeLogic}`);
     stages.push({
       key: "retry",
       at: Math.min(...retries.map(step => step.at)),
@@ -509,10 +576,12 @@ export function buildAdminOrderOrchestrationStages(
       decision: `首轮出现单腿敞口，编排器对失败方向执行 ${retries.length} 次即时重试。`,
       action: succeeded ? "重试已受理，继续确认新订单终态。" : "即时重试仍未成交，转入补单判断。",
       evidence: retries.map(step => `${stepEvidence(step)}；${step.stakeLogic}`),
+      ...nodes,
     });
   }
 
   if (queues.length) {
+    const nodes = stageNodes(queues, () => "补单入队", step => step.stakeLogic, () => "warning");
     stages.push({
       key: "queue",
       at: Math.min(...queues.map(step => step.at)),
@@ -521,11 +590,13 @@ export function buildAdminOrderOrchestrationStages(
       decision: `即时处置未消除敞口，编排器创建 ${queues.length} 个补单任务。`,
       action: "此时只代表进入补单队列；实际赔率和金额要等补单执行时重新计算。",
       evidence: queues.map(step => `${step.sideLabel}：${step.oddsLogic}；${step.stakeLogic}`),
+      ...nodes,
     });
   }
 
   if (makeups.length) {
     const failures = makeups.filter(step => step.bet?.success === false || step.rejectLogic).length;
+    const nodes = stageNodes(makeups, () => "补单执行", step => `${step.outcome}；${step.stakeLogic}`);
     stages.push({
       key: "makeup",
       at: Math.min(...makeups.map(step => step.at)),
@@ -534,6 +605,7 @@ export function buildAdminOrderOrchestrationStages(
       decision: `补单消费者执行 ${makeups.length} 次场馆下单${failures ? `，其中 ${failures} 次未成功` : ""}。`,
       action: "按锚腿敞口和补单时实时赔率重新计算金额，并再次检查场馆终态。",
       evidence: makeups.map(step => `${stepEvidence(step)}；${step.stakeLogic}`),
+      ...nodes,
     });
   }
 
@@ -546,6 +618,8 @@ export function buildAdminOrderOrchestrationStages(
     decision: summary.text,
     action: "以同一 Link 下所有已落库订单的最终盈亏作为本次编排结果。",
     evidence: [`最终 Link 盈亏 ¥${totalProfit > 0 ? "+" : ""}${Math.floor(totalProfit).toLocaleString()}`],
+    homeNodes: [],
+    awayNodes: [],
   });
 
   const phaseOrder: Record<string, number> = {

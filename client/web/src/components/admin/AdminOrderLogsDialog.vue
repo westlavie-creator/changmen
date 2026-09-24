@@ -322,6 +322,14 @@ const diagnosisSummary = computed(() =>
 const orchestrationStages = computed(() =>
   buildAdminOrderOrchestrationStages(executionSteps.value, totalProfit.value),
 );
+const orchestrationStartAt = computed(() => orchestrationStages.value[0]?.at || 0);
+
+function fmtOrchestrationElapsed(at: number) {
+  const ms = Math.max(0, Number(at) - orchestrationStartAt.value);
+  if (ms < 1_000)
+    return `+${Math.round(ms)}ms`;
+  return `+${Number((ms / 1_000).toFixed(1))}s`;
+}
 
 const platformLabels = computed(() => {
   const labels = new Set<string>();
@@ -531,19 +539,42 @@ defineExpose({ open });
                   </span>
                 </header>
 
-                <ol class="admin-order-execution">
+                <div class="admin-order-orchestration__head" aria-hidden="true">
+                  <span>时间</span>
+                  <span>主队腿 Home</span>
+                  <span>编排器</span>
+                  <span>客队腿 Away</span>
+                </div>
+                <ol class="admin-order-execution admin-order-orchestration">
                   <li
                     v-for="(stage, stageIdx) in orchestrationStages"
                     :key="stage.key"
                     class="admin-order-execution__step"
                     :class="`admin-order-execution__step--${stage.tone}`"
                   >
-                    <div class="admin-order-execution__rail">
-                      <span class="admin-order-execution__index">{{ stageIdx + 1 }}</span>
+                    <div class="admin-order-orchestration__time">
+                      <strong>{{ fmtClock(stage.at) }}</strong>
+                      <span>{{ fmtOrchestrationElapsed(stage.at) }}</span>
                     </div>
-                    <div class="admin-order-execution__body">
+                    <div class="admin-order-orchestration__lane admin-order-orchestration__lane--home">
+                      <article
+                        v-for="node in stage.homeNodes"
+                        :key="node.key"
+                        class="admin-order-orchestration__node"
+                        :class="`admin-order-orchestration__node--${node.tone}`"
+                      >
+                        <header>
+                          <strong>{{ node.title }}</strong>
+                          <span>{{ node.provider }}</span>
+                        </header>
+                        <p>{{ node.summary }}</p>
+                        <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
+                      </article>
+                      <span v-if="!stage.homeNodes.length" class="admin-order-orchestration__empty">—</span>
+                    </div>
+                    <div class="admin-order-execution__body admin-order-orchestration__center">
                       <div class="admin-order-execution__main">
-                        <span class="admin-order-execution__time">{{ fmtClock(stage.at) }}</span>
+                        <span class="admin-order-execution__index">{{ stageIdx + 1 }}</span>
                         <strong class="admin-order-execution__outcome">{{ stage.title }}</strong>
                       </div>
                       <div class="admin-order-execution__logic">
@@ -556,9 +587,25 @@ defineExpose({ open });
                           {{ stage.action }}
                         </p>
                       </div>
-                      <ul class="admin-order-orchestration__evidence">
+                      <ul v-if="!stage.homeNodes.length && !stage.awayNodes.length" class="admin-order-orchestration__evidence">
                         <li v-for="item in stage.evidence" :key="item">{{ item }}</li>
                       </ul>
+                    </div>
+                    <div class="admin-order-orchestration__lane admin-order-orchestration__lane--away">
+                      <article
+                        v-for="node in stage.awayNodes"
+                        :key="node.key"
+                        class="admin-order-orchestration__node"
+                        :class="`admin-order-orchestration__node--${node.tone}`"
+                      >
+                        <header>
+                          <strong>{{ node.title }}</strong>
+                          <span>{{ node.provider }}</span>
+                        </header>
+                        <p>{{ node.summary }}</p>
+                        <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
+                      </article>
+                      <span v-if="!stage.awayNodes.length" class="admin-order-orchestration__empty">—</span>
                     </div>
                   </li>
                 </ol>

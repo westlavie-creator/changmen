@@ -102,6 +102,10 @@ describe("adminOrderDiagnosis", () => {
     ]);
     expect(stages.find(stage => stage.key === "place")?.decision).toContain("单腿敞口");
     expect(stages.find(stage => stage.key === "makeup")?.action).toContain("实时赔率");
+    expect(stages.find(stage => stage.key === "plan")?.homeNodes).toHaveLength(1);
+    expect(stages.find(stage => stage.key === "plan")?.awayNodes).toHaveLength(1);
+    expect(stages.find(stage => stage.key === "place")?.homeNodes[0]?.title).toBe("下单失败");
+    expect(stages.find(stage => stage.key === "place")?.awayNodes[0]?.title).toBe("接口受理");
   });
 
   it("uses structured settlement logs for exact post-accept reject delay and reason", () => {
