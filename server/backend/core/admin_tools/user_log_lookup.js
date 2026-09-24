@@ -157,7 +157,9 @@ function isStrongLogOrderMatch(best, log) {
     return best.reasons.includes("比赛") && best.score >= 60;
   }
   if (log.kind === "reject") {
-    return best.reasons.includes("order_id") || (best.reasons.includes("平台") && best.reasons.includes("时间"));
+    return best.reasons.includes("order_id")
+      || (best.reasons.includes("平台") && best.reasons.includes("时间"))
+      || (best.reasons.includes("平台") && best.reasons.includes("比赛"));
   }
   return best.score >= 80;
 }
@@ -173,14 +175,20 @@ function sameLogActor(a, b) {
 export function filterRelevantLogs(orders, logs) {
   const relevant = [];
   const unrelated = [];
-  let lastRelevantCheck = null;
+  const lastRelevantCheckByActor = new Map();
+
+  const actorKey = log => String(log?.accountLabel || log?.provider || "").trim();
+  const providerMatchesOrder = (log, order) => !log?.provider
+    || !order?.provider
+    || String(log.provider) === String(order.provider);
 
   for (const log of logs || []) {
     const best = findBestOrderMatch(orders, log);
     let keep = isStrongLogOrderMatch(best, log);
     const reasons = keep ? [...best.reasons] : [];
-    if (!keep && log.kind === "bet" && lastRelevantCheck && sameLogActor(log, lastRelevantCheck)) {
-      const delta = Number(log.createAt) - Number(lastRelevantCheck.createAt);
+    const previousCheck = lastRelevantCheckByActor.get(actorKey(log));
+    if (!keep && log.kind === "bet" && previousCheck && sameLogActor(log, previousCheck)) {
+      const delta = Number(log.createAt) - Number(previousCheck.createAt);
       if (delta >= 0 && delta <= RELATED_BET_LOG_WINDOW_MS) {
         keep = true;
         reasons.push("同预检下注链路");
@@ -190,17 +198,24 @@ export function filterRelevantLogs(orders, logs) {
       unrelated.push({ ...log, related: false, relationReason: "非下注诊断日志" });
       continue;
     }
+    const inferredOrderId = keep && best?.order && providerMatchesOrder(log, best.order)
+      ? best.order.orderId
+      : previousCheck?.matchedOrderId ?? null;
     const next = {
       ...log,
       related: keep,
       relationScore: best?.score ?? 0,
       relationReason: reasons.join("、") || (keep ? "相关" : "未匹配订单"),
-      matchedOrderId: keep && best?.order?.orderId ? best.order.orderId : null,
+      // provider 不同只能证明是同场尝试，不能硬挂到另一场馆的订单上。
+      matchedOrderId: inferredOrderId,
     };
     if (keep) {
       relevant.push(next);
-      if (log.kind === "check")
-        lastRelevantCheck = next;
+      if (log.kind === "check") {
+        const key = actorKey(next);
+        if (key)
+          lastRelevantCheckByActor.set(key, next);
+      }
     }
     else {
       unrelated.push(next);
@@ -276,6 +291,8 @@ export function extractLogOrderId(title, parsed, kind) {
     return String(parsed.result.orderId);
   }
   if (kind === "reject") {
+    if (parsed?.orderId)
+      return String(parsed.orderId);
     const m = String(title || "").match(/-\s*(\S+)\s+拒单/);
     if (m?.[1])
       return m[1];
@@ -410,16 +427,22 @@ function formatLegLabel(side) {
   return sideDisplayLabel(side);
 }
 
-function inferTargetFromLogs(logs) {
-  for (const log of logs || []) {
+function inferTargetFromLogs(logs, provider = null) {
+  const list = logs || [];
+  const preferred = provider
+    ? list.filter(log => !log.provider || String(log.provider) === String(provider))
+    : list;
+  for (const log of preferred) {
     if (log.target === "Home" || log.target === "Away")
       return log.target;
   }
-  for (const log of logs || []) {
+  for (const log of preferred) {
     const m = String(log.summary || "").match(/\s(Home|Away)@/);
     if (m)
       return m[1];
   }
+  if (preferred !== list)
+    return inferTargetFromLogs(list);
   return null;
 }
 
@@ -474,28 +497,6 @@ function pickLegIndexForUnassigned(legs) {
   if (!homeN && awayN)
     return 0;
   return homeN <= awayN ? 0 : 1;
-}
-
-function assignOrphanLogsToAttempts(attempts, orphanLogs) {
-  if (!orphanLogs.length)
-    return;
-  if (!attempts.length) {
-    attempts.push({ key: "orphan", order: null, logs: [...orphanLogs], logSegments: [] });
-    return;
-  }
-  for (const log of orphanLogs) {
-    let best = attempts[0];
-    let bestDist = Math.abs(log.createAt - (best.order?.createAt || log.createAt));
-    for (const att of attempts.slice(1)) {
-      const t = att.order?.createAt ?? 0;
-      const dist = Math.abs(log.createAt - t);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = att;
-      }
-    }
-    best.logs.push(log);
-  }
 }
 
 /** 从 Client_SaveUserLog title 解析账号展示，如 [OB](星空,4) → OB · 星空 / 4 */
@@ -589,8 +590,13 @@ export function buildLegSections(orders, logs, meta = {}) {
 
   for (const log of sortedLogs) {
     const orderId = log.orderId || log.matchedOrderId ? String(log.orderId || log.matchedOrderId) : null;
-    if (orderId && attemptByOrderId.has(orderId)) {
-      attemptByOrderId.get(orderId).logs.push(log);
+    const attempt = orderId ? attemptByOrderId.get(orderId) : null;
+    const isExactOrderId = Boolean(log.orderId && attempt);
+    const providerCompatible = !log.provider
+      || !attempt?.order?.provider
+      || String(log.provider) === String(attempt.order.provider);
+    if (attempt && (isExactOrderId || providerCompatible)) {
+      attempt.logs.push(log);
     }
     else {
       orphanLogs.push(log);
@@ -598,7 +604,7 @@ export function buildLegSections(orders, logs, meta = {}) {
   }
 
   for (const att of attempts) {
-    att.side = inferTargetFromLogs(att.logs);
+    att.side = inferTargetFromLogs(att.logs, att.order?.provider);
     att.logs.sort((a, b) => a.createAt - b.createAt);
   }
 
@@ -625,43 +631,60 @@ export function buildLegSections(orders, logs, meta = {}) {
     leg.attempts.sort((a, b) => (a.order?.createAt ?? 0) - (b.order?.createAt ?? 0));
   }
 
-  const orphanBySide = { Home: [], Away: [], unknown: [] };
-  for (const log of orphanLogs) {
-    const side
-      = log.target === "Home" || log.target === "Away"
-        ? log.target
-        : extractLogTarget(null, log.kind, log.summary);
-    if (side === "Home")
-      orphanBySide.Home.push(log);
-    else if (side === "Away")
-      orphanBySide.Away.push(log);
-    else orphanBySide.unknown.push(log);
-  }
+  // 未落库尝试先按「预检 → 下注」切段。只有同平台、同方向时才并回真实订单，
+  // 避免 PM 失败尝试因时间接近被塞进 RAY 订单，进而把整笔订单放错主客队。
+  for (const segment of buildLogSegments(orphanLogs)) {
+    const segmentLogs = segment.logs || [];
+    const provider = segment.provider || segmentLogs.find(l => l.provider)?.provider || null;
+    const side = inferTargetFromLogs(segmentLogs, provider);
+    const firstAt = Number(segmentLogs[0]?.createAt) || 0;
+    const compatible = attempts
+      .filter(att => att.order
+        && provider
+        && String(att.order.provider) === String(provider)
+        && side
+        && att.side === side)
+      .sort((a, b) => {
+        const da = Math.abs(firstAt - (a.order?.createAt || firstAt));
+        const db = Math.abs(firstAt - (b.order?.createAt || firstAt));
+        return da - db;
+      });
+    const nearest = compatible[0];
+    const nearestDelta = nearest?.order
+      ? Math.abs(firstAt - Number(nearest.order.createAt))
+      : Number.POSITIVE_INFINITY;
 
-  for (const side of ["Home", "Away"]) {
-    const idx = legIndexForSide(side);
-    const list = orphanBySide[side];
-    if (!list.length)
+    if (nearest && nearestDelta <= DEFAULT_LOG_PADDING_MS) {
+      nearest.logs.push(...segmentLogs);
+      nearest.logs.sort((a, b) => a.createAt - b.createAt);
       continue;
-    assignOrphanLogsToAttempts(legs[idx].attempts, list);
-    if (!legs[idx].provider) {
-      const prov = list.find(l => l.provider)?.provider;
-      if (prov)
-        legs[idx].provider = prov;
     }
-  }
 
-  if (orphanBySide.unknown.length) {
-    for (const log of orphanBySide.unknown) {
-      const idx = resolveLegIndexByProvider(log.provider, legs);
-      assignOrphanLogsToAttempts(legs[idx].attempts, [log]);
-      touchLegProvider(legs[idx], log.provider);
-    }
+    const idx = side === "Home"
+      ? 0
+      : side === "Away"
+        ? 1
+        : resolveLegIndexByProvider(provider, legs);
+    const orphanAttempt = {
+      key: `orphan:${provider || "other"}:${segment.key}`,
+      order: null,
+      logs: [...segmentLogs],
+      logSegments: [segment],
+      side: legs[idx].side,
+    };
+    legs[idx].attempts.push(orphanAttempt);
+    touchLegProvider(legs[idx], provider);
   }
 
   for (const leg of legs) {
+    leg.attempts.sort((a, b) => {
+      const at = a.order?.createAt ?? a.logs[0]?.createAt ?? 0;
+      const bt = b.order?.createAt ?? b.logs[0]?.createAt ?? 0;
+      return at - bt;
+    });
     for (const att of leg.attempts) {
-      att.logSegments = buildLogSegments(att.logs);
+      if (!att.logSegments?.length)
+        att.logSegments = buildLogSegments(att.logs);
     }
   }
 
@@ -698,6 +721,10 @@ export function summarizeUserLog(row) {
     odds: null,
     newOdds: null,
     betMoney: null,
+    planBetMoney: null,
+    stakeExchange: null,
+    stakeRate: null,
+    stakeCurrency: null,
     itemId: null,
     matchId: null,
     betId: null,
@@ -710,6 +737,12 @@ export function summarizeUserLog(row) {
     relationScore: 0,
     relationReason: "",
     matchedOrderId: null,
+    placedAt: null,
+    observedAt: null,
+    rejectDelayMs: null,
+    settlement: null,
+    observedStatus: null,
+    rejectReason: null,
     summary: title,
   };
 
@@ -725,6 +758,10 @@ export function summarizeUserLog(row) {
     out.odds = Number(o.odds) || null;
     out.newOdds = Number(o.newOdds) || null;
     out.betMoney = Number(o.betMoney) || null;
+    out.planBetMoney = Number(o.planBetMoney) || null;
+    out.stakeExchange = Number(o.stakeExchange) || null;
+    out.stakeRate = Number(o.stakeRate) || null;
+    out.stakeCurrency = o.stakeCurrency || null;
     out.itemId = o.itemId || null;
     out.matchId = o.matchId || null;
     out.betId = o.betId || null;
@@ -758,7 +795,33 @@ export function summarizeUserLog(row) {
     ].filter(Boolean).join(" · ");
   }
   else if (kind === "reject") {
-    out.message = title;
+    out.message = parsed?.rejectReason || title;
+    out.target = parsed?.target === "Home" || parsed?.target === "Away"
+      ? parsed.target
+      : out.target;
+    out.match = parsed?.match || null;
+    out.bet = parsed?.bet || null;
+    out.odds = Number(parsed?.odds) || null;
+    out.betMoney = Number(parsed?.betMoney) || null;
+    out.loseOrder = Boolean(parsed?.loseOrder);
+    out.placedAt = Number(parsed?.placedAt) || null;
+    out.observedAt = Number(parsed?.observedAt) || null;
+    out.rejectDelayMs = Number(parsed?.rejectDelayMs) || null;
+    out.settlement = parsed?.settlement || null;
+    out.observedStatus = parsed?.observedStatus || null;
+    out.rejectReason = parsed?.rejectReason || null;
+    if (parsed?.diagnosticVersion) {
+      const state = parsed.settlement === "unfilled"
+        ? "确认拒单"
+        : parsed.settlement === "timeout"
+          ? "仍待确认"
+          : "确认成交";
+      out.summary = `${provider || "场馆"} 拒单检测 · ${state}`;
+      if (out.rejectDelayMs)
+        out.summary += ` · 间隔${Math.round(out.rejectDelayMs / 100) / 10}秒`;
+      if (out.rejectReason)
+        out.summary += ` · ${out.rejectReason}`;
+    }
   }
 
   return out;

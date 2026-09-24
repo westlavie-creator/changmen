@@ -1760,6 +1760,187 @@ html.admin-route #app > * {
 .admin-order-log-stat--warn .admin-order-log-stat__value {
   color: var(--adm-warning, #e6a23c);
 }
+.admin-order-diagnosis {
+  margin: 4px 0 14px;
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.28));
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: rgba(90, 111, 138, 0.08);
+}
+.admin-order-diagnosis--danger {
+  border-left-color: var(--adm-danger, #f56c6c);
+  background: rgba(245, 108, 108, 0.07);
+}
+.admin-order-diagnosis--warning {
+  border-left-color: var(--adm-warning, #e6a23c);
+  background: rgba(230, 162, 60, 0.07);
+}
+.admin-order-diagnosis--success {
+  border-left-color: var(--adm-success, #67c23a);
+  background: rgba(103, 194, 58, 0.07);
+}
+.admin-order-diagnosis__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.admin-order-diagnosis__title {
+  margin: 0 0 3px;
+  font-size: 12px;
+  color: var(--adm-text-muted);
+}
+.admin-order-diagnosis__summary {
+  margin: 0;
+  color: var(--adm-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.admin-order-diagnosis__count {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--adm-text-muted);
+  background: rgba(90, 111, 138, 0.16);
+  font-size: 10px;
+}
+.admin-order-execution {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-order-execution__step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+.admin-order-execution__step + .admin-order-execution__step {
+  margin-top: 3px;
+}
+.admin-order-execution__rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.admin-order-execution__step:not(:last-child) .admin-order-execution__rail::after {
+  content: "";
+  position: absolute;
+  top: 22px;
+  bottom: -7px;
+  width: 1px;
+  background: var(--adm-border, rgba(90, 111, 138, 0.36));
+}
+.admin-order-execution__index {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--adm-text-muted);
+  background: var(--adm-surface, #111827);
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.42));
+  font-size: 10px;
+  font-weight: 700;
+}
+.admin-order-execution__step--danger .admin-order-execution__index {
+  color: #f89898;
+  border-color: rgba(245, 108, 108, 0.58);
+}
+.admin-order-execution__step--success .admin-order-execution__index {
+  color: #95d475;
+  border-color: rgba(103, 194, 58, 0.52);
+}
+.admin-order-execution__step--warning .admin-order-execution__index {
+  color: #eebe77;
+  border-color: rgba(230, 162, 60, 0.52);
+}
+.admin-order-execution__body {
+  min-width: 0;
+  padding: 1px 0 10px;
+}
+.admin-order-execution__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  min-width: 0;
+}
+.admin-order-execution__time {
+  font-family: var(--adm-mono, ui-monospace, monospace);
+  color: var(--adm-text-muted);
+  font-size: 10px;
+}
+.admin-order-execution__side {
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--adm-text-muted);
+  background: rgba(90, 111, 138, 0.16);
+  font-size: 10px;
+}
+.admin-order-execution__outcome {
+  color: var(--adm-text);
+  font-size: 12px;
+}
+.admin-order-execution__step--danger .admin-order-execution__outcome {
+  color: #f89898;
+}
+.admin-order-execution__step--success .admin-order-execution__outcome {
+  color: #95d475;
+}
+.admin-order-execution__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  color: var(--adm-text-muted);
+  font-size: 10px;
+  font-family: var(--adm-mono, ui-monospace, monospace);
+}
+.admin-order-execution__detail {
+  margin: 5px 0 0;
+  padding: 5px 7px;
+  border-radius: 5px;
+  color: var(--adm-text-muted);
+  background: rgba(7, 11, 20, 0.26);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.admin-order-execution__logic {
+  display: grid;
+  gap: 4px;
+  margin-top: 7px;
+}
+.admin-order-execution__logic p {
+  margin: 0;
+  padding: 5px 7px;
+  border-radius: 5px;
+  color: var(--adm-text-muted);
+  background: rgba(90, 111, 138, 0.08);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.admin-order-execution__logic p > span {
+  display: inline-block;
+  min-width: 52px;
+  margin-right: 6px;
+  color: var(--adm-accent);
+  font-weight: 700;
+}
+.admin-order-execution__logic .admin-order-execution__logic-reject {
+  color: #f89898;
+  background: rgba(245, 108, 108, 0.08);
+}
+.admin-order-execution__logic .admin-order-execution__logic-reject > span {
+  color: #f89898;
+}
 .admin-order-log-overview__empty {
   margin: 0;
   font-size: 12px;

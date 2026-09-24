@@ -27,6 +27,12 @@ export class BetOption {
   odds: number;
   newOdds?: number;
   betMoney: number;
+  /** [changmen 扩展] 场馆换算前的编排金额（CNY），仅用于诊断展示。 */
+  planBetMoney?: number;
+  /** [changmen 扩展] Plan CNY → 场馆金额所用汇率与实际比例，仅用于诊断。 */
+  stakeExchange?: number;
+  stakeRate?: number;
+  stakeCurrency?: string;
   betCount = 0;
   config?: UserConfig;
   loseOrder = false;

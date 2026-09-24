@@ -22,6 +22,7 @@ import { useUserStore } from "@/stores/userStore";
 import { persistPolymarketMatchedBuyOrder } from "@/stores/account/pmOptimisticOrder";
 import { persistPolymarketExecutionReject } from "@/stores/account/pmRejectOrder";
 import { markSuccessfulBet } from "@/stores/betting/successMarkers";
+import { getExchange } from "@changmen/shared/currency";
 
 export type CheckBettingOpts = ResolveVenueStakeOpts & {
   /** 场馆额已换过：再预检只验盘口，不改 betMoney（勿用 skipAccountRate，USDT 会二次÷汇率） */
@@ -155,8 +156,16 @@ export async function checkBetting(
     attachPolymarketDetectionQuote(option);
     attachPredictFunDetectionQuote(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单
-    if (!opts?.skipStakeResolve)
-      option.betMoney = resolveVenueStakeFromPlanCny(account, option.betMoney, option.odds, opts);
+    if (!opts?.skipStakeResolve) {
+      const planBetMoney = option.betMoney;
+      const exchange = getExchange(account.currency);
+      const venueBetMoney = resolveVenueStakeFromPlanCny(account, planBetMoney, option.odds, opts);
+      option.planBetMoney = planBetMoney;
+      option.stakeExchange = exchange;
+      option.stakeRate = planBetMoney > 0 ? (venueBetMoney * exchange) / planBetMoney : 1;
+      option.stakeCurrency = String(account.currency || "CNY");
+      option.betMoney = venueBetMoney;
+    }
     return await provider.checkBet(account, option);
   }
   catch (e) {

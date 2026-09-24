@@ -154,6 +154,102 @@ describe("user_log_lookup", () => {
     expect(filtered.unrelated.map(l => l.id)).toEqual([1]);
   });
 
+  it("summarizeUserLog exposes structured post-accept reject timing", () => {
+    const log = summarizeUserLog({
+      id: 7,
+      create_at: 31_000,
+      title: "[RAY](雷竞技,6) 拒单检测 => 确认拒单",
+      data: JSON.stringify({
+        diagnosticVersion: 2,
+        orderId: "ray-1",
+        target: "Away",
+        match: "A vs B",
+        bet: "map1 获胜者",
+        odds: 1.94,
+        betMoney: 300,
+        placedAt: 1_000,
+        observedAt: 31_000,
+        rejectDelayMs: 30_000,
+        settlement: "unfilled",
+        observedStatus: "reject",
+        rejectReason: "场馆取消",
+      }),
+    });
+
+    expect(log.kind).toBe("reject");
+    expect(log.orderId).toBe("ray-1");
+    expect(log.rejectDelayMs).toBe(30_000);
+    expect(log.settlement).toBe("unfilled");
+    expect(log.summary).toContain("确认拒单");
+    expect(log.summary).toContain("间隔30秒");
+    expect(log.summary).toContain("场馆取消");
+  });
+
+  it("keeps interleaved bet results with their own provider check", () => {
+    const orders = [
+      {
+        orderId: "ray-order",
+        provider: "RAY",
+        match: "Apogee Esports vs ASTRAL",
+        bet: "map2 获胜者",
+        item: "ASTRAL",
+        odds: 1.94,
+        betMoney: 300,
+        createAt: 1_000,
+      },
+    ];
+    const logs = [
+      {
+        id: 1,
+        kind: "check",
+        provider: "Polymarket",
+        accountLabel: "Polymarket · polymarket / pm1",
+        target: "Home",
+        match: "Apogee Esports vs ASTRAL",
+        bet: "map2 获胜者",
+        createAt: 900,
+        summary: "Polymarket 预检 Home@2.272",
+      },
+      {
+        id: 2,
+        kind: "check",
+        provider: "RAY",
+        accountLabel: "RAY · 雷竞技 / ray1",
+        target: "Away",
+        match: "Apogee Esports vs ASTRAL",
+        bet: "map2 获胜者",
+        odds: 1.94,
+        betMoney: 300,
+        createAt: 1_000,
+        summary: "RAY 预检 Away@1.94",
+      },
+      {
+        id: 3,
+        kind: "bet",
+        provider: "RAY",
+        accountLabel: "RAY · 雷竞技 / ray1",
+        success: true,
+        createAt: 1_100,
+        summary: "RAY 下注成功",
+      },
+      {
+        id: 4,
+        kind: "bet",
+        provider: "Polymarket",
+        accountLabel: "Polymarket · polymarket / pm1",
+        success: false,
+        createAt: 1_200,
+        summary: "Polymarket FOK 深度不足",
+      },
+    ];
+
+    const filtered = filterRelevantLogs(orders, logs);
+    expect(filtered.relevant.map(l => l.id)).toEqual([1, 2, 3, 4]);
+    expect(filtered.relevant.find(l => l.id === 1)?.matchedOrderId).toBeNull();
+    expect(filtered.relevant.find(l => l.id === 4)?.matchedOrderId).toBeNull();
+    expect(filtered.relevant.find(l => l.id === 3)?.matchedOrderId).toBe("ray-order");
+  });
+
   it("buildPlatformSections groups orders and logs by provider", () => {
     const orders = [
       { orderId: "o1", provider: "OB", createAt: 100 },
@@ -237,6 +333,81 @@ describe("user_log_lookup", () => {
     expect(legs[1].attempts[0].order?.orderId).toBe("o-ray1");
     expect(legs[1].attempts[1].order?.orderId).toBe("o-ray2");
     expect(legs[0].attempts[0].logSegments?.length).toBeGreaterThan(0);
+  });
+
+  it("keeps a failed cross-provider attempt separate and assigns order side from matching provider", () => {
+    const link = 1_790_251_410_568;
+    const orders = [
+      {
+        orderId: "ray-away",
+        provider: "RAY",
+        item: "ASTRAL",
+        odds: 1.94,
+        betMoney: 300,
+        createAt: 1_000,
+        status: "Reject",
+        link,
+      },
+      {
+        orderId: "ray-home-makeup",
+        provider: "RAY",
+        item: "Apogee Esports",
+        odds: 1.86,
+        betMoney: 313,
+        createAt: 38_000,
+        status: "Lose",
+        link,
+      },
+    ];
+    const logs = [
+      {
+        id: 1,
+        provider: "Polymarket",
+        target: "Home",
+        createAt: 900,
+        kind: "check",
+        summary: "PM Home@2.272",
+      },
+      {
+        id: 2,
+        provider: "Polymarket",
+        createAt: 1_200,
+        kind: "bet",
+        success: false,
+        message: "FOK 深度不足",
+        summary: "PM 下注失败",
+      },
+      {
+        id: 3,
+        provider: "RAY",
+        target: "Away",
+        matchedOrderId: "ray-away",
+        createAt: 1_000,
+        kind: "check",
+        summary: "RAY Away@1.94",
+      },
+      {
+        id: 4,
+        provider: "RAY",
+        target: "Home",
+        matchedOrderId: "ray-home-makeup",
+        loseOrder: true,
+        createAt: 38_000,
+        kind: "check",
+        summary: "RAY Home@1.86",
+      },
+    ];
+
+    const legs = buildLegSections(orders, logs, { linkType: "套利", groupLabel: "套利 2 笔" });
+    const home = legs.find(l => l.side === "Home");
+    const away = legs.find(l => l.side === "Away");
+    expect(home.attempts).toHaveLength(2);
+    expect(home.attempts[0].order).toBeNull();
+    expect(home.attempts[0].logs.map(l => l.id)).toEqual([1, 2]);
+    expect(home.attempts[1].order?.orderId).toBe("ray-home-makeup");
+    expect(away.attempts).toHaveLength(1);
+    expect(away.attempts[0].order?.orderId).toBe("ray-away");
+    expect(away.attempts[0].logs.map(l => l.id)).toEqual([3]);
   });
 
   it("extractLogTarget reads check options", () => {

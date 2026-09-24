@@ -10,6 +10,10 @@ import { ElMessage } from "element-plus";
 import { computed, ref } from "vue";
 import { getAdminOrderLogs } from "@/api/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
+import {
+  buildAdminOrderDiagnosisSummary,
+  buildAdminOrderExecutionSteps,
+} from "@/shared/adminOrderDiagnosis";
 import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { formatLinkId } from "@changmen/client-core/shared/format";
 
@@ -32,6 +36,15 @@ function fmtTime(ts: number) {
   if (!ts)
     return "—";
   return new Date(ts).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
+}
+
+function fmtClock(ts: number) {
+  if (!ts)
+    return "—";
+  return new Date(ts).toLocaleTimeString("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    hour12: false,
+  });
 }
 
 function fmtMoney(n: number) {
@@ -300,6 +313,11 @@ const totalProfit = computed(() =>
   sumAdminOrdersMoneyCny(sortedOrders.value),
 );
 
+const executionSteps = computed(() => buildAdminOrderExecutionSteps(legColumns.value));
+const diagnosisSummary = computed(() =>
+  buildAdminOrderDiagnosisSummary(executionSteps.value, totalProfit.value),
+);
+
 const platformLabels = computed(() => {
   const labels = new Set<string>();
   for (const o of sortedOrders.value) {
@@ -491,6 +509,72 @@ defineExpose({ open });
                 </div>
               </div>
 
+              <section
+                v-if="executionSteps.length"
+                class="admin-order-diagnosis"
+                :class="`admin-order-diagnosis--${diagnosisSummary.tone}`"
+              >
+                <header class="admin-order-diagnosis__head">
+                  <div>
+                    <h5 class="admin-order-diagnosis__title">诊断结论</h5>
+                    <p class="admin-order-diagnosis__summary">
+                      {{ diagnosisSummary.text }}
+                    </p>
+                  </div>
+                  <span class="admin-order-diagnosis__count">
+                    {{ executionSteps.length }} 个执行步骤
+                  </span>
+                </header>
+
+                <ol class="admin-order-execution">
+                  <li
+                    v-for="(step, stepIdx) in executionSteps"
+                    :key="step.key"
+                    class="admin-order-execution__step"
+                    :class="`admin-order-execution__step--${step.tone}`"
+                  >
+                    <div class="admin-order-execution__rail">
+                      <span class="admin-order-execution__index">{{ stepIdx + 1 }}</span>
+                    </div>
+                    <div class="admin-order-execution__body">
+                      <div class="admin-order-execution__main">
+                        <span class="admin-order-execution__time">{{ fmtClock(step.at) }}</span>
+                        <span class="admin-order-provider">{{ step.provider }}</span>
+                        <span class="admin-order-execution__side">{{ step.sideLabel }}</span>
+                        <span
+                          v-if="step.isMakeUp"
+                          class="admin-order-log-segment__tag"
+                        >补单</span>
+                        <strong class="admin-order-execution__outcome">{{ step.outcome }}</strong>
+                      </div>
+                      <div class="admin-order-execution__meta">
+                        <span v-if="step.odds">赔率 {{ step.odds }}</span>
+                        <span v-if="step.betMoney">金额 {{ step.betMoney }}</span>
+                        <span v-if="step.order">订单 #{{ step.order.orderId }}</span>
+                        <span v-else>未落库订单</span>
+                      </div>
+                      <div class="admin-order-execution__logic">
+                        <p>
+                          <span>赔率逻辑</span>
+                          {{ step.oddsLogic }}
+                        </p>
+                        <p>
+                          <span>{{ step.isMakeUp ? "补单计算" : "金额计算" }}</span>
+                          {{ step.stakeLogic }}
+                        </p>
+                        <p v-if="step.rejectLogic" class="admin-order-execution__logic-reject">
+                          <span>拒单判断</span>
+                          {{ step.rejectLogic }}
+                        </p>
+                      </div>
+                      <p v-if="step.detail" class="admin-order-execution__detail">
+                        {{ step.detail }}
+                      </p>
+                    </div>
+                  </li>
+                </ol>
+              </section>
+
               <div v-if="legColumns.length" class="admin-order-log-overview__orders">
                 <h5 class="admin-order-log-overview__orders-title">
                   订单概况
@@ -595,10 +679,10 @@ defineExpose({ open });
             <section class="admin-order-log-logs-row">
               <header class="admin-order-log-logs-row__head">
                 <h4 class="admin-order-log-logs-row__title">
-                  主客队诊断日志
+                  原始诊断日志
                 </h4>
                 <span class="admin-order-log-logs-row__hint">
-                  仅展示已关联当前订单/比赛的日志；窗口噪声会被过滤，避免串单
+                  按主客队保留预检与接口原文，用于核对上方执行链
                 </span>
               </header>
 

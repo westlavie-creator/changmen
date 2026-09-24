@@ -20,6 +20,7 @@ import {
   syncActiveBetMakeupSettling,
 } from "@/stores/betting/activeBetRunSync";
 import { useMessageStore } from "@/stores/messageStore";
+import { saveVenueSettlementLog } from "@/services/bettingLog";
 
 /**
  * [A8 可证实] bundle `jb` 普通场馆腿（index0706）：
@@ -82,6 +83,14 @@ export async function processA8RegularVenueMakeUpLeg(params: {
   );
   const venueOrders = legOutcome.orders;
   const rejected = isVenueLegRejected(legOutcome);
+  saveVenueSettlementLog({
+    account,
+    option: checked,
+    result,
+    orders: venueOrders,
+    settlement: legOutcome.settlement,
+    linkId: order.linkId,
+  });
 
   if (venueOrders.length > 0) {
     if (rejected) {

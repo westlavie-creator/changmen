@@ -17,6 +17,7 @@ import { syncActiveBetLegSettleResult, syncActiveBetPhase } from "@/stores/betti
 import { useAccountStore } from "@/stores/accountStore";
 import { isPendingConfirmVenueProvider, isPolymarketProvider } from "@changmen/shared/account_multiply";
 import { wait } from "@changmen/client-core/shared/wait";
+import { saveVenueSettlementLog } from "@/services/bettingLog";
 
 export interface ArbLegSettleSnapshot {
   ordersA: VenueOrder[];
@@ -138,6 +139,14 @@ export async function settleBothArbLegs(
       snapshot.pendingConfirmB = synced.pendingConfirm;
     }
     const rejected = synced.rejected;
+    saveVenueSettlementLog({
+      account,
+      option: leg,
+      result,
+      orders: synced.orders,
+      settlement: synced.pendingConfirm ? "timeout" : rejected ? "unfilled" : "filled",
+      linkId,
+    });
     syncActiveBetLegSettleResult(bet.id, side, true, rejected, {
       pendingConfirm: synced.pendingConfirm,
       provider: account.provider,

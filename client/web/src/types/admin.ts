@@ -283,6 +283,10 @@ export interface AdminOrderLogEntry {
   odds?: number | null;
   newOdds?: number | null;
   betMoney?: number | null;
+  planBetMoney?: number | null;
+  stakeExchange?: number | null;
+  stakeRate?: number | null;
+  stakeCurrency?: string | null;
   itemId?: string | null;
   matchId?: string | number | null;
   betId?: string | number | null;
@@ -294,6 +298,12 @@ export interface AdminOrderLogEntry {
   related?: boolean;
   relationScore?: number;
   relationReason?: string;
+  placedAt?: number | null;
+  observedAt?: number | null;
+  rejectDelayMs?: number | null;
+  settlement?: "filled" | "unfilled" | "timeout" | string | null;
+  observedStatus?: string | null;
+  rejectReason?: string | null;
   summary: string;
 }
 

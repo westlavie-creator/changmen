@@ -24,6 +24,7 @@ import {
   syncActiveBetMakeupRejected,
 } from "@/stores/betting/activeBetRunSync";
 import { a8Tip } from "@/shared/a8Notify";
+import { saveVenueSettlementLog } from "@/services/bettingLog";
 
 export type VenueJbSettlementOutcome = "dequeued" | "pending" | "rejected";
 /** @deprecated 用 VenueJbSettlementOutcome */
@@ -76,6 +77,14 @@ export async function applyVenueJbSettlementOutcome(
   const venueOrders = legOutcome.orders;
   const pmPendingAsUnfilled = isPolymarketProvider(account.provider)
     && (isVenueLegPendingConfirm(legOutcome) || isVenueTimeoutReject(result));
+  saveVenueSettlementLog({
+    account,
+    option: checked,
+    result,
+    orders: venueOrders,
+    settlement: pmPendingAsUnfilled ? "unfilled" : legOutcome.settlement,
+    linkId: order.linkId,
+  });
 
   if (!isVenueLegRejected(legOutcome) && !pmPendingAsUnfilled) {
     loseStore.clearPendingVenueOrder(betId);
