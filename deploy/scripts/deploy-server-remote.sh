@@ -10,6 +10,7 @@ fi
 PM2_WEB="${PM2_WEB:-changmen-esport}"
 PM2_PM_SPORTS="${PM2_PM_SPORTS:-changmen-pm-sports}"
 PM2_POLYMARKET="${PM2_POLYMARKET:-changmen-polymarket-collector}"
+PM2_PM_FOOTBALL="${PM2_PM_FOOTBALL:-changmen-pm-football-collector}"
 PM2_PM_MARKET_HUB="${PM2_PM_MARKET_HUB:-changmen-pm-market-hub}"
 PM2_PM_SPORT_MARKET_HUB="${PM2_PM_SPORT_MARKET_HUB:-changmen-pm-sport-market-hub}"
 PM2_PREDICTFUN_MARKET_HUB="${PM2_PREDICTFUN_MARKET_HUB:-changmen-predictfun-market-hub}"
@@ -114,6 +115,7 @@ DO_APP_BUILD=0
 DO_COMPILE_ROUTER=0
 DO_PM2_WEB=0
 DO_PM2_PM_SPORTS=0
+DO_PM2_PM_FOOTBALL=0
 NEED_DIST_UPLOAD=0
 
 classify() {
@@ -148,6 +150,11 @@ classify() {
     server/collectors/polymarket-esports/*)
       DO_INSTALL_ROOT=1
       DO_PM2_WEB=1
+      ;;
+    server/collectors/polymarket-football/*)
+      DO_INSTALL_ROOT=1
+      DO_PM2_WEB=1
+      DO_PM2_PM_FOOTBALL=1
       ;;
     server/collectors/predictfun-collector/*|server/ws_forward/*|server/storage/*)
       DO_INSTALL_ROOT=1
@@ -190,6 +197,7 @@ if [ "$DEPLOY_FULL" = "1" ]; then
   DO_COMPILE_ROUTER=1
   DO_PM2_WEB=1
   DO_PM2_PM_SPORTS=1
+  DO_PM2_PM_FOOTBALL=1
 elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
   if [ "${DEPLOY_SKIP_GIT_PULL:-0}" = "1" ]; then
     log "archive sync (same HEAD ${NEW_HEAD:0:8}); refresh dist from PC"
@@ -197,6 +205,7 @@ elif [ "$OLD_HEAD" = "$NEW_HEAD" ]; then
     DO_INSTALL_ROOT=1
     DO_PM2_WEB=1
     DO_PM2_PM_SPORTS=1
+    DO_PM2_PM_FOOTBALL=1
     DO_COMPILE_ROUTER=1
     RDS_SCHEMA_TOUCHED=1
   else
@@ -213,6 +222,7 @@ else
   DO_INSTALL_ROOT=1
   DO_PM2_WEB=1
   DO_PM2_PM_SPORTS=1
+  DO_PM2_PM_FOOTBALL=1
 fi
 
 if [ "$DEPLOY_SKIP_APP_BUILD" = "1" ] && [ "$DO_APP_BUILD" = "1" ]; then
@@ -340,12 +350,17 @@ if command -v pm2 >/dev/null 2>&1; then
   pm2 delete "$PM2_SXBET_MARKET_HUB" >/dev/null 2>&1 || pm2 stop "$PM2_SXBET_MARKET_HUB" >/dev/null 2>&1 || true
   PM2_TARGETS=()
   if [ "$DO_PM2_WEB" = "1" ]; then
+    PM2_TARGETS+=("$PM2_PM_FOOTBALL")
+  elif [ "$DO_PM2_PM_FOOTBALL" = "1" ]; then
+    PM2_TARGETS+=("$PM2_PM_FOOTBALL")
+  fi
+  if [ "$DO_PM2_WEB" = "1" ]; then
     PM2_TARGETS+=("$PM2_WEB")
   fi
   if [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_PM_SPORTS")
   fi
-  # 电竞 PM/PF discovery：与 esport/pm-sports 同启（浏览器已切 Index→WS，无 Save*；SXBet collector 已暂停）
+  # 电竞 PM/PF discovery：与 esport/pm-sports 同启（SXBet collector 已暂停）
   if [ "$DO_PM2_WEB" = "1" ] || [ "$DO_PM2_PM_SPORTS" = "1" ]; then
     PM2_TARGETS+=("$PM2_POLYMARKET")
     PM2_TARGETS+=("$PM2_PREDICTFUN")
@@ -385,6 +400,9 @@ if command -v pm2 >/dev/null 2>&1; then
             ;;
           "$PM2_POLYMARKET")
             expected_cwd="$CHANGMEN/server/collectors/polymarket-esports"
+            ;;
+          "$PM2_PM_FOOTBALL")
+            expected_cwd="$CHANGMEN/server/collectors/polymarket-football"
             ;;
           "$PM2_PREDICTFUN")
             expected_cwd="$CHANGMEN/server/collectors/predictfun-collector"

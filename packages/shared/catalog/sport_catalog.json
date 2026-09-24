@@ -63,11 +63,11 @@
       "matcherProfile": "football",
       "linePath": "lines/football",
       "apiSportFilter": "football",
-      "pm2Apps": [],
+      "pm2Apps": ["changmen-pm-football-collector"],
       "collect": {
-        "mode": "api",
-        "daemons": [],
-        "platforms": ["Polymarket", "PredictFun"]
+        "mode": "both",
+        "daemons": ["@changmen/polymarket-football-collector"],
+        "platforms": ["Polymarket"]
       },
       "markets": ["moneyline", "spreads", "totals"]
     },

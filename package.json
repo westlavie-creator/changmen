@@ -24,6 +24,7 @@
     "server/value-bet",
     "server/collectors/polymarket-sports",
     "server/collectors/polymarket-esports",
+    "server/collectors/polymarket-football",
     "server/collectors/predictfun-collector",
     "server/collectors/sxbet-collector"
   ],
@@ -61,6 +62,7 @@
     "check:index-completeness": "node .ai/architecture/check-truth-completeness.mjs",
     "pm-sports": "npm run start --prefix server/collectors/polymarket-sports",
     "polymarket-collector": "npm run start --prefix server/collectors/polymarket-esports",
+    "pm-football-collector": "npm run start --prefix server/collectors/polymarket-football",
     "pm-market-hub": "node server/ws_forward/pm_market_hub_server.js",
     "pm-sport-market-hub": "node server/ws_forward/pm_sport_market_hub_server.js",
     "predictfun-market-hub": "node server/ws_forward/predictfun_market_hub_server.js",

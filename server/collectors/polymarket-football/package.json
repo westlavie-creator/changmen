@@ -1,0 +1,21 @@
+{
+  "name": "@changmen/polymarket-football-collector",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VPS daemon: Polymarket Gamma football discovery to shared sport snapshot",
+  "exports": {
+    ".": "./index.js",
+    "./loop.js": "./loop.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest run loop.test.mjs"
+  },
+  "dependencies": {
+    "@changmen/storage": "file:../../storage"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.8"
+  }
+}

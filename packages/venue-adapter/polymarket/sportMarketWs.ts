@@ -1,24 +1,27 @@
 /**
  * Polymarket 体育 MARKET WS（独立于电竞 `ws.ts`）。
- * - 固定连 PM-SPORT-MARKET hub，不读写电竞 singleton / official 切换
+ * - 官方可达时直连 PM，否则连 PM-SPORT-MARKET hub；不读写电竞 singleton
  * - 不调用 setPmMarketWsSourceMode / setPmUserWsSourceMode（避免交叉影响电竞）
  */
 
+import type { PmMarketWsSourceMode } from "./pmMarketWsMode";
 import { reportVenueWsStatus } from "../shared/venueWsStatus";
+import { getPmMarketWsSourceMode } from "./pmMarketWsMode";
 import { resolvePolymarketSportMarketWsUrl } from "./sportWsConfig";
 
 const WS_RECONNECT_MS = 5_000;
 const WS_PING_MS = 10_000;
+const OFFICIAL_RETRY_MS = 60_000;
 
 export interface PolymarketSportMarketWsHandle {
   send: (msg: string) => void;
   stop: () => void;
 }
 
-type SportMarketWsOpts = {
+interface SportMarketWsOpts {
   onMessage: (raw: string) => void;
   onOpen: () => void;
-};
+}
 
 type SportWsStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -33,6 +36,8 @@ function createSportMarketWs(opts: SportMarketWsOpts): PolymarketSportMarketWsHa
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pingTimer: ReturnType<typeof setInterval> | null = null;
+  let officialRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  let sourceMode: PmMarketWsSourceMode = getPmMarketWsSourceMode();
 
   function clearPing() {
     if (pingTimer) {
@@ -41,20 +46,43 @@ function createSportMarketWs(opts: SportMarketWsOpts): PolymarketSportMarketWsHa
     }
   }
 
-  function scheduleReconnect() {
+  function clearOfficialRetry() {
+    if (officialRetryTimer) {
+      clearTimeout(officialRetryTimer);
+      officialRetryTimer = null;
+    }
+  }
+
+  function scheduleOfficialRetry(socket: WebSocket) {
+    clearOfficialRetry();
+    if (sourceMode !== "changmen" || getPmMarketWsSourceMode() !== "official")
+      return;
+    officialRetryTimer = setTimeout(() => {
+      officialRetryTimer = null;
+      if (stopped || ws !== socket)
+        return;
+      clearPing();
+      sourceMode = "official";
+      ws = null;
+      socket.close();
+      scheduleReconnect(0);
+    }, OFFICIAL_RETRY_MS);
+  }
+
+  function scheduleReconnect(delay = WS_RECONNECT_MS) {
     if (stopped || reconnectTimer)
       return;
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
       connect();
-    }, WS_RECONNECT_MS);
+    }, delay);
   }
 
   function connect() {
     if (stopped || ws)
       return;
     setSportStatus("connecting");
-    const socket = new WebSocket(resolvePolymarketSportMarketWsUrl());
+    const socket = new WebSocket(resolvePolymarketSportMarketWsUrl(sourceMode));
     ws = socket;
 
     socket.onopen = () => {
@@ -67,6 +95,7 @@ function createSportMarketWs(opts: SportMarketWsOpts): PolymarketSportMarketWsHa
         if (ws?.readyState === WebSocket.OPEN)
           ws.send("PING");
       }, WS_PING_MS);
+      scheduleOfficialRetry(socket);
     };
 
     socket.onmessage = (event) => {
@@ -89,11 +118,14 @@ function createSportMarketWs(opts: SportMarketWsOpts): PolymarketSportMarketWsHa
       if (ws !== socket)
         return;
       clearPing();
+      clearOfficialRetry();
       ws = null;
       if (stopped) {
         setSportStatus("disconnected");
         return;
       }
+      if (sourceMode === "official")
+        sourceMode = "changmen";
       setSportStatus("error");
       scheduleReconnect();
     };
@@ -120,6 +152,7 @@ function createSportMarketWs(opts: SportMarketWsOpts): PolymarketSportMarketWsHa
         reconnectTimer = null;
       }
       clearPing();
+      clearOfficialRetry();
       const socket = ws;
       ws = null;
       try {

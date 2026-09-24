@@ -51,7 +51,8 @@ assert.ok(footballBuildStart >= 0 && footballBuildEnd > footballBuildStart);
 const footballBuild = store.slice(footballBuildStart, footballBuildEnd);
 assert.equal(/sport_ob_football_fetch/.test(footballBuild), false, "GetFootballMatchs must not fetch OB HTTP");
 assert.match(footballBuild, /football_gamma_fetch/);
-assert.match(footballBuild, /sport_predictfun_fetch/);
+assert.equal(/sport_predictfun_fetch/.test(footballBuild), false, "PF football collection must stay stopped");
+assert.equal(/sport_merge/.test(footballBuild), false, "football API must not merge venue fixtures");
 
 const routerTs = fs.readFileSync(path.join(root, "server/backend/core/esport-api/router.ts"), "utf8");
 const marketsCase = routerTs.indexOf('case "Client_GetFootballMatchMarkets"');

@@ -53,6 +53,7 @@ export * from "./relayer";
 export * from "./userWs";
 export * from "./marketQuoteHub";
 export * from "./sportQuoteHub";
+export * from "./pmFootballDiscovery";
 export * from "./wsQuotes";
 
 export const polymarketAdapter: PlatformAdapter = {

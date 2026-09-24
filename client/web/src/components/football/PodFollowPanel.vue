@@ -26,24 +26,21 @@ import {
   formatPodEv,
   pickPodYaboAutoTicket,
   resolvePodYaboStake,
-  scorePodYaboFollow,
 } from "@/runtime/podYabo";
 import type { PodOutcomeGateEntry } from "@/runtime/podYabo/gate";
 import { openFootballSettings } from "@/runtime/footballSettingsUi";
 import {
   fixtureFromViewMatch,
   formatPodFixtureMatch,
-  matchPodAlertToFixtures,
   type PodBoardFixture,
 } from "@/runtime/podFixtureMatch";
 import { resolveFootballFollowDecision } from "@/runtime/footballFollowDecision";
 import { buildFootballFollowSelectionShadow } from "@/runtime/footballFollowSelectionKey";
 import {
-  comparePodVenueQuote,
   formatPodMarketMatch,
   formatPodObQuote,
-  matchPodAlertToVenueMarket,
 } from "@/runtime/podMarketMatch";
+import { getPodVenueMatchPlugin, matchPodAlertAcrossVenuePlugins } from "@/runtime/podVenueMatchPlugins";
 import {
   buildPodBoardFocus,
   requestPodBoardFocus,
@@ -134,6 +131,8 @@ let stopPrefetch: (() => void) | null = null;
 /** AutoYabo 50ms；Vue 侧 250ms 兼顾反应与开销 */
 const AUTO_TICK_MS = 250;
 const IDLE_TICK_MS = 1_000;
+const obMatchPlugin = getPodVenueMatchPlugin("OB");
+const pmMatchPlugin = getPodVenueMatchPlugin("Polymarket");
 
 const tickets = computed(() => {
   void sportOddsTick.value;
@@ -166,20 +165,26 @@ const tickets = computed(() => {
     seen.add(row.obMid);
   }
   return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
-    const fixtureMatch = matchPodAlertToFixtures(ticket.alert, fixtures);
+    const matchContext = {
+      fixtures,
+      live,
+      books: snapshot.value.books,
+      settings: betSettings.value,
+    };
+    const venueMatches = matchPodAlertAcrossVenuePlugins(ticket.alert, fixtures, live);
+    const fixtureMatch = venueMatches.get("OB")?.fixture
+      ?? obMatchPlugin.matchFixture(ticket.alert, fixtures);
     const hit = fixtureMatch.status === "matched" ? fixtureMatch.hits[0] : null;
-    const scored = scorePodYaboFollow(ticket, {
-        fixture: hit?.fixture,
-        swapped: hit?.swapped === true,
-        live,
-        books: snapshot.value.books,
-        settings: betSettings.value,
-      });
-    const pmMarketMatch = hit
-      ? matchPodAlertToVenueMarket(ticket.alert, hit.fixture, "Polymarket", hit.swapped === true, live)
-      : matchPodAlertToVenueMarket(ticket.alert, null, "Polymarket", false, live);
-    const pmQuote = comparePodVenueQuote(pmMarketMatch, "Polymarket", scored.minObOdds, {
-      maxObOdds: scored.maxObOdds,
+    const scored = obMatchPlugin.scoreTicket?.(ticket, fixtureMatch, matchContext);
+    if (!scored)
+      throw new Error("POD OB venue plugin missing scoreTicket");
+    const pmFixtureMatch = venueMatches.get("Polymarket")?.fixture
+      ?? pmMatchPlugin.matchFixture(ticket.alert, fixtures);
+    const pmMarketMatch = venueMatches.get("Polymarket")?.market
+      ?? pmMatchPlugin.matchMarket(ticket.alert, pmFixtureMatch, live);
+    const pmQuote = pmMatchPlugin.compareQuote(pmMarketMatch, {
+      minOdds: scored.minObOdds,
+      maxOdds: scored.maxObOdds,
       nvp: scored.nvp,
     });
     const selectionShadow = buildFootballFollowSelectionShadow({
@@ -234,6 +239,7 @@ const tickets = computed(() => {
       shadowCompare,
       pmMarketMatch,
       pmQuote,
+      pmFixtureMatch,
       fixtureMatch,
     };
   });
@@ -441,12 +447,12 @@ function ticketPlacePayload(ticket: (typeof tickets.value)[number], auto = false
 }
 
 function pmTicketPlacePayload(ticket: (typeof tickets.value)[number], auto = false): PodPmFollowPlaceTicket {
-  const hit = ticket.fixtureMatch.status === "matched" ? ticket.fixtureMatch.hits[0] : null;
+  const hit = ticket.pmFixtureMatch.status === "matched" ? ticket.pmFixtureMatch.hits[0] : null;
   return {
     id: ticket.id,
     stake: strategyStakeFor("Polymarket", auto),
-    fixtureStatus: ticket.fixtureMatch.status,
-    fixtureBasis: ticket.fixtureMatch.basis,
+    fixtureStatus: ticket.pmFixtureMatch.status,
+    fixtureBasis: ticket.pmFixtureMatch.basis,
     pmMatchId: String(hit?.fixture.pmMid || hit?.fixture.id || "").trim(),
     home: ticket.alert.home,
     away: ticket.alert.away,

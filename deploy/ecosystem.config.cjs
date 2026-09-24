@@ -1,10 +1,11 @@
 /**
  * PM2 生产进程清单（扁平 VPS 布局：DEPLOY_REPO = 应用根，无外层 Git 仓库）。
- *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-predictfun-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub
+ *   pm2 start deploy/ecosystem.config.cjs --only changmen-esport,changmen-pm-sports,changmen-polymarket-collector,changmen-pm-football-collector,changmen-predictfun-collector,changmen-pm-market-hub,changmen-pm-sport-market-hub,changmen-predictfun-market-hub
  * 整仓 git pull 已废弃；上海/香港均为 tarball 扁平部署。
  *
  * changmen-predictfun-collector：PF 电竞 REST discovery；默认随 deploy 启动。
  * changmen-polymarket-collector：电竞 PM Gamma discovery；默认随 deploy 启动。
+ * changmen-pm-football-collector：足球 PM Gamma discovery；默认随 deploy 启动，esport 只读其快照。
  * changmen-pm-market-hub：PM-MARKET WS hub（电竞独立进程，避免扇出拖死 esport）。
  * changmen-pm-sport-market-hub：PM-SPORT-MARKET WS hub（体育独立进程/上游，与电竞隔离）。
  * changmen-predictfun-market-hub：PREDICTFUN-MARKET WS hub（独立进程，同理）。
@@ -35,6 +36,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         DATABASE_APPLICATION_NAME: "changmen-esport",
+        PM_FOOTBALL_COLLECTOR_OWNED: "1",
         WS_FORWARD_MAX_BUFFERED_BYTES: "524288",
         PM_MARKET_HUB_PORT: "3457",
       },
@@ -112,6 +114,18 @@ module.exports = {
         NODE_ENV: "production",
         DATABASE_APPLICATION_NAME: "changmen-polymarket-collector",
         POLYMARKET_COLLECTOR_WRITE_PLATFORM: "1",
+      },
+    },
+    {
+      name: "changmen-pm-football-collector",
+      cwd: path.join(APP_ROOT, "server/collectors/polymarket-football"),
+      script: "index.js",
+      interpreter: "node",
+      max_memory_restart: "512M",
+      env: {
+        NODE_ENV: "production",
+        DATABASE_APPLICATION_NAME: "changmen-pm-football-collector",
+        PM_FOOTBALL_COLLECTOR_INTERVAL_MS: "30000",
       },
     },
     {

@@ -6,8 +6,12 @@
   "sportRef": "football",
   "components": {
     "web": "client/web",
-    "api": "server/backend"
+    "api": "server/backend",
+    "collector": "server/collectors/polymarket-football"
   },
+  "pm2Apps": [
+    "changmen-pm-football-collector"
+  ],
   "actions": [
     "Client_GetFootballMatchs"
   ],

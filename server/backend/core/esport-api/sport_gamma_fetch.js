@@ -304,13 +304,15 @@ function resolveListWindow(options) {
 
 /**
  * @param {SportGammaOptions} options
+ * @param {{ forceRefresh?: boolean }} [runtime]
  * @returns {Promise<object[]>} ClientMatchDto[]
  */
-export async function fetchSportAsClientMatchDtos(options) {
-  const sportKeys = (Array.isArray(options.sportKey)
-    ? options.sportKey
-    : [options.sportKey]
-  ).map(k => String(k || "").toLowerCase()).filter(Boolean);
+export async function fetchSportAsClientMatchDtos(options, runtime = {}) {
+  const sportKeys = (
+    Array.isArray(options.sportKey) ? options.sportKey : [options.sportKey]
+  )
+    .map(k => String(k || "").toLowerCase())
+    .filter(Boolean);
   const tagIds = (Array.isArray(options.tagIds) ? options.tagIds : [])
     .map(String).filter(Boolean);
   const gameCode = String(options.gameCode || sportKeys[0] || "sport");
@@ -326,13 +328,14 @@ export async function fetchSportAsClientMatchDtos(options) {
     : undefined;
   const lineMarkets = Boolean(options.lineMarkets);
   const { pastMs, futureMs } = resolveListWindow(options);
-  const crop = (rows) => cropSportMatchListWindow(rows, pastMs, futureMs);
+  const crop = rows => cropSportMatchListWindow(rows, pastMs, futureMs);
+  const forceRefresh = runtime.forceRefresh === true;
 
   const mem = _caches.get(cacheKey);
-  if (mem && Date.now() - mem.at < CACHE_TTL_MS)
+  if (!forceRefresh && mem && Date.now() - mem.at < CACHE_TTL_MS)
     return crop(mem.rows);
 
-  const diskFresh = readFreshSportListCache(cacheKey);
+  const diskFresh = forceRefresh ? null : readFreshSportListCache(cacheKey);
   if (diskFresh) {
     _caches.set(cacheKey, { at: diskFresh.at, rows: diskFresh.rows });
     return crop(diskFresh.rows);
@@ -363,6 +366,7 @@ export async function fetchSportAsClientMatchDtos(options) {
       return rows;
     })()
       .catch((err) => {
+        if (forceRefresh) throw err;
         const diskAny = readSportListCache(cacheKey);
         if (diskAny?.rows?.length) {
           console.warn(`[${logTag}] gamma failed, serving stale disk cache`, err?.message || err);
@@ -380,7 +384,7 @@ export async function fetchSportAsClientMatchDtos(options) {
 
   const stale = readSportListCache(cacheKey);
   const staleRows = stale?.rows?.length ? crop(stale.rows) : [];
-  if (staleRows.length) {
+  if (!forceRefresh && staleRows.length) {
     live.catch((err) => {
       console.warn(`[${logTag}] background refresh failed`, err?.message || err);
     });

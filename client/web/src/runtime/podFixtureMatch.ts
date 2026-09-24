@@ -49,6 +49,7 @@ export type PodBoardFixture = {
   startAt: number;
   obMid: string;
   pmMid?: string;
+  providers?: Record<string, string>;
   homeName: string;
   awayName: string;
   homeEn?: string;
@@ -327,6 +328,11 @@ export function fixtureFromViewMatch(row: {
     ...(String(row.providers?.Polymarket || "").trim()
       ? { pmMid: String(row.providers?.Polymarket || "").trim() }
       : {}),
+    providers: Object.fromEntries(
+      Object.entries(row.providers || {})
+        .map(([venue, id]) => [venue, String(id || "").trim()])
+        .filter(([, id]) => Boolean(id)),
+    ),
     homeName: home,
     awayName: away,
     markets: marketsFromBets(row.bets),
@@ -381,6 +387,30 @@ export function matchPodAlertToFixtures(
   if (hits.length > 1)
     return { status: "pending", basis: "guess", hits };
   return { status: "none", basis: "guess", hits: [] };
+}
+
+export function fixtureVenueId(fixture: PodBoardFixture, venue: string): string {
+  const id = String(venue || "").trim();
+  if (id === "OB")
+    return String(fixture.obMid || fixture.providers?.OB || "").trim();
+  if (id === "Polymarket")
+    return String(fixture.pmMid || fixture.providers?.Polymarket || "").trim();
+  return String(fixture.providers?.[id] || "").trim();
+}
+
+/** 场馆独立比赛匹配：先隔离场馆，再沿用现有队名/时间算法。 */
+export function matchPodAlertToVenueFixtures(
+  alert: Pick<PodDropAlert, "home" | "away" | "starts" | "league">,
+  fixtures: PodBoardFixture[],
+  venue: string,
+  windowMs = POD_FIXTURE_TIME_WINDOW_MS,
+): PodFixtureMatch {
+  const isolated = fixtures.filter(fixture => Boolean(fixtureVenueId(fixture, venue)));
+  const result = matchPodAlertToFixtures(alert, isolated, windowMs);
+  const hit = result.status === "matched" ? result.hits[0] : null;
+  if (!hit || hit.score + 1e-9 < CONFIRMED_MIN || !fixtureVenueId(hit.fixture, venue))
+    return result;
+  return { ...result, basis: "confirmed" };
 }
 
 export function formatPodFixtureMatch(row: PodFixtureMatch): string {

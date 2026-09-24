@@ -1,5 +1,10 @@
+import type { ClientMatchDto } from "@/types/esport";
+import {
+  fetchPmFootballDirect,
+  getPmMarketWsSourceMode,
+} from "@changmen/venue-adapter/polymarket";
 import { getFootballMatchs } from "@/api/esport";
-import { combineFootballListSources } from "@/runtime/footballClientList";
+import { collectIndependentFootballVenueRows } from "@/runtime/footballVenueLists";
 import { fetchObFootballAsClientMatchDtos } from "@/runtime/obSportFootballFetch";
 import { readLocalSportObSession } from "@/runtime/obSportSessionLocal";
 import { createSportListStore } from "@/stores/createSportListStore";
@@ -18,10 +23,35 @@ async function fetchObRows() {
 }
 
 async function fetchFootballCombined(userName: string) {
-  return combineFootballListSources(
-    getFootballMatchs(userName),
+  return collectIndependentFootballVenueRows(
+    fetchPmFootballRows(userName),
     fetchObRows(),
   );
+}
+
+interface PmFootballFetchDeps {
+  sourceMode: () => "official" | "changmen";
+  direct: () => Promise<ClientMatchDto[]>;
+  vps: (userName: string) => Promise<ClientMatchDto[]>;
+}
+
+export async function fetchPmFootballRows(userName: string, deps: PmFootballFetchDeps = {
+  sourceMode: getPmMarketWsSourceMode,
+  direct: fetchPmFootballDirect,
+  vps: getFootballMatchs,
+}) {
+  if (deps.sourceMode() !== "official")
+    return deps.vps(userName);
+  try {
+    const direct = await deps.direct();
+    if (direct.length)
+      return direct;
+    console.warn("[football] PM official discovery empty; fallback to VPS");
+  }
+  catch (err) {
+    console.warn("[football] PM official discovery failed; fallback to VPS", err);
+  }
+  return deps.vps(userName);
 }
 
 /** 足球列表：独立于 matchStore；不参与电竞套利主循环 */

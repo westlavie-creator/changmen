@@ -607,17 +607,10 @@ export async function buildBaseballMatchList() {
   return list;
 }
 
-/** 足球：VPS 只拉 PM∥PF → 合场。OB 由用户 Chrome 扩展本机拉，不走这条热路径。不碰电竞 client_matches / mainBetLoop。 */
+/** 足球：VPS 只读 PM collector 快照。PF 已停；OB 在用户浏览器采集。禁止服务端合场。 */
 export async function buildFootballMatchList() {
   const { fetchFootballAsClientMatchDtos } = await import("./football_gamma_fetch.js");
-  const { fetchPredictFunFootballAsClientMatchDtos } = await import("./sport_predictfun_fetch.js");
-  const list = await concatSportReadOnlyLists(
-    [
-      fetchFootballAsClientMatchDtos(),
-      fetchPredictFunFootballAsClientMatchDtos(),
-    ],
-    "GetFootballMatchs",
-  );
+  const list = await fetchFootballAsClientMatchDtos();
   const {
     cropSportMatchListWindow,
     sanitizeFootballMatchList,
@@ -625,16 +618,7 @@ export async function buildFootballMatchList() {
     FOOTBALL_LIST_FUTURE_MS,
   } = await import("./sport_football_markets.js");
   const cropped = cropSportMatchListWindow(list, FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS);
-  try {
-    const { ingestAndMergeSportLists } = await import("./sport_merge.js");
-    const merged = await ingestAndMergeSportLists("football", cropped);
-    const out = sanitizeFootballMatchList(merged?.length ? merged : cropped);
-    return cropSportMatchListWindow(out, FOOTBALL_LIST_PAST_MS, FOOTBALL_LIST_FUTURE_MS);
-  }
-  catch (err) {
-    console.warn("[GetFootballMatchs] sport merge fallback to concat", err?.message || err);
-    return sanitizeFootballMatchList(cropped);
-  }
+  return sanitizeFootballMatchList(cropped);
 }
 
 /** 网球：同上（ATP+WTA 单打）；不碰电竞 client_matches / mainBetLoop。 */

@@ -55,9 +55,8 @@
 
 ### 产品冻结（维护态 · 2026-07-25 · 足球让球/大小已接）
 
-多运动：**只读列表 + 本机缓存 + PM∥PF**；N3 **服务端合并已接线**（`sport_*` 表 + `sport_merge`；仅双场馆对替换 API，否则 fallback concat）。电竞路径零污染。  
-**足球 N3（已做）**：胜负 + **让球/大小全量线**（`MarketCode`/`Line`）；`Game`=联赛码（`epl`/`chi`/…）；UI 经 `game_catalog` 显示中文名（如 `[中超]`）。  
-**PF 供给**：非胜负盘（`SPORTS_PROPS` / More Markets）目前几乎只有 **中超 CSL**（外加少量世界杯）；MLS 等常仅有胜负——属上游供给，非漏采。  
+多运动：**只读列表 + 本机缓存**；棒球/网球仍可走 PM∥PF `sport_merge`，足球自 2026-09-24 起改为 **PM + OB 场馆独立列表，禁止网页/服务端合场**。电竞路径零污染。
+**足球 N3（已做）**：PM 胜负 + **让球/大小全量线**（`MarketCode`/`Line`）；`Game`=联赛码（`epl`/`chi`/…）；UI 经 `game_catalog` 显示中文名。PF 足球 REST 已停。
 **允许**：隔离回归修 bug、文档勘误、合并质量（队名别名 / 时间窗 / 联赛解析）小修。  
 **禁止**：N4 体育套利环、Sport Team UI 拖线、第三场馆、改 `GetMatchs` / `client_matches` / `mainBetLoop` / fo、把体育套利塞进电竞 `mainBetLoop`。  
 **例外（POD 跟单 · 2026-09-14）**：足球页 POD 跟单可走熊猫体育 `yewu13` 单注（预检 `queryBetAmountPB` + 提交 `betPB`），**自动默认关**；禁止电竞 `/game/bet`、`placeValueBetOrder`、`mainBetLoop`、写 `fo`。已下单进足球页独立侧栏（日期/账号筛选 + `.orders` 卡片，对齐电竞 `OrderView` 壳）；读写对齐电竞订单（Pinia 内存 + RDS 强一致），表是 **`football_orders`**（`Client_SaveFootballOrder` / `Client_GetFootballOrders` / 管理端「足球订单」按用户/账号分列），**不写 localStorage**。结算：C201 + 官网 `queryOrderStatus` / `yewurecord getOrderListPB` 轮询回写 `status`/`profit`（侧栏 Win/Lose/待结算），用户栏当日盈亏固定日历今天。**禁止** `Client_SaveOrder` / 电竞 `orderStore` / 电竞 `orders` 表 / 复用 `OrderList` / 电竞 `getOrders`。体育页 `sportsSession` **不**拉 `Client_GetOrderList`，也不跑电竞 `updateOrders`。这不是 N4 套利。  
@@ -73,22 +72,22 @@
 足球胜负盘可继续 **只读展示**，但 **不算** N4 套利标的。仍禁止现在开 N4 / 改 `mainBetLoop` / 写 fo。  
 **当前主工作面** = 电竞 A8 — 见 [client/web/docs/A8_NEXT_STEPS.md](../client/web/docs/A8_NEXT_STEPS.md)；**足球/棒球/网球 = 维护态**（隔离回归与文档勘误可做，新功能默认不开）。  
 **例外（N3.5）**：体育板赔率实时显示（collector hub → `sportOddsStore`），仍 **禁止** N4 / fo 交叉。  
-**例外（N3.6 · 2026-09-08 冻结）**：足球本机 OB 由**浏览器 overlay** 到 PM∥PF 合场结果。见 [§3c](#3c-足球-ob-本机合场冻结)。  
+**N3.6 已于 2026-09-24 退役**：足球不再做浏览器 overlay；PM、OB 各自保留独立比赛和盘口，由 POD 场馆插件分别匹配。见 [§3c](#3c-足球场馆独立列表与-pod-匹配2026-09-24)。
 分层隔离定案：数据/循环必须隔离；壳 UI + 场馆 WS（hub）可共用；`BetRow` **不** import `sportOddsStore`（由 `SportMatchBoard` 注入 `oddsDisplayTick`）。
 
 手工验收清单：
 
 1. 电竞列表 + 套利主循环正常（切棒球/足球 Tab 仍跑）
-2. 棒球/足球有场；`storage/sport/` 有 JSON；双场馆队名+同小时窗应对上时 API 返回 **同一 `ID` 且 `Matchs` 含 Polymarket+PredictFun**（否则仍为并列 concat）
+2. 棒球/足球有场；`storage/sport/` 有 JSON；足球页面上同场 PM、OB 必须保持两条独立场馆记录，POD 可分别对上两馆
 3. 断网/断 Gamma：有磁盘则 stale 列表，电竞不受影响
 4. `rg` / smoke 隔离仍成立；体育板 **不** seed `oddsStore`
-5. 改完合并相关代码后 **重启 backend**，再验 Network（旧进程会一直返回旧缓存）
+5. 改完足球 discovery / snapshot 后重启 `changmen-pm-football-collector`；改 backend 读取逻辑后再重启 backend
 6. **N3.5**：棒/足赔率随 WS 变；关 Tab 后体育订阅清空；电竞 fo 无 MLB/soccer token；`BetRow.vue` 无 `sportOddsStore` 引用
-7. **足球让球/大小**：中超常见双馆有线；MLS 等可仅 PM 有线、PF 只有胜负
+7. **足球让球/大小**：PM、OB 各自展示本站供给；不得从另一场馆 overlay 出不存在的盘口
 
-### Phase 0 合并质量抽检（2026-07-25）
+### 历史：Phase 0 合并质量抽检（2026-07-25，2026-09-24 架构切换前）
 
-脚本：[`audit-football-merge-coverage.mjs`](../server/backend/scripts/ops/diagnostics/audit-football-merge-coverage.mjs)（默认 `store.buildFootballMatchList`，与 API 同路径）。
+以下仅保留为旧架构记录，不代表当前足球路径。旧脚本：[`audit-football-merge-coverage.mjs`](../server/backend/scripts/ops/diagnostics/audit-football-merge-coverage.mjs)。当前路径禁止以该脚本结果作为“应合场”验收标准。
 
 | 指标（当次） | 结果 |
 |--------------|------|
@@ -115,11 +114,11 @@
 | 5 PF 赔率解析 | 通过 | `sport_predictfun_fetch.smoke`：`{price,size}` + tip mid |
 | 6 fo 边界 | 通过（代码） | `createSportListStore` 仅 Sources→fallback；无 `oddsStore.save` |
 
-UI 点验（登录后切 Tab 看电竞循环仍转、棒/足 PM∥PF 赔率）可按日常联调补勾。
+UI 点验（登录后切 Tab 看电竞循环仍转、足球 PM/OB 独立赔率）可按日常联调补勾。
 
-### Predict.fun 只读并列（已做 · N3 经 sport_merge 合并）
+### Predict.fun 只读并列（棒球/网球旧路径；足球已停）
 
-- `Client_GetBaseballMatchs` / `GetFootballMatchs` / `GetTennisMatchs`：Polymarket Gamma + Predict.fun REST **先拉后合并**（`sport_merge`；仅双场馆对上时同一 `ID`，否则 fallback 并列）
+- `Client_GetBaseballMatchs` / `GetTennisMatchs`：Polymarket Gamma + Predict.fun REST **先拉后合并**；`Client_GetFootballMatchs` 只返回 PM collector 快照，不请求 PF、不进 `sport_merge`
 - 实现：[`sport_predictfun_fetch.js`](../server/backend/core/esport-api/sport_predictfun_fetch.js)；缓存 key `mlb_pf` / `soccer_pf` / `tennis_pf`
 - 棒球联赛 Game：优先 category `teams[].league`（官方 required；`mlb`/`kbo`/`npb`），无则 title/tag 回退
 - 需 `PREDICT_FUN_API_KEY`（backend `.env`）；**不必**启 `changmen-predictfun-collector`（那是电竞 RDS 入库）
@@ -192,13 +191,13 @@ POST /esport/Client_GetFootballMatchs
 
 | 模块 | 路径 |
 |------|------|
-| API | `getFootballMatchs()` → `api/match.ts`（PM ∥ PF 经 `sport_merge`） |
+| API | `getFootballMatchs()` → `api/match.ts`（仅 PM collector 快照；无 PF / `sport_merge`） |
 | Store | `stores/footballStore.ts`（`createSportListStore`） |
 | UI | `FootballBoard.vue` → `FootballMatchBoard`（OB 试玩实时：比分/盘口） |
 | Manifest | `lines/football/` |
 | 联赛名 | `packages/shared/catalog/game_catalog.json`（`sport: football`） |
 | **OB 体育试玩机制** | [client/web/docs/platforms/OB_SPORT.md](../client/web/docs/platforms/OB_SPORT.md) |
-| **OB 本机合场** | [§3c](#3c-足球-ob-本机合场冻结) · `footballClientList.ts` |
+| **场馆匹配** | [§3c](#3c-足球场馆独立列表与-pod-匹配2026-09-24) · `podVenueMatchPlugins.ts` |
 
 ## 3b. 网球 MVP（只读，同模式）
 
@@ -221,24 +220,23 @@ POST /esport/Client_GetTennisMatchs
 | Manifest | `lines/tennis/` |
 | Gamma | `tennis_gamma_fetch.js`（`atp`/`wta`，series `10365`/`10366`，idBase PM `920_000_000` / PF `930_000_000`） |
 
-## 3c. 足球 OB 本机合场（冻结 · 2026-09-08）
+## 3c. 足球场馆独立列表与 POD 匹配（2026-09-24）
 
-OB 试玩 token / 盘口 / `yewuws2` 不出本机，服务端看不到这场馆。因此 **OB ↔ PM∥PF 的「同一场」判定在浏览器执行**，不进电竞 `matchMerge` / `client_matches`，也不把 OB 行喂给 `sport_merge`。
+OB 试玩数据留在浏览器；PM 官方可达时浏览器直拉，不可达时由 `changmen-pm-football-collector` 快照中转。两馆比赛在 `footballStore` 中只按时间排序并列，禁止 `mergeFootballClientLists`、overlay 或服务端足球 `sport_merge`。
 
-| 定案 | 说明 |
-|------|------|
-| **谁跑** | 浏览器 `mergeFootballClientLists`（及后续同目录替换实现） |
-| **输入** | 服务端已合过的 PM∥PF 列表 + 本机 OB 列表 |
-| **合不上** | **并列**，禁止硬并 |
-| **键（目标）** | 联赛码 + 队名归一（共享别名/catalog）+ 开赛时间窗 + 主客朝向。**禁止**把原文标题相等当成身份 |
-| **模糊性** | 只允许存在于「队名 → 归一键 / 建议映射」；赛事聚类只做相等比较 |
-| **打标** | 合上的必须区分确定 / 猜测；猜测场 **不得** 进未来 N4 自动下单 |
-| **映射沉淀** | 确认过的别名进共享表（catalog / sport team maps），禁止每个浏览器各猜各的 |
-| **电竞** | `GetMatchs` / matcher / `fo` / `mainBetLoop` **零改动** |
+POD 对每个场馆分别运行队名、开赛时间、联赛、主客朝向和盘口匹配：OB 只看带 `obMid` 的 fixture，PM 只看带 `pmMid` 的 fixture。确认依据使用当前场馆自己的 ID；两个场馆存在相同比赛时不会互相造成 `pending`。猜测身份仍不得自动下注。
 
-现状（2026-09-20 起）：目标键已落地于 `client/web/src/runtime/footballMatchKey.ts` + `mergeFootballClientLists`。键 = 联赛码（`unknown_fb` 通配，真实码硬隔离）+ 归一队名对（`@changmen/shared/catalog/football_team_key` 单一别名表：去重音 NFKD / 去撇号 / 去填充词 fc·cf·cd·sc·ac·fk·club）+ 开赛小时桶 + 主客朝向（flip 先行重定向：交换队名与赔率、让球线取反，totals 不动）。配对分层：canonical 全等 = **确定**；token 子集 = **猜测**（DTO 打 `MergeGuess`，未来 N4 闸门，见 api-contract `ClientMatchDto.MergeGuess`）；队名不可识别（OB 占位标题）退回「小时|标题」旧键。映射沉淀：`packages/shared/catalog/football_team_aliases.json`，server `sport_team_plugin`（PM∥PF 合场）已切同表，禁止各端私建。
+足球 PM 列表窗口为开赛后 4h 至未来 6h。官方列表失败或为空时读取 VPS 快照；体育 Market WS 官方连接失败后独立切换 `PM-SPORT-MARKET`，不写电竞 PM source mode。
 
-协议细节：[OB_SPORT.md §9](../client/web/docs/platforms/OB_SPORT.md#9-本机合场)。电竞身份不变量仍以 [MATCH_IDENTITY_MODEL.md](./MATCH_IDENTITY_MODEL.md) 为准；本例外不放松电竞 I1–I5。
+电竞身份不变量仍以 [MATCH_IDENTITY_MODEL.md](./MATCH_IDENTITY_MODEL.md) 为准；足球不得写 `client_matches`、电竞 `fo` 或进入 `mainBetLoop`。
+
+## 3d. POD 足球场馆匹配插件（2026-09-24）
+
+POD 警报与场馆比赛、盘口、报价的匹配统一经 `client/web/src/runtime/podVenueMatchPlugins.ts` 注册表调用。场馆插件负责 `matchFixture`、`matchMarket`、`compareQuote`；需要保留专用评分链路的场馆可额外实现 `scoreTicket`。新增场馆只注册新插件，不在 `PodFollowPanel.vue` 中继续增加场馆分支。
+
+- **OB 兼容红线**：OB 插件先隔离 OB fixture，再委托既有 `matchPodAlertToFixtures`、`scorePodYaboFollow`，不复制或改写现有评分算法，保持当前 POD 警报 → OB 比赛/盘口、副盘与 NVP 行为。
+- **PM 隔离**：Polymarket 插件生成自己的比赛和盘口匹配结果；PM 下单载荷不得借用 OB 的 fixture match。
+- **电竞隔离**：插件层不得 import 电竞 `matchStore`、`oddsStore`、`mainBetLoop`，不得写 `fo` 或 `client_matches`；相关静态守卫位于 `sportOddsIsolation.test.ts`。
 
 ## 4. 验收
 
@@ -255,8 +253,8 @@ OB 试玩 token / 盘口 / `yewuws2` 不出本机，服务端看不到这场馆�
 | 阶段 | 状态 | 隔离要点 |
 |------|------|----------|
 | **N3 moneyline 合并** | **已做**（请求路径 + `sport_*`；非独立 PM2 matcher） | 禁写电竞 `client_matches`；禁 import 电竞 `team_db`；仅双场馆对替换 API |
-| **N3 足球让球/大小** | **已做**（只读；PF 供给以中超为主） | 不改 `GetMatchs` / fo / `mainBetLoop` |
-| **N3.6 足球 OB 本机 overlay** | **已做**（浏览器目标键合场：联赛码 + 归一队名 + 小时桶 + 朝向；猜测打 `MergeGuess`） | 不写 `client_matches` / `sport_merge`；猜测不得进 N4 |
+| **足球让球/大小只读** | **已做**（PM / OB 各馆独立供给） | 不改 `GetMatchs` / fo / `mainBetLoop` |
+| **足球 POD 场馆插件** | **已做**（PM、OB 分别对场和对盘；网页不合场） | OB 继续委托原 `scorePodYaboFollow`；新增场馆只注册插件 |
 | **N4 套利环** | **未开** — 要自动下单再单开 plan | 新建 sport loop，**禁止**进 `mainBetLoop`；棒球主盘 moneyline，足球主盘 **让球+大小球**（胜负不作套利主盘） |
 | **Sport Team UI / PF 下注** | **未开** | — |
 
