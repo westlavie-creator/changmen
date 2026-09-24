@@ -6,7 +6,6 @@ type CertStatus = "unknown" | "present" | "absent";
 /**
  * 探测本次页面是否经 mTLS（Caddy → /api/client-cert-status）。
  * 只在挂载时探测一次；用户装证后自行刷新即可。
- * 生产 HTTPS + require_and_verify 下，协议为 https 也可作兜底（Caddy 尚未注入头时）。
  */
 export function useCertGate() {
   const skipped = skipCertGate();
@@ -49,13 +48,6 @@ export function useCertGate() {
 
     if (disposed)
       return false;
-
-    // Caddy 尚未注入证头时 API 恒为 false：生产 https（:443 require_and_verify）仍视为有证。
-    // 一旦 Caddy 按 dual.example 注入头，有证会走上面 early return；无证只会来自 :80。
-    if (import.meta.env.PROD && typeof location !== "undefined" && location.protocol === "https:") {
-      certStatus.value = "present";
-      return true;
-    }
 
     certStatus.value = "absent";
     certSubject.value = "";
