@@ -179,23 +179,28 @@ export async function fetchBuilderTradesPage(opts = {}) {
 }
 
 /**
- * @param {{ afterSec?: number, beforeSec?: number, maxPages?: number }} opts
+ * @param {{ afterSec?: number, beforeSec?: number, maxPages?: number, maxTrades?: number }} opts
  */
 export async function fetchAllBuilderTrades(opts = {}) {
   const maxPages = Math.min(Math.max(Number(opts.maxPages) || 5, 1), 20);
+  const maxTrades = Math.min(Math.max(Number(opts.maxTrades) || 5000, 1), 5000);
   const all = [];
   let nextCursor;
   let pages = 0;
   let lastResponse;
+  let hitTradeLimit = false;
 
-  while (pages < maxPages) {
+  while (pages < maxPages && all.length < maxTrades) {
     lastResponse = await fetchBuilderTradesPage({
       afterSec: opts.afterSec,
       beforeSec: opts.beforeSec,
       nextCursor,
     });
     const batch = Array.isArray(lastResponse?.data) ? lastResponse.data : [];
-    all.push(...batch.map(normalizeBuilderTrade));
+    const remaining = maxTrades - all.length;
+    const normalized = batch.map(normalizeBuilderTrade);
+    all.push(...normalized.slice(0, remaining));
+    hitTradeLimit = normalized.length > remaining;
     pages += 1;
     nextCursor = lastResponse?.next_cursor;
     if (!nextCursor || nextCursor === NO_MORE_CURSOR || batch.length === 0)
@@ -207,6 +212,7 @@ export async function fetchAllBuilderTrades(opts = {}) {
     summary: summarizeBuilderTrades(all),
     pagesFetched: pages,
     nextCursor: lastResponse?.next_cursor ?? null,
-    hasMore: Boolean(lastResponse?.next_cursor && lastResponse.next_cursor !== NO_MORE_CURSOR),
+    hasMore: hitTradeLimit
+      || Boolean(lastResponse?.next_cursor && lastResponse.next_cursor !== NO_MORE_CURSOR),
   };
 }

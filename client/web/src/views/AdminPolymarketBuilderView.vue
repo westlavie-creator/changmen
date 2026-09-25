@@ -346,16 +346,17 @@ async function fetchData() {
     // all 用字符串：post 走 x-www-form-urlencoded，boolean true 会变成 "true"
     let body: Record<string, unknown>;
     if (rangeMode.value === "all") {
-      body = { period: "all", all: "1", maxPages: 20, orderLimit: 500 };
+      body = { period: "all", all: "1", maxPages: 20, maxTrades: 5000, orderLimit: 500 };
     }
     else if (rangeMode.value === "utcMonth") {
-      body = { period: "utcMonth", month: monthKey.value, maxPages: 10, orderLimit: 500 };
+      body = { period: "utcMonth", month: monthKey.value, maxPages: 20, maxTrades: 5000, orderLimit: 500 };
     }
     else if (rangeMode.value === "utcWeek") {
       body = {
         period: "utcWeek",
         date: utcDateKey.value || todayUtcKey(),
-        maxPages: 10,
+        maxPages: 20,
+        maxTrades: 5000,
         orderLimit: 500,
       };
     }
@@ -363,7 +364,8 @@ async function fetchData() {
       body = {
         period: "utcDay",
         date: utcDateKey.value || todayUtcKey(),
-        maxPages: 5,
+        maxPages: 20,
+        maxTrades: 5000,
         orderLimit: 500,
       };
     }
@@ -488,7 +490,7 @@ onMounted(async () => {
           与 Polymarket 官网一致：日/周/月均按 UTC；日榜为 UTC 自然日，周奖励 epoch 为周日 00:00 UTC → 周六 23:59 UTC。
         </div>
         <div v-if="data.polymarket.hasMore" class="meta-hint">
-          Polymarket 成交可能未拉全，可缩小日期范围或联系开发增大 maxPages。
+          Polymarket 成交已达到分页或 5000 条拉取上限，可缩小日期范围查看完整数据。
         </div>
       </section>
 

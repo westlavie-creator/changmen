@@ -372,12 +372,13 @@ export async function getPolymarketBuilderDashboard(body = {}, caller = null) {
   const afterSec = Math.floor(startMs / 1000);
   const beforeSec = Math.floor(endMs / 1000);
   const maxPages = Number(body.maxPages) || 5;
+  const maxTrades = Number(body.maxTrades) || 5000;
   const orderLimit = Math.min(Math.max(Number(body.orderLimit) || 500, 1), 500);
 
   let userIds;
   const builderCode = resolvePolymarketBuilderCode();
   const [polyWrap, allProfiles, pmPlayerRows] = await Promise.all([
-    fetchAllBuilderTrades({ afterSec, beforeSec, maxPages })
+    fetchAllBuilderTrades({ afterSec, beforeSec, maxPages, maxTrades })
       .then(result => ({ result, fetchError: "" }))
       .catch((err) => {
         const fetchError = describeBuilderTradesFetchError(err);
