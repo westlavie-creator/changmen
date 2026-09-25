@@ -1,9 +1,10 @@
 import type { RayRejectMonitorTask } from "./types";
 import { defineStore } from "pinia";
+import { RAY_REJECT_MONITOR_DEFAULT_MINUTES } from "@/types/extensionPrefs";
 
 const STORAGE_PREFIX = "changmen:ray-reject-monitor:v1";
 const MAX_PERSISTED_TASKS = 100;
-const TERMINAL_RETENTION_MS = 24 * 60 * 60 * 1000;
+const REJECTED_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 function storageKey(userId: string): string {
   return `${STORAGE_PREFIX}:${userId}`;
@@ -23,8 +24,13 @@ function readTasks(userId: string): RayRejectMonitorTask[] {
       const task = value as Partial<RayRejectMonitorTask>;
       if (!task.key || task.userId !== userId || !Number(task.linkId) || !Number(task.accountId))
         return false;
-      const terminal = task.status === "rejected" || task.status === "closed" || task.status === "expired";
-      return !terminal || now - Number(task.updatedAt || 0) <= TERMINAL_RETENTION_MS;
+      if (!Number.isFinite(Number(task.monitorMinutes)) || Number(task.monitorMinutes) <= 0)
+        task.monitorMinutes = RAY_REJECT_MONITOR_DEFAULT_MINUTES;
+      if (task.status === "closed" || task.status === "expired")
+        return false;
+      if (task.status === "rejected")
+        return now - Number(task.updatedAt || 0) <= REJECTED_RETENTION_MS;
+      return Number(task.expiresAt) > now;
     });
   }
   catch {
@@ -41,7 +47,7 @@ export const useRayRejectMonitorStore = defineStore("rayRejectMonitor", {
   getters: {
     taskForLink: state => (linkId: number): RayRejectMonitorTask | null => {
       const found = [...state.tasks.values()]
-        .filter(task => task.linkId === Number(linkId))
+        .filter(task => task.linkId === Number(linkId) && task.status !== "closed" && task.status !== "expired")
         .sort((a, b) => b.updatedAt - a.updatedAt);
       return found[0] ?? null;
     },
@@ -71,11 +77,18 @@ export const useRayRejectMonitorStore = defineStore("rayRejectMonitor", {
       this.persist();
     },
 
+    remove(key: string) {
+      if (!this.tasks.delete(key))
+        return;
+      this.persist();
+    },
+
     persist() {
       try {
         if (!this.ownerUserId || typeof sessionStorage === "undefined")
           return;
         const rows = [...this.tasks.values()]
+          .filter(task => task.status !== "closed" && task.status !== "expired")
           .sort((a, b) => b.updatedAt - a.updatedAt)
           .slice(0, MAX_PERSISTED_TASKS);
         sessionStorage.setItem(storageKey(this.ownerUserId), JSON.stringify(rows));

@@ -4,16 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerRayRejectMonitor, runRayRejectMonitorTick } from "./runtime";
 import { useRayRejectMonitorStore } from "./store";
 
-const { getOrders, saveUserLog } = vi.hoisted(() => ({
+const { getOrders, saveUserLog, rayPrefs } = vi.hoisted(() => ({
   getOrders: vi.fn<() => Promise<VenueOrder[]>>(),
   saveUserLog: vi.fn(async () => true),
+  rayPrefs: { enabled: false, monitorMinutes: 5 },
 }));
 
 vi.mock("@/api/chat", () => ({ saveUserLog }));
 vi.mock("@/stores/userStore", () => ({
   useUserStore: () => ({
     userId: "u1",
-    extensionPrefs: { rayLateRejectAutoMakeup: { enabled: false } },
+    extensionPrefs: { rayLateRejectAutoMakeup: rayPrefs },
   }),
 }));
 vi.mock("@/stores/accountStore", () => ({
@@ -72,6 +73,9 @@ describe("rAY reject shadow monitor", () => {
     vi.useFakeTimers();
     vi.setSystemTime(11_000);
     vi.clearAllMocks();
+    sessionStorage.clear();
+    rayPrefs.enabled = false;
+    rayPrefs.monitorMinutes = 5;
   });
 
   it("detects a later reject without producing a makeup action", async () => {
@@ -84,7 +88,7 @@ describe("rAY reject shadow monitor", () => {
     runRayRejectMonitorTick();
     await vi.waitFor(() => expect(store.taskForLink(100)?.status).toBe("rejected"));
 
-    expect(store.taskForLink(100)?.rejectDelayMs).toBeGreaterThanOrEqual(2_100);
+    expect(store.taskForLink(100)?.rejectDelayMs).toBeGreaterThanOrEqual(1_600);
     expect(saveUserLog).toHaveBeenCalledWith(
       "RAY旁路监控 => 检测到延迟拒单",
       expect.objectContaining({
@@ -99,4 +103,38 @@ describe("rAY reject shadow monitor", () => {
     register([venueOrder("reject")], true);
     expect(useRayRejectMonitorStore().tasks.size).toBe(0);
   });
+
+  it("uses the configured minutes from the RAY venue order createAt and removes on timeout", () => {
+    rayPrefs.monitorMinutes = 2;
+    register([venueOrder("none")]);
+    const store = useRayRejectMonitorStore();
+    expect(store.taskForLink(100)).toMatchObject({
+      submittedAt: 10_500,
+      monitorMinutes: 2,
+      expiresAt: 130_500,
+    });
+
+    vi.setSystemTime(130_501);
+    runRayRejectMonitorTick();
+
+    expect(store.taskForLink(100)).toBeNull();
+    expect(getOrders).not.toHaveBeenCalled();
+    expect(saveUserLog).toHaveBeenCalledWith(
+      "RAY旁路监控 => 观察超时",
+      expect.objectContaining({ monitorEvent: "expired", linkId: 100 }),
+    );
+  });
+
+  it.each(["win", "lose", "return"] as const)(
+    "removes the monitor when the RAY venue order becomes %s",
+    async (status) => {
+      register([venueOrder("none")]);
+      const store = useRayRejectMonitorStore();
+      getOrders.mockResolvedValueOnce([venueOrder(status)]);
+      vi.setSystemTime(12_100);
+
+      runRayRejectMonitorTick();
+      await vi.waitFor(() => expect(store.taskForLink(100)).toBeNull());
+    },
+  );
 });

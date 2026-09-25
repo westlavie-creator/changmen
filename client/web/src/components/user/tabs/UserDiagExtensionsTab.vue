@@ -16,6 +16,9 @@ import {
   createDefaultValueBetSoftPlatforms,
   isArbAllowedPlatformOn,
   normalizeArbAllowedPlatforms,
+  RAY_REJECT_MONITOR_DEFAULT_MINUTES,
+  RAY_REJECT_MONITOR_MAX_MINUTES,
+  RAY_REJECT_MONITOR_MIN_MINUTES,
   toggleArbAllowedPlatform,
 } from "@/types/extensionPrefs";
 
@@ -44,8 +47,14 @@ else {
   );
 }
 extensionPrefs.value.singleLeg9999MaxPerMap ??= 1;
-if (!extensionPrefs.value.rayLateRejectAutoMakeup)
-  extensionPrefs.value.rayLateRejectAutoMakeup = { enabled: false };
+if (!extensionPrefs.value.rayLateRejectAutoMakeup) {
+  extensionPrefs.value.rayLateRejectAutoMakeup = {
+    enabled: false,
+    monitorMinutes: RAY_REJECT_MONITOR_DEFAULT_MINUTES,
+  };
+}
+extensionPrefs.value.rayLateRejectAutoMakeup.monitorMinutes
+  ??= RAY_REJECT_MONITOR_DEFAULT_MINUTES;
 
 const arbFailAutoSellTip = computed(() =>
   arbFailAutoSellAvailable
@@ -172,13 +181,35 @@ async function save() {
             RAY 延迟拒单保护
           </h3>
           <p class="extensions-tab__section-desc">
-            监控始终运行；这里只控制确认延迟拒单后，是否交给现有补单策略处理。
+            从 RAY 官网订单买入时间开始监控；到期自动解除。拒单后可交给现有补单策略处理。
           </p>
         </div>
         <span class="extensions-tab__badge">changmen 扩展</span>
       </div>
 
       <el-form label-position="left" label-width="190px">
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="绑定到 RAY 场馆订单后，以官网返回的买入时间为起点；达到设置时长仍未拒单即自动解除监控。"
+            >
+              <span class="extensions-tab__tip-label">订单监控时长</span>
+            </el-tooltip>
+          </template>
+          <el-input-number
+            v-model="extensionPrefs.rayLateRejectAutoMakeup.monitorMinutes"
+            :min="RAY_REJECT_MONITOR_MIN_MINUTES"
+            :max="RAY_REJECT_MONITOR_MAX_MINUTES"
+            :step="1"
+            :precision="0"
+            controls-position="right"
+          />
+          <span class="extensions-tab__setting-note">分钟（默认 5）</span>
+        </el-form-item>
+
         <el-form-item>
           <template #label>
             <el-tooltip

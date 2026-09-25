@@ -4,10 +4,14 @@ import { saveUserLog } from "@/api/chat";
 import { getProvider } from "@/runtime/providers";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
+import {
+  RAY_REJECT_MONITOR_DEFAULT_MINUTES,
+  RAY_REJECT_MONITOR_MAX_MINUTES,
+  RAY_REJECT_MONITOR_MIN_MINUTES,
+} from "@/types/extensionPrefs";
 import { matchRayVenueOrder } from "./match";
 import { useRayRejectMonitorStore } from "./store";
 
-export const RAY_MONITOR_WINDOW_MS = 5 * 60 * 1000;
 export const RAY_MONITOR_FAST_WINDOW_MS = 15 * 1000;
 export const RAY_MONITOR_MEDIUM_WINDOW_MS = 60 * 1000;
 
@@ -15,6 +19,16 @@ let tickInFlight = false;
 
 function monitorKey(input: RegisterRayRejectMonitorInput, userId: string): string {
   return `${userId}:${input.linkId}:${input.side}:${input.accountId}`;
+}
+
+function configuredMonitorMinutes(): number {
+  const raw = Number(useUserStore().extensionPrefs?.rayLateRejectAutoMakeup?.monitorMinutes);
+  if (!Number.isFinite(raw))
+    return RAY_REJECT_MONITOR_DEFAULT_MINUTES;
+  return Math.round(Math.min(
+    RAY_REJECT_MONITOR_MAX_MINUTES,
+    Math.max(RAY_REJECT_MONITOR_MIN_MINUTES, raw),
+  ));
 }
 
 function pollGapMs(task: RayRejectMonitorTask, now: number): number {
@@ -32,7 +46,7 @@ function isTerminalVenueStatus(status: VenueOrder["status"]): boolean {
 
 function writeMonitorLog(
   task: RayRejectMonitorTask,
-  event: "registered" | "bound" | "rejected" | "expired",
+  event: "registered" | "bound" | "rejected" | "closed" | "expired",
   order?: VenueOrder,
   extra: Record<string, unknown> = {},
 ): void {
@@ -41,6 +55,7 @@ function writeMonitorLog(
       registered: "RAY旁路监控 => 已登记",
       bound: "RAY旁路监控 => 已绑定场馆订单",
       rejected: "RAY旁路监控 => 检测到延迟拒单",
+      closed: "RAY旁路监控 => 场馆订单已结算",
       expired: "RAY旁路监控 => 观察超时",
     } as const;
     void saveUserLog(titles[event], {
@@ -95,10 +110,15 @@ function applyCandidate(
     };
   }
 
+  const venueSubmittedAt = Number(matched.candidate.order.createAt) > 0
+    ? Number(matched.candidate.order.createAt)
+    : task.submittedAt;
   return {
     task: {
       ...task,
       status: "watching",
+      submittedAt: venueSubmittedAt,
+      expiresAt: venueSubmittedAt + task.monitorMinutes * 60_000,
       boundOrderId: String(matched.candidate.order.orderId),
       boundAt: now,
       candidateCount: matched.candidates.length,
@@ -164,6 +184,7 @@ export function registerRayRejectMonitor(input: RegisterRayRejectMonitorInput): 
       return;
 
     const now = Date.now();
+    const monitorMinutes = configuredMonitorMinutes();
     let task: RayRejectMonitorTask = {
       key,
       userId,
@@ -173,7 +194,8 @@ export function registerRayRejectMonitor(input: RegisterRayRejectMonitorInput): 
       side: input.side,
       accountId: input.accountId,
       submittedAt: input.submittedAt || now,
-      expiresAt: Math.max(now + 60_000, (input.submittedAt || now) + RAY_MONITOR_WINDOW_MS),
+      monitorMinutes,
+      expiresAt: (input.submittedAt || now) + monitorMinutes * 60_000,
       match: input.match,
       bet: input.bet,
       item: input.item,
@@ -201,15 +223,26 @@ export function registerRayRejectMonitor(input: RegisterRayRejectMonitorInput): 
       else if (applied.order.status === "reject")
         task.status = "rejected";
     }
-    store.upsert(task);
     writeMonitorLog(task, "registered", applied.order, {
       candidateCount: task.candidateCount,
       bindingStatus: task.status,
+      monitorMinutes: task.monitorMinutes,
     });
     if (applied.newlyBound && applied.order)
       writeMonitorLog(task, "bound", applied.order);
-    if (task.status === "rejected" && applied.order)
+    if (task.status === "closed" && applied.order) {
+      writeMonitorLog(task, "closed", applied.order);
+      return;
+    }
+    if (task.status === "rejected" && applied.order) {
       markRejected(store, task, applied.order, now);
+      return;
+    }
+    if (task.expiresAt <= now) {
+      writeMonitorLog(task, "expired", applied.order);
+      return;
+    }
+    store.upsert(task);
   }
   catch {
     /* 旁路模块不得改变 finalize 结果 */
@@ -283,6 +316,11 @@ async function pollAccountTasks(
       writeMonitorLog(task, "bound", order);
     if (!order) {
       task.lastObservedStatus = "missing";
+      if (task.expiresAt <= observedAt) {
+        store.remove(task.key);
+        writeMonitorLog(task, "expired");
+        continue;
+      }
       store.upsert(task);
       continue;
     }
@@ -292,10 +330,17 @@ async function pollAccountTasks(
       markRejected(store, task, order, observedAt);
       continue;
     }
-    if (isTerminalVenueStatus(order.status))
-      task.status = "closed";
-    else
-      task.status = "watching";
+    if (isTerminalVenueStatus(order.status)) {
+      store.remove(task.key);
+      writeMonitorLog({ ...task, status: "closed" }, "closed", order);
+      continue;
+    }
+    if (task.expiresAt <= observedAt) {
+      store.remove(task.key);
+      writeMonitorLog(task, "expired", order);
+      continue;
+    }
+    task.status = "watching";
     store.upsert(task);
   }
 }
@@ -314,7 +359,7 @@ export function runRayRejectMonitorTick(): void {
       if (now < task.expiresAt)
         continue;
       const expired = { ...task, status: "expired" as const, updatedAt: now };
-      store.upsert(expired);
+      store.remove(task.key);
       writeMonitorLog(expired, "expired");
     }
 

@@ -31,6 +31,7 @@ function task(overrides: Partial<RayRejectMonitorTask> = {}): RayRejectMonitorTa
     nextPollAt: 11_000,
     updatedAt: 10_000,
     ...overrides,
+    monitorMinutes: overrides.monitorMinutes ?? 5,
   };
 }
 

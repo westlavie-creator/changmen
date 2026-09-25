@@ -26,6 +26,7 @@ export interface RayRejectMonitorTask {
   side: RayRejectMonitorSide;
   accountId: number;
   submittedAt: number;
+  monitorMinutes: number;
   expiresAt: number;
   match: string;
   bet: string;

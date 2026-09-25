@@ -36,7 +36,7 @@ const defaultPrefs = {
   singleLeg9999MaxPerMap: 1,
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
-  rayLateRejectAutoMakeup: { enabled: false },
+  rayLateRejectAutoMakeup: { enabled: false, monitorMinutes: 5 },
   arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
   pmArbPriceBuffer: { enabled: false, multiplier: 1.01 },
   pmFokDepthBuffer: { enabled: false, multiplier: 1.5 },
@@ -202,11 +202,20 @@ describe("extensionPrefs", () => {
     expect(normalizeExtensionPrefs({}).arbFailAutoSell).toEqual({ enabled: false });
   });
 
-  it("defaults RAY late-reject auto makeup off and accepts explicit enable", () => {
-    expect(normalizeExtensionPrefs({}).rayLateRejectAutoMakeup).toEqual({ enabled: false });
+  it("defaults RAY late-reject monitoring to 5 minutes and normalizes the user setting", () => {
+    expect(normalizeExtensionPrefs({}).rayLateRejectAutoMakeup).toEqual({
+      enabled: false,
+      monitorMinutes: 5,
+    });
     expect(normalizeExtensionPrefs({
-      rayLateRejectAutoMakeup: { enabled: true },
-    }).rayLateRejectAutoMakeup).toEqual({ enabled: true });
+      rayLateRejectAutoMakeup: { enabled: true, monitorMinutes: 12 },
+    }).rayLateRejectAutoMakeup).toEqual({ enabled: true, monitorMinutes: 12 });
+    expect(normalizeExtensionPrefs({
+      rayLateRejectAutoMakeup: { monitorMinutes: 0 },
+    }).rayLateRejectAutoMakeup.monitorMinutes).toBe(1);
+    expect(normalizeExtensionPrefs({
+      rayLateRejectAutoMakeup: { monitorMinutes: 99 },
+    }).rayLateRejectAutoMakeup.monitorMinutes).toBe(60);
   });
 
   it("can enable arbEarlyLockSell (dual prediction only; mode ignored by runtime)", () => {

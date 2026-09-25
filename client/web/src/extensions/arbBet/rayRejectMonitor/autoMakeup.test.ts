@@ -67,6 +67,7 @@ function task(overrides: Partial<RayRejectMonitorTask> = {}): RayRejectMonitorTa
     rejectDelayMs: 2_000,
     updatedAt: 12_000,
     ...overrides,
+    monitorMinutes: overrides.monitorMinutes ?? 5,
   };
 }
 
