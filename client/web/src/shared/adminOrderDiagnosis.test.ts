@@ -4,9 +4,38 @@ import {
   buildAdminOrderDiagnosisSummary,
   buildAdminOrderExecutionSteps,
   buildAdminOrderOrchestrationStages,
+  filterAdminOrderDiagnosisLogs,
 } from "@/shared/adminOrderDiagnosis";
 
 describe("adminOrderDiagnosis", () => {
+  it("keeps exact Link logs and only near-order legacy logs", () => {
+    const link = 1_790_266_881_397;
+    const order = {
+      orderId: "current",
+      link,
+      provider: "Polymarket",
+      playerId: 1,
+      match: "m",
+      bet: "b",
+      item: "home",
+      odds: 2.272,
+      betMoney: 9.06,
+      money: -63,
+      status: "Lose",
+      createAt: link,
+    };
+    const logs = [
+      { id: 1, createAt: link - 180_000, title: "", kind: "check", match: "m", summary: "同场较早轮次" },
+      { id: 2, createAt: link + 2_000, title: "", kind: "check", match: "m", summary: "当前旧日志" },
+      { id: 3, createAt: link + 90_000, title: "", kind: "reject", linkId: link, summary: "当前 Link 事后拒单" },
+      { id: 4, createAt: link + 1_000, title: "", kind: "check", linkId: link + 1, summary: "另一 Link" },
+    ];
+
+    const result = filterAdminOrderDiagnosisLogs({ link, orders: [order], logs });
+    expect(result.related.map(log => log.id)).toEqual([2, 3]);
+    expect(result.filtered.map(log => log.id)).toEqual([1, 4]);
+  });
+
   it("renders failed PM, accepted-then-rejected RAY, and makeup in true time order", () => {
     const legs: AdminOrderLogLegSection[] = [
       {

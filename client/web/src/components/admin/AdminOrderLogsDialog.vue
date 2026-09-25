@@ -14,6 +14,7 @@ import {
   buildAdminOrderDiagnosisSummary,
   buildAdminOrderExecutionSteps,
   buildAdminOrderOrchestrationStages,
+  filterAdminOrderDiagnosisLogs,
 } from "@/shared/adminOrderDiagnosis";
 import { adminOrderBetMoneyCny, adminOrderMoneyCny, isAdminPredictionSell, sumAdminOrdersMoneyCny } from "@/shared/adminOrderMoney";
 import { formatLinkId } from "@changmen/client-core/shared/format";
@@ -278,12 +279,35 @@ function fallbackLegSections(payload: AdminOrderLogLookup): AdminOrderLogLegSect
   return legs.filter(leg => leg.attempts.some(a => a.order || a.logs.length > 0));
 }
 
+const frontendLogFilter = computed(() => {
+  if (!data.value)
+    return { related: [] as AdminOrderLogEntry[], filtered: [] as AdminOrderLogEntry[] };
+  return filterAdminOrderDiagnosisLogs(data.value);
+});
+
+const filteredLogs = computed(() => {
+  const merged = [
+    ...frontendLogFilter.value.filtered,
+    ...(data.value?.unrelatedLogs ?? []),
+  ];
+  const seen = new Set<string>();
+  return merged.filter((log) => {
+    const key = String(log.id ?? `${log.createAt}:${log.title}:${log.summary}`);
+    if (seen.has(key))
+      return false;
+    seen.add(key);
+    return true;
+  });
+});
+
 const legColumns = computed(() => {
   if (!data.value)
     return [];
-  if (data.value.legSections?.length)
-    return data.value.legSections;
-  return fallbackLegSections(data.value);
+  // 始终从前端二次筛选后的日志重建两腿，避免旧后端返回的 legSections 已经串单。
+  return fallbackLegSections({
+    ...data.value,
+    logs: frontendLogFilter.value.related,
+  });
 });
 
 const dialogWidth = computed(() => {
@@ -340,15 +364,15 @@ const platformLabels = computed(() => {
   return [...labels].join(" · ");
 });
 
-const logStats = computed(() => data.value?.logStats ?? {
-  total: data.value?.logs.length ?? 0,
-  related: data.value?.logs.length ?? 0,
-  unrelated: data.value?.unrelatedLogs?.length ?? 0,
-  truncated: false,
-  limit: 0,
-});
+const logStats = computed(() => ({
+  total: data.value?.logStats?.total ?? (frontendLogFilter.value.related.length + filteredLogs.value.length),
+  related: frontendLogFilter.value.related.length,
+  unrelated: filteredLogs.value.length,
+  truncated: data.value?.logStats?.truncated ?? false,
+  limit: data.value?.logStats?.limit ?? 0,
+}));
 
-const hasFilteredLogs = computed(() => (logStats.value.unrelated || 0) > 0);
+const hasFilteredLogs = computed(() => filteredLogs.value.length > 0);
 
 function logDetailParts(log: AdminOrderLogEntry) {
   const parts: string[] = [];
@@ -713,7 +737,16 @@ defineExpose({ open });
               </p>
             </section>
 
-            <section class="admin-order-log-logs-row">
+            <details class="admin-order-log-technical">
+              <summary class="admin-order-log-technical__summary">
+                <span>查看技术明细</span>
+                <small>
+                  {{ frontendLogFilter.related.length }} 条当前 Link 日志
+                  <template v-if="filteredLogs.length"> · {{ filteredLogs.length }} 条已排除</template>
+                </small>
+              </summary>
+
+              <section class="admin-order-log-logs-row">
               <header class="admin-order-log-logs-row__head">
                 <h4 class="admin-order-log-logs-row__title">
                   原始诊断日志
@@ -849,12 +882,12 @@ defineExpose({ open });
               <p v-else class="admin-order-log-dialog__empty">
                 该时间窗内无 Client_SaveUserLog 记录
               </p>
-            </section>
+              </section>
 
-            <section
-              v-if="data.unrelatedLogs?.length"
-              class="admin-order-log-filtered"
-            >
+              <section
+                v-if="filteredLogs.length"
+                class="admin-order-log-filtered"
+              >
               <header class="admin-order-log-filtered__head">
                 <h4 class="admin-order-log-logs-row__title">
                   已过滤的窗口日志
@@ -865,7 +898,7 @@ defineExpose({ open });
               </header>
               <ul class="admin-order-log-list admin-order-log-list--filtered">
                 <li
-                  v-for="(log, i) in data.unrelatedLogs.slice(0, 8)"
+                  v-for="(log, i) in filteredLogs.slice(0, 8)"
                   :key="log.id ?? `filtered-${i}`"
                   class="admin-order-log-list__row admin-order-log-list__row--filtered"
                 >
@@ -884,12 +917,13 @@ defineExpose({ open });
                 </li>
               </ul>
               <p
-                v-if="data.unrelatedLogs.length > 8"
+                v-if="filteredLogs.length > 8"
                 class="admin-order-log-filtered__more"
               >
-                还有 {{ data.unrelatedLogs.length - 8 }} 条已过滤日志未展开
+                还有 {{ filteredLogs.length - 8 }} 条已过滤日志未展开
               </p>
-            </section>
+              </section>
+            </details>
           </div>
         </template>
       </div>

@@ -1,6 +1,7 @@
 import type {
   AdminOrderLogEntry,
   AdminOrderLogLegSection,
+  AdminOrderLogLookup,
   AdminOrderLogOrder,
 } from "@/types/admin";
 import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
@@ -54,6 +55,42 @@ export interface AdminOrderOrchestrationNode {
   summary: string;
   detail: string | null;
   tone: AdminOrderDiagnosisTone;
+}
+
+const LEGACY_LOG_NEAR_ORDER_MS = 15_000;
+const TIMESTAMP_LINK_MIN = 1_000_000_000_000;
+
+/**
+ * 前端最后一道防串单保护。
+ *
+ * 新日志按 linkId / orderId 精确关联；旧日志没有唯一标识时，只保留紧邻当前
+ * Link 创建时间或落库订单的记录。这样即使后端进程尚未重启、仍返回旧版宽松
+ * 筛选结果，编排视图也不会混入同场比赛的其他套利轮次。
+ */
+export function filterAdminOrderDiagnosisLogs(
+  payload: Pick<AdminOrderLogLookup, "link" | "orders" | "logs">,
+): { related: AdminOrderLogEntry[]; filtered: AdminOrderLogEntry[] } {
+  const link = Number(payload.link) || 0;
+  const orderIds = new Set(payload.orders.map(order => String(order.orderId)).filter(Boolean));
+  const anchors = payload.orders
+    .map(order => Number(order.createAt) || 0)
+    .filter(Boolean);
+  const linkAt = Math.abs(link);
+  if (linkAt >= TIMESTAMP_LINK_MIN)
+    anchors.push(linkAt);
+
+  const related: AdminOrderLogEntry[] = [];
+  const filtered: AdminOrderLogEntry[] = [];
+  for (const log of payload.logs) {
+    const logLink = Number(log.linkId) || 0;
+    const exactLink = logLink !== 0 && logLink === link;
+    const exactOrder = Boolean(log.orderId && orderIds.has(String(log.orderId)));
+    const nearCurrentAttempt = logLink === 0 && anchors.some(anchor =>
+      Math.abs(Number(log.createAt) - anchor) <= LEGACY_LOG_NEAR_ORDER_MS,
+    );
+    (exactLink || exactOrder || nearCurrentAttempt ? related : filtered).push(log);
+  }
+  return { related, filtered };
 }
 
 function fmt(n: number, digits = 3) {

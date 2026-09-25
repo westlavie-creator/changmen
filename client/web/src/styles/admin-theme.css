@@ -2235,6 +2235,41 @@ html.admin-route #app > * {
   gap: 4px 12px;
   margin-bottom: 10px;
 }
+.admin-order-log-technical {
+  margin-top: 12px;
+  border: 1px solid var(--adm-border, rgba(90, 111, 138, 0.22));
+  border-radius: 8px;
+  background: rgba(12, 18, 28, 0.18);
+  overflow: hidden;
+}
+.admin-order-log-technical__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--adm-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  list-style-position: inside;
+}
+.admin-order-log-technical__summary span {
+  color: var(--adm-text);
+  font-weight: 600;
+}
+.admin-order-log-technical__summary small {
+  margin-left: auto;
+  color: var(--adm-text-muted);
+  font-size: 10px;
+}
+.admin-order-log-technical[open] > .admin-order-log-technical__summary {
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.22));
+}
+.admin-order-log-technical > .admin-order-log-logs-row,
+.admin-order-log-technical > .admin-order-log-filtered {
+  margin: 12px;
+}
 .admin-order-log-logs-row__title {
   margin: 0;
   font-size: 13px;
