@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import type { PlatformId } from "@/types/esport";
+import { betPlatformIds } from "@changmen/venue-adapter/registry";
 import { ElMessage } from "element-plus";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import PmPfBufferSettings from "@/components/user/PmPfBufferSettings.vue";
 import {
-  VALUE_BET_SOFT_CANDIDATES,
   normalizeValueBetSoftPlatforms,
+  VALUE_BET_SOFT_CANDIDATES,
 } from "@/extensions/valueBet/evConfig";
+import { useUserStore } from "@/stores/userStore";
 import {
   ARB_FAIL_AUTO_SELL_AVAILABLE,
   createDefaultValueBetSoftPlatforms,
@@ -16,8 +18,6 @@ import {
   normalizeArbAllowedPlatforms,
   toggleArbAllowedPlatform,
 } from "@/types/extensionPrefs";
-import { useUserStore } from "@/stores/userStore";
-import { betPlatformIds } from "@changmen/venue-adapter/registry";
 
 const user = useUserStore();
 const { extensionPrefs } = storeToRefs(user);
@@ -27,20 +27,25 @@ const evSoftPlatformOptions = VALUE_BET_SOFT_CANDIDATES;
 const arbPlatformOptions = betPlatformIds();
 
 // 与界面 Tab 同款：热更新 / 旧内存态缺字段时补齐
-if (!Array.isArray(extensionPrefs.value.valueBetSoftPlatforms))
+if (!Array.isArray(extensionPrefs.value.valueBetSoftPlatforms)) {
   extensionPrefs.value.valueBetSoftPlatforms = createDefaultValueBetSoftPlatforms();
-else
+}
+else {
   extensionPrefs.value.valueBetSoftPlatforms = normalizeValueBetSoftPlatforms(
     extensionPrefs.value.valueBetSoftPlatforms,
   );
-if (extensionPrefs.value.arbAllowedPlatforms === undefined)
+}
+if (extensionPrefs.value.arbAllowedPlatforms === undefined) {
   extensionPrefs.value.arbAllowedPlatforms = null;
-else
+}
+else {
   extensionPrefs.value.arbAllowedPlatforms = normalizeArbAllowedPlatforms(
     extensionPrefs.value.arbAllowedPlatforms,
   );
-if (extensionPrefs.value.singleLeg9999MaxPerMap == null)
-  extensionPrefs.value.singleLeg9999MaxPerMap = 1;
+}
+extensionPrefs.value.singleLeg9999MaxPerMap ??= 1;
+if (!extensionPrefs.value.rayLateRejectAutoMakeup)
+  extensionPrefs.value.rayLateRejectAutoMakeup = { enabled: false };
 
 const arbFailAutoSellTip = computed(() =>
   arbFailAutoSellAvailable
@@ -315,6 +320,34 @@ async function save() {
               inactive-text="关"
             />
           </el-form-item>
+
+          <h3 class="extensions-tab__heading extensions-tab__heading--next">
+            RAY 延迟拒单
+          </h3>
+
+          <el-form-item>
+            <template #label>
+              <el-tooltip
+                placement="top"
+                :show-after="200"
+                popper-class="extensions-tab-tip"
+                content="[changmen 扩展] RAY 订单在原拒单检测结束后才变为拒单时，自动交给现有补单队列。补单金额、赔率、上下沿、账号选择和重试规则全部沿用参数配置；默认关闭。"
+              >
+                <span class="extensions-tab__tip-label">RAY 延迟拒单自动补单</span>
+              </el-tooltip>
+            </template>
+            <el-switch
+              v-model="extensionPrefs.rayLateRejectAutoMakeup.enabled"
+              :disabled="user.config.makeUp !== true"
+              inline-prompt
+              active-text="开"
+              inactive-text="关"
+            />
+          </el-form-item>
+
+          <p v-if="user.config.makeUp !== true" class="extensions-tab__hint-inline">
+            请先在参数配置中开启“自动补单”；旁路监控仍会继续记录延迟拒单。
+          </p>
 
           <h3 class="extensions-tab__heading extensions-tab__heading--next">
             套利失败减仓

@@ -1,21 +1,25 @@
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
-import { applyArbMakeUpFromRejects } from "@/stores/betting/autoBet/arbMakeUpFromRejects";
-import {
-  finishArbExecutionTrace,
-  logArbFinalizeTraceEvents,
-  sendArbBettingMessageIfNeeded,
-} from "@/stores/betting/autoBet/phases/finalizeArbMessaging";
-import { markArbSuccessLegs } from "@/stores/betting/autoBet/phases/finalizeArbMarkers";
-import { settleBothArbLegs } from "@/stores/betting/autoBet/phases/settleBothArbLegs";
-import { syncArbFinalizeActiveBet } from "@/stores/betting/autoBet/phases/syncArbFinalizeUi";
-import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
-import { useUserStore } from "@/stores/userStore";
+import { registerRayRejectMonitor } from "@/extensions/arbBet/rayRejectMonitor/runtime";
 import {
   recordSingleLeg9999MapFill,
   recordSingleLeg9999MapFillKeys,
   releaseSingleLeg9999MapFill,
   releaseSingleLeg9999MapFillKeys,
 } from "@/extensions/arbBet/singleLeg9999MapCount";
+import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
+import {
+  applyArbMakeUpFromRejects,
+  resolveArbMakeUpSuccessRef,
+} from "@/stores/betting/autoBet/arbMakeUpFromRejects";
+import { markArbSuccessLegs } from "@/stores/betting/autoBet/phases/finalizeArbMarkers";
+import {
+  finishArbExecutionTrace,
+  logArbFinalizeTraceEvents,
+  sendArbBettingMessageIfNeeded,
+} from "@/stores/betting/autoBet/phases/finalizeArbMessaging";
+import { settleBothArbLegs } from "@/stores/betting/autoBet/phases/settleBothArbLegs";
+import { syncArbFinalizeActiveBet } from "@/stores/betting/autoBet/phases/syncArbFinalizeUi";
+import { useUserStore } from "@/stores/userStore";
 
 /** 套利收尾编排：settle → makeup → mark → notify（顺序对齐 A8 bundle） */
 export async function finalizeArbBet(
@@ -26,6 +30,68 @@ export async function finalizeArbBet(
   const { linkId } = placed;
 
   const settle = await settleBothArbLegs(params, placed);
+
+  const registerRayLeg = (side: "A" | "B") => {
+    const leg = side === "A" ? placed.legA : placed.legB;
+    const account = side === "A" ? placed.accountA : placed.accountB;
+    const result = side === "A" ? placed.resultA : placed.resultB;
+    const initialOrders = side === "A" ? settle.ordersA : settle.ordersB;
+    const initialRejected = side === "A" ? settle.rejectA : settle.rejectB;
+    const anchorLeg = side === "A" ? placed.legB : placed.legA;
+    const anchorAccount = side === "A" ? placed.accountB : placed.accountA;
+    const anchorResult = side === "A" ? placed.resultB : placed.resultA;
+    const anchorOrders = side === "A" ? settle.ordersB : settle.ordersA;
+    const anchorRejected = side === "A" ? settle.rejectB : settle.rejectA;
+    const anchorPending = side === "A" ? settle.pendingConfirmB : settle.pendingConfirmA;
+    if (String(account?.provider || "").toUpperCase() !== "RAY" || !result?.success || !account)
+      return;
+    const anchorRef = anchorAccount
+      ? resolveArbMakeUpSuccessRef(
+          anchorLeg,
+          anchorOrders,
+          anchorRejected,
+          anchorAccount,
+          anchorResult?.orderId,
+        )
+      : { betMoney: 0, betOdds: 0 };
+    const anchorProvider = String(anchorAccount?.provider || "").toUpperCase();
+    registerRayRejectMonitor({
+      linkId,
+      matchId: match.id,
+      betId: bet.id,
+      side,
+      accountId: Number(account.accountId),
+      submittedAt: Number(result.beginTime) || Date.now(),
+      match: String(leg.match?.title || match.title || ""),
+      bet: String(leg.bet?.getBetName() || bet.getBetName() || ""),
+      item: String(
+        leg.target === "Home"
+          ? leg.bet?.homeName || bet.homeName || leg.target
+          : leg.bet?.awayName || bet.awayName || leg.target,
+      ),
+      target: leg.target,
+      odds: Number(leg.odds) || 0,
+      betMoney: Number(leg.betMoney) || 0,
+      // 双 RAY 可能继续发生第二腿延迟拒单；第一版保守转人工，不把未终态腿当补单锚点。
+      anchorConfirmed: Boolean(
+        placed.betBothLegs
+        && anchorAccount
+        && anchorResult?.success
+        && !anchorRejected
+        && !anchorPending
+        && anchorProvider !== "RAY",
+      ),
+      anchorProvider,
+      anchorAccountId: Number(anchorAccount?.accountId) || 0,
+      anchorBetMoney: anchorRef.betMoney,
+      anchorOdds: anchorRef.betOdds,
+      initialOrders,
+      initialRejected,
+    });
+  };
+  // [changmen 扩展] 只登记旁路监控；同步返回，不参与本轮 settle/makeup 判断。
+  registerRayLeg("A");
+  registerRayLeg("B");
 
   const makeup = await applyArbMakeUpFromRejects(
     params,
@@ -70,7 +136,7 @@ export async function finalizeArbBet(
   if (useUserStore().extensionPrefs?.arbFailAutoSell?.enabled === true) {
     try {
       const { maybeArbFailAutoSellAfterFinalize } = await import(
-        "@/extensions/arbBet/arbFailAutoSell"
+        "@/extensions/arbBet/arbFailAutoSell",
       );
       await maybeArbFailAutoSellAfterFinalize({
         placed,

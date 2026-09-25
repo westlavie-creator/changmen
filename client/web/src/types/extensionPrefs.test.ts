@@ -36,6 +36,7 @@ const defaultPrefs = {
   singleLeg9999MaxPerMap: 1,
   stakeScaleByProfit: defaultStakeScale,
   arbFailAutoSell: { enabled: false },
+  rayLateRejectAutoMakeup: { enabled: false },
   arbEarlyLockSell: { enabled: false, mode: "floor" as const, minExtraProfitPct: 0 },
   pmArbPriceBuffer: { enabled: false, multiplier: 1.01 },
   pmFokDepthBuffer: { enabled: false, multiplier: 1.5 },
@@ -199,6 +200,13 @@ describe("extensionPrefs", () => {
 
   it("defaults arbFailAutoSell off", () => {
     expect(normalizeExtensionPrefs({}).arbFailAutoSell).toEqual({ enabled: false });
+  });
+
+  it("defaults RAY late-reject auto makeup off and accepts explicit enable", () => {
+    expect(normalizeExtensionPrefs({}).rayLateRejectAutoMakeup).toEqual({ enabled: false });
+    expect(normalizeExtensionPrefs({
+      rayLateRejectAutoMakeup: { enabled: true },
+    }).rayLateRejectAutoMakeup).toEqual({ enabled: true });
   });
 
   it("can enable arbEarlyLockSell (dual prediction only; mode ignored by runtime)", () => {

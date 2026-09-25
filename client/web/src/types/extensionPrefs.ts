@@ -1,20 +1,21 @@
+import type { ValueBetSharpPlatform } from "@/extensions/valueBet/evConfig";
 import type { PlatformId } from "@/types/esport";
 import {
+  clampValueBetEdgePctRange,
+  clampValueBetOddsRange,
+  createDefaultValueBetSoftPlatforms,
   DEFAULT_AUTO_BET_MAX_EDGE_PCT,
   DEFAULT_AUTO_BET_MAX_ODDS,
   DEFAULT_AUTO_BET_MAX_PER_MAP,
   DEFAULT_AUTO_BET_MIN_EDGE_PCT,
   DEFAULT_AUTO_BET_MIN_ODDS,
   DEFAULT_MIN_EDGE_PCT,
-  createDefaultValueBetSoftPlatforms,
-  clampValueBetEdgePctRange,
-  clampValueBetOddsRange,
   normalizeValueBetCount,
   normalizeValueBetEdgePct,
   normalizeValueBetOdds,
   normalizeValueBetSharp,
   normalizeValueBetSoftPlatforms,
-  type ValueBetSharpPlatform,
+
 } from "@/extensions/valueBet/evConfig";
 import { ALL_PLATFORMS } from "@/types/userConfig";
 
@@ -51,6 +52,18 @@ export interface StakeScaleByProfitPrefs {
  */
 export interface ArbFailAutoSellPrefs {
   enabled: boolean;
+}
+
+/**
+ * [changmen 扩展] RAY 接口受理后发生延迟拒单时，交给现有补单队列处理。
+ * 仅控制旁路监控的后续动作；监控本身始终开启。默认关闭。
+ */
+export interface RayLateRejectAutoMakeupPrefs {
+  enabled: boolean;
+}
+
+export function createDefaultRayLateRejectAutoMakeup(): RayLateRejectAutoMakeupPrefs {
+  return { enabled: false };
 }
 
 /** 失败减仓是否允许用户开启（临时锁死） */
@@ -224,6 +237,8 @@ export interface ExtensionPrefs extends Record<string, unknown> {
   stakeScaleByProfit: StakeScaleByProfitPrefs;
   /** 套利失败敞口：自动卖掉已成交的 PM/PF 腿 */
   arbFailAutoSell: ArbFailAutoSellPrefs;
+  /** RAY 延迟拒单：复用现有补单策略自动入队 */
+  rayLateRejectAutoMakeup: RayLateRejectAutoMakeupPrefs;
   /** 双边预测市场：同卖净利优于锁定利润时两边一起卖 */
   arbEarlyLockSell: ArbEarlyLockSellPrefs;
   /** PM 套利：有 fo 时读打折档（展示/扫描/对冲/FOK）；无 fo 不打折；默认关 = 现网 */
@@ -369,6 +384,7 @@ export function createDefaultExtensionPrefs(): ExtensionPrefs {
     singleLeg9999MaxPerMap: 1,
     stakeScaleByProfit: createDefaultStakeScaleByProfit(),
     arbFailAutoSell: createDefaultArbFailAutoSell(),
+    rayLateRejectAutoMakeup: createDefaultRayLateRejectAutoMakeup(),
     arbEarlyLockSell: createDefaultArbEarlyLockSell(),
     pmArbPriceBuffer: createDefaultPmArbPriceBufferPrefs(),
     pmFokDepthBuffer: createDefaultPmFokDepthBufferPrefs(),
@@ -480,6 +496,12 @@ export function normalizeMakeupOddsBand(raw: unknown): MakeupOddsBandPrefs {
   };
 }
 
+function normalizeRayLateRejectAutoMakeup(raw: unknown): RayLateRejectAutoMakeupPrefs {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw))
+    return createDefaultRayLateRejectAutoMakeup();
+  return { enabled: (raw as Record<string, unknown>).enabled === true };
+}
+
 function normalizePfArbPriceBuffer(raw: unknown): PfArbPriceBufferPrefs {
   const defaults = createDefaultPfArbPriceBufferPrefs();
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
@@ -508,6 +530,7 @@ export function normalizeExtensionPrefs(raw: unknown): ExtensionPrefs {
     singleLeg9999MaxPerMap: normalizeValueBetCount(row.singleLeg9999MaxPerMap, 1),
     stakeScaleByProfit: normalizeStakeScaleByProfit(row.stakeScaleByProfit),
     arbFailAutoSell: normalizeArbFailAutoSell(row.arbFailAutoSell),
+    rayLateRejectAutoMakeup: normalizeRayLateRejectAutoMakeup(row.rayLateRejectAutoMakeup),
     arbEarlyLockSell: normalizeArbEarlyLockSell(row.arbEarlyLockSell),
     pmArbPriceBuffer: normalizePmArbPriceBuffer(row.pmArbPriceBuffer),
     pmFokDepthBuffer: normalizePmFokDepthBuffer(row.pmFokDepthBuffer),

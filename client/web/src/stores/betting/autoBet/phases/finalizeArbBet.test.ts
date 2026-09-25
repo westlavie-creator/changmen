@@ -62,6 +62,10 @@ vi.mock("@/stores/betting/autoBet/arbLegSettle", () => ({
 
 vi.mock("@/stores/betting/autoBet/arbMakeUpFromRejects", () => ({
   applyArbMakeUpFromRejects,
+  resolveArbMakeUpSuccessRef: (leg: BetOption) => ({
+    betMoney: Math.round(Number(leg.betMoney) || 0),
+    betOdds: Number(leg.odds) || 0,
+  }),
 }));
 
 vi.mock("@/stores/userStore", () => ({

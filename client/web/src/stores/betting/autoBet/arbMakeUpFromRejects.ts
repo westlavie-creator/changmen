@@ -1,7 +1,7 @@
 import type { BetOption } from "@changmen/client-core/models/betOption";
+import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { PlatformAccount } from "@/models/platformAccount";
 import type { ArbBetAttemptParams, ArbBetPlaced } from "@/stores/betting/autoBet/phases/types";
-import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { isPendingConfirmVenueProvider } from "@changmen/shared/account_multiply";
 import { arbMakeUpSides } from "@/stores/betting/autoBet/arbMakeUpPair";
 import { enqueueMakeUpOrder } from "@/stores/betting/autoBet/makeUp";
@@ -16,7 +16,8 @@ function a8SuccessLegRef(leg: BetOption): { betMoney: number; betOdds: number } 
   };
 }
 
-function makeupSuccessRef(
+/** 成功腿锚点的唯一解析口径；旁路延迟拒单也复用，避免产生第二套补单计算。 */
+export function resolveArbMakeUpSuccessRef(
   leg: BetOption,
   orders: VenueOrder[],
   rejected: boolean,
@@ -151,7 +152,7 @@ export async function applyArbMakeUpFromRejects(
   );
 
   if (side === "enqueueB" && accountA) {
-    const successRef = makeupSuccessRef(
+    const successRef = resolveArbMakeUpSuccessRef(
       legA,
       venue.ordersA,
       rejectA,
@@ -174,7 +175,7 @@ export async function applyArbMakeUpFromRejects(
     });
   }
   else if (side === "enqueueA" && accountB) {
-    const successRef = makeupSuccessRef(
+    const successRef = resolveArbMakeUpSuccessRef(
       legB,
       venue.ordersB,
       rejectB,

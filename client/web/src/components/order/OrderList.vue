@@ -892,6 +892,9 @@ function badgeTitle(row: OrderRow): string {
             <slot name="row-actions" :row="block.row" :link="link" :rows="rows" />
           </div>
         </div>
+        <div v-if="$slots['group-monitor']" class="order-list__group-monitor">
+          <slot name="group-monitor" :link="link" :rows="rows" />
+        </div>
         <div v-if="$slots['group-actions']" class="order-list__group-actions">
           <slot name="group-actions" :link="link" :rows="rows" />
         </div>

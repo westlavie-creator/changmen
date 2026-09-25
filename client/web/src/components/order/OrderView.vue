@@ -1,18 +1,21 @@
 <script setup lang="ts">
+import type { OrderRow } from "@/types/order";
+import { wait } from "@changmen/client-core/shared/wait";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
-import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import LoseOrderView from "@/components/order/LoseOrderView.vue";
+import OrderDateNav from "@/components/order/OrderDateNav.vue";
 import OrderList from "@/components/order/OrderList.vue";
 import OrderMakeupStatusBar from "@/components/order/OrderMakeupStatusBar.vue";
+import RayLinkMonitorCard from "@/components/order/RayLinkMonitorCard.vue";
 import { loadEmbeddedUserOrders } from "@/composables/adminUserWorkspaceMount";
+import { useRayRejectMonitorStore } from "@/extensions/arbBet/rayRejectMonitor/store";
+import { isFootballOrderRow } from "@/shared/orderDomain";
 import { mergePendingMakeupIntoOrderGroups, orderLinkMapEntries } from "@/shared/orderLink";
-import { wait } from "@changmen/client-core/shared/wait";
+import { useActiveBetRunStore } from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
-import type { OrderRow } from "@/types/order";
-import { isFootballOrderRow } from "@/shared/orderDomain";
 
 const props = withDefaults(
   defineProps<{
@@ -24,6 +27,8 @@ const props = withDefaults(
 );
 
 const orderStore = useOrderStore();
+const activeBetRunStore = useActiveBetRunStore();
+const rayRejectMonitorStore = useRayRejectMonitorStore();
 const loseStore = useLoseOrderStore();
 const userStore = useUserStore();
 const { orderDate, loading, filterAccountId, accountOptions, orders, filteredOrders }
@@ -55,6 +60,8 @@ const mergedOrderEntries = computed(() => {
 const viewLoading = ref(false);
 
 onMounted(() => {
+  if (!props.embedded && userStore.userId)
+    rayRejectMonitorStore.restore(String(userStore.userId));
   if (props.embedded && props.embeddedUserId && !orderStore.orders.size) {
     void loadEmbeddedUserOrders(props.embeddedUserId, orderDate.value);
   }
@@ -112,6 +119,14 @@ function platformClass(row: Parameters<typeof orderStore.platformClass>[0]) {
 
 function onCancelMakeup(betId: number) {
   loseStore.cancelMakeupManually(betId);
+}
+
+function activeRunForLink(link: number) {
+  return activeBetRunStore.visibleRuns.find(run => Number(run.linkId) === Number(link)) ?? null;
+}
+
+function rayMonitorForLink(link: number) {
+  return rayRejectMonitorStore.taskForLink(link);
 }
 
 async function onLinkRebindDone() {
@@ -175,7 +190,16 @@ async function onLinkRebindDone() {
       :allow-pf-sell="!embedded"
       @cancel-makeup="onCancelMakeup"
       @link-rebind-done="onLinkRebindDone"
-    />
+    >
+      <template #group-monitor="{ link, rows }">
+        <RayLinkMonitorCard
+          v-if="!embedded"
+          :rows="rows"
+          :run="activeRunForLink(link)"
+          :monitor="rayMonitorForLink(link)"
+        />
+      </template>
+    </OrderList>
   </div>
 </template>
 
@@ -242,5 +266,4 @@ async function onLinkRebindDone() {
 .order-account-filter :deep(.el-select__suffix) {
   margin-left: 0;
 }
-
 </style>

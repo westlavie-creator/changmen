@@ -120,6 +120,7 @@ declare module 'vue' {
     PodFollowAccountPicker: typeof import('./src/components/football/PodFollowAccountPicker.vue')['default']
     PodFollowPanel: typeof import('./src/components/football/PodFollowPanel.vue')['default']
     PodYaboSettings: typeof import('./src/components/football/PodYaboSettings.vue')['default']
+    RayLinkMonitorCard: typeof import('./src/components/order/RayLinkMonitorCard.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SessionRestoreLoader: typeof import('./src/components/layout/SessionRestoreLoader.vue')['default']

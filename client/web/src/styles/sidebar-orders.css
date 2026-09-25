@@ -86,6 +86,10 @@
   padding: 0 4px 4px;
 }
 
+.orders .order-list__group-monitor:empty {
+  display: none;
+}
+
 /* 组盈亏贴 fieldset 顶边靠左；勿 float:right（会挡右上输赢 .status） */
 .orders .orderlink > legend {
   float: none;
