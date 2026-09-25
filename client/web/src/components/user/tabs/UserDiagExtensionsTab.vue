@@ -165,6 +165,47 @@ async function save() {
 
     <PmPfBufferSettings />
 
+    <section class="extensions-tab__panel extensions-tab__ray-reject">
+      <div class="extensions-tab__section-head">
+        <div>
+          <h3 class="extensions-tab__heading">
+            RAY 延迟拒单保护
+          </h3>
+          <p class="extensions-tab__section-desc">
+            监控始终运行；这里只控制确认延迟拒单后，是否交给现有补单策略处理。
+          </p>
+        </div>
+        <span class="extensions-tab__badge">changmen 扩展</span>
+      </div>
+
+      <el-form label-position="left" label-width="190px">
+        <el-form-item>
+          <template #label>
+            <el-tooltip
+              placement="top"
+              :show-after="200"
+              popper-class="extensions-tab-tip"
+              content="RAY 订单在原拒单检测结束后才变为拒单时，自动交给现有补单队列。补单金额、赔率、上下沿、账号选择和重试规则全部沿用参数配置；默认关闭。"
+            >
+              <span class="extensions-tab__tip-label">延迟拒单后自动补单</span>
+            </el-tooltip>
+          </template>
+          <el-switch
+            v-model="extensionPrefs.rayLateRejectAutoMakeup.enabled"
+            :disabled="user.config.makeUp !== true"
+            inline-prompt
+            active-text="开"
+            inactive-text="关"
+          />
+          <span class="extensions-tab__setting-note">沿用现有补单策略</span>
+        </el-form-item>
+      </el-form>
+
+      <p v-if="user.config.makeUp !== true" class="extensions-tab__ray-warning">
+        请先在参数配置中开启“自动补单”；旁路监控仍会继续记录延迟拒单。
+      </p>
+    </section>
+
     <div class="extensions-tab__cols">
       <el-form label-position="left" label-width="158px" class="extensions-tab__panel">
         <h3 class="extensions-tab__heading">
@@ -322,34 +363,6 @@ async function save() {
           </el-form-item>
 
           <h3 class="extensions-tab__heading extensions-tab__heading--next">
-            RAY 延迟拒单
-          </h3>
-
-          <el-form-item>
-            <template #label>
-              <el-tooltip
-                placement="top"
-                :show-after="200"
-                popper-class="extensions-tab-tip"
-                content="[changmen 扩展] RAY 订单在原拒单检测结束后才变为拒单时，自动交给现有补单队列。补单金额、赔率、上下沿、账号选择和重试规则全部沿用参数配置；默认关闭。"
-              >
-                <span class="extensions-tab__tip-label">RAY 延迟拒单自动补单</span>
-              </el-tooltip>
-            </template>
-            <el-switch
-              v-model="extensionPrefs.rayLateRejectAutoMakeup.enabled"
-              :disabled="user.config.makeUp !== true"
-              inline-prompt
-              active-text="开"
-              inactive-text="关"
-            />
-          </el-form-item>
-
-          <p v-if="user.config.makeUp !== true" class="extensions-tab__hint-inline">
-            请先在参数配置中开启“自动补单”；旁路监控仍会继续记录延迟拒单。
-          </p>
-
-          <h3 class="extensions-tab__heading extensions-tab__heading--next">
             套利失败减仓
           </h3>
 
@@ -439,6 +452,56 @@ async function save() {
   padding-bottom: 14px;
 }
 
+.extensions-tab__ray-reject {
+  margin: 16px 0;
+  padding-bottom: 14px;
+  border-color: color-mix(in srgb, var(--el-color-primary) 34%, var(--el-border-color-lighter));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--el-color-primary) 5%, var(--el-fill-color-blank)),
+    var(--el-fill-color-blank)
+  );
+}
+
+.extensions-tab__section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.extensions-tab__section-desc {
+  margin: -4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.extensions-tab__badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--el-color-primary-light-5);
+  border-radius: 999px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.extensions-tab__setting-note {
+  margin-left: 10px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.extensions-tab__ray-warning {
+  margin: 0 0 0 190px;
+  color: var(--el-color-warning);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .extensions-tab__cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -481,12 +544,6 @@ async function save() {
   cursor: default;
   border-bottom: none;
   color: var(--el-text-color-secondary);
-}
-
-.extensions-tab__hint-inline {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  line-height: 32px;
 }
 
 .venue-block {
@@ -593,6 +650,10 @@ async function save() {
 
   .extensions-tab__cols {
     grid-template-columns: 1fr;
+  }
+
+  .extensions-tab__ray-warning {
+    margin-left: 0;
   }
 }
 </style>
