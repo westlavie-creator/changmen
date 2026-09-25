@@ -277,6 +277,50 @@ describe("user_log_lookup", () => {
     expect(filtered.relevant.find(log => log.id === 3)?.matchedOrderId).toBe("pm-filled");
   });
 
+  it("does not mix an earlier arb round from the same match into the current plan", () => {
+    const orders = [{
+      orderId: "current",
+      link: 1_790_266_881_397,
+      provider: "Polymarket",
+      match: "Turma do Pagode vs Keyd Stars",
+      bet: "全场胜负",
+      item: "Turma do Pagode",
+      odds: 2.272,
+      betMoney: 62.76,
+      createAt: 200_000,
+    }];
+    const logs = [
+      { id: 1, kind: "check", provider: "Polymarket", target: "Home", match: "Turma do Pagode vs Keyd Stars", bet: "全场胜负", odds: 2.222, betMoney: 9.78, createAt: 20_000, summary: "较早的另一轮" },
+      { id: 2, kind: "check", provider: "Polymarket", target: "Home", match: "Turma do Pagode vs Keyd Stars", bet: "全场胜负", odds: 2.272, betMoney: 9.06, createAt: 199_000, summary: "当前轮" },
+      { id: 3, kind: "bet", provider: "Polymarket", orderId: "current", success: true, createAt: 200_100, summary: "当前轮成交" },
+    ];
+
+    const filtered = filterRelevantLogs(orders, logs);
+    expect(filtered.relevant.map(log => log.id)).toEqual([2, 3]);
+    expect(filtered.unrelated.map(log => log.id)).toEqual([1]);
+  });
+
+  it("treats an explicit different linkId as definitive even for the same match and time", () => {
+    const currentLink = 1_790_266_881_397;
+    const otherLink = 1_790_266_881_398;
+    const orders = [{
+      orderId: "current",
+      link: currentLink,
+      provider: "Polymarket",
+      match: "Turma do Pagode vs Keyd Stars",
+      bet: "全场胜负",
+      createAt: 200_000,
+    }];
+    const logs = [
+      { id: 1, kind: "check", linkId: otherLink, provider: "Polymarket", match: "Turma do Pagode vs Keyd Stars", bet: "全场胜负", createAt: 199_900, summary: "另一 Link" },
+      { id: 2, kind: "check", linkId: currentLink, provider: "Polymarket", match: "Turma do Pagode vs Keyd Stars", bet: "全场胜负", createAt: 199_950, summary: "当前 Link" },
+    ];
+
+    const filtered = filterRelevantLogs(orders, logs);
+    expect(filtered.relevant.map(log => log.id)).toEqual([2]);
+    expect(filtered.unrelated.map(log => log.id)).toEqual([1]);
+  });
+
   it("summarizes a makeup queue as an independent Link step", () => {
     const link = 1_790_274_758_786;
     const log = summarizeUserLog({

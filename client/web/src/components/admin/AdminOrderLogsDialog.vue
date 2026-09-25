@@ -539,12 +539,6 @@ defineExpose({ open });
                   </span>
                 </header>
 
-                <div class="admin-order-orchestration__head" aria-hidden="true">
-                  <span>时间</span>
-                  <span>主队腿 Home</span>
-                  <span>编排器</span>
-                  <span>客队腿 Away</span>
-                </div>
                 <ol class="admin-order-execution admin-order-orchestration">
                   <li
                     v-for="(stage, stageIdx) in orchestrationStages"
@@ -555,22 +549,6 @@ defineExpose({ open });
                     <div class="admin-order-orchestration__time">
                       <strong>{{ fmtClock(stage.at) }}</strong>
                       <span>{{ fmtOrchestrationElapsed(stage.at) }}</span>
-                    </div>
-                    <div class="admin-order-orchestration__lane admin-order-orchestration__lane--home">
-                      <article
-                        v-for="node in stage.homeNodes"
-                        :key="node.key"
-                        class="admin-order-orchestration__node"
-                        :class="`admin-order-orchestration__node--${node.tone}`"
-                      >
-                        <header>
-                          <strong>{{ node.title }}</strong>
-                          <span>{{ node.provider }}</span>
-                        </header>
-                        <p>{{ node.summary }}</p>
-                        <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
-                      </article>
-                      <span v-if="!stage.homeNodes.length" class="admin-order-orchestration__empty">—</span>
                     </div>
                     <div class="admin-order-execution__body admin-order-orchestration__center">
                       <div class="admin-order-execution__main">
@@ -591,21 +569,44 @@ defineExpose({ open });
                         <li v-for="item in stage.evidence" :key="item">{{ item }}</li>
                       </ul>
                     </div>
-                    <div class="admin-order-orchestration__lane admin-order-orchestration__lane--away">
-                      <article
-                        v-for="node in stage.awayNodes"
-                        :key="node.key"
-                        class="admin-order-orchestration__node"
-                        :class="`admin-order-orchestration__node--${node.tone}`"
-                      >
-                        <header>
-                          <strong>{{ node.title }}</strong>
-                          <span>{{ node.provider }}</span>
-                        </header>
-                        <p>{{ node.summary }}</p>
-                        <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
-                      </article>
-                      <span v-if="!stage.awayNodes.length" class="admin-order-orchestration__empty">—</span>
+                    <div
+                      v-if="stage.homeNodes.length || stage.awayNodes.length"
+                      class="admin-order-orchestration__lanes"
+                    >
+                      <div class="admin-order-orchestration__lane admin-order-orchestration__lane--home">
+                        <div class="admin-order-orchestration__lane-title">主队腿 Home</div>
+                        <article
+                          v-for="node in stage.homeNodes"
+                          :key="node.key"
+                          class="admin-order-orchestration__node"
+                          :class="`admin-order-orchestration__node--${node.tone}`"
+                        >
+                          <header>
+                            <strong>{{ node.title }}</strong>
+                            <span>{{ node.provider }}</span>
+                          </header>
+                          <p>{{ node.summary }}</p>
+                          <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
+                        </article>
+                        <span v-if="!stage.homeNodes.length" class="admin-order-orchestration__empty">本阶段无主队腿动作</span>
+                      </div>
+                      <div class="admin-order-orchestration__lane admin-order-orchestration__lane--away">
+                        <div class="admin-order-orchestration__lane-title">客队腿 Away</div>
+                        <article
+                          v-for="node in stage.awayNodes"
+                          :key="node.key"
+                          class="admin-order-orchestration__node"
+                          :class="`admin-order-orchestration__node--${node.tone}`"
+                        >
+                          <header>
+                            <strong>{{ node.title }}</strong>
+                            <span>{{ node.provider }}</span>
+                          </header>
+                          <p>{{ node.summary }}</p>
+                          <small>{{ fmtClock(node.at) }}<template v-if="node.detail"> · {{ node.detail }}</template></small>
+                        </article>
+                        <span v-if="!stage.awayNodes.length" class="admin-order-orchestration__empty">本阶段无客队腿动作</span>
+                      </div>
                     </div>
                   </li>
                 </ol>

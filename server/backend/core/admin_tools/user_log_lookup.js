@@ -155,12 +155,16 @@ function findBestOrderMatch(orders, log) {
 function isStrongLogOrderMatch(best, log) {
   if (!best)
     return false;
-  if (best.reasons.includes("link_id"))
-    return true;
+  // 新日志已经携带 LinkID：它是一次编排的唯一标识。只要日志明确声明了
+  // LinkID，就必须精确命中，不能再退回比赛名/时间等旧日志启发式规则。
+  if (log.linkId)
+    return best.reasons.includes("link_id");
   if (log.orderId && best.reasons.includes("order_id"))
     return true;
   if (log.kind === "check") {
-    return (best.reasons.includes("比赛") && best.score >= 60)
+    // 旧日志没有 linkId；同一比赛可能在几分钟内连续触发多轮套利，
+    // 只凭比赛名会把其他 Link 的赔率/金额误当成当前“计划腿”。
+    return (best.reasons.includes("比赛") && best.reasons.includes("时间"))
       // 同一场馆的队名别名可能完全不同；同盘口且紧邻订单时仍属于本轮套利。
       || (best.reasons.includes("盘口") && best.reasons.includes("时间"));
   }

@@ -1966,22 +1966,10 @@ html.admin-route #app > * {
   font-size: 8px;
   writing-mode: vertical-rl;
 }
-.admin-order-orchestration__head,
 .admin-order-orchestration .admin-order-execution__step {
   display: grid;
-  grid-template-columns: 74px minmax(150px, 1fr) minmax(230px, 1.25fr) minmax(150px, 1fr);
-  gap: 10px;
-}
-.admin-order-orchestration__head {
-  align-items: center;
-  margin: 2px 0 5px;
-  padding: 0 8px;
-  color: var(--adm-text-muted);
-  font-size: 10px;
-  text-align: center;
-}
-.admin-order-orchestration__head span:first-child {
-  text-align: left;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 7px 10px;
 }
 .admin-order-orchestration .admin-order-execution__step {
   align-items: stretch;
@@ -1993,6 +1981,7 @@ html.admin-route #app > * {
 }
 .admin-order-orchestration__time {
   display: flex;
+  grid-row: 1 / span 2;
   flex-direction: column;
   gap: 2px;
   padding-top: 7px;
@@ -2008,25 +1997,25 @@ html.admin-route #app > * {
   font-size: 9px;
 }
 .admin-order-orchestration__lane {
-  position: relative;
   display: grid;
   align-content: start;
   gap: 5px;
   min-width: 0;
 }
-.admin-order-orchestration__lane::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  top: 17px;
-  width: 10px;
-  border-top: 1px solid var(--adm-border, rgba(90, 111, 138, 0.38));
+.admin-order-orchestration__lanes {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
 }
-.admin-order-orchestration__lane--home::after {
-  right: -10px;
-}
-.admin-order-orchestration__lane--away::after {
-  left: -10px;
+.admin-order-orchestration__lane-title {
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--adm-border, rgba(90, 111, 138, 0.28));
+  color: var(--adm-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
 }
 .admin-order-orchestration__node {
   position: relative;
@@ -2076,6 +2065,7 @@ html.admin-route #app > * {
 }
 .admin-order-orchestration__center {
   position: relative;
+  grid-column: 2;
   min-width: 0;
   padding: 7px 8px 9px;
   border-radius: 6px;
@@ -2091,20 +2081,11 @@ html.admin-route #app > * {
   text-align: center;
 }
 @media (max-width: 820px) {
-  .admin-order-orchestration__head {
-    display: none;
-  }
   .admin-order-orchestration .admin-order-execution__step {
-    grid-template-columns: 62px minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "time center center"
-      "time home away";
+    grid-template-columns: 62px minmax(0, 1fr);
   }
-  .admin-order-orchestration__time { grid-area: time; }
-  .admin-order-orchestration__lane--home { grid-area: home; }
-  .admin-order-orchestration__center { grid-area: center; }
-  .admin-order-orchestration__lane--away { grid-area: away; }
-  .admin-order-orchestration__lane::after { display: none; }
+  .admin-order-orchestration__lanes { gap: 5px; }
+  .admin-order-orchestration__node { padding: 5px; }
 }
 .admin-order-log-overview__empty {
   margin: 0;
