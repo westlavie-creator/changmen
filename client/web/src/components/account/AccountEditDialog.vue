@@ -1200,11 +1200,14 @@ async function save() {
     }
     const sportOb = sportObFromForm();
     const bindVenueMember = requiresVenueMemberId(patch.provider);
-    const esportToken = String(patch.token || "").trim();
-    const sportOnlyOb = patch.provider === "OB" && Boolean(sportOb?.token) && !esportToken;
+    // 体育页保存 sportOb 与电竞凭证相互独立。即使账号仍保留电竞 token，
+    // 也不能拿电竞 token 做保存前余额校验并阻断体育凭证保存。
+    const savingSportOb = onSportsWorkspace.value
+      && patch.provider === "OB"
+      && Boolean(sportOb?.token);
 
     let venue: AccountBalanceResult | undefined;
-    if (bindVenueMember && sportOnlyOb) {
+    if (bindVenueMember && savingSportOb) {
       if (!patch.venueMemberId)
         patch.venueMemberId = form.venueMemberId
           || `sport-${String(sportOb?.token || "").slice(0, 12)}`;

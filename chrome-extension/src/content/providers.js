@@ -4,9 +4,12 @@ import { getPolymarketCredentials } from "./polymarket/init.js";
 import {
   buildObEsportConfig,
   buildObSportConfig,
+  discoverObSportMerchantEntry,
   discoverObSportGateway,
   discoverObSportWsUrl,
   findObSportIframeHref,
+  mergeObSportMerchantEntry,
+  parseObSportMerchantRequest,
   parseObEsportEntry,
   parseObSportEntry,
   resolveObSportPageEntry,
@@ -19,6 +22,7 @@ const IA_SEARCH = /^\?lang=\d&token=([\w\.\_\-]+)$/;
 const RAY_A8_GATEWAY = "https://cfinfo.365raylinks.com";
 
 const OB_SPORT_STORAGE_KEY = "gamebet.obSportCreds";
+const OB_SPORT_MERCHANT_STORAGE_KEY = "gamebet.obSportMerchantCreds";
 const OB_SPORT_GATEWAY_WAIT_MS = 8000;
 const OB_SPORT_GATEWAY_POLL_MS = 400;
 
@@ -96,6 +100,54 @@ async function resolveObSportGateway(entry) {
   return discoverObSportGateway() || (await readObSportGatewayHint(entry));
 }
 
+async function readObSportMerchantEntryOnce() {
+  const fromPerformance = discoverObSportMerchantEntry();
+  if (!chrome?.storage?.local)
+    return fromPerformance;
+  try {
+    const bag = await chrome.storage.local.get(OB_SPORT_MERCHANT_STORAGE_KEY);
+    const row = bag?.[OB_SPORT_MERCHANT_STORAGE_KEY];
+    if (!row || typeof row !== "object")
+      return fromPerformance;
+    if (Date.now() - Number(row.updatedAt || 0) > 30 * 60 * 1000)
+      return fromPerformance;
+    if (String(row.pageOrigin || "") !== location.origin)
+      return fromPerformance;
+    const parsed = parseObSportMerchantRequest(
+      `/yewu12/api/user/getUserInfo?token=${encodeURIComponent(String(row.token || ""))}&enName=${encodeURIComponent(String(row.enName || "OBSPORT"))}`,
+      location.href,
+    );
+    const fromStorage = parsed
+      ? {
+          ...parsed,
+          sessionId: String(row.sessionId || ""),
+          uid: String(row.uid || row.sessionId || ""),
+          gateway: String(row.gateway || "").trim().replace(/\/$/, ""),
+          launchHref: String(row.launchHref || ""),
+        }
+      : null;
+    return mergeObSportMerchantEntry(fromPerformance, fromStorage);
+  }
+  catch {
+    return fromPerformance;
+  }
+}
+
+async function readObSportMerchantEntry(waitForComplete = false) {
+  const deadline = Date.now() + (waitForComplete ? OB_SPORT_GATEWAY_WAIT_MS : 0);
+  let entry = await readObSportMerchantEntryOnce();
+  while (
+    waitForComplete
+    && entry?.source === "merchant-proxy"
+    && (!entry.gateway || !entry.sessionId)
+    && Date.now() < deadline
+  ) {
+    await new Promise(resolve => setTimeout(resolve, OB_SPORT_GATEWAY_POLL_MS));
+    entry = await readObSportMerchantEntryOnce() || entry;
+  }
+  return entry;
+}
+
 /** PB / ps3838：x-app-data 有 BrowserSessionId(_N)? + custid(_N)?，或顶层 token 含会话头 */
 function hasPbLoginSession() {
   const appRaw = localStorage.getItem("x-app-data");
@@ -134,10 +186,13 @@ export const PROVIDER_REGISTRY = {
     _kind = null;
     /** @type {string|null} 体育进馆 URL（本页或 iframe.src） */
     _sportHref = null;
+    /** @type {object|null} */
+    _sportEntry = null;
 
     async Check() {
       this._kind = null;
       this._sportHref = null;
+      this._sportEntry = null;
 
       const esport = parseObEsportEntry(location.href);
       if (esport) {
@@ -152,6 +207,14 @@ export const PROVIDER_REGISTRY = {
         const gw = discoverObSportGateway();
         if (gw) await publishObSportGatewayHint(sportSelf, gw);
         else ensureObSportGatewayPublisher(sportSelf);
+        return true;
+      }
+
+      const merchantSport = await readObSportMerchantEntry();
+      if (merchantSport) {
+        this._kind = "sport";
+        this._sportEntry = merchantSport;
+        this._sportHref = merchantSport.href || location.href;
         return true;
       }
 
@@ -174,10 +237,23 @@ export const PROVIDER_REGISTRY = {
         return buildObEsportConfig(entry);
       }
 
-      const entry = resolveObSportPageEntry()
+      let entry = this._sportEntry;
+      if (entry?.source === "merchant-proxy")
+        entry = await readObSportMerchantEntry(true) || entry;
+      entry = entry
+        || await readObSportMerchantEntry(true)
+        || resolveObSportPageEntry()
         || parseObSportEntry(this._sportHref)
         || parseObSportEntry(location.href);
       if (!entry) return undefined;
+      // gateway 只接受 launchV6.data.html 的真实 origin；同源代理 origin 不会写入。
+      if (entry.source === "merchant-proxy") {
+        if (!entry.gateway)
+          return { error: "体育网关尚未识别完成，请等待页面加载后重试；禁止复制空网关凭证" };
+        if (!entry.sessionId)
+          return { error: "体育账号 UID 尚未识别完成，请等待页面加载后重试；禁止复制残缺凭证" };
+        return buildObSportConfig(entry, entry.gateway || "");
+      }
       // 无网关也先交 token（试玩可无 sessionId），网关可后补
       const gateway = await resolveObSportGateway(entry);
       const wsUrl = discoverObSportWsUrl();

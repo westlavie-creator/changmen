@@ -12,9 +12,12 @@ const {
   discoverObSportGateway,
   discoverObSportGatewayFromStorage,
   discoverObSportWsUrl,
+  discoverObSportMerchantEntry,
+  mergeObSportMerchantEntry,
   buildObEsportConfig,
   buildObSportConfig,
   resolveObSportPageEntry,
+  parseObSportMerchantRequest,
 } = await import("./src/content/ob-entry.js");
 
 const esportAddr = Buffer.from(
@@ -142,5 +145,34 @@ assert.equal(
   parseObSportEntry("https://x/?token=1234567890123456&api=abc&sessionId=1"),
   null,
 );
+
+const merchantPage = "https://www.iz9a9g.vip:6677/home/sports/OBSPORT?sportId=1&api_id=53";
+const merchantRequest =
+  "https://www.iz9a9g.vip:6677/yewu12/api/user/getUserInfo?token=3d2d98226690510f2575b5d4c7a2de26f9b5e666&enName=OBSPORT";
+const merchant = parseObSportMerchantRequest(merchantRequest, merchantPage);
+assert.equal(merchant?.kind, "sport");
+assert.equal(merchant?.source, "merchant-proxy");
+assert.equal(merchant?.token, "3d2d98226690510f2575b5d4c7a2de26f9b5e666");
+assert.equal(merchant?.gateway, "");
+assert.equal(merchant?.referer, "https://www.iz9a9g.vip:6677/");
+assert.equal(
+  discoverObSportMerchantEntry({ getEntriesByType: () => [{ name: merchantRequest }] }, merchantPage)?.token,
+  merchant.token,
+);
+assert.equal(
+  parseObSportMerchantRequest(
+    "https://www.iz9a9g.vip:6677/yewu12/api/user/getUserInfo?token=1234567890123456789&enName=OBSPORT",
+    merchantPage,
+  ),
+  null,
+);
+const completeMerchant = mergeObSportMerchantEntry(merchant, {
+  ...merchant,
+  gateway: "https://app-h5.janbo0931.com/",
+  sessionId: "53554662319712599617",
+  uid: "53554662319712599617",
+});
+assert.equal(completeMerchant?.gateway, "https://app-h5.janbo0931.com");
+assert.equal(completeMerchant?.sessionId, "53554662319712599617");
 
 console.log("ob-entry.smoke: ok");

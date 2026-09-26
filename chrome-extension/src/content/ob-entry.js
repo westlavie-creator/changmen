@@ -296,6 +296,86 @@ export function discoverObSportGateway(
 }
 
 /**
+ * 商户内嵌体育页把 token 放在同源代理请求，而不是 OB 进馆 URL。
+ * 这里只识别凭证；商户 origin 不是直连 yewu* gateway，禁止返回为 gateway。
+ */
+export function parseObSportMerchantRequest(rawUrl, pageHref = rawUrl) {
+  let url;
+  let page;
+  try {
+    url = new URL(String(rawUrl || ""), String(pageHref || rawUrl || ""));
+    page = new URL(String(pageHref || rawUrl || ""));
+  }
+  catch {
+    return null;
+  }
+  if (!/^\/yewu12\/api\/user\/getUserInfo\/?$/i.test(url.pathname))
+    return null;
+  const token = String(url.searchParams.get("token") || "").trim();
+  const enName = String(url.searchParams.get("enName") || "").trim().toUpperCase();
+  if (!isObSportHexToken(token) || !["OBSPORT", "OBTY"].includes(enName))
+    return null;
+  const sessionId = String(
+    url.searchParams.get("sessionId")
+    || url.searchParams.get("userId")
+    || url.searchParams.get("uid")
+    || "",
+  ).trim();
+  return {
+    kind: "sport",
+    source: "merchant-proxy",
+    token,
+    sessionId,
+    uid: sessionId,
+    gateway: "",
+    merchantOrigin: url.origin,
+    pageOrigin: page.origin,
+    referer: `${page.origin}/`,
+    href: page.href,
+    enName,
+  };
+}
+
+export function discoverObSportMerchantEntry(
+  performanceLike = globalThis.performance,
+  pageHref = globalThis.location?.href || "",
+) {
+  try {
+    const entries = performanceLike?.getEntriesByType?.("resource") || [];
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const row = parseObSportMerchantRequest(entries[i]?.name, pageHref);
+      if (row)
+        return row;
+    }
+  }
+  catch {
+    /* ignore */
+  }
+  return null;
+}
+
+/**
+ * 同一体育会话下，Performance 只负责提供当前 token；网关和 uid 必须优先采用
+ * launchV6/getUserInfo 已补全并写入扩展 storage 的记录。
+ */
+export function mergeObSportMerchantEntry(performanceEntry, storedEntry) {
+  if (!performanceEntry)
+    return storedEntry || null;
+  if (!storedEntry)
+    return performanceEntry;
+  if (String(performanceEntry.token || "") !== String(storedEntry.token || ""))
+    return performanceEntry;
+  return {
+    ...performanceEntry,
+    ...storedEntry,
+    token: performanceEntry.token,
+    gateway: String(storedEntry.gateway || performanceEntry.gateway || "").trim().replace(/\/$/, ""),
+    sessionId: String(storedEntry.sessionId || storedEntry.uid || performanceEntry.sessionId || "").trim(),
+    uid: String(storedEntry.uid || storedEntry.sessionId || performanceEntry.uid || "").trim(),
+  };
+}
+
+/**
  * 体育 PC 页嗅探推送地址（localStorage / performance 里的 wss）。
  * 未嗅到则空，前端 OB-S 保持未连，列表仍走 HTTP 快照。
  * @param {Performance} [performanceLike]

@@ -474,6 +474,10 @@ describe("sport / esport UI isolation", () => {
     expect(accountCrud).toMatch(/delete row\.sportOb/);
     expect(accountCrud).toMatch(/persistSportAccount/);
     expect(accountCrud).not.toMatch(/placeValueBetOrder/);
+    const accountEdit = readFileSync(join(root, "components/account/AccountEditDialog.vue"), "utf8");
+    expect(accountEdit).toMatch(/const savingSportOb = onSportsWorkspace\.value/);
+    expect(accountEdit).toMatch(/if \(bindVenueMember && savingSportOb\)/);
+    expect(accountEdit).not.toMatch(/const sportOnlyOb/);
     const balanceRefresh = readFileSync(join(root, "stores/account/balanceRefresh.ts"), "utf8");
     expect(balanceRefresh).toMatch(/sportBalance/);
     expect(balanceRefresh).toMatch(/isSportsWorkspacePath/);
