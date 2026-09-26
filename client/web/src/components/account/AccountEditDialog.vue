@@ -1495,73 +1495,89 @@ function unlockRate() {
           <legend>OB 账号凭证</legend>
           <el-tabs v-model="obTokenTab" class="ob-token-tabs">
             <el-tab-pane label="电竞" name="esport">
-              <p class="ob-token-note">
-                电竞凭证用于电竞余额、注单和下注，与体育凭证独立保存。
-              </p>
-              <el-form-item label="电竞 API 网关：" label-width="130px">
-                <el-input
-                  v-model="form.gateway"
-                  :disabled="readonly"
-                  placeholder="电竞接口地址"
-                />
-              </el-form-item>
-              <el-form-item label="电竞 Token：" label-width="130px">
-                <el-input
-                  v-model="form.token"
-                  show-password
-                  autocomplete="off"
-                  :disabled="readonly"
-                  placeholder="电竞下注请求携带的 Token"
-                />
-              </el-form-item>
-              <el-form-item label="电竞 Referer：" label-width="130px">
-                <el-input v-model="form.referer" :disabled="readonly" />
-              </el-form-item>
-              <el-form-item label="电竞 UserAgent：" label-width="130px">
-                <el-input
-                  v-model="form.userAgent"
-                  placeholder="请求访问的浏览器标识，不知道可留空"
-                  :disabled="readonly"
-                />
-              </el-form-item>
-              <el-form-item label="电竞 Cookie：" label-width="130px">
-                <el-input v-model="form.cookie" :disabled="readonly" />
-              </el-form-item>
+              <div class="ob-token-note">
+                <strong>电竞线路</strong>
+                <span>用于电竞余额、注单和下注，与体育凭证独立保存。</span>
+              </div>
+              <div class="ob-token-grid">
+                <el-form-item class="ob-token-item" label="API 网关">
+                  <el-input
+                    v-model="form.gateway"
+                    :disabled="readonly"
+                    placeholder="电竞接口地址"
+                  />
+                </el-form-item>
+                <el-form-item class="ob-token-item" label="Token">
+                  <el-input
+                    v-model="form.token"
+                    autocomplete="off"
+                    :disabled="readonly"
+                    placeholder="电竞下注请求携带的 Token"
+                  />
+                </el-form-item>
+                <el-form-item class="ob-token-item" label="Referer">
+                  <el-input v-model="form.referer" :disabled="readonly" />
+                </el-form-item>
+                <el-form-item class="ob-token-item" label="Cookie">
+                  <el-input v-model="form.cookie" :disabled="readonly" />
+                </el-form-item>
+                <el-form-item class="ob-token-item ob-token-item--wide" label="UserAgent">
+                  <el-input
+                    v-model="form.userAgent"
+                    placeholder="请求访问的浏览器标识，不知道可留空"
+                    :disabled="readonly"
+                  />
+                </el-form-item>
+              </div>
             </el-tab-pane>
             <el-tab-pane label="体育" name="sport">
-              <p class="ob-token-note">
-                体育凭证用于体育余额及足球/POD 下单，保存时不会修改电竞 Token。
-              </p>
-              <el-form-item label="体育 API 网关：" label-width="130px">
-                <el-input
-                  v-model="sportObForm.gateway"
-                  :disabled="readonly"
-                  placeholder="OB 体育接口 origin，例如 https://api.example.com"
-                />
-              </el-form-item>
-              <el-form-item label="体育 Token（requestId）：" label-width="170px">
-                <el-input
-                  v-model="sportObForm.token"
-                  show-password
-                  autocomplete="off"
-                  :disabled="readonly"
-                  placeholder="体育请求头 requestId"
-                />
-              </el-form-item>
-              <el-form-item label="来源地址（Referer）：" label-width="170px">
-                <el-input
-                  v-model="sportObForm.referer"
-                  :disabled="readonly"
-                  placeholder="Referer，通常由插件自动填入"
-                />
-              </el-form-item>
-              <el-form-item label="体育会员 UID（cuid）：" label-width="170px">
-                <el-input
-                  v-model="sportObForm.venueMemberId"
-                  :disabled="readonly"
-                  placeholder="场馆 cuid，由插件自动识别"
-                />
-              </el-form-item>
+              <div class="ob-token-note">
+                <strong>体育线路</strong>
+                <span>用于体育余额及足球/POD 下单，保存时不会修改电竞凭证。</span>
+              </div>
+              <div class="ob-token-grid">
+                <el-form-item class="ob-token-item">
+                  <template #label>
+                    <span class="ob-token-label">API 网关 <small>origin</small></span>
+                  </template>
+                  <el-input
+                    v-model="sportObForm.gateway"
+                    :disabled="readonly"
+                    placeholder="例如 https://api.example.com"
+                  />
+                </el-form-item>
+                <el-form-item class="ob-token-item">
+                  <template #label>
+                    <span class="ob-token-label">会员 UID <small>cuid</small></span>
+                  </template>
+                  <el-input
+                    v-model="sportObForm.venueMemberId"
+                    :disabled="readonly"
+                    placeholder="由插件自动识别"
+                  />
+                </el-form-item>
+                <el-form-item class="ob-token-item">
+                  <template #label>
+                    <span class="ob-token-label">体育 Token <small>requestId</small></span>
+                  </template>
+                  <el-input
+                    v-model="sportObForm.token"
+                    autocomplete="off"
+                    :disabled="readonly"
+                    placeholder="体育请求携带的 requestId"
+                  />
+                </el-form-item>
+                <el-form-item class="ob-token-item">
+                  <template #label>
+                    <span class="ob-token-label">来源地址 <small>Referer</small></span>
+                  </template>
+                  <el-input
+                    v-model="sportObForm.referer"
+                    :disabled="readonly"
+                    placeholder="通常由插件自动填入"
+                  />
+                </el-form-item>
+              </div>
             </el-tab-pane>
           </el-tabs>
         </fieldset>
@@ -1827,6 +1843,11 @@ function unlockRate() {
   padding: 12px 14px 4px;
 }
 
+.ob-token-fieldset {
+  border-radius: 8px;
+  padding: 12px 16px 6px;
+}
+
 .ob-token-fieldset legend,
 .poly-token-fieldset legend {
   padding: 0 6px;
@@ -1838,18 +1859,100 @@ function unlockRate() {
   padding-top: 2px;
 }
 
+.ob-token-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.ob-token-tabs :deep(.el-tabs__item) {
+  min-width: 88px;
+  font-weight: 600;
+}
+
 .ob-token-tabs :deep(.el-tabs__content) {
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .ob-token-note {
   margin: 0 0 12px;
-  padding: 8px 10px;
-  border-radius: var(--el-border-radius-base);
+  padding: 9px 12px;
+  border-left: 3px solid var(--el-color-primary);
+  border-radius: 4px;
   background: var(--el-fill-color-light);
   color: var(--el-text-color-secondary);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.ob-token-note strong {
+  margin-right: 8px;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+.ob-token-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+}
+
+.ob-token-item {
+  display: block;
+  min-width: 0;
+  margin-bottom: 14px;
+}
+
+.ob-token-item--wide {
+  grid-column: 1 / -1;
+}
+
+.ob-token-item :deep(.el-form-item__label) {
+  display: flex;
+  float: none;
+  justify-content: flex-start;
+  width: auto !important;
+  height: 24px;
+  padding: 0;
+  line-height: 20px;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ob-token-item :deep(.el-form-item__content) {
+  display: block;
+  margin-left: 0 !important;
+}
+
+.ob-token-label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ob-token-label small {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--el-fill-color-dark);
+  color: var(--el-text-color-secondary);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.ob-token-item :deep(.el-input__inner) {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .ob-token-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ob-token-item--wide {
+    grid-column: auto;
+  }
 }
 
 .poly-credential-hint {

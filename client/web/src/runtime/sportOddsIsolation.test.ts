@@ -479,8 +479,10 @@ describe("sport / esport UI isolation", () => {
     expect(accountEdit).toMatch(/if \(bindVenueMember && savingSportOb\)/);
     expect(accountEdit).toMatch(/v-model="obTokenTab"/);
     expect(accountEdit).toMatch(/onSportsWorkspace\.value \? "sport" : "esport"/);
-    expect(accountEdit).toMatch(/体育 Token（requestId）/);
-    expect(accountEdit).toMatch(/体育会员 UID（cuid）/);
+    expect(accountEdit).toMatch(/体育 Token <small>requestId<\/small>/);
+    expect(accountEdit).toMatch(/会员 UID <small>cuid<\/small>/);
+    const obCredentialPanel = accountEdit.match(/<fieldset class="ob-token-fieldset">([\s\S]*?)<\/fieldset>/)?.[1] ?? "";
+    expect(obCredentialPanel).not.toMatch(/show-password/);
     expect(accountEdit).not.toMatch(/model-value="esport"/);
     expect(accountEdit).not.toMatch(/const sportOnlyOb/);
     const balanceRefresh = readFileSync(join(root, "stores/account/balanceRefresh.ts"), "utf8");
