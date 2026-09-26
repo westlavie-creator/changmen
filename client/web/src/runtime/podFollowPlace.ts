@@ -7,6 +7,7 @@ import type { PodFixtureMatchBasis } from "@/runtime/podFixtureMatch";
 import { pickObSportBetAccounts } from "@/runtime/obSportBetAccount";
 import { placeObSportSingle } from "@/runtime/obSportPlaceBet";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
+import { pickPodObAccountsForPlacement } from "@/runtime/podObAccountRotation";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
 
@@ -57,11 +58,12 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
     return { ok: false, message: block };
   const settings = readPodBetSettings();
   const selectedIds = Array.isArray(ticket.accountIds) ? ticket.accountIds : settings.followAccountIds;
-  const accounts = selectedIds.length
+  const eligibleAccounts = selectedIds.length
     ? pickObSportBetAccounts(useAccountStore().accounts, selectedIds)
     : [];
-  if (!accounts.length)
+  if (!eligibleAccounts.length)
     return { ok: false, message: "请选择 OB 账号（需体育 token）" };
+  const accounts = pickPodObAccountsForPlacement(eligibleAccounts, settings.obAccountRotation);
 
   const orders = useFootballOrderStore();
   const okNotes: string[] = [];

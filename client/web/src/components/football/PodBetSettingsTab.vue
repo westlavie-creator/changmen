@@ -76,6 +76,7 @@ function applyExternal() {
     form.obStake = next.obStake;
     form.pmStake = next.pmStake;
     form.autoPlace = next.autoPlace;
+    form.obAccountRotation = next.obAccountRotation;
     form.maxDailyLoss = next.maxDailyLoss;
     form.obDailyOrderLimit = next.obDailyOrderLimit;
     form.pmDailyOrderLimit = next.pmDailyOrderLimit;
@@ -135,7 +136,7 @@ onUnmounted(() => {
       <section class="pod-bet-settings__section">
         <div class="pod-bet-settings__section-head">
           <h3>账号</h3>
-          <p>选中的账号都会执行；每个账号各下一注。</p>
+          <p>OB 可选择全部账号执行，或每笔轮换一个账号；PM 仍是每个账号各下一注。</p>
         </div>
         <div class="pod-bet-settings__venue-grid">
           <div class="pod-bet-settings__venue">
@@ -147,7 +148,21 @@ onUnmounted(() => {
               v-model="form.followAccountIds"
               :accounts="followAccounts"
               variant="settings"
+              :rotation="form.obAccountRotation"
             />
+            <div class="pod-bet-settings__rotation">
+              <div>
+                <strong>轮换模式</strong>
+                <small>每笔只用一个账号，按上方账号顺序切换</small>
+              </div>
+              <el-switch
+                v-model="form.obAccountRotation"
+                :disabled="form.followAccountIds.length < 2"
+                inline-prompt
+                active-text="开"
+                inactive-text="关"
+              />
+            </div>
           </div>
           <div class="pod-bet-settings__venue">
             <div class="pod-bet-settings__venue-head">
@@ -463,6 +478,33 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pod-bet-settings__rotation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.pod-bet-settings__rotation > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pod-bet-settings__rotation strong {
+  font-size: 12px;
+  color: #334155;
+}
+
+.pod-bet-settings__rotation small {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .pod-bet-settings__unit,

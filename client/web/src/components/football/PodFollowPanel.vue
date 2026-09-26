@@ -413,7 +413,7 @@ function strategyStakeFor(venue: "OB" | "Polymarket", auto: boolean): number {
 function formatEnabledVenueStakes(): string {
   const parts: string[] = [];
   if (followObEnabled.value)
-    parts.push(`OB ${formatPodStake(followStakeFor("OB"))}`);
+    parts.push(`OB ${formatPodStake(followStakeFor("OB"))}${betSettings.value.obAccountRotation && betSettings.value.followAccountIds.length > 1 ? " 轮换" : ""}`);
   if (followPmEnabled.value)
     parts.push(`PM ${formatPodStake(followStakeFor("Polymarket"))}`);
   return parts.join(" · ") || "未选账号";
@@ -583,12 +583,17 @@ function venueSelectedAccountCount(venue: "OB" | "Polymarket"): number {
     : betSettings.value.pmFollowAccountIds.length;
 }
 
+function venueNextOrderCount(venue: "OB" | "Polymarket"): number {
+  const count = venueSelectedAccountCount(venue);
+  return venue === "OB" && betSettings.value.obAccountRotation && count > 0 ? 1 : count;
+}
+
 function venueDailyOrderBlock(venue: "OB" | "Polymarket"): string | null {
   const limit = venueDailyOrderLimit(venue);
   if (!(limit > 0))
     return null;
   const current = venueOrderCountToday(venue);
-  const next = venueSelectedAccountCount(venue);
+  const next = venueNextOrderCount(venue);
   if (current >= limit)
     return `${venue === "OB" ? "OB" : "PM"} 今日单数已满`;
   if (next > 0 && current + next > limit)

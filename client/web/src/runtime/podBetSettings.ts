@@ -50,6 +50,8 @@ export type PodBetSettings = {
    * 跟单用的 OB 账号（可多选）。空 = 未选择，不下单。
    */
   followAccountIds: number[];
+  /** OB 多账号每笔只用一个账号，并按账号列表顺序轮换。 */
+  obAccountRotation: boolean;
   /** 跟单用的 Polymarket 账号（可多选）。空 = 未选择，不下单。 */
   pmFollowAccountIds: number[];
   /** @deprecated 读时等于 followAccountIds[0]||0；写仍会迁进 followAccountIds */
@@ -84,6 +86,7 @@ export const POD_BET_SETTINGS_DEFAULTS: PodBetSettings = {
   autoPlace: false,
   followVenues: [],
   followAccountIds: [],
+  obAccountRotation: false,
   pmFollowAccountIds: [],
   followAccountId: 0,
   maxDailyLoss: 0,
@@ -185,6 +188,7 @@ export function parsePodBetSettings(raw: unknown): PodBetSettings {
     autoPlace: bool(row.autoPlace, d.autoPlace),
     followVenues: parseFollowVenues(row.followVenues),
     followAccountIds,
+    obAccountRotation: bool(row.obAccountRotation, d.obAccountRotation),
     pmFollowAccountIds,
     followAccountId: followAccountIds[0] || 0,
     maxDailyLoss: clampNum(row.maxDailyLoss, d.maxDailyLoss, 0, 1_000_000),

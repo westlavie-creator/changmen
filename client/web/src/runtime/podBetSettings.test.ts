@@ -51,11 +51,13 @@ describe("podBetSettings", () => {
     expect(row.autoPlace).toBe(false);
     expect(row.followAccountId).toBe(0);
     expect(row.followAccountIds).toEqual([]);
+    expect(row.obAccountRotation).toBe(false);
     expect(row.pmFollowAccountIds).toEqual([]);
     expect(row.followVenues).toEqual([]);
     expect(parsePodBetSettings({ followAccountId: 12 }).followAccountIds).toEqual([12]);
     expect(parsePodBetSettings({ followAccountIds: [3, 3, 5], followAccountId: 9 }).followAccountIds).toEqual([3, 5]);
     expect(parsePodBetSettings({ followAccountIds: [3, 5] }).followAccountId).toBe(3);
+    expect(parsePodBetSettings({ obAccountRotation: true }).obAccountRotation).toBe(true);
     expect(parsePodBetSettings({ pmFollowAccountIds: [7, 7, 8] }).pmFollowAccountIds).toEqual([7, 8]);
     expect(parsePodBetSettings({ followVenues: ["Polymarket", "OB", "Polymarket"] }).followVenues).toEqual(["Polymarket", "OB"]);
     expect(parsePodBetSettings({ followVenues: [] }).followVenues).toEqual([]);

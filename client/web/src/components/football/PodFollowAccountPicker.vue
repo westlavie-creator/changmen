@@ -18,10 +18,12 @@ const props = withDefaults(defineProps<{
   variant?: "panel" | "settings";
   venue?: "OB" | "Polymarket";
   disabled?: boolean;
+  rotation?: boolean;
 }>(), {
   variant: "panel",
   venue: "OB",
   disabled: false,
+  rotation: false,
 });
 
 const emit = defineEmits<{
@@ -126,7 +128,9 @@ function formatBal(n: number | undefined): string {
         <span v-if="selectedCount === 0" class="pod-acct-picker__hint">
           必须选择账号
         </span>
-        <span v-else class="pod-acct-picker__hint">已选 {{ selectedCount }} 个，各下一注</span>
+        <span v-else class="pod-acct-picker__hint">
+          已选 {{ selectedCount }} 个，{{ rotation ? "每笔轮换 1 个" : "各下一注" }}
+        </span>
         <button
           v-if="selectedCount > 0 && selectedCount < chips.length"
           type="button"
