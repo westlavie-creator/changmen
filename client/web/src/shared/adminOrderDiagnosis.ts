@@ -417,7 +417,10 @@ export function buildAdminOrderDiagnosisSummary(
     String(step.order?.status || "").toLowerCase() === "reject"
     || step.reject?.settlement === "unfilled",
   ).length;
-  const makeups = steps.filter(step => step.isMakeUp).length;
+  const makeups = steps.filter(step => step.isMakeUp);
+  const submittedMakeups = makeups.filter(step => step.bet || step.order).length;
+  const blockedMakeups = makeups.filter(step => !step.bet && !step.order && Boolean(step.check?.checkError)).length;
+  const incompleteMakeups = makeups.filter(step => !step.bet && !step.order && !step.check?.checkError).length;
   const retries = steps.filter(step => step.isRetry).length;
   const queues = steps.filter(step => step.isQueue).length;
   const parts: string[] = [];
@@ -427,7 +430,7 @@ export function buildAdminOrderDiagnosisSummary(
       apiFailures ? `${apiFailures} 腿下单失败` : "",
       venueRejects ? `${venueRejects} 笔场馆拒单` : "",
     ].filter(Boolean).join("，");
-    parts.push(`原始套利未成立：${failures}`);
+    parts.push(`首轮套利执行未完整成交：${failures}`);
   }
   else {
     parts.push("原始套利两腿未发现失败或拒单");
@@ -436,8 +439,14 @@ export function buildAdminOrderDiagnosisSummary(
     parts.push(`即时重试 ${retries} 次`);
   if (queues)
     parts.push(`创建 ${queues} 个补单队列`);
-  if (makeups)
-    parts.push(`随后执行 ${makeups} 次补单`);
+  if (submittedMakeups)
+    parts.push(`实际提交 ${submittedMakeups} 次补单`);
+  if (blockedMakeups)
+    parts.push(`补单预检拦截 ${blockedMakeups} 次`);
+  if (incompleteMakeups)
+    parts.push(`另有 ${incompleteMakeups} 次补单仅记录到预检`);
+  if (findStaleMakeupQueue(steps))
+    parts.push("检测到锚腿拒单后补单队列仍继续执行");
   const sign = totalProfit > 0 ? "+" : "";
   parts.push(`最终 Link 盈亏 ¥${sign}${Math.floor(totalProfit).toLocaleString()}`);
 
@@ -449,6 +458,37 @@ export function buildAdminOrderDiagnosisSummary(
         ? "success"
         : "neutral",
   };
+}
+
+function stepRejectedAt(step: AdminOrderExecutionStep): number | null {
+  if (
+    step.reject?.settlement !== "unfilled"
+    && String(step.order?.status || "").toLowerCase() !== "reject"
+  )
+    return null;
+  return Number(
+    step.reject?.observedAt
+    || step.reject?.createAt
+    || step.order?.createAt
+    || step.at,
+  ) || null;
+}
+
+/** 补单已入队后，原锚腿又确认拒单，但队列仍产生后续补单尝试。 */
+function findStaleMakeupQueue(steps: AdminOrderExecutionStep[]) {
+  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue);
+  const makeups = steps.filter(step => step.isMakeUp);
+  for (const queue of steps.filter(step => step.isQueue)) {
+    const anchor = originals
+      .filter(step => step.side !== queue.side && step.at <= queue.at && step.bet?.success === true)
+      .sort((a, b) => b.at - a.at)[0];
+    if (!anchor)
+      continue;
+    const rejectedAt = stepRejectedAt(anchor);
+    if (rejectedAt && makeups.some(step => step.side === queue.side && step.at > rejectedAt))
+      return { queue, anchor, rejectedAt };
+  }
+  return null;
 }
 
 function stepEvidence(step: AdminOrderExecutionStep) {
@@ -494,6 +534,7 @@ export function buildAdminOrderOrchestrationStages(
   const retries = steps.filter(step => step.isRetry);
   const queues = steps.filter(step => step.isQueue);
   const makeups = steps.filter(step => step.isMakeUp);
+  const staleQueue = findStaleMakeupQueue(steps);
   const firstAt = Math.min(...steps.map(step => step.at).filter(Boolean));
   const lastAt = Math.max(...steps.map(step => step.at).filter(Boolean));
 
@@ -623,24 +664,39 @@ export function buildAdminOrderOrchestrationStages(
       key: "queue",
       at: Math.min(...queues.map(step => step.at)),
       title: "补单决策与入队",
-      tone: "warning",
-      decision: `即时处置未消除敞口，编排器创建 ${queues.length} 个补单任务。`,
-      action: "此时只代表进入补单队列；实际赔率和金额要等补单执行时重新计算。",
+      tone: staleQueue ? "danger" : "warning",
+      decision: staleQueue
+        ? `编排器创建 ${queues.length} 个补单任务，但锚腿随后确认拒单，补单已失去有效成交锚点。`
+        : `即时处置未消除敞口，编排器创建 ${queues.length} 个补单任务。`,
+      action: staleQueue
+        ? "锚腿拒单后队列仍未撤销，后续补单不再是有效对冲；这是需要修复的编排异常。"
+        : "此时只代表进入补单队列；实际赔率和金额要等补单执行时重新计算。",
       evidence: queues.map(step => `${step.sideLabel}：${step.oddsLogic}；${step.stakeLogic}`),
       ...nodes,
     });
   }
 
   if (makeups.length) {
-    const failures = makeups.filter(step => step.bet?.success === false || step.rejectLogic).length;
+    const submitted = makeups.filter(step => step.bet || step.order);
+    const blocked = makeups.filter(step => !step.bet && !step.order && Boolean(step.check?.checkError));
+    const incomplete = makeups.filter(step => !step.bet && !step.order && !step.check?.checkError);
+    const failures = submitted.filter(step => step.bet?.success === false || step.rejectLogic).length;
     const nodes = stageNodes(makeups, () => "补单执行", step => `${step.outcome}；${step.stakeLogic}`);
     stages.push({
       key: "makeup",
       at: Math.min(...makeups.map(step => step.at)),
       title: "补单执行",
-      tone: failures ? "danger" : "success",
-      decision: `补单消费者执行 ${makeups.length} 次场馆下单${failures ? `，其中 ${failures} 次未成功` : ""}。`,
-      action: "按锚腿敞口和补单时实时赔率重新计算金额，并再次检查场馆终态。",
+      tone: staleQueue || failures || incomplete.length ? "danger" : blocked.length ? "warning" : "success",
+      decision: [
+        `补单共预检 ${makeups.length} 轮`,
+        `实际提交 ${submitted.length} 轮`,
+        blocked.length ? `${blocked.length} 轮被预检拦截` : "",
+        incomplete.length ? `${incomplete.length} 轮缺少下单结果日志` : "",
+        failures ? `${failures} 轮提交后未成功` : "",
+      ].filter(Boolean).join("，") + "。",
+      action: staleQueue
+        ? "这些补单发生在锚腿确认拒单之后，应标记为无锚补单，而不是正常对冲。"
+        : "按锚腿敞口和补单时实时赔率重新计算金额，并再次检查场馆终态。",
       evidence: makeups.map(step => `${stepEvidence(step)}；${step.stakeLogic}`),
       ...nodes,
     });

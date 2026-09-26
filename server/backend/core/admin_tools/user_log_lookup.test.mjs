@@ -154,6 +154,20 @@ describe("user_log_lookup", () => {
     expect(filtered.unrelated.map(l => l.id)).toEqual([1]);
   });
 
+  it("keeps makeup queue as a standalone orchestration segment", () => {
+    const segments = buildLogSegments([
+      { id: 1, createAt: 100, kind: "check", provider: "Polymarket", title: "check" },
+      { id: 2, createAt: 110, kind: "bet", provider: "Polymarket", title: "bet" },
+      { id: 3, createAt: 120, kind: "makeup_queue", provider: null, title: "补单入队" },
+      { id: 4, createAt: 200, kind: "check", provider: "RAY", title: "check" },
+    ]);
+    expect(segments.map(segment => segment.logs.map(log => log.kind))).toEqual([
+      ["check", "bet"],
+      ["makeup_queue"],
+      ["check"],
+    ]);
+  });
+
   it("summarizeUserLog exposes structured post-accept reject timing", () => {
     const log = summarizeUserLog({
       id: 7,

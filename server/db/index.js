@@ -188,6 +188,7 @@ export const {
   creditPlayerBalanceRow,
   rechargePlayerBalanceWithMoneyLogRow,
   insertUserLogRow,
+  fetchBettingUserLogsInRange,
   fetchUserLogsInRange,
   softDeletePlayerRow,
   softDeletePlayersNotInList,

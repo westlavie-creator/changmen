@@ -521,6 +521,50 @@ export async function fetchUserLogsInRange(userId, fromMs, toMs, limit = 200) {
   }
 }
 
+/**
+ * 管理端下单诊断专用查询。
+ *
+ * 必须先在 SQL 层排除赛事/盘口采集噪声，再做数量限制；否则高频采集日志会
+ * 占满 LIMIT，导致同一 Link 后半段的补单、下注和终态日志永远无法进入诊断。
+ */
+export async function fetchBettingUserLogsInRange(userId, fromMs, toMs, limit = 1000) {
+  const uid = String(userId || "").trim();
+  if (!uid)
+    return { rows: [], truncated: false, limit: 0 };
+  const pool = getPgPool();
+  if (!pool)
+    return { rows: [], truncated: false, limit: 0 };
+  const from = Number(fromMs) || 0;
+  const to = Number(toMs) || Date.now();
+  const cap = Math.min(Math.max(Number(limit) || 1000, 1), 5000);
+  try {
+    const result = await pool.query(
+      `SELECT id, user_id, title, data, create_at
+       FROM user_logs
+       WHERE user_id = $1 AND create_at >= $2 AND create_at <= $3
+         AND (
+           title LIKE '%请求盘口数据%'
+           OR title LIKE '%下注 =>%'
+           OR title LIKE '%拒单%'
+           OR title LIKE '%补单入队%'
+         )
+       ORDER BY create_at ASC
+       LIMIT $4`,
+      [uid, from, to, cap + 1],
+    );
+    const all = result.rows || [];
+    return {
+      rows: all.slice(0, cap),
+      truncated: all.length > cap,
+      limit: cap,
+    };
+  }
+  catch (err) {
+    console.warn("[rds] fetchBettingUserLogsInRange:", err.message);
+    return { rows: [], truncated: false, limit: cap };
+  }
+}
+
 /** 仅更新 players.platform_name（账号显示名；不改 platform_id） */
 export async function updatePlayerDisplayName(playerId, platformName, ownerUserId) {
   const count = await batchUpdatePlayerDisplayNames(ownerUserId, [{ playerId, platformName }]);

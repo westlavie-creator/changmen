@@ -3,11 +3,11 @@
  */
 import {
   fetchOrderByOrderId,
+  fetchBettingUserLogsInRange,
   fetchFootballOrderByVenueOrderId,
   fetchOrdersByLink,
   fetchUserById,
   fetchUserByName,
-  fetchUserLogsInRange,
 } from "@changmen/db";
 
 export const ARB_LINK_MIN = 1_000_000_000_000;
@@ -552,7 +552,20 @@ export function buildLogSegments(logs) {
   };
 
   for (const log of sorted) {
-    if (log.kind === "check") {
+    // 入队是独立的编排事件，不能并入前一条“预检 → 下单”尝试；否则前一腿
+    // 的真实失败会被前端误标为“仅入队”，诊断汇总也会漏算下单失败。
+    if (log.kind === "makeup_queue") {
+      flush();
+      current = {
+        key: `seg-${log.id ?? log.createAt}`,
+        accountLabel: null,
+        provider: null,
+        isMakeUp: false,
+        logs: [log],
+      };
+      flush();
+    }
+    else if (log.kind === "check") {
       flush();
       const parsed = extractLogAccountLabel(log.title);
       current = {
@@ -1072,16 +1085,15 @@ export async function lookupOrderLogs(opts) {
     return { ok: false, error: "无法计算日志时间窗" };
   }
 
-  const logs = await fetchUserLogsInRange(
+  const diagnosticQuery = await fetchBettingUserLogsInRange(
     user.id,
     window.fromMs,
     window.toMs,
-    opts?.logLimit ?? 200,
+    opts?.logLimit ?? 1000,
   );
+  const logs = diagnosticQuery.rows;
   const summarizedLogs = logs.map(summarizeUserLog);
   const { relevant, unrelated } = filterRelevantLogs(normalized, summarizedLogs);
-  const logLimit = opts?.logLimit ?? 200;
-
   return {
     ok: true,
     user: { id: user.id, userName: user.user_name },
@@ -1097,8 +1109,8 @@ export async function lookupOrderLogs(opts) {
       total: summarizedLogs.length,
       related: relevant.length,
       unrelated: unrelated.length,
-      truncated: logs.length >= Math.min(Math.max(Number(logLimit) || 200, 1), 500),
-      limit: Math.min(Math.max(Number(logLimit) || 200, 1), 500),
+      truncated: diagnosticQuery.truncated,
+      limit: diagnosticQuery.limit,
     },
     logsRaw: logs,
   };

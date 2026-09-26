@@ -133,6 +133,7 @@ export {
   fetchPlayersByIds,
   fetchPlayersByIdsIncludingDeleted,
   fetchTagPlatforms,
+  fetchBettingUserLogsInRange,
   fetchUserLogsInRange,
   insertPlayerRow,
   insertUserLogRow,

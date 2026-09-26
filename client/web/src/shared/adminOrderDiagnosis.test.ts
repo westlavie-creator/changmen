@@ -117,7 +117,7 @@ describe("adminOrderDiagnosis", () => {
     expect(steps[2].oddsLogic).toContain("场馆实时盘口");
     expect(steps[2].stakeLogic).toContain("300 × 1.94 ÷ 实时赔率 1.86");
     expect(buildAdminOrderDiagnosisSummary(steps, -313)).toEqual({
-      text: "原始套利未成立：1 腿下单失败，1 笔场馆拒单；随后执行 1 次补单；最终 Link 盈亏 ¥-313",
+      text: "首轮套利执行未完整成交：1 腿下单失败，1 笔场馆拒单；实际提交 1 次补单；最终 Link 盈亏 ¥-313",
       tone: "danger",
     });
     const stages = buildAdminOrderOrchestrationStages(steps, -313);
@@ -314,5 +314,67 @@ describe("adminOrderDiagnosis", () => {
     expect(queue?.stakeLogic).toContain("真正执行时");
     const stages = buildAdminOrderOrchestrationStages([queue!], 0);
     expect(stages.find(stage => stage.key === "queue")?.action).toContain("只代表进入补单队列");
+  });
+
+  it("flags a makeup that continues after its accepted anchor is later rejected", () => {
+    const steps = [
+      {
+        key: "anchor",
+        at: 100,
+        side: "Home",
+        sideLabel: "主队",
+        provider: "RAY",
+        isMakeUp: false,
+        isRetry: false,
+        isQueue: false,
+        bet: { createAt: 110, success: true },
+        reject: { createAt: 200, observedAt: 200, settlement: "unfilled" },
+        order: { createAt: 110, status: "Reject" },
+      },
+      {
+        key: "queue",
+        at: 120,
+        side: "Away",
+        sideLabel: "客队",
+        provider: "系统",
+        isMakeUp: false,
+        isRetry: false,
+        isQueue: true,
+        queue: { createAt: 120 },
+      },
+      {
+        key: "makeup-check-only",
+        at: 250,
+        side: "Away",
+        sideLabel: "客队",
+        provider: "Polymarket",
+        isMakeUp: true,
+        isRetry: false,
+        isQueue: false,
+        check: { createAt: 250 },
+      },
+      {
+        key: "makeup-placed",
+        at: 300,
+        side: "Away",
+        sideLabel: "客队",
+        provider: "RAY",
+        isMakeUp: true,
+        isRetry: false,
+        isQueue: false,
+        check: { createAt: 300 },
+        bet: { createAt: 310, success: true },
+        order: { createAt: 310, status: "Lose" },
+      },
+    ] as any;
+
+    const summary = buildAdminOrderDiagnosisSummary(steps, -237);
+    expect(summary.text).toContain("实际提交 1 次补单");
+    expect(summary.text).toContain("1 次补单仅记录到预检");
+    expect(summary.text).toContain("锚腿拒单后补单队列仍继续执行");
+    const stages = buildAdminOrderOrchestrationStages(steps, -237);
+    expect(stages.find(stage => stage.key === "queue")?.tone).toBe("danger");
+    expect(stages.find(stage => stage.key === "queue")?.action).toContain("编排异常");
+    expect(stages.find(stage => stage.key === "makeup")?.decision).toContain("实际提交 1 轮");
   });
 });
