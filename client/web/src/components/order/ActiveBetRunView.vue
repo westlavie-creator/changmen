@@ -4,7 +4,11 @@ import { storeToRefs } from "pinia";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import PlatformIcon from "@/components/platform/PlatformIcon.vue";
 import { formatActiveBetLinkLabel } from "@/shared/linkDisplay";
-import { ACTIVE_BET_RUN_QUEUE_CAP, useActiveBetRunStore } from "@/stores/activeBetRunStore";
+import {
+  ACTIVE_BET_RUN_QUEUE_CAP,
+  ACTIVE_BET_TERMINAL_LINGER_MS,
+  useActiveBetRunStore,
+} from "@/stores/activeBetRunStore";
 import { useLoseOrderStore } from "@/stores/loseOrderStore";
 import "@/styles/active-bet-run.css";
 
@@ -49,7 +53,7 @@ const panelStyle = computed(() => {
     style.width = `${PANEL_W}px`;
     style.minWidth = `${PANEL_W}px`;
     style.maxWidth = `${PANEL_W}px`;
-    style.height = "320px";
+    style.height = "370px";
   }
   else {
     style.width = "auto";
@@ -258,6 +262,10 @@ function colToneClass(run: ActiveBetRun): string {
 }
 
 function phaseLabel(run: ActiveBetRun): string {
+  if (run.terminalAt) {
+    const left = Math.max(0, Math.ceil((run.terminalAt + ACTIVE_BET_TERMINAL_LINGER_MS - now.value) / 1000));
+    return left > 0 ? `${run.overallLabel} · ${left}s 后收起` : run.overallLabel;
+  }
   if (run.countdownUntil && (run.phase === "settling" || run.phase === "syncing")) {
     const left = Math.max(0, Math.ceil((run.countdownUntil - now.value) / 1000));
     if (left > 0) {
@@ -267,6 +275,58 @@ function phaseLabel(run: ActiveBetRun): string {
     }
   }
   return run.overallLabel;
+}
+
+function hasMakeupFlow(run: ActiveBetRun): boolean {
+  return run.phase === "makeup" || run.legs.some(leg =>
+    leg.status === "makeup" || leg.events?.some(event => event.stage === "补单"),
+  );
+}
+
+function flowLabels(run: ActiveBetRun): string[] {
+  return hasMakeupFlow(run)
+    ? ["预检", "下单", "确认", "补单", "结果"]
+    : ["预检", "下单", "确认", "结果"];
+}
+
+function currentFlowIndex(run: ActiveBetRun): number {
+  const labels = flowLabels(run);
+  if (run.terminalAt)
+    return labels.length - 1;
+  if (run.phase === "preparing" || run.phase === "checking")
+    return 0;
+  if (run.phase === "placing")
+    return 1;
+  if (run.phase === "settling")
+    return 2;
+  if (run.phase === "makeup")
+    return labels.indexOf("补单");
+  return Math.max(2, labels.length - 2);
+}
+
+function flowStepClass(run: ActiveBetRun, index: number): string {
+  const current = currentFlowIndex(run);
+  if (index < current)
+    return "done";
+  if (index > current)
+    return "pending";
+  if (run.terminalAt && run.legs.some(leg => leg.status === "failed" || leg.status === "rejected"))
+    return "danger";
+  return "current";
+}
+
+function nextAction(run: ActiveBetRun): string {
+  if (run.terminalAt)
+    return "本轮已经结束；完整原因和历史记录请在订单诊断中查看。";
+  if (run.phase === "preparing" || run.phase === "checking")
+    return "正在校验两腿盘口；任一腿未通过都不会进入首轮下单。";
+  if (run.phase === "placing")
+    return "双腿预检已通过，正在向场馆提交订单。";
+  if (run.phase === "settling")
+    return "接口受理不等于成交，正在等待场馆最终状态。";
+  if (run.phase === "makeup")
+    return "存在待处理腿，正在续查原单或按已成交敞口补单。";
+  return "场馆处理已结束，正在同步订单结果。";
 }
 
 function formatLegMoney(betMoney?: number): string | undefined {
@@ -301,7 +361,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
         @pointerdown="onDragHandlePointerDown"
       >
         <span class="active-bet-run__chrome-title">
-          进行中的订单 ({{ pageLabel }})
+          实时下单进度 ({{ pageLabel }})
         </span>
         <button
           type="button"
@@ -328,7 +388,7 @@ function orderLabel(run: ActiveBetRun, index: number): string {
 
         <div class="active-bet-run__stage">
           <p v-if="!activeRun" class="active-bet-run__empty">
-            暂无进行中的订单
+            暂无实时下单任务
           </p>
           <article
             v-else
@@ -353,6 +413,23 @@ function orderLabel(run: ActiveBetRun, index: number): string {
                 v-html="activeRun.betName"
               />
             </div>
+
+            <ol class="active-bet-run__flow" aria-label="下单流程">
+              <li
+                v-for="(label, index) in flowLabels(activeRun)"
+                :key="label"
+                class="active-bet-run__flow-step"
+                :class="`active-bet-run__flow-step--${flowStepClass(activeRun, index)}`"
+              >
+                <span class="active-bet-run__flow-dot" />
+                <span>{{ label }}</span>
+              </li>
+            </ol>
+
+            <p class="active-bet-run__next-action">
+              <span>当前判断</span>
+              {{ nextAction(activeRun) }}
+            </p>
 
             <div class="active-bet-run__legs">
               <div

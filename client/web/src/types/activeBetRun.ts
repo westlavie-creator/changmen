@@ -51,4 +51,6 @@ export interface ActiveBetRun {
   updatedAt: number;
   /** settling 阶段拒单等待倒计时截止（ms） */
   countdownUntil?: number;
+  /** 本轮已进入终态；实时面板短暂停留后自动移除 */
+  terminalAt?: number;
 }

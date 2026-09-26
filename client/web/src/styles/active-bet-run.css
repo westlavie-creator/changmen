@@ -1,4 +1,4 @@
-/** [changmen 扩展] 进行中订单浮层（div + fixed；勿用 fieldset，Chrome 会忽略宽度） */
+/** [changmen 扩展] 实时下单进度浮层（div + fixed；勿用 fieldset，Chrome 会忽略宽度） */
 
 .active-bet-run {
   border: 1px solid #3f4a5c;
@@ -217,6 +217,92 @@
   text-overflow: ellipsis;
   flex: 0 1 42%;
   min-width: 0;
+}
+
+.active-bet-run__flow {
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.22);
+  flex: 0 0 auto;
+}
+
+.active-bet-run__flow-step {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #778397;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.active-bet-run__flow-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: calc(50% + 20px);
+  right: calc(-50% + 20px);
+  height: 1px;
+  background: #485264;
+}
+
+.active-bet-run__flow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #596579;
+  box-shadow: 0 0 0 2px #202632;
+  z-index: 1;
+}
+
+.active-bet-run__flow-step--done {
+  color: #9eabbc;
+}
+
+.active-bet-run__flow-step--done .active-bet-run__flow-dot,
+.active-bet-run__flow-step--done:not(:last-child)::after {
+  background: #6fdc8c;
+}
+
+.active-bet-run__flow-step--current {
+  color: #ffe082;
+  font-weight: 700;
+}
+
+.active-bet-run__flow-step--current .active-bet-run__flow-dot {
+  background: #ffd54f;
+  box-shadow: 0 0 0 2px #202632, 0 0 8px rgba(255, 213, 79, 0.7);
+}
+
+.active-bet-run__flow-step--danger {
+  color: #ffaaa3;
+  font-weight: 700;
+}
+
+.active-bet-run__flow-step--danger .active-bet-run__flow-dot {
+  background: #ff8a80;
+}
+
+.active-bet-run__next-action {
+  margin: 0;
+  padding: 4px 7px;
+  border-left: 2px solid #61708a;
+  background: rgba(64, 76, 96, 0.18);
+  color: #aeb9c8;
+  font-size: 11px;
+  line-height: 1.35;
+  flex: 0 0 auto;
+}
+
+.active-bet-run__next-action > span {
+  margin-right: 5px;
+  color: #7faef5;
+  font-weight: 700;
 }
 
 .active-bet-run__legs {

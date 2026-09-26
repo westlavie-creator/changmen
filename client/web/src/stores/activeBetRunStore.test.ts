@@ -1,7 +1,12 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoseOrder } from "@/models/loseOrder";
-import { useActiveBetRunStore, legPlacementStatusLabel, ACTIVE_BET_RUN_QUEUE_CAP } from "@/stores/activeBetRunStore";
+import {
+  ACTIVE_BET_RUN_QUEUE_CAP,
+  ACTIVE_BET_TERMINAL_LINGER_MS,
+  legPlacementStatusLabel,
+  useActiveBetRunStore,
+} from "@/stores/activeBetRunStore";
 import {
   syncActiveBetBegin,
   syncActiveBetAfterRejectSync,
@@ -28,7 +33,7 @@ describe("activeBetRunStore", () => {
     store.runs.clear();
   });
 
-  it("tracks arb begin through dual-leg success and keeps finished run in queue", () => {
+  it("tracks arb begin through dual-leg success and removes terminal run after a short linger", () => {
     const store = useActiveBetRunStore();
     syncActiveBetBegin({
       match: { id: 1, title: "A vs B" } as never,
@@ -56,8 +61,11 @@ describe("activeBetRunStore", () => {
 
     expect(store.visibleRuns[0]?.phase).toBe("syncing");
     expect(store.visibleRuns[0]?.overallLabel).toBe("双腿已成交");
-    vi.advanceTimersByTime(10_000);
+    expect(store.visibleRuns[0]?.terminalAt).toBeTypeOf("number");
+    vi.advanceTimersByTime(ACTIVE_BET_TERMINAL_LINGER_MS - 1);
     expect(store.visibleRuns).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(store.visibleRuns).toHaveLength(0);
   });
 
   it(`FIFO queue keeps at most ${ACTIVE_BET_RUN_QUEUE_CAP} columns and drops oldest`, () => {
@@ -80,6 +88,30 @@ describe("activeBetRunStore", () => {
     expect(store.visibleRuns.map(r => r.betId)).toEqual(expectedIds);
     expect(store.visibleRuns[0]?.matchTitle).toBe(`M${n}`);
     expect(store.visibleRuns[ACTIVE_BET_RUN_QUEUE_CAP - 1]?.matchTitle).toBe("M2");
+  });
+
+  it("a new run with the same betId cancels the previous terminal removal", () => {
+    const store = useActiveBetRunStore();
+    const begin = () => syncActiveBetBegin({
+      match: { id: 1, title: "A vs B" } as never,
+      bet: { id: 100, getBetName: () => "地图1" } as never,
+      legA: { type: "OB", target: "Home", odds: 2, betMoney: 100 } as never,
+      legB: { type: "RAY", target: "Away", odds: 2.1, betMoney: 95 } as never,
+      accountA: { playerName: "ob1" } as never,
+      accountB: { playerName: "ray1" } as never,
+      linkId: 1_000,
+      betBothLegs: true,
+    });
+
+    begin();
+    store.scheduleTerminalRemoval(100, 1_000, "未成单");
+    vi.advanceTimersByTime(500);
+    begin();
+    vi.advanceTimersByTime(1_000);
+
+    expect(store.visibleRuns).toHaveLength(1);
+    expect(store.visibleRuns[0]?.phase).toBe("preparing");
+    expect(store.visibleRuns[0]?.terminalAt).toBeUndefined();
   });
 
   it("bootstrapFromLoseOrders marks success leg confirmed opposite makeup target", () => {

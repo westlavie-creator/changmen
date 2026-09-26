@@ -536,6 +536,7 @@ export function syncActiveBetAfterRejectSync(
       : undefined;
     const skipReason = skipDetail?.slice("未下单 · ".length).trim();
     store.setPhase(betId, "syncing", skipReason || "未成单");
+    store.scheduleTerminalRemoval(betId);
     return;
   }
 
@@ -575,11 +576,12 @@ export function syncActiveBetFail(betId: number, reason: string) {
     }
   }
   store.setPhase(betId, "syncing", reason || "失败");
+  store.scheduleTerminalRemoval(betId);
 }
 
-/** @deprecated 完成后不再定时移除；保留空实现以免旧调用报错 */
-export function scheduleActiveBetRunRemoval(_betId: number, _delayMs = 6000) {
-  // FIFO 队列：失败/完成均留在面板，超出上限时由 upsertRun.trimQueueFifo 挤出
+/** 失败或拦截结果短暂停留后，从实时面板移除。 */
+export function scheduleActiveBetRunRemoval(betId: number, delayMs = 6000) {
+  activeStore()?.scheduleTerminalRemoval(betId, delayMs);
 }
 
 export function syncActiveBetMakeupEnqueue(

@@ -96,6 +96,17 @@ function defaultLeg(
 
 const MAX_LEG_EVENTS = 20;
 const MAX_RUN_EVENTS = 12;
+const terminalRemovalTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+/** 终态只用于让用户看清结果；历史分析统一进入订单诊断。 */
+export const ACTIVE_BET_TERMINAL_LINGER_MS = 8_000;
+
+function clearTerminalRemoval(betId: number) {
+  const timer = terminalRemovalTimers.get(betId);
+  if (timer)
+    clearTimeout(timer);
+  terminalRemovalTimers.delete(betId);
+}
 
 function trimEvents<T>(list: T[], cap: number) {
   if (list.length > cap)
@@ -132,7 +143,7 @@ function legsFromLoseOrder(order: LoseOrder): ActiveBetLeg[] {
 /** 进行中订单队列上限（FIFO：超出时挤掉最旧一笔） */
 export const ACTIVE_BET_RUN_QUEUE_CAP = 3;
 
-/** @deprecated 保留兼容；完成后不再定时消失，改由 FIFO 队列挤出 */
+/** @deprecated 保留旧调用的参数语义；0 表示采用默认终态停留时间。 */
 export const ACTIVE_BET_RUN_DISMISS_SEC = 0;
 
 /** [changmen 扩展] 进行中套利/补单进度（主区右上浮层，不占赛事列表高度） */
@@ -168,6 +179,9 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
     upsertRun(betId: number, patch: Partial<ActiveBetRun> & Pick<ActiveBetRun, "matchId" | "matchTitle" | "betName">) {
       const now = Date.now();
       const existing = this.runs.get(betId);
+      const restarting = Boolean(existing?.terminalAt && patch.phase && patch.phase !== "syncing");
+      if (restarting)
+        clearTerminalRemoval(betId);
       const next: ActiveBetRun = {
         betId,
         matchId: patch.matchId,
@@ -178,11 +192,12 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
         overallLabel: patch.overallLabel ?? existing?.overallLabel ?? PHASE_LABEL.preparing,
         legs: patch.legs ?? existing?.legs ?? [],
         events: patch.events ?? existing?.events ?? [],
-        startedAt: existing?.startedAt ?? now,
+        startedAt: restarting ? now : existing?.startedAt ?? now,
         updatedAt: now,
         countdownUntil: patch.countdownUntil !== undefined
           ? patch.countdownUntil
           : existing?.countdownUntil,
+        terminalAt: restarting ? undefined : patch.terminalAt ?? existing?.terminalAt,
       };
       this.runs.set(betId, next);
       if (!existing)
@@ -257,16 +272,39 @@ export const useActiveBetRunStore = defineStore("activeBetRun", {
       run.updatedAt = Date.now();
     },
 
-    /** 双腿已成交：标记完成并留在队列（不自动消失；满 5 列时 FIFO 挤出） */
-    scheduleDismiss(betId: number, _delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
+    /** 进入终态后短暂停留，随后从实时面板移除。 */
+    scheduleTerminalRemoval(
+      betId: number,
+      delayMs = ACTIVE_BET_TERMINAL_LINGER_MS,
+      overallLabel?: string,
+    ) {
       const run = this.runs.get(betId);
       if (!run)
         return;
-      this.setPhase(betId, "syncing", "双腿已成交");
+      if (overallLabel)
+        this.setPhase(betId, "syncing", overallLabel);
       run.countdownUntil = undefined;
+      run.terminalAt = Date.now();
+      const terminalAt = run.terminalAt;
+      clearTerminalRemoval(betId);
+      terminalRemovalTimers.set(betId, setTimeout(() => {
+        const current = this.runs.get(betId);
+        if (current?.terminalAt === terminalAt)
+          this.removeRun(betId);
+      }, Math.max(0, delayMs)));
+    },
+
+    /** 双腿已成交：标记完成并短暂停留。 */
+    scheduleDismiss(betId: number, delaySec = ACTIVE_BET_RUN_DISMISS_SEC) {
+      this.scheduleTerminalRemoval(
+        betId,
+        delaySec > 0 ? delaySec * 1000 : ACTIVE_BET_TERMINAL_LINGER_MS,
+        "双腿已成交",
+      );
     },
 
     removeRun(betId: number) {
+      clearTerminalRemoval(betId);
       this.runs.delete(betId);
     },
 
