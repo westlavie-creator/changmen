@@ -10,10 +10,14 @@ describe("account betGateway", () => {
     expect(source).toMatch(/account\.token = shared\.token/);
 
     const checkAt = source.indexOf("export async function checkBetting");
-    const checkHydrateAt = source.indexOf("await ensureSharedVaultKeyForAccount(account);", checkAt);
+    const checkHydrateAt = source.indexOf("const signingReady = await ensureSharedVaultKeyForAccount(account);", checkAt);
     const checkProviderAt = source.indexOf("const provider = getProvider(account);", checkAt);
     expect(checkHydrateAt).toBeGreaterThan(checkAt);
     expect(checkHydrateAt).toBeLessThan(checkProviderAt);
+    const checkSigningAt = source.indexOf('account.provider === "Polymarket" && !signingReady', checkAt);
+    const checkVenueAt = source.indexOf("return await provider.checkBet(account, option);", checkAt);
+    expect(checkSigningAt).toBeGreaterThan(checkProviderAt);
+    expect(checkSigningAt).toBeLessThan(checkVenueAt);
 
     const placeAt = source.indexOf("export async function placeBet");
     const placeHydrateAt = source.indexOf("await ensureSharedVaultKeyForAccount(account);", placeAt);

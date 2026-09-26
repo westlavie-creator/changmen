@@ -70,7 +70,7 @@ export function buildLogSegments(logs: AdminOrderLogEntry[]): AdminOrderLogLogSe
   for (const log of sorted) {
     // 补单入队是独立编排事件，不能粘到前一轮“预检 → 下单”上。
     // 否则前一腿的下注失败会被 isQueue 覆盖，首轮套利就会少一条腿。
-    if (log.kind === "makeup_queue") {
+    if (log.kind === "makeup_queue" || log.kind === "makeup_cancel") {
       flush();
       current = {
         key: `seg-${log.id ?? log.createAt}`,

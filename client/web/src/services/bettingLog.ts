@@ -168,3 +168,38 @@ export function saveMakeUpQueueLog(params: {
   }
 }
 
+/** [changmen 扩展] 自动补单因锚腿确认拒单而撤销，持久化供管理端还原队列终态。 */
+export function saveMakeUpCancelLog(params: {
+  linkId: number;
+  betId: number;
+  target: string;
+  match: string;
+  bet: string;
+  failedPlatformLabel: string;
+  anchorProvider: string;
+  anchorAccountId: number;
+  anchorTarget: string;
+  reason: string;
+}): void {
+  try {
+    void saveUserLog("补单取消", {
+      diagnosticVersion: 2,
+      attemptType: "makeup_cancel",
+      linkId: params.linkId,
+      betId: params.betId,
+      target: params.target,
+      match: params.match,
+      bet: params.bet,
+      failedPlatformLabel: params.failedPlatformLabel,
+      anchorProvider: params.anchorProvider,
+      anchorAccountId: params.anchorAccountId,
+      anchorTarget: params.anchorTarget,
+      reason: params.reason,
+      observedAt: Date.now(),
+    }).catch(() => {});
+  }
+  catch {
+    /* 诊断日志不能影响补单撤销 */
+  }
+}
+

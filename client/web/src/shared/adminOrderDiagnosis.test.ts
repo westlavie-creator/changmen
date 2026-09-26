@@ -316,6 +316,47 @@ describe("adminOrderDiagnosis", () => {
     expect(stages.find(stage => stage.key === "queue")?.action).toContain("只代表进入补单队列");
   });
 
+  it("shows a rejected anchor canceling the queued makeup before submission", () => {
+    const legs: AdminOrderLogLegSection[] = [{
+      key: "away",
+      legIndex: 1,
+      side: "Away",
+      label: "客队",
+      provider: "系统",
+      attempts: [{
+        key: "queue-events",
+        order: null,
+        logs: [],
+        logSegments: [
+          {
+            key: "queue",
+            provider: null,
+            accountLabel: null,
+            isMakeUp: false,
+            logs: [{ createAt: 2_000, title: "补单入队", kind: "makeup_queue", attemptType: "makeup_queue", target: "Away", summary: "queue" }],
+          },
+          {
+            key: "cancel",
+            provider: null,
+            accountLabel: null,
+            isMakeUp: false,
+            logs: [{ createAt: 2_100, title: "补单取消", kind: "makeup_cancel", attemptType: "makeup_cancel", target: "Away", message: "RAY Home 确认拒单，已无有效成交锚点", summary: "cancel" }],
+          },
+        ],
+      }],
+    }];
+
+    const steps = buildAdminOrderExecutionSteps(legs);
+    expect(steps).toHaveLength(2);
+    expect(steps[1]?.isQueueCancel).toBe(true);
+    expect(steps[1]?.outcome).toContain("未继续下单");
+    expect(buildAdminOrderDiagnosisSummary(steps, -237).text).toContain("取消 1 个补单队列");
+    const queueStage = buildAdminOrderOrchestrationStages(steps, -237).find(stage => stage.key === "queue");
+    expect(queueStage?.tone).toBe("success");
+    expect(queueStage?.action).toContain("没有继续向场馆提交补单");
+    expect(queueStage?.awayNodes.map(node => node.title)).toEqual(["补单入队", "补单已取消"]);
+  });
+
   it("flags a makeup that continues after its accepted anchor is later rejected", () => {
     const steps = [
       {

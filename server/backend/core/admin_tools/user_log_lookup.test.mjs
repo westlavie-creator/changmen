@@ -363,6 +363,36 @@ describe("user_log_lookup", () => {
     expect(filtered.relevant[0]?.matchedOrderId).toBeNull();
   });
 
+  it("summarizes a canceled makeup queue as an independent Link step", () => {
+    const link = 1_790_274_758_786;
+    const log = summarizeUserLog({
+      id: 8,
+      create_at: 2_100,
+      title: "补单取消",
+      data: JSON.stringify({
+        linkId: link,
+        betId: 99,
+        attemptType: "makeup_cancel",
+        target: "Away",
+        match: "Phantom Esports vs Gentle Mates",
+        bet: "Map 1 Winner",
+        failedPlatformLabel: "Polymarket",
+        reason: "RAY Home 确认拒单，已无有效成交锚点",
+        observedAt: 2_100,
+      }),
+    });
+    expect(log.kind).toBe("makeup_cancel");
+    expect(log.linkId).toBe(link);
+    expect(log.target).toBe("Away");
+    expect(log.message).toContain("确认拒单");
+    expect(buildLogSegments([log])).toHaveLength(1);
+
+    const filtered = filterRelevantLogs([
+      { orderId: "ray-reject", link, provider: "RAY", createAt: 1_000 },
+    ], [log]);
+    expect(filtered.relevant[0]?.matchedOrderId).toBeNull();
+  });
+
   it("buildPlatformSections groups orders and logs by provider", () => {
     const orders = [
       { orderId: "o1", provider: "OB", createAt: 100 },

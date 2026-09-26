@@ -212,9 +212,10 @@ export function filterRelevantLogs(orders, logs) {
     }
     // 补单入队描述的是“准备补哪一腿”，不是已存在的任一场馆订单。
     // 即使 Link 精确命中，也必须作为独立步骤按 target 展示。
-    const inferredOrderId = log.kind !== "makeup_queue" && keep && best?.order && providerMatchesOrder(log, best.order)
+    const isQueueEvent = log.kind === "makeup_queue" || log.kind === "makeup_cancel";
+    const inferredOrderId = !isQueueEvent && keep && best?.order && providerMatchesOrder(log, best.order)
       ? best.order.orderId
-      : log.kind !== "makeup_queue" ? previousCheck?.matchedOrderId ?? null : null;
+      : !isQueueEvent ? previousCheck?.matchedOrderId ?? null : null;
     const next = {
       ...log,
       related: keep,
@@ -249,6 +250,8 @@ export function classifyLogTitle(title) {
     return "reject";
   if (t.includes("补单入队"))
     return "makeup_queue";
+  if (t.includes("补单取消"))
+    return "makeup_cancel";
   return "other";
 }
 
@@ -554,7 +557,7 @@ export function buildLogSegments(logs) {
   for (const log of sorted) {
     // 入队是独立的编排事件，不能并入前一条“预检 → 下单”尝试；否则前一腿
     // 的真实失败会被前端误标为“仅入队”，诊断汇总也会漏算下单失败。
-    if (log.kind === "makeup_queue") {
+    if (log.kind === "makeup_queue" || log.kind === "makeup_cancel") {
       flush();
       current = {
         key: `seg-${log.id ?? log.createAt}`,
@@ -880,6 +883,20 @@ export function summarizeUserLog(row) {
     out.summary = `补单入队 · ${out.target || "未知方向"} · 锚腿 ${out.betMoney || "—"}@${out.odds || "—"}`;
     if (out.failedPlatformLabel)
       out.summary += ` · 失败腿 ${out.failedPlatformLabel}@${out.failedLegOdds || "—"}`;
+  }
+  else if (kind === "makeup_cancel") {
+    out.linkId = Number(parsed?.linkId) || null;
+    out.attemptType = "makeup_cancel";
+    out.target = parsed?.target === "Home" || parsed?.target === "Away"
+      ? parsed.target
+      : null;
+    out.match = parsed?.match || null;
+    out.bet = parsed?.bet || null;
+    out.betId = parsed?.betId || null;
+    out.failedPlatformLabel = parsed?.failedPlatformLabel || null;
+    out.observedAt = Number(parsed?.observedAt) || out.createAt;
+    out.message = parsed?.reason || "锚腿确认拒单，补单队列已撤销";
+    out.summary = `补单取消 · ${out.target || "未知方向"} · ${out.message}`;
   }
 
   return out;

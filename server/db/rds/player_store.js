@@ -547,7 +547,8 @@ export async function fetchBettingUserLogsInRange(userId, fromMs, toMs, limit = 
            OR title LIKE '%下注 =>%'
            OR title LIKE '%拒单%'
            OR title LIKE '%补单入队%'
-         )
+           OR title LIKE '%补单取消%'
+          )
        ORDER BY create_at ASC
        LIMIT $4`,
       [uid, from, to, cap + 1],

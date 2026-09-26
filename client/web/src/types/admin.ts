@@ -275,7 +275,7 @@ export interface AdminOrderLogEntry {
   orderId?: string | null;
   matchedOrderId?: string | null;
   linkId?: number | null;
-  attemptType?: "initial" | "retry" | "makeup" | "makeup_queue" | string | null;
+  attemptType?: "initial" | "retry" | "makeup" | "makeup_queue" | "makeup_cancel" | string | null;
   target?: "Home" | "Away" | string | null;
   accountLabel?: string | null;
   loseOrder?: boolean;

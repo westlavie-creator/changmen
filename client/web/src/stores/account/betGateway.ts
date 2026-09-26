@@ -39,9 +39,9 @@ export interface PlaceBetOpts {
   requirePreparedQuote?: boolean;
 }
 
-async function ensureSharedVaultKeyForAccount(account: PlatformAccount | undefined): Promise<void> {
+async function ensureSharedVaultKeyForAccount(account: PlatformAccount | undefined): Promise<boolean> {
   if (!account)
-    return;
+    return false;
   const {
     accountTokenHasPrivateKey,
     ensurePmVaultUnlocked,
@@ -50,18 +50,20 @@ async function ensureSharedVaultKeyForAccount(account: PlatformAccount | undefin
     mergeVaultKeysIntoAccounts,
     normalizePmVaultUserId,
   } = await import("@/security/pmVault");
-  if (!isVaultKeyProvider(account.provider) || accountTokenHasPrivateKey(account.token))
-    return;
+  if (!isVaultKeyProvider(account.provider))
+    return true;
+  if (accountTokenHasPrivateKey(account.token))
+    return true;
 
   const user = useUserStore();
   if (!user.userId && user.isLoggedIn)
     await user.fetchUserInfo();
   const uid = normalizePmVaultUserId(user.userId);
   if (!uid || !(await hasVault(uid)))
-    return;
+    return false;
   const unlocked = await ensurePmVaultUnlocked(uid);
   if (!unlocked)
-    return;
+    return false;
 
   const { useAccountStore } = await import("@/stores/accountStore");
   const accountStore = useAccountStore();
@@ -69,6 +71,7 @@ async function ensureSharedVaultKeyForAccount(account: PlatformAccount | undefin
   const shared = account.accountId ? accountStore.findAccount(Number(account.accountId)) : undefined;
   if (shared?.token && accountTokenHasPrivateKey(shared.token))
     account.token = shared.token;
+  return accountTokenHasPrivateKey(account.token);
 }
 
 /**
@@ -146,13 +149,20 @@ export async function checkBetting(
     option.checkError = `场馆${option.type}没有可用账号`;
     return option;
   }
-  await ensureSharedVaultKeyForAccount(account);
+  const signingReady = await ensureSharedVaultKeyForAccount(account);
   const provider = getProvider(account);
   if (!provider) {
     option.checkError = `场馆${option.type}不被支持`;
     return option;
   }
   try {
+    // [changmen 扩展] PM 余额/L2 凭证可用不代表本机具备签名私钥。
+    // 双腿预检在正式 POST 前汇总结果；此处失败会让整轮套利停止下单。
+    if (account.provider === "Polymarket" && !signingReady) {
+      option.data = null;
+      option.checkError = "缺少有效私钥：请先解锁本机钱包，或在账号设置中重新导入私钥";
+      return option;
+    }
     attachPolymarketDetectionQuote(option);
     attachPredictFunDetectionQuote(option);
     // [A8 适配] 编排 Plan CNY → 场馆原币（CNY / U / PM）；预检后不改，跌价由各场馆 checkBet 拒单

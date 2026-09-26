@@ -19,6 +19,7 @@ export interface AdminOrderExecutionStep {
   isMakeUp: boolean;
   isRetry: boolean;
   isQueue: boolean;
+  isQueueCancel: boolean;
   attemptType: string;
   odds: number | null;
   betMoney: number | null;
@@ -26,6 +27,7 @@ export interface AdminOrderExecutionStep {
   bet: AdminOrderLogEntry | null;
   reject: AdminOrderLogEntry | null;
   queue: AdminOrderLogEntry | null;
+  queueCancel: AdminOrderLogEntry | null;
   order: AdminOrderLogOrder | null;
   outcome: string;
   detail: string | null;
@@ -241,6 +243,7 @@ export function buildAdminOrderExecutionSteps(
           isMakeUp: false,
           isRetry: false,
           isQueue: false,
+          isQueueCancel: false,
           attemptType: "initial",
           odds: attempt.order.odds || null,
           betMoney: attempt.order.betMoney || null,
@@ -248,6 +251,7 @@ export function buildAdminOrderExecutionSteps(
           bet: null,
           reject: null,
           queue: null,
+          queueCancel: null,
           order: attempt.order,
           oddsLogic: "订单缺少对应预检日志，无法还原当时赔率来源",
           stakeLogic: "订单缺少对应预检日志，无法还原金额公式",
@@ -264,17 +268,21 @@ export function buildAdminOrderExecutionSteps(
         const bet = [...segment.logs].reverse().find(log => log.kind === "bet") ?? null;
         const reject = [...segment.logs].reverse().find(log => log.kind === "reject") ?? null;
         const queue = segment.logs.find(log => log.kind === "makeup_queue") ?? null;
+        const queueCancel = segment.logs.find(log => log.kind === "makeup_cancel") ?? null;
         const attemptType = String(
-          check?.attemptType || bet?.attemptType || reject?.attemptType || queue?.attemptType || "",
+          check?.attemptType || bet?.attemptType || reject?.attemptType || queue?.attemptType || queueCancel?.attemptType || "",
         );
         const isQueue = Boolean(queue || attemptType === "makeup_queue");
-        const isMakeUp = Boolean(!isQueue && (attemptType === "makeup" || segment.isMakeUp || check?.loseOrder));
+        const isQueueCancel = Boolean(queueCancel || attemptType === "makeup_cancel");
+        const isMakeUp = Boolean(!isQueue && !isQueueCancel && (attemptType === "makeup" || segment.isMakeUp || check?.loseOrder));
         const isRetry = Boolean(attemptType === "retry");
-        const provider = String(segment.provider || check?.provider || bet?.provider || attempt.order?.provider || (isQueue ? "系统" : "未知"));
-        const at = Number(check?.createAt || bet?.createAt || queue?.createAt || attempt.order?.createAt) || 0;
+        const provider = String(segment.provider || check?.provider || bet?.provider || attempt.order?.provider || (isQueue || isQueueCancel ? "系统" : "未知"));
+        const at = Number(check?.createAt || bet?.createAt || queue?.createAt || queueCancel?.createAt || attempt.order?.createAt) || 0;
         const order = segmentMatchesOrder(provider, segment.logs, at, attempt.order) ? attempt.order : null;
         const result = isQueue
           ? { outcome: "已加入补单队列（尚未下单）", detail: null, tone: "warning" as const }
+          : isQueueCancel
+            ? { outcome: "补单队列已取消（未继续下单）", detail: queueCancel?.message || null, tone: "success" as const }
           : outcomeFor(check, bet, reject, order);
         const odds = Number(check?.newOdds ?? check?.odds ?? queue?.failedLegOdds ?? order?.odds) || null;
         const betMoney = Number(check?.betMoney ?? queue?.betMoney ?? order?.betMoney) || null;
@@ -288,16 +296,20 @@ export function buildAdminOrderExecutionSteps(
           isMakeUp,
           isRetry,
           isQueue,
-          attemptType: attemptType || (isMakeUp ? "makeup" : isQueue ? "makeup_queue" : "initial"),
+          isQueueCancel,
+          attemptType: attemptType || (isMakeUp ? "makeup" : isQueue ? "makeup_queue" : isQueueCancel ? "makeup_cancel" : "initial"),
           odds,
           betMoney,
           check,
           bet,
           reject,
           queue,
+          queueCancel,
           order,
           oddsLogic: isQueue
             ? `失败腿最后赔率 ${queue?.failedLegOdds || "—"}；入队时尚未产生补单赔率`
+            : isQueueCancel
+              ? "锚腿确认拒单后撤销队列，未产生新的补单赔率"
             : isMakeUp
               ? `补单赔率 ${odds || "—"} 来自补单执行时的场馆实时盘口，不是由公式计算`
               : isRetry
@@ -411,7 +423,7 @@ export function buildAdminOrderDiagnosisSummary(
   steps: AdminOrderExecutionStep[],
   totalProfit: number,
 ): { text: string; tone: AdminOrderDiagnosisTone } {
-  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue);
+  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue && !step.isQueueCancel);
   const apiFailures = originals.filter(step => step.bet?.success === false).length;
   const venueRejects = originals.filter(step =>
     String(step.order?.status || "").toLowerCase() === "reject"
@@ -423,6 +435,7 @@ export function buildAdminOrderDiagnosisSummary(
   const incompleteMakeups = makeups.filter(step => !step.bet && !step.order && !step.check?.checkError).length;
   const retries = steps.filter(step => step.isRetry).length;
   const queues = steps.filter(step => step.isQueue).length;
+  const canceledQueues = steps.filter(step => step.isQueueCancel).length;
   const parts: string[] = [];
 
   if (apiFailures || venueRejects) {
@@ -439,6 +452,8 @@ export function buildAdminOrderDiagnosisSummary(
     parts.push(`即时重试 ${retries} 次`);
   if (queues)
     parts.push(`创建 ${queues} 个补单队列`);
+  if (canceledQueues)
+    parts.push(`锚腿拒单后取消 ${canceledQueues} 个补单队列`);
   if (submittedMakeups)
     parts.push(`实际提交 ${submittedMakeups} 次补单`);
   if (blockedMakeups)
@@ -476,7 +491,7 @@ function stepRejectedAt(step: AdminOrderExecutionStep): number | null {
 
 /** 补单已入队后，原锚腿又确认拒单，但队列仍产生后续补单尝试。 */
 function findStaleMakeupQueue(steps: AdminOrderExecutionStep[]) {
-  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue);
+  const originals = steps.filter(step => !step.isMakeUp && !step.isRetry && !step.isQueue && !step.isQueueCancel);
   const makeups = steps.filter(step => step.isMakeUp);
   for (const queue of steps.filter(step => step.isQueue)) {
     const anchor = originals
@@ -530,9 +545,10 @@ export function buildAdminOrderOrchestrationStages(
     return [];
 
   const stages: AdminOrderOrchestrationStage[] = [];
-  const initial = steps.filter(step => !step.isRetry && !step.isQueue && !step.isMakeUp);
+  const initial = steps.filter(step => !step.isRetry && !step.isQueue && !step.isQueueCancel && !step.isMakeUp);
   const retries = steps.filter(step => step.isRetry);
   const queues = steps.filter(step => step.isQueue);
+  const canceledQueues = steps.filter(step => step.isQueueCancel);
   const makeups = steps.filter(step => step.isMakeUp);
   const staleQueue = findStaleMakeupQueue(steps);
   const firstAt = Math.min(...steps.map(step => step.at).filter(Boolean));
@@ -658,20 +674,31 @@ export function buildAdminOrderOrchestrationStages(
     });
   }
 
-  if (queues.length) {
-    const nodes = stageNodes(queues, () => "补单入队", step => step.stakeLogic, () => "warning");
+  if (queues.length || canceledQueues.length) {
+    const queueRows = [...queues, ...canceledQueues];
+    const nodes = stageNodes(
+      queueRows,
+      step => step.isQueueCancel ? "补单已取消" : "补单入队",
+      step => step.isQueueCancel ? step.queueCancel?.message || step.stakeLogic : step.stakeLogic,
+      step => step.isQueueCancel ? "success" : "warning",
+    );
+    const fullyCanceled = queues.length > 0 && canceledQueues.length >= queues.length;
     stages.push({
       key: "queue",
-      at: Math.min(...queues.map(step => step.at)),
-      title: "补单决策与入队",
-      tone: staleQueue ? "danger" : "warning",
+      at: Math.min(...queueRows.map(step => step.at)),
+      title: "补单决策与队列状态",
+      tone: staleQueue ? "danger" : fullyCanceled ? "success" : "warning",
       decision: staleQueue
         ? `编排器创建 ${queues.length} 个补单任务，但锚腿随后确认拒单，补单已失去有效成交锚点。`
+        : fullyCanceled
+          ? `编排器创建 ${queues.length} 个补单任务；锚腿随后确认拒单，相关补单队列已全部取消。`
         : `即时处置未消除敞口，编排器创建 ${queues.length} 个补单任务。`,
       action: staleQueue
         ? "锚腿拒单后队列仍未撤销，后续补单不再是有效对冲；这是需要修复的编排异常。"
+        : fullyCanceled
+          ? "确认已无成交敞口后停止补单，没有继续向场馆提交补单。"
         : "此时只代表进入补单队列；实际赔率和金额要等补单执行时重新计算。",
-      evidence: queues.map(step => `${step.sideLabel}：${step.oddsLogic}；${step.stakeLogic}`),
+      evidence: queueRows.map(step => `${step.sideLabel}：${step.outcome}${step.detail ? `；${step.detail}` : ""}`),
       ...nodes,
     });
   }

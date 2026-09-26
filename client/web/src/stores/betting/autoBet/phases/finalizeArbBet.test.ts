@@ -13,6 +13,18 @@ import { finalizeArbBet } from "./finalizeArbBet";
 
 const shouldSendArbProgress = vi.hoisted(() => vi.fn(() => false));
 
+const loseOrderStore = vi.hoisted(() => ({
+  orders: new Map<number, {
+    accountId: number;
+    isCreateOrder: boolean;
+    linkId: number;
+    target: string;
+  }>(),
+  removeOrder: vi.fn((betId: number) => {
+    loseOrderStore.orders.delete(betId);
+  }),
+}));
+
 vi.mock("@/stores/betting/autoBet/arbProgressTrace", () => ({
   shouldSendArbProgress,
 }));
@@ -30,6 +42,7 @@ const {
   recordSingleLeg9999MapFillKeys,
   releaseSingleLeg9999MapFill,
   releaseSingleLeg9999MapFillKeys,
+  saveMakeUpCancelLog,
 } = vi.hoisted(() => ({
   showRejectDetectionTip: vi.fn(),
   maxLegRejectWaitSec: vi.fn(() => 3),
@@ -43,7 +56,16 @@ const {
   recordSingleLeg9999MapFillKeys: vi.fn(),
   releaseSingleLeg9999MapFill: vi.fn(),
   releaseSingleLeg9999MapFillKeys: vi.fn(),
+  saveMakeUpCancelLog: vi.fn(),
 }));
+
+vi.mock("@/services/bettingLog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/services/bettingLog")>();
+  return {
+    ...actual,
+    saveMakeUpCancelLog,
+  };
+});
 
 vi.mock("@/stores/betting/autoBet/rejectWait", () => ({
   legRejectWaitSec: vi.fn(() => 3),
@@ -102,7 +124,7 @@ vi.mock("@/stores/accountStore", () => ({
 }));
 
 vi.mock("@/stores/loseOrderStore", () => ({
-  useLoseOrderStore: () => ({ orders: new Map() }),
+  useLoseOrderStore: () => loseOrderStore,
 }));
 
 vi.mock("@/stores/messageStore", () => ({
@@ -251,6 +273,125 @@ describe("finalizeArbBet makeup enqueue", () => {
     recordSingleLeg9999MapFillKeys.mockReset();
     releaseSingleLeg9999MapFill.mockReset();
     releaseSingleLeg9999MapFillKeys.mockReset();
+    saveMakeUpCancelLog.mockReset();
+    loseOrderStore.orders.clear();
+    loseOrderStore.removeOrder.mockClear();
+  });
+
+  it("API 成功锚腿确认拒单后撤销同 Link 的提前补单队列", async () => {
+    const linkId = 1_790_352_533_196;
+    const accountA = makeAccount("RAY");
+    const accountB = makeAccount("Polymarket");
+    const legA = makeLeg("RAY", "T1");
+    const legB = makeLeg("Polymarket", "T2");
+    loseOrderStore.orders.set(params.bet.id, {
+      accountId: accountA.accountId,
+      isCreateOrder: false,
+      linkId,
+      target: legB.target,
+    });
+    settleArbLeg.mockResolvedValueOnce(packLegSync({
+      orders: [venueOrder("ray-reject", "reject", 3)],
+      rejected: true,
+    }));
+
+    await finalizeArbBet(params, makePlaced({
+      linkId,
+      legA,
+      legB,
+      accountA,
+      accountB,
+      resultA: new BetResult("RAY", true),
+      resultB: new BetResult("Polymarket", false, "缺少有效私钥"),
+      placeOutcomeA: "filled_pending_settle",
+      placeOutcomeB: "api_failed",
+    }));
+
+    expect(loseOrderStore.removeOrder).toHaveBeenCalledWith(params.bet.id, true);
+    expect(loseOrderStore.orders.has(params.bet.id)).toBe(false);
+    expect(saveMakeUpCancelLog).toHaveBeenCalledWith(expect.objectContaining({
+      linkId,
+      betId: params.bet.id,
+      target: legB.target,
+      failedPlatformLabel: "Polymarket",
+      anchorProvider: "RAY",
+      anchorAccountId: accountA.accountId,
+      anchorTarget: legA.target,
+    }));
+    expect(applyArbMakeUpFromRejects).toHaveBeenCalledWith(
+      params,
+      expect.anything(),
+      true,
+      false,
+      expectMakeUpVenue([venueOrder("ray-reject", "reject", 3)], []),
+      { pendingConfirmA: false, pendingConfirmB: false },
+    );
+  });
+
+  it("锚腿拒单不会误删其他 Link 的补单", async () => {
+    const linkId = 1_790_352_533_196;
+    const accountA = makeAccount("RAY");
+    const legA = makeLeg("RAY", "T1");
+    const legB = makeLeg("Polymarket", "T2");
+    loseOrderStore.orders.set(params.bet.id, {
+      accountId: accountA.accountId,
+      isCreateOrder: false,
+      linkId: linkId + 1,
+      target: legB.target,
+    });
+    settleArbLeg.mockResolvedValueOnce(packLegSync({
+      orders: [venueOrder("ray-reject", "reject", 3)],
+      rejected: true,
+    }));
+
+    await finalizeArbBet(params, makePlaced({
+      linkId,
+      legA,
+      legB,
+      accountA,
+      accountB: makeAccount("Polymarket"),
+      resultA: new BetResult("RAY", true),
+      resultB: new BetResult("Polymarket", false),
+      placeOutcomeA: "filled_pending_settle",
+      placeOutcomeB: "api_failed",
+    }));
+
+    expect(loseOrderStore.removeOrder).not.toHaveBeenCalled();
+    expect(saveMakeUpCancelLog).not.toHaveBeenCalled();
+    expect(loseOrderStore.orders.has(params.bet.id)).toBe(true);
+  });
+
+  it("锚腿确认成交时保留同 Link 的补单队列", async () => {
+    const linkId = 1_790_352_533_196;
+    const accountA = makeAccount("RAY");
+    const legA = makeLeg("RAY", "T1");
+    const legB = makeLeg("Polymarket", "T2");
+    loseOrderStore.orders.set(params.bet.id, {
+      accountId: accountA.accountId,
+      isCreateOrder: false,
+      linkId,
+      target: legB.target,
+    });
+    settleArbLeg.mockResolvedValueOnce(packLegSync({
+      orders: [venueOrder("ray-filled", "none", 3)],
+      rejected: false,
+    }));
+
+    await finalizeArbBet(params, makePlaced({
+      linkId,
+      legA,
+      legB,
+      accountA,
+      accountB: makeAccount("Polymarket"),
+      resultA: new BetResult("RAY", true),
+      resultB: new BetResult("Polymarket", false),
+      placeOutcomeA: "filled_pending_settle",
+      placeOutcomeB: "api_failed",
+    }));
+
+    expect(loseOrderStore.removeOrder).not.toHaveBeenCalled();
+    expect(saveMakeUpCancelLog).not.toHaveBeenCalled();
+    expect(loseOrderStore.orders.has(params.bet.id)).toBe(true);
   });
 
   it("双腿 API 成功且 B 腿拒单时入队补单", async () => {

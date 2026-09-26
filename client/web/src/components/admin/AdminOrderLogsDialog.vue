@@ -32,6 +32,7 @@ const kindLabel: Record<string, string> = {
   bet: "下注",
   reject: "拒单",
   makeup_queue: "补单入队",
+  makeup_cancel: "补单取消",
   other: "其他",
 };
 
