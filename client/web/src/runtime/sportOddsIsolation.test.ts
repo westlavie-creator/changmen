@@ -475,10 +475,13 @@ describe("sport / esport UI isolation", () => {
     expect(accountCrud).toMatch(/persistSportAccount/);
     expect(accountCrud).not.toMatch(/placeValueBetOrder/);
     const accountEdit = readFileSync(join(root, "components/account/AccountEditDialog.vue"), "utf8");
-    expect(accountEdit).toMatch(/const savingSportOb = onSportsWorkspace\.value/);
+    expect(accountEdit).toMatch(/const savingSportOb = patch\.provider === "OB"[\s\S]*obTokenTab\.value === "sport"/);
     expect(accountEdit).toMatch(/if \(bindVenueMember && savingSportOb\)/);
     expect(accountEdit).toMatch(/v-model="obTokenTab"/);
     expect(accountEdit).toMatch(/onSportsWorkspace\.value \? "sport" : "esport"/);
+    expect(accountEdit).toMatch(/已识别为体育凭证，并切换到体育页签/);
+    expect(accountEdit).toMatch(/已识别为电竞凭证，并切换到电竞页签/);
+    expect(accountEdit).not.toMatch(/这是体育 OB token，请到足球页写入 OB 下注账号/);
     expect(accountEdit).toMatch(/体育 Token <small>requestId<\/small>/);
     expect(accountEdit).toMatch(/会员 UID <small>cuid<\/small>/);
     const obCredentialPanel = accountEdit.match(/<fieldset class="ob-token-fieldset">([\s\S]*?)<\/fieldset>/)?.[1] ?? "";

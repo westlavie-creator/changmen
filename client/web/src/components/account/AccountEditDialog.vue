@@ -716,10 +716,6 @@ async function applyPaste() {
     const raw = pasteRaw.value.trim();
     const sportSession = parseSportObSessionInput(raw);
     if (sportSession.ok) {
-      if (!onSportsWorkspace.value) {
-        ElMessage.error("这是体育 OB token，请到足球页写入 OB 下注账号");
-        return;
-      }
       if (props.account?.accountId && props.account.provider !== "OB") {
         ElMessage.error("这是体育 OB token，请添加到 OB 下注账号");
         return;
@@ -736,14 +732,12 @@ async function applyPaste() {
         sportSession.session.sessionId || sportSession.session.uid || "",
       ).trim();
       pasteRaw.value = "";
-      ElMessage.success("已填入体育 token（不影响电竞 token），保存后用于跟单");
+      ElMessage.success("已识别为体育凭证，并切换到体育页签");
       return;
     }
     const pastedObj = parsePastedObject(raw);
     if (isSportObCollectCredential(pastedObj)) {
-      ElMessage.error(onSportsWorkspace.value
-        ? "无法解析为下注账号，请检查体育 token"
-        : "这是体育 OB token，请到足球页写入 OB 下注账号");
+      ElMessage.error("已识别为体育凭证，但数据不完整，请检查 Token、网关和会员 UID");
       return;
     }
     const parsed = parsePastedAccountCredential(raw);
@@ -780,7 +774,9 @@ async function applyPaste() {
       applyPbIdentityFromToken(form.token);
 
     if (gateways.length <= 1) {
-      ElMessage.success("粘贴成功");
+      ElMessage.success(parsed.provider === "OB"
+        ? "已识别为电竞凭证，并切换到电竞页签"
+        : "粘贴成功");
       return;
     }
 
@@ -1228,10 +1224,10 @@ async function save() {
     }
     const sportOb = sportObFromForm();
     const bindVenueMember = requiresVenueMemberId(patch.provider);
-    // 体育页保存 sportOb 与电竞凭证相互独立。即使账号仍保留电竞 token，
-    // 也不能拿电竞 token 做保存前余额校验并阻断体育凭证保存。
-    const savingSportOb = onSportsWorkspace.value
-      && patch.provider === "OB"
+    // 按当前凭证页签决定保存线路，不再依赖外层体育/电竞页面。
+    // 体育凭证与电竞凭证相互独立，不能拿另一条线路的 token 做保存前校验。
+    const savingSportOb = patch.provider === "OB"
+      && obTokenTab.value === "sport"
       && Boolean(sportOb?.token);
 
     let venue: AccountBalanceResult | undefined;
@@ -1294,9 +1290,9 @@ async function save() {
           : {}),
         updateTime: Date.now(),
       });
-      if (onSportsWorkspace.value && patch.provider === "OB")
+      if (savingSportOb)
         acc.sportOb = sportOb;
-      if (onSportsWorkspace.value && patch.provider === "OB" && sportAmount !== undefined) {
+      if (savingSportOb && sportAmount !== undefined) {
         acc.sportBalance = sportAmount;
         acc.sportBalanceStale = false;
         acc.sportBalanceError = "";
@@ -1319,7 +1315,7 @@ async function save() {
         refreshPfPrivyAddressDisplay();
       }
       await accountStore.saveAccounts();
-      if (onSportsWorkspace.value && patch.provider === "OB" && acc.accountId && sportOb)
+      if (savingSportOb && acc.accountId && sportOb)
         await accountStore.saveSportAccount(acc.accountId, sportOb);
       ElMessage.success("账号设置已保存");
       emit("close");
@@ -1399,7 +1395,7 @@ async function save() {
             venueAccountName: patch.venueAccountName,
           }
         : {}),
-      ...(onSportsWorkspace.value && patch.provider === "OB" && sportOb
+      ...(savingSportOb && sportOb
         ? { sportOb }
         : {}),
       pause: patch.pause ?? false,
@@ -1804,8 +1800,8 @@ function unlockRate() {
         <el-form-item label="快速填充：">
           <el-input
             v-model="pasteRaw"
-            :placeholder="onSportsWorkspace
-              ? '粘贴体育 OB token / 进馆数据到下注账号'
+            :placeholder="form.provider === 'OB'
+              ? '粘贴 OB 电竞或体育凭证，自动识别并切换'
               : '通过插件获取到的数据快速填充进入'"
             @change="applyPaste"
             @paste="onPasteQuickFill"
