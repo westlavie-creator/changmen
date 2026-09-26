@@ -17,6 +17,7 @@ let snapshot = {
 const listeners = new Set();
 let lastSeen = 0;
 let watchdog = 0;
+let snapshotFingerprint = "";
 
 function payload() {
   const sourceConnected = snapshot.sourceConnected
@@ -63,6 +64,19 @@ export function attachPodAlertsPort(port) {
     port.postMessage(payload());
   }
   catch { /* ignore */ }
+  // MV3 worker 可能被回收；新 changmen 端口接入时向现有 POD 页主动索取完整快照。
+  try {
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        if (!tab.id)
+          continue;
+        chrome.tabs.sendMessage(tab.id, { type: "podAlertsResync" }, () => {
+          void chrome.runtime.lastError;
+        });
+      }
+    });
+  }
+  catch { /* ignore */ }
   port.onDisconnect.addListener(() => {
     listeners.delete(port);
   });
@@ -76,9 +90,25 @@ export function ingestPodAlertsMessage(message) {
   if (!message || typeof message !== "object")
     return false;
   const row = /** @type {{ type?: string }} */ (message);
+  if (row.type === "podAlertsHeartbeat") {
+    const body = /** @type {{ capturedAt?: unknown; href?: unknown; gridFound?: unknown }} */ (message);
+    const prevGridFound = snapshot.gridFound;
+    const prevHref = snapshot.href;
+    snapshot.capturedAt = Number(body.capturedAt) || Date.now();
+    snapshot.href = typeof body.href === "string" ? body.href : snapshot.href;
+    snapshot.gridFound = body.gridFound === true;
+    snapshot.sourceConnected = true;
+    lastSeen = Date.now();
+    ensureWatchdog();
+    if (prevGridFound !== snapshot.gridFound || prevHref !== snapshot.href)
+      broadcast();
+    return true;
+  }
   if (row.type !== "podAlertsSnapshot")
     return false;
-  const body = /** @type {{ alerts?: unknown; books?: unknown; capturedAt?: unknown; href?: unknown; gridFound?: unknown }} */ (message);
+  const body = /** @type {{ alerts?: unknown; books?: unknown; capturedAt?: unknown; href?: unknown; gridFound?: unknown; fingerprint?: unknown }} */ (message);
+  const nextFingerprint = typeof body.fingerprint === "string" ? body.fingerprint : "";
+  const unchanged = Boolean(nextFingerprint && nextFingerprint === snapshotFingerprint);
   snapshot = {
     alerts: Array.isArray(body.alerts) ? body.alerts : [],
     books: Array.isArray(body.books) ? body.books : snapshot.books,
@@ -87,8 +117,10 @@ export function ingestPodAlertsMessage(message) {
     gridFound: body.gridFound === true,
     sourceConnected: true,
   };
+  snapshotFingerprint = nextFingerprint;
   lastSeen = Date.now();
   ensureWatchdog();
-  broadcast();
+  if (!unchanged)
+    broadcast();
   return true;
 }

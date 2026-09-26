@@ -31,6 +31,7 @@ export type ObSportCredential = {
   gateway?: string;
   referer?: string;
   venueMemberId?: string;
+  venueAccountName?: string;
 };
 
 export type ObSportBetAccountLike = {
@@ -42,6 +43,7 @@ export type ObSportBetAccountLike = {
   gateway?: string;
   referer?: string;
   venueMemberId?: string;
+  venueAccountName?: string;
   pause?: boolean;
   active?: boolean;
   sportOb?: ObSportCredential;
@@ -58,6 +60,7 @@ export function readObSportCredential(account: ObSportBetAccountLike | null | un
       gateway: String(nested?.gateway || "").trim(),
       referer: String(nested?.referer || "").trim(),
       venueMemberId: String(nested?.venueMemberId || "").trim(),
+      venueAccountName: String(nested?.venueAccountName || "").trim(),
     };
   }
   const legacy = String(account.token || "").trim();
@@ -68,6 +71,7 @@ export function readObSportCredential(account: ObSportBetAccountLike | null | un
     gateway: String(account.gateway || "").trim(),
     referer: String(account.referer || "").trim(),
     venueMemberId: String(account.venueMemberId || "").trim(),
+    venueAccountName: String(account.venueAccountName || "").trim(),
   };
 }
 

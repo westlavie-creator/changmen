@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { mapPodAlert, mapPodAlertRows } from "./pod-alerts-map.js";
 import { calculateNoVig, mapPodBookEvents } from "./pod-alerts-book.js";
 
@@ -78,6 +79,11 @@ assert.ok(batch.fingerprint.includes("a:2:1.9:2"));
 
 console.log("pod-alerts-map ok");
 
+const pageBridge = readFileSync(new URL("./pod-alerts-page.js", import.meta.url), "utf8");
+assert.match(pageBridge, /FULL_RESYNC_MS\s*=\s*10_000/);
+assert.match(pageBridge, /fingerprint:\s*dataFingerprint/);
+assert.match(pageBridge, /podAlertsResync/);
+
 assert.equal(calculateNoVig(1.91, 1.91), 2);
 assert.equal(calculateNoVig(1, 2), 0);
 const book = mapPodBookEvents([{
@@ -93,4 +99,3 @@ assert.equal(book[0].nvpUnder, 2);
 assert.equal(book[1].nvpHome, 2);
 assert.equal(book[1].nvpAway, 2);
 console.log("pod-alerts-book ok");
-

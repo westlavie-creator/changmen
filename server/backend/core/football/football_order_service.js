@@ -2,6 +2,8 @@
  * 足球订单读写。OB 足球写 football_orders；管理端补读统一 orders 内的非 OB 足球。
  */
 import * as sb from "@changmen/db";
+import { randomUUID } from "node:crypto";
+import { assertPlayerOwnedByUser } from "../account/player_ownership.js";
 import {
   parseFootballOrderInput,
   parseFootballOrderStatusPatch,
@@ -14,6 +16,84 @@ function fail(msg) {
 
 function ok(info) {
   return { ok: true, info };
+}
+
+function podExecutionInput(body) {
+  const alertId = String(body?.alertId || "").trim().slice(0, 240);
+  const venueRaw = String(body?.venue || "").trim().toLowerCase();
+  const venue = venueRaw === "ob" ? "OB" : venueRaw === "polymarket" ? "Polymarket" : "";
+  const playerId = Math.round(Number(body?.playerId) || 0);
+  if (!alertId || !venue || playerId <= 0)
+    return null;
+  return { alertId, venue, playerId };
+}
+
+export async function reservePodBet(body, user) {
+  const userId = String(user?.id || "").trim();
+  const input = podExecutionInput(body);
+  if (!userId)
+    return fail("未登录");
+  if (!input)
+    return fail("POD执行参数无效");
+  try {
+    const owned = await assertPlayerOwnedByUser(input.playerId, userId);
+    if (!owned.ok)
+      return fail(owned.msg);
+    const provider = String(owned.player?.provider || owned.player?.platformName || "").trim().toLowerCase();
+    if (provider !== input.venue.toLowerCase())
+      return fail(`playerId ${input.playerId} 不是 ${input.venue} 账号`);
+  }
+  catch (err) {
+    return fail(err instanceof Error ? err.message : "校验下注账号失败");
+  }
+  const now = Date.now();
+  const leaseToken = randomUUID();
+  try {
+    const result = await sb.reservePodBetExecution({
+      userId,
+      ...input,
+      leaseToken,
+      now,
+    });
+    return ok({
+      acquired: result.acquired === true,
+      leaseToken: result.acquired ? leaseToken : "",
+      state: String(result.row?.state || ""),
+      venueOrderId: String(result.row?.venue_order_id || ""),
+    });
+  }
+  catch (err) {
+    return fail(err instanceof Error ? err.message : "申请下注执行权失败");
+  }
+}
+
+export async function finalizePodBet(body, user) {
+  const userId = String(user?.id || "").trim();
+  const leaseToken = String(body?.leaseToken || "").trim();
+  const rawState = String(body?.state || "").trim().toLowerCase();
+  const state = rawState === "accepted"
+    ? "accepted"
+    : rawState === "failed"
+      ? "failed"
+      : rawState === "unknown" ? "unknown" : "";
+  if (!userId)
+    return fail("未登录");
+  if (!leaseToken || !state)
+    return fail("POD执行结果无效");
+  try {
+    const saved = await sb.finalizePodBetExecution({
+      userId,
+      leaseToken,
+      state,
+      venueOrderId: String(body?.venueOrderId || "").trim().slice(0, 240),
+      message: String(body?.message || "").trim().slice(0, 500),
+      now: Date.now(),
+    });
+    return saved ? ok({ state: saved.state }) : fail("POD执行权不存在或已完成");
+  }
+  catch (err) {
+    return fail(err instanceof Error ? err.message : "保存下注执行结果失败");
+  }
 }
 
 function parseIdList(raw) {

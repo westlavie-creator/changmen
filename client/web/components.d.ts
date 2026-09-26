@@ -115,7 +115,6 @@ declare module 'vue' {
     PluginIntroShell: typeof import('./src/components/layout/PluginIntroShell.vue')['default']
     PmPfBufferSettings: typeof import('./src/components/user/PmPfBufferSettings.vue')['default']
     PmVaultDialogs: typeof import('./src/components/account/PmVaultDialogs.vue')['default']
-    PodAlertPanel: typeof import('./src/components/football/PodAlertPanel.vue')['default']
     PodBetSettingsTab: typeof import('./src/components/football/PodBetSettingsTab.vue')['default']
     PodFollowAccountPicker: typeof import('./src/components/football/PodFollowAccountPicker.vue')['default']
     PodFollowPanel: typeof import('./src/components/football/PodFollowPanel.vue')['default']

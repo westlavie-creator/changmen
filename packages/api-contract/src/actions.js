@@ -21,6 +21,8 @@ export const ESPORT_ACTIONS = [
     "Client_SaveFootballOrder",
     "Client_GetFootballOrders",
     "Client_GetOpenFootballOrders",
+    "Client_ReservePodBet",
+    "Client_FinalizePodBet",
     "Client_GetSportObSession",
     "API_UpdateSportObSession",
     "Client_GetTennisMatchs",

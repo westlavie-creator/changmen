@@ -233,6 +233,8 @@ export const {
   fetchFootballOrdersAdmin,
   fetchFootballOrdersForMonthAggregate,
   deleteFootballOrdersByIds,
+  reservePodBetExecution,
+  finalizePodBetExecution,
 } = impl;
 
 export const {

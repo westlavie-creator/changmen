@@ -17,7 +17,8 @@ import { pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSp
 import { readPodBetSettings } from "@/runtime/podBetSettings";
 import { useAccountStore } from "@/stores/accountStore";
 
-const OID_TTL_MS = 90_000;
+// 自动下注只能消费近实时预检价；页面盘口列表仍可使用较长 MARKET_TTL_MS。
+const OID_TTL_MS = 3_000;
 const MARKET_TTL_MS = 30_000;
 
 const oidQuotes = new Map<string, { at: number; odds: number }>();
@@ -25,7 +26,17 @@ const markets = new Map<string, { at: number; rows: PodBoardMarket[] }>();
 const oidInflight = new Map<string, Promise<number>>();
 const marketInflight = new Map<string, Promise<PodBoardMarket[]>>();
 let version = 0;
+let generation = 0;
 const listeners = new Set<() => void>();
+
+export function resetPodMarketPrefetch() {
+  generation += 1;
+  oidQuotes.clear();
+  markets.clear();
+  oidInflight.clear();
+  marketInflight.clear();
+  bump();
+}
 
 function bump() {
   version += 1;
@@ -128,6 +139,7 @@ export async function prefetchObSportOidQuote(
   const session = placeSession();
   if (!session?.token || !session.gateway)
     return 0;
+  const startedGeneration = generation;
   const work = (async () => {
     try {
       const queried = await postObSportPb(
@@ -143,7 +155,7 @@ export async function prefetchObSportOidQuote(
       );
       const info = pickObSportMarketInfo(queried, id);
       const odds = Number(info?.odds) || 0;
-      if (odds > 1) {
+      if (odds > 1 && startedGeneration === generation) {
         oidQuotes.set(id, { at: Date.now(), odds });
         bump();
       }
@@ -170,10 +182,11 @@ export async function prefetchObSportMatchMarkets(mid: string): Promise<PodBoard
   const pending = marketInflight.get(id);
   if (pending)
     return pending;
+  const startedGeneration = generation;
   const work = (async () => {
     try {
       const rows = podBoardMarketsFromObDetail(await fetchObFootballMatchMarkets(id));
-      if (rows.length) {
+      if (rows.length && startedGeneration === generation) {
         markets.set(id, { at: Date.now(), rows });
         bump();
       }
@@ -196,7 +209,8 @@ export function mergePodBoardMarkets(
 ): PodBoardMarket[] {
   const out: PodBoardMarket[] = [];
   const seen = new Set<string>();
-  for (const row of [...(base || []), ...(extra || [])]) {
+  // extra 是刚从比赛详情预取的数据；同盘同线时必须覆盖旧快照的 oid/锁盘/赔率。
+  for (const row of [...(extra || []), ...(base || [])]) {
     const key = `${row.marketCode}|${row.line ?? ""}`;
     if (seen.has(key))
       continue;

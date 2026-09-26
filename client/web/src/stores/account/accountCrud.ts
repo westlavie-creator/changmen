@@ -173,6 +173,7 @@ export async function persistSportAccount(
     gateway: sportOb?.gateway,
     referer: sportOb?.referer,
     venueMemberId: sportOb?.venueMemberId,
+    venueAccountName: sportOb?.venueAccountName,
   }]);
   if (!ok)
     throw new Error("体育 token 保存失败");

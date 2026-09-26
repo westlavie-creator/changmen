@@ -3,12 +3,16 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
 import {
+  formatPodAgo,
   formatPodDropPct,
+  formatPodOutcome,
+  formatPodPeriod,
   formatPodPrice,
   isFreshPodAlert,
 } from "@/runtime/podAlerts";
 import {
   POD_BET_SETTINGS_UPDATED,
+  podAlertBetFailReason,
   podAlertWithinFollowAge,
   readPodBetSettings,
   type PodBetSettings,
@@ -77,6 +81,7 @@ import {
 import { peekObEnglishNames } from "@/runtime/obSportEnglishNames";
 import {
   listPodObMissFixtures,
+  resetPodObMissSearch,
   searchPodObMissFixture,
   subscribePodObMissSearch,
 } from "@/runtime/podObMissSearch";
@@ -86,12 +91,14 @@ import {
   peekPrefetchedObOdds,
   prefetchObSportMatchMarkets,
   prefetchObSportOidQuote,
+  resetPodMarketPrefetch,
   subscribePodMarketPrefetch,
 } from "@/runtime/podMarketPrefetch";
 import { fetchObSportAmount } from "@/runtime/obSportAmount";
 import { isUnifiedFootballOrderRow } from "@/shared/orderDomain";
 import type { OrderRow } from "@/types/order";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
+import { useAccountStore } from "@/stores/accountStore";
 import { useFootballStore } from "@/stores/footballStore";
 import { useObSportLiveStore } from "@/stores/obSportLiveStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -99,9 +106,9 @@ import { usePodAlertStore } from "@/stores/podAlertStore";
 import { useSportOddsStore } from "@/stores/sportOddsStore";
 
 const POS_KEY = "changmen:podFollowPanel";
-const DEFAULT_W = 430;
+const DEFAULT_W = 860;
 const DEFAULT_H = 460;
-const MIN_W = 280;
+const MIN_W = 620;
 const MIN_H = 180;
 const HEADER_H = 40;
 const MARGIN = 8;
@@ -112,6 +119,7 @@ const sportOdds = useSportOddsStore();
 const obLive = useObSportLiveStore();
 const footballOrders = useFootballOrderStore();
 const orderStore = useOrderStore();
+const accountStore = useAccountStore();
 const { snapshot, portReady, alerts } = storeToRefs(store);
 const { matchs } = storeToRefs(football);
 const { tick: sportOddsTick } = storeToRefs(sportOdds);
@@ -124,13 +132,16 @@ const prefetchTick = ref(0);
 const sportAmount = ref(0);
 /** 对齐 AutoYabo seenAlertKeys：自动试过的票不再每轮重打 */
 const autoAttempted = ref<Record<string, true>>({});
+const autoReady = ref(false);
+const alertFilter = ref<"all" | "matched">("all");
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 let amountTimer: ReturnType<typeof setInterval> | null = null;
 let stopMissSearch: (() => void) | null = null;
 let stopPrefetch: (() => void) | null = null;
-/** AutoYabo 50ms；Vue 侧 250ms 兼顾反应与开销 */
-const AUTO_TICK_MS = 250;
-const IDLE_TICK_MS = 1_000;
+let autoRunnerActive = false;
+let autoRunRequested = false;
+let autoRunnerStopped = false;
+const UI_TICK_MS = 1_000;
 const obMatchPlugin = getPodVenueMatchPlugin("OB");
 const pmMatchPlugin = getPodVenueMatchPlugin("Polymarket");
 
@@ -164,7 +175,7 @@ const tickets = computed(() => {
     fixtures.push(extra.length ? { ...row, markets: mergePodBoardMarkets(row.markets, extra) } : row);
     seen.add(row.obMid);
   }
-  return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }, nowTick.value).map(ticket => {
+  return listPodFollowTickets(alerts.value, { ...betSettings.value, maxAgeSec: 0 }).map(ticket => {
     const matchContext = {
       fixtures,
       live,
@@ -244,6 +255,29 @@ const tickets = computed(() => {
     };
   });
 });
+
+const ticketByAlertId = computed(() => new Map(tickets.value.map(ticket => [ticket.id, ticket])));
+const matchedAlertCount = computed(() => alerts.value.reduce((count, alert) => {
+  const ticket = ticketByAlertId.value.get(alert.id);
+  return count + (ticket && ticketHasPodFollowMatch(ticket) ? 1 : 0);
+}, 0));
+const visiblePodAlerts = computed(() => alertFilter.value === "all"
+  ? alerts.value
+  : alerts.value.filter((alert) => {
+      const ticket = ticketByAlertId.value.get(alert.id);
+      return ticket != null && ticketHasPodFollowMatch(ticket);
+    }));
+
+function podAlertMatched(id: string): boolean {
+  const ticket = ticketByAlertId.value.get(id);
+  return ticket != null && ticketHasPodFollowMatch(ticket);
+}
+
+function onPodAlertClick(id: string) {
+  const ticket = ticketByAlertId.value.get(id);
+  if (ticket?.fixtureMatch.status === "matched")
+    jumpToTicket(ticket);
+}
 const logRows = ref<PodFollowLogRow[]>(readPodFollowLog());
 const liveById = computed(() => new Map(
   tickets.value.filter(ticketHasPodFollowMatch).map(ticket => [ticket.id, ticket]),
@@ -387,9 +421,8 @@ watch(tickets, (rows) => {
         odds: Number(ticket.marketMatch.quote) || Number(ticket.obQuote.quote) || 0,
       });
   }
-  // 票一就绪立刻试，不等下一轮 tick（对齐 AutoYabo 新行立刻处理）
-  if (betSettings.value.autoPlace)
-    void maybeAutoPlace();
+  // 新警报、比赛、盘口或目标赔率变化时推进串行队列；不靠轮询重算整板。
+  requestAutoPlace();
 }, { immediate: true });
 
 function jumpToTicket(ticket: (typeof tickets.value)[number]) {
@@ -900,11 +933,14 @@ function onPmPlaceClick(ev: MouseEvent, ticket: (typeof tickets.value)[number]) 
   void placePmTicket(ticket, false);
 }
 
-async function maybeAutoPlace() {
+async function maybeAutoPlace(): Promise<boolean> {
   if (!betSettings.value.autoPlace || placingId.value || placingPmId.value)
-    return;
+    return false;
+  let attempted = false;
+  const now = Date.now();
   const ageOk = tickets.value.filter(ticket =>
-    podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, nowTick.value),
+    podAlertBetFailReason(ticket.alert, betSettings.value, now) == null
+    && podAlertWithinFollowAge(ticket.alert, betSettings.value.maxAgeSec, now),
   );
   const skipped = pendingPlacedIds();
   const placedEntries = pendingPlacedEntries();
@@ -940,11 +976,12 @@ async function maybeAutoPlace() {
         // 先占坑再下：对齐 seenAlertKeys，避免管道慢时重复打同一票
         autoAttempted.value = { ...autoAttempted.value, [venuePlaceKey("OB", next.id)]: true };
         await placeTicket(ui, true);
+        attempted = true;
       }
     }
   }
   if (!followPmEnabled.value)
-    return;
+    return attempted;
   const pmNext = pickPodPmAutoTicket(
     ageOk.map(row => pmTicketPlacePayload(row, true)),
     pendingPmPlacedIds(),
@@ -952,12 +989,45 @@ async function maybeAutoPlace() {
     cap,
   );
   if (!pmNext)
-    return;
+    return attempted;
   const pmUi = tickets.value.find(row => row.id === pmNext.id);
   if (!pmUi)
-    return;
+    return attempted;
   autoAttempted.value = { ...autoAttempted.value, [venuePlaceKey("Polymarket", pmNext.id)]: true };
   await placePmTicket(pmUi, true);
+  return true;
+}
+
+/**
+ * AutoYabo 模型：数据事件只负责唤醒；单一 runner 串行 drain，seen/attempted 在请求前占位。
+ * 新事件落在执行期间时只置 pending，当前请求完成后再处理，避免并发下注。
+ */
+function requestAutoPlace() {
+  if (autoRunnerStopped || !autoReady.value || !betSettings.value.autoPlace)
+    return;
+  autoRunRequested = true;
+  if (!autoRunnerActive)
+    void drainAutoPlaceQueue();
+}
+
+async function drainAutoPlaceQueue() {
+  if (autoRunnerActive || autoRunnerStopped || !autoReady.value)
+    return;
+  autoRunnerActive = true;
+  try {
+    while (autoRunRequested && !autoRunnerStopped && betSettings.value.autoPlace) {
+      autoRunRequested = false;
+      const attempted = await maybeAutoPlace();
+      // 一次只挑每馆一个；成功占位后继续 drain 其余已就绪票。
+      if (attempted)
+        autoRunRequested = true;
+    }
+  }
+  finally {
+    autoRunnerActive = false;
+    if (autoRunRequested && !autoRunnerStopped && betSettings.value.autoPlace)
+      void drainAutoPlaceQueue();
+  }
 }
 
 function placeButtonTitle(ticket: (typeof tickets.value)[number]): string | undefined {
@@ -1038,6 +1108,8 @@ const statusText = computed(() => {
     return "筛选已关";
   if (!portReady.value)
     return "扩展未连通";
+  if (betSettings.value.autoPlace && !autoReady.value)
+    return "恢复订单 · 自动暂停";
   if (snapshot.value.sourceConnected && snapshot.value.gridFound) {
     const n = displayRows.value.length;
     const live = tickets.value.filter(ticketHasPodFollowMatch).length;
@@ -1096,9 +1168,12 @@ function loadPos() {
       width?: unknown;
       height?: unknown;
       collapsed?: unknown;
+      alertFilter?: unknown;
     };
     if (typeof parsed.collapsed === "boolean")
       collapsed.value = parsed.collapsed;
+    if (parsed.alertFilter === "all" || parsed.alertFilter === "matched")
+      alertFilter.value = parsed.alertFilter;
     if (Number.isFinite(Number(parsed.width)) && Number.isFinite(Number(parsed.height)))
       clampSize(Number(parsed.width), Number(parsed.height));
     if (Number.isFinite(Number(parsed.left)) && Number.isFinite(Number(parsed.top)))
@@ -1114,7 +1189,13 @@ function savePos() {
     width: width.value,
     height: height.value,
     collapsed: collapsed.value,
+    alertFilter: alertFilter.value,
   }));
+}
+
+function setAlertFilter(value: "all" | "matched") {
+  alertFilter.value = value;
+  savePos();
 }
 
 function onHeaderPointerDown(ev: PointerEvent) {
@@ -1184,18 +1265,14 @@ function onWindowResize() {
   clampPos(left.value, top.value);
 }
 
-function restartAutoTick() {
+function startUiClock() {
   if (nowTimer) {
     clearInterval(nowTimer);
     nowTimer = null;
   }
-  const ms = betSettings.value.autoPlace ? AUTO_TICK_MS : IDLE_TICK_MS;
   nowTimer = setInterval(() => {
     nowTick.value = Date.now();
-    void maybeAutoPlace();
-  }, ms);
-  if (betSettings.value.autoPlace)
-    void maybeAutoPlace();
+  }, UI_TICK_MS);
 }
 
 async function refreshSportAmount() {
@@ -1208,11 +1285,12 @@ async function refreshSportAmount() {
 }
 
 function reloadBetSettings() {
-  const prevAuto = betSettings.value.autoPlace;
   betSettings.value = readPodBetSettings();
   followV2.value = readFootballFollowV2Settings();
-  if (prevAuto !== betSettings.value.autoPlace)
-    restartAutoTick();
+  if (betSettings.value.autoPlace)
+    requestAutoPlace();
+  else
+    autoRunRequested = false;
 }
 
 function openPodSettings() {
@@ -1238,8 +1316,33 @@ function onClearLog() {
   placeNote.value = {};
 }
 
+async function restoreAutoPlaceState() {
+  autoReady.value = false;
+  try {
+    if (!accountStore.loaded)
+      await accountStore.loadAccounts(false);
+    const [, unifiedLoaded] = await Promise.all([
+      footballOrders.loaded ? Promise.resolve() : footballOrders.load(),
+      orderStore.fetchOrders(undefined, { sideEffects: false }),
+    ]);
+    if (!accountStore.loaded || !footballOrders.loaded || unifiedLoaded !== true)
+      throw new Error("自动下注状态恢复未完成");
+    refreshLog();
+    placed.value = Object.fromEntries(logRows.value
+      .filter(row => row.placed)
+      .map(row => [venuePlaceKey("OB", row.id), true as const]));
+    autoReady.value = true;
+    requestAutoPlace();
+  }
+  catch {
+    // 资金安全优先：恢复失败时保持禁用，等待页面重载或用户修复连接。
+    autoReady.value = false;
+  }
+}
+
 onMounted(() => {
-  left.value = Math.max(MARGIN, window.innerWidth - DEFAULT_W - 440);
+  autoRunnerStopped = false;
+  left.value = Math.max(MARGIN, window.innerWidth - DEFAULT_W - 16);
   loadPos();
   store.start();
   reloadBetSettings();
@@ -1255,8 +1358,8 @@ onMounted(() => {
   stopPrefetch = subscribePodMarketPrefetch(() => {
     prefetchTick.value += 1;
   });
-  restartAutoTick();
-  void orderStore.fetchOrders(undefined, { sideEffects: false });
+  startUiClock();
+  void restoreAutoPlaceState();
   void refreshSportAmount();
   amountTimer = setInterval(() => {
     void refreshSportAmount();
@@ -1264,12 +1367,17 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  autoRunnerStopped = true;
+  autoRunRequested = false;
   window.removeEventListener("resize", onWindowResize);
   window.removeEventListener(POD_BET_SETTINGS_UPDATED, reloadBetSettings);
   stopMissSearch?.();
   stopPrefetch?.();
   stopMissSearch = null;
   stopPrefetch = null;
+  resetPodObMissSearch();
+  resetPodMarketPrefetch();
+  store.stop();
   if (nowTimer) {
     clearInterval(nowTimer);
     nowTimer = null;
@@ -1295,7 +1403,7 @@ onUnmounted(() => {
       @pointercancel="onHeaderPointerUp"
     >
       <span class="pod-follow-panel__dot" :class="`is-${statusKind}`" />
-      <span class="pod-follow-panel__title">POD 跟单</span>
+      <span class="pod-follow-panel__title">POD 足球</span>
       <span class="pod-follow-panel__status">{{ statusText }}</span>
       <button type="button" class="pod-follow-panel__btn" @click="openPodSettings">
         设置
@@ -1308,16 +1416,88 @@ onUnmounted(() => {
       <span class="pod-follow-panel__summary-label">配置</span>
       <span class="pod-follow-panel__summary-text">{{ followSummary }}</span>
     </div>
-    <div v-show="!collapsed" class="pod-follow-panel__body">
-      <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
-        筛选已关。打开「足球设置 → POD跟单」后，对上场和盘的会一直留在列表里，并标已下/未下。降赔浮窗不受影响。
+    <div v-show="!collapsed" class="pod-follow-panel__columns">
+      <section class="pod-follow-panel__column pod-follow-panel__column--alerts">
+        <div class="pod-follow-panel__column-head">
+          <div>
+            <strong>POD 降赔</strong>
+            <span>{{ visiblePodAlerts.length }}/{{ alerts.length }} · 匹配 {{ matchedAlertCount }}</span>
+          </div>
+          <div class="pod-follow-panel__filter" @pointerdown.stop>
+            <button
+              type="button"
+              :class="{ 'is-active': alertFilter === 'all' }"
+              @click="setAlertFilter('all')"
+            >全部</button>
+            <button
+              type="button"
+              :class="{ 'is-active': alertFilter === 'matched' }"
+              @click="setAlertFilter('matched')"
+            >仅已匹配</button>
+          </div>
+        </div>
+        <div class="pod-follow-panel__column-body">
+          <p v-if="!snapshot.sourceConnected" class="pod-follow-panel__hint">
+            请在同一 Chrome 打开 pinnacleoddsdropper.com/terminal 的 Dropping Odds。
+          </p>
+          <p v-else-if="!snapshot.gridFound" class="pod-follow-panel__hint">
+            已连接 POD，请切到 Alerts [Dropping odds]。
+          </p>
+          <p v-else-if="!alerts.length" class="pod-follow-panel__hint">
+            已连接，暂无降赔信息。
+          </p>
+          <p v-else-if="!visiblePodAlerts.length" class="pod-follow-panel__hint">
+            当前没有已匹配的降赔信息。
+          </p>
+          <div v-else class="pod-alert-list">
+            <article
+              v-for="alert in visiblePodAlerts"
+              :key="alert.id"
+              class="pod-alert-row"
+              :class="{
+                'is-fresh': isFreshPodAlert(alert.alertedAt, nowTick),
+                'is-matched': podAlertMatched(alert.id),
+                'is-jumpable': ticketByAlertId.get(alert.id)?.fixtureMatch.status === 'matched',
+              }"
+              @click="onPodAlertClick(alert.id)"
+            >
+              <div class="pod-alert-row__top">
+                <span class="pod-alert-row__drop">{{ formatPodDropPct(alert.dropPct) }}</span>
+                <span class="pod-alert-row__match">{{ alert.home }} vs {{ alert.away }}</span>
+                <span class="pod-alert-row__matched">{{ podAlertMatched(alert.id) ? "已匹配" : "未匹配" }}</span>
+              </div>
+              <div class="pod-alert-row__meta">
+                {{ alert.league }} · {{ formatPodPeriod(alert.period) }} · {{ formatPodOutcome(alert) }}
+              </div>
+              <div class="pod-alert-row__prices">
+                <span>{{ formatPodPrice(alert.previous) }} → {{ formatPodPrice(alert.current) }}</span>
+                <span>NVP {{ formatPodPrice(alert.nvp) }}</span>
+                <span>{{ formatPodAgo(alert.alertedAt, nowTick) }}</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="pod-follow-panel__column pod-follow-panel__column--follow">
+        <div class="pod-follow-panel__column-head">
+          <div>
+            <strong>POD 跟单</strong>
+            <span>{{ displayRows.length }} 条</span>
+          </div>
+          <button
+            v-if="logRows.length"
+            type="button"
+            class="pod-follow-panel__btn"
+            @pointerdown.stop
+            @click="onClearLog"
+          >清空</button>
+        </div>
+        <div class="pod-follow-panel__body">
+          <p v-if="!betSettings.enabled" class="pod-follow-panel__hint">
+        跟单筛选已关。左侧降赔信息仍会正常显示；开启后右侧会标记已下/未下。
       </p>
       <template v-else>
-        <div v-if="logRows.length" class="pod-follow-panel__toolbar" @pointerdown.stop>
-          <button type="button" class="pod-follow-panel__btn" @click="onClearLog">
-            清空
-          </button>
-        </div>
         <p v-if="!snapshot.sourceConnected && !displayRows.length" class="pod-follow-panel__hint">
           等 POD 连通后，对上场和盘的会进来并一直留下。冷票保护只挡自动。
         </p>
@@ -1512,7 +1692,9 @@ onUnmounted(() => {
             </template>
           </article>
         </div>
-      </template>
+          </template>
+        </div>
+      </section>
     </div>
     <button
       v-show="!collapsed"
@@ -1639,10 +1821,179 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.pod-follow-panel__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.pod-follow-panel__column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pod-follow-panel__column--alerts {
+  border-right: 1px solid #ffffff18;
+  background: #0f172a33;
+}
+
+.pod-follow-panel__column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 38px;
+  min-width: 0;
+  padding: 0 10px;
+  border-bottom: 1px solid #ffffff14;
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.pod-follow-panel__column-head > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.pod-follow-panel__column-head strong {
+  white-space: nowrap;
+}
+
+.pod-follow-panel__column-head span {
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.pod-follow-panel__column-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.pod-follow-panel__filter {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid #ffffff1f;
+  border-radius: 6px;
+  background: #02061766;
+}
+
+.pod-follow-panel__filter button {
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 4px;
+  color: #94a3b8;
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pod-follow-panel__filter button.is-active {
+  color: #fff;
+  background: #2563eb;
+}
+
+.pod-alert-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pod-alert-row {
+  padding: 10px 12px;
+  border-bottom: 1px solid #ffffff0f;
+}
+
+.pod-alert-row.is-fresh {
+  background: #67c23a12;
+}
+
+.pod-alert-row.is-matched {
+  box-shadow: inset 3px 0 #60a5fa;
+}
+
+.pod-alert-row.is-jumpable {
+  cursor: pointer;
+}
+
+.pod-alert-row.is-jumpable:hover {
+  background: #ffffff0b;
+}
+
+.pod-alert-row__top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pod-alert-row__drop {
+  flex-shrink: 0;
+  color: #4ade80;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pod-alert-row__match {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pod-alert-row__matched {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #94a3b8 !important;
+  background: #ffffff0d;
+  font-size: 10px;
+}
+
+.pod-alert-row.is-matched .pod-alert-row__matched {
+  color: #bfdbfe !important;
+  background: #2563eb33;
+}
+
+.pod-alert-row__meta,
+.pod-alert-row__prices {
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.pod-alert-row__prices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 .pod-follow-panel__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+
+@media (max-width: 760px) {
+  .pod-follow-panel__columns {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(150px, 0.8fr) minmax(180px, 1.2fr);
+  }
+
+  .pod-follow-panel__column--alerts {
+    border-right: 0;
+    border-bottom: 1px solid #ffffff18;
+  }
 }
 
 .pod-follow-panel__toolbar {

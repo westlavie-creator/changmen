@@ -214,3 +214,8 @@ export {
   patchFootballOrderStatus,
   upsertFootballOrder,
 } from "./rds/football_orders_store.js";
+
+export {
+  finalizePodBetExecution,
+  reservePodBetExecution,
+} from "./rds/pod_bet_execution_store.js";

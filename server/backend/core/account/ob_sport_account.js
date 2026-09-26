@@ -19,6 +19,7 @@ export function cloneSportOb(raw) {
   const gateway = String(row.gateway || "").trim();
   const referer = String(row.referer || "").trim();
   const venueMemberId = String(row.venueMemberId || row.uid || row.sessionId || "").trim();
+  const venueAccountName = String(row.venueAccountName || row.userName || "").trim();
   const out = {};
   if (token)
     out.token = token;
@@ -28,7 +29,30 @@ export function cloneSportOb(raw) {
     out.referer = referer;
   if (venueMemberId)
     out.venueMemberId = venueMemberId;
+  if (venueAccountName)
+    out.venueAccountName = venueAccountName;
   return out;
+}
+
+/**
+ * 同一账号卡同时配置 OB 电竞和体育时，两个凭证必须属于同一会员账号。
+ * 数字 UID 属于不同产品体系，不能用来跨产品比较。
+ */
+export function validateSportObMemberBinding(account, sportPatch) {
+  const sportAccountName = String(sportPatch?.venueAccountName || "").trim();
+  if (!sportAccountName)
+    return "体育会员账号无效";
+  if (!isObEsportToken(account?.token))
+    return "";
+  const esportAccountName = String(account?.venueAccountName || "").trim();
+  if (!esportAccountName)
+    return "电竞会员账号缺失，请先刷新并保存电竞凭证";
+  if (
+    esportAccountName.toLowerCase() !== sportAccountName.toLowerCase()
+  ) {
+    return `体育会员账号 ${sportAccountName} 与电竞会员账号 ${esportAccountName} 不一致`;
+  }
+  return "";
 }
 
 export function mergeSportObPatch(stored, patch) {

@@ -1,12 +1,20 @@
 /**
  * 足球订单 Client_*。禁止进入电竞账号订单分发。
  */
-import { listFootballOrders, listOpenFootballOrders, saveFootballOrder } from "../football/football_order_service.js";
+import {
+  finalizePodBet,
+  listFootballOrders,
+  listOpenFootballOrders,
+  reservePodBet,
+  saveFootballOrder,
+} from "../football/football_order_service.js";
 
 const FOOTBALL_ORDER_ACTIONS = new Set([
   "Client_SaveFootballOrder",
   "Client_GetFootballOrders",
   "Client_GetOpenFootballOrders",
+  "Client_ReservePodBet",
+  "Client_FinalizePodBet",
 ]);
 
 function ok(info, msg = "ok") {
@@ -38,6 +46,14 @@ export async function handleFootballOrderAction(action, body, ctx) {
     if (action === "Client_GetOpenFootballOrders") {
       const listed = await listOpenFootballOrders(ctx.user, body);
       return listed.ok ? ok(listed.info) : fail(listed.msg);
+    }
+    if (action === "Client_ReservePodBet") {
+      const reserved = await reservePodBet(body, ctx.user);
+      return reserved.ok ? ok(reserved.info) : fail(reserved.msg);
+    }
+    if (action === "Client_FinalizePodBet") {
+      const finalized = await finalizePodBet(body, ctx.user);
+      return finalized.ok ? ok(finalized.info) : fail(finalized.msg);
     }
     return fail(`未知足球订单 action: ${action}`);
   }

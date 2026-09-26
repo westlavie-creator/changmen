@@ -69,6 +69,25 @@ export function mapPodAlertRows(rows) {
       alerts.push(mapped);
   }
   alerts.sort((a, b) => Number(b.alertedAt) - Number(a.alertedAt) || String(a.id).localeCompare(String(b.id)));
-  const fingerprint = alerts.map((a) => `${a.id}:${a.current}:${a.nvp}:${a.dropPct}`).join("|");
+  const fingerprint = alerts.map((a) => [
+    a.id,
+    a.current,
+    a.nvp,
+    a.dropPct,
+    a.eventId,
+    a.sportId,
+    a.league,
+    a.home,
+    a.away,
+    a.starts,
+    a.alertedAt,
+    a.market,
+    a.lineType,
+    a.period,
+    a.outcome,
+    a.points,
+    a.previous,
+    a.ways,
+  ].join(":")).join("|");
   return { alerts, fingerprint };
 }

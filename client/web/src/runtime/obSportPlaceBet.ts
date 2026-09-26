@@ -43,7 +43,7 @@ export type ObSportPlaceRequest = {
 
 export type ObSportPlaceResult =
   | { ok: true; orderId: string; odds?: number }
-  | { ok: false; message: string };
+  | { ok: false; message: string; outcomeUnknown?: boolean };
 
 export type ObSportMarketInfo = {
   oid: string;
@@ -677,6 +677,9 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
 
   // 详情盘补 hid：同一次下单只拉一次
   let detailMeta: ObSportOidMeta | null | undefined;
+  // 只有提交请求已经开始但没有拿到明确响应时，结果才标记为未知。
+  // 上层会永久保留该警报/账号的执行占位，禁止自动重试造成重复下注。
+  let submitInFlight = false;
 
   const tryOnce = async (matchType: 1 | 2): Promise<ObSportPlaceResult> => {
     if (detailMeta === undefined)
@@ -741,7 +744,9 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
     });
     if (!body || !(Number((body.seriesOrders as Array<{ orderDetailList: unknown[] }>)[0]?.orderDetailList?.length) > 0))
       return { ok: false, message: "下单包为空" };
+    submitInFlight = true;
     const placed = await postObSportPb(OB_SPORT_PROCESS_BET_PATH, body, session);
+    submitInFlight = false;
     const accepted = obSportPlaceAccepted(placed);
     if (!accepted.ok)
       return accepted;
@@ -791,6 +796,10 @@ export async function placeObSportSingle(req: ObSportPlaceRequest): Promise<ObSp
         return { ok: false, message: "盘口已变/失效，请刷新后再下" };
       }
     }
-    return { ok: false, message: msg.slice(0, 180) || "下单失败" };
+    return {
+      ok: false,
+      message: msg.slice(0, 180) || "下单失败",
+      outcomeUnknown: submitInFlight,
+    };
   }
 }

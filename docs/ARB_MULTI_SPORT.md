@@ -238,6 +238,8 @@ POD 警报与场馆比赛、盘口、报价的匹配统一经 `client/web/src/ru
 - **PM 隔离**：Polymarket 插件生成自己的比赛和盘口匹配结果；PM 下单载荷不得借用 OB 的 fixture match。
 - **电竞隔离**：插件层不得 import 电竞 `matchStore`、`oddsStore`、`mainBetLoop`，不得写 `fo` 或 `client_matches`；相关静态守卫位于 `sportOddsIsolation.test.ts`。
 
+自动跟单的执行认领、重复下注保护、故障状态和部署顺序见 [POD_AUTO_FOLLOW.md](./POD_AUTO_FOLLOW.md)。
+
 ## 4. 验收
 
 1. `Client_GetMatchs` 与改前一致。  

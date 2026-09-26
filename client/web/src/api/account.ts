@@ -28,6 +28,7 @@ export type SportObAccountPatch = {
   gateway?: string;
   referer?: string;
   venueMemberId?: string;
+  venueAccountName?: string;
   clear?: boolean;
 };
 

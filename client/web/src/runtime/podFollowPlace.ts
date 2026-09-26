@@ -10,6 +10,7 @@ import { readPodBetSettings } from "@/runtime/podBetSettings";
 import { pickPodObAccountsForPlacement } from "@/runtime/podObAccountRotation";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
+import { finalizePodBetExecution, reservePodBetExecution } from "@/api/podBetExecution";
 
 export type PodFollowPlaceTicket = {
   id: string;
@@ -79,23 +80,64 @@ export async function placePodFollowBet(ticket: PodFollowPlaceTicket): Promise<{
   for (const account of accounts) {
     const accountId = Number(account.accountId) || 0;
     const label = String(account.playerName || accountId || "账号").trim() || "账号";
-    const placed = await placeObSportSingle({
-      oid,
-      mid,
-      odds,
-      stake,
-      minOdds: Number(ticket.quote.minObOdds) || 0,
-      marketCode: String(ticket.market.marketCode || "").trim(),
-      boardSide: String(ticket.market.boardSide || "").trim(),
-      line,
-      matchType,
-      accountId,
-    });
+    let leaseToken = "";
+    if (ticket.auto === true) {
+      try {
+        const lease = await reservePodBetExecution({ alertId: ticket.id, venue: "OB", playerId: accountId });
+        if (!lease.acquired) {
+          failNotes.push(`${label}:已由其他页面处理(${lease.state || "reserved"})`);
+          continue;
+        }
+        leaseToken = lease.leaseToken;
+      }
+      catch (err) {
+        failNotes.push(`${label}:执行权申请失败 ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
+    }
+    let placed;
+    try {
+      placed = await placeObSportSingle({
+        oid,
+        mid,
+        odds,
+        stake,
+        minOdds: Number(ticket.quote.minObOdds) || 0,
+        marketCode: String(ticket.market.marketCode || "").trim(),
+        boardSide: String(ticket.market.boardSide || "").trim(),
+        line,
+        matchType,
+        accountId,
+      });
+    }
+    catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (leaseToken) {
+        await finalizePodBetExecution({ leaseToken, state: "unknown", message }).catch(() => {});
+      }
+      failNotes.push(`${label}:结果未知 ${message}`);
+      continue;
+    }
     if (!placed.ok) {
-      failNotes.push(`${label}:${placed.message}`);
+      if (leaseToken) {
+        await finalizePodBetExecution({
+          leaseToken,
+          state: placed.outcomeUnknown ? "unknown" : "failed",
+          message: placed.message,
+        }).catch(() => {});
+      }
+      failNotes.push(`${label}:${placed.outcomeUnknown ? "结果未知 " : ""}${placed.message}`);
       continue;
     }
     const orderId = String(placed.orderId || "").trim();
+    if (leaseToken) {
+      await finalizePodBetExecution({
+        leaseToken,
+        state: "accepted",
+        venueOrderId: orderId,
+        message: "场馆已受理",
+      }).catch(() => {});
+    }
     await orders.appendPlaced({
       id: accountId ? `${ticket.id}#${accountId}` : ticket.id,
       orderId,

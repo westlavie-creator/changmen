@@ -184,12 +184,13 @@ describe("sport / esport UI isolation", () => {
     expect(panel).not.toMatch(/hydrateFromCache|readPodSportOrders|localStorage\.(getItem|setItem)/);
     expect(panel).not.toMatch(/obSportFootballFetch|FootballObSessionBar/);
     expect(workspace).toMatch(/FootballSettingsDialog/);
-    expect(workspace).toMatch(/PodAlertPanel/);
+    expect(workspace).not.toMatch(/PodAlertPanel/);
     expect(workspace).toMatch(/PodFollowPanel/);
     expect(workspace).toMatch(/show-football-settings/);
-    const dropPanel = readFileSync(join(root, "components/football/PodAlertPanel.vue"), "utf8");
-    expect(dropPanel).not.toMatch(/filterPodAlertsForBet|podBetSettings|PodFollowPanel|podFixtureMatch|matchPodAlertToFixtures|obSportEnglishNames|podMarketMatch|podBoardFocus|podFollowPlace|obSportPlaceBet|placePodFollowBet|podFollowLog|podSportOrders|FootballOrderView|podOutcomeGate|podBook|podYabo|podObMissSearch|podMarketPrefetch/);
     const followPanel = readFileSync(join(root, "components/football/PodFollowPanel.vue"), "utf8");
+    expect(followPanel).toMatch(/POD 降赔/);
+    expect(followPanel).toMatch(/仅已匹配/);
+    expect(followPanel).toMatch(/pod-follow-panel__columns/);
     const venuePlugins = readFileSync(join(root, "runtime/podVenueMatchPlugins.ts"), "utf8");
     expect(followPanel).toMatch(/followSummary/);
     expect(followPanel).not.toMatch(/writePodBetSettings/);
@@ -238,6 +239,11 @@ describe("sport / esport UI isolation", () => {
     expect(followPanel).toMatch(/podFollowPlaceBlock\(ticketPlacePayload\(ticket\)\)/);
     expect(followPanel).toMatch(/const legacyBlock = podFollowPlaceBlock/);
     expect(followPanel).toMatch(/pickPodYaboAutoTicket/);
+    expect(followPanel).toMatch(/requestAutoPlace/);
+    expect(followPanel).toMatch(/drainAutoPlaceQueue/);
+    expect(followPanel).toMatch(/autoRunnerActive/);
+    expect(followPanel).not.toMatch(/AUTO_TICK_MS|IDLE_TICK_MS/);
+    expect(followPanel).not.toMatch(/setInterval\(\(\) => \{\s*nowTick\.value = Date\.now\(\);\s*void maybeAutoPlace/);
     expect(followPanel).not.toMatch(/useDecisionForManualBlock[\s\S]{0,240}:disabled/);
     expect(followPanel).not.toMatch(/useDecisionForAuto[\s\S]{0,240}pickPodYaboAutoTicket/);
     expect(followPanel).not.toMatch(/useQuoteV2[\s\S]{0,240}placePodFollowBet/);

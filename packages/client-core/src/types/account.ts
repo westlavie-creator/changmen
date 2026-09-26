@@ -63,6 +63,8 @@ export interface AccountRecord {
     gateway?: string;
     referer?: string;
     venueMemberId?: string;
+    /** 体育官网会员账号名；与同卡电竞 venueAccountName 校验一致。 */
+    venueAccountName?: string;
   };
 }
 

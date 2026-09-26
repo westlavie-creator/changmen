@@ -128,6 +128,7 @@ const sportObForm = reactive({
   gateway: "",
   referer: "",
   venueMemberId: "",
+  venueAccountName: "",
 });
 /** A8：PB 默认锁定比例，legend「买」双击解锁 */
 const rateLocked = ref(false);
@@ -316,18 +317,21 @@ function resetSportObForm(acc?: PlatformAccount) {
   sportObForm.gateway = "";
   sportObForm.referer = "";
   sportObForm.venueMemberId = "";
+  sportObForm.venueAccountName = "";
   const nested = acc?.sportOb;
   if (nested?.token) {
     sportObForm.token = String(nested.token || "");
     sportObForm.gateway = String(nested.gateway || "");
     sportObForm.referer = String(nested.referer || "");
     sportObForm.venueMemberId = String(nested.venueMemberId || "");
+    sportObForm.venueAccountName = String(nested.venueAccountName || "");
   }
   else if (acc && isObSportBetToken(String(acc.token || ""))) {
     sportObForm.token = String(acc.token || "");
     sportObForm.gateway = String(acc.gateway || "");
     sportObForm.referer = String(acc.referer || "");
     sportObForm.venueMemberId = String(acc.venueMemberId || "");
+    sportObForm.venueAccountName = "";
   }
   if (isObSportBetToken(form.token))
     form.token = "";
@@ -342,12 +346,13 @@ function sportObFromForm(): AccountRecord["sportOb"] | undefined {
     gateway: sportObForm.gateway.trim() || undefined,
     referer: sportObForm.referer.trim() || undefined,
     venueMemberId: sportObForm.venueMemberId.trim() || undefined,
+    venueAccountName: sportObForm.venueAccountName.trim() || undefined,
   };
 }
 
 async function probeObSportCredentialForSave(
   sportOb: NonNullable<AccountRecord["sportOb"]>,
-): Promise<number> {
+): Promise<{ amount: number; venueMemberId: string; venueAccountName: string }> {
   if (!sportOb.gateway)
     throw new Error("体育网关未识别完成，无法保存");
   if (!isObSportMemberId(sportOb.venueMemberId))
@@ -355,12 +360,27 @@ async function probeObSportCredentialForSave(
   if (!isCompleteObSportCredential(sportOb))
     throw new Error("体育凭证不完整，无法保存");
   const { fetchObSportAmountForAccount } = await import("@/runtime/obSportAmount");
+  const {
+    assertObSportAccountBinding,
+    fetchObSportUserInfoForAccount,
+  } = await import("@/runtime/obSportUserInfo");
   try {
-    return await fetchObSportAmountForAccount({ provider: "OB", sportOb });
+    const account = { provider: "OB", sportOb } as const;
+    const [amount, identity] = await Promise.all([
+      fetchObSportAmountForAccount(account),
+      fetchObSportUserInfoForAccount(account),
+    ]);
+    assertObSportAccountBinding({
+      expectedVenueMemberId: sportOb.venueMemberId,
+      esportVenueAccountName: props.account?.venueAccountName,
+      hasEsportCredential: /^\d{8,}$/.test(String(props.account?.token || "").trim()),
+      sport: identity,
+    });
+    return { amount, ...identity };
   }
   catch (err) {
     const msg = err instanceof Error ? err.message : String(err || "");
-    throw new Error(`体育余额校验失败：${msg || "请检查 Token、网关和 UID"}`);
+    throw new Error(`体育凭证校验失败：${msg || "请检查 Token、网关和 UID"}`);
   }
 }
 
@@ -731,6 +751,7 @@ async function applyPaste() {
       sportObForm.venueMemberId = String(
         sportSession.session.sessionId || sportSession.session.uid || "",
       ).trim();
+      sportObForm.venueAccountName = "";
       pasteRaw.value = "";
       ElMessage.success("已识别为体育凭证，并切换到体育页签");
       return;
@@ -1234,8 +1255,16 @@ async function save() {
     let sportAmount: number | undefined;
     if (bindVenueMember && savingSportOb) {
       loading = ElLoading.service({ fullscreen: true, text: "校验体育余额与凭证..." });
-      sportAmount = await probeObSportCredentialForSave(sportOb!);
-      patch.venueMemberId = String(sportOb!.venueMemberId || "").trim();
+      const sportIdentity = await probeObSportCredentialForSave(sportOb!);
+      sportAmount = sportIdentity.amount;
+      sportOb!.venueMemberId = sportIdentity.venueMemberId;
+      sportOb!.venueAccountName = sportIdentity.venueAccountName;
+      sportObForm.venueMemberId = sportIdentity.venueMemberId;
+      sportObForm.venueAccountName = sportIdentity.venueAccountName;
+      patch.venueMemberId = sportIdentity.venueMemberId;
+      // 电竞卡保留电竞身份；体育专用新卡则用体育官网身份作为外层展示/归属键。
+      patch.venueAccountName = String(props.account?.venueAccountName || "").trim()
+        || sportIdentity.venueAccountName;
       loading.close();
       loading = undefined;
     }

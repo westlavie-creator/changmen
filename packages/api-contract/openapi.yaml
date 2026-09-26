@@ -35,6 +35,14 @@ paths:
     post:
       summary: 当前用户足球订单（RDS football_orders）
       operationId: Client_GetFootballOrders
+  /esport/Client_ReservePodBet:
+    post:
+      summary: 原子申请 POD 自动下注执行权
+      operationId: Client_ReservePodBet
+  /esport/Client_FinalizePodBet:
+    post:
+      summary: 回写 POD 自动下注场馆执行结果
+      operationId: Client_FinalizePodBet
   /esport/Client_AdminFootballOrders:
     post:
       summary: 管理端足球订单（RDS football_orders；与电竞 Client_AdminOrders 隔离）

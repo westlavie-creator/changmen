@@ -11,6 +11,7 @@ import { podYaboDailyLossBlocked } from "@/runtime/podYabo/loss";
 import { useUserStore } from "@/stores/userStore";
 import { useAccountStore } from "@/stores/accountStore";
 import { useFootballOrderStore } from "@/stores/footballOrderStore";
+import { finalizePodBetExecution, reservePodBetExecution } from "@/api/podBetExecution";
 import {
   ensurePmVaultUnlocked,
   hasVault,
@@ -200,12 +201,58 @@ export async function placePodPmFollowBet(ticket: PodPmFollowPlaceTicket): Promi
       failNotes.push(`${label}:${checked.checkError || "预检失败"}`);
       continue;
     }
-    const result = await accountStore.betting(account, checked, 0, { requirePreparedQuote: true });
+    let leaseToken = "";
+    if (ticket.auto === true) {
+      try {
+        const lease = await reservePodBetExecution({ alertId: ticket.id, venue: PM, playerId: accountId });
+        if (!lease.acquired) {
+          failNotes.push(`${label}:已由其他页面处理(${lease.state || "reserved"})`);
+          continue;
+        }
+        leaseToken = lease.leaseToken;
+      }
+      catch (err) {
+        failNotes.push(`${label}:执行权申请失败 ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
+    }
+    let result;
+    try {
+      result = await accountStore.betting(account, checked, 0, { requirePreparedQuote: true });
+    }
+    catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (leaseToken) {
+        await finalizePodBetExecution({ leaseToken, state: "unknown", message }).catch(() => {});
+      }
+      failNotes.push(`${label}:结果未知 ${message}`);
+      continue;
+    }
     if (!result.success) {
-      failNotes.push(`${label}:${result.message || "下单失败"}`);
+      const tip = result.tip && typeof result.tip === "object"
+        ? result.tip as Record<string, unknown>
+        : null;
+      // 有官方响应（response / pmPosted）才是明确拒绝；无响应可能发生在 POST 后断线。
+      const outcomeUnknown = result.response == null && tip?.pmPosted !== true;
+      if (leaseToken) {
+        await finalizePodBetExecution({
+          leaseToken,
+          state: outcomeUnknown ? "unknown" : "failed",
+          message: result.message || "下单失败",
+        }).catch(() => {});
+      }
+      failNotes.push(`${label}:${outcomeUnknown ? "结果未知 " : ""}${result.message || "下单失败"}`);
       continue;
     }
     const orderId = String(result.orderId || "").trim();
+    if (leaseToken) {
+      await finalizePodBetExecution({
+        leaseToken,
+        state: "accepted",
+        venueOrderId: orderId,
+        message: result.pending ? "场馆已受理，等待成交" : "场馆已受理",
+      }).catch(() => {});
+    }
     await orders.appendVenuePlaced({
       id: accountId ? `${ticket.id}#PM#${accountId}` : `${ticket.id}#PM`,
       orderId,

@@ -27,7 +27,11 @@ const FAIL_TTL_MS = 30_000;
 const hits = new Map<string, { at: number; fixture: PodBoardFixture }>();
 const failed = new Map<string, number>();
 const inflight = new Map<string, Promise<PodBoardFixture | null>>();
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const attempts = new Map<string, number>();
 let lastSearchAt = 0;
+let searchQueue: Promise<void> = Promise.resolve();
+let generation = 0;
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -84,25 +88,72 @@ function hitToFixture(hit: ObSportSearchHit): PodBoardFixture {
 }
 
 async function searchKeyword(keyword: string): Promise<ObSportSearchHit[]> {
-  const session = readLocalSportObSession();
-  if (!session?.token)
-    return [];
   const q = String(keyword || "").trim();
   if (q.length < 2)
     return [];
-  const wait = SEARCH_GAP_MS - (Date.now() - lastSearchAt);
-  if (wait > 0)
-    await new Promise(resolve => setTimeout(resolve, wait));
-  lastSearchAt = Date.now();
-  const decoded = await getObSportPb(OB_SPORT_HOT_SEARCH_PATH, {
-    keyword: q,
-    cuid: String(session.sessionId || session.uid || "").replace(/\D/g, "").slice(0, 18) || "0",
-    pageNumber: "1",
-    rows: "80",
-    isPc: "true",
-    searchSportType: "1",
-  }, session);
-  return parseObSportHotSearch(decoded);
+  let resolveRows!: (rows: ObSportSearchHit[]) => void;
+  let rejectRows!: (reason?: unknown) => void;
+  const result = new Promise<ObSportSearchHit[]>((resolve, reject) => {
+    resolveRows = resolve;
+    rejectRows = reject;
+  });
+  searchQueue = searchQueue.then(async () => {
+    try {
+      const session = readLocalSportObSession();
+      if (!session?.token) {
+        resolveRows([]);
+        return;
+      }
+      const wait = SEARCH_GAP_MS - (Date.now() - lastSearchAt);
+      if (wait > 0)
+        await new Promise(resolve => setTimeout(resolve, wait));
+      lastSearchAt = Date.now();
+      const decoded = await getObSportPb(OB_SPORT_HOT_SEARCH_PATH, {
+        keyword: q,
+        cuid: String(session.sessionId || session.uid || "").replace(/\D/g, "").slice(0, 18) || "0",
+        pageNumber: "1",
+        rows: "80",
+        isPc: "true",
+        searchSportType: "1",
+      }, session);
+      resolveRows(parseObSportHotSearch(decoded));
+    }
+    catch (err) {
+      rejectRows(err);
+    }
+  });
+  return result;
+}
+
+function markFailed(
+  key: string,
+  alert: Pick<PodDropAlert, "eventId" | "home" | "away" | "starts" | "league">,
+) {
+  failed.set(key, Date.now());
+  const count = (attempts.get(key) || 0) + 1;
+  attempts.set(key, count);
+  if (count >= 4 || retryTimers.has(key))
+    return;
+  const timer = setTimeout(() => {
+    retryTimers.delete(key);
+    failed.delete(key);
+    void searchPodObMissFixture(alert);
+  }, FAIL_TTL_MS);
+  retryTimers.set(key, timer);
+}
+
+export function resetPodObMissSearch() {
+  generation += 1;
+  hits.clear();
+  failed.clear();
+  inflight.clear();
+  attempts.clear();
+  for (const timer of retryTimers.values())
+    clearTimeout(timer);
+  retryTimers.clear();
+  lastSearchAt = 0;
+  searchQueue = Promise.resolve();
+  bump();
 }
 
 async function hydrate(hit: ObSportSearchHit): Promise<PodBoardFixture | null> {
@@ -135,42 +186,54 @@ export async function searchPodObMissFixture(
   const pending = inflight.get(key);
   if (pending)
     return pending;
+  const startedGeneration = generation;
   const work = (async () => {
     try {
       const homeKw = extractObSportSearchKeyword(alert.home);
       let rows = await searchKeyword(homeKw);
+      if (startedGeneration !== generation)
+        return null;
       if (!rows.length) {
         const awayKw = extractObSportSearchKeyword(alert.away);
         if (awayKw && awayKw !== homeKw)
           rows = await searchKeyword(awayKw);
+        if (startedGeneration !== generation)
+          return null;
       }
       if (!rows.length) {
-        failed.set(key, Date.now());
+        markFailed(key, alert);
         return null;
       }
       const fixtures = rows.map(hitToFixture);
       const matched = matchPodAlertToFixtures(alert, fixtures);
       if (matched.status !== "matched" || matched.basis !== "confirmed") {
-        failed.set(key, Date.now());
+        markFailed(key, alert);
         return null;
       }
       const hit = rows.find(row => row.mid === matched.hits[0]?.fixture.obMid);
       if (!hit) {
-        failed.set(key, Date.now());
+        markFailed(key, alert);
         return null;
       }
       const fixture = await hydrate(hit);
+      if (startedGeneration !== generation)
+        return null;
       if (!fixture) {
-        failed.set(key, Date.now());
+        markFailed(key, alert);
         return null;
       }
       hits.set(key, { at: Date.now(), fixture });
       failed.delete(key);
+      attempts.delete(key);
+      const retryTimer = retryTimers.get(key);
+      if (retryTimer)
+        clearTimeout(retryTimer);
+      retryTimers.delete(key);
       bump();
       return fixture;
     }
     catch {
-      failed.set(key, Date.now());
+      markFailed(key, alert);
       return null;
     }
     finally {

@@ -21,6 +21,7 @@ import {
   isObSportBetToken,
   mergeSportObPatch,
   preserveSportObOnAccountSave,
+  validateSportObMemberBinding,
 } from "./ob_sport_account.js";
 import { preserveStoredAccountToken } from "./account_token_preserve.js";
 
@@ -362,6 +363,7 @@ function parseSaveSportAccountRows(body) {
       gateway: item.gateway,
       referer: item.referer,
       venueMemberId: item.venueMemberId ?? item.uid ?? item.sessionId,
+      venueAccountName: item.venueAccountName ?? item.userName,
     });
   }
   if (!rows.length)
@@ -404,10 +406,14 @@ async function handleSaveSportAccount(body, userId) {
     const token = String(patch.token || "").trim();
     const gateway = String(patch.gateway || "").trim();
     const venueMemberId = String(patch.venueMemberId || "").trim();
+    const venueAccountName = String(patch.venueAccountName || "").trim();
     if (!isObSportBetToken(token))
       return { ok: false, msg: "体育 token 格式无效" };
     if (!/^\d{18,}$/.test(venueMemberId))
       return { ok: false, msg: "体育账号 UID 无效" };
+    const bindingError = validateSportObMemberBinding(current, { venueAccountName });
+    if (bindingError)
+      return { ok: false, msg: bindingError };
     try {
       const url = new URL(gateway);
       if (!/^https?:$/.test(url.protocol))

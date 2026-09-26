@@ -4,6 +4,7 @@ import {
   isObSportBetToken,
   mergeSportObPatch,
   preserveSportObOnAccountSave,
+  validateSportObMemberBinding,
 } from "./ob_sport_account.js";
 
 const HEX = "e9734a4d633b350be25b428556622ca2f161b633";
@@ -102,5 +103,36 @@ describe("ob_sport_account", () => {
       },
       { token: next },
     )).toEqual({ token: next });
+  });
+
+  it("persists and replaces the official sport member account name", () => {
+    expect(mergeSportObPatch(undefined, {
+      token: HEX,
+      venueMemberId: "537121917981379348",
+      venueAccountName: "shihujingyuan22",
+    })).toEqual({
+      token: HEX,
+      venueMemberId: "537121917981379348",
+      venueAccountName: "shihujingyuan22",
+    });
+  });
+
+  it("requires the same member account for OB esport and sport credentials", () => {
+    expect(validateSportObMemberBinding(
+      { token: ESPORT, venueAccountName: "ShiHuJingYuan22" },
+      { venueAccountName: "shihujingyuan22" },
+    )).toBe("");
+    expect(validateSportObMemberBinding(
+      { token: ESPORT, venueAccountName: "another-user" },
+      { venueAccountName: "shihujingyuan22" },
+    )).toMatch(/与电竞会员账号 another-user 不一致/);
+    expect(validateSportObMemberBinding(
+      { token: ESPORT, venueAccountName: "shihujingyuan22" },
+      {},
+    )).toBe("体育会员账号无效");
+    expect(validateSportObMemberBinding(
+      { token: ESPORT },
+      { venueAccountName: "shihujingyuan22" },
+    )).toMatch(/电竞会员账号缺失/);
   });
 });
