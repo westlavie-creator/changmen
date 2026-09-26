@@ -9,7 +9,7 @@ import type {
 import { ElMessage } from "element-plus";
 import { computed, ref } from "vue";
 import { getAdminOrderLogs } from "@/api/admin";
-import { attemptLogSegments } from "@/shared/adminOrderLogSegments";
+import { attemptLogSegments, filterBackendLegSections } from "@/shared/adminOrderLogSegments";
 import {
   buildAdminOrderDiagnosisSummary,
   buildAdminOrderExecutionSteps,
@@ -303,7 +303,14 @@ const filteredLogs = computed(() => {
 const legColumns = computed(() => {
   if (!data.value)
     return [];
-  // 始终从前端二次筛选后的日志重建两腿，避免旧后端返回的 legSections 已经串单。
+  // 新后端已按 linkId/orderId/时序完成精确关联；前端只做安全过滤，避免把
+  // 没有 target 的下注结果重新猜到另一条腿。旧后端无 legSections 才兜底重建。
+  const backendLegs = filterBackendLegSections(
+    data.value.legSections,
+    frontendLogFilter.value.related,
+  );
+  if (backendLegs)
+    return backendLegs;
   return fallbackLegSections({
     ...data.value,
     logs: frontendLogFilter.value.related,
