@@ -3,12 +3,15 @@ import type { VenueOrder, VenueOrderStatus } from "@changmen/venue-adapter/contr
 import {
   getFootballOrders,
   getOpenFootballOrders,
-  patchFootballOrderStatus,
   saveObFootballOrder,
   type FootballOrderDto,
 } from "@/api/footballOrder";
 import { saveOrders } from "@/api/order";
-import { fetchObSportPendingOrderPatches, waitObSportVenueOrderHydration } from "@/runtime/obSportBetRecord";
+import {
+  fetchObSportAccountOrderPatches,
+  fetchObSportPendingOrderPatches,
+  waitObSportVenueOrderHydration,
+} from "@/runtime/obSportBetRecord";
 import { pickObSportBetAccount } from "@/runtime/obSportBetAccount";
 import { isPlaceholderTeam, type ObSportOrderStatusPatch } from "@/runtime/obSportOrderStatus";
 import { readPodBetSettings } from "@/runtime/podBetSettings";
@@ -90,6 +93,11 @@ function footballVenueOrderFromDto(row: FootballOrderDto, venue: string, source?
 let loadSeq = 0;
 let syncing = false;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
+const pendingPersists = new Map<string, FootballOrderDto>();
+
+function persistKey(row: FootballOrderDto): string {
+  return String(row.orderId || row.id || "").trim();
+}
 
 type FootballOrderAccount = {
   accountId?: number;
@@ -105,6 +113,7 @@ export function stopFootballOrderRuntime() {
     settleTimer = null;
   }
   syncing = false;
+  pendingPersists.clear();
 }
 
 /**
@@ -238,11 +247,14 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       }
     },
     async persist(row: FootballOrderDto) {
+      const key = persistKey(row);
       try {
         const saved = await saveObFootballOrder(row);
         if (!saved || typeof saved !== "object")
           throw new Error("保存未返回订单");
         const next = asDto({ ...row, ...saved, id: saved.id || row.id });
+        if (key)
+          pendingPersists.delete(key);
         this.mergeLocal(next);
         this.persistError = "";
         return next;
@@ -250,9 +262,15 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       catch (err) {
         this.persistError = err instanceof Error ? err.message : String(err);
         this.mergeLocal(row);
+        if (key)
+          pendingPersists.set(key, row);
         this.loading = false;
         return row;
       }
+    },
+    async flushPendingPersists() {
+      for (const row of [...pendingPersists.values()])
+        await this.persist(row);
     },
     async appendPlaced(
       row: PodSportOrder,
@@ -274,7 +292,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       // 对齐电竞：本地只作占位；队名/赔率等以官网注单为准，占位队名不落库
       const home = isPlaceholderTeam(row.home) ? "" : String(row.home || "").trim();
       const away = isPlaceholderTeam(row.away) ? "" : String(row.away || "").trim();
-      let dto: FootballOrderDto = {
+      const dto: FootballOrderDto = {
         ...row,
         home,
         away,
@@ -285,34 +303,17 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         accountName: String(row.accountName || picked?.playerName || ""),
       };
       const orderId = String(dto.orderId || "").trim();
-      if (orderId && isObFootballVenue(venue) && opts.hydrateOb !== false) {
-        try {
-          const [venue] = await waitObSportVenueOrderHydration({ orderId, playerId });
-          if (venue) {
-            dto = {
-              ...dto,
-              ...(venue.odds && venue.odds > 1 ? { odds: venue.odds } : {}),
-              ...(venue.stake && venue.stake > 0 ? { stake: venue.stake } : {}),
-              ...(venue.home ? { home: venue.home } : {}),
-              ...(venue.away ? { away: venue.away } : {}),
-              ...(venue.sideLabel ? { sideLabel: venue.sideLabel } : {}),
-              ...(venue.marketLabel ? { marketLabel: venue.marketLabel } : {}),
-              ...(venue.oid ? { oid: venue.oid } : {}),
-              ...(venue.obMid ? { obMid: venue.obMid } : {}),
-              ...(venue.at && venue.at > 0 ? { at: venue.at } : {}),
-              ...(!isFootballOrderPending(venue.status)
-                ? { status: venue.status, profit: Number(venue.profit) || 0 }
-                : {}),
-            };
-          }
-        }
-        catch (err) {
-          if (import.meta.env?.DEV)
-            console.warn("[football] wait venue order skipped", err);
-        }
-      }
       if (isObFootballVenue(venue)) {
+        // P0：下注接口成功后先落最小占位，不能等待场馆注单列表（最多约 4.8 秒）后才保存。
         const saved = await this.persist(dto);
+        if (orderId && opts.hydrateOb !== false) {
+          void waitObSportVenueOrderHydration({ orderId, playerId })
+            .then(patches => this.applyVenueStatus(patches))
+            .catch((err) => {
+              if (import.meta.env?.DEV)
+                console.warn("[football] wait venue order skipped", err);
+            });
+        }
         this.syncVenueSettlementSoon();
         return saved;
       }
@@ -329,7 +330,10 @@ export const useFootballOrderStore = defineStore("footballOrders", {
       }
       return dto;
     },
-    async applyVenueStatus(patches: ObSportOrderStatusPatch[]) {
+    async applyVenueStatus(
+      patches: ObSportOrderStatusPatch[],
+      opts: { discoverMissing?: boolean; playerId?: number } = {},
+    ) {
       if (!patches.length)
         return;
       for (const patch of patches) {
@@ -339,6 +343,11 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         const row = this.rows.find(item => item.orderId === orderId)
           || this.todayRows.find(item => item.orderId === orderId)
           || this.settlementRows.find(item => item.orderId === orderId);
+        if (!row && !opts.discoverMissing)
+          continue;
+        const account = opts.playerId
+          ? useAccountStore().findAccount(opts.playerId)
+          : null;
         const nextStatus = patch.status || row?.status || "None";
         const nextProfit = patch.status && !isFootballOrderPending(patch.status)
           ? Number(patch.profit) || 0
@@ -349,7 +358,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         const keepAway = row?.away && !isPlaceholderTeam(row.away) ? row.away : "";
         const merged: FootballOrderDto = {
           ...(row || {
-            id: orderId,
+            id: `venue:OB:${orderId}`,
             orderId,
             at: Number(patch.at) || Date.now(),
             home: "",
@@ -364,6 +373,8 @@ export const useFootballOrderStore = defineStore("footballOrders", {
             status: "None",
             profit: 0,
             venue: "OB",
+            playerId: Number(opts.playerId) || 0,
+            accountName: String(account?.playerName || ""),
           }),
           orderId,
           status: nextStatus,
@@ -391,14 +402,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         )
           continue;
         try {
-          const saved = row
-            ? await saveObFootballOrder(merged)
-            : await patchFootballOrderStatus({
-                orderId,
-                status: merged.status,
-                profit: Number(merged.profit) || 0,
-                venue: "OB",
-              });
+          const saved = await saveObFootballOrder(merged);
           if (!saved || typeof saved !== "object")
             continue;
           const next = asDto({ ...merged, ...saved, id: saved.id || merged.id || orderId });
@@ -413,6 +417,20 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         catch (err) {
           this.persistError = err instanceof Error ? err.message : String(err);
         }
+      }
+    },
+    async syncVenueAccountOrders(playerId: number) {
+      const pid = Math.round(Number(playerId) || 0);
+      if (pid <= 0)
+        return;
+      await this.flushPendingPersists();
+      try {
+        const patches = await fetchObSportAccountOrderPatches(pid);
+        await this.applyVenueStatus(patches, { discoverMissing: true, playerId: pid });
+      }
+      catch (err) {
+        if (import.meta.env?.DEV)
+          console.warn("[football] venue account orders skipped", err);
       }
     },
     async syncVenueSettlement() {
@@ -436,6 +454,7 @@ export const useFootballOrderStore = defineStore("footballOrders", {
         return;
       syncing = true;
       try {
+        await this.flushPendingPersists();
         const patches = await fetchObSportPendingOrderPatches(pending);
         await this.applyVenueStatus(patches);
       }

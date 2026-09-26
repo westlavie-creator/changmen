@@ -1,7 +1,9 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import type { RayRejectMonitorTask, RegisterRayRejectMonitorInput } from "./types";
 import { saveUserLog } from "@/api/chat";
+import { saveOrders } from "@/api/order";
 import { getProvider } from "@/runtime/providers";
+import { bindArbOrderId, refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 import { useAccountStore } from "@/stores/accountStore";
 import { useUserStore } from "@/stores/userStore";
 import {
@@ -166,6 +168,28 @@ function markRejected(
     });
 }
 
+async function persistObservedRayOrder(
+  account: ReturnType<typeof useAccountStore>["accounts"][number],
+  task: RayRejectMonitorTask,
+  order: VenueOrder,
+  orders: readonly VenueOrder[],
+  bind: boolean,
+): Promise<void> {
+  try {
+    const orderId = String(order.orderId);
+    const stamped = orders.map(row => String(row.orderId) === orderId
+      ? { ...row, link: task.linkId }
+      : row);
+    await saveOrders(account, stamped);
+    if (bind)
+      await bindArbOrderId(task.linkId, "RAY", task.accountId, orderId);
+    refreshOrderListAfterBind();
+  }
+  catch {
+    // 旁路持久化失败不得中断拒单监控；下一轮状态变化仍可重试。
+  }
+}
+
 /**
  * settle 完成后登记 RAY 影子任务。全函数隔离异常且不返回编排结论。
  * 已被原编排发现的即时拒单不重复登记。
@@ -326,6 +350,15 @@ async function pollAccountTasks(
     }
 
     task.lastObservedStatus = order.status;
+    if (applied.newlyBound || order.status !== original.lastObservedStatus) {
+      await persistObservedRayOrder(
+        account,
+        task,
+        order,
+        orders,
+        applied.newlyBound,
+      );
+    }
     if (order.status === "reject") {
       markRejected(store, task, order, observedAt);
       continue;

@@ -10,6 +10,7 @@ import {
 } from "@changmen/venue-adapter/polymarket";
 import { saveOrders } from "@/api/order";
 import { resolveOrderItemLabel } from "@/shared/orderItemDisplay";
+import { refreshOrderListAfterBind } from "@/stores/betting/arbOrderBind";
 
 /** Reject 落库选项：队名优先，避免管理端只看到 Home/Away */
 function itemLabelFromBetOption(option: BetOption): string {
@@ -76,6 +77,8 @@ export async function persistPolymarketExecutionReject(
     return null;
   try {
     await saveOrders(account, [order]);
+    // Reject 已经是可展示终态，不应继续等待另一腿的拒单检测才出现在侧栏。
+    refreshOrderListAfterBind();
     return order;
   }
   catch (err) {

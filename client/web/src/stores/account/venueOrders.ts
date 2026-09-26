@@ -73,6 +73,8 @@ export interface SyncVenueOrdersOpts {
    * 缓解 PM getPlayerOrder 变快后、CLOB trades 尚未索引导致首轮漏单。
    */
   waitForOrderId?: string;
+  /** 下单成功但场馆不回 orderId（RAY）：短重试到出现本次提交后的订单。 */
+  waitForRecentOrderAfterMs?: number;
   waitForOrderAttempts?: number;
   waitForOrderGapMs?: number;
 }
@@ -100,6 +102,14 @@ function stampPendingBindLink(orders: VenueOrder[], opts?: SyncVenueOrdersOpts):
     orders[0].link = linkId;
 }
 
+function ordersIncludeRecent(orders: VenueOrder[], submittedAt: number): boolean {
+  if (!Number.isFinite(submittedAt) || submittedAt <= 0)
+    return true;
+  // 场馆 create_time 可能只有秒精度，给 10 秒时钟/解析容差。
+  const threshold = submittedAt - 10_000;
+  return orders.some(order => Number(order.createAt) >= threshold);
+}
+
 function isSportsWorkspacePath(pathname = globalThis.location?.pathname): boolean {
   return String(pathname || "").startsWith("/sports");
 }
@@ -113,6 +123,9 @@ async function syncSportsWorkspaceOrders(account: PlatformAccount): Promise<Venu
     const footballOrders = useFootballOrderStore();
     if (!footballOrders.loaded && !footballOrders.loading)
       await footballOrders.load();
+    // 与电竞 getOrders -> saveOrders 一致：账号刷新主动拉场馆完整近期列表，缺失单由体育 store upsert。
+    await footballOrders.syncVenueAccountOrders(account.accountId);
+    // 近期窗口之外的历史待结订单继续走已知 orderId 补结算。
     await footballOrders.syncVenueSettlement();
     return [];
   }
@@ -143,7 +156,8 @@ export async function syncVenueOrders(
     return undefined;
 
   const waitId = String(opts?.waitForOrderId ?? "").trim();
-  const attempts = waitId
+  const waitRecentAfter = Number(opts?.waitForRecentOrderAfterMs) || 0;
+  const attempts = waitId || waitRecentAfter > 0
     ? Math.max(1, Number(opts?.waitForOrderAttempts) || WAIT_FOR_ORDER_ATTEMPTS_DEFAULT)
     : 1;
   const gapMs = Math.max(0, Number(opts?.waitForOrderGapMs) || WAIT_FOR_ORDER_GAP_MS_DEFAULT);
@@ -158,7 +172,10 @@ export async function syncVenueOrders(
       return undefined;
     }
     orders = sortVenueOrdersNewestFirst(raw);
-    if (!waitId || ordersIncludeId(orders, waitId))
+    const targetVisible = waitId
+      ? ordersIncludeId(orders, waitId)
+      : ordersIncludeRecent(orders, waitRecentAfter);
+    if (targetVisible)
       break;
     if (attempt < attempts)
       await wait(gapMs);

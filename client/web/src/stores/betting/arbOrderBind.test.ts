@@ -1,7 +1,7 @@
 import type { VenueOrder } from "@changmen/venue-adapter/contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BetResult } from "@changmen/client-core/models/betResult";
-import { bindArbLegOrder, resolveArbBindOrderId } from "./arbOrderBind";
+import { bindArbLegOrder, bindArbOrderId, resolveArbBindOrderId } from "./arbOrderBind";
 
 const saveOrderBind = vi.hoisted(() => vi.fn());
 const wait = vi.hoisted(() => vi.fn(async () => {}));
@@ -100,5 +100,19 @@ describe("bindArbLegOrder", () => {
     );
     expect(ok).toBe(false);
     expect(saveOrderBind).toHaveBeenCalledTimes(3);
+  });
+
+  it("binds a known delayed venue order id", async () => {
+    saveOrderBind.mockResolvedValue(true);
+    const ok = await bindArbOrderId(100, "RAY", 2, "ray-late");
+    expect(ok).toBe(true);
+    expect(saveOrderBind).toHaveBeenCalledWith({
+      orders: JSON.stringify([{
+        LinkID: 100,
+        Provider: "RAY",
+        PlayerID: 2,
+        OrderID: "ray-late",
+      }]),
+    });
   });
 });

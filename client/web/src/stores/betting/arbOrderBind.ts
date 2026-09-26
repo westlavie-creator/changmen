@@ -52,12 +52,25 @@ export async function bindArbLegOrder(
   if (!orderId)
     return false;
 
+  return bindArbOrderId(linkId, result.provider, account.accountId, orderId);
+}
+
+/** 已知场馆 orderId 的 Link 绑定；供延迟发现订单的旁路监控复用。 */
+export async function bindArbOrderId(
+  linkId: number,
+  provider: string,
+  accountId: number,
+  orderId: string,
+): Promise<boolean> {
+  if (!linkId || !accountId || !String(orderId).trim())
+    return false;
+
   const payload = {
     orders: JSON.stringify([
       {
         LinkID: linkId,
-        Provider: result.provider,
-        PlayerID: account.accountId,
+        Provider: provider,
+        PlayerID: accountId,
         OrderID: orderId,
       },
     ]),
@@ -70,7 +83,7 @@ export async function bindArbLegOrder(
         return true;
       console.warn(
         `[arbOrderBind] SaveOrderBind failed attempt ${attempt}/${BIND_RETRY_TIMES}`,
-        { linkId, provider: result.provider, orderId },
+        { linkId, provider, orderId },
       );
     }
     catch (e) {

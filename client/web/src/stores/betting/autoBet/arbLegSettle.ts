@@ -58,6 +58,10 @@ export async function settleArbLeg(
         pendingBindOrderId,
         // 官方 delayed：matched 后 trades 可能滞后；等 orderId 出现再 save
         waitForOrderId: pendingBindOrderId,
+        // RAY 成功响应不返回 orderId；首轮列表尚未索引时短重试，避免漏单后等全局轮询。
+        waitForRecentOrderAfterMs: String(account.provider).toUpperCase() === "RAY"
+          ? Number(result?.beginTime) || undefined
+          : undefined,
       });
       if (canRefreshEarly && !refreshedSidebar && orders?.length) {
         refreshedSidebar = true;

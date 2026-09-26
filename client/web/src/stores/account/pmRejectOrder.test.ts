@@ -3,16 +3,21 @@ import { BetResult } from "@changmen/client-core/models/betResult";
 import { BetOption } from "@changmen/client-core/models/betOption";
 import { persistPolymarketExecutionReject } from "./pmRejectOrder";
 
-const saveOrders = vi.fn();
+const { saveOrders, refreshOrderListAfterBind } = vi.hoisted(() => ({
+  saveOrders: vi.fn(),
+  refreshOrderListAfterBind: vi.fn(),
+}));
 
 vi.mock("@/api/order", () => ({
   saveOrders: (...args: unknown[]) => saveOrders(...args),
 }));
+vi.mock("@/stores/betting/arbOrderBind", () => ({ refreshOrderListAfterBind }));
 
 describe("persistPolymarketExecutionReject", () => {
   beforeEach(() => {
     saveOrders.mockReset();
     saveOrders.mockResolvedValue(undefined);
+    refreshOrderListAfterBind.mockReset();
   });
 
   it("skips non-Polymarket", async () => {
@@ -61,6 +66,7 @@ describe("persistPolymarketExecutionReject", () => {
     expect(saveOrders.mock.calls[0][1][0].orderId).toBe(out!.orderId);
     expect(saveOrders.mock.calls[0][1][0].pmStakeUsdc).toBe(10);
     expect(saveOrders.mock.calls[0][1][0].betMoney).toBeCloseTo(67, 5);
+    expect(refreshOrderListAfterBind).toHaveBeenCalledTimes(1);
   });
 
   it("maps Away to awayName on reject", async () => {
@@ -102,6 +108,7 @@ describe("persistPolymarketExecutionReject", () => {
     expect(out?.orderId).toBe("0xdead");
     expect(out?.pmRejectReason).toBe("unfilled");
     expect(saveOrders).toHaveBeenCalledTimes(1);
+    expect(refreshOrderListAfterBind).toHaveBeenCalledTimes(1);
   });
 
   it("uses response.orderID for posted api_failed", async () => {

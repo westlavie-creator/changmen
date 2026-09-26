@@ -6,6 +6,7 @@ import { applyUnsettledStats, syncVenueOrders } from "@/stores/account/venueOrde
 const saveOrders = vi.hoisted(() => vi.fn(async () => undefined));
 const getOrders = vi.hoisted(() => vi.fn(async () => [] as VenueOrder[]));
 const footballLoad = vi.hoisted(() => vi.fn(async () => undefined));
+const footballAccountSync = vi.hoisted(() => vi.fn(async () => undefined));
 const footballSync = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/api/order", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/stores/footballOrderStore", () => ({
     loaded: true,
     loading: false,
     load: footballLoad,
+    syncVenueAccountOrders: footballAccountSync,
     syncVenueSettlement: footballSync,
   }),
 }));
@@ -179,6 +181,7 @@ describe("syncVenueOrders sports workspace", () => {
 
     const orders = await syncVenueOrders(acc);
     expect(orders).toEqual([]);
+    expect(footballAccountSync).toHaveBeenCalledWith(171);
     expect(footballSync).toHaveBeenCalledTimes(1);
     expect(getOrders).not.toHaveBeenCalled();
     expect(saveOrders).not.toHaveBeenCalled();
@@ -224,6 +227,27 @@ describe("syncVenueOrders waitForOrderId", () => {
       waitForOrderGapMs: 1,
     });
     expect(getOrders).toHaveBeenCalledTimes(3);
+    expect(saveOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries RAY-style lookup until a recent order appears", async () => {
+    getOrders
+      .mockResolvedValueOnce([
+        { ...makeVenueOrder({ orderId: "old", status: "none", odds: 2, betMoney: 10 }), createAt: 1_000 },
+      ])
+      .mockResolvedValueOnce([
+        { ...makeVenueOrder({ orderId: "ray-new", status: "none", odds: 1.8, betMoney: 20 }), createAt: 50_000 },
+      ]);
+
+    const acc = makeAccount(100);
+    acc.provider = "RAY";
+    const orders = await syncVenueOrders(acc, {
+      waitForRecentOrderAfterMs: 50_000,
+      waitForOrderGapMs: 1,
+    });
+
+    expect(getOrders).toHaveBeenCalledTimes(2);
+    expect(orders?.[0]?.orderId).toBe("ray-new");
     expect(saveOrders).toHaveBeenCalledTimes(1);
   });
 });

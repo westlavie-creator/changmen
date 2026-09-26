@@ -4,13 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerRayRejectMonitor, runRayRejectMonitorTick } from "./runtime";
 import { useRayRejectMonitorStore } from "./store";
 
-const { getOrders, saveUserLog, rayPrefs } = vi.hoisted(() => ({
+const { getOrders, saveUserLog, saveOrders, bindArbOrderId, refreshOrderListAfterBind, rayPrefs } = vi.hoisted(() => ({
   getOrders: vi.fn<() => Promise<VenueOrder[]>>(),
   saveUserLog: vi.fn(async () => true),
+  saveOrders: vi.fn(async () => true),
+  bindArbOrderId: vi.fn(async () => true),
+  refreshOrderListAfterBind: vi.fn(),
   rayPrefs: { enabled: false, monitorMinutes: 5 },
 }));
 
 vi.mock("@/api/chat", () => ({ saveUserLog }));
+vi.mock("@/api/order", () => ({ saveOrders }));
+vi.mock("@/stores/betting/arbOrderBind", () => ({ bindArbOrderId, refreshOrderListAfterBind }));
 vi.mock("@/stores/userStore", () => ({
   useUserStore: () => ({
     userId: "u1",
@@ -97,6 +102,28 @@ describe("rAY reject shadow monitor", () => {
         shadowOnly: true,
       }),
     );
+    expect(saveOrders).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 2, provider: "RAY" }),
+      [expect.objectContaining({ orderId: "ray-1", status: "reject", link: 100 })],
+    );
+    expect(refreshOrderListAfterBind).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists and binds an order when it first appears", async () => {
+    register([]);
+    const store = useRayRejectMonitorStore();
+    getOrders.mockResolvedValueOnce([venueOrder("none")]);
+    vi.setSystemTime(12_100);
+
+    runRayRejectMonitorTick();
+    await vi.waitFor(() => expect(store.taskForLink(100)?.status).toBe("watching"));
+
+    expect(saveOrders).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 2, provider: "RAY" }),
+      [expect.objectContaining({ orderId: "ray-1", link: 100 })],
+    );
+    expect(bindArbOrderId).toHaveBeenCalledWith(100, "RAY", 2, "ray-1");
+    expect(refreshOrderListAfterBind).toHaveBeenCalledTimes(1);
   });
 
   it("does not duplicate an immediate reject already handled by orchestration", () => {

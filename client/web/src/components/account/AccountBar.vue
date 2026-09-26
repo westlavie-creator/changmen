@@ -7,7 +7,7 @@ import MoneyLogDialog from "@/components/account/MoneyLogDialog.vue";
 import { useAccountStore } from "@/stores/accountStore";
 
 /** 对齐 bundle AccountView：顶栏仅 providers 横排账号卡 */
-const props = withDefaults(
+const { embedded, workspace } = withDefaults(
   defineProps<{
     embedded?: boolean;
     workspace?: "esport" | "sports";
@@ -28,8 +28,8 @@ function openMoney(account: PlatformAccount) {
 
 async function refreshOne(account: PlatformAccount) {
   await account.updateBalance();
-  if (props.workspace === "sports")
-    return;
+  // 与电竞账号刷新一致：余额之后立即拉该账号订单。
+  // 体育工作区会由 venueOrders 路由到 footballOrderStore，不进入电竞 orders。
   await account.updateOrders();
   if (String(account.provider) === "PredictFun" && account.balance != null && !account.balanceStale) {
     const { ElMessage } = await import("element-plus");

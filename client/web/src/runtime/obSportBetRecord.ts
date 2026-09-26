@@ -36,6 +36,7 @@ const WAIT_FOR_ORDER_ATTEMPTS = 6;
 const WAIT_FOR_ORDER_GAP_MS = 800;
 const ORDER_LIST_PAGE_SIZE = 100;
 const ORDER_LIST_MAX_PAGES = 3;
+const ACCOUNT_ORDER_LOOKBACK_DAYS = 1;
 
 type ObSportOrderListWindow = {
   beginTime: string;
@@ -107,6 +108,17 @@ function resolveSessionForAccountId(accountId: number): SportObSessionLocal | nu
   return resolveDefaultRecordSession();
 }
 
+/** 账号级拉单必须严格使用该账号会话，禁止凭证缺失时串到默认账号。 */
+function resolveExactSessionForAccountId(accountId: number): SportObSessionLocal | null {
+  const pid = Math.round(Number(accountId) || 0);
+  if (pid <= 0)
+    return null;
+  const hit = useAccountStore().accounts.find(row => Number(row.accountId) === pid) as
+    | ObSportBetAccountLike
+    | undefined;
+  return enrichSession(sportObSessionFromAccount(hit));
+}
+
 function isPendingStatus(status: ObSportOrderStatusPatch["status"]): boolean {
   return status === "None" || status === "Pending";
 }
@@ -157,18 +169,36 @@ function formatLocalDateTime(ms: number, endOfDay = false): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 }
 
-function orderDayWindow(at: number): ObSportOrderListWindow | null {
-  const ms = Number(at) || 0;
-  if (!Number.isFinite(ms) || ms <= 0)
+/**
+ * 对齐电竞 getOrders：一次账号刷新按账号拉整段订单列表，而不是逐单逐日请求。
+ * 起点取该账号最老待结单所在日，终点取今天；无有效时间时沿用场馆 timeType=1。
+ */
+export function accountOrderListWindow(
+  refs: ObSportPendingOrderRef[],
+  now = Date.now(),
+): ObSportOrderListWindow | null {
+  const times = refs
+    .map(row => Number(row.at) || 0)
+    .filter(ms => Number.isFinite(ms) && ms > 0);
+  if (!times.length)
     return null;
   return {
-    beginTime: formatLocalDateTime(ms),
-    endTime: formatLocalDateTime(ms, true),
+    beginTime: formatLocalDateTime(Math.min(...times)),
+    endTime: formatLocalDateTime(now, true),
   };
 }
 
-function windowKey(window: ObSportOrderListWindow | null): string {
-  return window ? `${window.beginTime}|${window.endTime}` : "default";
+/** 对齐电竞 OB：账号刷新拉昨天 00:00:00 到今天 23:59:59。 */
+export function recentAccountOrderListWindow(
+  now = Date.now(),
+  lookbackDays = ACCOUNT_ORDER_LOOKBACK_DAYS,
+): ObSportOrderListWindow {
+  const start = new Date(now);
+  start.setDate(start.getDate() - Math.max(0, Math.floor(lookbackDays)));
+  return {
+    beginTime: formatLocalDateTime(start.getTime()),
+    endTime: formatLocalDateTime(now, true),
+  };
 }
 
 async function fetchListPatches(
@@ -206,29 +236,19 @@ async function fetchPatchesWithSession(
   refs: ObSportPendingOrderRef[],
 ): Promise<ObSportOrderStatusPatch[]> {
   const ids = [...new Set(refs.map(row => String(row.orderId || "").trim()).filter(Boolean))];
+  const want = new Set(ids);
   // 已结盈亏以注单列表为准；queryOrderStatus 只补还没出现在列表里的拒单。
-  const byWindow = new Map<string, { ids: string[]; window: ObSportOrderListWindow | null }>();
-  for (const ref of refs) {
-    const orderId = String(ref.orderId || "").trim();
-    if (!orderId)
-      continue;
-    const window = orderDayWindow(Number(ref.at) || 0);
-    const key = windowKey(window);
-    const bucket = byWindow.get(key) ?? { ids: [], window };
-    if (!bucket.ids.includes(orderId))
-      bucket.ids.push(orderId);
-    byWindow.set(key, bucket);
-  }
-  const fromList = mergePatches(
-    await Promise.all([...byWindow.values()].map(row => fetchListPatches(session, row.ids, row.window))),
-  );
+  // 主链路与电竞一致：账号级一次拉未结 + 已结列表，再按 orderId 覆盖本地待结订单。
+  const accountRows = await fetchListPatches(session, [], accountOrderListWindow(refs));
+  const fromList = accountRows.filter(row => want.has(row.orderId));
   const have = new Set(fromList.map(row => row.orderId));
-  if (!ids.length)
+  const missingIds = ids.filter(id => !have.has(id));
+  if (!missingIds.length)
     return fromList;
   try {
     const queried = await getObSportPb(
       OB_SPORT_QUERY_ORDER_STATUS_PATH,
-      { orderNos: ids.join(",") },
+      { orderNos: missingIds.join(",") },
       session,
     );
     const fromQuery = parseObSportQueryOrderStatus(queried).filter(row => !have.has(row.orderId));
@@ -248,6 +268,19 @@ export async function fetchObSportOrderStatusPatches(orderIds: string[]): Promis
   if (!session)
     return [];
   return fetchPatchesWithSession(session, ids.map(orderId => ({ orderId })));
+}
+
+/**
+ * 对齐电竞 provider.getOrders：按一个体育账号批量拉近期未结 + 已结订单。
+ * 返回场馆完整列表，调用方负责 upsert；不依赖本地已经存在 orderId。
+ */
+export async function fetchObSportAccountOrderPatches(
+  playerId: number,
+): Promise<ObSportOrderStatusPatch[]> {
+  const session = resolveExactSessionForAccountId(playerId);
+  if (!session)
+    return [];
+  return fetchListPatches(session, [], recentAccountOrderListWindow());
 }
 
 /**

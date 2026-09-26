@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  POD_SPORT_ORDERS_MAX,
   formatPodSportOrderMeta,
   groupPodSportOrders,
   mergePodSportOrder,
@@ -52,5 +53,18 @@ describe("podSportOrders", () => {
 
   it("keeps auto from numeric flags", () => {
     expect(parsePodSportOrders([{ id: "a", auto: 1, at: 1 }])[0].auto).toBe(true);
+  });
+
+  it("keeps the same 1024 daily rows as the esport order list", () => {
+    const rows = Array.from({ length: 1100 }, (_, index) => ({
+      ...row,
+      id: `daily-${index}`,
+      orderId: `venue-${index}`,
+      at: index + 1,
+    }));
+    const parsed = parsePodSportOrders(rows);
+    expect(POD_SPORT_ORDERS_MAX).toBe(1024);
+    expect(parsed).toHaveLength(1024);
+    expect(parsed[0]?.id).toBe("daily-1099");
   });
 });

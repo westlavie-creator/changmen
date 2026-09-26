@@ -175,7 +175,8 @@ export async function listFootballOrders(user, body = {}) {
   const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const date = String(body.date || "").trim() || fallback;
   try {
-    const rows = await sb.fetchFootballOrdersByUser(userId, { date, limit: 200 });
+    // 与电竞 Client_GetOrderList 的按日 pageSize=1024 保持一致。
+    const rows = await sb.fetchFootballOrdersByUser(userId, { date, limit: 1024 });
     return ok({ date, list: rows.map(publicFootballOrder).filter(Boolean).filter(isObFootballOrder) });
   }
   catch (err) {

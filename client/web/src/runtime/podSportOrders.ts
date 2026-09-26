@@ -5,7 +5,8 @@
 import { formatPodAgo, formatPodPrice } from "@/runtime/podAlerts";
 import { formatPodStake } from "@/runtime/podBetTicket";
 
-export const POD_SPORT_ORDERS_MAX = 200;
+/** 与电竞订单栏 Client_GetOrderList pageSize 保持一致。 */
+export const POD_SPORT_ORDERS_MAX = 1024;
 
 export type FootballOrderStatus = "None" | "Pending" | "Win" | "Lose" | "Reject" | "Return";
 

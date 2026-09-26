@@ -51,6 +51,8 @@ assert.match(storeSrc, /placed_at >=/);
 assert.match(storeSrc, /patchFootballOrderStatus/);
 assert.match(storeSrc, /ADD COLUMN IF NOT EXISTS status/);
 assert.match(storeSrc, /ADD COLUMN IF NOT EXISTS profit/);
+assert.match(storeSrc, /Number\(opts\.limit\) \|\| 1024/);
+assert.match(serviceSrc, /fetchFootballOrdersByUser\(userId, \{ date, limit: 1024 \}\)/);
 assert.equal(sqlTableHits(storeSrc, "orders"), false, "football_orders_store 不得 SQL 引用电竞 orders");
 assert.equal(sqlTableHits(storeSrc, "client_matches"), false);
 assert.doesNotMatch(serviceSrc, /order_store|admin_orders|upsertOrders|Client_SaveOrder/);

@@ -205,7 +205,8 @@ export async function fetchFootballOrdersByUser(userId, opts = {}) {
   if (!pool)
     return [];
   await ensureTable(pool);
-  const limit = Math.min(Math.max(Number(opts.limit) || 200, 1), 500);
+  // 与电竞按日订单列表上限一致；只控制单日返回量，不扩展日期范围。
+  const limit = Math.min(Math.max(Number(opts.limit) || 1024, 1), 1024);
   const clauses = ["o.user_id = $1::uuid"];
   const params = [userId];
   const dateKey = String(opts.date || "").trim();

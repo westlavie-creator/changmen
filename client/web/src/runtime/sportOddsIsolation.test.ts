@@ -447,8 +447,8 @@ describe("sport / esport UI isolation", () => {
     expect(session).toMatch(/syncVenueSettlement/);
     expect(session).not.toMatch(/useOrderStore|fetchOrders\(|applyPmAutoTransportOnLogin|applyPfAutoTransportOnLogin/);
     const accountBar = readFileSync(join(root, "components/account/AccountBar.vue"), "utf8");
-    expect(accountBar).toMatch(/workspace === ["']sports["']/);
-    expect(accountBar).toMatch(/updateOrders/);
+    expect(accountBar).toMatch(/await account\.updateBalance\(\);[\s\S]*await account\.updateOrders\(\);/);
+    expect(accountBar).not.toMatch(/workspace === ["']sports["'][\s\S]{0,80}return/);
     expect(accountBar).not.toMatch(/useFootballOrderStore|Client_SaveOrder|useOrderStore/);
     const accountCard = readFileSync(join(root, "components/account/AccountCard.vue"), "utf8");
     expect(accountCard).toMatch(/workspace !== ["']sports["']/);
