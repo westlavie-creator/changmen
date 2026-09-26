@@ -477,6 +477,11 @@ describe("sport / esport UI isolation", () => {
     const accountEdit = readFileSync(join(root, "components/account/AccountEditDialog.vue"), "utf8");
     expect(accountEdit).toMatch(/const savingSportOb = onSportsWorkspace\.value/);
     expect(accountEdit).toMatch(/if \(bindVenueMember && savingSportOb\)/);
+    expect(accountEdit).toMatch(/v-model="obTokenTab"/);
+    expect(accountEdit).toMatch(/onSportsWorkspace\.value \? "sport" : "esport"/);
+    expect(accountEdit).toMatch(/体育 Token（requestId）/);
+    expect(accountEdit).toMatch(/体育会员 UID（cuid）/);
+    expect(accountEdit).not.toMatch(/model-value="esport"/);
     expect(accountEdit).not.toMatch(/const sportOnlyOb/);
     const balanceRefresh = readFileSync(join(root, "stores/account/balanceRefresh.ts"), "utf8");
     expect(balanceRefresh).toMatch(/sportBalance/);

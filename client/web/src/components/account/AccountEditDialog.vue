@@ -104,6 +104,7 @@ const emit = defineEmits<{ close: []; multiplySaved: [multiply: number] }>();
 
 const route = useRoute();
 const onSportsWorkspace = computed(() => String(route.path || "").startsWith("/sports"));
+const obTokenTab = ref<"esport" | "sport">(onSportsWorkspace.value ? "sport" : "esport");
 
 const accountStore = useAccountStore();
 const userStore = useUserStore();
@@ -283,6 +284,7 @@ function resetForm(acc?: PlatformAccount) {
   const src = acc ?? new PlatformAccount({ accountId: 0, playerName: "", provider: "Polymarket" });
   Object.assign(form, createAccountEditFormStateFromPlatformAccount(src));
   pasteRaw.value = "";
+  obTokenTab.value = onSportsWorkspace.value ? "sport" : "esport";
   gameShow.value = false;
   rateLocked.value = form.provider === "PB";
   if (form.provider === "Polymarket") {
@@ -723,6 +725,7 @@ async function applyPaste() {
         return;
       }
       form.provider = "OB";
+      obTokenTab.value = "sport";
       sportObForm.token = sportSession.session.token || "";
       const pastedGw = String(sportSession.session.gateway || "").trim();
       const pastedRef = String(sportSession.session.referer || "").trim();
@@ -764,6 +767,8 @@ async function applyPaste() {
         ? [parsed.gateway]
         : [];
     form.provider = parsed.provider;
+    if (parsed.provider === "OB")
+      obTokenTab.value = "esport";
     form.token = parsed.token ?? "";
     form.referer = parsed.referer ?? "";
     if (gateways.length)
@@ -1487,56 +1492,74 @@ function unlockRate() {
     >
       <template v-if="form.provider === 'OB'" #token>
         <fieldset class="ob-token-fieldset">
-          <legend>OB Token</legend>
-          <el-tabs class="ob-token-tabs" model-value="esport">
+          <legend>OB 账号凭证</legend>
+          <el-tabs v-model="obTokenTab" class="ob-token-tabs">
             <el-tab-pane label="电竞" name="esport">
-              <el-form-item label="网关：">
-                <el-input v-model="form.gateway" :disabled="readonly" />
-              </el-form-item>
-              <el-form-item label="Token：">
+              <p class="ob-token-note">
+                电竞凭证用于电竞余额、注单和下注，与体育凭证独立保存。
+              </p>
+              <el-form-item label="电竞 API 网关：" label-width="130px">
                 <el-input
-                  v-model="form.token"
+                  v-model="form.gateway"
                   :disabled="readonly"
-                  placeholder="电竞 OB token，体育 token 请填到体育页签"
+                  placeholder="电竞接口地址"
                 />
               </el-form-item>
-              <el-form-item label="Referer：">
+              <el-form-item label="电竞 Token：" label-width="130px">
+                <el-input
+                  v-model="form.token"
+                  show-password
+                  autocomplete="off"
+                  :disabled="readonly"
+                  placeholder="电竞下注请求携带的 Token"
+                />
+              </el-form-item>
+              <el-form-item label="电竞 Referer：" label-width="130px">
                 <el-input v-model="form.referer" :disabled="readonly" />
               </el-form-item>
-              <el-form-item label="UserAgent:">
+              <el-form-item label="电竞 UserAgent：" label-width="130px">
                 <el-input
                   v-model="form.userAgent"
                   placeholder="请求访问的浏览器标识，不知道可留空"
                   :disabled="readonly"
                 />
               </el-form-item>
-              <el-form-item label="Cookie：">
+              <el-form-item label="电竞 Cookie：" label-width="130px">
                 <el-input v-model="form.cookie" :disabled="readonly" />
               </el-form-item>
             </el-tab-pane>
             <el-tab-pane label="体育" name="sport">
-              <el-form-item label="网关：">
+              <p class="ob-token-note">
+                体育凭证用于体育余额及足球/POD 下单，保存时不会修改电竞 Token。
+              </p>
+              <el-form-item label="体育 API 网关：" label-width="130px">
                 <el-input
                   v-model="sportObForm.gateway"
                   :disabled="readonly"
-                  placeholder="体育 OB 下单网关"
+                  placeholder="OB 体育接口 origin，例如 https://api.example.com"
                 />
               </el-form-item>
-              <el-form-item label="Token：">
+              <el-form-item label="体育 Token（requestId）：" label-width="170px">
                 <el-input
                   v-model="sportObForm.token"
+                  show-password
+                  autocomplete="off"
                   :disabled="readonly"
-                  placeholder="体育 OB token，用于足球/POD 跟单下注"
+                  placeholder="体育请求头 requestId"
                 />
               </el-form-item>
-              <el-form-item label="Referer：">
-                <el-input v-model="sportObForm.referer" :disabled="readonly" />
+              <el-form-item label="来源地址（Referer）：" label-width="170px">
+                <el-input
+                  v-model="sportObForm.referer"
+                  :disabled="readonly"
+                  placeholder="Referer，通常由插件自动填入"
+                />
               </el-form-item>
-              <el-form-item label="账号ID：">
+              <el-form-item label="体育会员 UID（cuid）：" label-width="170px">
                 <el-input
                   v-model="sportObForm.venueMemberId"
                   :disabled="readonly"
-                  placeholder="体育 OB memberId / uid"
+                  placeholder="场馆 cuid，由插件自动识别"
                 />
               </el-form-item>
             </el-tab-pane>
@@ -1817,6 +1840,16 @@ function unlockRate() {
 
 .ob-token-tabs :deep(.el-tabs__content) {
   padding-top: 8px;
+}
+
+.ob-token-note {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .poly-credential-hint {
