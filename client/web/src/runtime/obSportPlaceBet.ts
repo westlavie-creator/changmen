@@ -7,7 +7,7 @@
  *   提交 `betPB`
  * 旧预检/提交路径在官网 PC 包里不存在（预检固定业务不支持，提交 404）。
  */
-import { pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
+import { isObSportMemberId, pickObSportBetAccount, sportObSessionFromAccount } from "@/runtime/obSportBetAccount";
 import { obSportPlaceAccepted, oddsFromObSportPlace } from "@/runtime/obSportOrderStatus";
 import { postObSportPb } from "@/runtime/obSportFootballFetch";
 import {
@@ -613,13 +613,18 @@ function resolveObSportPlaceSession(accountId = 0): SportObSessionLocal | { erro
   if (!session?.token)
     return { error: "请在 OB 下注账号里填入体育 token" };
   const collect = readLocalSportObSession();
-  if (!session.gateway)
+  const sameCollectToken = Boolean(
+    collect?.token && String(collect.token).trim() === String(session.token).trim(),
+  );
+  if (!session.gateway && sameCollectToken)
     session.gateway = String(collect?.gateway || collect?.lastGateway || "").trim();
   if (!session.gateway)
     return { error: "下注账号缺少网关" };
   // 官网 checkId 中间段是 TY_SDK_USER_ID；缺 uid 会变成 0。
-  if (!session.sessionId)
+  if (!isObSportMemberId(session.sessionId) && sameCollectToken)
     session.sessionId = String(collect?.sessionId || collect?.uid || "").trim();
+  if (!isObSportMemberId(session.sessionId))
+    return { error: "下注账号缺少有效体育 UID" };
   if (!session.uid)
     session.uid = session.sessionId;
   return session;

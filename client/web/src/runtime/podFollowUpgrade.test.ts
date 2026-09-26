@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseObSportAmount, resolveObSportAmountSession } from "@/runtime/obSportAmount";
 import { podBoardMarketsFromObDetail, mergePodBoardMarkets } from "@/runtime/podMarketPrefetch";
 import { podYaboDailyLossBlocked } from "@/runtime/podYabo/loss";
@@ -7,7 +7,7 @@ describe("obSportAmount", () => {
   it("reads amount from nested panda envelopes", () => {
     expect(parseObSportAmount({ data: { amount: 1288.5 } })).toBe(1288.5);
     expect(parseObSportAmount({ gold: "80" })).toBe(80);
-    expect(parseObSportAmount({})).toBe(0);
+    expect(() => parseObSportAmount({})).toThrow("体育余额响应缺少有效金额");
   });
 
   it("rewrites official shell gateway before amount fetch", () => {
@@ -22,6 +22,30 @@ describe("obSportAmount", () => {
     });
     expect(session?.gateway).toBe("https://api.dbsporxxxw1box.com");
     expect(session?.uid).toBe("1009139033518055424");
+  });
+
+  it("never fills an account from a different collected sport token", () => {
+    vi.stubGlobal("localStorage", {
+      getItem: () => JSON.stringify({
+        kind: "sport",
+        token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        gateway: "https://api.other.example",
+        sessionId: "53554662319712599617",
+      }),
+    });
+    try {
+      const session = resolveObSportAmountSession({
+        provider: "OB",
+        sportOb: {
+          token: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        },
+      });
+      expect(session?.gateway).toBe("");
+      expect(session?.sessionId).toBe("");
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

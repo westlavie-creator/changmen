@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCompleteObSportCredential,
   isObSportBetToken,
+  isObSportMemberId,
   pickObSportBetAccount,
   pickObSportBetAccounts,
   readObSportDisplayBalance,
@@ -12,6 +14,18 @@ describe("obSportBetAccount", () => {
     expect(isObSportBetToken("e9734a4d633b350be25b428556622ca2f161b633")).toBe(true);
     expect(isObSportBetToken("1234567890123456789")).toBe(false);
     expect(isObSportBetToken("")).toBe(false);
+    expect(isObSportMemberId("535543613407503536")).toBe(true);
+    expect(isObSportMemberId("sport-e9734a4d")).toBe(false);
+    expect(isCompleteObSportCredential({
+      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      gateway: "https://api.jpbfa750.com",
+      venueMemberId: "535543613407503536",
+    })).toBe(true);
+    expect(isCompleteObSportCredential({
+      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      gateway: "https://api.jpbfa750.com",
+      venueMemberId: "sport-e9734a4d",
+    })).toBe(false);
   });
 
   it("builds a sport session from sportOb without using the esport token", () => {

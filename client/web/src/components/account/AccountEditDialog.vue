@@ -29,7 +29,11 @@ import { useUserStore } from "@/stores/userStore";
 import { getApiBase } from "@/config/apiBase";
 import { getToken } from "@/api/client";
 import { parseSportObSessionInput } from "@/runtime/obSportSessionLocal";
-import { isObSportBetToken } from "@/runtime/obSportBetAccount";
+import {
+  isCompleteObSportCredential,
+  isObSportBetToken,
+  isObSportMemberId,
+} from "@/runtime/obSportBetAccount";
 import { isObSportPcShellHost, resolveObSportHttpGateway } from "@/runtime/obSportTrial";
 import {
   createOrDerivePolymarketApiCreds,
@@ -337,6 +341,25 @@ function sportObFromForm(): AccountRecord["sportOb"] | undefined {
     referer: sportObForm.referer.trim() || undefined,
     venueMemberId: sportObForm.venueMemberId.trim() || undefined,
   };
+}
+
+async function probeObSportCredentialForSave(
+  sportOb: NonNullable<AccountRecord["sportOb"]>,
+): Promise<number> {
+  if (!sportOb.gateway)
+    throw new Error("体育网关未识别完成，无法保存");
+  if (!isObSportMemberId(sportOb.venueMemberId))
+    throw new Error("体育账号 UID 无效，无法保存");
+  if (!isCompleteObSportCredential(sportOb))
+    throw new Error("体育凭证不完整，无法保存");
+  const { fetchObSportAmountForAccount } = await import("@/runtime/obSportAmount");
+  try {
+    return await fetchObSportAmountForAccount({ provider: "OB", sportOb });
+  }
+  catch (err) {
+    const msg = err instanceof Error ? err.message : String(err || "");
+    throw new Error(`体育余额校验失败：${msg || "请检查 Token、网关和 UID"}`);
+  }
 }
 
 function syncPolymarketFieldsFromToken(token: string) {
@@ -1207,10 +1230,13 @@ async function save() {
       && Boolean(sportOb?.token);
 
     let venue: AccountBalanceResult | undefined;
+    let sportAmount: number | undefined;
     if (bindVenueMember && savingSportOb) {
-      if (!patch.venueMemberId)
-        patch.venueMemberId = form.venueMemberId
-          || `sport-${String(sportOb?.token || "").slice(0, 12)}`;
+      loading = ElLoading.service({ fullscreen: true, text: "校验体育余额与凭证..." });
+      sportAmount = await probeObSportCredentialForSave(sportOb!);
+      patch.venueMemberId = String(sportOb!.venueMemberId || "").trim();
+      loading.close();
+      loading = undefined;
     }
     else if (bindVenueMember) {
       loading = ElLoading.service({ fullscreen: true, text: "校验余额与场馆账号..." });
@@ -1265,6 +1291,11 @@ async function save() {
       });
       if (onSportsWorkspace.value && patch.provider === "OB")
         acc.sportOb = sportOb;
+      if (onSportsWorkspace.value && patch.provider === "OB" && sportAmount !== undefined) {
+        acc.sportBalance = sportAmount;
+        acc.sportBalanceStale = false;
+        acc.sportBalanceError = "";
+      }
       if (form.provider === "Polymarket") {
         const pk = await resolvePolymarketPrivateKeyForSave();
         await ensurePrivateKeyInVault(Number(acc.accountId), pk);

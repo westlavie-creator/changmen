@@ -10,6 +10,22 @@ export function isObSportBetToken(token: string): boolean {
   return /^[0-9a-f]{16,}$/i.test(t) && !/^\d+$/.test(t);
 }
 
+export function isObSportMemberId(value: unknown): boolean {
+  return /^\d{18,}$/.test(String(value || "").trim());
+}
+
+export function isCompleteObSportCredential(
+  credential: ObSportCredential | null | undefined,
+): boolean {
+  if (!credential || !isObSportBetToken(credential.token))
+    return false;
+  const gateway = resolveObSportHttpGateway(
+    String(credential.gateway || "").trim(),
+    String(credential.referer || "").trim(),
+  );
+  return Boolean(gateway && isObSportMemberId(credential.venueMemberId));
+}
+
 export type ObSportCredential = {
   token: string;
   gateway?: string;

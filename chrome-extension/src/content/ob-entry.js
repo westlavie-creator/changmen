@@ -51,6 +51,21 @@ function originSlash(href) {
   }
 }
 
+/** 页面壳不是 yewu* API 网关；误用会在余额请求的 OPTIONS 阶段返回 405。 */
+export function normalizeObSportGatewayCandidate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+    if (!/^https?:$/i.test(url.protocol)) return "";
+    if (/^(?:app-h5|user-pc(?:-new)?)\./i.test(url.hostname)) return "";
+    return url.origin;
+  }
+  catch {
+    return "";
+  }
+}
+
 function hrefFromQuery(search, pageHref) {
   const raw = String(search || "").trim();
   if (!raw) return "";
@@ -245,13 +260,13 @@ export function discoverObSportGatewayFromStorage(sessionStore, localStore) {
   for (const store of stores) {
     if (!store) continue;
     const best = unwrapTySdkValue(storageGet(store, "TY_SDK_BEST_API"));
-    const bestUrl = asNonEmptyString(best).replace(/\/$/, "");
-    if (/^https?:\/\//i.test(bestUrl)) return bestUrl;
+    const bestUrl = normalizeObSportGatewayCandidate(asNonEmptyString(best));
+    if (bestUrl) return bestUrl;
     const list = unwrapTySdkValue(storageGet(store, "TY_SDK_DOMAIN_API_01"));
     const rows = Array.isArray(list) ? list : [];
     for (const row of rows) {
-      const api = asNonEmptyString(row?.api).replace(/\/$/, "");
-      if (/^https?:\/\//i.test(api)) return api;
+      const api = normalizeObSportGatewayCandidate(asNonEmptyString(row?.api));
+      if (api) return api;
     }
   }
   return null;
@@ -283,7 +298,8 @@ export function discoverObSportGateway(
           path,
         );
       if (!isObApi) continue;
-      const origin = u.origin;
+      const origin = normalizeObSportGatewayCandidate(u.origin);
+      if (!origin) continue;
       if (seen.has(origin)) continue;
       seen.add(origin);
       hosts.push(origin);
@@ -369,7 +385,7 @@ export function mergeObSportMerchantEntry(performanceEntry, storedEntry) {
     ...performanceEntry,
     ...storedEntry,
     token: performanceEntry.token,
-    gateway: String(storedEntry.gateway || performanceEntry.gateway || "").trim().replace(/\/$/, ""),
+    gateway: normalizeObSportGatewayCandidate(storedEntry.gateway || performanceEntry.gateway),
     sessionId: String(storedEntry.sessionId || storedEntry.uid || performanceEntry.sessionId || "").trim(),
     uid: String(storedEntry.uid || storedEntry.sessionId || performanceEntry.uid || "").trim(),
   };
@@ -436,7 +452,7 @@ export function findObSportIframeHref(doc = document) {
  * @param {string} [wsUrl]
  */
 export function buildObSportConfig(entry, gateway, wsUrl = "") {
-  const gate = gateway ? String(gateway).replace(/\/$/, "") : "";
+  const gate = normalizeObSportGatewayCandidate(gateway);
   const push = String(wsUrl || "").trim();
   const sessionId = String(entry.sessionId || entry.uid || "").trim();
   const uid = String(entry.uid || entry.sessionId || "").trim();
@@ -447,6 +463,7 @@ export function buildObSportConfig(entry, gateway, wsUrl = "") {
     token: entry.token,
     sessionId,
     ...(uid ? { uid } : {}),
+    ...(uid ? { cuid: uid, venueMemberId: uid } : {}),
     api: entry.api || "",
     referer: entry.referer,
     ...(push ? { wsUrl: push } : {}),
@@ -458,6 +475,7 @@ export function buildObSportConfig(entry, gateway, wsUrl = "") {
     token: entry.token,
     referer: entry.referer,
     sessionId,
+    ...(uid ? { uid, cuid: uid, venueMemberId: uid } : {}),
     data: globalThis.btoa(JSON.stringify(payload)),
   };
 }

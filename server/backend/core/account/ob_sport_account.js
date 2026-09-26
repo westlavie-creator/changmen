@@ -32,7 +32,16 @@ export function cloneSportOb(raw) {
 }
 
 export function mergeSportObPatch(stored, patch) {
-  const next = { ...cloneSportOb(stored), ...cloneSportOb(patch) };
+  const current = cloneSportOb(stored);
+  const incoming = cloneSportOb(patch);
+  // 体育 token、网关、UID 是同一组凭证。token 变化时不得继承旧 token
+  // 的网关或会员 ID；同 token 才允许补 referer 等局部字段。
+  const tokenChanged = Boolean(
+    incoming.token
+    && current.token
+    && incoming.token !== current.token,
+  );
+  const next = tokenChanged ? incoming : { ...current, ...incoming };
   return next.token ? next : undefined;
 }
 

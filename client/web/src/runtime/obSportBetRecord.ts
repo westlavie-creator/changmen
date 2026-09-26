@@ -14,6 +14,7 @@
  * 必须用下单账号的 sportOb 拉单；禁止电竞 orderList 接口。
  */
 import {
+  isObSportMemberId,
   pickObSportBetAccount,
   sportObSessionFromAccount,
   type ObSportBetAccountLike,
@@ -72,11 +73,14 @@ function enrichSession(session: SportObSessionLocal | null): SportObSessionLocal
   if (!session?.token)
     return null;
   const collect = readLocalSportObSession();
-  if (!session.gateway)
+  const sameCollectToken = Boolean(
+    collect?.token && String(collect.token).trim() === String(session.token).trim(),
+  );
+  if (!session.gateway && sameCollectToken)
     session.gateway = String(collect?.gateway || collect?.lastGateway || "").trim();
-  if (!session.sessionId)
+  if (!isObSportMemberId(session.sessionId) && sameCollectToken)
     session.sessionId = String(collect?.sessionId || collect?.uid || "").trim();
-  if (!session.gateway)
+  if (!session.gateway || !isObSportMemberId(session.sessionId))
     return null;
   return session;
 }

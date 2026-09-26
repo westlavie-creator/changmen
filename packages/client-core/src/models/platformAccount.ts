@@ -50,6 +50,8 @@ export class PlatformAccount implements AccountRecord {
    */
   sportBalance?: number;
   sportBalanceStale = false;
+  /** 体育余额最近一次失败原因；仅内存展示，不落 ACCOUNT。 */
+  sportBalanceError = "";
   active = false;
   today = 0;
   orderCount = 0;
@@ -102,6 +104,7 @@ export class PlatformAccount implements AccountRecord {
       venueId?: string;
       sportBalance?: number;
       sportBalanceStale?: boolean;
+      sportBalanceError?: string;
     };
     const { balance: _storedBalance, active: _storedActive, venueId: legacyVenueId, sportBalance: _sportBal, sportBalanceStale: _sportStale, ...rest } = legacy;
     Object.assign(this, rest);
@@ -112,6 +115,7 @@ export class PlatformAccount implements AccountRecord {
     this.balanceStale = false;
     this.sportBalance = undefined;
     this.sportBalanceStale = false;
+    this.sportBalanceError = "";
     this.active = false;
     this.credit = raw.credit ?? 0;
     this.currency = resolveAccountCurrency(this.provider, raw.currency);
@@ -250,7 +254,14 @@ export class PlatformAccount implements AccountRecord {
   }
 
   toJSON(): AccountRecord {
-    const { loadingBalance: _lb, balanceStale: _stale, sportBalance: _sb, sportBalanceStale: _sbs, ...rest } = this;
+    const {
+      loadingBalance: _lb,
+      balanceStale: _stale,
+      sportBalance: _sb,
+      sportBalanceStale: _sbs,
+      sportBalanceError: _sbe,
+      ...rest
+    } = this;
     return JSON.parse(JSON.stringify(rest)) as AccountRecord;
   }
 

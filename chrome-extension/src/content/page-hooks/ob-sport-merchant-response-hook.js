@@ -43,6 +43,44 @@
     window.postMessage({ source: SOURCE, kind: "credential", ...payload }, "*");
   }
 
+  function gatewayCandidate(value) {
+    const raw = String(value || "").trim();
+    if (!raw)
+      return "";
+    try {
+      const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+      if (!/^https?:$/i.test(url.protocol)
+        || /^(?:app-h5|user-pc(?:-new)?)\./i.test(url.hostname))
+        return "";
+      return url.origin;
+    }
+    catch {
+      return "";
+    }
+  }
+
+  function findExplicitGateway(value, depth = 0, seen = new Set()) {
+    if (depth > 6 || value == null || typeof value !== "object" || seen.has(value))
+      return "";
+    seen.add(value);
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = findExplicitGateway(item, depth + 1, seen);
+        if (found) return found;
+      }
+      return "";
+    }
+    for (const key of ["origin", "gateway", "api", "apiUrl", "baseUrl"]) {
+      const found = gatewayCandidate(value[key]);
+      if (found) return found;
+    }
+    for (const item of Object.values(value)) {
+      const found = findExplicitGateway(item, depth + 1, seen);
+      if (found) return found;
+    }
+    return "";
+  }
+
   function findLaunchCredential(value, depth = 0, seen = new Set()) {
     if (depth > 6 || value == null)
       return null;
@@ -54,7 +92,7 @@
         const url = new URL(text);
         const token = String(url.searchParams.get("token") || "").trim();
         if (isSportToken(token))
-          return { token, gateway: url.origin, launchHref: url.href };
+          return { token, launchHref: url.href };
       }
       catch {
         if ((text.startsWith("{") || text.startsWith("[")) && text.length < 2_000_000) {
@@ -108,10 +146,10 @@
   function inspectResponse(url, body) {
     if (!url)
       return;
-    if (/\/game\/api\/v1\/venue\/launchV6\/?$/i.test(url.pathname)) {
+    if (/\/game\/api\/v1\/venue\/launch(?:V\d+)?\/?$/i.test(url.pathname)) {
       const found = findLaunchCredential(body);
       if (found)
-        postCredential(found);
+        postCredential({ ...found, gateway: findExplicitGateway(body) });
       return;
     }
     if (!/^\/yewu12\/api\/user\/getUserInfo\/?$/i.test(url.pathname))
@@ -128,7 +166,7 @@
     globalThis.fetch = async function changmenObSportMerchantFetch(input, init) {
       const url = requestUrl(input);
       const response = await originalFetch.call(this, input, init);
-      if (url && (/\/game\/api\/v1\/venue\/launchV6\/?$/i.test(url.pathname)
+      if (url && (/\/game\/api\/v1\/venue\/launch(?:V\d+)?\/?$/i.test(url.pathname)
         || /^\/yewu12\/api\/user\/getUserInfo\/?$/i.test(url.pathname))) {
         void response.clone().text()
           .then(text => inspectResponse(url, parseBody(text)))
@@ -143,7 +181,7 @@
     const originalOpen = Xhr.prototype.open;
     Xhr.prototype.open = function changmenObSportMerchantOpen(method, url, ...rest) {
       const parsed = requestUrl(url);
-      if (parsed && (/\/game\/api\/v1\/venue\/launchV6\/?$/i.test(parsed.pathname)
+      if (parsed && (/\/game\/api\/v1\/venue\/launch(?:V\d+)?\/?$/i.test(parsed.pathname)
         || /^\/yewu12\/api\/user\/getUserInfo\/?$/i.test(parsed.pathname))) {
         this.addEventListener("load", () => {
           const body = this.responseType === "json" ? this.response : parseBody(this.responseText);

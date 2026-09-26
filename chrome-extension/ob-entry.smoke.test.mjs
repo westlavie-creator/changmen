@@ -14,6 +14,7 @@ const {
   discoverObSportWsUrl,
   discoverObSportMerchantEntry,
   mergeObSportMerchantEntry,
+  normalizeObSportGatewayCandidate,
   buildObEsportConfig,
   buildObSportConfig,
   resolveObSportPageEntry,
@@ -132,6 +133,17 @@ const perf = {
   ],
 };
 assert.equal(discoverObSportGateway(perf), "https://api.937kddt.com");
+assert.equal(normalizeObSportGatewayCandidate("https://app-h5.janbo0931.com/"), "");
+assert.equal(normalizeObSportGatewayCandidate("https://api.cgfoznmy.com/path"), "https://api.cgfoznmy.com");
+assert.equal(
+  discoverObSportGateway({
+    getEntriesByType: () => [
+      { name: "https://app-h5.janbo0931.com/yewu12/user/amount?uid=1" },
+      { name: "https://api.cgfoznmy.com/yewu11/v1/w/getFilterMatchListPB" },
+    ],
+  }),
+  "https://api.cgfoznmy.com",
+);
 assert.equal(
   discoverObSportWsUrl({ getEntriesByType: () => [{ name: "wss://mqtt.example:8084/mqtt" }] }, { getItem: () => "" }),
   "wss://mqtt.example:8084/mqtt",
@@ -168,11 +180,11 @@ assert.equal(
 );
 const completeMerchant = mergeObSportMerchantEntry(merchant, {
   ...merchant,
-  gateway: "https://app-h5.janbo0931.com/",
+  gateway: "https://api.cgfoznmy.com/",
   sessionId: "53554662319712599617",
   uid: "53554662319712599617",
 });
-assert.equal(completeMerchant?.gateway, "https://app-h5.janbo0931.com");
+assert.equal(completeMerchant?.gateway, "https://api.cgfoznmy.com");
 assert.equal(completeMerchant?.sessionId, "53554662319712599617");
 
 console.log("ob-entry.smoke: ok");

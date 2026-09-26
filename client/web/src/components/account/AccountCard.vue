@@ -38,6 +38,29 @@ const shownStale = computed(() => {
   return Boolean(props.account.balanceStale);
 });
 
+const shownErrorLabel = computed(() => {
+  if (props.workspace !== "sports" || !sportObSessionFromAccount(props.account))
+    return "TOKEN ERROR";
+  const msg = String(props.account.sportBalanceError || "");
+  if (/token|requestId|登录|鉴权|unauthor/i.test(msg))
+    return "体育 TOKEN 错误";
+  if (/uid|会员/i.test(msg))
+    return "体育 UID 错误";
+  if (/gateway|网关|network|cors|timeout|超时|HTTP/i.test(msg))
+    return "体育网络错误";
+  return msg ? "体育刷新失败" : "体育待刷新";
+});
+
+const shownBalanceTitle = computed(() => {
+  if (pmNeedsUnlock.value)
+    return "本机钱包未解锁，鼠标移入后点钥匙按钮解锁";
+  if (shownStale.value)
+    return props.account.sportBalanceError || "刷新失败，显示上次余额";
+  if (props.workspace === "sports" && shownBalance.value === undefined)
+    return props.account.sportBalanceError || "体育余额尚未刷新";
+  return undefined;
+});
+
 const emit = defineEmits<{ refresh: []; edit: []; money: []; remove: [] }>();
 
 async function promptPmVaultUnlock() {
@@ -121,7 +144,8 @@ async function confirmRemove() {
         error: shownBalance === undefined,
         stale: shownBalance !== undefined && shownStale,
       }"
-      :title="pmNeedsUnlock ? '本机钱包未解锁，鼠标移入后点钥匙按钮解锁' : shownStale ? '刷新失败，显示上次余额' : undefined"
+      :data-error-label="shownErrorLabel"
+      :title="shownBalanceTitle"
     >
       <label class="currency">
         {{ account.currency || 'CNY' }}

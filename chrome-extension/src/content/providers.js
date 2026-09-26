@@ -9,12 +9,14 @@ import {
   discoverObSportWsUrl,
   findObSportIframeHref,
   mergeObSportMerchantEntry,
+  normalizeObSportGatewayCandidate,
   parseObSportMerchantRequest,
   parseObEsportEntry,
   parseObSportEntry,
   resolveObSportPageEntry,
 } from "./ob-entry.js";
 import { validatePbLocalStorageSnapshot } from "./pb-credential.js";
+import { readObSportVenueParams } from "./ob-sport-venue-params.js";
 
 const IM_PATH =
   /^\/(esportsitev2|esportmobilev2)\/index.html\?v=\d+&id=\d+&token=([^\&]+)/;
@@ -23,8 +25,8 @@ const RAY_A8_GATEWAY = "https://cfinfo.365raylinks.com";
 
 const OB_SPORT_STORAGE_KEY = "gamebet.obSportCreds";
 const OB_SPORT_MERCHANT_STORAGE_KEY = "gamebet.obSportMerchantCreds";
-const OB_SPORT_GATEWAY_WAIT_MS = 8000;
-const OB_SPORT_GATEWAY_POLL_MS = 400;
+const OB_SPORT_GATEWAY_WAIT_MS = 2500;
+const OB_SPORT_GATEWAY_POLL_MS = 100;
 
 /** @type {ReturnType<typeof setInterval>|null} */
 let obSportGatewayPoller = null;
@@ -37,13 +39,14 @@ function normalizeBearerToken(token) {
 
 /** 体育 iframe 内把网关写入 storage，供父页 GetConfig 读取 */
 async function publishObSportGatewayHint(entry, gateway) {
-  if (!gateway || !chrome?.storage?.local) return;
+  const normalized = normalizeObSportGatewayCandidate(gateway);
+  if (!normalized || !chrome?.storage?.local) return;
   try {
     await chrome.storage.local.set({
       [OB_SPORT_STORAGE_KEY]: {
         token: entry.token,
         sessionId: entry.sessionId,
-        gateway,
+        gateway: normalized,
         updatedAt: Date.now(),
       },
     });
@@ -79,7 +82,7 @@ async function readObSportGatewayHint(entry) {
     if (!row || typeof row !== "object") return null;
     if (row.token && entry?.token && String(row.token) !== String(entry.token)) return null;
     if (Date.now() - Number(row.updatedAt || 0) > 30 * 60 * 1000) return null;
-    return row.gateway ? String(row.gateway) : null;
+    return normalizeObSportGatewayCandidate(row.gateway) || null;
   } catch {
     return null;
   }
@@ -102,17 +105,45 @@ async function resolveObSportGateway(entry) {
 
 async function readObSportMerchantEntryOnce() {
   const fromPerformance = discoverObSportMerchantEntry();
+  // 当前页面已经发出的真实请求是活跃会话锚点；只读取与其 requestId
+  // 完全一致的 SDK 参数行，防止同域多账号/历史行串号。
+  const venueParams = await readObSportVenueParams(
+    globalThis.indexedDB,
+    fromPerformance?.token || "",
+  );
+  const fromVenueParams = venueParams && venueParams.gateway !== location.origin
+    ? {
+        kind: "sport",
+        source: "merchant-proxy",
+        ...venueParams,
+        pageOrigin: location.origin,
+        merchantOrigin: location.origin,
+        referer: `${location.origin}/`,
+        href: location.href,
+        enName: "OBSPORT",
+      }
+    : null;
+  const liveEntry = mergeObSportMerchantEntry(fromPerformance, fromVenueParams);
   if (!chrome?.storage?.local)
-    return fromPerformance;
+    return liveEntry;
   try {
-    const bag = await chrome.storage.local.get(OB_SPORT_MERCHANT_STORAGE_KEY);
+    const bag = await chrome.storage.local.get([
+      OB_SPORT_MERCHANT_STORAGE_KEY,
+      OB_SPORT_STORAGE_KEY,
+    ]);
     const row = bag?.[OB_SPORT_MERCHANT_STORAGE_KEY];
     if (!row || typeof row !== "object")
-      return fromPerformance;
+      return liveEntry;
     if (Date.now() - Number(row.updatedAt || 0) > 30 * 60 * 1000)
-      return fromPerformance;
+      return liveEntry;
     if (String(row.pageOrigin || "") !== location.origin)
-      return fromPerformance;
+      return liveEntry;
+    const hint = bag?.[OB_SPORT_STORAGE_KEY];
+    const hintedGateway = hint
+      && String(hint.token || "") === String(row.token || "")
+      && Date.now() - Number(hint.updatedAt || 0) <= 30 * 60 * 1000
+      ? normalizeObSportGatewayCandidate(hint.gateway)
+      : "";
     const parsed = parseObSportMerchantRequest(
       `/yewu12/api/user/getUserInfo?token=${encodeURIComponent(String(row.token || ""))}&enName=${encodeURIComponent(String(row.enName || "OBSPORT"))}`,
       location.href,
@@ -122,14 +153,14 @@ async function readObSportMerchantEntryOnce() {
           ...parsed,
           sessionId: String(row.sessionId || ""),
           uid: String(row.uid || row.sessionId || ""),
-          gateway: String(row.gateway || "").trim().replace(/\/$/, ""),
+          gateway: normalizeObSportGatewayCandidate(row.gateway) || hintedGateway,
           launchHref: String(row.launchHref || ""),
         }
       : null;
-    return mergeObSportMerchantEntry(fromPerformance, fromStorage);
+    return mergeObSportMerchantEntry(liveEntry, fromStorage);
   }
   catch {
-    return fromPerformance;
+    return liveEntry;
   }
 }
 
@@ -250,7 +281,7 @@ export const PROVIDER_REGISTRY = {
       if (entry.source === "merchant-proxy") {
         if (!entry.gateway)
           return { error: "体育网关尚未识别完成，请等待页面加载后重试；禁止复制空网关凭证" };
-        if (!entry.sessionId)
+        if (!/^\d{18,}$/.test(String(entry.sessionId || "")))
           return { error: "体育账号 UID 尚未识别完成，请等待页面加载后重试；禁止复制残缺凭证" };
         return buildObSportConfig(entry, entry.gateway || "");
       }

@@ -17,7 +17,11 @@ import * as orderStore from "./order_store.js";
 import { assertPlayerOwnedByUser, assertPlayersOwnedByUser, isPredictFunPlayerRow } from "./player_ownership.js";
 import { resolvePresenceState } from "./user_presence.js";
 import { enforcePolymarketPersistDto, stripPrivateKeysFromAccountList } from "./pm_token_strip.js";
-import { mergeSportObPatch, preserveSportObOnAccountSave } from "./ob_sport_account.js";
+import {
+  isObSportBetToken,
+  mergeSportObPatch,
+  preserveSportObOnAccountSave,
+} from "./ob_sport_account.js";
 import { preserveStoredAccountToken } from "./account_token_preserve.js";
 
 async function handleCreateTagPlatform(body, userId) {
@@ -396,6 +400,21 @@ async function handleSaveSportAccount(body, userId) {
     if (patch.clear) {
       delete current.sportOb;
       continue;
+    }
+    const token = String(patch.token || "").trim();
+    const gateway = String(patch.gateway || "").trim();
+    const venueMemberId = String(patch.venueMemberId || "").trim();
+    if (!isObSportBetToken(token))
+      return { ok: false, msg: "体育 token 格式无效" };
+    if (!/^\d{18,}$/.test(venueMemberId))
+      return { ok: false, msg: "体育账号 UID 无效" };
+    try {
+      const url = new URL(gateway);
+      if (!/^https?:$/.test(url.protocol))
+        return { ok: false, msg: "体育网关无效" };
+    }
+    catch {
+      return { ok: false, msg: "体育网关无效" };
     }
     const merged = mergeSportObPatch(current.sportOb, patch);
     if (merged)

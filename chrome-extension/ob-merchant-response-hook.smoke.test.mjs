@@ -8,6 +8,7 @@ let nextBody = JSON.stringify({
   status_code: 100,
   data: {
     html: `https://app-h5.janbo0931.com/?token=${token}&gr=s`,
+    origin: "https://api.cgfoznmy.com",
   },
 });
 
@@ -34,10 +35,11 @@ const source = fs.readFileSync(
 );
 vm.runInNewContext(source, context);
 
-await context.fetch("/game/api/v1/venue/launchV6", { method: "POST" });
+await context.fetch("/game/api/v1/venue/launchV7", { method: "POST" });
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(posted[0]?.token, token);
-assert.equal(posted[0]?.gateway, "https://app-h5.janbo0931.com");
+assert.equal(posted[0]?.gateway, "https://api.cgfoznmy.com");
+assert.equal(posted[0]?.launchHref, `https://app-h5.janbo0931.com/?token=${token}&gr=s`);
 
 nextBody = JSON.stringify({ code: "0000000", data: { userId: "53554662319712599617" } });
 await context.fetch(`/yewu12/api/user/getUserInfo?token=${token}&enName=OBSPORT`);

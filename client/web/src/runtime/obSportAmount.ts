@@ -3,6 +3,7 @@
  */
 import { getObSportPb } from "@/runtime/obSportFootballFetch";
 import {
+  isObSportMemberId,
   pickObSportBetAccount,
   sportObSessionFromAccount,
   type ObSportBetAccountLike,
@@ -20,10 +21,6 @@ function asRecord(raw: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function isPlaceholderSportUid(uid: string): boolean {
-  return /^sport-/i.test(String(uid || "").trim());
-}
-
 export function parseObSportAmount(decoded: unknown): number {
   const root = asRecord(decoded) || {};
   const data = asRecord(root.data) || root;
@@ -36,26 +33,36 @@ export function parseObSportAmount(decoded: unknown): number {
     ?? root.gold
     ?? root.balance,
   );
-  return Number.isFinite(n) ? n : 0;
+  if (!Number.isFinite(n))
+    throw new Error("体育余额响应缺少有效金额");
+  return n;
 }
 
 export function resolveObSportAmountSession(
   account?: ObSportBetAccountLike | null,
 ): SportObSessionLocal | null {
   const collect = readLocalSportObSession();
-  const session = sportObSessionFromAccount(account) || collect;
+  const accountSession = sportObSessionFromAccount(account);
+  const session = accountSession || (!account ? collect : null);
   if (!session?.token)
     return null;
   const next: SportObSessionLocal = { ...session };
+  const sameCollectToken = Boolean(
+    accountSession
+    && collect?.token
+    && String(collect.token).trim() === String(accountSession.token).trim(),
+  );
   let uid = String(next.sessionId || next.uid || "").trim();
-  if (!uid || isPlaceholderSportUid(uid))
+  if (!isObSportMemberId(uid) && sameCollectToken)
     uid = String(collect?.sessionId || collect?.uid || "").trim();
   next.sessionId = uid;
   next.uid = uid;
-  const collectGw = resolveObSportHttpGateway(
-    String(collect?.gateway || collect?.lastGateway || ""),
-    String(collect?.referer || ""),
-  );
+  const collectGw = sameCollectToken || !accountSession
+    ? resolveObSportHttpGateway(
+        String(collect?.gateway || collect?.lastGateway || ""),
+        String(collect?.referer || ""),
+      )
+    : "";
   next.gateway = resolveObSportHttpGateway(
     String(next.gateway || ""),
     String(next.referer || collect?.referer || ""),
@@ -70,8 +77,8 @@ export async function fetchObSportAmountForAccount(
   if (!session?.token)
     throw new Error("未配置体育 OB 会话");
   const uid = String(session.sessionId || session.uid || "").trim();
-  if (!uid)
-    throw new Error("体育账号缺少 uid");
+  if (!isObSportMemberId(uid))
+    throw new Error("体育账号缺少有效 UID");
   if (!session.gateway)
     throw new Error("sport OB session missing gateway");
   const decoded = await getObSportPb(OB_SPORT_AMOUNT_PATH, { uid }, session);

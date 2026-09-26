@@ -123,9 +123,13 @@ export async function refreshAccountBalance(
         const amount = await fetchObSportAmountForAccount(account);
         account.sportBalance = amount;
         account.sportBalanceStale = false;
+        account.sportBalanceError = "";
         account.errorCount = 0;
       }
-      catch {
+      catch (err) {
+        account.sportBalanceError = err instanceof Error
+          ? err.message
+          : String(err || "体育余额刷新失败");
         if (account.sportBalance !== undefined)
           account.sportBalanceStale = true;
         else

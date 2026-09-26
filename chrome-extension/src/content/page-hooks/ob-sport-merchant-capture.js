@@ -11,6 +11,8 @@
   const MESSAGE_SOURCE = "changmen-ob-sport-merchant-hook";
   const TOKEN_RE = /^[0-9a-f]{16,}$/i;
   const SUPPORTED_NAMES = new Set(["OBSPORT", "OBTY"]);
+  const merchantPage = /\/home\/sports\/OBSPORT(?:\/|$)/i.test(location.pathname)
+    || new URL(location.href).searchParams.get("api_id") === "53";
 
   function credentialFromUrl(rawUrl) {
     let url;
@@ -56,6 +58,12 @@
         const prev = bag?.[STORAGE_KEY];
         const sameToken = prev && String(prev.token || "") === String(row.token || "");
         const merged = sameToken ? { ...prev, ...row } : row;
+        // all_frames 下的 OB 子页不得覆盖顶部商户页归属，否则顶部 GetConfig 会忽略有效记录。
+        if (sameToken && !merchantPage && prev.pageOrigin) {
+          merged.pageOrigin = prev.pageOrigin;
+          merged.referer = prev.referer || merged.referer;
+          merged.href = prev.href || merged.href;
+        }
         if (sameToken && !row.gateway && prev.gateway)
           merged.gateway = prev.gateway;
         if (sameToken && !row.sessionId && prev.sessionId) {
@@ -75,6 +83,22 @@
     return persist(credentialFromUrl(rawUrl));
   }
 
+  function gatewayCandidate(value) {
+    const raw = String(value || "").trim();
+    if (!raw)
+      return "";
+    try {
+      const url = new URL(raw.includes("://") ? raw : `https://${raw}`);
+      if (!/^https?:$/i.test(url.protocol)
+        || /^(?:app-h5|user-pc(?:-new)?)\./i.test(url.hostname))
+        return "";
+      return url.origin;
+    }
+    catch {
+      return "";
+    }
+  }
+
   globalThis.addEventListener("message", (event) => {
     if (event.source !== globalThis || event.data?.source !== MESSAGE_SOURCE || event.data?.kind !== "credential")
       return;
@@ -82,7 +106,7 @@
     if (!TOKEN_RE.test(token) || /^\d+$/.test(token))
       return;
     const sessionId = String(event.data.sessionId || event.data.uid || "").trim();
-    const gateway = String(event.data.gateway || "").trim().replace(/\/$/, "");
+    const gateway = gatewayCandidate(event.data.gateway);
     persist({
       kind: "sport",
       source: "merchant-proxy",
@@ -135,18 +159,24 @@
   }
 
   async function scanVenueParamsDb() {
-    if (!globalThis.indexedDB || typeof globalThis.indexedDB.databases !== "function")
+    if (!globalThis.indexedDB)
       return false;
-    try {
-      const databases = await globalThis.indexedDB.databases();
-      if (!(databases || []).some(item => item?.name === "sport_venue_params_db"))
-        return false;
-    }
-    catch {
-      return false;
+    if (typeof globalThis.indexedDB.databases === "function") {
+      try {
+        const databases = await globalThis.indexedDB.databases();
+        if (!(databases || []).some(item => item?.name === "sport_venue_params_db"))
+          return false;
+      }
+      catch {
+        // 指纹浏览器可能禁用 databases()，仍尝试直接只读打开已知数据库。
+      }
     }
     return new Promise((resolve) => {
       const request = globalThis.indexedDB.open("sport_venue_params_db");
+      request.onupgradeneeded = () => {
+        // 数据库不存在时终止创建；插件只观察，不修改站点存储。
+        try { request.transaction?.abort(); } catch { /* ignore */ }
+      };
       request.onerror = () => resolve(false);
       request.onsuccess = () => {
         const db = request.result;
@@ -165,8 +195,6 @@
     });
   }
 
-  const merchantPage = /\/home\/sports\/OBSPORT(?:\/|$)/i.test(location.pathname)
-    || new URL(location.href).searchParams.get("api_id") === "53";
   if (merchantPage && typeof globalThis.setInterval === "function") {
     let attempts = 0;
     const timer = globalThis.setInterval(() => {

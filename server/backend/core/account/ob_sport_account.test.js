@@ -75,4 +75,32 @@ describe("ob_sport_account", () => {
     });
     expect(mergeSportObPatch({ token: HEX }, { token: "" })).toEqual({ token: HEX });
   });
+
+  it("replaces the whole sport credential when token changes", () => {
+    const next = "f06fd7130bfaa8a28ff7c6fbbc6c2b020f9d7133";
+    expect(mergeSportObPatch(
+      {
+        token: HEX,
+        gateway: "https://api.old.example",
+        venueMemberId: "53554662319712599617",
+      },
+      {
+        token: next,
+        gateway: "https://api.new.example",
+        venueMemberId: "535543613407503536",
+      },
+    )).toEqual({
+      token: next,
+      gateway: "https://api.new.example",
+      venueMemberId: "535543613407503536",
+    });
+    expect(mergeSportObPatch(
+      {
+        token: HEX,
+        gateway: "https://api.old.example",
+        venueMemberId: "53554662319712599617",
+      },
+      { token: next },
+    )).toEqual({ token: next });
+  });
 });

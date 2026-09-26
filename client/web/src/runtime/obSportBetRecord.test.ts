@@ -25,6 +25,7 @@ vi.mock("@/runtime/obSportFootballFetch", () => ({
 }));
 
 vi.mock("@/runtime/obSportBetAccount", () => ({
+  isObSportMemberId: (value: unknown) => /^\d{18,}$/.test(String(value || "")),
   pickObSportBetAccount: (...args: unknown[]) => pickObSportBetAccount(...args),
   sportObSessionFromAccount: (...args: unknown[]) => sportObSessionFromAccount(...args),
 }));

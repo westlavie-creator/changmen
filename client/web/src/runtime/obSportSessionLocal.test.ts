@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   looksLikeEsportObCollect,
+  mergeIncomingSportObSession,
   looksLikeSportObCollect,
   parseSportObSessionInput,
   SPORT_OB_SESSION_STORAGE_KEY,
@@ -94,5 +95,23 @@ describe("obSportSessionLocal", () => {
     expect(parsed.ok).toBe(true);
     if (parsed.ok)
       expect(parsed.session.gateway).toBe("https://api.dbsporxxxw1box.com");
+  });
+
+  it("does not inherit gateway or UID from a different sport token", () => {
+    const merged = mergeIncomingSportObSession({
+      kind: "sport",
+      token: "f06fd7130bfaa8a28ff7c6fbbc6c2b020f9d7133",
+      sessionId: "",
+      gateway: "",
+    }, {
+      kind: "sport",
+      token: "e9734a4d633b350be25b428556622ca2f161b633",
+      sessionId: "53554662319712599617",
+      gateway: "https://api.old.example",
+      referer: "https://old.example/",
+    });
+    expect(merged.gateway).toBe("");
+    expect(merged.sessionId).toBe("");
+    expect(merged.referer).toBe("");
   });
 });

@@ -177,7 +177,7 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
   if (looksLikeEsportObCollect(parsed))
     return { ok: false, msg: "这是电竞 OB 凭证，请贴到电竞采集，勿写入足球会话" };
   const token = String(parsed.token || "").trim();
-  const sessionId = String(parsed.sessionId || parsed.uid || "").trim();
+  const sessionId = String(parsed.venueMemberId || parsed.cuid || parsed.uid || parsed.sessionId || "").trim();
   const gateway = firstGateway(parsed.gateway);
   if (!token)
     return { ok: false, msg: "缺少 token" };
@@ -198,7 +198,7 @@ export function parseSportObSessionInput(input: unknown): { ok: true; session: S
     api: String(parsed.api || "").trim(),
     referer: String(parsed.referer || "").trim(),
     wsUrl: String(parsed.wsUrl || parsed.ws || "").trim(),
-    uid: String(parsed.uid || "").trim(),
+    uid: String(parsed.venueMemberId || parsed.cuid || parsed.uid || sessionId).trim(),
     lang,
     updatedAt: Date.now(),
   };
@@ -210,8 +210,14 @@ export function mergeIncomingSportObSession(
   incoming: SportObSessionLocal,
   prev: SportObSessionLocal | null,
 ): SportObSessionLocal {
+  const sameToken = Boolean(
+    prev?.token
+    && String(prev.token).trim() === String(incoming.token || "").trim(),
+  );
   const incomingGw = firstGateway(incoming.gateway);
-  const keptGw = firstGateway(prev?.gateway) || firstGateway(prev?.lastGateway);
+  const keptGw = sameToken
+    ? firstGateway(prev?.gateway) || firstGateway(prev?.lastGateway)
+    : "";
   const gateway = incomingGw || keptGw;
   const token = String(incoming.token || "").trim();
   const next: SportObSessionLocal = {
@@ -219,10 +225,10 @@ export function mergeIncomingSportObSession(
     kind: "sport",
     gateway,
     lastGateway: gateway || keptGw,
-    referer: String(incoming.referer || prev?.referer || "").trim(),
-    api: String(incoming.api || prev?.api || "").trim(),
-    sessionId: String(incoming.sessionId || prev?.sessionId || "").trim(),
-    lang: incoming.lang || prev?.lang,
+    referer: String(incoming.referer || (sameToken ? prev?.referer : "") || "").trim(),
+    api: String(incoming.api || (sameToken ? prev?.api : "") || "").trim(),
+    sessionId: String(incoming.sessionId || (sameToken ? prev?.sessionId : "") || "").trim(),
+    lang: incoming.lang || (sameToken ? prev?.lang : undefined),
     token,
     updatedAt: Date.now(),
   };
